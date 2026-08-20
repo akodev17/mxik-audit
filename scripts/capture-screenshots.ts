@@ -1,8 +1,10 @@
-// Captures real screenshots of the running app for the landing page.
+// Captures real screenshots of the running app.
 //
-// The landing page states these are photographs of the working tool, so they must
-// be: this signs in to the actual dev server and captures the actual screens. It
-// never renders a mockup.
+// These are no longer used on the landing page — that page now explains the
+// product with its own diagrams rather than pictures of the UI. They remain for
+// documentation, demos and design review, and the rule that produced them still
+// holds: this signs in to the actual dev server and captures the actual screens.
+// It never renders a mockup.
 //
 // Order matters. The upload shot has to run last, because previewing a file
 // creates a fresh catalogue row and /report and /review both read the newest

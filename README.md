@@ -61,7 +61,7 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 | `npm run check:providers` | reports which embedding/rerank providers the environment selects |
 | `npm run seed` | demo org, user, and a deliberately messy 200-row catalogue |
 | `npm run seed:audit <id>` | audits a stored catalogue from the CLI |
-| `npm run capture` | real screenshots of the running app, for the landing page |
+| `npm run capture` | real screenshots of the running app (docs/demos; the landing page uses no screenshots) |
 | `npm run make:sample` | writes `public/demo/namuna-katalog.xlsx` |
 | `npm run make:sample-report` | freezes an anonymised sample report for the landing page |
 | `npm run generate:units` | regenerates `units.generated.ts` from the portal's unit reference |
