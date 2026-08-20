@@ -1,0 +1,21 @@
+{
+  "group": "001",
+  "levelCounts": {
+    "classes": 6,
+    "positions": 12,
+    "subPositions": 45,
+    "brands": 45,
+    "attributes": 45
+  },
+  "claimed": {
+    "classes": 52,
+    "positions": 52,
+    "subPositions": 52,
+    "brands": 45
+  },
+  "apiLeafCount": 45,
+  "excelCount": 45,
+  "onlyApi": [],
+  "onlyExcel": [],
+  "checked": []
+}

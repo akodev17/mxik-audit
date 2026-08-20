@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-20T11:06:33.452Z",
+  "source": "excel",
+  "files": {
+    "uz": "data/classifier_lat.xlsx",
+    "ru": "data/classifier_ru.xlsx",
+    "uzCyrl": "data/classifier_uzcyrl.xlsx"
+  },
+  "enriched": true,
+  "emitted": 438925,
+  "missingRu": 0,
+  "missingCyrl": 0,
+  "strict": 385414,
+  "recommendedOnly": 4223,
+  "none": 49288,
+  "base": 6985,
+  "barcode": 191675,
+  "privilege": 37530,
+  "marked": 124169,
+  "markedUnknown": 38292,
+  "distinctCanonicalUnits": 168,
+  "distinctContainers": 6069,
+  "apiReferenceUnits": 90
+}

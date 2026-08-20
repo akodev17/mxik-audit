@@ -1,0 +1,149 @@
+{
+  "note": "Gate 1 evaluation set. 12 seeded hard cases; 18 more to be supplied. Product names are written the way a real shop writes them: mixed script, wrong apostrophes, pack sizes glued on. `expected` is the primary correct code; `acceptable` lists other codes that are also defensible, because no normative document defines a single correct MXIK for a given product. A prediction counts as correct if it is `expected` or in `acceptable`.",
+  "catalogSnapshot": "2026-08-20",
+  "cases": [
+    {
+      "id": "pacifier-absent-from-catalog",
+      "source": "seeded",
+      "difficulty": "hard",
+      "rawName": "Bolalar uchun rezina soska Chicco 0+ (2 dona)",
+      "unit": "dona",
+      "expected": "03926001020000000",
+      "acceptable": [
+        "03926001005000000",
+        "04016001003000000"
+      ],
+      "why": "No pacifier code exists in the classifier at all — searching soska/emizik returns herbal tea and food supplements. Official guidance is to fall back to 'other articles of plastics not elsewhere specified'. Tests whether the pipeline degrades to a defensible general code instead of forcing a spurious specific match."
+    },
+    {
+      "id": "timber-strict-unit",
+      "source": "seeded",
+      "difficulty": "medium",
+      "rawName": "Yog'och taxta chinor 50mm",
+      "unit": "kub. metr",
+      "expected": "04407001004000000",
+      "acceptable": [
+        "04407001006000000"
+      ],
+      "why": "Processed timber with a strictly bound unit of kub. metr. Tests that a matching strict unit is surfaced and does not trigger UNIT_CONFLICT."
+    },
+    {
+      "id": "sugar-single-mandatory-unit",
+      "source": "seeded",
+      "difficulty": "easy",
+      "rawName": "Shakar-rafinad qadoqlangan 1 kg",
+      "unit": "dona",
+      "expected": "01701001002000000",
+      "acceptable": [
+        "01701001007000000",
+        "01701001006000000"
+      ],
+      "why": "Packaged refined sugar, strictly bound to 'dona'. A catalogue that writes kg here should raise UNIT_CONFLICT — this case uses the correct unit so it must not."
+    },
+    {
+      "id": "vegetable-potato",
+      "source": "seeded",
+      "difficulty": "easy",
+      "rawName": "Kartoshka",
+      "unit": "kg",
+      "expected": "00701001001000000",
+      "acceptable": [],
+      "why": "A bare one-word vegetable name with a base code. Should be an easy top-1; if this fails, retrieval is broken."
+    },
+    {
+      "id": "medical-service",
+      "source": "seeded",
+      "difficulty": "hard",
+      "rawName": "Ginekolog qabuli / konsultatsiya",
+      "unit": "xizmat",
+      "expected": "10902001013000000",
+      "acceptable": [
+        "10902001001000000",
+        "10902001019000000"
+      ],
+      "why": "Gate 0 established that no source exposes deprecation, so this tests that the current service code is found. NOTE: the original label here was 'Akusher-ginekolog maslahati'; 'Ginekolog maslahati' is the closer reading of the query and was promoted after review. Service codes are bound to the unit 'xizmat'."
+    },
+    {
+      "id": "pharma-branded-inn",
+      "source": "seeded",
+      "difficulty": "hard",
+      "rawName": "PANADOL 500mg tabletka N12",
+      "unit": "dona",
+      "expected": "03004452001001004",
+      "acceptable": [],
+      "why": "Pharmaceuticals are a separately refined group: names carry the INN plus ATC code plus manufacturer. Tests that a brand name reaches the right identifying code, and that the digital-marking rule permits an identifying code here (pharma is marked)."
+    },
+    {
+      "id": "cement-no-base-code",
+      "source": "seeded",
+      "difficulty": "hard",
+      "rawName": "Sement M400 50 kg qop",
+      "unit": "tonna",
+      "expected": "02523002009000000",
+      "acceptable": [
+        "02523002008000000"
+      ],
+      "why": "The Portlandsement subposition 02523002001 has NO base code, so the 'prefer base codes' rule cannot be satisfied there. The defensible answer is the general 'other types of cement'. Tests behaviour when the safe fallback does not exist."
+    },
+    {
+      "id": "carpet-synthetic",
+      "source": "seeded",
+      "difficulty": "medium",
+      "rawName": "Gilam sintetik 200x300 sm",
+      "unit": "kv. metr",
+      "expected": "05703001005000000",
+      "acceptable": [
+        "05705003001000000",
+        "05702003001000000",
+        "05703001003000000"
+      ],
+      "why": "Carpets are a separately refined group bound to kv. metr. The name carries dimensions that must be parsed as an attribute, not matched as text. Several codes in the GILAMLAR group are defensible for 'sintetik gilam', so they are all acceptable."
+    },
+    {
+      "id": "construction-brick-ambiguous",
+      "source": "seeded",
+      "difficulty": "hard",
+      "rawName": "G'isht keramik M150",
+      "unit": "dona",
+      "expected": "06901001002000000",
+      "acceptable": [
+        "06904001003000000",
+        "06904001001000000"
+      ],
+      "why": "Construction materials are the documented ambiguity case: eight distinct brick codes exist across four groups (06815, 06901, 06902, 06904) with near-identical names. Tests hierarchy-based disambiguation."
+    },
+    {
+      "id": "palov-prepared-dish",
+      "source": "seeded",
+      "difficulty": "hard",
+      "rawName": "Palov 1 porsiya",
+      "unit": "dona",
+      "expected": "10202001006000001",
+      "acceptable": [
+        "10202001002000000"
+      ],
+      "why": "Prepared dishes deliberately have no detailed MXIK: searching 'palov' returns only seasonings *for* palov. The answer is the catering 'main dishes, meat' code. Note this general code is itself NOT a base code, so the base-code preference must not override it."
+    },
+    {
+      "id": "marked-good-identifying",
+      "source": "seeded",
+      "difficulty": "medium",
+      "rawName": "Amstel alkogolsiz pivo 0,33 L alyuminiy banka",
+      "barcode": "4601501483581",
+      "unit": "dona",
+      "expected": "02202004002001001",
+      "acceptable": [],
+      "why": "A digitally marked good (label=1) where the identifying code carrying brand and packaging is required, not the base code. Also exercises barcode-exact retrieval at confidence 1.0."
+    },
+    {
+      "id": "barcoded-good-base-sufficient",
+      "source": "seeded",
+      "difficulty": "medium",
+      "rawName": "Guruch bo'tqasi",
+      "unit": "dona",
+      "expected": "01901001003000000",
+      "acceptable": [],
+      "why": "An ordinary unmarked good written generically, where the base code ending 000000 is sufficient and correct. Tests that the pipeline does not over-specify to a branded identifying code when the name names no brand."
+    }
+  ]
+}

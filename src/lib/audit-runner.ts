@@ -1,0 +1,169 @@
+// Runs the matching pipeline and the five checks across a stored catalogue,
+// then persists findings. Server-only.
+import { Pool } from 'pg';
+import { db } from './db.js';
+import { embeddingProviderFromEnv } from '../core/embed/index.js';
+import { matchProduct } from '../core/match/pipeline.js';
+import { rerankProviderFromEnv } from '../core/match/rerank.js';
+import { PostgresCandidateStore } from '../core/match/store.js';
+import { checkVectorReadiness } from '../core/match/vector-readiness.js';
+import { normalizeName } from '../core/normalize/index.js';
+import { readCode, runChecks, type ResolvedRow } from '../core/audit/checks.js';
+import type { ScoredCandidate } from '../core/match/types.js';
+
+const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
+
+// One pool for the whole server process; the classifier queries are read-only.
+const globalForPool = globalThis as unknown as { mxikPool?: Pool };
+const pool = globalForPool.mxikPool ?? new Pool({ connectionString: DATABASE_URL, max: 8 });
+if (process.env.NODE_ENV !== 'production') globalForPool.mxikPool = pool;
+
+export type AuditProgress = { done: number; total: number };
+
+export type AuditOutcome = {
+  itemsAudited: number;
+  findingsCreated: number;
+  /** True when stage 4 or 6 ran degraded, so the UI can say so. */
+  degraded: boolean;
+  degradedReasons: string[];
+};
+
+/**
+ * Audits every row of a catalogue. Rows are processed in small concurrent
+ * batches: each row costs a handful of Postgres queries plus, when configured,
+ * one LLM call, so unbounded concurrency would exhaust both.
+ */
+export async function auditCatalog(
+  catalogId: string,
+  onProgress?: (p: AuditProgress) => void,
+): Promise<AuditOutcome> {
+  const configured = embeddingProviderFromEnv();
+  const reranker = rerankProviderFromEnv();
+  const readiness = await checkVectorReadiness(pool, configured);
+  const embedder = readiness.embedder;
+  const store = new PostgresCandidateStore(pool, {
+    exactVectorScan: !embedder.semantic,
+    vectorEnabled: readiness.usable,
+  });
+
+  const degradedReasons: string[] = [];
+  if (!reranker.available) degradedReasons.push('LLM qayta tartiblash oʻchirilgan');
+  if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
+  if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
+
+  const items = await db.catalogItem.findMany({
+    where: { catalogId },
+    orderBy: { rowIndex: 'asc' },
+    select: {
+      id: true, rowIndex: true, rawName: true, barcode: true,
+      existingMxik: true, unit: true,
+    },
+  });
+
+  const CONCURRENCY = reranker.available ? 4 : 8;
+  let done = 0;
+  let findingsCreated = 0;
+  let next = 0;
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+    for (;;) {
+      const index = next++;
+      const item = items[index];
+      if (!item) return;
+
+      const match = await matchProduct({
+        rawName: item.rawName,
+        barcode: item.barcode,
+        unit: item.unit,
+        existingMxik: item.existingMxik,
+      }, { store, embedder, reranker });
+
+      // Resolve the row's own code so NOT_FOUND and retirement can be judged.
+      const code = readCode(item.existingMxik);
+      let existing: ResolvedRow['existing'] = { found: false, retired: false, candidate: null };
+      if (code) {
+        const state = await store.exists(code);
+        existing = {
+          found: state.found,
+          retired: state.retired,
+          candidate: state.found ? await store.byCode(code) : null,
+        };
+      }
+
+      // The row's own code must be scorable even when retrieval never surfaced
+      // it, otherwise a correct code that happens to rank poorly looks missing.
+      let suggestions: ScoredCandidate[] = [...match.candidates];
+      if (code && existing.found && !suggestions.some((s) => s.candidate.code === code)) {
+        const self = existing.candidate;
+        if (self) {
+          const selfMatch = await matchProduct(
+            { rawName: item.rawName, unit: item.unit },
+            { store, embedder, reranker, topK: 20 },
+          );
+          const found = selfMatch.candidates.find((s) => s.candidate.code === code);
+          if (found) suggestions = [...suggestions, found];
+        }
+      }
+
+      const findings = runChecks({
+        existingMxik: item.existingMxik,
+        unit: item.unit,
+        existing,
+        suggestions,
+      });
+
+      if (findings.length > 0) {
+        await db.finding.createMany({
+          data: findings.map((f) => ({
+            itemId: item.id,
+            type: f.type,
+            severity: f.severity,
+            suggestedMxik: f.suggestedMxik,
+            confidence: f.confidence,
+            alternatives: f.alternatives,
+            reason: f.reason,
+            wasRetired: f.wasRetired,
+          })),
+        });
+        findingsCreated += findings.length;
+      }
+
+      done++;
+      if (onProgress && done % 25 === 0) onProgress({ done, total: items.length });
+    }
+  }));
+
+  return {
+    itemsAudited: items.length,
+    findingsCreated,
+    degraded: degradedReasons.length > 0,
+    degradedReasons,
+  };
+}
+
+/** Classifier lookup for the Review screen's "pick another code" box. */
+export async function searchClassifier(query: string, limit = 10) {
+  const configured = embeddingProviderFromEnv();
+  const readiness = await checkVectorReadiness(pool, configured);
+  const store = new PostgresCandidateStore(pool, {
+    exactVectorScan: !readiness.embedder.semantic,
+    vectorEnabled: readiness.usable,
+  });
+  const normalized = normalizeName(query);
+  const key = normalized.queryKey || normalized.matchKey;
+  if (!key) return [];
+  const [lexical, fullText] = await Promise.all([
+    store.byLexical(key, limit),
+    store.byFullText(key, limit),
+  ]);
+  const seen = new Map<string, (typeof lexical)[number]>();
+  for (const hit of [...lexical, ...fullText]) {
+    if (!seen.has(hit.candidate.code)) seen.set(hit.candidate.code, hit);
+  }
+  return [...seen.values()].slice(0, limit).map((h) => h.candidate);
+}
+
+export async function lookupCode(code: string) {
+  const store = new PostgresCandidateStore(pool);
+  return store.byCode(code);
+}

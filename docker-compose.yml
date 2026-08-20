@@ -1,0 +1,36 @@
+# Host port 54329: 5432 and 5433 are already taken by other projects on this machine.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: mxik-audit-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mxik
+      POSTGRES_PASSWORD: mxik
+      POSTGRES_DB: mxik
+      # Uzbek/Russian text sorts under ICU; keep the collation explicit.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=icu --icu-locale=und"
+    ports:
+      - "54329:5432"
+    # pgvector builds HNSW indexes in parallel through shared memory; the 64MB
+    # Docker default is far too small and the build fails with ENOSPC.
+    shm_size: "2gb"
+    volumes:
+      - mxik-pgdata:/var/lib/postgresql/data
+    command:
+      - postgres
+      # 439k rows plus two vector indexes; the defaults are too small to build them.
+      - -c
+      - maintenance_work_mem=1GB
+      - -c
+      - work_mem=64MB
+      - -c
+      - shared_buffers=512MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mxik -d mxik"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mxik-pgdata:

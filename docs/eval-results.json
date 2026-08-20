@@ -1,0 +1,338 @@
+{
+  "ranAt": "2026-08-20T14:15:48.687Z",
+  "catalogSnapshot": "2026-08-20",
+  "providers": {
+    "embedding": "hashing (local, non-semantic)",
+    "embeddingSemantic": false,
+    "reranker": "noop (no ANTHROPIC_API_KEY)",
+    "rerankerAvailable": false,
+    "embeddingConfigured": "openai:text-embedding-3-small",
+    "vectorUsable": true,
+    "vectorSubstituted": true,
+    "storedEmbeddingProvider": "hashing (local, non-semantic)"
+  },
+  "summary": {
+    "n": 12,
+    "top1": 8,
+    "top5": 10,
+    "top1Pct": 66.66666666666666,
+    "top5Pct": 83.33333333333334,
+    "meanConfidenceCorrect": 0.8755303401878248,
+    "meanConfidenceIncorrect": 0.7788572635658688,
+    "rerankerCeiling": 10,
+    "rerankerCeilingPct": 83.33333333333334
+  },
+  "outcomes": [
+    {
+      "id": "pacifier-absent-from-catalog",
+      "difficulty": "hard",
+      "rawName": "Bolalar uchun rezina soska Chicco 0+ (2 dona)",
+      "expected": "03926001020000000",
+      "acceptable": [
+        "03926001005000000",
+        "04016001003000000"
+      ],
+      "predicted": "06111001017008004",
+      "predictedName": "Bolalar uchun trusi: Solibri, to’plam qiz bolalar uchun, (tunika bolalar uchun, shim bolalar uchun, (leggins)), o’lchami 60-116 artikul 202-018-01-212",
+      "confidence": 0.8342958658754317,
+      "band": "medium",
+      "rankOfCorrect": null,
+      "inPool": false,
+      "poolSize": 20,
+      "rankInPool": null,
+      "top1": false,
+      "top5": false,
+      "decidedBy": "fusion",
+      "reason": "a close name match against this identifying code under KIYIM VA KIYIM AKSESSUARLARI → Bolalar kiyimi (7 yoshgacha) → Bolalar kiyimi (061 guruhning boshqa toifasiga kiritilmagan) → Bolalar uchun trusi.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 1273
+    },
+    {
+      "id": "timber-strict-unit",
+      "difficulty": "medium",
+      "rawName": "Yog'och taxta chinor 50mm",
+      "expected": "04407001004000000",
+      "acceptable": [
+        "04407001006000000"
+      ],
+      "predicted": "04403006003000007",
+      "predictedName": "Ignabarglilardan olingan dumaloq yog’och materiallar, Yog’och-taxta materiallari va plitalar tayyorlash uchun igna bargli dumaloq yog’och materiallari, qalinligi 20-24 sm, I nav",
+      "confidence": 0.7941457586618876,
+      "band": "medium",
+      "rankOfCorrect": 2,
+      "inPool": true,
+      "poolSize": 20,
+      "rankInPool": 12,
+      "top1": false,
+      "top5": true,
+      "decidedBy": "fusion",
+      "reason": "a close name match against this identifying code under YOG’OCH VA UNING MAHSULOTLARI → Ishlov berilmagan yoki po’stlog’i archilmagan, shilinmagan yo xomaki bruslangan yoki bruslanmagan yog’och-taxta mahsulotlari → Boshqa ishlov berilmagan yog’och mahsulotlari → Ignabarglilardan olingan dumaloq yog’och materiallar.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 930
+    },
+    {
+      "id": "sugar-single-mandatory-unit",
+      "difficulty": "easy",
+      "rawName": "Shakar-rafinad qadoqlangan 1 kg",
+      "expected": "01701001002000000",
+      "acceptable": [
+        "01701001007000000",
+        "01701001006000000"
+      ],
+      "predicted": "01701001002000000",
+      "predictedName": "Qadoqlangan shakar-rafinad",
+      "confidence": 0.95,
+      "band": "high",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 1,
+      "rankInPool": 1,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "exact",
+      "reason": "Product name matches this classifier entry exactly after normalization.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 2
+    },
+    {
+      "id": "vegetable-potato",
+      "difficulty": "easy",
+      "rawName": "Kartoshka",
+      "expected": "00701001001000000",
+      "acceptable": [],
+      "predicted": "00701001001000000",
+      "predictedName": "Kartoshka",
+      "confidence": 0.95,
+      "band": "high",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 1,
+      "rankInPool": 1,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "exact",
+      "reason": "Product name matches this classifier entry exactly after normalization.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 1
+    },
+    {
+      "id": "medical-service",
+      "difficulty": "hard",
+      "rawName": "Ginekolog qabuli / konsultatsiya",
+      "expected": "10902001013000000",
+      "acceptable": [
+        "10902001001000000",
+        "10902001019000000"
+      ],
+      "predicted": "10902001013000000",
+      "predictedName": "Ginekolog maslahati",
+      "confidence": 0.85,
+      "band": "medium",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 20,
+      "rankInPool": 1,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "fusion",
+      "reason": "a close name match against this base code under SOG’LIQNI SAQLASh SOHASIDAGI XIZMATLAR → Sog’liqni saqlash xizmatlari → Mutaxassis-shifokorlarning maslahatlari → Ginekolog maslahati.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 866
+    },
+    {
+      "id": "pharma-branded-inn",
+      "difficulty": "hard",
+      "rawName": "PANADOL 500mg tabletka N12",
+      "expected": "03004452001001004",
+      "acceptable": [],
+      "predicted": "03004322008173002",
+      "predictedName": "Azitromitsin - J01FA10: ЦЕФЗИкит (ZIEVA FARM PRIVATE Ltd), tabletkalar to’plami (flukanazol tabletka 150 mg, azitromitsin tabletka 1 g, seknidazola tabletka 1 g) №4",
+      "confidence": 0.7893045575318698,
+      "band": "medium",
+      "rankOfCorrect": 4,
+      "inPool": true,
+      "poolSize": 20,
+      "rankInPool": 8,
+      "top1": false,
+      "top5": true,
+      "decidedBy": "fusion",
+      "reason": "a close name match against this identifying code under FARMATSEVTIKA MAHSULOTI → Dori vositalari (qadoqlangan) → Makrolidlari (Makrolidlar, linkozamidlar va streptograminlar) -J01FA → Azitromitsin - J01FA10.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 798
+    },
+    {
+      "id": "cement-no-base-code",
+      "difficulty": "hard",
+      "rawName": "Sement M400 50 kg qop",
+      "expected": "02523002009000000",
+      "acceptable": [
+        "02523002008000000"
+      ],
+      "predicted": "02523002008000000",
+      "predictedName": "Sement klinkeri",
+      "confidence": 0.667487799214574,
+      "band": "medium",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 20,
+      "rankInPool": 15,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "fusion",
+      "reason": "a partial name match against this base code under TUZ, OLTINGUGURT, GIPS MATERIALLARI, OHAK VA SEMENT → Portlendsement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Portlend sement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Sement klinkeri.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 810
+    },
+    {
+      "id": "carpet-synthetic",
+      "difficulty": "medium",
+      "rawName": "Gilam sintetik 200x300 sm",
+      "expected": "05703001005000000",
+      "acceptable": [
+        "05705003001000000",
+        "05702003001000000",
+        "05703001003000000"
+      ],
+      "predicted": "05705003001000000",
+      "predictedName": "Sintetik ipdan tukli gilam",
+      "confidence": 0.6867549222880245,
+      "band": "medium",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 20,
+      "rankInPool": 17,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "fusion",
+      "reason": "related name match against this base code under GILAMLAR → To’qilgan gilamlar va boshqa to’qima pol qoplamalari, tayyor yoki tayyor bo’lmagan → Gilamlar va boshqa to’qimachilik pol qoplamalari, tayyorlangan yoki tayyorlanmagan → Sintetik ipdan tukli gilam.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 800
+    },
+    {
+      "id": "construction-brick-ambiguous",
+      "difficulty": "hard",
+      "rawName": "G'isht keramik M150",
+      "expected": "06901001002000000",
+      "acceptable": [
+        "06904001003000000",
+        "06904001001000000"
+      ],
+      "predicted": "06901001002000000",
+      "predictedName": "Keramik g’isht",
+      "confidence": 0.95,
+      "band": "high",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 1,
+      "rankInPool": 1,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "exact",
+      "reason": "Product name matches this classifier entry exactly after normalization.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 2
+    },
+    {
+      "id": "palov-prepared-dish",
+      "difficulty": "hard",
+      "rawName": "Palov 1 porsiya",
+      "expected": "10202001006000001",
+      "acceptable": [
+        "10202001002000000"
+      ],
+      "predicted": "02103002006010011",
+      "predictedName": "Pripravalar: Azeer, Palov uchun ORR paket 20 g",
+      "confidence": 0.697682872194286,
+      "band": "medium",
+      "rankOfCorrect": null,
+      "inPool": false,
+      "poolSize": 20,
+      "rankInPool": null,
+      "top1": false,
+      "top5": false,
+      "decidedBy": "fusion",
+      "reason": "a close name match against this identifying code under TURLI OZIQ-OVQAT MAHSULOTLARI → Souslar va ziravorlar ularni tayyorlash uchun mahsulotlar; tamli qo’shimchalar va aralash ziravorlar; xantal kukuni va tayyor xantal → Tam beruvchi qo’shimchalar va boshqa souslar → Pripravalar.",
+      "notes": [
+        "Detected as a prepared dish; general codes preferred.",
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 966
+    },
+    {
+      "id": "marked-good-identifying",
+      "difficulty": "medium",
+      "rawName": "Amstel alkogolsiz pivo 0,33 L alyuminiy banka",
+      "expected": "02202004002001001",
+      "acceptable": [],
+      "predicted": "02202004002001001",
+      "predictedName": "Pivo alkogolsiz: Amstel, Och rangli, 0,3%, Alyuminiy banka 0,33 l",
+      "confidence": 1,
+      "band": "high",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 1,
+      "rankInPool": 1,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "barcode",
+      "reason": "Barcode 04601501483581 matches this code exactly in the classifier.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 1
+    },
+    {
+      "id": "barcoded-good-base-sufficient",
+      "difficulty": "medium",
+      "rawName": "Guruch bo'tqasi",
+      "expected": "01901001003000000",
+      "acceptable": [],
+      "predicted": "01901001003000000",
+      "predictedName": "Guruch bo’tqasi",
+      "confidence": 0.95,
+      "band": "high",
+      "rankOfCorrect": 1,
+      "inPool": true,
+      "poolSize": 1,
+      "rankInPool": 1,
+      "top1": true,
+      "top5": true,
+      "decidedBy": "exact",
+      "reason": "Product name matches this classifier entry exactly after normalization.",
+      "notes": [
+        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+      ],
+      "ms": 1
+    }
+  ]
+}

@@ -1,0 +1,369 @@
+{
+  "lat": {
+    "lang": "uz",
+    "file": "data/classifier_lat.xlsx",
+    "sharedStrings": 1525995,
+    "dataRows": 438925,
+    "widestRow": 15,
+    "cols": [
+      {
+        "top": "GURUH NOMI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 183,
+        "distinctCapped": false,
+        "minLen": 7,
+        "maxLen": 166,
+        "samples": [
+          "001-TIRIK HAYVONLAR",
+          "002-GO’ShT VA GO’ShTLI OZIQ-OVQAT SUBMAHSULOTLARI",
+          "002-GO’SHT VA GO’SHTLI OZIQ-OVQAT SUBMAHSULOTLARI"
+        ]
+      },
+      {
+        "top": "SINF NOMI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 1283,
+        "distinctCapped": false,
+        "minLen": 6,
+        "maxLen": 406,
+        "samples": [
+          "00101-Tirik otlar, eshaklar",
+          "00102-Yirik shoxli tirik uy qoramollari",
+          "00103-Tirik cho’chqalar"
+        ]
+      },
+      {
+        "top": "POZITSIYA NOMI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 2860,
+        "distinctCapped": false,
+        "minLen": 9,
+        "maxLen": 387,
+        "samples": [
+          "00101001-Tirik otlar va eshaklar",
+          "00102001-Tirik yirik shoxli uy qoramollari",
+          "00103001-Tirik cho’chqalar"
+        ]
+      },
+      {
+        "top": "SUBPOZITSIYA NOMI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 10229,
+        "distinctCapped": false,
+        "minLen": 12,
+        "maxLen": 550,
+        "samples": [
+          "00101001001-Tirik otlar",
+          "00101001003-Tirik otlar (so’yish vaznida)",
+          "00101001007-Tirik eshaklar"
+        ]
+      },
+      {
+        "top": "BREND NOMI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 47736,
+        "distinctCapped": false,
+        "minLen": 4,
+        "maxLen": 256,
+        "samples": [
+          "00101001001000 ---",
+          "00101001003000 ---",
+          "00101001007000 ---"
+        ]
+      },
+      {
+        "top": "ATRIBUT NOMI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 80000,
+        "distinctCapped": true,
+        "minLen": 1,
+        "maxLen": 602,
+        "samples": [
+          "---",
+          "oliy navli, vakuumli qadoqda 500 gr",
+          "bo’laklar, plastik konteynerda 1000 gr"
+        ]
+      },
+      {
+        "top": "MXIK KODI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 80000,
+        "distinctCapped": true,
+        "minLen": 17,
+        "maxLen": 17,
+        "samples": [
+          "00101001001000000",
+          "00101001003000000",
+          "00101001007000000"
+        ]
+      },
+      {
+        "top": "MXIK NOMI",
+        "sub": "",
+        "filled": 438925,
+        "distinct": 80000,
+        "distinctCapped": true,
+        "minLen": 3,
+        "maxLen": 676,
+        "samples": [
+          "Tirik otlar",
+          "Tirik otlar (so’yish vaznida)",
+          "Tirik eshaklar"
+        ]
+      },
+      {
+        "top": "SHTRIX KODI",
+        "sub": "",
+        "filled": 191675,
+        "distinct": 80000,
+        "distinctCapped": true,
+        "minLen": 8,
+        "maxLen": 14,
+        "samples": [
+          "4780074540164",
+          "4780079190166",
+          "4780079190173"
+        ]
+      },
+      {
+        "top": "BIRIKTIRILGAN (QAT'IY)",
+        "sub": "   O'LCHOV GURUHI\t",
+        "filled": 385414,
+        "distinct": 11503,
+        "distinctCapped": false,
+        "minLen": 1,
+        "maxLen": 324,
+        "samples": [
+          "dona",
+          "ga, dona",
+          "tonna, sentner, ming tonna, milligramm, kilogramm, gramm, dona"
+        ]
+      },
+      {
+        "top": "",
+        "sub": "O'LCHOV BIRLIGI\t",
+        "filled": 74,
+        "distinct": 8,
+        "distinctCapped": false,
+        "minLen": 1,
+        "maxLen": 21,
+        "samples": [
+          "kilogramm",
+          "kub. metr",
+          "0"
+        ]
+      },
+      {
+        "top": "",
+        "sub": "QADOQLAR",
+        "filled": 35118,
+        "distinct": 12162,
+        "distinctCapped": false,
+        "minLen": 4,
+        "maxLen": 76,
+        "samples": [
+          "qadoq * 10 dona (qadoq) 100 gramm",
+          "qadoq * 4 dona (qadoq) 90 gramm",
+          "qadoq * 20 dona (qadoq) 5 gramm"
+        ]
+      },
+      {
+        "top": "FOYDALANISHGA TAVSIYA ETILGAN\t",
+        "sub": "O'LCHOV GURUHI\t",
+        "filled": 2052,
+        "distinct": 22,
+        "distinctCapped": false,
+        "minLen": 12,
+        "maxLen": 70,
+        "samples": [
+          "Og'irlik birligi",
+          "Maydon birligi",
+          "Xajm birligi"
+        ]
+      },
+      {
+        "top": "",
+        "sub": "O'LCHOV BIRLIGI\t",
+        "filled": 7560,
+        "distinct": 258,
+        "distinctCapped": false,
+        "minLen": 4,
+        "maxLen": 66,
+        "samples": [
+          "dona",
+          "kilogramm",
+          "ga, dona"
+        ]
+      },
+      {
+        "top": "IMTIYOZ ID",
+        "sub": "",
+        "filled": 37530,
+        "distinct": 67,
+        "distinctCapped": false,
+        "minLen": 1,
+        "maxLen": 6,
+        "samples": [
+          "104004",
+          "103929",
+          "103012"
+        ]
+      }
+    ],
+    "domain": {
+      "uniqueCodes": 438925,
+      "duplicateCodes": 0,
+      "codeLengths": [
+        [
+          17,
+          438925
+        ]
+      ],
+      "base000": 6985,
+      "identifying": 431940,
+      "withBarcode": 191675,
+      "multiBarcode": {
+        "multi": 0,
+        "maxCount": 0
+      },
+      "strict": 74,
+      "recommended": 7560,
+      "both": 0,
+      "neither": 431291,
+      "privilege": 37530,
+      "packages": 35118,
+      "distinctGroupPrefixes": 115,
+      "distinctStrictUnits": 8,
+      "distinctRecUnits": 258,
+      "distinctUnitGroups": 11503,
+      "topStrictUnits": [
+        [
+          "kilogramm",
+          59
+        ],
+        [
+          "0",
+          4
+        ],
+        [
+          "метр",
+          4
+        ],
+        [
+          "dona (istemol qutisi)",
+          3
+        ],
+        [
+          "kub. metr",
+          1
+        ],
+        [
+          "Og'irlik birligi",
+          1
+        ],
+        [
+          "дона",
+          1
+        ],
+        [
+          "daqiqa",
+          1
+        ]
+      ],
+      "topUnitGroups": [
+        [
+          "dona",
+          160114
+        ],
+        [
+          "metr",
+          45714
+        ],
+        [
+          "dona (istemol qutisi) ",
+          11756
+        ],
+        [
+          "tonna",
+          8555
+        ],
+        [
+          "kv. metr",
+          8420
+        ],
+        [
+          "kub. metr",
+          7028
+        ],
+        [
+          "dona (qadoq) ",
+          4059
+        ],
+        [
+          "to‘plam",
+          3611
+        ]
+      ]
+    },
+    "sampleRows": [
+      [
+        "001-TIRIK HAYVONLAR",
+        "00101-Tirik otlar, eshaklar",
+        "00101001-Tirik otlar va eshaklar",
+        "00101001001-Tirik otlar",
+        "00101001001000 ---",
+        "---",
+        "00101001001000000",
+        "Tirik otlar",
+        null,
+        "dona",
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "001-TIRIK HAYVONLAR",
+        "00101-Tirik otlar, eshaklar",
+        "00101001-Tirik otlar va eshaklar",
+        "00101001003-Tirik otlar (so’yish vaznida)",
+        "00101001003000 ---",
+        "---",
+        "00101001003000000",
+        "Tirik otlar (so’yish vaznida)",
+        null,
+        null,
+        "kilogramm",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "001-TIRIK HAYVONLAR",
+        "00101-Tirik otlar, eshaklar",
+        "00101001-Tirik otlar va eshaklar",
+        "00101001007-Tirik eshaklar",
+        "00101001007000 ---",
+        "---",
+        "00101001007000000",
+        "Tirik eshaklar",
+        null,
+        "dona",
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    ]
+  }
+}

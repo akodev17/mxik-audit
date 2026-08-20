@@ -1,0 +1,108 @@
+{
+  "stats": {
+    "lat": {
+      "rows": 438925,
+      "scripts": {
+        "latin": 337307,
+        "mixed": 101617,
+        "cyrillic": 1
+      },
+      "apostrophes": {
+        "u2019": 137432,
+        "ascii": 73645,
+        "backtick": 157,
+        "u02BB": 74,
+        "u02BC": 10,
+        "acute": 89,
+        "u2018": 129
+      },
+      "emptyName": 0,
+      "strictScripts": {
+        "latin": 369595,
+        "mixed": 15814,
+        "neither": 1,
+        "cyrillic": 4
+      },
+      "sampleMixed": [
+        "Muzlatilgan suyaksiz go’sht (mol go’shti): Родной дом, PET paket 150 g",
+        "Muzlatilgan suyaksiz go’sht (mol go’shti): Мираторг, mol go’shti steyki machete ",
+        "Mol go’shtidan farsh: Мастер Полуфабрикатов, muzlatilgan, vakuumli qadoqda 500 g",
+        "Mol go’shtidan farsh: Мастер Полуфабрикатов, muzlatilgan, vakuumli qadoqda 300 g",
+        "Mol go’shtidan farsh: Элитный фарш, muzlatilgan, metall paketda 180 gr",
+        "Yangi so’yilgan sovutilgan tovuq go’shti (tovuq): Донер Кебаб, donar uchun kesil"
+      ]
+    },
+    "ru": {
+      "rows": 438925,
+      "scripts": {
+        "cyrillic": 138298,
+        "mixed": 300625,
+        "latin": 2
+      },
+      "apostrophes": {
+        "ascii": 3069,
+        "backtick": 153,
+        "u2019": 149,
+        "acute": 89,
+        "u2018": 3,
+        "u02BB": 7
+      },
+      "emptyName": 0,
+      "strictScripts": {
+        "cyrillic": 385138,
+        "mixed": 275,
+        "latin": 6,
+        "neither": 1
+      },
+      "sampleMixed": [
+        "Говяжье мясо без костей свежее, охлажденное (говядина): Promeat, высший сорт, ва",
+        "Говяжье мясо без костей свежее, охлажденное (говядина): Marinad House, кусками, ",
+        "Говяжье мясо без костей свежее, охлажденное (говядина): Marinad House, кусками, ",
+        "Замороженное говяжье мясо без костей (говядина): Meat&Milk, жирность 20% , пэт п",
+        "Замороженное говяжье мясо без костей (говядина): Meat&Milk, жирность 20% , пэт п",
+        "Замороженное говяжье мясо без костей (говядина): Meat&Milk, не жирный, пэт пакет"
+      ]
+    },
+    "uzcyrl": {
+      "rows": 438925,
+      "scripts": {
+        "cyrillic": 152232,
+        "mixed": 286692,
+        "latin": 1
+      },
+      "apostrophes": {
+        "ascii": 3067,
+        "backtick": 152,
+        "u2019": 149,
+        "acute": 89,
+        "u2018": 16,
+        "u02BB": 7
+      },
+      "emptyName": 0,
+      "strictScripts": {
+        "cyrillic": 385145,
+        "mixed": 274,
+        "neither": 1
+      },
+      "sampleMixed": [
+        "Совутилган лаҳм мол гўшти: Promeat, олий навли, вакуумли қадоқда 500 гр",
+        "Совутилган лаҳм мол гўшти: Marinad House, бўлаклар, пластик контейнерда 1000 гр",
+        "Совутилган лаҳм мол гўшти: Marinad House, бўлаклари, пластик контейнерда 500 гр",
+        "Музлатилган суяксиз гўшт (мол гўшти): Meat&Milk, ёғлилик миқдори 20%, пэт пакет ",
+        "Музлатилган суяксиз гўшт (мол гўшти): Meat&Milk, ёғлилик миқдори 20%, пэт пакет ",
+        "Музлатилган суяксиз гўшт (мол гўшти): Meat&Milk, ёғсиз, пэт пакет 130 г"
+      ]
+    }
+  },
+  "join": {
+    "union": 438925,
+    "inAll3": 438925,
+    "missingLat": 0,
+    "missingRu": 0,
+    "missingCyrl": 0,
+    "latEqCyrl": 2,
+    "latEqRu": 2,
+    "ruEqCyrl": 5359,
+    "allDistinct": 433564
+  }
+}

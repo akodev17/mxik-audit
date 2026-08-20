@@ -1,0 +1,1025 @@
+{
+  "base": "https://tasnif.soliq.uz/api/cls-api",
+  "excelCodes": 438925,
+  "lang": {
+    "uz": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108"
+    },
+    "ru": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент : NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 3110"
+    },
+    "uz_cyrl": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108"
+    },
+    "uzc": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108"
+    },
+    "lat": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108"
+    },
+    "en": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108"
+    },
+    "kaa": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108"
+    },
+    "(empty)": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент : NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 3110"
+    },
+    "garbage": {
+      "status": 200,
+      "script": "mixed",
+      "sample": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108"
+    }
+  },
+  "search": [
+    {
+      "q": "sement",
+      "kind": "uz-latin",
+      "status": 200,
+      "ms": 17,
+      "total": 554,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "02523002001016017",
+      "topName": "Портландцемент: NAMANGAN SEMENT, ЦЕМ II/В-К (И-З-П) 32,5 Н, ГОСТ 31108-2020"
+    },
+    {
+      "q": "цемент",
+      "kind": "ru",
+      "status": 200,
+      "ms": 15,
+      "total": 1562,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "02523002001097002",
+      "topName": "Портландцемент: Импорт Казахстан, (ТOO Стандарт Цемент), ЦЕМ II/A-Ш 32.5 Н"
+    },
+    {
+      "q": "цемент портланд",
+      "kind": "ru-multiword",
+      "status": 200,
+      "ms": 176,
+      "total": 0,
+      "returned": 0,
+      "inExcel": 0,
+      "topCode": "",
+      "topName": ""
+    },
+    {
+      "q": "sut",
+      "kind": "uz-latin short",
+      "status": 200,
+      "ms": 17,
+      "total": 1381,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "00401001001000000",
+      "topName": "Сут"
+    },
+    {
+      "q": "сут",
+      "kind": "uz-cyrillic",
+      "status": 200,
+      "ms": 25,
+      "total": 1155,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "00401001001000000",
+      "topName": "Сут"
+    },
+    {
+      "q": "молоко",
+      "kind": "ru",
+      "status": 200,
+      "ms": 16,
+      "total": 564,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "00401001001000000",
+      "topName": "Сут"
+    },
+    {
+      "q": "no'xat",
+      "kind": "uz-latin apostrophe",
+      "status": 200,
+      "ms": 19,
+      "total": 1,
+      "returned": 1,
+      "inExcel": 1,
+      "topCode": "03209001003000063",
+      "topName": "Aкрил полимерларга асосланган сув дисперсияли тупроқ: поливинилацетат ВД-ВА-17, оч нўхат"
+    },
+    {
+      "q": "noxat",
+      "kind": "uz-latin no apostrophe",
+      "status": 200,
+      "ms": 23,
+      "total": 99,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "00708001002002002",
+      "topName": "Яшил нўхат: Bonduelle, 400 гр."
+    },
+    {
+      "q": "noʻxat",
+      "kind": "uz-latin U+02BB",
+      "status": 200,
+      "ms": 47,
+      "total": 105,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "00708001002002002",
+      "topName": "Яшил нўхат: Bonduelle, 400 гр."
+    },
+    {
+      "q": "palov",
+      "kind": "uz prepared dish",
+      "status": 200,
+      "ms": 17,
+      "total": 20,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "02103002006020003",
+      "topName": "Приправалар: 365 дней, Гуручли таомлар ва палов учун БОПП пакет 25 г"
+    },
+    {
+      "q": "палов",
+      "kind": "uz-cyrillic dish",
+      "status": 200,
+      "ms": 15,
+      "total": 20,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "02103002006020003",
+      "topName": "Приправалар: 365 дней, Гуручли таомлар ва палов учун БОПП пакет 25 г"
+    },
+    {
+      "q": "shakar",
+      "kind": "uz sugar",
+      "status": 200,
+      "ms": 14,
+      "total": 780,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "01701001001000000",
+      "topName": "Қадоқланган шакар"
+    },
+    {
+      "q": "сахар",
+      "kind": "ru sugar",
+      "status": 200,
+      "ms": 16,
+      "total": 134,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "01701001001000000",
+      "topName": "Қадоқланган шакар"
+    },
+    {
+      "q": "Coca-Cola 1.5L",
+      "kind": "brand + noise",
+      "status": 200,
+      "ms": 39,
+      "total": 844,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "03004452001043004",
+      "topName": "Парацетамол - N02BE01: ЦЕФЕКОН Д® (Нижфарм), Суппозиторийлар ректал қўллаш учун 100 мг контурли катакли қадоқлар №10(2x5)"
+    },
+    {
+      "q": "Coca Cola",
+      "kind": "brand clean",
+      "status": 200,
+      "ms": 19,
+      "total": 68,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "02202002001010009",
+      "topName": "Алкоголсиз ичимликлар (газланган ва газланмаган): COCA-COLA, ширин, ПЭТ бутилка 1,5 л."
+    },
+    {
+      "q": "tibbiy xizmat",
+      "kind": "uz service",
+      "status": 200,
+      "ms": 138,
+      "total": 0,
+      "returned": 0,
+      "inExcel": 0,
+      "topCode": "",
+      "topName": ""
+    },
+    {
+      "q": "gilam",
+      "kind": "uz carpet",
+      "status": 200,
+      "ms": 15,
+      "total": 481,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "05705001002000000",
+      "topName": "Гилам жойнамоз"
+    },
+    {
+      "q": "ковер",
+      "kind": "ru carpet",
+      "status": 200,
+      "ms": 15,
+      "total": 51,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "05705003001000000",
+      "topName": "Синтетик ипдан тукли гилам"
+    },
+    {
+      "q": "paracetamol",
+      "kind": "pharma INN",
+      "status": 200,
+      "ms": 66,
+      "total": 764,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "03004452003001004",
+      "topName": "Парацетамол билан психолептик комбинацияси - N02BE71: ТРИМОЛ® Ajanta Pharma Ltd), Таблеткалар блистерлар №100(10x10)"
+    },
+    {
+      "q": "sem",
+      "kind": "partial prefix",
+      "status": 200,
+      "ms": 15,
+      "total": 160,
+      "returned": 5,
+      "inExcel": 5,
+      "topCode": "02523002001224002",
+      "topName": "Портландцемент: QARSHI CONCH CEMENT, ЦЕМ II/А-И 32,5 Н"
+    }
+  ],
+  "barcode": [
+    {
+      "gtin": "4780067682925",
+      "expected": "00405001001029009",
+      "status": 200,
+      "returned": 1,
+      "exactHit": true
+    },
+    {
+      "gtin": "4780052610414",
+      "expected": "01512001001079002",
+      "status": 200,
+      "returned": 1,
+      "exactHit": true
+    },
+    {
+      "gtin": "4780097800092",
+      "expected": "01704001014007018",
+      "status": 200,
+      "returned": 1,
+      "exactHit": true
+    },
+    {
+      "gtin": "4605496000815",
+      "expected": "01904001002033001",
+      "status": 200,
+      "returned": 1,
+      "exactHit": true
+    },
+    {
+      "gtin": "4780030390239",
+      "expected": "01905012001444073",
+      "status": 200,
+      "returned": 1,
+      "exactHit": true
+    }
+  ],
+  "history": [
+    {
+      "code": "01905007001146046",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "03.12.2022 20:23:18",
+      "updatedAt": "15.02.2023 10:27:28",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "02201001001044005",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "29.04.2022 14:47:09",
+      "updatedAt": "08.02.2023 10:20:58",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "02208001001686001",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "29.04.2022 14:47:09",
+      "updatedAt": "21.05.2024 11:58:03",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "03004090002002008",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "29.04.2022 14:47:09",
+      "updatedAt": "03.10.2022 21:13:59",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "03004428003038001",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "24.06.2026 17:11:23",
+      "updatedAt": "24.06.2026 17:11:26",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "03307001002044001",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "29.04.2022 14:47:09",
+      "updatedAt": "06.06.2023 10:49:07",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "03917001006000177",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "01.03.2024 00:00:00",
+      "updatedAt": "21.10.2024 13:01:09",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "06110001005004366",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "13.08.2022 23:20:55",
+      "updatedAt": "06.12.2022 09:34:34",
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "06810006002002409",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "07.10.2023 00:00:00",
+      "updatedAt": null,
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    },
+    {
+      "code": "06810006002024678",
+      "status": 200,
+      "inExcel": true,
+      "isActive": "1",
+      "statusField": 0,
+      "createdAt": "07.10.2023 00:00:00",
+      "updatedAt": null,
+      "keys": [
+        "id",
+        "pkey",
+        "parentPkey",
+        "mxikCode",
+        "groupNameUz",
+        "groupNameRu",
+        "groupNameLat",
+        "classNameUz",
+        "classNameRu",
+        "classNameLat",
+        "positionNameUz",
+        "positionNameRu",
+        "positionNameLat",
+        "subPositionNameUz",
+        "subPositionNameRu",
+        "subPositionNameLat",
+        "brandName",
+        "attributeNameUz",
+        "attributeNameRu",
+        "attributeNameLat",
+        "description",
+        "isActive",
+        "createdAt",
+        "updatedBy",
+        "updatedAt",
+        "status",
+        "packageNames"
+      ]
+    }
+  ],
+  "historyFields": [
+    "id",
+    "pkey",
+    "parentPkey",
+    "mxikCode",
+    "groupNameUz",
+    "groupNameRu",
+    "groupNameLat",
+    "classNameUz",
+    "classNameRu",
+    "classNameLat",
+    "positionNameUz",
+    "positionNameRu",
+    "positionNameLat",
+    "subPositionNameUz",
+    "subPositionNameRu",
+    "subPositionNameLat",
+    "brandName",
+    "attributeNameUz",
+    "attributeNameRu",
+    "attributeNameLat",
+    "description",
+    "isActive",
+    "createdAt",
+    "updatedBy",
+    "updatedAt",
+    "status",
+    "packageNames"
+  ],
+  "replacementFields": [],
+  "groupDiff": {
+    "apiTotal": 441607,
+    "excelTotal": 438925,
+    "delta": 2682,
+    "disagreeing": [
+      {
+        "code": "068",
+        "name": "ТОШ, ГИПС, ЦЕМЕНТ, АСБЕСТ, МИКИКА ЁКИ ШУНГА ",
+        "api": 83655,
+        "excel": 82018,
+        "delta": 1637
+      },
+      {
+        "code": "073",
+        "name": "ҚОРА МEТАЛЛАРДАН МАҲСУЛОТЛАР",
+        "api": 53593,
+        "excel": 53242,
+        "delta": 351
+      },
+      {
+        "code": "039",
+        "name": "ПЛАСТМАССАЛАР ВА ПЛАСТМАССА МАҲСУЛОТЛАР",
+        "api": 19129,
+        "excel": 18913,
+        "delta": 216
+      },
+      {
+        "code": "030",
+        "name": "ФАРМАЦЕВТИКА МАҲСУЛОТИ",
+        "api": 42308,
+        "excel": 42217,
+        "delta": 91
+      },
+      {
+        "code": "085",
+        "name": "ЭЛEКТР МАШИНАЛАР, АППАРАТ, АСБОБ-УСКУНАЛАР В",
+        "api": 51931,
+        "excel": 51840,
+        "delta": 91
+      },
+      {
+        "code": "038",
+        "name": "БОШҚА КИМЁВИЙ МАҲСУЛОТЛАР",
+        "api": 4304,
+        "excel": 4233,
+        "delta": 71
+      },
+      {
+        "code": "072",
+        "name": "ҚОРА МEТАЛЛАР",
+        "api": 4963,
+        "excel": 4922,
+        "delta": 41
+      },
+      {
+        "code": "044",
+        "name": "ЁҒОЧ ВА УНИНГ МАҲСУЛОТЛАРИ",
+        "api": 3104,
+        "excel": 3066,
+        "delta": 38
+      },
+      {
+        "code": "083",
+        "name": "ОДДИЙ МЕТАЛЛАРДАН ЯСАЛГАН БОШҚА БУЮМЛАР",
+        "api": 2262,
+        "excel": 2240,
+        "delta": 22
+      },
+      {
+        "code": "084",
+        "name": "ЯДРО РЕАКТОРЛАРИ, ҚОЗОНХОНАЛАР, ЖИҲОЗЛАР ВА ",
+        "api": 34832,
+        "excel": 34813,
+        "delta": 19
+      },
+      {
+        "code": "032",
+        "name": "ҚОРИШМА ВА БЎЁҚ ЭКСТРАКТЛАР",
+        "api": 2456,
+        "excel": 2444,
+        "delta": 12
+      },
+      {
+        "code": "070",
+        "name": "ШИША ВА ШИША МАҲСУЛОТЛАР",
+        "api": 1274,
+        "excel": 1265,
+        "delta": 9
+      },
+      {
+        "code": "001",
+        "name": "ТИРИК ҲАЙВОНЛАР",
+        "api": 52,
+        "excel": 45,
+        "delta": 7
+      },
+      {
+        "code": "074",
+        "name": "МИС ВА МИС МАҲСУЛОТЛАРИ",
+        "api": 1553,
+        "excel": 1546,
+        "delta": 7
+      },
+      {
+        "code": "015",
+        "name": "ҲАЙВОН ЁКИ ЎСИМЛИК ЁҒЛАРИ ВА УЛАРНИНГ ПАРЧАЛ",
+        "api": 1977,
+        "excel": 1971,
+        "delta": 6
+      },
+      {
+        "code": "027",
+        "name": "МИНЕРАЛ ЁҚИЛҒИ ВА БИТУМСИМОН МОДДАЛАР",
+        "api": 1624,
+        "excel": 1618,
+        "delta": 6
+      },
+      {
+        "code": "076",
+        "name": "АЛЮМИНИЙ ВА УНИНГ МАҲСУЛОТЛАРИ ",
+        "api": 2367,
+        "excel": 2361,
+        "delta": 6
+      },
+      {
+        "code": "094",
+        "name": "МЕБЕЛЬ, ЁТОҚ ВА ЛАМПАЛАР",
+        "api": 3523,
+        "excel": 3517,
+        "delta": 6
+      },
+      {
+        "code": "095",
+        "name": "ЎЙИНЧОҚЛАР ВА СПОРТ АСБОБ-УСКУНАЛАРИ",
+        "api": 1677,
+        "excel": 1671,
+        "delta": 6
+      },
+      {
+        "code": "096",
+        "name": "ТУРЛИ ХИЛ ТАЙЁР МАҲСУЛОТЛАР ",
+        "api": 1460,
+        "excel": 1454,
+        "delta": 6
+      },
+      {
+        "code": "025",
+        "name": "ТУЗ, ОЛТИНГУГУРТ, ГИПС МАТЕРИАЛЛАРИ, ОҲАК ВА",
+        "api": 2088,
+        "excel": 2083,
+        "delta": 5
+      },
+      {
+        "code": "022",
+        "name": "АЛКОГОЛЛИ ВА АЛКОГОЛСИЗ ИЧИМЛИКЛАР ҲАМДА СИР",
+        "api": 27486,
+        "excel": 27482,
+        "delta": 4
+      },
+      {
+        "code": "059",
+        "name": "ТEХНИКА МАҚСАДЛАРИ УЧУН ТEКСТИЛ МАТEРИАЛЛАРИ",
+        "api": 307,
+        "excel": 303,
+        "delta": 4
+      },
+      {
+        "code": "069",
+        "name": "КEРАМИК МАҲСУЛОТЛАР",
+        "api": 4535,
+        "excel": 4531,
+        "delta": 4
+      },
+      {
+        "code": "082",
+        "name": "ҚУРИЛМАЛАР ВА МОСЛАМАЛАР",
+        "api": 1171,
+        "excel": 1167,
+        "delta": 4
+      },
+      {
+        "code": "034",
+        "name": "СОВУН, ЮВИШ ВОСИТАЛАРИ, МОЙЛАШ МАТЕРИАЛЛАРИ,",
+        "api": 7362,
+        "excel": 7360,
+        "delta": 2
+      },
+      {
+        "code": "040",
+        "name": "КАУЧУК, РЕЗИНА ВА УЛАРДАН МАҲСУЛОТЛАР",
+        "api": 1944,
+        "excel": 1942,
+        "delta": 2
+      },
+      {
+        "code": "006",
+        "name": "ТИРИК ДАРАХТ ВА ЎСИМЛИКЛАР",
+        "api": 827,
+        "excel": 826,
+        "delta": 1
+      },
+      {
+        "code": "021",
+        "name": "ТУРЛИ ОЗИҚ-ОВҚАТ МАҲСУЛОТЛАРИ",
+        "api": 13876,
+        "excel": 13875,
+        "delta": 1
+      },
+      {
+        "code": "054",
+        "name": "КИМЁВИЙ ИПЛАР; ТЎҚИМАЧИЛИК МАТЕРИАЛЛАРИНИНГ ",
+        "api": 90,
+        "excel": 89,
+        "delta": 1
+      },
+      {
+        "code": "061",
+        "name": "КИЙИМ ВА КИЙИМ АКСEССУАРЛАРИ",
+        "api": 8145,
+        "excel": 8144,
+        "delta": 1
+      },
+      {
+        "code": "063",
+        "name": "БОШҚА ТУГАЛЛАНГАН ТЎҚИМАЧИЛИК МАҲСУЛОТЛАРИ, ",
+        "api": 5599,
+        "excel": 5598,
+        "delta": 1
+      },
+      {
+        "code": "081",
+        "name": "БОШҚА ҚИММАТЛИ БЎЛМАГАН МEТАЛЛАР ВА КEРАМИКА",
+        "api": 32,
+        "excel": 31,
+        "delta": 1
+      },
+      {
+        "code": "103",
+        "name": "АХБОРОТ ВА АЛОҚА СОҲАСИДАГИ ХИЗМАТЛАР ",
+        "api": 80,
+        "excel": 79,
+        "delta": 1
+      },
+      {
+        "code": "109",
+        "name": "СОҒЛИҚНИ САҚЛАШ СОҲАСИДАГИ ХИЗМАТЛАР",
+        "api": 161,
+        "excel": 160,
+        "delta": 1
+      },
+      {
+        "code": "111",
+        "name": "БОШҚА ХИЗМАТЛАР",
+        "api": 76,
+        "excel": 75,
+        "delta": 1
+      }
+    ]
+  },
+  "orphanCandidates": [],
+  "rate": [
+    {
+      "concurrency": 1,
+      "wallMs": 13,
+      "slowestMs": 12,
+      "statuses": {
+        "200": 1
+      }
+    },
+    {
+      "concurrency": 5,
+      "wallMs": 44,
+      "slowestMs": 42,
+      "statuses": {
+        "200": 5
+      }
+    },
+    {
+      "concurrency": 15,
+      "wallMs": 60,
+      "slowestMs": 55,
+      "statuses": {
+        "200": 15
+      }
+    },
+    {
+      "concurrency": 30,
+      "wallMs": 87,
+      "slowestMs": 84,
+      "statuses": {
+        "200": 30
+      }
+    },
+    {
+      "sustained": 60,
+      "ok": 60,
+      "bad": 0,
+      "statuses": [
+        200
+      ],
+      "wallMs": 799
+    }
+  ]
+}

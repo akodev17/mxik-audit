@@ -1,0 +1,11 @@
+node_modules/
+.next/
+tmp/
+*.log
+
+# Bulk classifier data: regenerate with `npm run fetch:catalog` + `npm run ingest`
+data/*.xlsx
+data/mxik.ndjson
+
+# Local secrets
+.env

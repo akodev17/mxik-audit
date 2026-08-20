@@ -1,0 +1,304 @@
+// Gate 1 owns only MxikCode — the classifier itself. The application tables
+// (Organization, Catalog, Finding, AuditEvent) arrive in Gate 2.
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector, pg_trgm, unaccent]
+}
+
+/// One row per 17-digit MXIK code, as published by tasnif.soliq.uz.
+/// Column semantics are documented in docs/gate0-report.md.
+model MxikCode {
+  code String @id @db.Char(17)
+
+  // Six-level hierarchy. Codes are slices of `code`; names come from the export.
+  groupCode       String @db.Char(3)
+  classCode       String @db.Char(5)
+  positionCode    String @db.Char(8)
+  subPositionCode String @db.Char(11)
+  brandCode       String @db.Char(14)
+
+  nameUz     String
+  nameRu     String
+  nameUzCyrl String
+
+  groupNameUz           String?
+  groupNameRu           String?
+  groupNameUzCyrl       String?
+  classNameUz           String?
+  classNameRu           String?
+  classNameUzCyrl       String?
+  positionNameUz        String?
+  positionNameRu        String?
+  positionNameUzCyrl    String?
+  subPositionNameUz     String?
+  subPositionNameRu     String?
+  subPositionNameUzCyrl String?
+  brandNameUz           String?
+  brandNameRu           String?
+  brandNameUzCyrl       String?
+  attributeNameUz       String?
+  attributeNameRu       String?
+  attributeNameUzCyrl   String?
+
+  /// GTIN, normalized to 14 digits. Null for the 56% with no barcode.
+  barcode String? @db.Char(14)
+
+  /// Verbatim column J of the export, packaging detail included.
+  unitRaw String?
+  /// Acceptable canonical units. Column J is sometimes a comma-separated list.
+  unitCanonical String[]
+  /// Official unit ids resolved from unitCanonical; empty when unresolvable.
+  unitIds       Int[]
+  unitContainer String?
+  unitQuantity  Float?
+  /// strict = column J present (87.8%), recommended = only M/N, none = neither.
+  unitBinding UnitBinding
+
+  recommendedUnits      String[]
+  recommendedUnitGroups String[]
+  packagesRaw           String?
+  taxPrivilegeIds       String[]
+
+  /// Last six digits are 000000: the officially safe fallback for a subposition.
+  isBase Boolean
+  /// From the API `label` field. Null for the 8.7% the portal leaves unset.
+  isMarked Boolean?
+
+  /// Folded match keys for every name variant and both readings of ц.
+  matchKeys String[]
+  /// Concatenated searchable text, used for trigram and full-text retrieval.
+  searchText String
+
+  embeddingUz Unsupported("vector(384)")?
+  embeddingRu Unsupported("vector(384)")?
+
+  /// Generated column, defined in the search_indexes migration. Declared here so
+  /// Prisma knows it exists and does not try to drop it; Prisma cannot manage
+  /// GENERATED ALWAYS columns itself.
+  searchVector Unsupported("tsvector")?
+
+  /// Set when a later import no longer contains this code. See docs/gate0-report.md
+  /// section 3: no source exposes deprecation, so this is populated by snapshot
+  /// diffing and is null on a first import.
+  retiredAt DateTime?
+
+  importedAt DateTime @default(now())
+
+  @@index([barcode])
+  @@index([subPositionCode])
+  @@index([groupCode])
+  @@index([isBase])
+  @@map("mxik_code")
+}
+
+enum UnitBinding {
+  strict
+  recommended
+  none
+
+  @@map("unit_binding")
+}
+
+/// Each catalogue import, so codes that vanish between imports can be detected.
+model CatalogSnapshot {
+  id         Int      @id @default(autoincrement())
+  takenAt    DateTime @default(now())
+  codeCount  Int
+  source     String
+  /// Codes present in the previous snapshot but absent from this one.
+  retiredCodes String[]
+
+  @@map("catalog_snapshot")
+}
+
+/// Which provider produced the vectors currently stored in mxik_code.
+/// Comparing embeddings from two different models is meaningless, so the vector
+/// stage refuses to run when the query-time provider disagrees with this row.
+model EmbeddingState {
+  id           Int      @id @default(1)
+  provider     String
+  dimensions   Int
+  rowsEmbedded Int
+  updatedAt    DateTime @default(now())
+
+  @@map("embedding_state")
+}
+
+// ---------------------------------------------------------------- application
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users     User[]
+  catalogs  Catalog[]
+  events    AuditEvent[]
+  /// Remembered column mapping, so a repeat upload does not re-ask.
+  columnMap Json?
+
+  @@map("organization")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  orgId        String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("user")
+}
+
+enum CatalogStatus {
+  uploaded
+  analyzing
+  ready
+  failed
+
+  @@map("catalog_status")
+}
+
+model Catalog {
+  id        String        @id @default(cuid())
+  orgId     String
+  filename  String
+  rowCount  Int
+  status    CatalogStatus @default(uploaded)
+  createdAt DateTime      @default(now())
+  /// Header row as uploaded, so Export can reproduce the original shape.
+  headers   String[]
+  /// Which uploaded column feeds which field.
+  columnMap Json
+
+  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  items    CatalogItem[]
+
+  @@index([orgId])
+  @@map("catalog")
+}
+
+model CatalogItem {
+  id             String  @id @default(cuid())
+  catalogId      String
+  rowIndex       Int
+  rawName        String
+  normalizedName String
+  barcode        String?
+  existingMxik   String?
+  unit           String?
+  price          Decimal? @db.Decimal(18, 2)
+  /// Attributes parsed out of the name, plus every original cell for re-export.
+  attrs          Json
+
+  catalog  Catalog   @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  findings Finding[]
+
+  @@unique([catalogId, rowIndex])
+  @@index([catalogId])
+  @@map("catalog_item")
+}
+
+enum FindingType {
+  /// No MXIK code on the row.
+  MISSING
+  /// Code present but not in the classifier. Also covers codes that were valid in
+  /// an earlier import: no source exposes deprecation (docs/gate0-report.md §3),
+  /// and the remedy is identical, so they are not split out yet.
+  NOT_FOUND
+  /// Code valid, but confidence against the product name is below 0.6.
+  MISMATCH
+  /// Row's unit contradicts the code's strictly bound unit.
+  UNIT_CONFLICT
+
+  @@map("finding_type")
+}
+
+enum Severity {
+  high
+  medium
+
+  @@map("severity")
+}
+
+enum Decision {
+  pending
+  accepted
+  rejected
+
+  @@map("decision")
+}
+
+model Finding {
+  id            String      @id @default(cuid())
+  itemId        String
+  type          FindingType
+  severity      Severity
+  suggestedMxik String?
+  confidence    Float?
+  /// Runner-up candidates, each with code, name, path, confidence and reason.
+  alternatives  Json
+  reason        String
+  /// True when this code existed in an earlier snapshot and has since vanished.
+  /// Carries the archive signal until there is enough history to surface it.
+  wasRetired    Boolean     @default(false)
+  decision      Decision    @default(pending)
+  /// Code the reviewer actually chose, which may differ from suggestedMxik.
+  chosenMxik    String?
+  decidedBy     String?
+  decidedAt     DateTime?
+
+  item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([type])
+  @@index([decision])
+  @@map("finding")
+}
+
+/// Append-only. Only `create` is ever called on this table. It is what a client
+/// shows an inspector to demonstrate due diligence, and over time it becomes a
+/// proprietary product-name-to-verified-MXIK dataset.
+model AuditEvent {
+  id        String   @id @default(cuid())
+  orgId     String
+  actorId   String?
+  action    String
+  targetId  String?
+  payload   Json
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@map("audit_event")
+}
+
+/// A free-audit request from the landing page. Deliberately minimal: a file and
+/// one way to reach the person. No email drip, no signup wall.
+model Lead {
+  id        String   @id @default(cuid())
+  /// Phone or Telegram handle, as typed.
+  contact   String
+  company   String?
+  filename  String?
+  fileBytes Int?
+  rowGuess  Int?
+  /// Uploaded catalogue, held only until the audit is delivered.
+  fileData  Bytes?
+  note      String?
+  createdAt DateTime @default(now())
+  handledAt DateTime?
+
+  @@index([createdAt])
+  @@map("lead")
+}

@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* IBM Plex Sans draws U+02BB and U+02BC — the Uzbek tutuq belgisi in oʻ and gʻ —
+   as free-standing modifier letters with a full advance: 0.60em, the same width
+   as an "o". In running text that renders "koʻrsatadi" as "ko ʻ rsatadi". We
+   cannot switch to a different character: which apostrophe you type is the
+   difference between 105 search results and one wrong one, and the product says
+   so on this page, so the page had better spell it correctly itself.
+   So: borrow the glyph from a system face for those two codepoints only. Every
+   common system sans draws them at ~0.22em. Where none matches — a stripped
+   container, say — this face contributes nothing and Plex is used as before, so
+   the worst case is today's behaviour rather than a missing glyph. */
+@font-face {
+  font-family: "Uzbek Apostrophe";
+  src:
+    local("Segoe UI"), local("Helvetica Neue"), local("Arial"), local("Roboto"),
+    local("Noto Sans"), local("DejaVu Sans"), local("Liberation Sans");
+  unicode-range: U+02BB, U+02BC;
+  font-display: swap;
+}
+
+/* A document, not a dashboard. The audience is a chief accountant who distrusts
+   software, so the page should read like something a competent professional
+   wrote: one serif for headings, one sans for body, one mono for the 17-digit
+   codes that are the whole subject. Two accents only — risk and verified. */
+@theme {
+  /* next/font sets these variables on <html>; the fallbacks matter because a
+     font that fails to load must not silently swap the whole page's metrics. */
+  --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-sans: "Uzbek Apostrophe", var(--font-plex-sans), "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Cool-biased neutrals: a pure mid-grey reads as unconsidered. */
+  --color-ink: #14161c;
+  --color-ink-soft: #4e5564;
+  /* 5.1:1 on paper. The obvious lighter grey (#838b9b) is 3.3:1, and this level
+     carries captions, citations and the eyebrow — all of it small text. */
+  --color-ink-faint: #646c7b;
+  --color-rule: #dde0e7;
+  --color-rule-strong: #c3c8d3;
+  --color-paper: #fbfbfc;
+  --color-paper-tint: #f2f3f6;
+  --color-paper-raised: #ffffff;
+
+  --color-risk: #a32b22;
+  --color-risk-tint: #fbf1f0;
+  --color-ok: #1b6b52;
+  --color-ok-tint: #eff6f2;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.011em;
+  text-wrap: balance;
+}
+
+/* Tabular figures everywhere numbers are compared down a column. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* 17-digit codes must be scannable and never reflow mid-code. */
+.code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+.mono { font-family: var(--font-mono); }
+
+/* Uppercase labels need air to stop reading as shouting. */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+/* The Report screen is meant to be printed and handed to a client. */
+@media print {
+  .no-print { display: none !important; }
+  body { font-size: 11pt; }
+  a[href]::after { content: ""; }
+  .page-break { break-before: page; }
+}
+
+/* Keyboard focus must stay obvious: the Review screen is driven by j/k/Enter. */
+:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+
+tr[data-active="true"] {
+  background: #fffbe8;
+  box-shadow: inset 3px 0 0 var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

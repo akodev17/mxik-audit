@@ -1,0 +1,403 @@
+{
+  "pairs": 438925,
+  "exact": 131469,
+  "exactPct": 29.952497579313093,
+  "foldedExact": 269224,
+  "foldPct": 91.28962806857663,
+  "viaAlternates": 28936,
+  "indexPct": 97.88209830836703,
+  "divergences": [
+    [
+      "\"sil\" expected, got \"tsi\"",
+      1509
+    ],
+    [
+      "\"eff\" expected, got \"yef\"",
+      729
+    ],
+    [
+      "\"yes\" expected, got \"ies\"",
+      664
+    ],
+    [
+      "\"men\" expected, got \"soy\"",
+      314
+    ],
+    [
+      "\"e d\" expected, got \"ye \"",
+      308
+    ],
+    [
+      "\"e k\" expected, got \"ye \"",
+      258
+    ],
+    [
+      "\"est\" expected, got \"yes\"",
+      237
+    ],
+    [
+      "\"ekt\" expected, got \"yek\"",
+      202
+    ],
+    [
+      "\"e n\" expected, got \"ye \"",
+      195
+    ],
+    [
+      "\"siy\" expected, got \"tsi\"",
+      183
+    ],
+    [
+      "\"e 0\" expected, got \"ye \"",
+      159
+    ],
+    [
+      "\"ela\" expected, got \"yel\"",
+      145
+    ],
+    [
+      "\"e i\" expected, got \"ye \"",
+      140
+    ],
+    [
+      "\"sem\" expected, got \"tse\"",
+      120
+    ],
+    [
+      "\"2 2\" expected, got \"lt \"",
+      116
+    ],
+    [
+      "\"mli\" expected, got \"k b\"",
+      105
+    ],
+    [
+      "\"e p\" expected, got \"ye \"",
+      93
+    ],
+    [
+      "\"e u\" expected, got \"ye \"",
+      88
+    ],
+    [
+      "\"e s\" expected, got \"ye \"",
+      83
+    ],
+    [
+      "\"sio\" expected, got \"tsi\"",
+      83
+    ],
+    [
+      "\"e o\" expected, got \"ye \"",
+      74
+    ],
+    [
+      "\"e\" expected, got \"ye\"",
+      72
+    ],
+    [
+      "\"er \" expected, got \"yer\"",
+      70
+    ],
+    [
+      "\"yes\" expected, got \"esh\"",
+      63
+    ],
+    [
+      "\"sik\" expected, got \"tsi\"",
+      57
+    ],
+    [
+      "\"a\" expected, got \" a\"",
+      55
+    ],
+    [
+      "\"e t\" expected, got \"ye \"",
+      48
+    ],
+    [
+      "\"mli\" expected, got \"k t\"",
+      47
+    ],
+    [
+      "\"e b\" expected, got \"ye \"",
+      40
+    ],
+    [
+      "\"˚c \" expected, got \"c i\"",
+      38
+    ],
+    [
+      "\"lar\" expected, got \"��a\"",
+      37
+    ],
+    [
+      "\"˚s \" expected, got \"s i\"",
+      37
+    ],
+    [
+      "\"e m\" expected, got \"ye \"",
+      35
+    ],
+    [
+      "\"cre\" expected, got \"sre\"",
+      30
+    ],
+    [
+      "\"an \" expected, got \"��n\"",
+      25
+    ],
+    [
+      "\"mli\" expected, got \"k k\"",
+      23
+    ],
+    [
+      "\"elg\" expected, got \"yel\"",
+      22
+    ],
+    [
+      "\"ar \" expected, got \"��r\"",
+      20
+    ],
+    [
+      "\"e f\" expected, got \"ye \"",
+      20
+    ],
+    [
+      "\"e r\" expected, got \"ye \"",
+      20
+    ],
+    [
+      "\"eks\" expected, got \"yek\"",
+      20
+    ],
+    [
+      "\"era\" expected, got \"yer\"",
+      20
+    ],
+    [
+      "\"kor\" expected, got \"sil\"",
+      20
+    ],
+    [
+      "\"eve\" expected, got \"yev\"",
+      19
+    ],
+    [
+      "\"ero\" expected, got \"yer\"",
+      18
+    ],
+    [
+      "\"es \" expected, got \"yes\"",
+      18
+    ],
+    [
+      "\"bt \" expected, got \"vt \"",
+      18
+    ],
+    [
+      "\"lan\" expected, got \"��a\"",
+      16
+    ],
+    [
+      "\"mli\" expected, got \"k s\"",
+      16
+    ],
+    [
+      "\"ish\" expected, got \"��s\"",
+      15
+    ],
+    [
+      "\"dan\" expected, got \"��a\"",
+      15
+    ],
+    [
+      "\"ari\" expected, got \"��r\"",
+      15
+    ],
+    [
+      "\"e g\" expected, got \"ye \"",
+      15
+    ],
+    [
+      "\"e y\" expected, got \"ye \"",
+      14
+    ],
+    [
+      "\"ya \" expected, got \"�� \"",
+      14
+    ],
+    [
+      "\"yef\" expected, got \"efl\"",
+      13
+    ],
+    [
+      "\"ye \" expected, got \"e q\"",
+      13
+    ],
+    [
+      "\"��y\" expected, got \"aya\"",
+      13
+    ],
+    [
+      "\"ele\" expected, got \"��l\"",
+      13
+    ],
+    [
+      "\"b o\" expected, got \"v o\"",
+      13
+    ]
+  ],
+  "mismatchSamples": [
+    {
+      "code": "00305003001000000",
+      "cyr": "Бошқа озуқабоп балиқ маҳсулотлари, қуритилган, ��узланган, дудланган ёки шўр сувда",
+      "expected": "Boshqa ozuqabop baliq mahsulotlari, quritilgan, tuzlangan, dudlangan yoki sho’r suvda",
+      "got": "Boshqa ozuqabop baliq mahsulotlari, quritilgan, ��uzlangan, dudlangan yoki shoʻr suvda"
+    },
+    {
+      "code": "00401002001006003",
+      "cyr": "Қаймоқ (ёғс��з ва шакар қўшилмаган-ҳар қандай ёғ миқдорли): Happy Milk, қаймоқ сигир сутидан ёғлилиги 45%, пластик стакан 0,4 кг",
+      "expected": "Qaymoq (yog’siz va shakar qo’shilmagan-har qanday yog’ miqdorli): Happy Milk, qaymoq sigir sutidan yog’liligi 45%, plastik stakan 0,4 kg",
+      "got": "Qaymoq (yogʻs��z va shakar qoʻshilmagan-har qanday yogʻ miqdorli): Happy Milk, qaymoq sigir sutidan yogʻliligi 45%, plastik stakan 0,4 kg"
+    },
+    {
+      "code": "00401002001043001",
+      "cyr": "Қаймоқ (ёғсиз ва шакар қўшилмаган-ҳар қандай ёғ миқдорли): SUTELLO, қаймоқ ёғлилиги 45%, полистирол стака�� 0,2 кг",
+      "expected": "Qaymoq (yog’siz va shakar qo’shilmagan-har qanday yog’ miqdorli): SUTELLO, qaymoq yog’liligi 45%, polistirol stakan 0,2 kg",
+      "got": "Qaymoq (yogʻsiz va shakar qoʻshilmagan-har qanday yogʻ miqdorli): SUTELLO, qaymoq yogʻliligi 45%, polistirol staka�� 0,2 kg"
+    },
+    {
+      "code": "00401002001153001",
+      "cyr": "Қаймоқ (ёғсиз ва шакар қўшилмаган-ҳар қа��дай ёғ миқдорли): Мужиза, қаймоқ, пластмасса стаканча 250 г.",
+      "expected": "Qaymoq (yog’siz va shakar qo’shilmagan-har qanday yog’ miqdorli): Mujiza, qaymoq, plastmassa stakancha 250 g.",
+      "got": "Qaymoq (yogʻsiz va shakar qoʻshilmagan-har qa��day yogʻ miqdorli): Mujiza, qaymoq, plastmassa stakancha 250 g."
+    },
+    {
+      "code": "00402001001049008",
+      "cyr": "Қуюлтирилган ёки шак��р қўшилган сут (барча турдаги): Yoqimtoy, тўлиқ ёғсизлантирилган, пэт бутилка 655 г",
+      "expected": "Quyultirilgan yoki shakar qo’shilgan sut (barcha turdagi): Yoqimtoy, to’liq yog’sizlantirilgan, pet butilka 655 g",
+      "got": "Quyultirilgan yoki shak��r qoʻshilgan sut (barcha turdagi): Yoqimtoy, toʻliq yogʻsizlantirilgan, pet butilka 655 g"
+    },
+    {
+      "code": "00403002001034024",
+      "cyr": "Йогурт: Pure Milky, био йогурт черника таъмли бошоқлар билан ёғлилиги 1%, пластик бутилка 0,28 к��",
+      "expected": "Yogurt: Pure Milky, bio yogurt chernika tamli boshoqlar bilan yog’liligi 1%, plastik butilka 0,28 kg",
+      "got": "Yogurt: Pure Milky, bio yogurt chernika taʼmli boshoqlar bilan yogʻliligi 1%, plastik butilka 0,28 k��"
+    },
+    {
+      "code": "00403002001071049",
+      "cyr": "Йогурт: Melek, и��адаган ёғлилиги 20% қулупнай таъми билан, пэт бутилка 270",
+      "expected": "Yogurt: Melek, ichadagan yog’liligi 20% qulupnay tami bilan, pet butilka 270",
+      "got": "Yogurt: Melek, i��adagan yogʻliligi 20% qulupnay taʼmi bilan, pet butilka 270"
+    },
+    {
+      "code": "00403999008000001",
+      "cyr": "Сметана, уй шароитида тайёрланган",
+      "expected": "Smetana, uysharoitida tayyorlangan",
+      "got": "Smetana, uy sharoitida tayyorlangan"
+    },
+    {
+      "code": "00403999008103003",
+      "cyr": "Сметана: ZO'R, смета��а ёғлилиги 25%, полистирол стакан 0,4 кг",
+      "expected": "Smetana: ZO'R, smetana yog’liligi 25%, polistirol stakan 0,4 kg",
+      "got": "Smetana: ZOʻR, smeta��a yogʻliligi 25%, polistirol stakan 0,4 kg"
+    },
+    {
+      "code": "00403999008103004",
+      "cyr": "Сметана: ZO'R, смета��а ёғлилиги 25%, полистирол стакан 0,4 кг",
+      "expected": "Smetana: ZO'R, smetana yog’liligi 25%, polistirol stakan 0,4 kg",
+      "got": "Smetana: ZOʻR, smeta��a yogʻliligi 25%, polistirol stakan 0,4 kg"
+    },
+    {
+      "code": "00405001001020009",
+      "cyr": "Сариёғ (барча турдаги): Gold, сигир сутидан ёғлилик миқдори 82,5%, лам��натланган фольга 1,0 кг",
+      "expected": "Sariyog’ (barcha turdagi): Gold, sigir sutidan yog’lilik miqdori 82,5%, laminatlangan folga 1,0 kg",
+      "got": "Sariyogʻ (barcha turdagi): Gold, sigir sutidan yogʻlilik miqdori 82,5%, lam��natlangan folga 1,0 kg"
+    },
+    {
+      "code": "00405001001099001",
+      "cyr": "Сариёғ (барча турдаги): Lattico, эритилган сариёғ ёғлили��и 99%, пластик челак 1 кг",
+      "expected": "Sariyog’ (barcha turdagi): Lattico, eritilgan sariyog’ yog’liligi 99%, plastik chelak 1 kg",
+      "got": "Sariyogʻ (barcha turdagi): Lattico, eritilgan sariyogʻ yogʻlili��i 99%, plastik chelak 1 kg"
+    },
+    {
+      "code": "00406001001045001",
+      "cyr": "Пишлоқлар (барча турдаги): KASEREI СHAMPIGNON, cambozola 125гр",
+      "expected": "Pishloqlar (barcha turdagi): KASEREI СHAMPIGNON, cambozola 125gr",
+      "got": "Pishloqlar (barcha turdagi): KASEREI SHAMPIGNON, cambozola 125gr"
+    },
+    {
+      "code": "00406001001045002",
+      "cyr": "Пишлоқлар (барча турдаги): KASEREI СHAMPIGNON, camembert 125гр",
+      "expected": "Pishloqlar (barcha turdagi): KASEREI СHAMPIGNON, camembert 125gr",
+      "got": "Pishloqlar (barcha turdagi): KASEREI SHAMPIGNON, camembert 125gr"
+    },
+    {
+      "code": "00406001001045003",
+      "cyr": "Пишлоқлар (барча турдаги): KASEREI СHAMPIGNON, brie 125гр",
+      "expected": "Pishloqlar (barcha turdagi): KASEREI СHAMPIGNON, brie 125gr",
+      "got": "Pishloqlar (barcha turdagi): KASEREI SHAMPIGNON, brie 125gr"
+    },
+    {
+      "code": "00406001001045004",
+      "cyr": "Пишлоқлар (барча турдаги): KASEREI СHAMPIGNON, dor blu green wheel (хаворанг моғорли дор-блю)",
+      "expected": "Pishloqlar (barcha turdagi): KASEREI СHAMPIGNON, dor blu green wheel (xavorang mog’orli dor-blyu)",
+      "got": "Pishloqlar (barcha turdagi): KASEREI SHAMPIGNON, dor blu green wheel (xavorang mogʻorli dor-blyu)"
+    },
+    {
+      "code": "00406001001050033",
+      "cyr": "Пишлоқлар (барча турдаги): Melek, моцарелла тузланган, ёғлилиги 45%, вак��м қадоқ 200 гр",
+      "expected": "Pishloqlar (barcha turdagi): Melek, motsarella tuzlangan, yog’liligi 45%, vakum qadoq 200 gr",
+      "got": "Pishloqlar (barcha turdagi): Melek, motsarella tuzlangan, yogʻliligi 45%, vak��m qadoq 200 gr"
+    },
+    {
+      "code": "00406001001094001",
+      "cyr": "Пишлоқлар (барча турдаги): Holland, пишлоқ қаттиқ голландча ёғлилиг�� 45%",
+      "expected": "Pishloqlar (barcha turdagi): Holland, pishloq qattiq gollandcha yog’liligi 45%",
+      "got": "Pishloqlar (barcha turdagi): Holland, pishloq qattiq gollandcha yogʻlilig�� 45%"
+    },
+    {
+      "code": "00406001001126096",
+      "cyr": "П��шлоқлар (барча турдаги): Tillo Domor, пишлоқ ширдон сувли қаттиқ, тўртбурчак бўлак ёғлилиги 45% охотничий -хорезмский тилло домор",
+      "expected": "Pishloqlar (barcha turdagi): Tillo Domor, pishloq shirdon suvli qattiq, to’rtburchak bo’lak yog’liligi 45% oxotnichiy -xorezmskiy tillo domor",
+      "got": "P��shloqlar (barcha turdagi): Tillo Domor, pishloq shirdon suvli qattiq, toʻrtburchak boʻlak yogʻliligi 45% oxotnichiy -xorezmskiy tillo domor"
+    },
+    {
+      "code": "00406001001131009",
+      "cyr": "Пишлоқлар (барча турдаги): Cream Cheese, пишл��қ эритилган творогли labneh ёғлилиги 55%",
+      "expected": "Pishloqlar (barcha turdagi): Cream Cheese, pishloq eritilgan tvorogli labneh yog’liligi 55%",
+      "got": "Pishloqlar (barcha turdagi): Cream Cheese, pishl��q eritilgan tvorogli labneh yogʻliligi 55%"
+    },
+    {
+      "code": "00406001001135001",
+      "cyr": "Пишлоқлар (барча турдаги): Сream Cheese, пишлоқ қаймоқли ёғлилиги 55%",
+      "expected": "Pishloqlar (barcha turdagi): Сream Cheese, pishloq qaymoqli yog’liligi 55%",
+      "got": "Pishloqlar (barcha turdagi): Sream Cheese, pishloq qaymoqli yogʻliligi 55%"
+    },
+    {
+      "code": "00406001001135002",
+      "cyr": "Пишлоқлар (барча турдаги): Сream Cheese, суюқ пишлоқ ёғлилиги 55% кўкат ва сметана билан",
+      "expected": "Pishloqlar (barcha turdagi): Сream Cheese, suyuq pishloq yog’liligi 55% ko’kat va smetana bilan",
+      "got": "Pishloqlar (barcha turdagi): Sream Cheese, suyuq pishloq yogʻliligi 55% koʻkat va smetana bilan"
+    },
+    {
+      "code": "00406001001135003",
+      "cyr": "Пишлоқлар (барча турдаги): Сream Cheese, суюқ пишлоқ қаймоқли ёғлилиги 55%",
+      "expected": "Pishloqlar (barcha turdagi): Сream Cheese, suyuq pishloq qaymoqli yog’liligi 55%",
+      "got": "Pishloqlar (barcha turdagi): Sream Cheese, suyuq pishloq qaymoqli yogʻliligi 55%"
+    },
+    {
+      "code": "00406001001135004",
+      "cyr": "Пишлоқлар (барча турдаги): Сream Cheese, суюқ пишлоқ творогли 55%",
+      "expected": "Pishloqlar (barcha turdagi): Сream Cheese, suyuq pishloq tvorogli 55%",
+      "got": "Pishloqlar (barcha turdagi): Sream Cheese, suyuq pishloq tvorogli 55%"
+    },
+    {
+      "code": "00406001001135005",
+      "cyr": "Пишлоқлар (барча турдаги): Сream Cheese, суюқ пишлоқ 4 турдаги пишлоқ ёғлилиги 55%",
+      "expected": "Pishloqlar (barcha turdagi): Сream Cheese, suyuq pishloq 4 turdagi pishloq yog’liligi 55%",
+      "got": "Pishloqlar (barcha turdagi): Sream Cheese, suyuq pishloq 4 turdagi pishloq yogʻliligi 55%"
+    }
+  ]
+}
