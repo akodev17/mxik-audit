@@ -33,8 +33,8 @@ export type RerankConfig = {
   price: { inputPerMTok: number; outputPerMTok: number } | null;
 };
 
-// Current IDs and first-party prices from the Claude API docs (models overview,
-// checked 2026-10-15). Default is the docs' current default model.
+// Current IDs and first-party prices from https://platform.claude.com/docs/en/models/overview
+// (checked 2026-10-15). Default is the model that page recommends starting with.
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 
 const PRICES: Record<string, { inputPerMTok: number; outputPerMTok: number }> = {

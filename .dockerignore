@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+tmp
+*.log
+.env
+.env.*
+!.env.example
+# Classifier downloads and the 1.1 GB NDJSON are mounted at runtime, never baked in.
+data/*.xlsx
+data/mxik.ndjson

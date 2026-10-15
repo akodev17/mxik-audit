@@ -1,4 +1,7 @@
-# Host port 54329: 5432 and 5433 are already taken by other projects on this machine.
+# Development: `docker compose up -d` starts only the database (host port 54329;
+# 5432 and 5433 are taken by other projects on this machine).
+# Production: `docker compose --profile app up -d` adds the web app. DEPLOY.md
+# has the full sequence, including migrations and the classifier import.
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -6,12 +9,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: mxik
-      POSTGRES_PASSWORD: mxik
+      # Set POSTGRES_PASSWORD in .env for any server; the default suits local development only.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mxik}
       POSTGRES_DB: mxik
       # Uzbek/Russian text sorts under ICU; keep the collation explicit.
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=icu --icu-locale=und"
     ports:
-      - "54329:5432"
+      # Loopback only. Docker-published ports bypass host firewalls such as ufw,
+      # so binding 0.0.0.0 would expose Postgres to the internet on a VPS.
+      - "127.0.0.1:54329:5432"
     # pgvector builds HNSW indexes in parallel through shared memory; the 64MB
     # Docker default is far too small and the build fails with ENOSPC.
     shm_size: "2gb"
@@ -19,7 +25,7 @@ services:
       - mxik-pgdata:/var/lib/postgresql/data
     command:
       - postgres
-      # 439k rows plus two vector indexes; the defaults are too small to build them.
+      # 443k rows plus two vector indexes; the defaults are too small to build them.
       - -c
       - maintenance_work_mem=1GB
       - -c
@@ -31,6 +37,35 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      # Inlined into the browser bundle at build time; rebuild after changing.
+      args:
+        NEXT_PUBLIC_DEMO_URL: ${NEXT_PUBLIC_DEMO_URL:-/demo}
+        NEXT_PUBLIC_TELEGRAM_URL: ${NEXT_PUBLIC_TELEGRAM_URL:-}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
+        NEXT_PUBLIC_SHOW_LEGAL_223: ${NEXT_PUBLIC_SHOW_LEGAL_223:-false}
+        NEXT_PUBLIC_FEATURE_MULTI_CLIENT: ${NEXT_PUBLIC_FEATURE_MULTI_CLIENT:-false}
+    image: mxik-audit-app
+    container_name: mxik-audit-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Inside the compose network the database is "db" on 5432, whatever .env says.
+      DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
+      NODE_ENV: production
+    ports:
+      # nginx on the host terminates HTTPS and proxies here.
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # Classifier downloads and the ingest output live on the host.
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   mxik-pgdata:
