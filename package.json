@@ -14,6 +14,7 @@
     "bench:enrich": "tsx scripts/bench-enrich.ts",
     "check:marking": "tsx scripts/check-marking-coverage.ts",
     "check:services": "tsx scripts/check-services.ts",
+    "check:portal-examples": "tsx scripts/check-portal-examples.ts",
     "ingest": "tsx scripts/ingest-catalog.ts",
     "generate:units": "tsx scripts/generate-units.ts",
     "test": "node scripts/test.mjs",
