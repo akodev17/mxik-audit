@@ -1,4 +1,5 @@
 import { LeadForm } from '@/app/lead-form';
+import { DATA_FLOW } from './data';
 import { WRAP } from './primitives';
 
 export function LeadSection() {
@@ -17,8 +18,8 @@ export function LeadSection() {
             <ul className="mt-7 list-none space-y-2.5 p-0 text-sm text-ink-soft">
               {[
                 'Excel (.xlsx) yoki CSV — ustunlar tartibi muhim emas',
-                'Fayl faqat audit uchun ishlatiladi, uchinchi shaxslarga berilmaydi',
-                'Istagan paytda oʻchirishimizni soʻrashingiz mumkin',
+                `${DATA_FLOW.purpose} Tashqi AI xizmatiga faqat tovar nomi va oʻlchov birligi borishi mumkin`,
+                DATA_FLOW.deletion,
               ].map((line) => (
                 <li key={line} className="flex gap-3">
                   <span aria-hidden="true" className="text-ok">

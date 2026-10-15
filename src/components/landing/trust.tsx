@@ -1,3 +1,4 @@
+import { DATA_FLOW } from './data';
 import { Eyebrow, WRAP } from './primitives';
 
 export function Trust() {
@@ -32,11 +33,8 @@ export function Trust() {
           <div>
             <h3 className="text-[19px]">Maʼlumotlaringiz</h3>
             <p className="mt-2 text-sm text-ink-soft">
-              Tahlilda faqat toʻrt ustun ishlatiladi: tovar nomi, shtrix kod, MXIK
-              kodi va oʻlchov birligi. Aniqlikni oshirish uchun tovar nomlari tashqi
-              xizmatga yuboriladi — faqat nomlar, narx va mijoz maʼlumotlari emas.
-              Xohlasangiz, bu bosqichni oʻchiramiz. Faylni istagan paytda
-              oʻchirishimizni soʻrashingiz mumkin.
+              {DATA_FLOW.stored} {DATA_FLOW.external} {DATA_FLOW.optOut}{' '}
+              {DATA_FLOW.deletion}
             </p>
           </div>
         </div>

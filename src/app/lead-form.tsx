@@ -115,8 +115,8 @@ export function LeadForm() {
 
       <p className="text-xs text-ink-faint">
         Roʻyxatdan oʻtish, parol yoki karta kerak emas. Fayl faqat shu audit uchun
-        ishlatiladi; tahlilda tovar nomi, shtrix kod, MXIK kodi va oʻlchov birligi
-        oʻqiladi. Uchinchi shaxslarga berilmaydi.
+        ishlatiladi. Tashqi AI xizmatiga faqat tovar nomi va oʻlchov birligi
+        borishi mumkin — narx, shtrix kod va boshqa ustunlar emas.
       </p>
     </form>
   );

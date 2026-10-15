@@ -245,13 +245,47 @@ export const DELIVERABLES = [
   },
   {
     title: 'Tekshiruv tarixi',
-    body: 'Qaysi qaror qachon va kim tomonidan qabul qilinganini koʻrasiz.',
+    // The log is stored (AuditEvent, append-only) but no screen shows it yet,
+    // so this must not say "koʻrasiz".
+    body: 'Har bir qaror kim tomonidan va qachon qabul qilingani bilan yozib boriladi.',
   },
   {
     title: 'Excel eksport',
     body: 'Tasdiqlangan oʻzgarishlarni katalogingizga qaytarib olasiz.',
   },
 ] as const;
+
+/* ------------------------------------------------------------------ data flow
+
+   One wording, used everywhere the page talks about the customer's file, so
+   two sections can never contradict each other again. Checked against code:
+
+   - Stored: the whole file. Lead uploads keep the bytes (Lead.fileData,
+     src/app/actions/lead.ts); app uploads keep every original cell
+     (CatalogItem.attrs.original) so Export can rebuild the file.
+   - Read by the audit: name, barcode, MXIK, unit (src/lib/audit-runner.ts).
+     Price is stored but not used.
+   - Leaves the server, and only when a provider key is configured:
+       · the product name, normalized, to the embedding provider (OpenAI or
+         Voyage) — src/core/match/pipeline.ts, embedder.embed([query]);
+       · the product name, attributes parsed from it, and the row's unit, to
+         the reranker (Anthropic) — src/core/match/rerank.ts.
+     Barcode, price and every other column never do.
+   - Deletion: there is no deletion mechanism in code. Files are removed by
+     hand on request, and the copy says exactly that. */
+export const DATA_FLOW = {
+  stored:
+    'Fayl serverimizda saqlanadi — tuzatilgan Excelni asl koʻrinishida '
+    + 'qaytarish uchun. Tahlilda toʻrt ustun oʻqiladi: tovar nomi, shtrix kod, '
+    + 'MXIK kodi va oʻlchov birligi.',
+  external:
+    'Tavsiyani aniqlashtirish uchun tashqi AI xizmatiga faqat tovar nomi va '
+    + 'oʻlchov birligi yuborilishi mumkin. Narx, shtrix kod, miqdor va boshqa '
+    + 'ustunlar serverdan chiqmaydi.',
+  optOut: 'Xohlasangiz, katalogingizni tashqi xizmatsiz tekshiramiz.',
+  deletion: 'Soʻrovingiz boʻyicha faylni qoʻlda oʻchiramiz.',
+  purpose: 'Fayl faqat shu audit uchun ishlatiladi.',
+} as const;
 
 export const PRICING = [
   { rows: '500 SKU gacha', price: '700 000' },
