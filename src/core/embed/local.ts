@@ -19,10 +19,22 @@ export const LOCAL_MODELS: Record<string, LocalModel> = {
 
 export const DEFAULT_LOCAL_MODEL = 'multilingual-e5-small';
 
-/** LOCAL_EMBED_THREADS, else half the logical CPUs (leaves room for Postgres and the web server). */
+/**
+ * LOCAL_EMBED_THREADS, else 4: on a 16-thread CPU, 4 threads ran fp32 at
+ * 46 texts/s and 8 at 27 (oversubscription), so more is not faster.
+ */
 export function embedThreads(env: Record<string, string | undefined> = process.env): number {
   const n = Number(env['LOCAL_EMBED_THREADS']);
-  return Number.isInteger(n) && n > 0 ? n : Math.max(1, Math.floor(availableParallelism() / 2));
+  return Number.isInteger(n) && n > 0 ? n : Math.min(4, availableParallelism());
+}
+
+/**
+ * Where inference runs. cpu everywhere by default; dml (DirectML, Windows GPU)
+ * is ~8x faster for a backfill and gives the same vectors within float noise.
+ */
+function embedDevice(env: Record<string, string | undefined> = process.env): 'cpu' | 'dml' | 'webgpu' {
+  const d = env['LOCAL_EMBED_DEVICE']?.trim();
+  return d === 'dml' || d === 'webgpu' ? d : 'cpu';
 }
 
 type Extractor = (texts: string[], options: { pooling: 'mean'; normalize: boolean }) => Promise<{ tolist(): number[][] }>;
@@ -45,10 +57,13 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   private load(): Promise<Extractor> {
     this.extractor ??= import('@huggingface/transformers').then(async ({ env, pipeline }) => {
       env.cacheDir = this.cacheDir;
+      const device = embedDevice();
       const extractor: Extractor = await pipeline('feature-extraction', this.model.id, {
-        dtype: 'q8',
-        // ONNX Runtime's default used ~2 cores; the backfill is CPU-bound.
-        session_options: { intraOpNumThreads: embedThreads() },
+        // fp32 everywhere, so stored and query vectors come from the same
+        // weights (int8 differs by ~0.005 in cosine).
+        dtype: 'fp32',
+        device,
+        ...(device === 'cpu' ? { session_options: { intraOpNumThreads: embedThreads() } } : {}),
       });
       return extractor;
     });
