@@ -80,54 +80,117 @@ export const EVIDENCE_ROWS = [
 /* --------------------------------------------------------------- consequences */
 
 /* VERIFICATION STATUS — READ BEFORE EDITING.
-   Only the first item has a primary source: VMQ No. 595 of 22.09.2021 was
-   checked against lex.uz and it backs the EHF restriction. The other three are
-   stated as mechanism or practice, with no article number, and each says so in
-   the copy the reader sees. `verified: false` means: a tax adviser must confirm
-   it against a primary source before it may be worded as settled law. Do not
-   attach the VMQ 595 citation to the other three — it does not cover them. */
-export const CONSEQUENCES = [
-  {
-    title: 'EHF chiqarib boʻlmaydi',
-    body:
-      'Tovar milliy katalogda topilmasa, elektron hisobvaraq-fakturani '
-      + 'rasmiylashtirish cheklanadi. Bu jarima emas — savdoning toʻxtashi.',
-    cite: 'VMQ № 595, 22.09.2021',
-    citeHref: 'https://lex.uz/docs/5650010',
-    citeNote: 'lex.uz bilan tekshirilgan',
-    verified: true,
-  },
-  {
-    title: 'Xaridorning QQS hisobi',
-    body:
-      'Kirish QQSi mos keladigan EHF asosida hisobga olinadi. Kod notoʻgʻri '
-      + 'boʻlsa, savol avval mijozingizda paydo boʻladi — keyin sizda.',
-    cite: null,
-    citeHref: null,
-    citeNote: 'Amaliyot tavsifi. Aniq moddani soliq maslahatchingiz bilan tasdiqlang',
-    verified: false,
-  },
-  {
-    title: 'Razriv → tushuntirish soʻrovi',
-    body:
-      'Sizning EHF bilan kontragent EHF orasidagi moslik buzilsa, tizim buni '
-      + 'belgilaydi. Keyingi qadam — kameral tekshiruv doirasidagi soʻrov.',
-    cite: null,
-    citeHref: null,
-    citeNote: 'Maʼmuriy amaliyot: aniq modda emas, tizim mexanizmi',
-    verified: false,
-  },
-  {
-    title: 'Jarima',
-    body:
-      'Hisobvaraq-fakturani notoʻgʻri rasmiylashtirish uchun javobgarlik '
-      + 'belgilangan. Aniq modda va miqdor holatga bogʻliq.',
-    cite: null,
-    citeHref: null,
-    citeNote: 'Moddani ataylab keltirmayapmiz: oshirib koʻrsatishdan koʻra aniqlik muhim',
-    verified: false,
-  },
-] as const;
+
+   Each source is attached only to the sentence it actually supports.
+
+   EHF card, checked 15.10.2026:
+   - VMQ No. 595 of 22.09.2021, p.6 «г» (lex.uz/docs/5650010): an automatic
+     check, based on the national product catalogue, of whether the SUPPLIER
+     has the goods; where it does not, issuing a sales invoice is restricted.
+     It does not mention MXIK by name and does not say who it applies to today.
+   - Tax Committee statement of 08.04.2026 (t.me/soliqnews/18626): today the
+     restriction applies to TRADE companies — goods being sold are compared with
+     their purchases by MXIK, and the invoice is blocked when they are not
+     found. Production, construction and agriculture are excluded for now.
+   So "trade companies" and "by MXIK" are cited to the statement, not to the
+   decree.
+
+   The QQS and razriv cards are stated as practice / mechanism with no article
+   number, and say so in the copy. `verified: false` means a tax adviser must
+   confirm it before it may be worded as settled law.
+
+   The fine card has two versions; see FINE_CARD_223 below. */
+export type Source = { label: string; href: string; note: string };
+
+export type Consequence = {
+  title: string;
+  body: string;
+  sources: readonly Source[];
+  /** Shown when there is no source: what kind of statement this is. */
+  note: string | null;
+  verified: boolean;
+};
+
+const EHF_CARD: Consequence = {
+  title: 'Savdoda EHF bloklanishi mumkin',
+  body:
+    'Savdo korxonasi sotayotgan tovar MXIK boʻyicha xaridlari orasida '
+    + 'topilmasa, EHF rasmiylashtirish cheklanadi. Solishtirish kod boʻyicha '
+    + 'boʻlgani uchun katalogdagi notoʻgʻri kod xarid bilan mos kelmay qolishi '
+    + 'mumkin. Hozircha bu savdo korxonalariga qoʻllanadi.',
+  sources: [
+    {
+      label: 'VMQ № 595, 22.09.2021, 6-band «g»',
+      href: 'https://lex.uz/docs/5650010',
+      note:
+        'lex.uz bilan tekshirilgan: yetkazib beruvchida tovar mavjudligini '
+        + 'avtomatik aniqlash, tovar boʻlmasa — EHFni cheklash',
+    },
+    {
+      label: 'Soliq qoʻmitasi rasmiy munosabati, 08.04.2026',
+      href: 'https://t.me/soliqnews/18626',
+      note: 'savdo korxonalariga qoʻllanishi va MXIK boʻyicha solishtirish',
+    },
+  ],
+  note: null,
+  verified: true,
+};
+
+const FINE_CARD_GENERIC: Consequence = {
+  title: 'Jarima',
+  body:
+    'Hisobvaraq-fakturani notoʻgʻri rasmiylashtirish uchun javobgarlik '
+    + 'belgilangan. Aniq modda va miqdor holatga bogʻliq.',
+  sources: [],
+  note: 'Moddani ataylab keltirmayapmiz: oshirib koʻrsatishdan koʻra aniqlik muhim',
+  verified: false,
+};
+
+/* Behind NEXT_PUBLIC_SHOW_LEGAL_223 (off by default). Wording follows Tax Code
+   art. 223 part 5 as read on 15.10.2026 from a consolidated edition dated
+   19.07.2026 (prg.kz). Not yet confirmed on lex.uz by a tax adviser — which is
+   exactly what the flag waits for. */
+const FINE_CARD_223: Consequence = {
+  title: 'Jarima — sotuv qiymatining 1%',
+  body:
+    'Hisobvaraq-faktura yoki kassa chekida tovar nomenklaturasiga mos '
+    + 'kelmaydigan identifikatsiya kodi koʻrsatilsa, shu hujjatdagi sotuv '
+    + 'qiymatining 1% miqdorida jarima qoʻllanadi.',
+  sources: [
+    {
+      label: 'Soliq kodeksi, 223-modda, 5-qism',
+      href: 'https://lex.uz/docs/4674902',
+      note: 'soliq maslahatchisi bilan tasdiqlangan',
+    },
+  ],
+  note: null,
+  verified: true,
+};
+
+export function consequences(showLegal223: boolean): readonly Consequence[] {
+  return [
+    EHF_CARD,
+    {
+      title: 'Xaridorning QQS hisobi',
+      body:
+        'Kirish QQSi mos keladigan EHF asosida hisobga olinadi. Kod notoʻgʻri '
+        + 'boʻlsa, savol avval mijozingizda paydo boʻladi — keyin sizda.',
+      sources: [],
+      note: 'Amaliyot tavsifi. Aniq moddani soliq maslahatchingiz bilan tasdiqlang',
+      verified: false,
+    },
+    {
+      title: 'Razriv → tushuntirish soʻrovi',
+      body:
+        'Sizning EHF bilan kontragent EHF orasidagi moslik buzilsa, tizim buni '
+        + 'belgilaydi. Keyingi qadam — kameral tekshiruv doirasidagi soʻrov.',
+      sources: [],
+      note: 'Maʼmuriy amaliyot: aniq modda emas, tizim mexanizmi',
+      verified: false,
+    },
+    showLegal223 ? FINE_CARD_223 : FINE_CARD_GENERIC,
+  ];
+}
 
 /* --------------------------------------------------------------- the findings */
 
