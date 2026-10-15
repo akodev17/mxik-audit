@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { submitLead, type LeadState } from '@/app/actions/lead';
 
@@ -116,7 +117,9 @@ export function LeadForm() {
       <p className="text-xs text-ink-faint">
         Roʻyxatdan oʻtish, parol yoki karta kerak emas. Fayl faqat shu audit uchun
         ishlatiladi. Tashqi AI xizmatiga faqat tovar nomi va oʻlchov birligi
-        borishi mumkin — narx, shtrix kod va boshqa ustunlar emas.
+        borishi mumkin — narx, shtrix kod va boshqa ustunlar emas. Batafsil:{' '}
+        <Link href="/maxfiylik" className="underline">maxfiylik siyosati</Link>,{' '}
+        <Link href="/oferta" className="underline">oferta</Link>.
       </p>
     </form>
   );

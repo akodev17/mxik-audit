@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Accountants } from '@/components/landing/accountants';
 import { Consequences } from '@/components/landing/consequences';
 import { GetStarted } from '@/components/landing/get-started';
 import { Hero } from '@/components/landing/hero';
@@ -29,6 +30,7 @@ export default function LandingPage() {
         <Consequences />
         <HowItWorks />
         <SampleReport />
+        <Accountants />
         <Trust />
         <GetStarted />
       </main>

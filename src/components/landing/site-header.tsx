@@ -23,7 +23,7 @@ export function SiteHeader() {
               </li>
             ) : null}
             <li>
-              <a href="#narxlar" className={LINK}>
+              <a href="/#narxlar" className={LINK}>
                 Narxlar
               </a>
             </li>
