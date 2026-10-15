@@ -205,6 +205,15 @@ export class PostgresCandidateStore implements CandidateStore {
     return row ? toCandidate(row) : null;
   }
 
+  async liveCodes(codes: readonly string[]): Promise<Set<string>> {
+    if (codes.length === 0) return new Set();
+    const res = await this.pool.query<{ code: string }>(
+      'SELECT code FROM mxik_code WHERE code = ANY($1::char(17)[]) AND "retiredAt" IS NULL',
+      [codes],
+    );
+    return new Set(res.rows.map((r) => r.code.trim()));
+  }
+
   /** True when the code exists at all, regardless of retirement. */
   async exists(code: string): Promise<{ found: boolean; retired: boolean }> {
     const res = await this.pool.query<{ retiredAt: Date | null }>(

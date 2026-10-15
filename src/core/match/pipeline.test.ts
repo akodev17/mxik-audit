@@ -3,9 +3,9 @@ import { describe, it } from 'node:test';
 import { HashingEmbeddingProvider } from '../embed/index.js';
 import { matchProduct } from './pipeline.js';
 import { NoopRerankProvider } from './rerank.js';
-import { BANDS } from './score.js';
+import { BANDS, NO_RERANK_CEILING } from './score.js';
 import type {
-  CandidateStore, EmbeddingProvider, MxikCandidate, RerankProvider, RerankVerdict,
+  CandidateStore, EmbeddingProvider, MxikCandidate, RerankProvider, RerankRequest, RerankVerdict,
 } from './types.js';
 
 function candidate(code: string, nameUz: string, overrides: Partial<MxikCandidate> = {}): MxikCandidate {
@@ -56,6 +56,10 @@ class FakeStore implements CandidateStore {
   }
   baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null> {
     return Promise.resolve(this.rows.find((r) => r.subPositionCode === subPositionCode && r.isBase) ?? null);
+  }
+  liveCodes(codes: readonly string[]): Promise<Set<string>> {
+    const known = new Set(this.rows.map((r) => r.code));
+    return Promise.resolve(new Set(codes.filter((c) => known.has(c))));
   }
 }
 
@@ -206,6 +210,85 @@ describe('matchProduct cascade', () => {
     const a = await matchProduct({ rawName: "GO'ShT" }, { store, embedder, reranker: noop });
     const b = await matchProduct({ rawName: 'goʻsht' }, { store, embedder, reranker: noop });
     assert.equal(a.candidates[0]?.candidate.code, b.candidates[0]?.candidate.code);
+  });
+});
+
+/** Records what it was sent, then answers with fixed verdicts. */
+class RecordingReranker implements RerankProvider {
+  readonly name = 'recording';
+  readonly available = true;
+  requests: RerankRequest[] = [];
+  constructor(private readonly verdicts: RerankVerdict[] = []) {}
+  rerank(request: RerankRequest): Promise<RerankVerdict[]> {
+    this.requests.push(request);
+    return Promise.resolve(this.verdicts);
+  }
+}
+
+/** A store in which some offered codes have since been retired. */
+class PartlyRetiredStore extends FakeStore {
+  constructor(rows: MxikCandidate[], private readonly retired: Set<string>) { super(rows); }
+  override liveCodes(codes: readonly string[]): Promise<Set<string>> {
+    return super.liveCodes(codes.filter((c) => !this.retired.has(c)));
+  }
+}
+
+describe('reranker safety', () => {
+  it('keeps the no-reranker cap when the reranker call fails', async () => {
+    // Regression: a configured-but-failing reranker used to lift the cap and
+    // push retrieval-only guesses into the bulk-accept band.
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: new ThrowingReranker() });
+    for (const c of r.candidates) assert.ok(c.confidence <= NO_RERANK_CEILING, `${c.confidence} escaped the cap`);
+  });
+
+  it('lifts the cap only for candidates the reranker actually scored', async () => {
+    const reranker = new RecordingReranker([{ code: '01901001003000000', confidence: 0.99, reason: 'base code fits' }]);
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker });
+    for (const c of r.candidates) {
+      if (c.signals.llm === undefined) assert.ok(c.confidence <= NO_RERANK_CEILING, `${c.candidate.code} escaped the cap`);
+    }
+  });
+
+  it('discards a returned code that is not a live classifier code', async () => {
+    const retired = '01901001003002001';
+    const reranker = new RecordingReranker([{ code: retired, confidence: 0.99, reason: 'looks right' }]);
+    const r = await matchProduct(
+      { rawName: 'guruch' },
+      { store: new PartlyRetiredStore(ROWS, new Set([retired])), embedder, reranker },
+    );
+    assert.equal(r.decidedBy, 'fusion');
+    assert.ok(r.notes.some((n) => n.includes('discarded')));
+    for (const c of r.candidates) assert.ok(c.confidence <= NO_RERANK_CEILING);
+  });
+
+  it('discards a returned code that was never offered', async () => {
+    const reranker = new RecordingReranker([{ code: '09999999999999999', confidence: 0.99, reason: 'invented' }]);
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker });
+    assert.ok(!r.candidates.some((c) => c.candidate.code === '09999999999999999'));
+    assert.equal(r.decidedBy, 'fusion');
+  });
+
+  it('skips a row the gate calls certain, without calling the reranker, and keeps the cap', async () => {
+    const reranker = new RecordingReranker([{ code: '01901001003000000', confidence: 0.99, reason: 'x' }]);
+    const r = await matchProduct(
+      { rawName: 'guruch' },
+      { store: new FakeStore(ROWS), embedder, reranker, rerankGate: { minConfidence: 0, minMargin: 0 } },
+    );
+    assert.equal(reranker.requests.length, 0);
+    assert.ok(r.notes.some((n) => n.includes('Reranker skipped')));
+    for (const c of r.candidates) assert.ok(c.confidence <= NO_RERANK_CEILING);
+  });
+
+  it('sends only the product name, normalized key, unit and prepared-dish flag', async () => {
+    const reranker = new RecordingReranker();
+    await matchProduct(
+      { rawName: 'Guruch 1 kg ART-5531', unit: 'kg', barcode: null, existingMxik: '01901001003000000' },
+      { store: new FakeStore(ROWS), embedder, reranker },
+    );
+    const sent = reranker.requests[0];
+    assert.ok(sent);
+    assert.deepEqual(Object.keys(sent).sort(), ['candidates', 'normalizedKey', 'preparedDish', 'productName', 'unit']);
+    assert.equal(sent.unit, 'kg');
   });
 });
 

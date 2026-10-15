@@ -4,12 +4,14 @@ import { Pool } from 'pg';
 import { db } from './db.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
 import { matchProduct } from '../core/match/pipeline.js';
-import { rerankProviderFromEnv } from '../core/match/rerank.js';
+import { rerankFromEnv } from '../core/match/rerank.js';
+import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
+import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
 import { PostgresCandidateStore } from '../core/match/store.js';
 import { checkVectorReadiness } from '../core/match/vector-readiness.js';
 import { normalizeName } from '../core/normalize/index.js';
 import { readCode, runChecks, type ResolvedRow } from '../core/audit/checks.js';
-import type { ScoredCandidate } from '../core/match/types.js';
+import type { RerankUsage, ScoredCandidate } from '../core/match/types.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 
@@ -26,19 +28,25 @@ export type AuditOutcome = {
   /** True when stage 4 or 6 ran degraded, so the UI can say so. */
   degraded: boolean;
   degradedReasons: string[];
+  /** Null when the reranker was off for this run. */
+  llm: RerankUsage | null;
 };
 
 /**
  * Audits every row of a catalogue. Rows are processed in small concurrent
- * batches: each row costs a handful of Postgres queries plus, when configured,
- * one LLM call, so unbounded concurrency would exhaust both.
+ * batches: each row costs a handful of Postgres queries, and uncertain rows are
+ * grouped into shared LLM calls, so unbounded concurrency would exhaust both.
  */
 export async function auditCatalog(
   catalogId: string,
   onProgress?: (p: AuditProgress) => void,
 ): Promise<AuditOutcome> {
   const configured = embeddingProviderFromEnv();
-  const reranker = rerankProviderFromEnv();
+  const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });
+  if (!catalogOrg) throw new Error(`no catalogue ${catalogId}`);
+  // Cached verdicts are scoped to the org, never shared across customers.
+  const cache = new PostgresRerankCache(pool, catalogOrg.orgId, rerankConfigFromEnv(process.env).model);
+  const { reranker, gate } = rerankFromEnv(process.env, cache);
   const readiness = await checkVectorReadiness(pool, configured);
   const embedder = readiness.embedder;
   const store = new PostgresCandidateStore(pool, {
@@ -60,7 +68,7 @@ export async function auditCatalog(
     },
   });
 
-  const CONCURRENCY = reranker.available ? 4 : 8;
+  const CONCURRENCY = 8;
   let done = 0;
   let findingsCreated = 0;
   let next = 0;
@@ -76,7 +84,7 @@ export async function auditCatalog(
         barcode: item.barcode,
         unit: item.unit,
         existingMxik: item.existingMxik,
-      }, { store, embedder, reranker });
+      }, { store, embedder, reranker, rerankGate: gate });
 
       // Resolve the row's own code so NOT_FOUND and retirement can be judged.
       const code = readCode(item.existingMxik);
@@ -98,7 +106,8 @@ export async function auditCatalog(
         if (self) {
           const selfMatch = await matchProduct(
             { rawName: item.rawName, unit: item.unit },
-            { store, embedder, reranker, topK: 20 },
+            // Same name + unit, so a reranked row is a cache hit here, not a second call.
+            { store, embedder, reranker, rerankGate: gate, topK: 20 },
           );
           const found = selfMatch.candidates.find((s) => s.candidate.code === code);
           if (found) suggestions = [...suggestions, found];
@@ -138,6 +147,7 @@ export async function auditCatalog(
     findingsCreated,
     degraded: degradedReasons.length > 0,
     degradedReasons,
+    llm: reranker.usage?.() ?? null,
   };
 }
 

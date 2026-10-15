@@ -2,6 +2,7 @@
 // can be analysed without going through the browser.
 // Run: npm run seed:audit <catalogId>
 import '../src/lib/load-env.js';
+import { formatLlmUsage } from '../src/core/match/rerank-usage.js';
 import { auditCatalog } from '../src/lib/audit-runner.js';
 import { db } from '../src/lib/db.js';
 
@@ -34,12 +35,14 @@ try {
         findingsCreated: outcome.findingsCreated,
         degraded: outcome.degraded,
         degradedReasons: outcome.degradedReasons,
+        llm: outcome.llm,
       },
     },
   });
   console.log(`\naudited ${outcome.itemsAudited} rows in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   console.log(`findings: ${outcome.findingsCreated}`);
   if (outcome.degraded) console.log(`degraded: ${outcome.degradedReasons.join(', ')}`);
+  if (outcome.llm) console.log(formatLlmUsage(outcome.llm, outcome.itemsAudited));
 } catch (error) {
   await db.catalog.update({ where: { id: catalogId }, data: { status: 'failed' } });
   throw error;

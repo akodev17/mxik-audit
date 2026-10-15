@@ -53,6 +53,7 @@
     "typescript-eslint": "^8.67.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
     "@prisma/client": "^6.19.3",
     "exceljs": "^4.4.0",
     "iron-session": "^8.0.4",

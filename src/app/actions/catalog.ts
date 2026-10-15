@@ -227,6 +227,7 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
           findingsCreated: outcome.findingsCreated,
           degraded: outcome.degraded,
           degradedReasons: outcome.degradedReasons,
+          llm: outcome.llm,
           mapping,
         },
       },

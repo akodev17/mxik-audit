@@ -7,7 +7,8 @@ import { Pool } from 'pg';
 import { z } from 'zod';
 import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
 import { matchProduct } from '../src/core/match/pipeline.js';
-import { rerankProviderFromEnv } from '../src/core/match/rerank.js';
+import { rerankFromEnv } from '../src/core/match/rerank.js';
+import { MemoryRerankCache } from '../src/core/match/rerank-cache.js';
 import { PostgresCandidateStore } from '../src/core/match/store.js';
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
 import { BANDS } from '../src/core/match/score.js';
@@ -36,7 +37,7 @@ const golden = GoldenSchema.parse(JSON.parse(readFileSync('eval/golden.json', 'u
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 const pool = new Pool({ connectionString: DATABASE_URL, max: 4 });
 const configured = embeddingProviderFromEnv();
-const reranker = rerankProviderFromEnv();
+const { reranker, gate } = rerankFromEnv(process.env, new MemoryRerankCache());
 
 // Never compare a query embedded by one model against vectors stored by another.
 const readiness = await checkVectorReadiness(pool, configured);
@@ -96,7 +97,7 @@ for (const testCase of golden.cases) {
     barcode: testCase.barcode ?? null,
     unit: testCase.unit ?? null,
     existingMxik: testCase.existingMxik ?? null,
-  }, { store, embedder, reranker });
+  }, { store, embedder, reranker, rerankGate: gate });
   const ms = Date.now() - t0;
 
   const codes = result.candidates.map((c) => c.candidate.code);

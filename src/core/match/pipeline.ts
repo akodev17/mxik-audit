@@ -7,17 +7,21 @@
 //   4 vector (pgvector)  |-> 5 reciprocal rank fusion -> 6 LLM rerank
 import { normalizeBarcode, normalizeName } from '../normalize/index.js';
 import { reciprocalRankFusion } from './fusion.js';
+import type { RerankGate } from './rerank-config.js';
+import { rerankGate } from './rerank-gate.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
 import { bandOf, calibrate } from './score.js';
 import type {
   CandidateStore, EmbeddingProvider, MatchInput, MatchResult,
-  MxikCandidate, RerankProvider, ScoredCandidate,
+  MxikCandidate, RerankProvider, RerankVerdict, ScoredCandidate,
 } from './types.js';
 
 export type PipelineOptions = {
   store: CandidateStore;
   embedder: EmbeddingProvider;
   reranker: RerankProvider;
+  /** Only rows this gate calls uncertain go to the reranker. Absent = all fused rows. */
+  rerankGate?: RerankGate | undefined;
   /** How many rows each retrieval stage pulls. */
   retrievalLimit?: number;
   /** How many fused candidates go to the reranker. */
@@ -133,39 +137,63 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     (c) => c.code,
   ).slice(0, limits.rerankLimit);
 
+  const retrievalSignals = (f: (typeof fused)[number]) => {
+    const code = f.item.code;
+    // Stage 3 is trigram + full-text; take whichever channel found it best.
+    const lex = lexicalScore.get(code);
+    const fts = fullTextScore.get(code);
+    return {
+      lexical: lex === undefined && fts === undefined ? undefined : Math.max(lex ?? 0, fts ?? 0),
+      vector: vectorScore.get(code),
+      rrf: f.normalized,
+    };
+  };
+
   // ------------------------------------------------------------- 6. rerank
   const llmScore = new Map<string, { confidence: number; reason: string }>();
   let decidedBy: MatchResult['decidedBy'] = 'fusion';
   if (reranker.available && fused.length > 0) {
-    try {
-      const verdicts = await reranker.rerank({
-        productName: normalized.display,
-        attrs: { ...normalized.attrs, preparedDish, rowUnit },
-        candidates: fused.map((f) => f.item),
-      });
-      for (const v of verdicts) llmScore.set(v.code, { confidence: v.confidence, reason: v.reason });
-      if (verdicts.length > 0) decidedBy = 'rerank';
-    } catch (error) {
-      notes.push(`Reranker failed (${String(error)}); falling back to fusion order.`);
+    // The gate reads uncapped retrieval confidence; skipping never lifts the cap.
+    const gate = rerankGate(
+      fused.map((f) => calibrate({
+        signals: retrievalSignals(f),
+        rerankAvailable: true,
+        adjustment: applyRules({ candidate: f.item, rowUnit, preparedDish }).adjustment,
+      })),
+      opts.rerankGate,
+    );
+    if (!gate.rerank) {
+      notes.push(`Reranker skipped (${gate.reason}); confidence is capped.`);
+    } else {
+      try {
+        const verdicts = await reranker.rerank({
+          productName: normalized.display,
+          normalizedKey: normalized.matchKey,
+          unit: rowUnit,
+          preparedDish,
+          candidates: fused.map((f) => f.item),
+        });
+        const valid = await keepKnownCodes(verdicts, fused.map((f) => f.item.code), store);
+        if (valid.length < verdicts.length) {
+          notes.push(`Reranker returned ${verdicts.length - valid.length} code(s) outside the candidates or the classifier; discarded.`);
+        }
+        for (const v of valid) llmScore.set(v.code, { confidence: v.confidence, reason: v.reason });
+        if (valid.length > 0) decidedBy = 'rerank';
+      } catch (error) {
+        notes.push(`Reranker failed (${error instanceof Error ? error.message : String(error)}); falling back to fusion order.`);
+      }
     }
   }
 
   // ------------------------------------------------------------ calibration
   // Two passes: score everything, then re-score with the runner-up known so the
-  // margin bonus reflects the real gap.
+  // margin bonus reflects the real gap. The no-reranker cap is lifted only for
+  // candidates the reranker actually scored, so a failed or skipped call can
+  // never push a retrieval-only guess into the bulk-accept band.
   const provisional = fused.map((f) => {
-    const code = f.item.code;
-    // Stage 3 is trigram + full-text; take whichever channel found it best.
-    const lex = lexicalScore.get(code);
-    const fts = fullTextScore.get(code);
-    const signals = {
-      lexical: lex === undefined && fts === undefined ? undefined : Math.max(lex ?? 0, fts ?? 0),
-      vector: vectorScore.get(code),
-      rrf: f.normalized,
-      llm: llmScore.get(code)?.confidence,
-    };
+    const signals = { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence };
     const rules = applyRules({ candidate: f.item, rowUnit, preparedDish });
-    return { fused: f, signals, rules, bare: calibrate({ signals, rerankAvailable: reranker.available }) };
+    return { fused: f, signals, rules, bare: calibrate({ signals, rerankAvailable: signals.llm !== undefined }) };
   }).sort((a, b) => b.bare - a.bare);
 
   const runnerUp = provisional[1]?.bare;
@@ -175,7 +203,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     const confidence = calibrate({
       signals: p.signals,
       runnerUp: index === 0 ? runnerUp : undefined,
-      rerankAvailable: reranker.available,
+      rerankAvailable: p.signals.llm !== undefined,
       adjustment: p.rules.adjustment,
     });
     const llm = llmScore.get(code);
@@ -200,6 +228,19 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     pool: provisional.map((x) => x.fused.item.code),
     candidates: scored.slice(0, limits.topK),
   };
+}
+
+/** Drops any verdict whose code was not offered or is not a live classifier code. */
+async function keepKnownCodes(
+  verdicts: readonly RerankVerdict[],
+  offered: readonly string[],
+  store: CandidateStore,
+): Promise<RerankVerdict[]> {
+  const allowed = new Set(offered);
+  const inPool = verdicts.filter((v) => allowed.has(v.code));
+  if (inPool.length === 0) return [];
+  const live = await store.liveCodes(inPool.map((v) => v.code));
+  return inPool.filter((v) => live.has(v.code));
 }
 
 /** Fallback explanation when no reranker supplied one. */

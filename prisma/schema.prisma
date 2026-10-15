@@ -283,6 +283,21 @@ model AuditEvent {
   @@map("audit_event")
 }
 
+/// LLM rerank verdicts keyed by a hash of model + prompt version + normalized
+/// name + unit. Scoped by org id (or "eval") so cached verdicts are never shared
+/// across orgs and are deleted with the org's data. Read and written with raw
+/// SQL in src/core/match/rerank-cache-pg.ts.
+model RerankCache {
+  scope     String
+  key       String   @db.Char(64)
+  model     String
+  verdicts  Json
+  createdAt DateTime @default(now())
+
+  @@id([scope, key])
+  @@map("rerank_cache")
+}
+
 /// A free-audit request from the landing page. Deliberately minimal: a file and
 /// one way to reach the person. No email drip, no signup wall.
 model Lead {
