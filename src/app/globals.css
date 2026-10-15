@@ -33,9 +33,11 @@
   /* Cool-biased neutrals: a pure mid-grey reads as unconsidered. */
   --color-ink: #14161c;
   --color-ink-soft: #4e5564;
-  /* 5.1:1 on paper. The obvious lighter grey (#838b9b) is 3.3:1, and this level
-     carries captions, citations and the eyebrow — all of it small text. */
-  --color-ink-faint: #646c7b;
+  /* This level carries captions, citations and the eyebrow — all small text —
+     and sits on every tinted panel, not just on paper. #646c7b passed AA by a
+     hair there (4.76:1 on paper-tint); this is 6.0:1 on paper, 5.6:1 on the
+     tints, and still visibly lighter than ink-soft (7.2:1). */
+  --color-ink-faint: #5a6170;
   --color-rule: #dde0e7;
   --color-rule-strong: #c3c8d3;
   --color-paper: #fbfbfc;
