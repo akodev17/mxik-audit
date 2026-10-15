@@ -42,16 +42,13 @@ export function Hero() {
           <TransformFigure />
         </div>
 
-        {/* Typographic, not badges: a rule and four facts, like a byline. */}
-        <ul className="grid list-none grid-cols-2 gap-x-6 gap-y-2.5 border-t border-rule p-0 pt-4 text-[13px] text-ink-soft sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:col-start-1 lg:row-start-2">
-          {FACTS.map((fact, i) => (
-            <li key={fact} className="flex items-baseline gap-3">
-              {i > 0 ? (
-                <span aria-hidden="true" className="hidden text-ink-faint sm:inline">
-                  ·
-                </span>
-              ) : null}
-              <span className="tnum">{fact}</span>
+        {/* Typographic, not badges: a rule and four facts, like a byline. Spacing
+            separates them rather than dots, which strand at the start of a
+            wrapped line. */}
+        <ul className="grid list-none grid-cols-2 gap-x-6 gap-y-2.5 border-t border-rule p-0 pt-4 text-[13px] text-ink-soft sm:flex sm:flex-wrap sm:gap-x-7 lg:col-start-1 lg:row-start-2">
+          {FACTS.map((fact) => (
+            <li key={fact} className="tnum">
+              {fact}
             </li>
           ))}
         </ul>

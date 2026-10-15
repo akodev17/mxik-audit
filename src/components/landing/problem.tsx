@@ -22,8 +22,8 @@ export function Problem() {
               </p>
               <p>
                 Buni faqat kodni tasniflagichdagi nomi bilan solishtirib bilish
-                mumkin. Bir necha ming qatorli katalogda buni qoʻlda qilish — haftalar
-                ish.
+                mumkin. Qoʻlda bu — har bir qatorni portalda alohida qidirish degani,
+                katalogda esa qatorlar minglab.
               </p>
             </div>
           </div>
