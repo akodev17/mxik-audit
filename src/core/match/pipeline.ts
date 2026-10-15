@@ -24,6 +24,8 @@ export type PipelineOptions = {
   rerankGate?: RerankGate | undefined;
   /** Stages to switch off, for ablation in the eval. Production leaves this empty. */
   disabledStages?: ReadonlySet<DisableableStage> | undefined;
+  /** Receives the time spent in each stage, for performance runs. */
+  timer?: StageTimer | undefined;
   /** How many rows each retrieval stage pulls. */
   retrievalLimit?: number;
   /** How many fused candidates go to the reranker. */
@@ -33,6 +35,19 @@ export type PipelineOptions = {
 };
 
 export type DisableableStage = 'barcode' | 'exact' | 'lexical' | 'vector';
+
+export type StageTimer = { add(stage: string, ms: number): void };
+
+/** Runs `fn`, reporting its duration to `timer` under `stage` when there is one. */
+export async function timed<T>(timer: StageTimer | undefined, stage: string, fn: () => Promise<T>): Promise<T> {
+  if (!timer) return fn();
+  const t0 = performance.now();
+  try {
+    return await fn();
+  } finally {
+    timer.add(stage, performance.now() - t0);
+  }
+}
 
 const DEFAULTS = { retrievalLimit: 50, rerankLimit: 20, topK: 5 } as const;
 
@@ -76,7 +91,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
   // ---------------------------------------------------------------- 1. barcode
   const barcode = off('barcode') ? null : normalizeBarcode(input.barcode);
   if (barcode) {
-    const hits = await store.byBarcode(barcode);
+    const hits = await timed(opts.timer, 'barcode', () => store.byBarcode(barcode));
     if (hits.length === 1 && hits[0]) {
       return {
         input, normalized, decidedBy: 'barcode', notes, pool: [hits[0].code],
@@ -92,7 +107,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
 
   // ---------------------------------------------------------- 2. folded exact
   if (normalized.matchKey && !off('exact')) {
-    const exact = await store.byMatchKey([normalized.matchKey, normalized.sortedKey]);
+    const exact = await timed(opts.timer, 'exact', () => store.byMatchKey([normalized.matchKey, normalized.sortedKey]));
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code],
@@ -107,17 +122,16 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
   type Hit = { candidate: MxikCandidate; score: number };
-  const vectorStage: Promise<Hit[]> = off('vector') ? Promise.resolve([]) : embedder
-    .embed([query])
-    .then(([vec]) => (vec ? store.byVector(vec, limits.retrievalLimit) : []))
+  const vectorStage: Promise<Hit[]> = off('vector') ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([query]))
+    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => store.byVector(vec, limits.retrievalLimit)) : []))
     .catch((error: unknown) => {
       notes.push(`Vector stage unavailable (${error instanceof Error ? error.message : String(error)}); using lexical retrieval only.`);
       return [] as Hit[];
     });
 
   const [lexical, fullText, vector] = await Promise.all([
-    off('lexical') ? Promise.resolve([] as Hit[]) : store.byLexical(query, limits.retrievalLimit),
-    off('lexical') ? Promise.resolve([] as Hit[]) : store.byFullText(query, limits.retrievalLimit),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(query, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(query, limits.retrievalLimit)),
     vectorStage,
   ]);
 
@@ -172,13 +186,13 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
       notes.push(`Reranker skipped (${gate.reason}); confidence is capped.`);
     } else {
       try {
-        const verdicts = await reranker.rerank({
+        const verdicts = await timed(opts.timer, 'rerank', () => reranker.rerank({
           productName: normalized.display,
           normalizedKey: normalized.matchKey,
           unit: rowUnit,
           preparedDish,
           candidates: fused.map((f) => f.item),
-        });
+        }));
         const valid = await keepKnownCodes(verdicts, fused.map((f) => f.item.code), store);
         if (valid.length < verdicts.length) {
           notes.push(`Reranker returned ${verdicts.length - valid.length} code(s) outside the candidates or the classifier; discarded.`);

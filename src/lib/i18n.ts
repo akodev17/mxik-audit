@@ -43,6 +43,12 @@ export type Dict = {
   catalogsDeleted: (rows: number) => string;
   catalogStatus: Record<'uploaded' | 'analyzing' | 'ready' | 'failed', string>;
   catalogSwitch: string;
+  catalogAnalyzing: (done: number, total: number) => string;
+  catalogAnalyzingHint: string;
+  catalogNotAudited: string;
+  catalogFailed: string;
+  catalogRetry: string;
+  exportNotReady: string;
 
   // undo and decision history
   reviewUndo: string;
@@ -184,6 +190,13 @@ export const uz: Dict = {
   catalogsDeleted: (rows) => `Katalog oʻchirildi (${rows.toLocaleString('uz-UZ')} qator).`,
   catalogStatus: { uploaded: 'Yuklangan', analyzing: 'Tahlil qilinmoqda', ready: 'Tayyor', failed: 'Xatolik' },
   catalogSwitch: 'Katalog',
+  catalogAnalyzing: (done, total) =>
+    `Tahlil qilinmoqda: ${done.toLocaleString('uz-UZ')} / ${total.toLocaleString('uz-UZ')} qator`,
+  catalogAnalyzingHint: 'Sahifa oʻzi yangilanadi. Katta katalog bir necha daqiqa olishi mumkin; sahifani yopsangiz ham tahlil davom etadi.',
+  catalogNotAudited: 'Bu katalog hali tahlil qilinmagan: ustunlar moslashtirilishi tasdiqlanmagan.',
+  catalogFailed: 'Tahlil xatolik bilan toʻxtadi.',
+  catalogRetry: 'Qayta tahlil qilish',
+  exportNotReady: 'Tahlil tugagach, faylni eksport qilish mumkin boʻladi.',
 
   reviewUndo: 'Bekor qilish',
   reviewUndoLast: 'Oxirgi qarorni bekor qilish',

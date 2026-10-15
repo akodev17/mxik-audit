@@ -3,7 +3,7 @@
 import { Pool } from 'pg';
 import { db } from './db.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
-import { matchProduct } from '../core/match/pipeline.js';
+import { matchProduct, timed, type StageTimer } from '../core/match/pipeline.js';
 import { rerankFromEnv } from '../core/match/rerank.js';
 import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
 import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
@@ -20,7 +20,22 @@ const globalForPool = globalThis as unknown as { mxikPool?: Pool };
 const pool = globalForPool.mxikPool ?? new Pool({ connectionString: DATABASE_URL, max: 8 });
 if (process.env.NODE_ENV !== 'production') globalForPool.mxikPool = pool;
 
-export type AuditProgress = { done: number; total: number };
+export type AuditProgress = {
+  /** Rows processed in this run. */
+  done: number;
+  /** Rows in the catalogue. */
+  total: number;
+  /** Every row below this index is fully audited; a resumed run starts here. */
+  watermark: number;
+};
+
+export type AuditOptions = {
+  /** Resume point: rows below this index are already audited. */
+  fromRow?: number;
+  onProgress?: (p: AuditProgress) => void;
+  /** Receives per-stage durations, for performance runs. */
+  timer?: StageTimer;
+};
 
 export type AuditOutcome = {
   itemsAudited: number;
@@ -33,14 +48,13 @@ export type AuditOutcome = {
 };
 
 /**
- * Audits every row of a catalogue. Rows are processed in small concurrent
- * batches: each row costs a handful of Postgres queries, and uncertain rows are
- * grouped into shared LLM calls, so unbounded concurrency would exhaust both.
+ * Audits a catalogue's rows from `fromRow` on. Rows are processed in small
+ * concurrent batches: each row costs a handful of Postgres queries, and
+ * uncertain rows are grouped into shared LLM calls, so unbounded concurrency
+ * would exhaust both.
  */
-export async function auditCatalog(
-  catalogId: string,
-  onProgress?: (p: AuditProgress) => void,
-): Promise<AuditOutcome> {
+export async function auditCatalog(catalogId: string, options: AuditOptions = {}): Promise<AuditOutcome> {
+  const { fromRow = 0, onProgress, timer } = options;
   const configured = embeddingProviderFromEnv();
   const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });
   if (!catalogOrg) throw new Error(`no catalogue ${catalogId}`);
@@ -59,8 +73,9 @@ export async function auditCatalog(
   if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
 
+  const total = await db.catalogItem.count({ where: { catalogId } });
   const items = await db.catalogItem.findMany({
-    where: { catalogId },
+    where: { catalogId, rowIndex: { gte: fromRow } },
     orderBy: { rowIndex: 'asc' },
     select: {
       id: true, rowIndex: true, rawName: true, barcode: true,
@@ -72,6 +87,10 @@ export async function auditCatalog(
   let done = 0;
   let findingsCreated = 0;
   let next = 0;
+  // Rows finish out of order; the watermark only advances over a contiguous run.
+  const finished = new Array<boolean>(items.length).fill(false);
+  let contiguous = 0;
+  const watermark = (): number => items[contiguous]?.rowIndex ?? total;
 
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
     for (;;) {
@@ -84,18 +103,20 @@ export async function auditCatalog(
         barcode: item.barcode,
         unit: item.unit,
         existingMxik: item.existingMxik,
-      }, { store, embedder, reranker, rerankGate: gate });
+      }, { store, embedder, reranker, rerankGate: gate, timer });
 
       // Resolve the row's own code so NOT_FOUND and retirement can be judged.
       const code = readCode(item.existingMxik);
       let existing: ResolvedRow['existing'] = { found: false, retired: false, candidate: null };
       if (code) {
-        const state = await store.exists(code);
-        existing = {
-          found: state.found,
-          retired: state.retired,
-          candidate: state.found ? await store.byCode(code) : null,
-        };
+        existing = await timed(timer, 'existing-code', async () => {
+          const state = await store.exists(code);
+          return {
+            found: state.found,
+            retired: state.retired,
+            candidate: state.found ? await store.byCode(code) : null,
+          };
+        });
       }
 
       // The row's own code must be scorable even when retrieval never surfaced
@@ -104,11 +125,11 @@ export async function auditCatalog(
       if (code && existing.found && !suggestions.some((s) => s.candidate.code === code)) {
         const self = existing.candidate;
         if (self) {
-          const selfMatch = await matchProduct(
+          const selfMatch = await timed(timer, 'self-match', () => matchProduct(
             { rawName: item.rawName, unit: item.unit },
             // Same name + unit, so a reranked row is a cache hit here, not a second call.
             { store, embedder, reranker, rerankGate: gate, topK: 20 },
-          );
+          ));
           const found = selfMatch.candidates.find((s) => s.candidate.code === code);
           if (found) suggestions = [...suggestions, found];
         }
@@ -122,7 +143,7 @@ export async function auditCatalog(
       });
 
       if (findings.length > 0) {
-        await db.finding.createMany({
+        await timed(timer, 'persist', () => db.finding.createMany({
           data: findings.map((f) => ({
             itemId: item.id,
             type: f.type,
@@ -133,12 +154,14 @@ export async function auditCatalog(
             reason: f.reason,
             wasRetired: f.wasRetired,
           })),
-        });
+        }));
         findingsCreated += findings.length;
       }
 
       done++;
-      if (onProgress && done % 25 === 0) onProgress({ done, total: items.length });
+      finished[index] = true;
+      while (finished[contiguous]) contiguous++;
+      onProgress?.({ done, total, watermark: watermark() });
     }
   }));
 

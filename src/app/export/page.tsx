@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Header, Shell } from '@/components/chrome';
+import { CatalogStatus } from '@/components/catalog-status';
 import { CatalogSwitcher } from '@/components/catalog-switcher';
 import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
@@ -26,6 +27,20 @@ export default async function ExportPage(
             Hali katalog yuklanmagan.{' '}
             <Link href="/upload" className="underline">{t.navUpload}</Link>
           </p>
+        </Shell>
+      </>
+    );
+  }
+
+  if (catalog.status !== 'ready') {
+    return (
+      <>
+        <Header email={user.email} current="/export" catalogId={params.catalog ? catalog.id : null} demo={user.demo} />
+        <Shell demo={user.demo}>
+          <CatalogSwitcher options={options} current={catalog.id} />
+          <h1 className="mb-4 text-2xl">{t.exportTitle}</h1>
+          <p className="mb-4 text-sm text-ink-soft">{t.exportNotReady}</p>
+          <CatalogStatus catalog={catalog} />
         </Shell>
       </>
     );

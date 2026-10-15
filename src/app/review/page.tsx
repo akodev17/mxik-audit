@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Header, Shell } from '@/components/chrome';
+import { CatalogStatus } from '@/components/catalog-status';
 import { CatalogSwitcher } from '@/components/catalog-switcher';
 import { lookupCode } from '@/lib/audit-runner';
 import { catalogForPage } from '@/lib/catalog-page';
@@ -50,6 +51,18 @@ export default async function ReviewPage(
             Hali katalog yuklanmagan.{' '}
             <Link href="/upload" className="underline">{t.navUpload}</Link>
           </p>
+        </Shell>
+      </>
+    );
+  }
+
+  if (catalog.status !== 'ready') {
+    return (
+      <>
+        <Header email={user.email} current="/review" catalogId={params.catalog ? catalog.id : null} demo={user.demo} />
+        <Shell demo={user.demo}>
+          <CatalogSwitcher options={options} current={catalog.id} />
+          <CatalogStatus catalog={catalog} />
         </Shell>
       </>
     );

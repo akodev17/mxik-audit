@@ -41,7 +41,8 @@ export function UploadForm({ hadPreviousMapping }: { hadPreviousMapping: boolean
       // Only the id and the mapping cross the wire; the rows stay server-side.
       const result = await commitUpload({ catalogId: preview.catalogId, mapping: active });
       if (result.error) setCommitError(result.error);
-      else router.push('/report');
+      // The audit now runs in the background; the report shows its progress.
+      else router.push(result.catalogId ? `/report?catalog=${result.catalogId}` : '/report');
     });
   }
 

@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ConfidenceBadge, DegradedBanner, Header, Shell, TypeBadge } from '@/components/chrome';
+import { CatalogStatus } from '@/components/catalog-status';
 import { CatalogSwitcher } from '@/components/catalog-switcher';
+import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
@@ -31,6 +33,22 @@ export default async function ReportPage(
             Hali katalog yuklanmagan.{' '}
             <Link href="/upload" className="underline">{t.navUpload}</Link>
           </p>
+        </Shell>
+      </>
+    );
+  }
+
+  const selected = params.catalog ? catalog.id : null;
+  if (catalog.status !== 'ready') {
+    // Picks up an audit whose worker died (server restart, crash).
+    if (catalog.status === 'analyzing') await resumeStaleAudits(STALE_MS, catalog.id);
+    return (
+      <>
+        <Header email={user.email} current="/report" catalogId={selected} demo={user.demo} />
+        <Shell demo={user.demo}>
+          <CatalogSwitcher options={options} current={catalog.id} />
+          <CatalogStatus catalog={catalog} />
+          <p className="mt-2 text-xs text-ink-faint">{catalog.filename}</p>
         </Shell>
       </>
     );
@@ -91,7 +109,6 @@ export default async function ReportPage(
     const qs = q.toString();
     return qs ? `/report?${qs}` : '/report';
   };
-  const selected = params.catalog ? catalog.id : null;
 
   return (
     <>

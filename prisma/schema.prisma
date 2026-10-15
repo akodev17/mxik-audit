@@ -193,6 +193,12 @@ model Catalog {
   headers   String[]
   /// Which uploaded column feeds which field.
   columnMap Json
+  /// Rows before this index are fully audited; a restarted audit resumes here.
+  progressDone     Int       @default(0)
+  auditStartedAt   DateTime?
+  /// Bumped while an audit runs; a stale one means the worker died.
+  auditHeartbeatAt DateTime?
+  auditError       String?
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   items    CatalogItem[]

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { auditCatalog } from '@/lib/audit-runner';
+import { retryAudit, startAudit } from '@/lib/audit-jobs';
 import { deleteCatalog } from '@/lib/catalogs';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
@@ -220,32 +220,26 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
     await tx.organization.update({ where: { id: user.orgId }, data: { columnMap: mapping } });
   }, { timeout: 120_000 });
 
-  try {
-    const outcome = await auditCatalog(catalogId);
-    await db.catalog.update({ where: { id: catalogId }, data: { status: 'ready' } });
-    await db.auditEvent.create({
-      data: {
-        orgId: user.orgId, actorId: user.userId, action: 'catalog.audited',
-        targetId: catalogId,
-        payload: {
-          itemsAudited: outcome.itemsAudited,
-          findingsCreated: outcome.findingsCreated,
-          degraded: outcome.degraded,
-          degradedReasons: outcome.degradedReasons,
-          llm: outcome.llm,
-          mapping,
-        },
-      },
-    });
-  } catch (error) {
-    await db.catalog.update({ where: { id: catalogId }, data: { status: 'failed' } });
-    return { error: `Tahlil qilishda xatolik: ${error instanceof Error ? error.message : ''}` };
-  }
+  // Large catalogues take minutes, so the audit runs in the background and the
+  // report shows its progress; the request returns as soon as rows are stored.
+  await startAudit(catalogId, user, { mapping });
 
   revalidatePath('/report');
   revalidatePath('/review');
   revalidatePath('/export');
+  revalidatePath('/catalogs');
   return { catalogId };
+}
+
+/** Restarts an audit that failed. */
+export async function retryCatalogAudit(catalogId: unknown): Promise<{ ok: boolean }> {
+  const user = await currentUser();
+  if (!user) return { ok: false };
+  const id = z.string().min(1).safeParse(catalogId);
+  if (!id.success) return { ok: false };
+  const ok = await retryAudit(user, id.data);
+  revalidatePath('/report');
+  return { ok };
 }
 
 export type RemoveResult = { ok: true; rows: number } | { ok: false; error: string };

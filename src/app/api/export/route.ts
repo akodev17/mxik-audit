@@ -26,6 +26,8 @@ export async function GET(request: Request) {
   const requested = new URL(request.url).searchParams.get('catalog');
   const catalog = await resolveCatalog(user.orgId, requested);
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
+  // An unaudited catalogue would export every row as "risk_yoq".
+  if (catalog.status !== 'ready') return NextResponse.json({ error: 'audit not finished' }, { status: 409 });
 
   const mapping = StoredMap.safeParse(catalog.columnMap);
   if (!mapping.success) return NextResponse.json({ error: 'bad mapping' }, { status: 500 });

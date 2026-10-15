@@ -23,8 +23,10 @@ const started = Date.now();
 await db.catalog.update({ where: { id: catalogId }, data: { status: 'analyzing' } });
 
 try {
-  const outcome = await auditCatalog(catalogId, ({ done, total }) => {
-    process.stderr.write(`  ${done}/${total}\n`);
+  const outcome = await auditCatalog(catalogId, {
+    onProgress: ({ done, total }) => {
+      if (done % 25 === 0 || done === total) process.stderr.write(`  ${done}/${total}\n`);
+    },
   });
   await db.catalog.update({ where: { id: catalogId }, data: { status: 'ready' } });
   await db.auditEvent.create({
