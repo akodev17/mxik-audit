@@ -57,7 +57,7 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 |---|---|
 | `npm run typecheck` | `tsc --noEmit` under `strict` |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | 289 tests: unit tests, plus database integration tests (undo, deletion, demo and cross-org isolation) that skip with a reason when Postgres is not reachable |
+| `npm test` | 293 tests: unit tests, plus database integration tests (undo, deletion, demo and cross-org isolation) that skip with a reason when Postgres is not reachable |
 | `npm run eval` | top-1/top-5 and high-band precision, real vs synthetic, each stage on/off; appends to `docs/eval-results.json` |
 | `npm run eval:synthetic` | rebuilds `eval/synthetic.csv` from classifier names with realistic noise |
 | `npm run seed:demo` | audits `prisma/demo-catalog.json` into the demo template behind `/demo` |

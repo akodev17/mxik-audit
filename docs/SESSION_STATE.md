@@ -2,7 +2,9 @@
 
 ## Last Updated
 
-2026-08-20
+2026-10-15 (P0 demo-readiness block). Measurements under "Verified Data Facts"
+are dated 2026-08-20 (438,925 codes) unless marked; the export of 2026-10-15
+has 442,719 codes.
 
 This file is the project's memory across Claude Code context resets. It is
 reconstructed from the actual repository, not from prior conversation. Where a
@@ -100,15 +102,47 @@ Built: `src/app/*` (upload, report, review, export, sign-in),
 `src/app/actions/*`, `src/lib/*`, `prisma/schema.prisma`, `prisma/seed.ts`,
 `scripts/audit-catalog.ts`.
 
-### Gate 3 — Landing page — EXISTS, REVISED, NOT VISUALLY REVIEWED
+### Gate 3 — Landing page — COMPLETE, VISUALLY REVIEWED
 
-A landing page is implemented at `/` (`src/app/page.tsx`, **863 lines**) with
-real screenshots, a verified legal citation, open pricing and a two-field lead
-form. It passes typecheck, lint, tests and a clean production build, and `/` is
-statically prerendered.
+The landing at `/` was rebuilt on 2026-10-15 by a separate session into nine
+sections, one file each in `src/components/landing/` (header, hero, problem
+with three portal examples re-checked 15.10.2026 via
+`npm run check:portal-examples` → `docs/portal-examples.json`, consequences,
+how it works, sample report, "buxgalterlar uchun", trust and data, pricing +
+lead form + FAQ). `/maxfiylik` and `/oferta` are drafts with `[TODO]` markers,
+`noindex`. Reviewed at 375 / 768 / 1440 / 1920 px. `src/app/page.tsx` is now
+~43 lines that compose those sections. Details under `Landing Page`.
 
-It has **not been visually reviewed at any viewport** since the most recent
-revision. See `Landing Page` and `Known Problems` #1.
+### P0 — Demo readiness — COMPLETE (2026-10-15)
+
+Brief: make the product trustworthy, demo-ready and deployable for accountants
+and the UzCombinator accelerator. Done, each with tests:
+
+- **Safe Claude reranker** (stage 6). Model/key from env, default
+  `claude-opus-5-5` (checked against platform.claude.com/docs/en/models/overview);
+  only uncertain rows (gate), structured JSON, strict parsing, codes validated
+  against the row's candidates and the live classifier, "none" allowed, batched,
+  cached per org, timeout/retries/refusal handled, any failure falls back to the
+  capped ranking, usage + cost logged per catalogue, `MXIK_LLM_ENABLED=false`
+  kill switch. **Fixed a safety bug**: a failed call used to lift the 0.85 cap
+  (0.985, bulk-acceptable). **Never run with a key yet** — no key exists.
+- **Bulk accept** threshold is now enforced on the server (≥ 0.90).
+- **Eval harness**: `eval/golden.csv` (12 hand-written cases, tagged real),
+  `eval/synthetic.csv` (191 noisy classifier-derived cases), metrics split
+  real/synthetic, each stage on/off, history appended to `docs/eval-results.json`.
+- **Demo mode**: `/demo`, one click, a private copy of an invented 186-row
+  catalogue per visitor (`prisma/demo-catalog.json`, landing sample = first 27
+  rows), expires after 24 h, upload disabled, rate-limited.
+  `npm run demo:quality` scores the checks against per-row labels.
+- **Trust**: undo per row / last / any decision in a visible history (undo is a
+  new `finding.undone` event); report/review/export for any catalogue
+  (`?catalog=`, `/catalogs`); catalogue deletion; lead-file retention (30 days)
+  and on-request erasure.
+- **MISMATCH** no longer fires when the best suggestion shares the row code's
+  8-digit position (product-owner approved; precision 33% → 58% on the demo).
+- **Deployability**: Dockerfile, compose `app` profile, `/api/health`,
+  `DEPLOY.md` (VPS + Docker + nginx + certbot). Not deployed.
+- **Screenshots** refreshed from a demo session, desktop and phone widths.
 
 ---
 
@@ -333,6 +367,27 @@ Implementation: `src/core/match/pipeline.ts`.
 | Medium band | n=7, **43%** top-1 precision |
 | Median latency | ~800 ms (dominated by the exact vector scan the placeholder requires) |
 
+### Current eval (2026-10-15, 442,719-code classifier, no API key)
+
+`npm run eval` now reads `eval/golden.csv` + `eval/synthetic.csv` and appends to
+`docs/eval-results.json` (run 1 = 2026-08-20, run 2 = the pre-P0.2 baseline on
+today's classifier, run 3 = after P0.2).
+
+| Set | n | top-1 | top-5 | high band coverage | high band precision | pool | sent to LLM by gate |
+|---|---|---|---|---|---|---|---|
+| real (hand-written) | 12 | 66.7% | 83.3% | 41.7% | 100% | 83.3% | 50% |
+| synthetic | 191 | 77.5% | 89.0% | 31.9% | 100% | 96.3% | 57% |
+
+Real numbers are identical before and after P0.2 (no regression). Stage
+ablation on synthetic: lexical off → top-5 68.6%; vector (hashing) off →
+88.5%; exact off → high band 6.3%. On the 12 real cases lexical off *raises*
+top-1 to 83.3% — two cases, not significant. Synthetic overestimates real
+accuracy (names come from the classifier); "real" is hand-written, not
+customer data.
+
+**Not yet measured:** anything with the reranker (no key), semantic
+embeddings, a real customer catalogue.
+
 ### Decision thresholds agreed in advance
 
 - top-5 < 80% → halt the project
@@ -380,9 +435,12 @@ Prisma + Postgres 16 + pgvector, `iron-session` auth.
 | Sign in | `/sign-in` | works; scrypt password, no auth library |
 | Upload | `/upload` | works; drag-drop, auto-detected column mapping, 5-row preview, mapping remembered per org |
 | Report | `/report` | works; risk headline, four-type breakdown, filters, print stylesheet |
-| Review | `/review` | works; hierarchy path + bound unit inline, alternatives, accept / reject / pick-other, bulk "accept all above 90%", keyboard j/k/Enter/r/o |
+| Review | `/review` | works; hierarchy path + bound unit inline, alternatives, accept / reject / pick-other, bulk "accept all above 90%" (server-enforced), undo per row / last (`u`) / from the decision history, keyboard j/k/Enter/r/o/u |
 | Export | `/export` + `/api/export` | works; rebuilds the original file, verified round-trip |
-| Landing | `/` | exists, mid-revision |
+| Catalogues | `/catalogs` | every catalogue of the org; report/review/export via `?catalog=`; delete with confirmation |
+| Demo | `/demo` | one click into a private copy of the demo catalogue; no signup; upload disabled |
+| Health | `/api/health` | 200 when DB + classifier are up, 503 otherwise |
+| Landing | `/` | complete; see Landing Page |
 
 ### Verified application behaviour
 
@@ -405,90 +463,47 @@ Implemented in `src/core/audit/checks.ts`, four user-visible types.
 |---|---|---|
 | `MISSING` | high | no MXIK on the row |
 | `NOT_FOUND` | high | code present but absent from the classifier; also covers retired codes, with `wasRetired` set |
-| `MISMATCH` | medium | code valid but scores < 0.6 against the product name |
+| `MISMATCH` | medium | code valid, scores < 0.6 against the product name, **and** the best suggestion is in a different 8-digit position (since 2026-10-15) |
 | `UNIT_CONFLICT` | medium | row unit contradicts a **strictly** bound unit; recommended units never fire |
 
 ### Demo data
 
-`npm run seed` → org "Demo Savdo MChJ", user `buxgalter@demo.uz` /
-`demo12345`, one 200-row catalogue deliberately messy in the ways Gate 0
-measured. `npm run seed:audit <id>` audits it.
-
-Current DB: 438,925 codes (all embedded), 1 catalogue, 200 items, **85 findings
-all `pending`**, 0 leads. Demo distribution: 23 MISSING / 16 NOT_FOUND /
-33 MISMATCH / 13 UNIT_CONFLICT, 83 risky rows of 200.
+- `/demo` (P0): template org of kind `demo_template` built by `npm run seed:demo`
+  from `prisma/demo-catalog.json` (186 invented rows: the landing sample's 27,
+  then 159 rows of a small wholesaler with hand-checked codes and per-row
+  labels). Audit today: 106 risky — 47 MISSING / 16 NOT_FOUND / 36 MISMATCH /
+  13 UNIT_CONFLICT. `npm run demo:quality`: MISSING and NOT_FOUND 100%
+  precision and recall, MISMATCH 58% precision / 100% recall, UNIT_CONFLICT
+  60% (its "misses" are wrong-code rows whose unit also contradicts that code),
+  clean rows flagged 16%, suggestion = intended code 45%.
+- `npm run seed` → sign-in org "Demo Savdo MChJ", `buxgalter@demo.uz` /
+  `demo12345`, a 200-row catalogue derived from classifier entries.
 
 ---
 
 ## Landing Page
 
-**Current state:** implemented at `/` in `src/app/page.tsx` (863 lines). Public,
-statically prerendered, 6.99 kB route / 113 kB first load.
+Owned on 2026-10-15 by the separate "MXIK audit landing page redesign"
+session; summary as it reported it.
 
-Section order as actually on disk:
-
-| Line | Section |
-|---|---|
-| 353 | Hero — *"Katalogingizdagi xavfli MXIK kodlarini toping."* |
-| 410 | *"Katta katalogni qoʻlda tekshirish mumkin emas"* — scale argument |
-| 443 | *"Rasmiy qidiruv har doim ishonchli javob bermaydi"* — portal-failure evidence |
-| 511 | *"Notoʻgʻri kod nimaga olib keladi"* — four consequences |
-| 553 | *"Uch qadam"* — three steps with real screenshots |
-| 585 | `#hisobot` — *"Birinchi ekranda — bitta son"*, the sample report |
-| 708 | *"Sizga nima qaytadi?"* — deliverables |
-| 725 | *"Dastur tavsiya qiladi. Yakuniy qarorni siz qabul qilasiz."* — objections |
-| 767 | *"Narxlar"* — pricing |
-| 812 | `#audit` — lead form CTA |
-
-Notable properties of the current implementation, worth preserving:
-
-- Every figure is a named constant with a `docs/gate0-report.md` section
-  reference in a comment, and a comment block explicitly recording what is
-  **deliberately absent**: the 66.7% / 83.3% accuracy numbers, and the
-  disproved "99% strict unit binding" figure.
-- `CONSEQUENCES` carries a per-item `verified: boolean` plus a comment warning
-  not to attach the VMQ 595 citation to the three unverified items.
-- The evidence section uses contrast pairs (`HEADLINE_EVIDENCE`): the same
-  product spelled two ways, answered usefully once and uselessly the other time.
-- `STEPS` declares explicit intrinsic `width`/`height` per screenshot.
-  **Verified: all four declared sizes match the actual PNG headers exactly**
-  (2560×1800, 2208×268, 2560×1640, 2560×1520), so there is no layout shift.
-- `src/app/lead-form.tsx` shows the picked file's size, turns the drop zone
-  green when a file is staged, and replaces the form on success with a numbered
-  three-step "what happens next" list under `aria-live="polite"`.
-
-**Design direction (as implemented after this session's partial revision):**
-
-| Token | Value |
-|---|---|
-| paper | `#FBFBFC` |
-| ink | `#14161C` |
-| ink-soft | `#4E5564` |
-| rule | `#DDE0E7` |
-| risk | `#A32B22` |
-| verified | `#1B6B52` |
-| serif | Newsreader |
-| sans | IBM Plex Sans |
-| mono | IBM Plex Mono |
-
-Fonts are self-hosted via `next/font/google` in `src/app/layout.tsx`.
-
-Explicitly avoided: gradients, glassmorphism, AI illustrations, heavy rounded
-cards, purple/blue SaaS palettes, animation, fake screenshots.
-
-**Assets it depends on** (all real, captured from the running app by
-`npm run capture` via Playwright):
-
-- `public/screenshots/step-1-upload.png` — upload with column mapping + preview
-- `public/screenshots/step-2-report.png` — the risk report
-- `public/screenshots/step-3-review.png` — review with hierarchy path
-- `public/screenshots/report-headline.png` — the risk headline crop
-- `public/demo/namuna-katalog.xlsx` — downloadable sample file
-- `src/lib/sample-report.generated.ts` — anonymised real findings
-
-**Known issues:** see `Known Problems`. In particular the revision is
-**incomplete and unreviewed**, and the screenshots were captured **before** the
-typography change, so they may not match the page's own fonts.
+- Nine sections in `src/components/landing/*`, shared constants in `data.ts`
+  and `config.ts`, diagrams in `figures.tsx` (no UI screenshots on the page).
+- Flags (`config.ts`, `.env.example` "Landing page" block):
+  `NEXT_PUBLIC_DEMO_URL` (set to `/demo`; buttons hidden when unset),
+  `NEXT_PUBLIC_TELEGRAM_URL` (hidden when unset), `NEXT_PUBLIC_SITE_URL` (Open
+  Graph absolute URLs), `NEXT_PUBLIC_SHOW_LEGAL_223` (keep false until a tax
+  adviser confirms), `NEXT_PUBLIC_FEATURE_MULTI_CLIENT` (not built, false).
+  Prices only in `PRICING` in `config.ts`.
+- Sample report = the demo catalogue: `npm run make:sample-report` audits
+  `prisma/demo-catalog.json` in a temporary org and writes
+  `src/lib/sample-report.generated.ts` + `public/demo/namuna-katalog.xlsx`;
+  `src/lib/sample-report.test.ts` checks it. **Re-run after anything that
+  changes findings** so the landing equals the demo.
+- Lead form: contact validation (+998 / international / Telegram), honeypot,
+  5 requests / 10 min in-memory rate limit (`src/lib/lead-guard.ts`).
+- Copy states lead files are erased after `LEAD_FILE_RETENTION_DAYS` (30) —
+  true only if the `purge:expired` cron in `DEPLOY.md` runs.
+- No accuracy percentages; legal claims limited to what is sourced (see Legal).
 
 ---
 
@@ -516,7 +531,8 @@ over-represented relative to a real customer catalogue.
 | EHF issuance restricted when goods absent from the national catalogue | **VERIFIED** against lex.uz — VMQ No. 595, 22.09.2021, <https://lex.uz/docs/5650010>. The document restricts invoice issuance for unregistered products and establishes taxpayer risk groups |
 | Buyer's input VAT credit conditional on a matching e-Faktura | **VERIFIED in substance** from secondary sources; primary-source citation NEEDS VALIDATION |
 | Razriv → desk audit | Administrative mechanism, **no single citable article**; stated on the page without a citation |
-| Fine under **Tax Code art. 223** | **REJECTED AS INACCURATE.** Art. 223 covers concealment / understatement of the tax base, not invoice or MXIK defects (confirmed across two independent searches). The page states the fine consequence **without** an article number |
+| Fine under **Tax Code art. 223** | Part 1 is tax-base concealment, **not** the right citation. **Part 5** (edition 19.07.2026, read via prg.kz by the landing session) is a 1% fine for invoice/receipt codes not matching the nomenclature — **NEEDS a tax adviser on lex.uz**. Shown only behind `NEXT_PUBLIC_SHOW_LEGAL_223` (default false) |
+| EHF restricted when the supplier lacks the goods | VMQ 595 p.6 «г»; Tax Committee statement 08.04.2026 (t.me/soliqnews/18626): trade companies, sales compared with purchases by MXIK |
 | The article that actually governs invoice-formatting violations | **UNVERIFIED** — candidate is art. 225 but this was not confirmed |
 
 **Action for a future context:** have a tax adviser confirm the fine provision
@@ -555,7 +571,20 @@ Do not revisit these without a specific reason.
 10. **Never run `prisma migrate dev`.** See Known Problems.
 11. **Permanent upstream failures are not retried** (auth, `insufficient_quota`);
     transient ones are.
-12. **The audit log is append-only.** Only `create` is ever called on it.
+12. **The audit log is append-only.** Only `create` is ever called on it —
+    with one exception: when a user deletes a catalogue, the log rows that carry
+    its product names are deleted too and a `catalog.deleted` tombstone
+    (counts only) is appended. Undo is always a new `finding.undone` event.
+13. **The 0.85 ceiling is lifted per candidate**, only where the reranker
+    actually scored it. A failed, skipped or partial rerank never lifts it.
+14. **The reranker only sees uncertain rows** (gate 0.95 / 0.10, untuned) and
+    only the cleaned name, unit and prepared-dish flag plus public candidates.
+15. **The demo is a per-visitor copy** of an invented template, never a shared
+    org, so visitors never see each other or a customer.
+16. **The landing's sample report is the demo catalogue**, regenerated after
+    any change that alters findings.
+17. **MISMATCH requires a different 8-digit position** (owner-approved
+    2026-10-15 on demo:quality evidence).
 
 ---
 
@@ -582,107 +611,60 @@ Explicitly excluded from the MVP:
 
 Documented, **not fixed**.
 
-1. **The landing page revision has never been looked at.** Four implementation
-   files changed during the session that produced this document:
-   - `src/app/globals.css` — design tokens replaced (Newsreader / IBM Plex,
-     `#FBFBFC` / `#14161C` / `#DDE0E7` / `#A32B22` / `#1B6B52`), added
-     `--color-rule-strong`, `--color-paper-raised`, `.mono`, `.eyebrow`,
-     `prefers-reduced-motion`
-   - `src/app/layout.tsx` — `next/font/google` for the three faces (Plex Sans and
-     Plex Mono include the `cyrillic` subset, which matters because 23% of
-     classifier names carry Cyrillic brand text), plus a `viewport` export
-   - `src/app/page.tsx` — rewritten to 863 lines; structure listed under
-     `Landing Page`
-   - `src/app/lead-form.tsx` — file-size display, staged-file state, post-submit
-     next-steps list
-
-   Automated state is green: `tsc` clean, 198 tests pass, lint 0 errors, clean
-   production build, `/` statically prerendered, image dimensions verified.
-   **But no human or agent has viewed the rendered page at any viewport since
-   these changes.** Everything below in this list is a consequence of that.
-
-2. **Screenshots predate the typography change.** `public/screenshots/*.png`
-   were captured with the old Georgia / Segoe UI stack, before the switch to
-   Newsreader / IBM Plex. The page's own type may therefore not match the type
-   inside its screenshots. Re-run `npm run capture` (needs `npm run dev`
-   running) once the fonts are settled.
-
-3. **No undo on the Review screen.** Once a finding is decided there is no way
-   to reverse it in the UI. The decision is recorded in `AuditEvent`, so the
-   history exists, but the reviewer cannot correct a misclick.
-
-4. **Stray-keystroke incident (now mitigated).** The Review keyboard handler
-   originally listened on `window` with no focus guard, so any `Enter`/`r`
-   reaching the page mutated a decision. During testing this silently produced
-   one bulk-accept plus 15 accepts and 8 rejects. A focus guard was added
-   (shortcuts only fire when focus is inside the list; modifier keys ignored;
-   list self-focuses on mount) and verified. **The missing undo remains.**
-
-5. **`prisma migrate dev` is unusable on this project.** The schema uses three
-   Postgres features Prisma cannot express — a generated `tsvector` column, a
-   GIN index with `gin_trgm_ops`, and two HNSW vector indexes — so its diff
-   wants to drop all of them, and it also tries to `ALTER` the generated column
-   and fails. Use `migrate diff` → delete every statement touching `mxik_code`
-   → hand-author the migration → `migrate deploy`. Documented in the README.
-
-6. **`data/mxik.ndjson` is 1.14 GB.** Hierarchy names are repeated in three
-   languages on all 438,925 rows. Splitting the four hierarchy levels into
-   lookup tables (117 / 1,283 / 2,860 / 10,215 rows) would roughly halve the
-   load and make the hierarchy path cheap to fetch.
-
-7. **Scoring weights are reasoned, not fitted.** 12–30 cases cannot tune six
-   constants. Re-derive from accumulated `AuditEvent` decisions.
-
-8. **The vector weight (0.25) is currently unearned.** With the placeholder
-   embedder the vector stage is a second lexical channel correlated with the
-   0.45 already allocated to lexical.
-
-9. **`ts_rank_cd` is unbounded**, so the full-text score is normalized against
-   the best hit in its own result set — a relative, not absolute, signal.
-
-10. **Not a git repository.** `git status` cannot be run; there is no history and
-    no way to diff or revert. Consider `git init` before further changes.
-
-11. **`npm run build` while `npm run dev` is running corrupts `.next`** and the
-    dev server starts returning 500s. Stop dev first. Relatedly, deleting
-    `.next` while a build is in flight produces a misleading
-    `ENOENT: build-manifest.json` / "Failed to collect page data" error that
-    looks like a real build failure but is not — re-run from a clean `.next`
-    to confirm. This was observed and confirmed harmless.
-
-12. **375 rows have unresolvable unit strings** and 39 barcodes were dropped as
-    invalid GTIN lengths. Both are data-quality facts, not bugs.
+1. **The reranker has never run.** No `ANTHROPIC_API_KEY` exists; everything
+   about stage 6 is unit-tested with fakes only. Cost per 1,000 rows is an
+   estimate until a keyed run logs real tokens.
+2. **MISMATCH precision is 58%** on the demo catalogue without the reranker
+   (14 correctly coded rows still flagged). The same-position rule cannot see a
+   wrong code inside the row code's own position.
+3. **Suggestions are right 45% of the time** on the demo's missing / not-found /
+   wrong-code rows without the reranker; the worst sit at the top of the report
+   (sorted least confident first), e.g. a chemicals code suggested for flour.
+4. **No real customer catalogue has ever been through the tool.**
+5. **Stage 4 is non-semantic** (hashing embedder, 442,719 rows embedded with it).
+   Embedding took 24 min on this machine.
+6. **`prisma migrate dev` is unusable** (generated column, trigram GIN, HNSW).
+   Use `migrate diff` → hand-author → `migrate deploy`. On Windows `prisma
+   generate` hits EPERM while a dev server holds the engine DLL; the TS client
+   is still written.
+7. **`npm run build` while `npm run dev` runs corrupts `.next`.** Build in a
+   separate worktree if a dev server must stay up.
+8. **Audits run inside the upload request.** A large catalogue may hit proxy
+   timeouts (DEPLOY.md sets 300 s); P1.2 measures 60,000 rows.
+9. **Review is desktop-first**; at 375 px the table scrolls sideways.
+10. **Deleting a catalogue removes its audit-log rows** (they carry its product
+    names), leaving a `catalog.deleted` tombstone. This is the one exception to
+    the append-only log; see Decisions.
+11. **Weights are reasoned, not fitted**; the vector weight is unearned with the
+    hashing embedder; `ts_rank_cd` is normalized per result set.
+12. **375 rows have unresolvable unit strings**; 39 barcodes dropped as invalid
+    GTIN lengths (2026-08-20 figures).
 
 ---
 
 ## Open Questions
 
-1. Does the full six-stage pipeline clear the >90% top-5 bar? Cannot be answered
-   without an `ANTHROPIC_API_KEY`.
-2. Which Tax Code article actually governs invoice-formatting penalties?
-3. Will an accountant trust and understand the report? Never tested.
-4. Is the pricing right? Never tested.
-5. Should the hierarchy be normalized into lookup tables before scale?
-6. Should the Review screen get undo, or is the audit log sufficient?
-7. What is the real retention/deletion policy for uploaded customer files? The
-   landing page currently promises deletion on request; no mechanism exists.
+1. Does the full pipeline with the reranker clear top-5 > 90% on real cases,
+   and what does it cost per 1,000 rows? Needs a key.
+2. Which reranker model: Opus 5.5 ($4/$20 per MTok), Sonnet 5.5 ($2/$10), or
+   Haiku 5.5 ($0.10/$0.50, documented for classification)? Decide on eval numbers.
+3. Tax Code art. 223 part 5 — confirm with a tax adviser on lex.uz.
+4. Will an accountant trust the report? Untested.
+5. Is the pricing right? Untested.
 
 ---
 
 ## Recommended Next Steps
 
-1. **Decide the fate of the in-progress landing page revision.** Review it at
-   desktop and mobile, then either finish it (re-run `npm run capture` so the
-   screenshots match the new typography) or revert the three files listed in
-   Known Problems #1. This is the only genuinely half-finished thing in the repo.
-2. **Supply an `ANTHROPIC_API_KEY` and re-run `npm run eval`.** ~1 minute, a few
-   cents, no re-embedding needed. Stage 6 has 16.7 points of headroom and this is
-   the only way to resolve the Gate 1 decision rule.
-3. **Get one real customer catalogue through the tool with an accountant
-   watching.** Higher value than any further code. Everything measured says the
-   engine works; nothing measured says a human will trust it.
-4. Supply the remaining 18 golden cases.
-5. Have a tax adviser verify the fine provision before public launch.
+1. **Add `ANTHROPIC_API_KEY`**, then `npm run eval -- --label "with reranker"`,
+   `npm run seed:demo`, `npm run demo:quality`, and
+   `npm run make:sample-report` (landing must equal demo).
+2. **Run one real customer catalogue** with an accountant watching; add its rows
+   to `eval/golden.csv` as `real`.
+3. P1 (awaiting go-ahead): semantic embeddings comparison, 60k-row
+   performance, admin traction metrics.
+4. Deploy per `DEPLOY.md` once a provider is chosen; set
+   `NEXT_PUBLIC_DEMO_URL=/demo` and the Telegram URL at build time.
 
 ---
 
@@ -691,39 +673,31 @@ Documented, **not fixed**.
 | Path | Why |
 |---|---|
 | `docs/SESSION_STATE.md` | this file — read first |
-| `docs/gate0-report.md` | full data-discovery findings with every number |
-| `docs/scoring.md` | confidence formula, weights and their justification |
-| `docs/eval-results.json` | last eval run, machine-readable |
-| `README.md` | cold-start quickstart, every npm script, migration procedure |
-| `prisma/schema.prisma` | 10 models + 5 enums |
-| `src/core/normalize/` | where most of the accuracy lives |
-| `src/core/match/pipeline.ts` | the six-stage cascade |
-| `src/core/match/score.ts` | calibration |
-| `src/core/audit/checks.ts` | the four user-visible checks |
-| `src/core/match/vector-readiness.ts` | the model-mixing guard |
-| `src/app/page.tsx` | landing page (mid-revision) |
-| `src/lib/i18n.ts` | typed `Dict`, all Uzbek Latin copy |
-| `eval/golden.json` | 12 of 30 labelled cases |
-| `scripts/lib/xlsx.ts` | streaming reader for the 205 MB classifier sheet |
+| `docs/scoring.md` | confidence formula, per-candidate ceiling, gate, check precision |
+| `docs/eval-results.json` | append-only eval history |
+| `docs/gate0-report.md` | data-discovery findings |
+| `README.md` / `DEPLOY.md` | cold start, scripts, configuration / server setup |
+| `src/core/match/pipeline.ts` | the cascade |
+| `src/core/match/rerank*.ts` | config, gate, prompt, parse, cache, batching, Claude client |
+| `src/core/audit/checks.ts` | the four checks |
+| `src/lib/decisions.ts`, `catalogs.ts`, `demo.ts`, `retention.ts` | undo/history, catalogue history/deletion, demo copies, lead retention |
+| `eval/run.ts`, `eval/golden.csv`, `eval/synthetic.csv` | evaluation |
+| `prisma/demo-catalog.json`, `scripts/demo/products.ts` | demo fixture and its hand-checked codes |
 
 ---
 
 ## DO NOT REPEAT
 
-- **Do not rediscover the API.** All endpoints, parameter quirks and auth status
-  are recorded above and in `docs/gate0-report.md`.
+- **Do not rediscover the API** or redo Gate 0; measurements are reproducible
+  via named scripts.
 - **Do not re-ingest the classifier** unless a fresh snapshot is wanted;
-  438,925 rows are loaded and embedded.
-- **Do not redo Gate 0.** The measurements are reproducible via named scripts.
+  442,719 rows were loaded and embedded on 2026-10-15.
 - **Do not rebuild the matching engine or the normalization layer.**
-- **Do not rebuild Gate 2.** All four screens work and are verified.
 - **Do not re-verify VMQ No. 595** — verified.
-- **Do not re-add Tax Code art. 223** as the citation for MXIK errors — it was
-  checked and is wrong.
-- **Do not re-run the exhaustive group enumeration** (groups 001 and 015) — the
-  archive question is settled.
-- **Do not re-benchmark the enrichment endpoints** — ~2,025 req/s, no limiting.
-- **Do not change the database schema** without reading Known Problems #5 first.
+- **Do not cite art. 223 part 1** for MXIK errors (tax-base concealment). Part
+  5 is the candidate; unconfirmed.
+- **Do not run tests that purge with a future "now"** against a shared DB —
+  it deleted a live demo once.
 
 ---
 
@@ -731,79 +705,36 @@ Documented, **not fixed**.
 
 ### Current repository state
 
-`C:\Users\User\Desktop\pets\mxik-audit`. Not a git repository. Node 20.18.2,
-Docker running `mxik-audit-db` (Postgres 16 + pgvector) on host port **54329**
-(5432/5433 are taken by other projects). Dev server runs on port **3100**.
+`C:\Users\USER\Desktop\Pets\mxik-audit-\mxik-audit`, a git repository on
+`main` (pushed to `origin` only by the owner; nothing pushed by sessions).
+Node 24.18, Docker running `mxik-audit-db` (Postgres 16 + pgvector) on host
+port **54329**. Dev server on **3100**.
 
-Quality gate as of this writing: `tsc --noEmit` clean · `npm run lint` 0 errors,
-1 accepted warning · `npm test` **198 passing, 12 files** · `npm run build`
-succeeds · 5 Prisma migrations applied, `migrate status` clean.
+Quality gate on 2026-10-15: `tsc --noEmit` clean · `npm run lint` 0 errors,
+1 accepted warning · `npm test` **293 passing, 24 files** (database tests
+included) · `npm run build` passes · 9 Prisma migrations applied.
 
-Data: 438,925 classifier codes all embedded with the **placeholder** embedder;
-1 demo catalogue, 200 items, 85 findings all `pending`; 0 leads.
+Data: 442,719 codes embedded with the **hashing** provider + HNSW; demo
+template org (186 rows, 106 risky); seeded sign-in org `buxgalter@demo.uz`.
 
-Providers, from `npm run check:providers` (verified, no values printed):
-`ANTHROPIC_API_KEY` **not set** · `VOYAGE_API_KEY` **not set** ·
-`OPENAI_API_KEY` **set, 164 chars, no billing quota**. `.env` also has
-`DATABASE_URL` and `SESSION_SECRET`. The OpenAI key is harmless: the
-`vector-readiness` guard sees that the stored vectors came from the local
-provider and substitutes it for queries, so the vector stage stays valid.
+Providers: no `ANTHROPIC_API_KEY`, no `OPENAI_API_KEY`, no `VOYAGE_API_KEY`.
 
 ### Current task
 
-Gate 3 landing page UX/conversion revision — **started, not finished, not
-reviewed.**
-
-### What has already been completed
-
-Gates 0, 1 and 2 in full. Gate 3 exists with all seven required sections. See
-Completed Gates above.
+P0 delivered and reported; **waiting for the owner's go-ahead on P1**
+(semantic embeddings, 60k-row performance, traction metrics), then P2.
 
 ### What must NOT be changed
 
-Gate 0 ingestion scripts, the Gate 1 matching engine and normalization layer,
-the Gate 2 application screens and their server actions, the Prisma schema, the
-existing tests, and the decisions listed under Important Decisions.
+The Gate 0 ingestion, the normalization layer, scoring weights and thresholds
+(without eval evidence and the owner's approval), the append-only audit log
+(except user-requested catalogue deletion), and the Important Decisions.
 
 ### Exact first action
 
-Start the database and dev server, open `/` at desktop **and** 375 px mobile,
-and judge the in-progress revision described in Known Problems #1:
-
 ```bash
-docker compose up -d
-npm run dev          # http://localhost:3100
+docker compose up -d && npm run check:providers
+npm run eval -- --no-ablate --label "sanity"
 ```
 
-Then decide: finish it (and re-run `npm run capture` so screenshots match the
-new typography) or revert `src/app/globals.css`, `src/app/layout.tsx` and
-`src/app/page.tsx`.
-
-### Files to inspect first
-
-1. `docs/SESSION_STATE.md` (this file)
-2. `src/app/page.tsx`
-3. `src/app/globals.css`
-4. `src/app/layout.tsx`
-5. `public/screenshots/`
-
-### Expected outcome
-
-A landing page that makes a visitor understand within seconds that they can
-upload a catalogue and find which MXIK positions are risky, with the report
-screenshot prominent, the measured portal-search failures used as evidence, no
-accuracy percentages, and no unverified legal citation.
-
-### Validation required
-
-- `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`
-- Visual check at 1280 px and 375 px; no horizontal scroll (previously verified
-  at 375 px: `scrollWidth` 375 == viewport 375)
-- All four screenshots and `namuna-katalog.xlsx` load (no 404s)
-- No console errors
-- Lead form still submits: contact-only, and contact + file (previously verified
-  — file stored, row count parsed correctly as 200)
-- Signed-in app flow still works: `/upload`, `/report`, `/review`, `/export`
-- Demo credentials `buxgalter@demo.uz` / `demo12345`
-
-**Do not run `npm run build` while `npm run dev` is running.**
+Then pick up the Recommended Next Steps.
