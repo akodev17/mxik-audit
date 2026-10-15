@@ -12,7 +12,7 @@ import { matchProduct, type DisableableStage } from '../src/core/match/pipeline.
 import { NoopRerankProvider, rerankFromEnv } from '../src/core/match/rerank.js';
 import { MemoryRerankCache } from '../src/core/match/rerank-cache.js';
 import { costPer1000Rows, formatLlmUsage } from '../src/core/match/rerank-usage.js';
-import { PostgresCandidateStore } from '../src/core/match/store.js';
+import { PostgresCandidateStore, storeRetryCount } from '../src/core/match/store.js';
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
 import { BANDS } from '../src/core/match/score.js';
 import type { RerankProvider, RerankVerdict } from '../src/core/match/types.js';
@@ -216,6 +216,9 @@ for (const o of synthMisses) for (const n of noiseOf(o.id)) missByNoise.set(n, (
 console.log('');
 console.log(`synthetic top-5 misses by noise type: ${[...missByNoise].map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`);
 
+console.log('');
+console.log(`reads retried after a dropped connection: ${storeRetryCount()}`);
+
 const usage = realReranker.usage?.() ?? null;
 if (usage) {
   console.log('');
@@ -246,6 +249,7 @@ history.runs.push({
   cases: { real: real.length, synthetic: synthetic.length, excluded },
   metrics: results,
   llm: usage ? { ...usage, costPer1000Rows: costPer1000Rows(usage, cases.length) } : null,
+  readRetries: storeRetryCount(),
   outcomes: fullOutcomes.map((o) => ({
     id: o.id, source: o.source, predicted: o.predicted, rank: o.rank,
     confidence: Number(o.confidence.toFixed(4)), band: o.band, decidedBy: o.decidedBy, sentToLlm: o.sentToLlm,

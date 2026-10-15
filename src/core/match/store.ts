@@ -54,6 +54,20 @@ function toCandidate(row: Row): MxikCandidate {
   };
 }
 
+/** Failures where the query never reached Postgres or its answer was lost. */
+const TRANSIENT_CODES = new Set(['ECONNRESET', 'EPIPE', 'ETIMEDOUT', 'ECONNREFUSED', '57P01', '08000', '08003', '08006']);
+
+export function isTransient(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  return typeof code === 'string' && TRANSIENT_CODES.has(code);
+}
+
+let transientRetries = 0;
+/** How many reads were retried after a transient failure, process-wide. */
+export function storeRetryCount(): number {
+  return transientRetries;
+}
+
 /** pgvector literal: '[1,2,3]'. */
 function toVectorLiteral(embedding: readonly number[]): string {
   return `[${embedding.join(',')}]`;
@@ -94,22 +108,22 @@ export class PostgresCandidateStore implements CandidateStore {
   }
 
   async byBarcode(barcode: string): Promise<MxikCandidate[]> {
-    const res = await this.pool.query<Row>(
+    const res = await this.read(() => this.pool.query<Row>(
       `SELECT ${SELECT_FIELDS} FROM mxik_code WHERE barcode = $1 AND "retiredAt" IS NULL LIMIT 10`,
       [barcode],
-    );
+    ));
     return res.rows.map(toCandidate);
   }
 
   async byMatchKey(keys: readonly string[]): Promise<MxikCandidate[]> {
     if (keys.length === 0) return [];
-    const res = await this.pool.query<Row>(
+    const res = await this.read(() => this.pool.query<Row>(
       `SELECT ${SELECT_FIELDS} FROM mxik_code
        WHERE "matchKeys" && $1::text[] AND "retiredAt" IS NULL
        -- Base codes first: the sanctioned answer when several rows tie.
        ORDER BY "isBase" DESC, code LIMIT 20`,
       [keys],
-    );
+    ));
     return res.rows.map(toCandidate);
   }
 
@@ -117,14 +131,14 @@ export class PostgresCandidateStore implements CandidateStore {
     if (!query) return [];
     // word_similarity, not similarity: the target is a whole product name and
     // plain similarity dilutes a short query below the threshold entirely.
-    const res = await this.pool.query<Row & { score: number }>(
+    const res = await this.read(() => this.pool.query<Row & { score: number }>(
       `SELECT ${SELECT_FIELDS}, word_similarity($1, "searchText") AS score
        FROM mxik_code
        WHERE $1 <% "searchText" AND "retiredAt" IS NULL
        ORDER BY score DESC, "isBase" DESC, code
        LIMIT $2`,
       [query, limit],
-    );
+    ));
     return res.rows.map((r) => ({ candidate: toCandidate(r), score: Number(r.score) }));
   }
 
@@ -140,14 +154,14 @@ export class PostgresCandidateStore implements CandidateStore {
     // OR the terms so a partial cover still retrieves; ranking sorts it out.
     const tsquery = terms.map((t) => t.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean).join(' | ');
     if (!tsquery) return [];
-    const res = await this.pool.query<Row & { score: number }>(
+    const res = await this.read(() => this.pool.query<Row & { score: number }>(
       `SELECT ${SELECT_FIELDS}, ts_rank_cd("searchVector", q) AS score
        FROM mxik_code, to_tsquery('simple', $1) AS q
        WHERE "searchVector" @@ q AND "retiredAt" IS NULL
        ORDER BY score DESC, "isBase" DESC, code
        LIMIT $2`,
       [tsquery, limit],
-    );
+    ));
     return res.rows.map((r) => ({ candidate: toCandidate(r), score: Number(r.score) }));
   }
 
@@ -156,70 +170,89 @@ export class PostgresCandidateStore implements CandidateStore {
     const col = `"${this.embeddingColumn}"`;
     // The planner setting has to apply to the same session as the query, so
     // take a dedicated connection rather than going through pool.query.
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      if (this.exactVectorScan) {
-        await client.query('SET LOCAL enable_indexscan = off');
-      } else {
-        await client.query(`SET LOCAL hnsw.ef_search = ${this.efSearch}`);
+    return this.read(async () => {
+      const client = await this.pool.connect();
+      let failure: Error | undefined;
+      try {
+        await client.query('BEGIN');
+        if (this.exactVectorScan) {
+          await client.query('SET LOCAL enable_indexscan = off');
+        } else {
+          await client.query(`SET LOCAL hnsw.ef_search = ${this.efSearch}`);
+        }
+        // <=> is cosine distance in 0..2; convert to a 0..1 similarity.
+        const res = await client.query<Row & { distance: number }>(
+          `SELECT ${SELECT_FIELDS}, (${col} <=> $1::vector) AS distance
+           FROM mxik_code
+           WHERE ${col} IS NOT NULL AND "retiredAt" IS NULL
+           ORDER BY ${col} <=> $1::vector
+           LIMIT $2`,
+          [toVectorLiteral(embedding), limit],
+        );
+        await client.query('COMMIT');
+        return res.rows.map((r) => ({
+          candidate: toCandidate(r),
+          score: Math.max(0, Math.min(1, 1 - Number(r.distance) / 2)),
+        }));
+      } catch (error) {
+        failure = error instanceof Error ? error : new Error(String(error));
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        // A connection that failed is destroyed, never handed back to the pool.
+        client.release(failure);
       }
-      // <=> is cosine distance in 0..2; convert to a 0..1 similarity.
-      const res = await client.query<Row & { distance: number }>(
-        `SELECT ${SELECT_FIELDS}, (${col} <=> $1::vector) AS distance
-         FROM mxik_code
-         WHERE ${col} IS NOT NULL AND "retiredAt" IS NULL
-         ORDER BY ${col} <=> $1::vector
-         LIMIT $2`,
-        [toVectorLiteral(embedding), limit],
-      );
-      await client.query('COMMIT');
-      return res.rows.map((r) => ({
-        candidate: toCandidate(r),
-        score: Math.max(0, Math.min(1, 1 - Number(r.distance) / 2)),
-      }));
+    });
+  }
+
+  /**
+   * Every query here is a read, so one that died on the wire (connection
+   * reset, server restart) is simply run again, once.
+   */
+  private async read<T>(run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
     } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+      if (!isTransient(error)) throw error;
+      transientRetries++;
+      return run();
     }
   }
 
   async byCode(code: string): Promise<MxikCandidate | null> {
-    const res = await this.pool.query<Row>(
+    const res = await this.read(() => this.pool.query<Row>(
       `SELECT ${SELECT_FIELDS} FROM mxik_code WHERE code = $1`,
       [code],
-    );
+    ));
     const row = res.rows[0];
     return row ? toCandidate(row) : null;
   }
 
   async baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null> {
-    const res = await this.pool.query<Row>(
+    const res = await this.read(() => this.pool.query<Row>(
       `SELECT ${SELECT_FIELDS} FROM mxik_code
        WHERE "subPositionCode" = $1 AND "isBase" AND "retiredAt" IS NULL LIMIT 1`,
       [subPositionCode],
-    );
+    ));
     const row = res.rows[0];
     return row ? toCandidate(row) : null;
   }
 
   async liveCodes(codes: readonly string[]): Promise<Set<string>> {
     if (codes.length === 0) return new Set();
-    const res = await this.pool.query<{ code: string }>(
+    const res = await this.read(() => this.pool.query<{ code: string }>(
       'SELECT code FROM mxik_code WHERE code = ANY($1::char(17)[]) AND "retiredAt" IS NULL',
       [codes],
-    );
+    ));
     return new Set(res.rows.map((r) => r.code.trim()));
   }
 
   /** True when the code exists at all, regardless of retirement. */
   async exists(code: string): Promise<{ found: boolean; retired: boolean }> {
-    const res = await this.pool.query<{ retiredAt: Date | null }>(
+    const res = await this.read(() => this.pool.query<{ retiredAt: Date | null }>(
       'SELECT "retiredAt" FROM mxik_code WHERE code = $1',
       [code],
-    );
+    ));
     const row = res.rows[0];
     if (!row) return { found: false, retired: false };
     return { found: true, retired: row.retiredAt !== null };
