@@ -123,7 +123,7 @@ export default async function ReportPage(
         </section>
 
         <div className="no-print mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-ink-faint">{t.reportFilterType}:</span>
             <Link
               href={link('')}
@@ -142,7 +142,7 @@ export default async function ReportPage(
               </Link>
             ))}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="text-ink-faint">{t.reportFilterSeverity}:</span>
             <Link href={link('severity=high')} className={severityFilter === 'high' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
               {t.severityHigh}
