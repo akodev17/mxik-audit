@@ -26,7 +26,10 @@ function scored(code: string, confidence: number, overrides: Partial<MxikCandida
 }
 
 const VALID = '01701001002000000';
+/** Same 8-digit position as VALID. */
 const OTHER = '01701001006000000';
+/** A different position of the classifier altogether. */
+const FOREIGN = '02202002001000000';
 
 function row(overrides: Partial<ResolvedRow> = {}): ResolvedRow {
   return {
@@ -107,15 +110,35 @@ describe('NOT_FOUND', () => {
 
 describe('MISMATCH', () => {
   it('fires when the row\'s own code scores below the threshold', () => {
-    const f = runChecks(row({ suggestions: [scored(OTHER, 0.9), scored(VALID, 0.2)] }));
+    const f = runChecks(row({ suggestions: [scored(FOREIGN, 0.9), scored(VALID, 0.2)] }));
     assert.equal(f.length, 1);
     assert.equal(f[0]?.type, 'MISMATCH');
     assert.equal(f[0]?.severity, 'medium');
-    assert.equal(f[0]?.suggestedMxik, OTHER);
+    assert.equal(f[0]?.suggestedMxik, FOREIGN);
   });
 
   it('fires when the row\'s code never surfaced in retrieval at all', () => {
-    const f = runChecks(row({ suggestions: [scored(OTHER, 0.9)] }));
+    const f = runChecks(row({ suggestions: [scored(FOREIGN, 0.9)] }));
+    assert.equal(f[0]?.type, 'MISMATCH');
+  });
+
+  it('fires when nothing was suggested at all', () => {
+    const f = runChecks(row({ suggestions: [] }));
+    assert.equal(f[0]?.type, 'MISMATCH');
+  });
+
+  it('does not fire when the best suggestion is in the same 8-digit position', () => {
+    // A base code scored low against a branded name is still a defensible code.
+    assert.deepEqual(runChecks(row({ suggestions: [scored(OTHER, 0.85), scored(VALID, 0.4)] })), []);
+    assert.deepEqual(runChecks(row({ suggestions: [scored('01701001002003001', 0.85)] })), []);
+  });
+
+  it('does not fire when the row\'s own code is the best suggestion, however low', () => {
+    assert.deepEqual(runChecks(row({ suggestions: [scored(VALID, 0.3)] })), []);
+  });
+
+  it('still fires for a code from another position of the same group', () => {
+    const f = runChecks(row({ suggestions: [scored('01702001001000000', 0.9)] }));
     assert.equal(f[0]?.type, 'MISMATCH');
   });
 
@@ -184,7 +207,7 @@ describe('UNIT_CONFLICT', () => {
     const f = runChecks(row({
       unit: 'litr',
       existing: { found: true, retired: false, candidate: candidate(VALID, strict(['dona'])) },
-      suggestions: [scored(OTHER, 0.9)],
+      suggestions: [scored(FOREIGN, 0.9)],
     }));
     assert.deepEqual(f.map((x) => x.type).sort(), ['MISMATCH', 'UNIT_CONFLICT']);
   });

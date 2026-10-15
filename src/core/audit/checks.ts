@@ -13,6 +13,15 @@ export type Severity = 'high' | 'medium';
 /** Below this, a present-and-valid code is treated as not matching the name. */
 export const MISMATCH_THRESHOLD = 0.6;
 
+/**
+ * Codes sharing the first 8 digits sit in the same position of the
+ * classifier (e.g. a base code and a brand's identifying code under it).
+ * Approved 2026-10-15 on demo:quality evidence: without the reranker a short
+ * shop name scores low against its own generic base code, and flagging that as
+ * a mismatch was wrong two times in three.
+ */
+const POSITION_DIGITS = 8;
+
 export type ResolvedRow = {
   /** The row's own code, exactly as the catalogue had it (may be junk). */
   existingMxik: string | null;
@@ -111,7 +120,11 @@ export function runChecks(row: ResolvedRow): Finding[] {
   // pipeline ranked it at all, use that; if it never surfaced, that is itself
   // the signal.
   const selfScore = row.suggestions.find((s) => s.candidate.code === code)?.confidence ?? 0;
-  if (selfScore < MISMATCH_THRESHOLD) {
+  // A low self-score alone is not evidence: only flag when the best suggestion
+  // lies in a different position of the classifier than the row's own code.
+  const samePosition = best !== undefined
+    && best.candidate.code.slice(0, POSITION_DIGITS) === code.slice(0, POSITION_DIGITS);
+  if (selfScore < MISMATCH_THRESHOLD && !samePosition) {
     findings.push({
       type: 'MISMATCH',
       severity: 'medium',
