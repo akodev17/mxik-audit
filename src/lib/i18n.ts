@@ -26,6 +26,44 @@ export type Dict = {
   navReport: string;
   navReview: string;
   navExport: string;
+  navCatalogs: string;
+
+  // catalogue history and deletion
+  catalogsTitle: string;
+  catalogsHint: string;
+  catalogsEmpty: string;
+  catalogsFile: string;
+  catalogsDate: string;
+  catalogsRows: string;
+  catalogsRisky: string;
+  catalogsStatus: string;
+  catalogsOpen: string;
+  catalogsDelete: string;
+  catalogsDeleteConfirm: (filename: string) => string;
+  catalogsDeleted: (rows: number) => string;
+  catalogStatus: Record<'uploaded' | 'analyzing' | 'ready' | 'failed', string>;
+  catalogSwitch: string;
+
+  // undo and decision history
+  reviewUndo: string;
+  reviewUndoLast: string;
+  reviewUndoFailed: string;
+  reviewHistory: string;
+  reviewHistoryEmpty: string;
+  historyAccepted: string;
+  historyRejected: string;
+  historyBulk: (n: number) => string;
+  historyUndone: (n: number) => string;
+
+  // demo
+  demoTitle: string;
+  demoIntro: string;
+  demoPoints: string[];
+  demoStart: string;
+  demoUnavailable: string;
+  demoBadge: string;
+  demoBanner: (hours: number) => string;
+  demoUploadDisabled: string;
 
   // upload
   uploadTitle: string;
@@ -129,6 +167,46 @@ export const uz: Dict = {
   navReport: 'Hisobot',
   navReview: 'Koʻrib chiqish',
   navExport: 'Eksport',
+  navCatalogs: 'Kataloglar',
+
+  catalogsTitle: 'Yuklangan kataloglar',
+  catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',
+  catalogsEmpty: 'Hali katalog yuklanmagan.',
+  catalogsFile: 'Fayl',
+  catalogsDate: 'Sana',
+  catalogsRows: 'Qatorlar',
+  catalogsRisky: 'Riskli',
+  catalogsStatus: 'Holat',
+  catalogsOpen: 'Ochish',
+  catalogsDelete: 'Oʻchirish',
+  catalogsDeleteConfirm: (filename) =>
+    `“${filename}” katalogi butunlay oʻchiriladi: qatorlar, takliflar va qarorlar tarixi bilan birga. Buni qaytarib boʻlmaydi. Davom etasizmi?`,
+  catalogsDeleted: (rows) => `Katalog oʻchirildi (${rows.toLocaleString('uz-UZ')} qator).`,
+  catalogStatus: { uploaded: 'Yuklangan', analyzing: 'Tahlil qilinmoqda', ready: 'Tayyor', failed: 'Xatolik' },
+  catalogSwitch: 'Katalog',
+
+  reviewUndo: 'Bekor qilish',
+  reviewUndoLast: 'Oxirgi qarorni bekor qilish',
+  reviewUndoFailed: 'Bekor qilib boʻlmadi: bu qaror allaqachon bekor qilingan.',
+  reviewHistory: 'Qarorlar tarixi',
+  reviewHistoryEmpty: 'Hali qaror qabul qilinmagan.',
+  historyAccepted: 'Qabul qilindi',
+  historyRejected: 'Rad etildi',
+  historyBulk: (n) => `${n} ta taklif birdaniga qabul qilindi`,
+  historyUndone: (n) => (n > 1 ? `${n} ta qaror bekor qilindi` : 'Qaror bekor qilindi'),
+
+  demoTitle: 'Demoni sinab koʻrish',
+  demoIntro: 'Roʻyxatdan oʻtmasdan, namuna katalog ustida dasturning toʻliq ishini koʻring: risk hisoboti, takliflarni koʻrib chiqish va tuzatilgan faylni yuklab olish.',
+  demoPoints: [
+    'Katalog oʻylab topilgan: real kompaniya maʼlumotlari ishlatilmagan.',
+    'Har bir tashrif oʻz nusxasini oladi — qarorlaringizni boshqalar koʻrmaydi.',
+    'Demo rejimida fayl yuklash oʻchirilgan.',
+  ],
+  demoStart: 'Demoni boshlash',
+  demoUnavailable: 'Demo hozircha tayyor emas. Birozdan soʻng qayta urinib koʻring.',
+  demoBadge: 'Demo',
+  demoBanner: (hours) => `Demo rejimi: namuna katalog. Ushbu nusxa ${hours} soatdan soʻng oʻchiriladi.`,
+  demoUploadDisabled: 'Demo rejimida fayl yuklash oʻchirilgan. Oʻz katalogingizni tekshirish uchun bosh sahifadagi forma orqali yuboring.',
 
   uploadTitle: 'Katalogni yuklash',
   uploadHint: 'Excel (.xlsx) yoki CSV fayl. Birinchi qator — sarlavhalar.',
@@ -186,7 +264,7 @@ export const uz: Dict = {
   reviewPending: 'Kutilmoqda',
   reviewAccepted: 'Qabul qilindi',
   reviewRejected: 'Rad etildi',
-  reviewKeyboardHint: 'j / k — harakat · Enter — qabul · r — rad etish',
+  reviewKeyboardHint: 'j / k — harakat · Enter — qabul · r — rad etish · u — oxirgisini bekor qilish',
   reviewBoundUnit: 'Biriktirilgan oʻlchov birligi',
   reviewHierarchy: 'Tasniflagichdagi oʻrni',
   reviewConfidence: 'Ishonch',

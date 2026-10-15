@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { searchClassifier } from '@/lib/audit-runner';
 import { BANDS } from '@/core/match/score';
+import { bulkAccept, recordDecision, undoDecision, undoLast } from '@/lib/decisions';
 
 const DecideInput = z.object({
   findingId: z.string().min(1),
@@ -15,59 +15,25 @@ const DecideInput = z.object({
   chosenMxik: z.string().regex(/^\d{17}$/).nullable().optional(),
 });
 
-export type DecideResult = { ok: true } | { ok: false; error: string };
+export type DecideResult = { ok: true; eventId: string } | { ok: false; error: string };
 
-/** Records one accept/reject, and appends to the audit log. Never updates it. */
+function refresh(): void {
+  revalidatePath('/review');
+  revalidatePath('/report');
+  revalidatePath('/export');
+}
+
+/** Records one accept/reject and its audit event. Never overwrites a decision. */
 export async function decide(payload: unknown): Promise<DecideResult> {
   const user = await currentUser();
   if (!user) return { ok: false, error: t.errorGeneric };
-
   const parsed = DecideInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
-  const { findingId, decision, chosenMxik } = parsed.data;
 
-  // Scope through the relation: a finding id alone must not reach another org.
-  const finding = await db.finding.findFirst({
-    where: { id: findingId, item: { catalog: { orgId: user.orgId } } },
-    select: { id: true, suggestedMxik: true, type: true, item: { select: { rawName: true } } },
-  });
-  if (!finding) return { ok: false, error: t.errorGeneric };
-
-  const chosen = decision === 'accepted'
-    ? (chosenMxik ?? finding.suggestedMxik)
-    : null;
-
-  await db.finding.update({
-    where: { id: findingId },
-    data: {
-      decision,
-      chosenMxik: chosen,
-      decidedBy: user.userId,
-      decidedAt: new Date(),
-    },
-  });
-
-  // This record is the long-term asset: a growing product-name-to-verified-code
-  // dataset, and what a client shows an inspector as evidence of due diligence.
-  await db.auditEvent.create({
-    data: {
-      orgId: user.orgId,
-      actorId: user.userId,
-      action: `finding.${decision}`,
-      targetId: findingId,
-      payload: {
-        type: finding.type,
-        productName: finding.item.rawName,
-        suggestedMxik: finding.suggestedMxik,
-        chosenMxik: chosen,
-        overrodeSuggestion: chosen !== null && chosen !== finding.suggestedMxik,
-      },
-    },
-  });
-
-  revalidatePath('/review');
-  revalidatePath('/export');
-  return { ok: true };
+  const result = await recordDecision(user, parsed.data);
+  if (!result.ok) return { ok: false, error: t.errorGeneric };
+  refresh();
+  return result;
 }
 
 const BulkInput = z.object({
@@ -83,54 +49,35 @@ export type BulkResult = { ok: true; count: number } | { ok: false; error: strin
 export async function acceptAllAbove(payload: unknown): Promise<BulkResult> {
   const user = await currentUser();
   if (!user) return { ok: false, error: t.errorGeneric };
-
   const parsed = BulkInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
-  const { catalogId, minConfidence } = parsed.data;
 
-  const targets = await db.finding.findMany({
-    where: {
-      item: { catalogId, catalog: { orgId: user.orgId } },
-      decision: 'pending',
-      confidence: { gte: minConfidence },
-      suggestedMxik: { not: null },
-    },
-    select: { id: true, suggestedMxik: true, type: true, confidence: true, item: { select: { rawName: true } } },
-  });
-  if (targets.length === 0) return { ok: true, count: 0 };
+  const result = await bulkAccept(user, parsed.data);
+  if (!result.ok) return { ok: false, error: t.errorGeneric };
+  refresh();
+  return { ok: true, count: result.count };
+}
 
-  const now = new Date();
-  await db.$transaction([
-    db.finding.updateMany({
-      where: { id: { in: targets.map((f) => f.id) } },
-      data: { decision: 'accepted', decidedBy: user.userId, decidedAt: now },
-    }),
-    // chosenMxik is per-row, so it cannot be set by updateMany.
-    ...targets.map((f) =>
-      db.finding.update({ where: { id: f.id }, data: { chosenMxik: f.suggestedMxik } })),
-    db.auditEvent.create({
-      data: {
-        orgId: user.orgId,
-        actorId: user.userId,
-        action: 'finding.bulk_accepted',
-        targetId: catalogId,
-        payload: {
-          minConfidence,
-          count: targets.length,
-          findings: targets.map((f) => ({
-            id: f.id,
-            productName: f.item.rawName,
-            chosenMxik: f.suggestedMxik,
-            confidence: f.confidence,
-          })),
-        },
-      },
-    }),
-  ]);
+export type UndoResult = { ok: true; findingIds: string[] } | { ok: false; error: string };
 
-  revalidatePath('/review');
-  revalidatePath('/export');
-  return { ok: true, count: targets.length };
+const UndoInput = z.union([
+  z.object({ eventId: z.string().min(1), findingId: z.string().min(1).optional() }),
+  z.object({ lastInCatalog: z.string().min(1) }),
+]);
+
+/** Undo a decision event (or one row of it), or the latest one still in effect for a catalogue. */
+export async function undo(payload: unknown): Promise<UndoResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: t.errorGeneric };
+  const parsed = UndoInput.safeParse(payload);
+  if (!parsed.success) return { ok: false, error: t.errorGeneric };
+
+  const result = 'eventId' in parsed.data
+    ? await undoDecision(user, parsed.data.eventId, parsed.data.findingId)
+    : await undoLast(user, parsed.data.lastInCatalog);
+  if (!result.ok) return { ok: false, error: t.reviewUndoFailed };
+  refresh();
+  return result;
 }
 
 export type ClassifierHit = {

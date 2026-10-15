@@ -1,11 +1,15 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Header, Shell } from '@/components/chrome';
+import { CatalogSwitcher } from '@/components/catalog-switcher';
 import { lookupCode } from '@/lib/audit-runner';
+import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
+import { decisionHistory } from '@/lib/decisions';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { hierarchyPath } from '@/core/match/rules';
+import { DecisionHistory } from './decision-history';
 import { ReviewList, type Alternative, type ReviewRow } from './review-list';
 
 const PAGE_SIZE = 200;
@@ -27,20 +31,20 @@ function readAlternatives(value: unknown): Alternative[] {
   });
 }
 
-export default async function ReviewPage() {
+export default async function ReviewPage(
+  { searchParams }: { searchParams: Promise<{ catalog?: string }> },
+) {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
+  const params = await searchParams;
 
-  const catalog = await db.catalog.findFirst({
-    where: { orgId: user.orgId },
-    orderBy: { createdAt: 'desc' },
-  });
+  const { catalog, options } = await catalogForPage(user.orgId, params.catalog);
 
   if (!catalog) {
     return (
       <>
-        <Header email={user.email} current="/review" />
-        <Shell>
+        <Header email={user.email} current="/review" demo={user.demo} />
+        <Shell demo={user.demo}>
           <h1 className="text-2xl">{t.reviewTitle}</h1>
           <p className="mt-4 text-ink-soft">
             Hali katalog yuklanmagan.{' '}
@@ -89,16 +93,24 @@ export default async function ReviewPage() {
       alternatives: readAlternatives(f.alternatives),
       decision: f.decision,
       chosenMxik: f.chosenMxik,
+      decisionEventId: f.decisionEventId,
     };
   });
 
+  const history = await decisionHistory(user, catalog.id);
+  const selected = params.catalog ? catalog.id : null;
+
   return (
     <>
-      <Header email={user.email} current="/review" />
-      <Shell>
+      <Header email={user.email} current="/review" catalogId={selected} demo={user.demo} />
+      <Shell demo={user.demo}>
+        <CatalogSwitcher options={options} current={catalog.id} />
         <h1 className="mb-1 text-2xl">{t.reviewTitle}</h1>
         <p className="mb-6 text-sm text-ink-faint">{catalog.filename}</p>
         <ReviewList catalogId={catalog.id} rows={rows} />
+        <DecisionHistory
+          entries={history.map((h) => ({ ...h, createdAt: h.createdAt.toISOString() }))}
+        />
       </Shell>
     </>
   );

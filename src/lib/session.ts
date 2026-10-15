@@ -7,6 +7,8 @@ export type SessionData = {
   userId?: string;
   orgId?: string;
   email?: string;
+  /** Display only. Anything that matters re-checks the org's kind in the database. */
+  demo?: boolean;
 };
 
 const PASSWORD = process.env['SESSION_SECRET'] ?? '';
@@ -37,12 +39,12 @@ export async function getSession() {
   return getIronSession<SessionData>(store, sessionOptions);
 }
 
-export type CurrentUser = { userId: string; orgId: string; email: string };
+export type CurrentUser = { userId: string; orgId: string; email: string; demo: boolean };
 
 /** Null when not signed in; callers redirect. */
 export async function currentUser(): Promise<CurrentUser | null> {
   const session = await getSession();
   const { userId, orgId, email } = session;
   if (!userId || !orgId || !email) return null;
-  return { userId, orgId, email };
+  return { userId, orgId, email, demo: session.demo === true };
 }

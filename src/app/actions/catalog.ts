@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { auditCatalog } from '@/lib/audit-runner';
+import { deleteCatalog } from '@/lib/catalogs';
 import { db } from '@/lib/db';
+import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
 import { parseUpload } from '@/lib/spreadsheet';
 import { currentUser } from '@/lib/session';
@@ -95,6 +97,8 @@ function deriveItem(catalogId: string, row: readonly string[], rowIndex: number,
 export async function previewUpload(_prev: PreviewState, form: FormData): Promise<PreviewState> {
   const user = await currentUser();
   if (!user) return { error: t.errorGeneric };
+  // Real files never enter a demo org, whatever the browser sends.
+  if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
 
   const file = form.get('file');
   if (!(file instanceof File) || file.size === 0) return { error: 'Fayl tanlanmadi.' };
@@ -172,6 +176,7 @@ export type CommitState = { error?: string; catalogId?: string };
 export async function commitUpload(payload: unknown): Promise<CommitState> {
   const user = await currentUser();
   if (!user) return { error: t.errorGeneric };
+  if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
 
   const parsed = CommitInput.safeParse(payload);
   if (!parsed.success) return { error: t.errorGeneric };
@@ -241,4 +246,22 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
   revalidatePath('/review');
   revalidatePath('/export');
   return { catalogId };
+}
+
+export type RemoveResult = { ok: true; rows: number } | { ok: false; error: string };
+
+/** Deletes one of the org's catalogues and everything derived from it. */
+export async function removeCatalog(catalogId: unknown): Promise<RemoveResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: t.errorGeneric };
+  const id = z.string().min(1).safeParse(catalogId);
+  if (!id.success) return { ok: false, error: t.errorGeneric };
+
+  const result = await deleteCatalog(user, id.data);
+  if (!result.ok) return { ok: false, error: t.errorGeneric };
+  revalidatePath('/catalogs');
+  revalidatePath('/report');
+  revalidatePath('/review');
+  revalidatePath('/export');
+  return { ok: true, rows: result.rows };
 }

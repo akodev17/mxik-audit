@@ -1,7 +1,8 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { acceptAllAbove, decide, lookupCodes, type ClassifierHit } from '@/app/actions/review';
+import { acceptAllAbove, decide, lookupCodes, undo, type ClassifierHit } from '@/app/actions/review';
 import { ConfidenceBadge, TypeBadge } from '@/components/chrome';
 import { t } from '@/lib/i18n';
 
@@ -30,6 +31,8 @@ export type ReviewRow = {
   alternatives: Alternative[];
   decision: 'pending' | 'accepted' | 'rejected';
   chosenMxik: string | null;
+  /** The audit event behind the current decision; what undo reverts. */
+  decisionEventId: string | null;
 };
 
 const DECISION_LABEL = {
@@ -39,16 +42,35 @@ const DECISION_LABEL = {
 } as const;
 
 export function ReviewList({ catalogId, rows: initial }: { catalogId: string; rows: ReviewRow[] }) {
+  const router = useRouter();
   const [rows, setRows] = useState(initial);
   const [cursor, setCursor] = useState(0);
   const [busy, startBusy] = useTransition();
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // A server refresh (after a decision, undo or bulk accept) brings fresh row
+  // contents. Keep the order the reviewer is working in, or the j/k cursor
+  // would jump as decided rows re-sort.
+  useEffect(() => {
+    setRows((current) => {
+      const fresh = new Map(initial.map((r) => [r.findingId, r]));
+      const kept = current.flatMap((r) => {
+        const updated = fresh.get(r.findingId);
+        return updated ? [updated] : [];
+      });
+      const known = new Set(current.map((r) => r.findingId));
+      return [...kept, ...initial.filter((r) => !known.has(r.findingId))];
+    });
+  }, [initial]);
 
   const decided = rows.filter((r) => r.decision !== 'pending').length;
 
   const apply = useCallback((findingId: string, decision: 'accepted' | 'rejected', chosen?: string) => {
+    // A decided row has to be undone first; nothing is overwritten silently.
+    if (rows.find((r) => r.findingId === findingId)?.decision !== 'pending') return;
     // Optimistic: an accountant working through hundreds of rows should never
     // wait on a round trip. Reverted if the server disagrees.
     const before = rows;
@@ -58,9 +80,30 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
         : r));
     startBusy(async () => {
       const result = await decide({ findingId, decision, chosenMxik: chosen ?? null });
-      if (!result.ok) setRows(before);
+      if (!result.ok) {
+        setRows(before);
+        return;
+      }
+      setRows((current) => current.map((r) => (r.findingId === findingId ? { ...r, decisionEventId: result.eventId } : r)));
+      router.refresh();
     });
-  }, [rows]);
+  }, [rows, router]);
+
+  const revert = useCallback((payload: { eventId: string; findingId?: string } | { lastInCatalog: string }) => {
+    setNotice(null);
+    startBusy(async () => {
+      const result = await undo(payload);
+      if (!result.ok) {
+        setNotice(result.error);
+        return;
+      }
+      const reverted = new Set(result.findingIds);
+      setRows((current) => current.map((r) => (reverted.has(r.findingId)
+        ? { ...r, decision: 'pending', chosenMxik: null, decisionEventId: null }
+        : r)));
+      router.refresh();
+    });
+  }, [router]);
 
   const move = useCallback((delta: number) => {
     setCursor((c) => Math.max(0, Math.min(rows.length - 1, c + delta)));
@@ -99,13 +142,17 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
         case 'o':
           if (row) { event.preventDefault(); setPickerFor(row.findingId); }
           break;
+        case 'u':
+          event.preventDefault();
+          revert({ lastInCatalog: catalogId });
+          break;
         case 'Escape': setPickerFor(null); break;
         default: break;
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cursor, rows, move, apply]);
+  }, [cursor, rows, move, apply, revert, catalogId]);
 
   useEffect(() => {
     rowRefs.current[cursor]?.scrollIntoView({ block: 'nearest' });
@@ -125,6 +172,7 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
           r.decision === 'pending' && r.confidence !== null && r.confidence >= 0.9 && r.suggestedMxik
             ? { ...r, decision: 'accepted', chosenMxik: r.suggestedMxik }
             : r));
+        router.refresh();
       }
     });
   }
@@ -137,8 +185,14 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-soft tnum">{t.reviewProgress(decided, rows.length)}</p>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <span className="text-xs text-ink-faint">{t.reviewKeyboardHint}</span>
+          <button
+            type="button" onClick={() => revert({ lastInCatalog: catalogId })} disabled={busy || decided === 0}
+            className="border border-rule px-3 py-1.5 text-sm hover:bg-paper-tint disabled:opacity-50"
+          >
+            {t.reviewUndoLast}
+          </button>
           <button
             type="button" onClick={bulkAccept} disabled={busy}
             className="border border-ink px-3 py-1.5 text-sm hover:bg-paper-tint disabled:opacity-50"
@@ -147,6 +201,9 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
           </button>
         </div>
       </div>
+      {notice ? (
+        <p role="alert" className="mb-3 border-l-2 border-risk bg-risk-tint px-3 py-2 text-sm text-ink-soft">{notice}</p>
+      ) : null}
 
       <div
         ref={containerRef}
@@ -271,9 +328,20 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
                       </button>
                     </div>
                   ) : (
-                    <span className={`whitespace-nowrap text-xs ${row.decision === 'accepted' ? 'text-ok' : 'text-ink-faint'}`}>
-                      {DECISION_LABEL[row.decision]}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`whitespace-nowrap text-xs ${row.decision === 'accepted' ? 'text-ok' : 'text-ink-faint'}`}>
+                        {DECISION_LABEL[row.decision]}
+                      </span>
+                      {row.decisionEventId ? (
+                        <button
+                          type="button" disabled={busy}
+                          onClick={() => revert({ eventId: row.decisionEventId ?? '', findingId: row.findingId })}
+                          className="whitespace-nowrap text-xs text-ink-soft underline hover:text-ink disabled:opacity-50"
+                        >
+                          {t.reviewUndo}
+                        </button>
+                      ) : null}
+                    </div>
                   )}
                 </td>
               </tr>

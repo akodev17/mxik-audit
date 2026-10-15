@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ConfidenceBadge, DegradedBanner, Header, Shell, TypeBadge } from '@/components/chrome';
+import { CatalogSwitcher } from '@/components/catalog-switcher';
+import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
@@ -11,22 +13,19 @@ type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT';
 const TYPE_ORDER: FindingType[] = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'];
 
 export default async function ReportPage(
-  { searchParams }: { searchParams: Promise<{ type?: string; severity?: string }> },
+  { searchParams }: { searchParams: Promise<{ type?: string; severity?: string; catalog?: string }> },
 ) {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const params = await searchParams;
 
-  const catalog = await db.catalog.findFirst({
-    where: { orgId: user.orgId },
-    orderBy: { createdAt: 'desc' },
-  });
+  const { catalog, options } = await catalogForPage(user.orgId, params.catalog);
 
   if (!catalog) {
     return (
       <>
-        <Header email={user.email} current="/report" />
-        <Shell>
+        <Header email={user.email} current="/report" demo={user.demo} />
+        <Shell demo={user.demo}>
           <h1 className="text-2xl">{t.reportTitle}</h1>
           <p className="mt-4 text-ink-soft">
             Hali katalog yuklanmagan.{' '}
@@ -85,11 +84,20 @@ export default async function ReportPage(
 
   const totalFindings = [...counts.values()].reduce((a, b) => a + b, 0);
   const clean = riskyRows === 0;
+  // Filter links stay on the catalogue being viewed.
+  const link = (query: string): string => {
+    const q = new URLSearchParams(query);
+    if (params.catalog) q.set('catalog', catalog.id);
+    const qs = q.toString();
+    return qs ? `/report?${qs}` : '/report';
+  };
+  const selected = params.catalog ? catalog.id : null;
 
   return (
     <>
-      <Header email={user.email} current="/report" />
-      <Shell>
+      <Header email={user.email} current="/report" catalogId={selected} demo={user.demo} />
+      <Shell demo={user.demo}>
+        <CatalogSwitcher options={options} current={catalog.id} />
         <DegradedBanner reasons={degradedReasons} />
 
         {/* The headline. Large, unmissable, and about risk — not features. */}
@@ -118,7 +126,7 @@ export default async function ReportPage(
           <div className="flex items-center gap-2">
             <span className="text-ink-faint">{t.reportFilterType}:</span>
             <Link
-              href="/report"
+              href={link('')}
               className={typeFilter === null ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}
             >
               {t.reportFilterAll}
@@ -126,7 +134,7 @@ export default async function ReportPage(
             {TYPE_ORDER.filter((type) => count(type) > 0).map((type) => (
               <Link
                 key={type}
-                href={`/report?type=${type}`}
+                href={link(`type=${type}`)}
                 className={typeFilter === type ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}
               >
                 <TypeBadge type={type} severity={type === 'MISSING' || type === 'NOT_FOUND' ? 'high' : 'medium'} />
@@ -136,17 +144,17 @@ export default async function ReportPage(
           </div>
           <div className="flex items-center gap-3">
             <span className="text-ink-faint">{t.reportFilterSeverity}:</span>
-            <Link href="/report?severity=high" className={severityFilter === 'high' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
+            <Link href={link('severity=high')} className={severityFilter === 'high' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
               {t.severityHigh}
             </Link>
-            <Link href="/report?severity=medium" className={severityFilter === 'medium' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
+            <Link href={link('severity=medium')} className={severityFilter === 'medium' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
               {t.severityMedium}
             </Link>
           </div>
           <div className="ml-auto flex items-center gap-4">
             <PrintButton label={t.reportPrint} />
             {riskyRows > 0 ? (
-              <Link href="/review" className="bg-ink px-4 py-2 text-paper">
+              <Link href={selected ? `/review?catalog=${selected}` : '/review'} className="bg-ink px-4 py-2 text-paper">
                 {t.reportGoReview}
               </Link>
             ) : null}

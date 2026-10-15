@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { lookupCode } from '@/lib/audit-runner';
+import { resolveCatalog } from '@/lib/catalogs';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
@@ -17,14 +18,13 @@ const StoredMap = z.object({
  * undecided rows keep their original values and are flagged in `audit_status`,
  * so nothing is changed silently.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const catalog = await db.catalog.findFirst({
-    where: { orgId: user.orgId },
-    orderBy: { createdAt: 'desc' },
-  });
+  // Any of the org's catalogues; another org's id is the same 404 as a missing one.
+  const requested = new URL(request.url).searchParams.get('catalog');
+  const catalog = await resolveCatalog(user.orgId, requested);
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
 
   const mapping = StoredMap.safeParse(catalog.columnMap);
