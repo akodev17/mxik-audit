@@ -1,7 +1,7 @@
 # Confidence scoring
 
 How a 0–1 confidence is produced, and why it is built the way it is.
-The implementation is [`src/core/score.ts`](../src/core/match/score.ts); this
+The implementation is [`src/core/match/score.ts`](../src/core/match/score.ts) and the gate is [`rerank-gate.ts`](../src/core/match/rerank-gate.ts); this
 document and that file must stay in step.
 
 ## The problem
@@ -72,6 +72,32 @@ liked cannot be promoted to high confidence on the model's word alone. It also
 can never invent a candidate: `ClaudeRerankProvider` drops any returned code
 that was not in the list it was given.
 
+### The ceiling is per candidate (changed 2026-10-15)
+
+`ceiling` is 1.0 **only for a candidate the reranker actually scored**, and
+0.85 for every other candidate — whether the reranker is off, was skipped by
+the gate below, failed (timeout, refusal, unparseable answer), or simply did
+not rank that candidate. Before this change the ceiling was lifted for every
+candidate whenever a key was configured, so a failing call produced 0.985
+("high", bulk-acceptable) with no LLM verdict at all. No weight or threshold
+changed: with no key the eval reproduces the previous numbers exactly (see
+`docs/eval-results.json`, runs 2 and 3).
+
+### Which rows the reranker sees (the gate)
+
+To bound cost, only uncertain fused rows are sent: those whose top-1 retrieval
+confidence, computed **before** the ceiling, is below `RERANK_GATE_CONFIDENCE`
+(default 0.95), or whose top-1 minus top-2 is below `RERANK_GATE_MARGIN`
+(default 0.10). Barcode and exact-name hits never reach it. A skipped row keeps
+the 0.85 ceiling, so skipping can only keep a row out of the bulk-accept band,
+never put it in. Without a key the eval measures the gate in a dry run: it
+would send 50% of the real cases and 57% of the synthetic ones. The defaults
+are not tuned; tune them with `npm run eval` once a key is set.
+
+The reranker may only return codes it was given, or "none" (which scores every
+candidate 0 and so pushes the row out of every trusted band). Codes outside the
+row's candidates, or not live in the classifier, are discarded before scoring.
+
 ### Why there is a ceiling without a reranker
 
 `NO_RERANK_CEILING = 0.85` sits just below the high band, so **nothing is ever
@@ -116,7 +142,18 @@ fire on our own inability to parse.
 - **per-band top-1 precision** — does "high" actually mean safe? On the current
   12-case seed set, with the reranker disabled: high band n=5, precision 100%;
   medium band n=7, precision 43%. That is the intended shape — high is
-  trustworthy, medium genuinely needs review.
+  trustworthy, medium genuinely needs review. On the 191 synthetic cases the
+  high band covers 31.9% of rows at 100% precision (all barcode or exact-name
+  hits, since nothing else can reach it without a reranker).
+
+The checks that consume these numbers are scored separately by
+`npm run demo:quality` against the labelled demo catalogue. Today MISMATCH
+("code valid but scores < 0.6 against the name") has 33% precision without a
+reranker: short shop names score low against their own generic base code. The
+threshold is unchanged pending evidence; a candidate fix (do not flag when the
+row's code and the suggestion share the 8-digit position) removed 25 of 39
+false alarms and no true positives on that fixture, but the fixture's planted
+errors are all cross-group, so that result is biased in the fix's favour.
 
 ## Known weaknesses
 
