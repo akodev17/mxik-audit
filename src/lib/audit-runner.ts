@@ -84,6 +84,8 @@ export async function auditCatalog(catalogId: string, options: AuditOptions = {}
   });
 
   const CONCURRENCY = 8;
+  const SUGGESTIONS = 5;
+  const SELF_MATCH_DEPTH = 20;
   let done = 0;
   let findingsCreated = 0;
   let next = 0;
@@ -98,12 +100,14 @@ export async function auditCatalog(catalogId: string, options: AuditOptions = {}
       const item = items[index];
       if (!item) return;
 
+      // Ranked deeper than the suggestions so the row's own code is usually
+      // scorable from this one retrieval, without a second pass.
       const match = await matchProduct({
         rawName: item.rawName,
         barcode: item.barcode,
         unit: item.unit,
         existingMxik: item.existingMxik,
-      }, { store, embedder, reranker, rerankGate: gate, timer });
+      }, { store, embedder, reranker, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
 
       // Resolve the row's own code so NOT_FOUND and retirement can be judged.
       const code = readCode(item.existingMxik);
@@ -121,18 +125,19 @@ export async function auditCatalog(catalogId: string, options: AuditOptions = {}
 
       // The row's own code must be scorable even when retrieval never surfaced
       // it, otherwise a correct code that happens to rank poorly looks missing.
-      let suggestions: ScoredCandidate[] = [...match.candidates];
-      if (code && existing.found && !suggestions.some((s) => s.candidate.code === code)) {
-        const self = existing.candidate;
-        if (self) {
+      let suggestions: ScoredCandidate[] = match.candidates.slice(0, SUGGESTIONS);
+      if (code && existing.found && existing.candidate && !suggestions.some((s) => s.candidate.code === code)) {
+        let found = match.candidates.find((s) => s.candidate.code === code);
+        // A barcode hit skips name retrieval, so only then is a second pass needed.
+        if (!found && match.decidedBy === 'barcode') {
           const selfMatch = await timed(timer, 'self-match', () => matchProduct(
             { rawName: item.rawName, unit: item.unit },
             // Same name + unit, so a reranked row is a cache hit here, not a second call.
-            { store, embedder, reranker, rerankGate: gate, topK: 20 },
+            { store, embedder, reranker, rerankGate: gate, topK: SELF_MATCH_DEPTH },
           ));
-          const found = selfMatch.candidates.find((s) => s.candidate.code === code);
-          if (found) suggestions = [...suggestions, found];
+          found = selfMatch.candidates.find((s) => s.candidate.code === code);
         }
+        if (found) suggestions = [...suggestions, found];
       }
 
       const findings = runChecks({
