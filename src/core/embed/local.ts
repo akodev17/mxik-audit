@@ -29,8 +29,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   constructor(
     private readonly model: LocalModel,
     private readonly cacheDir = process.env['LOCAL_MODEL_DIR']?.trim() || 'data/models',
-    /** 256 measured ~1.6x faster than 64 on the backfill; queries are single texts. */
-    private readonly batchSize = 256,
+    private readonly batchSize = 64,
   ) {
     this.name = `local:${model.id}`;
   }
@@ -47,11 +46,17 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
 
   async embed(texts: readonly string[]): Promise<number[][]> {
     const extract = await this.load();
-    const out: number[][] = [];
-    for (let i = 0; i < texts.length; i += this.batchSize) {
-      const batch = texts.slice(i, i + this.batchSize).map((t) => this.model.prefix + t);
-      const tensor = await extract(batch, { pooling: 'mean', normalize: true });
-      out.push(...tensor.tolist());
+    // A batch is padded to its longest text, and classifier names range from
+    // two words to a paragraph: batch similar lengths together, then restore order.
+    const order = texts.map((_, i) => i).sort((a, b) => (texts[a]?.length ?? 0) - (texts[b]?.length ?? 0));
+    const out = new Array<number[]>(texts.length);
+    for (let i = 0; i < order.length; i += this.batchSize) {
+      const slice = order.slice(i, i + this.batchSize);
+      const tensor = await extract(slice.map((j) => this.model.prefix + (texts[j] ?? '')), { pooling: 'mean', normalize: true });
+      tensor.tolist().forEach((vec, k) => {
+        const j = slice[k];
+        if (j !== undefined) out[j] = vec;
+      });
     }
     return out;
   }
