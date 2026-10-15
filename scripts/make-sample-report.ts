@@ -1,5 +1,7 @@
-// Runs the real audit on the landing page's sample catalogue and freezes the
-// result into src/lib/sample-report.generated.ts. Also writes the same file to
+// Runs the real audit on the demo's catalogue (prisma/demo-catalog.json, whose
+// first rows are scripts/landing-sample/catalog.ts) and freezes the result into
+// src/lib/sample-report.generated.ts — so the landing's numbers are the numbers
+// a visitor sees in the demo. Also writes the same file to
 // public/demo/namuna-katalog.xlsx, so what a visitor downloads (and can upload
 // to the app) is exactly what produced the page's numbers.
 //
@@ -17,8 +19,8 @@
 // `-- --preview` prints the result without the embedding check and writes nothing.
 // `-- --draft` skips the embedding check but writes, stamped as a draft; the
 // test suite fails on a draft, so one cannot be committed by accident.
-// `-- --source=prisma/demo-catalog.json` audits the demo's catalogue instead
-// (same headers and column layout), so the landing's numbers equal the demo's.
+// `-- --source=scripts/landing-sample/catalog.ts` audits only the 27 hand-written
+// rows instead. Any JSON source must use the sample's headers and column layout.
 import '../src/lib/load-env.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
@@ -38,7 +40,7 @@ const PER_TYPE = 2;
 const PREVIEW = process.argv.includes('--preview');
 const DRAFT = process.argv.includes('--draft');
 const SOURCE = process.argv.find((a) => a.startsWith('--source='))?.slice('--source='.length)
-  ?? 'scripts/landing-sample/catalog.ts';
+  ?? 'prisma/demo-catalog.json';
 
 /** The rows to audit: the landing sample, or a JSON fixture in the same layout. */
 function sourceRows(): readonly (readonly string[])[] {

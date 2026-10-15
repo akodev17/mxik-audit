@@ -1,9 +1,10 @@
 // The landing page's sample catalogue: an invented minimarket export, written
 // the way a shop's 1C / МойСклад export actually looks — Russian headers,
 // names in Russian, Uzbek and transliteration, pack sizes glued on, mixed
-// units. It is the single source for public/demo/namuna-katalog.xlsx and for
-// the frozen sample report, so the file a visitor downloads is exactly the
-// file the landing page's numbers came from.
+// units. These rows open the demo's catalogue (prisma/demo-catalog.json), which
+// is the source of public/demo/namuna-katalog.xlsx, the frozen sample report
+// and the demo itself — so the file a visitor downloads, the landing's numbers
+// and the demo all describe the same catalogue.
 //
 // What is invented: the shop, the product NAMES as typed, and the prices.
 // What is not: every barcode and every "shop" code below was taken from the

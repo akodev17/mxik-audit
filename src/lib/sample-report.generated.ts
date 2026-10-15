@@ -35,7 +35,7 @@ export const SAMPLE_REPORT: {
   rows: SampleRow[];
 } = {
   "generatedAt": "15.10.2026",
-  "source": "scripts/landing-sample/catalog.ts",
+  "source": "prisma/demo-catalog.json",
   "pipeline": {
     "degraded": true,
     "degradedReasons": [
@@ -52,13 +52,13 @@ export const SAMPLE_REPORT: {
     "markedCodes": 127577,
     "canonicalUnits": 168
   },
-  "totalRows": 27,
-  "riskyRows": 11,
+  "totalRows": 186,
+  "riskyRows": 128,
   "byType": {
-    "MISMATCH": 3,
-    "MISSING": 2,
-    "NOT_FOUND": 3,
-    "UNIT_CONFLICT": 3
+    "MISMATCH": 61,
+    "MISSING": 47,
+    "NOT_FOUND": 16,
+    "UNIT_CONFLICT": 13
   },
   "rows": [
     {

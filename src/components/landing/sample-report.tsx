@@ -1,4 +1,5 @@
 import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
+import { DEMO_URL } from './config';
 import { FINDINGS, TYPE_LABEL, fixText, nf } from './data';
 import { CtaPair, SectionHead, WRAP } from './primitives';
 
@@ -17,7 +18,9 @@ function ClassifierName({ name, notFound = false }: { name: string | null; notFo
 }
 
 /* The report is the product, and this is the only place on the page where the
-   sample's totals appear. Everything here comes from the frozen sample audit. */
+   sample's totals appear. Everything here comes from the frozen sample audit,
+   which is run on the demo's own catalogue (prisma/demo-catalog.json), so the
+   numbers here are the numbers a visitor sees after "Demoni sinab koʻrish". */
 export function SampleReport() {
   const s = SAMPLE_REPORT;
   const count = (key: keyof typeof s.byType): number => s.byType[key];
@@ -39,6 +42,13 @@ export function SampleReport() {
             <span className="tnum">{nf.format(s.totalRows)}</span> pozitsiyadan{' '}
             <span className="tnum">{nf.format(s.riskyRows)}</span> tasi riskli
           </p>
+          {DEMO_URL ? (
+            <p className="mt-4 text-sm">
+              <a href={DEMO_URL} className="text-ink underline">
+                Shu katalogning hisobotini demoda oching →
+              </a>
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -129,8 +139,9 @@ export function SampleReport() {
         </ul>
 
         <p className="mt-5 max-w-[68ch] text-[13px] text-ink-soft">
-          Katalog oʻylab topilgan doʻkonniki: nomlar va narxlar bizniki, shtrix kodlar
-          va kodlar — tasniflagichdan. Topilmalar, takliflar va ishonch
+          Katalog oʻylab topilgan doʻkonniki va demodagi katalogning aynan oʻzi:
+          nomlar va narxlar bizniki; shtrix kodlar va toʻgʻri kodlar tasniflagichdan
+          olingan, xato kodlar ataylab qoʻyilgan. Topilmalar, takliflar va ishonch
           koʻrsatkichlari — tizim chiqargani, qoʻlda tanlanmagan. Jadvalda har
           turdan fayldagi birinchi ikki qator. Real katalogda nisbatlar boshqacha
           chiqadi — buni faqat oʻz faylingizda koʻrish mumkin.
