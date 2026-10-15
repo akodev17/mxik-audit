@@ -78,6 +78,34 @@ describe('sample report: static', () => {
   });
 });
 
+describe('sample report: the whole catalogue the workspace shows', () => {
+  const { catalog, codes } = SAMPLE_REPORT;
+
+  it('has every row of the source, in file order, with its findings', () => {
+    assert.equal(catalog.length, SAMPLE_REPORT.totalRows);
+    assert.deepEqual(catalog.map((r) => r.name), SOURCE_ROWS.map((r) => r[0]));
+    assert.equal(catalog.filter((r) => r.findings.length > 0).length, SAMPLE_REPORT.riskyRows);
+    for (const t of TYPES) {
+      const n = catalog.reduce((sum, r) => sum + r.findings.filter((f) => f.type === t).length, 0);
+      assert.equal(n, SAMPLE_REPORT.byType[t], t);
+    }
+  });
+
+  it('can explain every code it shows', () => {
+    for (const r of catalog) {
+      for (const f of r.findings) {
+        if (f.suggestedMxik) assert.ok(codes[f.suggestedMxik], `row ${r.row}: suggested ${f.suggestedMxik}`);
+      }
+      const notFound = r.findings.some((f) => f.type === 'NOT_FOUND');
+      if (r.code) assert.equal(Boolean(codes[r.code]), !notFound, `row ${r.row}: own code ${r.code}`);
+    }
+    for (const [code, c] of Object.entries(codes)) {
+      assert.match(code, CODE);
+      assert.ok(c.name && c.path.length > 0, code);
+    }
+  });
+});
+
 describe('sample report: against the classifier', async () => {
   const pool = new Pool({
     connectionString: process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik',
@@ -93,6 +121,12 @@ describe('sample report: against the classifier', async () => {
   } catch {
     loaded = false;
   }
+
+  it('every code in the explorable catalogue exists in the classifier', { skip: !loaded && 'database not available' }, async () => {
+    const all = Object.keys(SAMPLE_REPORT.codes);
+    const res = await pool.query<{ code: string }>('SELECT code FROM mxik_code WHERE code = ANY($1)', [all]);
+    assert.equal(res.rows.length, all.length);
+  });
 
   it('every shown code exists in the classifier, and every NOT_FOUND code does not', { skip: !loaded && 'database not available' }, async () => {
     const codes = SAMPLE_REPORT.rows.flatMap((r) => [r.currentMxik, r.suggestedMxik]).filter((c): c is string => c !== null);
