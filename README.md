@@ -6,12 +6,14 @@ confirm the suggestions, export the corrected file.
 
 A wrong or missing MXIK code means an EHF cannot be issued at all (VMQ No. 595,
 22.09.2021), the buyer's input VAT credit is denied, razriv mismatches trigger a
-desk audit, and Tax Code penalties apply for invoice defects. The official portal supports one lookup at a time against **438,925
-codes**, so a 3,000-SKU shop has no practical way to check its own catalogue.
+desk audit, and Tax Code penalties apply for invoice defects. The official portal supports one lookup at a time against **442,719
+codes** (export of 2026-10-15), so a 3,000-SKU shop has no practical way to check its own catalogue.
 
-**Status: Gates 0–3 complete.** The classifier is ingested and searchable, the
-matching engine runs end to end, the four application screens work against live
-data, and the landing page is at `/`.
+**Status: Gates 0–3 and the P0 demo-readiness block complete.** The classifier
+is ingested and searchable, the matching engine runs end to end, the application
+screens work against live data, the landing page is at `/`, and a no-signup demo
+is at `/demo`. See [`docs/SESSION_STATE.md`](docs/SESSION_STATE.md) for what is
+measured and what is not.
 
 ## Cold start
 
@@ -20,18 +22,22 @@ Requires Node 20+ and Docker.
 ```bash
 npm install
 docker compose up -d          # Postgres 16 + pgvector on host port 54329
+npx prisma migrate deploy     # schema (never `migrate dev`; see Migrations)
 npm run fetch:catalog         # 93 MB, three language variants, ~20 s
-npm run ingest -- --enrich    # normalize + fetch marking flags, ~4 min
-npm run load:db               # COPY 438,925 rows into Postgres, ~2 min
-npm run embed:catalog         # populate vectors + build HNSW, ~3 min
-npm run eval                  # matching accuracy against eval/golden.json
+npm run ingest -- --enrich    # normalize + fetch marking flags, ~10 min
+npm run load:db               # COPY 442,719 rows into Postgres, ~3 min
+npm run embed:catalog         # populate vectors + build HNSW, ~25 min
+npm run eval:synthetic        # optional: rebuild eval/synthetic.csv
+npm run eval                  # matching accuracy, real vs synthetic, per stage
 
-npm run seed                  # demo org + a messy 200-row catalogue
+npm run seed:demo             # the invented 186-row demo behind /demo
+npm run seed                  # sign-in org + a messy 200-row catalogue
 npm run seed:audit <id>       # audit it (the seed prints the id)
 npm run dev                   # http://localhost:3100
 ```
 
-Demo sign-in: `buxgalter@demo.uz` / `demo12345`.
+No-signup demo: `http://localhost:3100/demo`. Sign-in org: `buxgalter@demo.uz` / `demo12345`.
+Deploying to a server: [`DEPLOY.md`](DEPLOY.md).
 
 Do not run `npm run build` while `npm run dev` is running — they share
 `.next` and the dev server will start returning 500s.
@@ -51,8 +57,14 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 |---|---|
 | `npm run typecheck` | `tsc --noEmit` under `strict` |
 | `npm run lint` | ESLint, type-aware |
-| `npm test` | 173 unit tests over `normalize/`, `match/` and `embed/` |
-| `npm run eval` | matching accuracy, confidence calibration, per-case breakdown |
+| `npm test` | 289 tests: unit tests, plus database integration tests (undo, deletion, demo and cross-org isolation) that skip with a reason when Postgres is not reachable |
+| `npm run eval` | top-1/top-5 and high-band precision, real vs synthetic, each stage on/off; appends to `docs/eval-results.json` |
+| `npm run eval:synthetic` | rebuilds `eval/synthetic.csv` from classifier names with realistic noise |
+| `npm run seed:demo` | audits `prisma/demo-catalog.json` into the demo template behind `/demo` |
+| `npm run make:demo-catalog` | rebuilds that fixture from `scripts/demo/products.ts` (hand-checked codes) |
+| `npm run demo:quality` | per-check precision/recall of the demo audit against the fixture's labels |
+| `npm run purge:expired` | erases lead files past retention and deletes expired demo orgs (run daily) |
+| `npm run lead:delete` | lists leads, or erases one lead's file (`--all`: the whole lead) on request |
 | `npm run eval:translit` | transliterator accuracy against 438,925 real parallel names |
 | `npm run fetch:catalog` | downloads the three official Excel exports |
 | `npm run ingest` | Excel → `data/mxik.ndjson`; `-- --enrich` adds marking flags |
@@ -61,7 +73,7 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 | `npm run check:providers` | reports which embedding/rerank providers the environment selects |
 | `npm run seed` | demo org, user, and a deliberately messy 200-row catalogue |
 | `npm run seed:audit <id>` | audits a stored catalogue from the CLI |
-| `npm run capture` | real screenshots of the running app (docs/demos; the landing page uses no screenshots) |
+| `npm run capture` | real screenshots of the running app from a demo session, desktop and phone (docs/demos; the landing page uses none) |
 | `npm run make:sample` | writes `public/demo/namuna-katalog.xlsx` |
 | `npm run make:sample-report` | freezes an anonymised sample report for the landing page |
 | `npm run generate:units` | regenerates `units.generated.ts` from the portal's unit reference |
@@ -86,7 +98,7 @@ returned so a reviewer has alternatives.
 | 3 | Lexical: pg_trgm `word_similarity` + full-text | scored |
 | 4 | Vector: pgvector cosine over per-language embeddings | scored |
 | 5 | Reciprocal rank fusion of 3 and 4 | scored |
-| 6 | LLM rerank, given each candidate's full hierarchy path | scored |
+| 6 | LLM rerank of uncertain rows only, given each candidate's full hierarchy path | scored |
 
 The formula, weights and their justification are in [`docs/scoring.md`](docs/scoring.md).
 
@@ -107,13 +119,31 @@ assumed — see [`docs/gate0-report.md`](docs/gate0-report.md):
 
 ## Configuration
 
-Copy `.env.example` to `.env`. Only `DATABASE_URL` is required.
+Copy `.env.example` to `.env`; every variable is documented there. Only
+`DATABASE_URL` and `SESSION_SECRET` are required.
 
 | Variable | Effect if unset |
 |---|---|
 | `DATABASE_URL` | defaults to the docker-compose database on port 54329 |
 | `ANTHROPIC_API_KEY` | **stage 6 is skipped** and confidence is capped at 0.85, so nothing reaches the bulk-accept band |
+| `ANTHROPIC_MODEL` | `claude-opus-5-5`; see `.env.example` for cheaper models and prices |
+| `MXIK_LLM_ENABLED` | `true`; set `false` to never call the LLM, even with a key |
+| `RERANK_GATE_CONFIDENCE` / `RERANK_GATE_MARGIN` | `0.95` / `0.10`: only rows below these go to the LLM |
 | `VOYAGE_API_KEY` / `OPENAI_API_KEY` | stage 4 falls back to a local non-semantic stand-in |
+
+### What the reranker sends
+
+Only rows the gate marks uncertain, and only these fields: the cleaned product
+name, the row's unit as written, a derived yes/no "prepared dish" flag, and up
+to 20 public classifier candidates (code, name, hierarchy path, unit, marking).
+Never prices, barcodes, existing codes, company names or other columns. The
+model may only pick among those candidates or answer "none"; every returned
+code is checked against the candidate list and the live classifier, and the
+0.85 cap is lifted only for candidates it actually scored. Any failure
+(timeout, refusal, bad JSON) leaves the row on the capped retrieval ranking.
+Verdicts are cached per org by a hash of model + prompt + normalized name +
+unit, and each audit logs rows sent, tokens, latency and estimated cost in its
+`catalog.audited` event.
 
 Both fallbacks are loud: `npm run eval` prints a warning banner, every
 `MatchResult` carries a note, and `npm run check:providers` reports the
@@ -123,7 +153,9 @@ Two ways to turn the pipeline up:
 
 1. **Reranker only** (minutes, cents). Set `ANTHROPIC_API_KEY` and re-run
    `npm run eval`. No re-embedding needed. This is the bigger lever: stage 6
-   currently has 16.7 points of headroom against the retrieval pool.
+   currently has 16.7 points of headroom against the retrieval pool. Then
+   re-run `npm run seed:demo` and `npm run demo:quality` to see what it does to
+   the demo's false alarms.
 2. **Reranker plus real embeddings.** Also set `VOYAGE_API_KEY` (or
    `OPENAI_API_KEY`) and re-run `npm run embed:catalog` — the stored vectors
    come from the stand-in and must be regenerated. That is 439k rows × 2
@@ -171,37 +203,57 @@ npx prisma migrate diff --from-schema-datasource prisma/schema.prisma   --to-sch
 npx prisma migrate deploy
 ```
 
+On Windows, `prisma generate` fails with `EPERM ... query_engine-windows.dll.node`
+while a dev server has the engine loaded. The TypeScript client is still
+written; the engine binary does not change with the schema. Restart the dev
+server to pick up new fields.
+
 ## Layout
 
 ```
 src/core/normalize/   pure text normalization (script, apostrophes, noise, units)
 src/core/match/       cascade, fusion, scoring, domain rules, Postgres store
 src/core/embed/       swappable embedding providers
-scripts/              ingestion, enrichment and Gate 0 diagnostics
-eval/                 golden set and the evaluation harness
-prisma/               schema and migrations
-docs/                 Gate 0 findings, scoring rationale, machine-readable reports
+src/lib/              server services: decisions/undo, catalogues, demo, retention, audit runner
+src/app/              screens, server actions, /api/export, /api/health
+scripts/              ingestion, enrichment, demo fixture, maintenance and Gate 0 diagnostics
+eval/                 golden.csv (real), synthetic.csv, and the evaluation harness
+prisma/               schema, migrations and the demo catalogue fixture
+docs/                 Gate 0 findings, scoring rationale, eval history, session state
 ```
 
 ## Known limitations
 
+- **MISMATCH raises many false alarms without the reranker.** On the demo
+  catalogue, `npm run demo:quality` measures 33% precision for MISMATCH (19
+  right, 39 correctly coded rows flagged): a short shop name scores low
+  against its own generic base code on retrieval alone. MISSING and NOT_FOUND
+  are 100%. Not changed pending an evidence-backed decision; see
+  `docs/SESSION_STATE.md`.
+- **The "real" eval cases are hand-written**, not taken from a customer file;
+  none has been run through the tool yet.
+- **The review screen is built for desktop.** It works at phone width, but the
+  table scrolls sideways.
 - **`ARCHIVED` cannot be implemented as specified.** No source — export or API —
   exposes deprecation status or a replacement code. Verified by exhaustive
   hierarchy enumeration; see `docs/gate0-report.md` §3. Retirement is detected by
   snapshot diffing across imports, which yields nothing on a first import.
 - **`data/mxik.ndjson` is 1.14 GB** because hierarchy names are repeated per row.
   Splitting the four levels into lookup tables would roughly halve the load.
-- **The scoring weights are reasoned, not fitted.** 30 eval cases cannot tune six
+- **The scoring weights are reasoned, not fitted.** 12 real cases cannot tune six
   constants. They should be re-derived from accumulated `AuditEvent` decisions.
 - **The landing page's legal citations are partly unverified.** VMQ No. 595 of
   22.09.2021 was checked against lex.uz and is accurate. The brief's citation of
   Tax Code art. 223 was **not** used: art. 223 covers concealment of the tax
   base, not invoice defects. The fine consequence is therefore stated without an
   article number pending a tax adviser's confirmation.
-- **The sample report on the landing page comes from synthetic demo data.** Its
-  confidence figures skew high because the seed derives product names from real
-  classifier entries, so exact matches are over-represented relative to a real
-  customer catalogue.
+- **The landing page's sample report and the `/demo` catalogue are the same
+  invented file** (`prisma/demo-catalog.json`, 186 rows) audited by the real
+  pipeline. Invented rows, not a customer's file; re-run
+  `npm run make:sample-report` after any change that alters findings, so the
+  landing and the demo stay equal. The art. 223 note above was written before
+  part 5 (1% fine, edition 19.07.2026) was found; it is behind
+  `NEXT_PUBLIC_SHOW_LEGAL_223` until a tax adviser confirms it.
 
 ## Out of scope
 
