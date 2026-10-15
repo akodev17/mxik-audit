@@ -45,6 +45,11 @@ export default function PrivacyPage() {
             bilan, topilmalar va qarorlar jurnali (kim, qachon, qaysi kod).
           </li>
           <li>
+            <strong className="font-medium text-ink">IP manzil:</strong> formani suiisteʼmol
+            qilishdan himoya uchun (bir manzildan 10 daqiqada 5 tadan ortiq soʻrov
+            qabul qilinmaydi) server xotirasida vaqtincha turadi, bazaga yozilmaydi.
+          </li>
+          <li>
             <strong className="font-medium text-ink">Cookie:</strong> faqat tizimga kirganingizda
             sessiya cookieʼsi, 7 kun. Analitika va reklama cookieʼlari yoʻq.
           </li>
