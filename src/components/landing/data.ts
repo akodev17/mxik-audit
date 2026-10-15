@@ -245,8 +245,9 @@ export const COLUMN_MAP = [
    - Leaves the server, and only when a provider key is configured:
        · the product name, normalized, to the embedding provider (OpenAI or
          Voyage) — src/core/match/pipeline.ts, embedder.embed([query]);
-       · the product name, attributes parsed from it, and the row's unit, to
-         the reranker (Anthropic) — src/core/match/rerank.ts.
+       · for uncertain rows only, the cleaned product name, the row's unit and
+         a derived yes/no "prepared dish" flag, to the reranker (Anthropic) —
+         renderRow in src/core/match/rerank-prompt.ts (since eb10b2c).
      Barcode, price and every other column never do.
    - Deletion: there is no deletion mechanism in code. Files are removed by
      hand on request, and the copy says exactly that. */

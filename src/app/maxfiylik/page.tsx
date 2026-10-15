@@ -9,8 +9,9 @@ import { LegalPage, Todo } from '@/components/landing/legal-page';
    - cookie: iron-session `mxik_audit_session`, 7 days (src/lib/session.ts);
      no analytics or ad scripts anywhere in src/; fonts are self-hosted by
      next/font, so the browser makes no request to Google;
-   - external AI: src/core/match/rerank.ts and src/core/embed/index.ts, only
-     when a key is configured;
+   - external AI, only when a key is configured: the reranker (renderRow in
+     src/core/match/rerank-prompt.ts, uncertain rows only, off when
+     MXIK_LLM_ENABLED=false) and the embedder (src/core/embed/index.ts);
    - deletion: no mechanism in code yet, so: by hand, on request.
    Company details are TODOs. Never fill them with guesses. */
 export const metadata: Metadata = {
@@ -72,8 +73,9 @@ export default function PrivacyPage() {
         </p>
         <ul>
           <li>
-            Anthropic (Claude) — tovar nomi, undan ajratilgan belgilar (masalan, hajm) va
-            oʻlchov birligi.
+            Anthropic (Claude) — faqat tizim ishonchi past boʻlgan qatorlar uchun:
+            tozalangan tovar nomi, oʻlchov birligi va nomdan aniqlangan «tayyor taom»
+            belgisi (ha/yoʻq).
           </li>
           <li>OpenAI yoki Voyage AI — tovar nomi (qidiruv uchun).</li>
         </ul>

@@ -22,6 +22,16 @@ export function safeHref(raw: string | undefined): string | null {
  */
 export const DEMO_URL = safeHref(process.env.NEXT_PUBLIC_DEMO_URL);
 
+/**
+ * Public origin, e.g. https://mxikaudit.uz. Open Graph image URLs must be
+ * absolute for Telegram to show a link preview; unset falls back to Next's
+ * default (localhost), which is fine in development only.
+ */
+export const SITE_URL = (() => {
+  const href = safeHref(process.env.NEXT_PUBLIC_SITE_URL);
+  return href && /^https?:/.test(href) ? new URL(href) : null;
+})();
+
 /** Telegram contact (a t.me link). Hidden in the header and footer when unset. */
 export const TELEGRAM_URL = safeHref(process.env.NEXT_PUBLIC_TELEGRAM_URL);
 

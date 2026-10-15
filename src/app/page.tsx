@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Accountants } from '@/components/landing/accountants';
+import { SITE_URL } from '@/components/landing/config';
 import { Consequences } from '@/components/landing/consequences';
 import { GetStarted } from '@/components/landing/get-started';
 import { Hero } from '@/components/landing/hero';
@@ -10,11 +11,23 @@ import { SiteFooter } from '@/components/landing/site-footer';
 import { SiteHeader } from '@/components/landing/site-header';
 import { Trust } from '@/components/landing/trust';
 
+const TITLE = 'MXIK Audit — katalogingizdagi xavfli MXIK kodlarini toping';
+const DESCRIPTION =
+  'Excel yoki CSV katalogni yuklang: har bir qator rasmiy MXIK tasniflagichi bilan '
+  + 'solishtiriladi, xato kodlar ajratiladi va mos kod taklif qilinadi. Risk auditi bepul.';
+
 export const metadata: Metadata = {
-  title: 'MXIK Audit — katalogingizdagi xavfli MXIK kodlarini toping',
-  description:
-    'Excel yoki CSV katalogingizni yuklang, riskli MXIK pozitsiyalari roʻyxatini '
-    + 'bepul oling. Tasniflagichda 438 925 kod bor — qoʻlda tekshirish real emas.',
+  ...(SITE_URL ? { metadataBase: SITE_URL, alternates: { canonical: '/' } } : {}),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    type: 'website',
+    locale: 'uz_UZ',
+    siteName: 'MXIK Audit',
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 };
 
 /* Each section lives in src/components/landing/, one file per section. Shared
