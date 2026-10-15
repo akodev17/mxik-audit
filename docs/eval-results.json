@@ -1,338 +1,3005 @@
 {
-  "ranAt": "2026-08-20T14:15:48.687Z",
-  "catalogSnapshot": "2026-08-20",
-  "providers": {
-    "embedding": "hashing (local, non-semantic)",
-    "embeddingSemantic": false,
-    "reranker": "noop (no ANTHROPIC_API_KEY)",
-    "rerankerAvailable": false,
-    "embeddingConfigured": "openai:text-embedding-3-small",
-    "vectorUsable": true,
-    "vectorSubstituted": true,
-    "storedEmbeddingProvider": "hashing (local, non-semantic)"
-  },
-  "summary": {
-    "n": 12,
-    "top1": 8,
-    "top5": 10,
-    "top1Pct": 66.66666666666666,
-    "top5Pct": 83.33333333333334,
-    "meanConfidenceCorrect": 0.8755303401878248,
-    "meanConfidenceIncorrect": 0.7788572635658688,
-    "rerankerCeiling": 10,
-    "rerankerCeilingPct": 83.33333333333334
-  },
-  "outcomes": [
+  "note": "Append-only history of `npm run eval`. Each run records code version, classifier size, providers, per-config metrics split by real/synthetic, and per-case outcomes for the full pipeline.",
+  "runs": [
     {
-      "id": "pacifier-absent-from-catalog",
-      "difficulty": "hard",
-      "rawName": "Bolalar uchun rezina soska Chicco 0+ (2 dona)",
-      "expected": "03926001020000000",
-      "acceptable": [
-        "03926001005000000",
-        "04016001003000000"
-      ],
-      "predicted": "06111001017008004",
-      "predictedName": "Bolalar uchun trusi: Solibri, to’plam qiz bolalar uchun, (tunika bolalar uchun, shim bolalar uchun, (leggins)), o’lchami 60-116 artikul 202-018-01-212",
-      "confidence": 0.8342958658754317,
-      "band": "medium",
-      "rankOfCorrect": null,
-      "inPool": false,
-      "poolSize": 20,
-      "rankInPool": null,
-      "top1": false,
-      "top5": false,
-      "decidedBy": "fusion",
-      "reason": "a close name match against this identifying code under KIYIM VA KIYIM AKSESSUARLARI → Bolalar kiyimi (7 yoshgacha) → Bolalar kiyimi (061 guruhning boshqa toifasiga kiritilmagan) → Bolalar uchun trusi.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 1273
+      "label": "gate 1 (2026-08-20, old harness, 438,925-code classifier)",
+      "ranAt": "2026-08-20T14:15:48.687Z",
+      "catalogSnapshot": "2026-08-20",
+      "providers": {
+        "embedding": "hashing (local, non-semantic)",
+        "embeddingSemantic": false,
+        "reranker": "noop (no ANTHROPIC_API_KEY)",
+        "rerankerAvailable": false,
+        "embeddingConfigured": "openai:text-embedding-3-small",
+        "vectorUsable": true,
+        "vectorSubstituted": true,
+        "storedEmbeddingProvider": "hashing (local, non-semantic)"
+      },
+      "summary": {
+        "n": 12,
+        "top1": 8,
+        "top5": 10,
+        "top1Pct": 66.66666666666666,
+        "top5Pct": 83.33333333333334,
+        "meanConfidenceCorrect": 0.8755303401878248,
+        "meanConfidenceIncorrect": 0.7788572635658688,
+        "rerankerCeiling": 10,
+        "rerankerCeilingPct": 83.33333333333334
+      },
+      "outcomes": [
+        {
+          "id": "pacifier-absent-from-catalog",
+          "difficulty": "hard",
+          "rawName": "Bolalar uchun rezina soska Chicco 0+ (2 dona)",
+          "expected": "03926001020000000",
+          "acceptable": [
+            "03926001005000000",
+            "04016001003000000"
+          ],
+          "predicted": "06111001017008004",
+          "predictedName": "Bolalar uchun trusi: Solibri, to’plam qiz bolalar uchun, (tunika bolalar uchun, shim bolalar uchun, (leggins)), o’lchami 60-116 artikul 202-018-01-212",
+          "confidence": 0.8342958658754317,
+          "band": "medium",
+          "rankOfCorrect": null,
+          "inPool": false,
+          "poolSize": 20,
+          "rankInPool": null,
+          "top1": false,
+          "top5": false,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under KIYIM VA KIYIM AKSESSUARLARI → Bolalar kiyimi (7 yoshgacha) → Bolalar kiyimi (061 guruhning boshqa toifasiga kiritilmagan) → Bolalar uchun trusi.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 1273
+        },
+        {
+          "id": "timber-strict-unit",
+          "difficulty": "medium",
+          "rawName": "Yog'och taxta chinor 50mm",
+          "expected": "04407001004000000",
+          "acceptable": [
+            "04407001006000000"
+          ],
+          "predicted": "04403006003000007",
+          "predictedName": "Ignabarglilardan olingan dumaloq yog’och materiallar, Yog’och-taxta materiallari va plitalar tayyorlash uchun igna bargli dumaloq yog’och materiallari, qalinligi 20-24 sm, I nav",
+          "confidence": 0.7941457586618876,
+          "band": "medium",
+          "rankOfCorrect": 2,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 12,
+          "top1": false,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under YOG’OCH VA UNING MAHSULOTLARI → Ishlov berilmagan yoki po’stlog’i archilmagan, shilinmagan yo xomaki bruslangan yoki bruslanmagan yog’och-taxta mahsulotlari → Boshqa ishlov berilmagan yog’och mahsulotlari → Ignabarglilardan olingan dumaloq yog’och materiallar.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 930
+        },
+        {
+          "id": "sugar-single-mandatory-unit",
+          "difficulty": "easy",
+          "rawName": "Shakar-rafinad qadoqlangan 1 kg",
+          "expected": "01701001002000000",
+          "acceptable": [
+            "01701001007000000",
+            "01701001006000000"
+          ],
+          "predicted": "01701001002000000",
+          "predictedName": "Qadoqlangan shakar-rafinad",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 2
+        },
+        {
+          "id": "vegetable-potato",
+          "difficulty": "easy",
+          "rawName": "Kartoshka",
+          "expected": "00701001001000000",
+          "acceptable": [],
+          "predicted": "00701001001000000",
+          "predictedName": "Kartoshka",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 1
+        },
+        {
+          "id": "medical-service",
+          "difficulty": "hard",
+          "rawName": "Ginekolog qabuli / konsultatsiya",
+          "expected": "10902001013000000",
+          "acceptable": [
+            "10902001001000000",
+            "10902001019000000"
+          ],
+          "predicted": "10902001013000000",
+          "predictedName": "Ginekolog maslahati",
+          "confidence": 0.85,
+          "band": "medium",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this base code under SOG’LIQNI SAQLASh SOHASIDAGI XIZMATLAR → Sog’liqni saqlash xizmatlari → Mutaxassis-shifokorlarning maslahatlari → Ginekolog maslahati.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 866
+        },
+        {
+          "id": "pharma-branded-inn",
+          "difficulty": "hard",
+          "rawName": "PANADOL 500mg tabletka N12",
+          "expected": "03004452001001004",
+          "acceptable": [],
+          "predicted": "03004322008173002",
+          "predictedName": "Azitromitsin - J01FA10: ЦЕФЗИкит (ZIEVA FARM PRIVATE Ltd), tabletkalar to’plami (flukanazol tabletka 150 mg, azitromitsin tabletka 1 g, seknidazola tabletka 1 g) №4",
+          "confidence": 0.7893045575318698,
+          "band": "medium",
+          "rankOfCorrect": 4,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 8,
+          "top1": false,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under FARMATSEVTIKA MAHSULOTI → Dori vositalari (qadoqlangan) → Makrolidlari (Makrolidlar, linkozamidlar va streptograminlar) -J01FA → Azitromitsin - J01FA10.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 798
+        },
+        {
+          "id": "cement-no-base-code",
+          "difficulty": "hard",
+          "rawName": "Sement M400 50 kg qop",
+          "expected": "02523002009000000",
+          "acceptable": [
+            "02523002008000000"
+          ],
+          "predicted": "02523002008000000",
+          "predictedName": "Sement klinkeri",
+          "confidence": 0.667487799214574,
+          "band": "medium",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 15,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a partial name match against this base code under TUZ, OLTINGUGURT, GIPS MATERIALLARI, OHAK VA SEMENT → Portlendsement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Portlend sement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Sement klinkeri.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 810
+        },
+        {
+          "id": "carpet-synthetic",
+          "difficulty": "medium",
+          "rawName": "Gilam sintetik 200x300 sm",
+          "expected": "05703001005000000",
+          "acceptable": [
+            "05705003001000000",
+            "05702003001000000",
+            "05703001003000000"
+          ],
+          "predicted": "05705003001000000",
+          "predictedName": "Sintetik ipdan tukli gilam",
+          "confidence": 0.6867549222880245,
+          "band": "medium",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 17,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "related name match against this base code under GILAMLAR → To’qilgan gilamlar va boshqa to’qima pol qoplamalari, tayyor yoki tayyor bo’lmagan → Gilamlar va boshqa to’qimachilik pol qoplamalari, tayyorlangan yoki tayyorlanmagan → Sintetik ipdan tukli gilam.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 800
+        },
+        {
+          "id": "construction-brick-ambiguous",
+          "difficulty": "hard",
+          "rawName": "G'isht keramik M150",
+          "expected": "06901001002000000",
+          "acceptable": [
+            "06904001003000000",
+            "06904001001000000"
+          ],
+          "predicted": "06901001002000000",
+          "predictedName": "Keramik g’isht",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 2
+        },
+        {
+          "id": "palov-prepared-dish",
+          "difficulty": "hard",
+          "rawName": "Palov 1 porsiya",
+          "expected": "10202001006000001",
+          "acceptable": [
+            "10202001002000000"
+          ],
+          "predicted": "02103002006010011",
+          "predictedName": "Pripravalar: Azeer, Palov uchun ORR paket 20 g",
+          "confidence": 0.697682872194286,
+          "band": "medium",
+          "rankOfCorrect": null,
+          "inPool": false,
+          "poolSize": 20,
+          "rankInPool": null,
+          "top1": false,
+          "top5": false,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under TURLI OZIQ-OVQAT MAHSULOTLARI → Souslar va ziravorlar ularni tayyorlash uchun mahsulotlar; tamli qo’shimchalar va aralash ziravorlar; xantal kukuni va tayyor xantal → Tam beruvchi qo’shimchalar va boshqa souslar → Pripravalar.",
+          "notes": [
+            "Detected as a prepared dish; general codes preferred.",
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 966
+        },
+        {
+          "id": "marked-good-identifying",
+          "difficulty": "medium",
+          "rawName": "Amstel alkogolsiz pivo 0,33 L alyuminiy banka",
+          "expected": "02202004002001001",
+          "acceptable": [],
+          "predicted": "02202004002001001",
+          "predictedName": "Pivo alkogolsiz: Amstel, Och rangli, 0,3%, Alyuminiy banka 0,33 l",
+          "confidence": 1,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "barcode",
+          "reason": "Barcode 04601501483581 matches this code exactly in the classifier.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 1
+        },
+        {
+          "id": "barcoded-good-base-sufficient",
+          "difficulty": "medium",
+          "rawName": "Guruch bo'tqasi",
+          "expected": "01901001003000000",
+          "acceptable": [],
+          "predicted": "01901001003000000",
+          "predictedName": "Guruch bo’tqasi",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 1
+        }
+      ]
     },
     {
-      "id": "timber-strict-unit",
-      "difficulty": "medium",
-      "rawName": "Yog'och taxta chinor 50mm",
-      "expected": "04407001004000000",
-      "acceptable": [
-        "04407001006000000"
-      ],
-      "predicted": "04403006003000007",
-      "predictedName": "Ignabarglilardan olingan dumaloq yog’och materiallar, Yog’och-taxta materiallari va plitalar tayyorlash uchun igna bargli dumaloq yog’och materiallari, qalinligi 20-24 sm, I nav",
-      "confidence": 0.7941457586618876,
-      "band": "medium",
-      "rankOfCorrect": 2,
-      "inPool": true,
-      "poolSize": 20,
-      "rankInPool": 12,
-      "top1": false,
-      "top5": true,
-      "decidedBy": "fusion",
-      "reason": "a close name match against this identifying code under YOG’OCH VA UNING MAHSULOTLARI → Ishlov berilmagan yoki po’stlog’i archilmagan, shilinmagan yo xomaki bruslangan yoki bruslanmagan yog’och-taxta mahsulotlari → Boshqa ishlov berilmagan yog’och mahsulotlari → Ignabarglilardan olingan dumaloq yog’och materiallar.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 930
+      "label": "baseline before P0.2 (old harness, code 4551c10, 442,719-code classifier of 2026-10-15)",
+      "code": "4551c10",
+      "ranAt": "2026-10-15T16:59:13.440Z",
+      "catalogSnapshot": "2026-08-20",
+      "providers": {
+        "embedding": "hashing (local, non-semantic)",
+        "embeddingSemantic": false,
+        "reranker": "noop (no ANTHROPIC_API_KEY)",
+        "rerankerAvailable": false,
+        "embeddingConfigured": "hashing (local, non-semantic)",
+        "vectorUsable": true,
+        "vectorSubstituted": false,
+        "storedEmbeddingProvider": "hashing (local, non-semantic)"
+      },
+      "summary": {
+        "n": 12,
+        "top1": 8,
+        "top5": 10,
+        "top1Pct": 66.66666666666666,
+        "top5Pct": 83.33333333333334,
+        "meanConfidenceCorrect": 0.8754631121857088,
+        "meanConfidenceIncorrect": 0.7788572635658688,
+        "rerankerCeiling": 10,
+        "rerankerCeilingPct": 83.33333333333334
+      },
+      "outcomes": [
+        {
+          "id": "pacifier-absent-from-catalog",
+          "difficulty": "hard",
+          "rawName": "Bolalar uchun rezina soska Chicco 0+ (2 dona)",
+          "expected": "03926001020000000",
+          "acceptable": [
+            "03926001005000000",
+            "04016001003000000"
+          ],
+          "predicted": "06111001017008004",
+          "predictedName": "Bolalar uchun trusi: Solibri, to’plam qiz bolalar uchun, (tunika bolalar uchun, shim bolalar uchun, (leggins)), o’lchami 60-116 artikul 202-018-01-212",
+          "confidence": 0.8342958658754317,
+          "band": "medium",
+          "rankOfCorrect": null,
+          "inPool": false,
+          "poolSize": 20,
+          "rankInPool": null,
+          "top1": false,
+          "top5": false,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under KIYIM VA KIYIM AKSESSUARLARI → Bolalar kiyimi (7 yoshgacha) → Bolalar kiyimi (061 guruhning boshqa toifasiga kiritilmagan) → Bolalar uchun trusi.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 19159
+        },
+        {
+          "id": "timber-strict-unit",
+          "difficulty": "medium",
+          "rawName": "Yog'och taxta chinor 50mm",
+          "expected": "04407001004000000",
+          "acceptable": [
+            "04407001006000000"
+          ],
+          "predicted": "04403006003000007",
+          "predictedName": "Ignabarglilardan olingan dumaloq yog’och materiallar, Yog’och-taxta materiallari va plitalar tayyorlash uchun igna bargli dumaloq yog’och materiallari, qalinligi 20-24 sm, I nav",
+          "confidence": 0.7941457586618876,
+          "band": "medium",
+          "rankOfCorrect": 2,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 12,
+          "top1": false,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under YOG’OCH VA UNING MAHSULOTLARI → Ishlov berilmagan yoki po’stlog’i archilmagan, shilinmagan yo xomaki bruslangan yoki bruslanmagan yog’och-taxta mahsulotlari → Boshqa ishlov berilmagan yog’och mahsulotlari → Ignabarglilardan olingan dumaloq yog’och materiallar.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 17072
+        },
+        {
+          "id": "sugar-single-mandatory-unit",
+          "difficulty": "easy",
+          "rawName": "Shakar-rafinad qadoqlangan 1 kg",
+          "expected": "01701001002000000",
+          "acceptable": [
+            "01701001007000000",
+            "01701001006000000"
+          ],
+          "predicted": "01701001002000000",
+          "predictedName": "Qadoqlangan shakar-rafinad",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 97
+        },
+        {
+          "id": "vegetable-potato",
+          "difficulty": "easy",
+          "rawName": "Kartoshka",
+          "expected": "00701001001000000",
+          "acceptable": [],
+          "predicted": "00701001001000000",
+          "predictedName": "Kartoshka",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 48
+        },
+        {
+          "id": "medical-service",
+          "difficulty": "hard",
+          "rawName": "Ginekolog qabuli / konsultatsiya",
+          "expected": "10902001013000000",
+          "acceptable": [
+            "10902001001000000",
+            "10902001019000000"
+          ],
+          "predicted": "10902001013000000",
+          "predictedName": "Ginekolog maslahati",
+          "confidence": 0.85,
+          "band": "medium",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this base code under SOG’LIQNI SAQLASh SOHASIDAGI XIZMATLAR → Sog’liqni saqlash xizmatlari → Mutaxassis-shifokorlarning maslahatlari → Ginekolog maslahati.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 20213
+        },
+        {
+          "id": "pharma-branded-inn",
+          "difficulty": "hard",
+          "rawName": "PANADOL 500mg tabletka N12",
+          "expected": "03004452001001004",
+          "acceptable": [],
+          "predicted": "03004322008173002",
+          "predictedName": "Azitromitsin - J01FA10: ЦЕФЗИкит (ZIEVA FARM PRIVATE Ltd), tabletkalar to’plami (flukanazol tabletka 150 mg, azitromitsin tabletka 1 g, seknidazola tabletka 1 g) №4",
+          "confidence": 0.7893045575318698,
+          "band": "medium",
+          "rankOfCorrect": 4,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 8,
+          "top1": false,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under FARMATSEVTIKA MAHSULOTI → Dori vositalari (qadoqlangan) → Makrolidlari (Makrolidlar, linkozamidlar va streptograminlar) -J01FA → Azitromitsin - J01FA10.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 5423
+        },
+        {
+          "id": "cement-no-base-code",
+          "difficulty": "hard",
+          "rawName": "Sement M400 50 kg qop",
+          "expected": "02523002009000000",
+          "acceptable": [
+            "02523002008000000"
+          ],
+          "predicted": "02523002008000000",
+          "predictedName": "Sement klinkeri",
+          "confidence": 0.6669499751976459,
+          "band": "medium",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 15,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "a partial name match against this base code under TUZ, OLTINGUGURT, GIPS MATERIALLARI, OHAK VA SEMENT → Portlendsement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Portlend sement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Sement klinkeri.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 7045
+        },
+        {
+          "id": "carpet-synthetic",
+          "difficulty": "medium",
+          "rawName": "Gilam sintetik 200x300 sm",
+          "expected": "05703001005000000",
+          "acceptable": [
+            "05705003001000000",
+            "05702003001000000",
+            "05703001003000000"
+          ],
+          "predicted": "05705003001000000",
+          "predictedName": "Sintetik ipdan tukli gilam",
+          "confidence": 0.6867549222880245,
+          "band": "medium",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 20,
+          "rankInPool": 17,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "fusion",
+          "reason": "related name match against this base code under GILAMLAR → To’qilgan gilamlar va boshqa to’qima pol qoplamalari, tayyor yoki tayyor bo’lmagan → Gilamlar va boshqa to’qimachilik pol qoplamalari, tayyorlangan yoki tayyorlanmagan → Sintetik ipdan tukli gilam.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 7629
+        },
+        {
+          "id": "construction-brick-ambiguous",
+          "difficulty": "hard",
+          "rawName": "G'isht keramik M150",
+          "expected": "06901001002000000",
+          "acceptable": [
+            "06904001003000000",
+            "06904001001000000"
+          ],
+          "predicted": "06901001002000000",
+          "predictedName": "Keramik g’isht",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 18
+        },
+        {
+          "id": "palov-prepared-dish",
+          "difficulty": "hard",
+          "rawName": "Palov 1 porsiya",
+          "expected": "10202001006000001",
+          "acceptable": [
+            "10202001002000000"
+          ],
+          "predicted": "02103002006010011",
+          "predictedName": "Pripravalar: Azeer, Palov uchun ORR paket 20 g",
+          "confidence": 0.697682872194286,
+          "band": "medium",
+          "rankOfCorrect": null,
+          "inPool": false,
+          "poolSize": 20,
+          "rankInPool": null,
+          "top1": false,
+          "top5": false,
+          "decidedBy": "fusion",
+          "reason": "a close name match against this identifying code under TURLI OZIQ-OVQAT MAHSULOTLARI → Souslar va ziravorlar ularni tayyorlash uchun mahsulotlar; tamli qo’shimchalar va aralash ziravorlar; xantal kukuni va tayyor xantal → Tam beruvchi qo’shimchalar va boshqa souslar → Pripravalar.",
+          "notes": [
+            "Detected as a prepared dish; general codes preferred.",
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 6653
+        },
+        {
+          "id": "marked-good-identifying",
+          "difficulty": "medium",
+          "rawName": "Amstel alkogolsiz pivo 0,33 L alyuminiy banka",
+          "expected": "02202004002001001",
+          "acceptable": [],
+          "predicted": "02202004002001001",
+          "predictedName": "Pivo alkogolsiz: Amstel, Och rangli, 0,3%, Alyuminiy banka 0,33 l",
+          "confidence": 1,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "barcode",
+          "reason": "Barcode 04601501483581 matches this code exactly in the classifier.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 28
+        },
+        {
+          "id": "barcoded-good-base-sufficient",
+          "difficulty": "medium",
+          "rawName": "Guruch bo'tqasi",
+          "expected": "01901001003000000",
+          "acceptable": [],
+          "predicted": "01901001003000000",
+          "predictedName": "Guruch bo’tqasi",
+          "confidence": 0.95,
+          "band": "high",
+          "rankOfCorrect": 1,
+          "inPool": true,
+          "poolSize": 1,
+          "rankInPool": 1,
+          "top1": true,
+          "top5": true,
+          "decidedBy": "exact",
+          "reason": "Product name matches this classifier entry exactly after normalization.",
+          "notes": [
+            "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
+            "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
+          ],
+          "ms": 36
+        }
+      ]
     },
     {
-      "id": "sugar-single-mandatory-unit",
-      "difficulty": "easy",
-      "rawName": "Shakar-rafinad qadoqlangan 1 kg",
-      "expected": "01701001002000000",
-      "acceptable": [
-        "01701001007000000",
-        "01701001006000000"
-      ],
-      "predicted": "01701001002000000",
-      "predictedName": "Qadoqlangan shakar-rafinad",
-      "confidence": 0.95,
-      "band": "high",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 1,
-      "rankInPool": 1,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "exact",
-      "reason": "Product name matches this classifier entry exactly after normalization.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 2
-    },
-    {
-      "id": "vegetable-potato",
-      "difficulty": "easy",
-      "rawName": "Kartoshka",
-      "expected": "00701001001000000",
-      "acceptable": [],
-      "predicted": "00701001001000000",
-      "predictedName": "Kartoshka",
-      "confidence": 0.95,
-      "band": "high",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 1,
-      "rankInPool": 1,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "exact",
-      "reason": "Product name matches this classifier entry exactly after normalization.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 1
-    },
-    {
-      "id": "medical-service",
-      "difficulty": "hard",
-      "rawName": "Ginekolog qabuli / konsultatsiya",
-      "expected": "10902001013000000",
-      "acceptable": [
-        "10902001001000000",
-        "10902001019000000"
-      ],
-      "predicted": "10902001013000000",
-      "predictedName": "Ginekolog maslahati",
-      "confidence": 0.85,
-      "band": "medium",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 20,
-      "rankInPool": 1,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "fusion",
-      "reason": "a close name match against this base code under SOG’LIQNI SAQLASh SOHASIDAGI XIZMATLAR → Sog’liqni saqlash xizmatlari → Mutaxassis-shifokorlarning maslahatlari → Ginekolog maslahati.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 866
-    },
-    {
-      "id": "pharma-branded-inn",
-      "difficulty": "hard",
-      "rawName": "PANADOL 500mg tabletka N12",
-      "expected": "03004452001001004",
-      "acceptable": [],
-      "predicted": "03004322008173002",
-      "predictedName": "Azitromitsin - J01FA10: ЦЕФЗИкит (ZIEVA FARM PRIVATE Ltd), tabletkalar to’plami (flukanazol tabletka 150 mg, azitromitsin tabletka 1 g, seknidazola tabletka 1 g) №4",
-      "confidence": 0.7893045575318698,
-      "band": "medium",
-      "rankOfCorrect": 4,
-      "inPool": true,
-      "poolSize": 20,
-      "rankInPool": 8,
-      "top1": false,
-      "top5": true,
-      "decidedBy": "fusion",
-      "reason": "a close name match against this identifying code under FARMATSEVTIKA MAHSULOTI → Dori vositalari (qadoqlangan) → Makrolidlari (Makrolidlar, linkozamidlar va streptograminlar) -J01FA → Azitromitsin - J01FA10.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 798
-    },
-    {
-      "id": "cement-no-base-code",
-      "difficulty": "hard",
-      "rawName": "Sement M400 50 kg qop",
-      "expected": "02523002009000000",
-      "acceptable": [
-        "02523002008000000"
-      ],
-      "predicted": "02523002008000000",
-      "predictedName": "Sement klinkeri",
-      "confidence": 0.667487799214574,
-      "band": "medium",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 20,
-      "rankInPool": 15,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "fusion",
-      "reason": "a partial name match against this base code under TUZ, OLTINGUGURT, GIPS MATERIALLARI, OHAK VA SEMENT → Portlendsement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Portlend sement, alyuminiy sement va boshqa turdagi sementlar, tayyorlangan yoki klinkerlar shaklida → Sement klinkeri.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 810
-    },
-    {
-      "id": "carpet-synthetic",
-      "difficulty": "medium",
-      "rawName": "Gilam sintetik 200x300 sm",
-      "expected": "05703001005000000",
-      "acceptable": [
-        "05705003001000000",
-        "05702003001000000",
-        "05703001003000000"
-      ],
-      "predicted": "05705003001000000",
-      "predictedName": "Sintetik ipdan tukli gilam",
-      "confidence": 0.6867549222880245,
-      "band": "medium",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 20,
-      "rankInPool": 17,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "fusion",
-      "reason": "related name match against this base code under GILAMLAR → To’qilgan gilamlar va boshqa to’qima pol qoplamalari, tayyor yoki tayyor bo’lmagan → Gilamlar va boshqa to’qimachilik pol qoplamalari, tayyorlangan yoki tayyorlanmagan → Sintetik ipdan tukli gilam.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 800
-    },
-    {
-      "id": "construction-brick-ambiguous",
-      "difficulty": "hard",
-      "rawName": "G'isht keramik M150",
-      "expected": "06901001002000000",
-      "acceptable": [
-        "06904001003000000",
-        "06904001001000000"
-      ],
-      "predicted": "06901001002000000",
-      "predictedName": "Keramik g’isht",
-      "confidence": 0.95,
-      "band": "high",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 1,
-      "rankInPool": 1,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "exact",
-      "reason": "Product name matches this classifier entry exactly after normalization.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 2
-    },
-    {
-      "id": "palov-prepared-dish",
-      "difficulty": "hard",
-      "rawName": "Palov 1 porsiya",
-      "expected": "10202001006000001",
-      "acceptable": [
-        "10202001002000000"
-      ],
-      "predicted": "02103002006010011",
-      "predictedName": "Pripravalar: Azeer, Palov uchun ORR paket 20 g",
-      "confidence": 0.697682872194286,
-      "band": "medium",
-      "rankOfCorrect": null,
-      "inPool": false,
-      "poolSize": 20,
-      "rankInPool": null,
-      "top1": false,
-      "top5": false,
-      "decidedBy": "fusion",
-      "reason": "a close name match against this identifying code under TURLI OZIQ-OVQAT MAHSULOTLARI → Souslar va ziravorlar ularni tayyorlash uchun mahsulotlar; tamli qo’shimchalar va aralash ziravorlar; xantal kukuni va tayyor xantal → Tam beruvchi qo’shimchalar va boshqa souslar → Pripravalar.",
-      "notes": [
-        "Detected as a prepared dish; general codes preferred.",
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 966
-    },
-    {
-      "id": "marked-good-identifying",
-      "difficulty": "medium",
-      "rawName": "Amstel alkogolsiz pivo 0,33 L alyuminiy banka",
-      "expected": "02202004002001001",
-      "acceptable": [],
-      "predicted": "02202004002001001",
-      "predictedName": "Pivo alkogolsiz: Amstel, Och rangli, 0,3%, Alyuminiy banka 0,33 l",
-      "confidence": 1,
-      "band": "high",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 1,
-      "rankInPool": 1,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "barcode",
-      "reason": "Barcode 04601501483581 matches this code exactly in the classifier.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 1
-    },
-    {
-      "id": "barcoded-good-base-sufficient",
-      "difficulty": "medium",
-      "rawName": "Guruch bo'tqasi",
-      "expected": "01901001003000000",
-      "acceptable": [],
-      "predicted": "01901001003000000",
-      "predictedName": "Guruch bo’tqasi",
-      "confidence": 0.95,
-      "band": "high",
-      "rankOfCorrect": 1,
-      "inPool": true,
-      "poolSize": 1,
-      "rankInPool": 1,
-      "top1": true,
-      "top5": true,
-      "decidedBy": "exact",
-      "reason": "Product name matches this classifier entry exactly after normalization.",
-      "notes": [
-        "Vector stage is using \"hashing (local, non-semantic)\" — surface-form only, not semantic.",
-        "Reranker unavailable (noop (no ANTHROPIC_API_KEY)); confidence is capped."
-      ],
-      "ms": 1
+      "label": "after P0.2 — no API key (reranker off, gate measured in dry run)",
+      "ranAt": "2026-10-15T17:09:19.179Z",
+      "code": "ad8accc+dirty",
+      "classifierLiveCodes": 442719,
+      "providers": {
+        "embedding": "hashing (local, non-semantic)",
+        "embeddingSemantic": false,
+        "vectorUsable": true,
+        "reranker": "noop (no ANTHROPIC_API_KEY)",
+        "rerankerAvailable": false,
+        "gate": {
+          "minConfidence": 0.95,
+          "minMargin": 0.1
+        }
+      },
+      "cases": {
+        "real": 12,
+        "synthetic": 191,
+        "excluded": []
+      },
+      "metrics": {
+        "full": {
+          "real": {
+            "n": 12,
+            "top1": 8,
+            "top5": 10,
+            "top1Pct": 66.66666666666666,
+            "top5Pct": 83.33333333333334,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8754631121857088,
+            "meanConfidenceWrong": 0.7788572635658688,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 50
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 148,
+            "top5": 170,
+            "top1Pct": 77.4869109947644,
+            "top5Pct": 89.00523560209425,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8561051707129931,
+            "meanConfidenceWrong": 0.7938715532045596,
+            "ceilingPct": 96.33507853403141,
+            "llmSharePct": 57.06806282722513
+          },
+          "all": {
+            "n": 203,
+            "top1": 156,
+            "top5": 180,
+            "top1Pct": 76.84729064039408,
+            "top5Pct": 88.66995073891626,
+            "highCount": 66,
+            "highCoveragePct": 32.51231527093596,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.857097885660312,
+            "meanConfidenceWrong": 0.7925937413204158,
+            "ceilingPct": 95.56650246305419,
+            "llmSharePct": 56.65024630541872
+          }
+        },
+        "no-barcode": {
+          "real": {
+            "n": 12,
+            "top1": 8,
+            "top5": 10,
+            "top1Pct": 66.66666666666666,
+            "top5Pct": 83.33333333333334,
+            "highCount": 4,
+            "highCoveragePct": 33.33333333333333,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8567131121857088,
+            "meanConfidenceWrong": 0.7788572635658688,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 50
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 145,
+            "top5": 169,
+            "top1Pct": 75.91623036649214,
+            "top5Pct": 88.48167539267016,
+            "highCount": 53,
+            "highCoveragePct": 27.748691099476442,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8456316714374326,
+            "meanConfidenceWrong": 0.7929361946562306,
+            "ceilingPct": 96.33507853403141,
+            "llmSharePct": 60.73298429319372
+          },
+          "all": {
+            "n": 203,
+            "top1": 153,
+            "top5": 179,
+            "top1Pct": 75.36945812807882,
+            "top5Pct": 88.17733990147784,
+            "highCount": 57,
+            "highCoveragePct": 28.078817733990146,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8462110931759045,
+            "meanConfidenceWrong": 0.7918098801690018,
+            "ceilingPct": 95.56650246305419,
+            "llmSharePct": 60.09852216748769
+          }
+        },
+        "no-exact": {
+          "real": {
+            "n": 12,
+            "top1": 7,
+            "top5": 9,
+            "top1Pct": 58.333333333333336,
+            "top5Pct": 75,
+            "highCount": 1,
+            "highCoveragePct": 8.333333333333332,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8219578424979529,
+            "meanConfidenceWrong": 0.793085810852695,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 58.333333333333336
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 141,
+            "top5": 168,
+            "top1Pct": 73.82198952879581,
+            "top5Pct": 87.95811518324608,
+            "highCount": 12,
+            "highCoveragePct": 6.282722513089005,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8138263872721211,
+            "meanConfidenceWrong": 0.7982518355402303,
+            "ceilingPct": 96.33507853403141,
+            "llmSharePct": 72.77486910994764
+          },
+          "all": {
+            "n": 203,
+            "top1": 148,
+            "top5": 177,
+            "top1Pct": 72.9064039408867,
+            "top5Pct": 87.192118226601,
+            "highCount": 13,
+            "highCoveragePct": 6.403940886699508,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8142109831273969,
+            "meanConfidenceWrong": 0.7977821969322726,
+            "ceilingPct": 95.56650246305419,
+            "llmSharePct": 71.92118226600985
+          }
+        },
+        "no-lexical": {
+          "real": {
+            "n": 12,
+            "top1": 10,
+            "top5": 10,
+            "top1Pct": 83.33333333333334,
+            "top5Pct": 83.33333333333334,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8970524948989734,
+            "meanConfidenceWrong": 0.85,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 50
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 115,
+            "top5": 131,
+            "top1Pct": 60.20942408376963,
+            "top5Pct": 68.58638743455498,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.9079926454292658,
+            "meanConfidenceWrong": 0.8157686238573901,
+            "ceilingPct": 85.86387434554975,
+            "llmSharePct": 60.20942408376963
+          },
+          "all": {
+            "n": 203,
+            "top1": 125,
+            "top5": 141,
+            "top1Pct": 61.57635467980296,
+            "top5Pct": 69.45812807881774,
+            "highCount": 66,
+            "highCoveragePct": 32.51231527093596,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.9071174333868424,
+            "meanConfidenceWrong": 0.8166463514507906,
+            "ceilingPct": 85.71428571428571,
+            "llmSharePct": 59.60591133004927
+          }
+        },
+        "no-vector": {
+          "real": {
+            "n": 12,
+            "top1": 6,
+            "top5": 7,
+            "top1Pct": 50,
+            "top5Pct": 58.333333333333336,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.9416666666666668,
+            "meanConfidenceWrong": 0.7825680360504181,
+            "ceilingPct": 58.333333333333336,
+            "llmSharePct": 50
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 144,
+            "top5": 169,
+            "top1Pct": 75.39267015706807,
+            "top5Pct": 88.48167539267016,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.867284956583498,
+            "meanConfidenceWrong": 0.7997710540638905,
+            "ceilingPct": 92.67015706806284,
+            "llmSharePct": 55.497382198952884
+          },
+          "all": {
+            "n": 203,
+            "top1": 150,
+            "top5": 176,
+            "top1Pct": 73.89162561576354,
+            "top5Pct": 86.69950738916256,
+            "highCount": 66,
+            "highCoveragePct": 32.51231527093596,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8702602249868248,
+            "meanConfidenceWrong": 0.7978235425906672,
+            "ceilingPct": 90.64039408866995,
+            "llmSharePct": 55.172413793103445
+          }
+        },
+        "no-rerank": {
+          "real": {
+            "n": 12,
+            "top1": 8,
+            "top5": 10,
+            "top1Pct": 66.66666666666666,
+            "top5Pct": 83.33333333333334,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8754631121857088,
+            "meanConfidenceWrong": 0.7788572635658688,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 0
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 148,
+            "top5": 170,
+            "top1Pct": 77.4869109947644,
+            "top5Pct": 89.00523560209425,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8561051707129931,
+            "meanConfidenceWrong": 0.7938715532045596,
+            "ceilingPct": 96.33507853403141,
+            "llmSharePct": 0
+          },
+          "all": {
+            "n": 203,
+            "top1": 156,
+            "top5": 180,
+            "top1Pct": 76.84729064039408,
+            "top5Pct": 88.66995073891626,
+            "highCount": 66,
+            "highCoveragePct": 32.51231527093596,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.857097885660312,
+            "meanConfidenceWrong": 0.7925937413204158,
+            "ceilingPct": 95.56650246305419,
+            "llmSharePct": 0
+          }
+        }
+      },
+      "llm": null,
+      "outcomes": [
+        {
+          "id": "golden.csv:2",
+          "source": "real",
+          "predicted": "06111001017008004",
+          "rank": null,
+          "confidence": 0.8343,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:3",
+          "source": "real",
+          "predicted": "04403006003000007",
+          "rank": 2,
+          "confidence": 0.7941,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:4",
+          "source": "real",
+          "predicted": "01701001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:5",
+          "source": "real",
+          "predicted": "00701001001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:6",
+          "source": "real",
+          "predicted": "10902001013000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:7",
+          "source": "real",
+          "predicted": "03004322008173002",
+          "rank": 4,
+          "confidence": 0.7893,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:8",
+          "source": "real",
+          "predicted": "02523002008000000",
+          "rank": 1,
+          "confidence": 0.6669,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:9",
+          "source": "real",
+          "predicted": "05705003001000000",
+          "rank": 1,
+          "confidence": 0.6868,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:10",
+          "source": "real",
+          "predicted": "06901001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:11",
+          "source": "real",
+          "predicted": "02103002006010011",
+          "rank": null,
+          "confidence": 0.6977,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:12",
+          "source": "real",
+          "predicted": "02202004002001001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:13",
+          "source": "real",
+          "predicted": "01901001003000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:2",
+          "source": "synthetic",
+          "predicted": "08516006009002369",
+          "rank": null,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:3",
+          "source": "synthetic",
+          "predicted": "08528002001030001",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:4",
+          "source": "synthetic",
+          "predicted": "08516999043033008",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:5",
+          "source": "synthetic",
+          "predicted": "02402001001012012",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:6",
+          "source": "synthetic",
+          "predicted": "08415001007013010",
+          "rank": null,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:7",
+          "source": "synthetic",
+          "predicted": "07616002002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:8",
+          "source": "synthetic",
+          "predicted": "02505001004000202",
+          "rank": 4,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:9",
+          "source": "synthetic",
+          "predicted": "06911001038001085",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:10",
+          "source": "synthetic",
+          "predicted": "07321001003013075",
+          "rank": 3,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:11",
+          "source": "synthetic",
+          "predicted": "10499001015000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:12",
+          "source": "synthetic",
+          "predicted": "11003001007000000",
+          "rank": 3,
+          "confidence": 0.7914,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:13",
+          "source": "synthetic",
+          "predicted": "03920001019000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:14",
+          "source": "synthetic",
+          "predicted": "08205001013000000",
+          "rank": 1,
+          "confidence": 0.7838,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:15",
+          "source": "synthetic",
+          "predicted": "11307015003000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:16",
+          "source": "synthetic",
+          "predicted": "08415001007018029",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:17",
+          "source": "synthetic",
+          "predicted": "07321001010020012",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:18",
+          "source": "synthetic",
+          "predicted": "03304017002000001",
+          "rank": 1,
+          "confidence": 0.7316,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:19",
+          "source": "synthetic",
+          "predicted": "02833001001000033",
+          "rank": 1,
+          "confidence": 0.817,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:20",
+          "source": "synthetic",
+          "predicted": "06911001004007058",
+          "rank": 1,
+          "confidence": 0.7605,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:21",
+          "source": "synthetic",
+          "predicted": "10399001001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:22",
+          "source": "synthetic",
+          "predicted": "08415001007018001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:23",
+          "source": "synthetic",
+          "predicted": "08450001003009004",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:24",
+          "source": "synthetic",
+          "predicted": "06810004001000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:25",
+          "source": "synthetic",
+          "predicted": "07401001001000000",
+          "rank": 2,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:26",
+          "source": "synthetic",
+          "predicted": "00806001001008001",
+          "rank": 2,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:27",
+          "source": "synthetic",
+          "predicted": "00403003002000001",
+          "rank": 1,
+          "confidence": 0.7516,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:28",
+          "source": "synthetic",
+          "predicted": "07116001001000000",
+          "rank": 1,
+          "confidence": 0.6833,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:29",
+          "source": "synthetic",
+          "predicted": "03209001005000004",
+          "rank": null,
+          "confidence": 0.6534,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:30",
+          "source": "synthetic",
+          "predicted": "07323001002005007",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:31",
+          "source": "synthetic",
+          "predicted": "06812001003000011",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:32",
+          "source": "synthetic",
+          "predicted": "02106999028028027",
+          "rank": null,
+          "confidence": 0.7642,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:33",
+          "source": "synthetic",
+          "predicted": "07019001020000003",
+          "rank": 1,
+          "confidence": 0.7559,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:34",
+          "source": "synthetic",
+          "predicted": "02106999031000000",
+          "rank": 1,
+          "confidence": 0.6862,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:35",
+          "source": "synthetic",
+          "predicted": "02402002001003136",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:36",
+          "source": "synthetic",
+          "predicted": "03006001009000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:37",
+          "source": "synthetic",
+          "predicted": "02106999028036007",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:38",
+          "source": "synthetic",
+          "predicted": "02507001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:39",
+          "source": "synthetic",
+          "predicted": "04811001001001004",
+          "rank": 1,
+          "confidence": 0.7454,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:40",
+          "source": "synthetic",
+          "predicted": "08704001001029001",
+          "rank": 1,
+          "confidence": 0.7712,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:41",
+          "source": "synthetic",
+          "predicted": "06810006045000005",
+          "rank": null,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:42",
+          "source": "synthetic",
+          "predicted": "05201001007000005",
+          "rank": null,
+          "confidence": 0.8199,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:43",
+          "source": "synthetic",
+          "predicted": "01601001001232002",
+          "rank": 1,
+          "confidence": 0.7186,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:44",
+          "source": "synthetic",
+          "predicted": "04016001093000000",
+          "rank": 2,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:45",
+          "source": "synthetic",
+          "predicted": "01704001016025001",
+          "rank": null,
+          "confidence": 0.8359,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:46",
+          "source": "synthetic",
+          "predicted": "06302003001001047",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:47",
+          "source": "synthetic",
+          "predicted": "03215001001000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:48",
+          "source": "synthetic",
+          "predicted": "08702001001014001",
+          "rank": 1,
+          "confidence": 0.6699,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:49",
+          "source": "synthetic",
+          "predicted": "11199001038000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:50",
+          "source": "synthetic",
+          "predicted": "03004999191001001",
+          "rank": 2,
+          "confidence": 0.8423,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:51",
+          "source": "synthetic",
+          "predicted": "03209004003000003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:52",
+          "source": "synthetic",
+          "predicted": "02402002001003087",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:53",
+          "source": "synthetic",
+          "predicted": "00602999038000361",
+          "rank": 2,
+          "confidence": 0.8213,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:54",
+          "source": "synthetic",
+          "predicted": "09011001001000003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:55",
+          "source": "synthetic",
+          "predicted": "10305012003000000",
+          "rank": 3,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:56",
+          "source": "synthetic",
+          "predicted": "02933001003000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:57",
+          "source": "synthetic",
+          "predicted": "08416001001000000",
+          "rank": 2,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:58",
+          "source": "synthetic",
+          "predicted": "00206001010000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:59",
+          "source": "synthetic",
+          "predicted": "03103001002000002",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:60",
+          "source": "synthetic",
+          "predicted": "07608001004000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:61",
+          "source": "synthetic",
+          "predicted": "04407001019000002",
+          "rank": null,
+          "confidence": 0.7012,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:62",
+          "source": "synthetic",
+          "predicted": "04421001016000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:63",
+          "source": "synthetic",
+          "predicted": "03824999015006002",
+          "rank": null,
+          "confidence": 0.7612,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:64",
+          "source": "synthetic",
+          "predicted": "06302001007016002",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:65",
+          "source": "synthetic",
+          "predicted": "07216001001000115",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:66",
+          "source": "synthetic",
+          "predicted": "05201001006000002",
+          "rank": null,
+          "confidence": 0.8205,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:67",
+          "source": "synthetic",
+          "predicted": "06115001001053004",
+          "rank": 2,
+          "confidence": 0.8207,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:68",
+          "source": "synthetic",
+          "predicted": "02202002005152002",
+          "rank": null,
+          "confidence": 0.6648,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:69",
+          "source": "synthetic",
+          "predicted": "06115001001011017",
+          "rank": 3,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:70",
+          "source": "synthetic",
+          "predicted": "02505001004000063",
+          "rank": null,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:71",
+          "source": "synthetic",
+          "predicted": "06115001001007004",
+          "rank": 3,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:72",
+          "source": "synthetic",
+          "predicted": "04016002005000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:73",
+          "source": "synthetic",
+          "predicted": "06911001004007049",
+          "rank": null,
+          "confidence": 0.8051,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:74",
+          "source": "synthetic",
+          "predicted": "02714005001000000",
+          "rank": 1,
+          "confidence": 0.7907,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:75",
+          "source": "synthetic",
+          "predicted": "08711001005000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:76",
+          "source": "synthetic",
+          "predicted": "07013002004000000",
+          "rank": 1,
+          "confidence": 0.7418,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:77",
+          "source": "synthetic",
+          "predicted": "00602005005000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:78",
+          "source": "synthetic",
+          "predicted": "03504001001000000",
+          "rank": 1,
+          "confidence": 0.7271,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:79",
+          "source": "synthetic",
+          "predicted": "05509002001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:80",
+          "source": "synthetic",
+          "predicted": "03401001001113001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:81",
+          "source": "synthetic",
+          "predicted": "01905012001886007",
+          "rank": 5,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:82",
+          "source": "synthetic",
+          "predicted": "01904003001000000",
+          "rank": 1,
+          "confidence": 0.7951,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:83",
+          "source": "synthetic",
+          "predicted": "10011001001000000",
+          "rank": 1,
+          "confidence": 0.7405,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:84",
+          "source": "synthetic",
+          "predicted": "02710001008000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:85",
+          "source": "synthetic",
+          "predicted": "03403001001000015",
+          "rank": 1,
+          "confidence": 0.5863,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:86",
+          "source": "synthetic",
+          "predicted": "00306002001003001",
+          "rank": null,
+          "confidence": 0.8122,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:87",
+          "source": "synthetic",
+          "predicted": "07604001003000011",
+          "rank": 2,
+          "confidence": 0.6706,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:88",
+          "source": "synthetic",
+          "predicted": "07216001018000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:89",
+          "source": "synthetic",
+          "predicted": "02835001005000003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:90",
+          "source": "synthetic",
+          "predicted": "06211001014000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:91",
+          "source": "synthetic",
+          "predicted": "00806001001001001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:92",
+          "source": "synthetic",
+          "predicted": "09016001001000000",
+          "rank": 1,
+          "confidence": 0.7372,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:93",
+          "source": "synthetic",
+          "predicted": "06214001013001005",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:94",
+          "source": "synthetic",
+          "predicted": "00403999005069001",
+          "rank": 1,
+          "confidence": 0.7976,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:95",
+          "source": "synthetic",
+          "predicted": "05503002002000000",
+          "rank": 1,
+          "confidence": 0.7471,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:96",
+          "source": "synthetic",
+          "predicted": "02835001001000005",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:97",
+          "source": "synthetic",
+          "predicted": "01905002004060001",
+          "rank": 1,
+          "confidence": 0.7666,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:98",
+          "source": "synthetic",
+          "predicted": "05802001001000000",
+          "rank": 1,
+          "confidence": 0.8355,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:99",
+          "source": "synthetic",
+          "predicted": "08516006011015007",
+          "rank": null,
+          "confidence": 0.8268,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:100",
+          "source": "synthetic",
+          "predicted": "03402002004072001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:101",
+          "source": "synthetic",
+          "predicted": "10604002001000000",
+          "rank": 1,
+          "confidence": 0.7526,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:102",
+          "source": "synthetic",
+          "predicted": "01901001006012053",
+          "rank": null,
+          "confidence": 0.6462,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:103",
+          "source": "synthetic",
+          "predicted": "01602001001038003",
+          "rank": null,
+          "confidence": 0.6968,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:104",
+          "source": "synthetic",
+          "predicted": "00206001013000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:105",
+          "source": "synthetic",
+          "predicted": "07017001009000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:106",
+          "source": "synthetic",
+          "predicted": "10701001008000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:107",
+          "source": "synthetic",
+          "predicted": "02710004004000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:108",
+          "source": "synthetic",
+          "predicted": "00406001001117001",
+          "rank": 1,
+          "confidence": 0.6627,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:109",
+          "source": "synthetic",
+          "predicted": "04202001004002002",
+          "rank": 1,
+          "confidence": 0.7582,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:110",
+          "source": "synthetic",
+          "predicted": "09011001001000000",
+          "rank": 1,
+          "confidence": 0.8066,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:111",
+          "source": "synthetic",
+          "predicted": "10402001009000000",
+          "rank": 1,
+          "confidence": 0.7233,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:112",
+          "source": "synthetic",
+          "predicted": "02208015004000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:113",
+          "source": "synthetic",
+          "predicted": "05701001001007001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:114",
+          "source": "synthetic",
+          "predicted": "02904001004000000",
+          "rank": 1,
+          "confidence": 0.7463,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:115",
+          "source": "synthetic",
+          "predicted": "03902001002000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:116",
+          "source": "synthetic",
+          "predicted": "01108001002003002",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:117",
+          "source": "synthetic",
+          "predicted": "03808001004000014",
+          "rank": 1,
+          "confidence": 0.8012,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:118",
+          "source": "synthetic",
+          "predicted": "03006001004000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:119",
+          "source": "synthetic",
+          "predicted": "06307002013000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:120",
+          "source": "synthetic",
+          "predicted": "00307002004000000",
+          "rank": 1,
+          "confidence": 0.848,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:121",
+          "source": "synthetic",
+          "predicted": "11199002017000000",
+          "rank": 1,
+          "confidence": 0.8072,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:122",
+          "source": "synthetic",
+          "predicted": "03306001012000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:123",
+          "source": "synthetic",
+          "predicted": "10202001002000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:124",
+          "source": "synthetic",
+          "predicted": "06214001013001008",
+          "rank": 1,
+          "confidence": 0.7574,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:125",
+          "source": "synthetic",
+          "predicted": "09207001002000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:126",
+          "source": "synthetic",
+          "predicted": "04911001021000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:127",
+          "source": "synthetic",
+          "predicted": "08212001001004025",
+          "rank": 3,
+          "confidence": 0.7915,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:128",
+          "source": "synthetic",
+          "predicted": "03919001002001007",
+          "rank": 1,
+          "confidence": 0.7723,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:129",
+          "source": "synthetic",
+          "predicted": "01806001008003005",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:130",
+          "source": "synthetic",
+          "predicted": "09401001028000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:131",
+          "source": "synthetic",
+          "predicted": "10602005001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:132",
+          "source": "synthetic",
+          "predicted": "06002001010000001",
+          "rank": 1,
+          "confidence": 0.7859,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:133",
+          "source": "synthetic",
+          "predicted": "08214001002001012",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:134",
+          "source": "synthetic",
+          "predicted": "07113002012000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:135",
+          "source": "synthetic",
+          "predicted": "09403001127000166",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:136",
+          "source": "synthetic",
+          "predicted": "03801001003000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:137",
+          "source": "synthetic",
+          "predicted": "07411001005000000",
+          "rank": 1,
+          "confidence": 0.8135,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:138",
+          "source": "synthetic",
+          "predicted": "01105001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:139",
+          "source": "synthetic",
+          "predicted": "09405007001000000",
+          "rank": 1,
+          "confidence": 0.7372,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:140",
+          "source": "synthetic",
+          "predicted": "02202004004025003",
+          "rank": 5,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:141",
+          "source": "synthetic",
+          "predicted": "06701001003000000",
+          "rank": 1,
+          "confidence": 0.6833,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:142",
+          "source": "synthetic",
+          "predicted": "07108001010000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:143",
+          "source": "synthetic",
+          "predicted": "09603004005000000",
+          "rank": 1,
+          "confidence": 0.6897,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:144",
+          "source": "synthetic",
+          "predicted": "04016001104000000",
+          "rank": 1,
+          "confidence": 0.7659,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:145",
+          "source": "synthetic",
+          "predicted": "01209001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:146",
+          "source": "synthetic",
+          "predicted": "08539001001024062",
+          "rank": 4,
+          "confidence": 0.7608,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:147",
+          "source": "synthetic",
+          "predicted": "02004001004066001",
+          "rank": null,
+          "confidence": 0.5963,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:148",
+          "source": "synthetic",
+          "predicted": "01104001001003002",
+          "rank": null,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:149",
+          "source": "synthetic",
+          "predicted": "01704001016025085",
+          "rank": 3,
+          "confidence": 0.8279,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:150",
+          "source": "synthetic",
+          "predicted": "07802001001000000",
+          "rank": 1,
+          "confidence": 0.7987,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:151",
+          "source": "synthetic",
+          "predicted": "05702001001008002",
+          "rank": 1,
+          "confidence": 0.7383,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:152",
+          "source": "synthetic",
+          "predicted": "04802001001000003",
+          "rank": 1,
+          "confidence": 0.7194,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:153",
+          "source": "synthetic",
+          "predicted": "03824999015003011",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:154",
+          "source": "synthetic",
+          "predicted": "02007002003007008",
+          "rank": 1,
+          "confidence": 0.6715,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:155",
+          "source": "synthetic",
+          "predicted": "05806001006000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:156",
+          "source": "synthetic",
+          "predicted": "01704001016141003",
+          "rank": 1,
+          "confidence": 0.764,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:157",
+          "source": "synthetic",
+          "predicted": "10902003055000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:158",
+          "source": "synthetic",
+          "predicted": "04911003001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:159",
+          "source": "synthetic",
+          "predicted": "00708001001012001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:160",
+          "source": "synthetic",
+          "predicted": "10311001001000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:161",
+          "source": "synthetic",
+          "predicted": "00704001001006001",
+          "rank": 1,
+          "confidence": 0.7354,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:162",
+          "source": "synthetic",
+          "predicted": "03105003001000006",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:163",
+          "source": "synthetic",
+          "predicted": "04911001005000000",
+          "rank": 1,
+          "confidence": 0.7837,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:164",
+          "source": "synthetic",
+          "predicted": "09603004003000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:165",
+          "source": "synthetic",
+          "predicted": "10699001019000000",
+          "rank": 1,
+          "confidence": 0.8145,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:166",
+          "source": "synthetic",
+          "predicted": "11199001061000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:167",
+          "source": "synthetic",
+          "predicted": "05401001001000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:168",
+          "source": "synthetic",
+          "predicted": "01803001001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:169",
+          "source": "synthetic",
+          "predicted": "05201001006000001",
+          "rank": null,
+          "confidence": 0.7667,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:170",
+          "source": "synthetic",
+          "predicted": "05702001001008003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:171",
+          "source": "synthetic",
+          "predicted": "04504002001000000",
+          "rank": 1,
+          "confidence": 0.769,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:172",
+          "source": "synthetic",
+          "predicted": "10902001045000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:173",
+          "source": "synthetic",
+          "predicted": "00104001005000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:174",
+          "source": "synthetic",
+          "predicted": "08603001002000002",
+          "rank": 1,
+          "confidence": 0.665,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:175",
+          "source": "synthetic",
+          "predicted": "01806003003029002",
+          "rank": 3,
+          "confidence": 0.8122,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:176",
+          "source": "synthetic",
+          "predicted": "03102002001000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:177",
+          "source": "synthetic",
+          "predicted": "10105001004000000",
+          "rank": 1,
+          "confidence": 0.8427,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:178",
+          "source": "synthetic",
+          "predicted": "08306002006000000",
+          "rank": 1,
+          "confidence": 0.8072,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:179",
+          "source": "synthetic",
+          "predicted": "02008001014000000",
+          "rank": 1,
+          "confidence": 0.8484,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:180",
+          "source": "synthetic",
+          "predicted": "00306002002000000",
+          "rank": 1,
+          "confidence": 0.6967,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:181",
+          "source": "synthetic",
+          "predicted": "03004030999048002",
+          "rank": null,
+          "confidence": 0.7782,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:182",
+          "source": "synthetic",
+          "predicted": "10305012003000000",
+          "rank": 2,
+          "confidence": 0.7833,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:183",
+          "source": "synthetic",
+          "predicted": "10304017002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:184",
+          "source": "synthetic",
+          "predicted": "07409001004000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:185",
+          "source": "synthetic",
+          "predicted": "10107002001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:186",
+          "source": "synthetic",
+          "predicted": "05602001003000000",
+          "rank": 1,
+          "confidence": 0.7761,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:187",
+          "source": "synthetic",
+          "predicted": "00101001001000000",
+          "rank": 1,
+          "confidence": 0.738,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:188",
+          "source": "synthetic",
+          "predicted": "10902002001000003",
+          "rank": 1,
+          "confidence": 0.7014,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:189",
+          "source": "synthetic",
+          "predicted": "01501001001000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:190",
+          "source": "synthetic",
+          "predicted": "10015001003000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:191",
+          "source": "synthetic",
+          "predicted": "02202002001010045",
+          "rank": 2,
+          "confidence": 0.665,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:192",
+          "source": "synthetic",
+          "predicted": "09801002003000001",
+          "rank": 1,
+          "confidence": 0.5819,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        }
+      ]
     }
   ]
 }
