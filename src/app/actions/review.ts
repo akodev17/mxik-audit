@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { searchClassifier } from '@/lib/audit-runner';
+import { BANDS } from '@/core/match/score';
 
 const DecideInput = z.object({
   findingId: z.string().min(1),
@@ -71,7 +72,9 @@ export async function decide(payload: unknown): Promise<DecideResult> {
 
 const BulkInput = z.object({
   catalogId: z.string().min(1),
-  minConfidence: z.number().min(0).max(1),
+  // Enforced here, not trusted from the browser: bulk accept is only ever for
+  // the high band, which retrieval alone cannot reach.
+  minConfidence: z.number().min(BANDS.high).max(1),
 });
 
 export type BulkResult = { ok: true; count: number } | { ok: false; error: string };
