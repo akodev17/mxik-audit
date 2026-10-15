@@ -53,9 +53,9 @@ export const SAMPLE_REPORT: {
     "canonicalUnits": 168
   },
   "totalRows": 186,
-  "riskyRows": 128,
+  "riskyRows": 106,
   "byType": {
-    "MISMATCH": 61,
+    "MISMATCH": 36,
     "MISSING": 47,
     "NOT_FOUND": 16,
     "UNIT_CONFLICT": 13
