@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { EMBEDDING_DIMENSIONS, EmbeddingRequestError, HashingEmbeddingProvider, embeddingProviderFromEnv } from './index.js';
+import { localProviderByName } from './local.js';
 
 const provider = new HashingEmbeddingProvider();
 
@@ -68,6 +69,26 @@ describe('embeddingProviderFromEnv', () => {
     for (const env of [{}, { VOYAGE_API_KEY: 'x' }, { OPENAI_API_KEY: 'x' }]) {
       assert.equal(embeddingProviderFromEnv(env).dimensions, EMBEDDING_DIMENSIONS);
     }
+  });
+});
+
+describe('local multilingual model selection', () => {
+  it('builds the local CPU model on request, semantic and 384-wide', () => {
+    const p = embeddingProviderFromEnv({ EMBEDDING_PROVIDER: 'local' });
+    assert.equal(p.name, 'local:Xenova/multilingual-e5-small');
+    assert.equal(p.semantic, true);
+    assert.equal(p.dimensions, 384);
+  });
+
+  it('takes the model from LOCAL_EMBEDDING_MODEL and rejects unknown ones', () => {
+    const p = embeddingProviderFromEnv({ EMBEDDING_PROVIDER: 'local', LOCAL_EMBEDDING_MODEL: 'paraphrase-multilingual-minilm' });
+    assert.equal(p.name, 'local:Xenova/paraphrase-multilingual-MiniLM-L12-v2');
+    assert.throws(() => embeddingProviderFromEnv({ EMBEDDING_PROVIDER: 'local', LOCAL_EMBEDDING_MODEL: 'nope' }), /Unknown/);
+  });
+
+  it('can rebuild a stored local provider by name, and only local ones', () => {
+    assert.equal(localProviderByName('local:Xenova/multilingual-e5-small')?.semantic, true);
+    assert.equal(localProviderByName('openai:text-embedding-3-small'), null);
   });
 });
 

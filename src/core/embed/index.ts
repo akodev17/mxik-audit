@@ -1,6 +1,7 @@
 // Swappable embedding providers. The schema pins 384 dimensions, and every real
 // provider here is asked to project down to it so the column never has to change.
 import type { EmbeddingProvider } from '../match/types.js';
+import { DEFAULT_LOCAL_MODEL, LOCAL_MODELS, LocalEmbeddingProvider } from './local.js';
 
 /** Only the handful of string keys these factories read. */
 export type EnvLike = Record<string, string | undefined>;
@@ -232,6 +233,14 @@ class VoyageEmbeddingProvider implements EmbeddingProvider {
  */
 export function embeddingProviderFromEnv(env: EnvLike = process.env): EmbeddingProvider {
   const requested = env['EMBEDDING_PROVIDER']?.toLowerCase();
+
+  // Local CPU model: semantic, free, nothing leaves the server.
+  if (requested === 'local') {
+    const key = env['LOCAL_EMBEDDING_MODEL']?.trim() || DEFAULT_LOCAL_MODEL;
+    const model = LOCAL_MODELS[key];
+    if (!model) throw new Error(`Unknown LOCAL_EMBEDDING_MODEL "${key}". Known: ${Object.keys(LOCAL_MODELS).join(', ')}`);
+    return new LocalEmbeddingProvider(model, env['LOCAL_MODEL_DIR']?.trim() || 'data/models');
+  }
 
   const voyageKey = env['VOYAGE_API_KEY'];
   if (requested !== 'hashing' && voyageKey) {

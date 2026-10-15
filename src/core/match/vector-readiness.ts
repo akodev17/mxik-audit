@@ -3,7 +3,11 @@
 // confident nonsense. Cheaper to detect than to debug.
 import type { Pool } from 'pg';
 import { HashingEmbeddingProvider } from '../embed/index.js';
+import { localProviderByName } from '../embed/local.js';
 import type { EmbeddingProvider } from './types.js';
+
+/** embedding_state.provider while `npm run embed:catalog` is rewriting vectors. */
+export const REBUILDING_PREFIX = 'rebuilding:';
 
 export type StoredEmbeddingState = {
   provider: string;
@@ -54,6 +58,15 @@ export async function checkVectorReadiness(
 ): Promise<VectorReadiness> {
   const stored = await readEmbeddingState(pool);
 
+  // A backfill is rewriting the vectors: old and new models are mixed in the
+  // table until it finishes, so nothing may be compared against them.
+  if (stored?.provider.startsWith(REBUILDING_PREFIX)) {
+    return {
+      embedder: configured, usable: false, substituted: false, stored,
+      reason: `Vectors are being rebuilt (${stored.provider.slice(REBUILDING_PREFIX.length)}); vector stage off until it finishes.`,
+    };
+  }
+
   if (!stored || stored.rowsEmbedded === 0) {
     return {
       embedder: configured, usable: false, substituted: false, stored,
@@ -71,10 +84,11 @@ export async function checkVectorReadiness(
     return { embedder: configured, usable: true, substituted: false, reason: null, stored };
   }
 
-  // Mismatch. The local provider is deterministic and always available, so if it
-  // is what is stored we can reproduce it exactly for queries.
-  const local = new HashingEmbeddingProvider();
-  if (stored.provider === local.name && stored.dimensions === local.dimensions) {
+  // Mismatch. A provider that runs on this machine (the hashing stand-in, or a
+  // local model) can embed queries exactly as the stored vectors were made.
+  const hashing = new HashingEmbeddingProvider();
+  const local = stored.provider === hashing.name ? hashing : localProviderByName(stored.provider);
+  if (local && stored.dimensions === local.dimensions) {
     return {
       embedder: local, usable: true, substituted: true, stored,
       reason: `Configured provider is "${configured.name}" but the stored vectors came from "${stored.provider}". `

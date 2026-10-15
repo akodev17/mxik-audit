@@ -9,3 +9,7 @@ data/mxik.ndjson
 
 # Local secrets
 .env
+
+# Local embedding model weights and an interrupted backfill's checkpoint
+data/models/
+data/embed-checkpoint.json

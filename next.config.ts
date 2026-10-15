@@ -4,7 +4,7 @@ const config: NextConfig = {
   // The dev overlay badge would appear in the landing page screenshots.
   devIndicators: false,
   // exceljs and pg must run on the server, never be bundled for the browser.
-  serverExternalPackages: ['exceljs', 'pg', '@prisma/client'],
+  serverExternalPackages: ['exceljs', 'pg', '@prisma/client', '@huggingface/transformers', 'onnxruntime-node'],
   experimental: {
     // Catalogue uploads are the whole point; the 1 MB default is far too small.
     serverActions: { bodySizeLimit: '25mb' },
