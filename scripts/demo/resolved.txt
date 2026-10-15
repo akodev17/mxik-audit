@@ -1,0 +1,498 @@
+Un oliy nav 50 kg qop
+   query  bug'doy uni oliy nav
+   code   01101001001000000  Oliy navli bug’doy uni
+   path   UN VA UN-DON MAHSULOTLARI → Bug’doy yoki bug’doy-javdar uni → Bug’doy uni (bug’doy-javdar) → Oliy navli bug’do
+
+Un 1-nav 25 kg
+   query  bug'doy uni birinchi nav
+   code   01101001002000000  Birinchi navli bug’doy uni
+   path   UN VA UN-DON MAHSULOTLARI → Bug’doy yoki bug’doy-javdar uni → Bug’doy uni (bug’doy-javdar) → Birinchi navli bu
+
+Мука пшеничная в/с 2 кг
+   query  bug'doy uni oliy nav
+   code   01101001001000000  Oliy navli bug’doy uni
+   path   UN VA UN-DON MAHSULOTLARI → Bug’doy yoki bug’doy-javdar uni → Bug’doy uni (bug’doy-javdar) → Oliy navli bug’do
+
+Guruch Devzira 1 kg
+   query  guruch
+   code   01006001003000000  Guruch (qadoqlangan)
+   path   DONLI O’SIMLIKLAR → Guruch → Guruch → Guruch (qadoqlangan)
+   alt    01006001001000000  Tortib sotiladigan guruch
+   alt    01901001003000000  Guruch bo’tqasi
+
+Рис круглозерный 5кг
+   query  guruch
+   code   01006001003000000  Guruch (qadoqlangan)
+   path   DONLI O’SIMLIKLAR → Guruch → Guruch → Guruch (qadoqlangan)
+   alt    01006001001000000  Tortib sotiladigan guruch
+   alt    01901001003000000  Guruch bo’tqasi
+
+Grechka 900 gr
+   query  grechka yormasi
+   code   01104001005000000  Grechka yormasi (barcha navlar)
+   path   UN VA UN-DON MAHSULOTLARI → Don yormalari, boshqa tarzda ishlov berilgan (misol uchun, tozalangan, yassilangan
+   alt    01104001001002001  Inju arpa yormasi - inju arpa (barcha navlar): Makfa, Grechka yormasi 
+   alt    01104001001002002  Inju arpa yormasi - inju arpa (barcha navlar): Makfa, Grechka yormasi 
+
+No'xat 1 kg
+   query  no'xat
+   code   00708001001000000  No’xat
+   path   SABZAVOTLAR → Dukkakli sabzavotlar → No’xat → No’xat
+
+Мош (маш) 1кг
+   query  mosh
+   code   00708005001000000  Mosh
+   path   SABZAVOTLAR → Dukkakli sabzavotlar → Mosh → Mosh
+
+Shakar 1 kg qadoqlangan
+   query  qadoqlangan shakar
+   code   01701001001000000  Qadoqlangan shakar
+   path   ShAKAR VA ShAKARDAN OLINADIGAN QANDOLAT MAHSULOTLARI → Shakarqamish, lavlagi shakari, sof saxaroza → Shakar va
+
+Сахар-песок 50 кг мешок
+   query  tortib sotiladigan shakar
+   code   01701001006000000  Tortib sotiladigan shakar
+   path   ShAKAR VA ShAKARDAN OLINADIGAN QANDOLAT MAHSULOTLARI → Shakarqamish, lavlagi shakari, sof saxaroza → Shakar va
+
+Shakar-rafinad 500 gr
+   query  shakar rafinad
+   code   01701001002000000  Qadoqlangan shakar-rafinad
+   path   ShAKAR VA ShAKARDAN OLINADIGAN QANDOLAT MAHSULOTLARI → Shakarqamish, lavlagi shakari, sof saxaroza → Shakar va
+
+Tuz yodlangan 1 kg
+   query  osh tuzi yodlangan
+   code   02501001007000000  Inson istemoli uchun mos tuz
+   path   TUZ, OLTINGUGURT, GIPS MATERIALLARI, OHAK VA SEMENT → Tuz va sof natriy xlorid, dengiz suvi va tuzli eritmalar
+
+Makaron spagetti 400g
+   query  makaron mahsulotlari
+   code   01902001009000000  Boshqa makaron mahsulotlari
+   path   UN, QANDOLAT VA YoRMA - DON MAHSULOTLARI → Ichi to’ldirilgan yoki to’ldirilmagan makaron mahsulotlari → Makaro
+   alt    01902001001013005  Qadoqlangan makaron: Makki, makaron mahsulotlari, polipropilen paket 1
+   alt    01902001001013001  Qadoqlangan makaron: Makki, makaron mahsulotlari, polipropilen paket 4
+
+Вермишель 5 кг
+   query  makaron mahsulotlari
+   code   01902001009000000  Boshqa makaron mahsulotlari
+   path   UN, QANDOLAT VA YoRMA - DON MAHSULOTLARI → Ichi to’ldirilgan yoki to’ldirilmagan makaron mahsulotlari → Makaro
+   alt    01902001001013005  Qadoqlangan makaron: Makki, makaron mahsulotlari, polipropilen paket 1
+   alt    01902001001013002  Qadoqlangan makaron: Makki, makaron mahsulotlari, polipropilen paket 5
+
+Suli yormasi 500 gr
+   query  suli yormasi
+   code   01103001006000000  Suli yormasi (barcha navlar)
+   path   UN VA UN-DON MAHSULOTLARI → Don, kepakli un va boshoqli dondan granulalar → Yorma va kepakli un → Suli yormasi
+   alt    01103001006005001  Suli yormasi (barcha navlar): Sar, Suli yormasi 800 gr p/p
+   alt    01103001006002001  Suli yormasi (barcha navlar): Altayskaya Skazka, Suli yormalari 700 gr
+
+Paxta yog'i 1 l
+   query  paxta yog'i
+   code   01512002001000000  Paxta yog’i (tozalangan yoki tozalanmagan)
+   path   HAYVON YoKI O’SIMLIK YoG’LARI VA ULARNING PARChALANIShI MAHSULOTLARI → Kungaboqar, maxsar va paxta yog’i hamda
+   alt    01512002001028001  Paxta yog’i (tozalangan yoki tozalanmagan): Paxta Yog’i, Polietilen bu
+   alt    01512002001001001  Paxta yog’i (tozalangan yoki tozalanmagan): Almaz, PET baklashka 0,5 l
+
+Масло подсолнечное 5л
+   query  kungaboqar yog'i
+   code   01512001001000000  Kungaboqar yog’i (tozalangan yoki tozalanmagan)
+   path   HAYVON YoKI O’SIMLIK YoG’LARI VA ULARNING PARChALANIShI MAHSULOTLARI → Kungaboqar, maxsar va paxta yog’i hamda
+   alt    01512001001011008  Kungaboqar yog’i (tozalangan yoki tozalanmagan): KBZ, Dezodoratsiyalan
+   alt    01512001001005023  Kungaboqar yog’i (tozalangan yoki tozalanmagan): Doxi, O’simlik aralas
+
+Kungaboqar yog'i rafinatsiya 1L
+   query  kungaboqar yog'i rafinatsiyalangan
+   code   01512001001000000  Kungaboqar yog’i (tozalangan yoki tozalanmagan)
+   path   HAYVON YoKI O’SIMLIK YoG’LARI VA ULARNING PARChALANIShI MAHSULOTLARI → Kungaboqar, maxsar va paxta yog’i hamda
+
+Sariyog' 82,5% 200 g
+   query  sariyog'
+   code   00405001001000000  Sariyog’ (barcha turdagi)
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Sutdan tayyorlangan sariyog’ va boshqa yog’lar va sariyog’lar → Sariyog’
+   alt    06912001018000000  Sopol sariyog’ idish
+   alt    07013001023000000  Shishadan sariyog’ idishi
+
+Сут 3,2% 1 л
+   query  sut
+   code   00401001001000000  Sut
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Sut va qaymoq, konsentrlanmagan va shirinlashtirilmagan → Quyultirilmaga
+
+Qatiq 2,5% 450 g
+   query  qatiq
+   code   00403003002000000  Qatiq
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Slivka, yogurt, kefir va boshqa achitqi-sut mahsulotlari → Kefir va qati
+
+Сметана 20% 400г
+   query  smetana
+   code   00403999008000000  Smetana
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Slivka, yogurt, kefir va boshqa achitqi-sut mahsulotlari → Boshqa fermen
+
+Tvorog 9% 200 gr
+   query  tvorog
+   code   00406002001000000  Tvorog (barcha turdagi)
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Pishloqlar va tvorog → Tvorog → Tvorog (barcha turdagi)
+
+Сыр твердый 45% весовой
+   query  pishloq qattiq
+   code   00406001001000000  Pishloqlar (barcha turdagi)
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Pishloqlar va tvorog → Pishloq → Pishloqlar (barcha turdagi)
+
+Tuxum C1 10 dona
+   query  tovuq tuxumi
+   code   00407001001000000  Tovuq tuxumi
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Qush tuxumlari → Parranda tuxumlari → Tovuq tuxumi
+
+Mol go'shti lahm
+   query  mol go'shti
+   code   00201001001000000  Sovutilgan lahm mol go’shti
+   path   GO’ShT VA GO’ShTLI OZIQ-OVQAT SUBMAHSULOTLARI → Yangi, sovutilgan yoki muzlatilgan qoramol go’shti → Yangi, so
+
+Tovuq go'shti (broyler) muzlatilgan
+   query  tovuq go'shti muzlatilgan
+   code   00207001009000000  Muzlatilgan tovuq go’shti
+   path   GO’ShT VA GO’ShTLI OZIQ-OVQAT SUBMAHSULOTLARI → Yangi, sovutilgan yoki muzlatilgan parranda go’shti va ularnin
+
+Колбаса варёная весовая
+   query  kolbasa pishirilgan
+   code   01601001001000000  Kolbasa (barcha turdagi)
+   path   GO’ShT, BALIQ YoKI BOShQA SUVDA YaShOVChI UMURTQASIZ HAYVONLARDAN TAYYoRLANGAN MAHSULOTLAR → Go’shtdan tayyorl
+
+Sosiska 1 kg
+   query  sosiskalar
+   code   01601002002000000  Sosiskalar (barcha turdagi)
+   path   GO’ShT, BALIQ YoKI BOShQA SUVDA YaShOVChI UMURTQASIZ HAYVONLARDAN TAYYoRLANGAN MAHSULOTLAR → Go’shtdan tayyorl
+   alt    01601002002002001  Sosiskalar (barcha turdagi): Savr, Sosiskalar mol go’shtidan pishloq b
+   alt    01601002002002002  Sosiskalar (barcha turdagi): Savr, Sosiskalar mol go’shtidan pishloq b
+
+Ko'k choy 95-sort 100 gr
+   query  ko'k choy
+   code   00902001001000000  Tortib sotiladigan va qadoqlangan ko’k choy barcha turdagi (quruq choy)
+   path   KOFE, ChOY VA ZIRAVORLAR → Choy → Choy → Tortib sotiladigan va qadoqlangan ko’k choy barcha turdagi (quruq cho
+
+Чай черный пакетированный 100 пак.
+   query  qora choy
+   code   00902001002000000  Barcha turdagi tortib sotiladigan va qadoqlangan qora choy (quruq choy)
+   path   KOFE, ChOY VA ZIRAVORLAR → Choy → Choy → Barcha turdagi tortib sotiladigan va qadoqlangan qora choy (quruq cho
+
+Qahva eriydigan 100 g shisha idishda
+   query  eriydigan qahva
+   code   02101001001000000  Qahva ekstraktlari va konsentratlari
+   path   TURLI OZIQ-OVQAT MAHSULOTLARI → Qahva, choy yoki matening ekstrakt, essensiya va konsentratlari va ular asosid
+
+Kakao kukuni 100 gr
+   query  kakao kukuni
+   code   01805001001000000  Shakar yoki boshqa shirinlashtiruvchilar qo’shilmagan kakao kukuni
+   path   KAKAO VA UNING MAHSULOTLARI → Shakar yoki boshqa shirinlashtiruvchilar qo’shilmagan kakao kukuni → Shakar yoki
+   alt    08438011001000000  Qandolat sanoati, kakao kukuni yoki shokolad ishlab chiqarish uchun us
+   alt    01806002002000000  Eruvchan kakao ichimligi (kukun)
+
+Mineral suv gazli 1,5L
+   query  mineral suv gazlangan
+   code   02201002001000000  Gazlangan suv
+   path   ALKOGOLLI VA ALKOGOLSIZ IChIMLIKLAR HAMDA SIRKA → Turli tam beruvchi qo’shimchalar qo’shilmagan tabiiy va mine
+
+Вода питьевая негазированная 5 л
+   query  ichimlik suvi gazlanmagan
+   code   02201001001000000  Gazlanmagan suv
+   path   ALKOGOLLI VA ALKOGOLSIZ IChIMLIKLAR HAMDA SIRKA → Turli tam beruvchi qo’shimchalar qo’shilmagan tabiiy va mine
+
+Шарбат олма 1 л
+   query  olma sharbati
+   code   02009001006000000  Meva va sabzavot sharbatlari, jumladan shinnisi (barcha turdagi)
+   path   SABZAVOT, MEVA, YoNG’OQ YoKI O’SIMLIKLARNING BOShQA QISMLARINI QAYTA IShLASh MAHSULOTLARI → Meva, yong’oq yoki
+
+Газированный напиток лимон 1.5 л
+   query  alkogolsiz gazlangan ichimlik
+   code   02202002001000000  Alkogolsiz ichimliklar (gazlangan va gazlanmagan)
+   path   ALKOGOLLI VA ALKOGOLSIZ IChIMLIKLAR HAMDA SIRKA → Turli tam beruvchi qo’shimchalar qo’shilgan suv va boshqa al
+
+Kompot olcha 3 l banka
+   query  kompot
+   code   02202004004000000  Kompot
+   path   ALKOGOLLI VA ALKOGOLSIZ IChIMLIKLAR HAMDA SIRKA → Turli tam beruvchi qo’shimchalar qo’shilgan suv va boshqa al
+
+Shokolad sutli 90 g
+   query  shokolad sutli
+   code   01806001008000000  Plitkali shokolad
+   path   KAKAO VA UNING MAHSULOTLARI → Tarkibida kakao bo’lgan shokolad va boshqa oziq-ovqat mahsulotlari → Shokolad va
+
+Конфеты шоколадные весовые
+   query  shokoladli konfetlar
+   code   01806003001000000  Konfet kakao bilan
+   path   KAKAO VA UNING MAHSULOTLARI → Tarkibida kakao bo’lgan shokolad va boshqa oziq-ovqat mahsulotlari → Kakaoli sho
+
+Pechenye sutli 300 gr
+   query  pechene
+   code   01905012001000000  Har xil turdagi pechenyelar
+   path   UN, QANDOLAT VA YoRMA - DON MAHSULOTLARI → Non, unli qandolat mahsulotlari, tortlar, pechenye va boshqa non va
+
+Asal tabiiy 500 gr
+   query  tabiiy asal
+   code   00409001001000000  Tabiiy asal
+   path   HAYVONLARDAN OLINADIGAN MAHSULOTLAR → Tabiiy asal → Tabiiy asal → Tabiiy asal
+
+Мураббо (джем) абрикос 400 г
+   query  o'rik murabbosi
+   code   02007002002000000  Jemlar va murabbo
+   path   SABZAVOT, MEVA, YoNG’OQ YoKI O’SIMLIKLARNING BOShQA QISMLARINI QAYTA IShLASh MAHSULOTLARI → Jemlar, mevali jel
+
+Non (patir non)
+   query  non
+   code   01905002007000000  Yopgan non
+   path   UN, QANDOLAT VA YoRMA - DON MAHSULOTLARI → Non, unli qandolat mahsulotlari, tortlar, pechenye va boshqa non va
+   alt    01905002001000000  Qolipli non
+   alt    01905002004000000  Boshqa non turlari
+
+Нон буханка 500 г
+   query  non
+   code   01905002007000000  Yopgan non
+   path   UN, QANDOLAT VA YoRMA - DON MAHSULOTLARI → Non, unli qandolat mahsulotlari, tortlar, pechenye va boshqa non va
+   alt    01905002001000000  Qolipli non
+   alt    01905002004000000  Boshqa non turlari
+
+Tomat pastasi 800 gr shisha
+   query  tomat pastasi
+   code   02002001003000000  Tomat pastasi
+   path   SABZAVOT, MEVA, YoNG’OQ YoKI O’SIMLIKLARNING BOShQA QISMLARINI QAYTA IShLASh MAHSULOTLARI → Sirka yoki sirka k
+
+Baliq konservasi (sardina) 240 g
+   query  baliq konservasi
+   code   01604001001000000  Baliq konserva va preservalari
+   path   GO’ShT, BALIQ YoKI BOShQA SUVDA YaShOVChI UMURTQASIZ HAYVONLARDAN TAYYoRLANGAN MAHSULOTLAR → Tayyor yoki konse
+   alt    01604001001006016  Baliq konserva va preservalari: Kaija, skumbriya yog’li 240g
+   alt    01604001001006022  Baliq konserva va preservalari: Kaija, shprot yog’li 240g
+
+Майонез 67% 400 мл
+   query  mayonez
+   code   02103002004000000  Mayonez
+   path   TURLI OZIQ-OVQAT MAHSULOTLARI → Souslar va ziravorlar ularni tayyorlash uchun mahsulotlar; tamli qo’shimchalar
+
+Ketchup 500 g
+   query  ketchup
+   code   02103004001000000  Ketchup
+   path   TURLI OZIQ-OVQAT MAHSULOTLARI → Souslar va ziravorlar ularni tayyorlash uchun mahsulotlar; tamli qo’shimchalar
+
+Sirka 9% 0,5 l
+   query  sirka
+   code   02209001001000000  Sirka va uning o’rnini bosuvchilar
+   path   ALKOGOLLI VA ALKOGOLSIZ IChIMLIKLAR HAMDA SIRKA → Sirka va uning o’rnini bosuvchilar → Sirka va uning o’rnini 
+
+Kartoshka
+   query  kartoshka
+   code   00701001001000000  Kartoshka
+   path   SABZAVOTLAR → Yangi yoki sovutilgan kartoshka → Yangi kartoshka → Kartoshka
+
+Лук репчатый
+   query  piyoz
+   code   00703001001000000  Piyoz
+   path   SABZAVOTLAR → Yangi yoki sovutilgan piyoz, shalot-piyoz, sarimsoqpiyoz va boshqa piyoz sabzavotlar → Piyoz va 
+
+Sabzi
+   query  sabzi
+   code   00706001001000000  Sabzi
+   path   SABZAVOTLAR → Sabzi, sholg’om, shirin lavlagi, echkisoqol, selderey ildizi, rediska va boshqa shunga o’xshash 
+
+Pomidor
+   query  pomidor
+   code   00702001001000000  Yangi tomatlar (pomidorlar)
+   path   SABZAVOTLAR → Yangi yoki sovutilgan tomatlar (pomidorlar) → Yangi tomatlar (pomidorlar) → Yangi tomatlar (pomi
+
+Bodring
+   query  bodring
+   code   00707001001000000  Bodring va kornishonlar
+   path   SABZAVOTLAR → Yangi yoki sovutilgan bodringlar va kornishonlar → Bodring va kornishonlar → Bodring va kornisho
+
+Olma
+   query  olma
+   code   00808001001000000  Olma (barcha navlar)
+   path   MEVALAR VA YoNG’OQLAR → Olma, nok va behi → Olma → Olma (barcha navlar)
+   alt    00602003025000000  Olma (daraxti/ko’chati)
+   alt    02918001022000000  Olma kislotasi
+
+Банан
+   query  banan
+   code   00803001001000000  Banan, yangi yoki quritilgan
+   path   MEVALAR VA YoNG’OQLAR → Banan, yangi yoki quritilgan → Banan, yangi yoki quritilgan → Banan, yangi yoki quriti
+
+Limon
+   query  limon
+   code   00805002001000000  Limon
+   path   MEVALAR VA YoNG’OQLAR → Sitrus mevalar → Limon → Limon
+
+Kir yuvish kukuni avtomat 3 kg
+   query  kir yuvish kukuni avtomat
+   code   03402003002000000  Kir yuvish kukuni (avtomat)
+   path   SOVUN, YuVISh VOSITALARI, MOYLASh MATERIALLARI, MUMLAR VA MODELLAShTIRISh MAHSULOTLARI → Organik yuza faol mod
+
+Стиральный порошок ручная стирка 450г
+   query  kir yuvish kukuni universal
+   code   03402003024000000  Kir yuvish kukuni (universal)
+   path   SOVUN, YUVISH VOSITALARI, MOYLASH MATERIALLARI, MUMLAR VA MODELLASHTIRISH MAHSULOTLARI → Organik yuza faol mod
+
+Idish yuvish vositasi 500 ml
+   query  idish yuvish vositasi
+   code   03402002001000000  Idish yuvish vositasi
+   path   SOVUN, YuVISh VOSITALARI, MOYLASh MATERIALLARI, MUMLAR VA MODELLAShTIRISh MAHSULOTLARI → Organik yuza faol mod
+
+Мыло хозяйственное 72% 200г
+   query  xo'jalik sovuni
+   code   03401001004000000  Ho’jalik sovuni
+   path   SOVUN, YuVISh VOSITALARI, MOYLASh MATERIALLARI, MUMLAR VA MODELLAShTIRISh MAHSULOTLARI → Sovun va sovun sifati
+
+Atir sovun 90 g
+   query  tualet sovuni
+   code   03401001001000000  Atir sovun
+   path   SOVUN, YuVISh VOSITALARI, MOYLASh MATERIALLARI, MUMLAR VA MODELLAShTIRISh MAHSULOTLARI → Sovun va sovun sifati
+
+Шампунь 400 мл
+   query  shampun
+   code   03305005001000000  Shampun (barcha turlari)
+   path   EFIR MOYLARI VA BOShQA PARFYuMERIYa, KOSMETIKA YoKI GO’ZALLIK MAHSULOTLARI → Soch uchun mahsulotlar → Shampun 
+
+Tish pastasi 100 ml
+   query  tish pastasi
+   code   03306001001000000  Tish pastasi
+   path   EFIR MOYLARI VA BOShQA PARFYuMERIYa, KOSMETIKA YoKI GO’ZALLIK MAHSULOTLARI → Og’iz bo’shlig’i gigiyenasi vosit
+
+Tish cho'tkasi o'rtacha qattiqlik
+   query  tish cho'tkasi
+   code   09603002002000000  Tish cho’tkasi
+   path   TURLI XIL TAYYoR MAHSULOTLAR → Supurgilar, cho’tkalar ( shu jumladan, mashinalar, jihozlar yoki transport vosi
+
+Hojatxona qog'ozi 4 rulon
+   query  hojatxona qog'ozi
+   code   04818001001000000  Hojatxona qog’ozi
+   path   QOG’OZ VA KARTON MAHSULOTLARI → Tualet qog’ozi va boshqa shunga o’xshash maishiy, sanitariya-gigiyena yoki tib
+
+Салфетки бумажные 100 шт
+   query  qog'oz salfetkalar
+   code   04803001001000000  Qog’oz salfetka
+   path   QOG’OZ VA KARTON MAHSULOTLARI → Qog’ozli salfetkalar va boshqa shunga o’xshash qog’oz mahsulotlari → Qog’ozli 
+   alt    04803001001001002  Qog’oz salfetka: Elma, Salfetkalar qog’ozli universal tozalash uchun, 
+   alt    04803001002000000  Qog’oz salfetka (xom ashyo)
+
+Bolalar tagligi (podguznik) 4-o'lcham 50 dona
+   query  bolalar tagliklari
+   code   09619002004000000  Bolalar tagliklari (barcha turlari)
+   path   TURLI XIL TAYYoR MAHSULOTLAR → Ayollar uchun sanitariya yostiqchalari va tamponlar; bolalar tagliklari va shun
+   alt    09619002004006002  Bolalar tagliklari (barcha turlari): Seni, kattalar uchun Air large 10
+   alt    09619002004001001  Bolalar tagliklari (barcha turlari): ONLEM, BED SHEET 60*90 ECONOMIC 1
+
+Oqartiruvchi vosita 1 l
+   query  oqartiruvchi vosita
+   code   03402001003000000  Oqartirgich
+   path   SOVUN, YuVISh VOSITALARI, MOYLASh MATERIALLARI, MUMLAR VA MODELLAShTIRISh MAHSULOTLARI → Organik yuza faol mod
+
+Батарейка AA 2 шт
+   query  batareyalar
+   code   08506001001000000  Birlamchi batareyalar
+   path   ELEKTR MAShINALAR, APPARAT, ASBOB-USKUNALAR VA ULARNING QISMLARI → Birlamchi elementlar va birlamchi batareyal
+   alt    08507004999000000  Batareyalar uchun boshqa qismlar (barcha turlari)
+   alt    08545003999000000  Boshqa uglerod elektrodlari, uglerod cho’tkalari, lampalar yoki batare
+
+Gugurt 10 quti
+   query  gugurt
+   code   03605001001000000  Gugurt
+   path   PIROTEXNIKA MAHSULOTLARI, GUGURT VA BA’ZI YoNUVChI MODDALAR → Gugurtlar, pirotexnika maxsulotlaridan tashqari 
+
+Choynak elektr 1,7 l
+   query  elektr choynak
+   code   08516999043000000  Suv qaynatish uchun elektr choynak
+   path   ELEKTR MAShINALAR, APPARAT, ASBOB-USKUNALAR VA ULARNING QISMLARI → Maishiy elektrisitish uskunalari → Boshqa m
+   alt    08516999043000001  Suv qaynatish uchun elektr choynak, NR1
+   alt    08516999043001005  Suv qaynatish uchun elektr choynak: Avalon, KE-1703
+
+Folga alyuminiy 10 m
+   query  alyuminiy folga
+   code   07607001001000000  Alyumin folgasi
+   path   ALYuMINIY VA UNING MAHSULOTLARI → Alyuminiy folga → Alyuminiy folga → Alyumin folgasi
+
+Sement M400 50 kg qop
+   query  portlandsement
+   code   02523002009000000  Sementning boshqa turlari
+   path   TUZ, OLTINGUGURT, GIPS MATERIALLARI, OHAK VA SEMENT → Portlendsement, alyuminiy sement va boshqa turdagi semen
+
+G'isht pishgan M100
+   query  g'isht keramik
+   code   06901001002000000  Keramik g’isht
+   path   KERAMIK MAHSULOTLAR → Kremniyli tosh unidan yoki shunga o’xshash kremniyli jinslardan g’ishtlar, bloklar, plit
+
+Gips shtukaturka 30 kg
+   query  gipsli shtukaturka
+   code   02520002003000000  Gipsli shtukaturka
+   path   TUZ, OLTINGUGURT, GIPS MATERIALLARI, OHAK VA SEMENT → Gips, angidrit yoki gips bog’lovchilari → Gipsli bog’lov
+
+Краска водоэмульсионная белая 10 кг
+   query  suv emulsiyali bo'yoq
+   code   03209001005000000  Akril asosidagi suv dispersiyali bo’yoq
+   path   QORIShMA VA BO’YoQ EKSTRAKTLAR → Bo’yoqlar va laklar (shu jumladan yemallar va polituralar) suvli muhitda tarq
+
+Mix (gvozd) 100 mm
+   query  mixlar
+   code   07317001001000000  Mixlar (barcha turdagi)
+   path   QORA METALLARDAN MAHSULOTLAR → Mixlar, knopkalar, skobalar → Mixlar, knopkalar, skobalar → Mixlar (barcha turd
+   alt    07415002001000000  Mis mixlar va jezlar
+   alt    07616002001000000  Alyuminiy mixlar (barcha shakllar)
+
+Elektr kabeli VVG 3x2,5
+   query  elektr kabeli
+   code   08544002019000000  Elektr toki kabeli
+   path   ELEKTR MAShINALAR, APPARAT, ASBOB-USKUNALAR VA ULARNING QISMLARI → Kabel va boshqa o’tkazgichlar → Telekommuni
+
+Труба ПВХ 110 мм
+   query  plastmassa quvurlar
+   code   03917001001000000  Plastik quvurlar (barcha turlari)
+   path   PLASTMASSALAR VA PLASTMASSA MAHSULOTLAR → Quvurlar, shlanglar va ularning armaturalari (bo’g’inlar, tirsaklar,
+
+Shpaklyovka finish 20 kg
+   query  shpaklyovka
+   code   03214001003000000  Shpaklyovka
+   path   QORIShMA VA BO’YoQ EKSTRAKTLAR → Shisha va bog’ uchun zamazka yelimli sementlar, mastikalar; shpatlevkalar; o’
+
+Keramik plitka pol uchun
+   query  keramik plitkalar
+   code   06905001001000000  Keramik plitkalar
+   path   KERAMIK MAHSULOTLAR → Plitkalar, deflektorlar, dudburon qismlari, memoriy bezaklar va boshqa keramikadan qilin
+
+Daftar 48 varaq katak
+   query  daftar
+   code   04820002001000000  Daftarlar (barcha turdagi)
+   path   QOG’OZ VA KARTON MAHSULOTLARI → Jurnallar, kitoblar, daftarlar va boshqa shunga o’xshash yozuvlarni yuritish, 
+
+Ручка шариковая синяя
+   query  sharikli ruchka
+   code   09608001001000000  Sharikli ruchkalar va boshqalar (barcha turdagi)
+   path   TURLI XIL TAYYoR MAHSULOTLAR → Ruchkalar, markerlar va shunga o’xshash mahsulotlar (oddiy ruchkalardan tashqar
+
+A4 qog'oz 500 varaq
+   query  ofis qog'ozi A4
+   code   04802001006000000  Formatlangan yoki ofset (shu jumladan ofis) qog’oz
+   path   QOG’OZ VA KARTON MAHSULOTLARI → Qoplamagan qog’oz → Qoplamagan qog’oz → Formatlangan yoki ofset (shu jumladan 
+   alt    04809001001000000  Nusxa ko’chirish qog’ozi va o’z-o’zidan nusxa ko’chirish qog’ozi
+   alt    04802001006001004  Formatlangan yoki ofset (shu jumladan ofis) qog’oz: Hatber, Rasm qog’o
+
+Услуги по доставке товаров
+   query  yetkazib berish xizmatlari
+   code   10112006002000000  Maxsulotlarni yetkazib berish xizmati
+   path   TAShISh VA SAQLASh XIZMATLARI → Tashish bo’yicha transport xizmatlari → Boshqa yuk tashish xizmatlari → Maxsul
+
+Ombor ijarasi
+   query  omborxona ijarasi
+   code   10106002001000000  Omborxona va saqlash xizmati
+   path   TAShISh VA SAQLASh XIZMATLARI → Omborxona va saqlash xizmatlari → Omborxona va saqlash xizmatlari → Omborxona 
+   alt    10701001008000000  Poyezd, vagon va konteyner ijarasi xizmatlari
+   alt    10701001007000000  Qisqa muddatli ish ijarasi xizmatlari (shu jumladan xodimlar), shu jum
+
+Palov 1 porsiya (oshxona)
+   query  palov
+   code   10202001006000001  Asosiy taomlar, umumiy ovqatlanish shaxobchalarida tayyorlangan go’shtli
+   path   TURARJOY VA OVQATLANISh XIZMATLARI → Umumiy ovqatlanish xizmatlari → Umumiy ovqatlanish taomnomasi → Asosiy ta
+
+Somsa
+   query  somsa
+   code   10202001002000000  Umumiy ovqatlanish shaxobchalarida tayyorlangan fast-fudlar
+   path   TURARJOY VA OVQATLANISh XIZMATLARI → Umumiy ovqatlanish xizmatlari → Umumiy ovqatlanish taomnomasi → Umumiy ov
+
+Manti 1 porsiya
+   query  manti
+   code   10202001006000001  Asosiy taomlar, umumiy ovqatlanish shaxobchalarida tayyorlangan go’shtli
+   path   TURARJOY VA OVQATLANISh XIZMATLARI → Umumiy ovqatlanish xizmatlari → Umumiy ovqatlanish taomnomasi → Asosiy ta

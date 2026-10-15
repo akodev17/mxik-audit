@@ -30,6 +30,11 @@
     "start": "next start",
     "seed": "tsx prisma/seed.ts",
     "seed:audit": "tsx scripts/audit-catalog.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "make:demo-catalog": "tsx scripts/make-demo-catalog.ts",
+    "demo:quality": "tsx scripts/demo-quality.ts",
+    "purge:expired": "tsx scripts/purge-expired.ts",
+    "lead:delete": "tsx scripts/lead-delete.ts",
     "capture": "tsx scripts/capture-screenshots.ts",
     "make:sample": "tsx scripts/make-sample-file.ts",
     "make:sample-report": "tsx scripts/make-sample-report.ts"

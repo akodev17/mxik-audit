@@ -1,0 +1,1987 @@
+{
+  "note": "Invented demo catalogue for demo mode. Built by `npm run make:demo-catalog`: the landing sample (scripts/landing-sample/catalog.ts) followed by the product lines in scripts/demo/products.ts. No real company data.",
+  "filename": "Demo_Savdo_1C_eksport.xlsx",
+  "headers": [
+    "Наименование",
+    "Штрих-код",
+    "ИКПУ",
+    "Ед. изм.",
+    "Цена"
+  ],
+  "columnMap": {
+    "name": 0,
+    "barcode": 1,
+    "mxik": 2,
+    "unit": 3,
+    "price": 4
+  },
+  "rows": [
+    [
+      "Кока-Кола 1,5л пэт",
+      "4780069000154",
+      "02202002001010009",
+      "шт",
+      "12000"
+    ],
+    [
+      "Hydrolife 0,5L gazsiz",
+      "4780012960153",
+      "02202002001010009",
+      "шт",
+      "2500"
+    ],
+    [
+      "Hydrolife 1,5л негаз.",
+      "4780012960092",
+      "02201001001011006",
+      "шт",
+      "4000"
+    ],
+    [
+      "Coca-Cola 0,33 ж/б",
+      "5449000000996",
+      "0220200200101002",
+      "шт",
+      "7000"
+    ],
+    [
+      "Pepsi Cherry 1,5л",
+      "4780022621198",
+      "02202002001039008",
+      "шт",
+      "11000"
+    ],
+    [
+      "Pepsi Lime 1.5 L",
+      "",
+      "",
+      "шт",
+      "11000"
+    ],
+    [
+      "Молоко Nestle Sutim 3,2% 1л",
+      "4780100650478",
+      "00401001001006003",
+      "шт",
+      "14500"
+    ],
+    [
+      "Sut Nestle 1L paket",
+      "4780018010067",
+      "00401001001004002",
+      "л",
+      "12500"
+    ],
+    [
+      "Кефир Alsafi 1% 1л",
+      "4780030101613",
+      "00401001001006003",
+      "шт",
+      "13000"
+    ],
+    [
+      "Кефир Bio-Sut 1% 0,5л",
+      "4780065300265",
+      "",
+      "шт",
+      "7500"
+    ],
+    [
+      "Яйцо кур. ASL С2 10шт",
+      "4780090810012",
+      "00407001001001002",
+      "шт",
+      "16000"
+    ],
+    [
+      "Масло подсолн. Олейна раф. 1л",
+      "4607083550482",
+      "01512001001103001",
+      "шт",
+      "24000"
+    ],
+    [
+      "Масло Олейна 3л",
+      "4607083550505",
+      "01512001001103020",
+      "шт",
+      "68000"
+    ],
+    [
+      "Мука Makfa в/с 5кг",
+      "4601780017835",
+      "01101001001081001",
+      "шт",
+      "42000"
+    ],
+    [
+      "Рис Мистраль Басмати 500г",
+      "4601916001677",
+      "01006001003001003",
+      "шт",
+      "21000"
+    ],
+    [
+      "Guruch Mistral Akvatika 500 gr",
+      "4601916000434",
+      "01006001003001002",
+      "гр",
+      "19000"
+    ],
+    [
+      "Сахар Мистраль тростн. 900г",
+      "4601916006238",
+      "01701001001001003",
+      "шт",
+      "26000"
+    ],
+    [
+      "Shakar Mistral qamish 500g quti",
+      "4601916002308",
+      "01701001001001001",
+      "кг",
+      "17000"
+    ],
+    [
+      "Kartoshka",
+      "",
+      "00701001001000000",
+      "кг",
+      "6000"
+    ],
+    [
+      "Шоколад Alpen Gold фундук/изюм 85г",
+      "7622201448707",
+      "01806001008001012",
+      "шт",
+      "11000"
+    ],
+    [
+      "Snickers Super 95g",
+      "4011100977716",
+      "01806001001001001",
+      "шт",
+      "9000"
+    ],
+    [
+      "Snickers minis 180г",
+      "4607065000073",
+      "1806001001001007",
+      "шт",
+      "32000"
+    ],
+    [
+      "Colgate Max White 100мл",
+      "6920354805851",
+      "03306001001032004",
+      "шт",
+      "18000"
+    ],
+    [
+      "Ariel kapsula 3in1 12 dona",
+      "4015600949709",
+      "03306001001032004",
+      "шт",
+      "65000"
+    ],
+    [
+      "Ariel порошок 450г Горный родник",
+      "5413149032224",
+      "03402003001252002",
+      "шт",
+      "16000"
+    ],
+    [
+      "Pampers 4 (9-14кг) 34шт",
+      "0780102022730",
+      "09619002001006001",
+      "шт",
+      "135000"
+    ],
+    [
+      "Duracell AA LR6 4шт",
+      "5000394052536",
+      "08506001001004004",
+      "шт",
+      "28000"
+    ],
+    [
+      "Mix (gvozd) 100 mm",
+      "",
+      "01101001001000000",
+      "dona",
+      "47500"
+    ],
+    [
+      "Elektr kabeli VVG 3x2,5",
+      "",
+      "",
+      "metr",
+      "83500"
+    ],
+    [
+      "Рис круглозерный 5кг",
+      "",
+      "",
+      "кг",
+      "86000"
+    ],
+    [
+      "G'isht pishgan M100",
+      "",
+      "06901001002000000",
+      "dona",
+      "72500"
+    ],
+    [
+      "Un 1-nav 25 kg",
+      "",
+      "01101001002000000",
+      "kg",
+      "40500"
+    ],
+    [
+      "Tvorog 9% 250 gr",
+      "",
+      "00406002001000999",
+      "dona",
+      "58500"
+    ],
+    [
+      "Услуги по доставке товаров",
+      "",
+      "",
+      "услуга",
+      "45000"
+    ],
+    [
+      "Hojatxona qog'ozi 4 rulon",
+      "",
+      "",
+      "dona",
+      "79500"
+    ],
+    [
+      "Shpaklyovka finish 250 gr",
+      "",
+      "",
+      "dona",
+      "71000"
+    ],
+    [
+      "Мураббо (джем) абрикос 250 gr",
+      "",
+      "",
+      "дона",
+      "29000"
+    ],
+    [
+      "Un 1-nav 10 kg",
+      "",
+      "",
+      "kg",
+      "83500"
+    ],
+    [
+      "BONI bear, qumoq, PP paket 30 g",
+      "4780101741298",
+      "01905012001504001",
+      "dona",
+      "63500"
+    ],
+    [
+      "Сметана 20% 2 kg",
+      "",
+      "",
+      "шт",
+      "42000"
+    ],
+    [
+      "Shakar 3 кг",
+      "",
+      "03402003024000000",
+      "dona",
+      "92000"
+    ],
+    [
+      "Un oliy nav 1 кг",
+      "",
+      "00803001001000000",
+      "kg",
+      "37500"
+    ],
+    [
+      "Sabzi",
+      "",
+      "00706001001000000",
+      "kg",
+      "44500"
+    ],
+    [
+      "Choynak elektr 0,25 л",
+      "",
+      "08516999043000000",
+      "dona",
+      "95000"
+    ],
+    [
+      "Мураббо (джем) абрикос 400 г",
+      "",
+      "",
+      "дона",
+      "69000"
+    ],
+    [
+      "Лук репчатый",
+      "",
+      "",
+      "кг",
+      "55500"
+    ],
+    [
+      "Nu pogodi, tuxum ifori bilan, PET butilka 400 g.",
+      "4780035400698",
+      "",
+      "dona",
+      "61500"
+    ],
+    [
+      "Sosiska 1 kg",
+      "",
+      "",
+      "kg",
+      "2500"
+    ],
+    [
+      "Un oliy nav 50 kg qop",
+      "",
+      "01101001001000000",
+      "kg",
+      "6500"
+    ],
+    [
+      "A4 qog'oz 500 varaq",
+      "",
+      "04802001006000000",
+      "dona",
+      "74500"
+    ],
+    [
+      "Idish yuvish vositasi 500 ml",
+      "",
+      "03402002001000000",
+      "kilogramm",
+      "33000"
+    ],
+    [
+      "Qahva eriydigan 100 g shisha idishda",
+      "",
+      "",
+      "dona",
+      "27000"
+    ],
+    [
+      "Shpaklyovka finish 20 kg",
+      "",
+      "03214001003000000",
+      "kilogramm",
+      "39500"
+    ],
+    [
+      "Sariyog' 82,5% 5 kg",
+      "",
+      "",
+      "dona",
+      "60000"
+    ],
+    [
+      "LAL ANAAR, Anorli pet butilka 0.5 l",
+      "4780053100648",
+      "02202002005132023",
+      "dona",
+      "38500"
+    ],
+    [
+      "Gugurt 10 quti",
+      "",
+      "03605001001000000",
+      "dona",
+      "58500"
+    ],
+    [
+      "Pechenye sutli 3 кг",
+      "",
+      "01905012001000000",
+      "dona",
+      "22500"
+    ],
+    [
+      "Omonхоna, pet butilka 5 l",
+      "4780167200029",
+      "02201001001401003",
+      "dona",
+      "80000"
+    ],
+    [
+      "Kungaboqar yog'i rafinatsiya 1L",
+      "",
+      "01512001001000000",
+      "litr",
+      "59500"
+    ],
+    [
+      "Мош (маш) 2 kg",
+      "",
+      "07317001001000000",
+      "кг",
+      "39000"
+    ],
+    [
+      "Шарбат олма 1 л",
+      "",
+      "02009001006000000",
+      "metr",
+      "88000"
+    ],
+    [
+      "Pomidor",
+      "",
+      "00702001001000000",
+      "kg",
+      "500"
+    ],
+    [
+      "Limon",
+      "",
+      "",
+      "kg",
+      "37500"
+    ],
+    [
+      "Non (patir non)",
+      "",
+      "",
+      "dona",
+      "47000"
+    ],
+    [
+      "Idish yuvish vositasi 0,5 l",
+      "",
+      "03402002001000000",
+      "kilogramm",
+      "91000"
+    ],
+    [
+      "Guruch Devzira 1 kg",
+      "",
+      "1006001003000000",
+      "dona",
+      "13000"
+    ],
+    [
+      "Neon, Multimeva, PET butilka 0,3 l",
+      "4780022160529",
+      "02202002001099001",
+      "dona",
+      "27000"
+    ],
+    [
+      "Ko'k choy 95-sort 100 gr",
+      "",
+      "00902001001000000",
+      "dona",
+      "1000"
+    ],
+    [
+      "Oqartiruvchi vosita 1 l",
+      "",
+      "3402001003000000",
+      "litr",
+      "43500"
+    ],
+    [
+      "Somsa",
+      "",
+      "",
+      "dona",
+      "36000"
+    ],
+    [
+      "Sement M400 50 kg qop",
+      "",
+      "02523002009000000",
+      "tonna",
+      "57500"
+    ],
+    [
+      "Konti, qumoq, glazurlangan, gofra quti 300 gr",
+      "4780059620201",
+      "01905012001295006",
+      "dona",
+      "94000"
+    ],
+    [
+      "Sariyog' 82,5% 200 g",
+      "",
+      "",
+      "dona",
+      "53500"
+    ],
+    [
+      "Mol go'shti lahm",
+      "",
+      "",
+      "kg",
+      "55000"
+    ],
+    [
+      "Grechka 900 gr",
+      "",
+      "01104001005000000",
+      "dona",
+      "30500"
+    ],
+    [
+      "Вода питьевая негазированная 1,5 L",
+      "",
+      "02201001001000000",
+      "litr",
+      "78000"
+    ],
+    [
+      "Tovuq go'shti (broyler) muzlatilgan",
+      "",
+      "00207001009000000",
+      "kg",
+      "17000"
+    ],
+    [
+      "Dora, PET idish 500 g",
+      "4780015352382",
+      "",
+      "dona",
+      "89500"
+    ],
+    [
+      "BAHODIR NON, Baxodir Polietilen paket 350 g",
+      "4780083450072",
+      "01905002001032005",
+      "dona",
+      "17500"
+    ],
+    [
+      "Стиральный порошок ручная стирка 450г",
+      "",
+      "03402003024000000",
+      "kilogramm",
+      "59500"
+    ],
+    [
+      "Daftar 48 varaq katak",
+      "",
+      "04820002001000999",
+      "dona",
+      "32500"
+    ],
+    [
+      "Вода питьевая негазированная 5 л",
+      "",
+      "02201001001000000",
+      "litr",
+      "99500"
+    ],
+    [
+      "Торнадо, shakarli, sut tamli, PE paket 180 gr",
+      "4780023460284",
+      "",
+      "dona",
+      "34500"
+    ],
+    [
+      "Майонез 67% 0,25 л",
+      "",
+      "02103002004000000",
+      "шт",
+      "73000"
+    ],
+    [
+      "МузА, Konditer mahsuloti, PE qadoqda 250 g",
+      "4780010051938",
+      "01905012001230023",
+      "dona",
+      "33500"
+    ],
+    [
+      "Sirka 9% 0,5 l",
+      "",
+      "02209001001000000",
+      "litr",
+      "71000"
+    ],
+    [
+      "PegAs, suyuq sovun PET butilka 370 g.",
+      "4780041180522",
+      "",
+      "dona",
+      "3000"
+    ],
+    [
+      "Kompot olcha 3 l",
+      "",
+      "02202004004000000",
+      "litr",
+      "39500"
+    ],
+    [
+      "Ombor ijarasi",
+      "",
+      "10106002001000000",
+      "kilogramm",
+      "56500"
+    ],
+    [
+      "Tomat pastasi 800 gr shisha",
+      "",
+      "2002001003000000",
+      "dona",
+      "49500"
+    ],
+    [
+      "Сыр твердый 45% весовой",
+      "",
+      "00406001001000000",
+      "metr",
+      "35500"
+    ],
+    [
+      "Ko'k choy 95-sort 250 gr",
+      "",
+      "",
+      "dona",
+      "36000"
+    ],
+    [
+      "Ketchup 3 кг",
+      "",
+      "02103004001000999",
+      "dona",
+      "97000"
+    ],
+    [
+      "Sosiska 1 кг",
+      "",
+      "01601002002000000",
+      "metr",
+      "100000"
+    ],
+    [
+      "Kartoshka",
+      "",
+      "00701001001000000",
+      "kg",
+      "93000"
+    ],
+    [
+      "7UP, Alyuminiy banka 0,449 l",
+      "4780022621747",
+      "",
+      "dona",
+      "24500"
+    ],
+    [
+      "Сметана 20% 400г",
+      "",
+      "00403999008000000",
+      "шт",
+      "12500"
+    ],
+    [
+      "Atir sovun 90 g",
+      "",
+      "03401001001000000",
+      "dona",
+      "21000"
+    ],
+    [
+      "Колбаса варёная весовая",
+      "",
+      "",
+      "кг",
+      "7500"
+    ],
+    [
+      "Нон буханка 500 г",
+      "",
+      "01905002007000000",
+      "дона",
+      "23500"
+    ],
+    [
+      "Tuxum C1 10 dona",
+      "",
+      "00407001001000000",
+      "dona",
+      "83000"
+    ],
+    [
+      "Ручка шариковая синяя",
+      "",
+      "09608001001000000",
+      "шт",
+      "38000"
+    ],
+    [
+      "Asal tabiiy 3 кг",
+      "",
+      "00409001001000999",
+      "dona",
+      "70000"
+    ],
+    [
+      "Shakar-rafinad 1 кг",
+      "",
+      "01701001002000000",
+      "dona",
+      "14500"
+    ],
+    [
+      "Choynak elektr 1,7 l",
+      "",
+      "",
+      "dona",
+      "31500"
+    ],
+    [
+      "Газированный напиток лимон 1.5 л",
+      "",
+      "02202002001000000",
+      "litr",
+      "52500"
+    ],
+    [
+      "Azov, Raxat-lukum yong’oq 160 gr quti",
+      "4620004255525",
+      "01704001018001005",
+      "dona",
+      "23000"
+    ],
+    [
+      "Moya Semya, Olmali miks, Tetra pak 1,93 l",
+      "4650075421215",
+      "",
+      "dona",
+      "17000"
+    ],
+    [
+      "Kompot olcha 3 l banka",
+      "",
+      "00902001002000000",
+      "litr",
+      "67000"
+    ],
+    [
+      "Folga alyuminiy 10 m",
+      "",
+      "07607001001000000",
+      "dona",
+      "26000"
+    ],
+    [
+      "No'xat 1 kg",
+      "",
+      "00708001001000000",
+      "kg",
+      "9000"
+    ],
+    [
+      "Банан",
+      "",
+      "00803001001000000",
+      "кг",
+      "86000"
+    ],
+    [
+      "Shokolad sutli 90 g",
+      "",
+      "01806001008000000",
+      "kilogramm",
+      "6000"
+    ],
+    [
+      "Kir yuvish kukuni avtomat 3 kg",
+      "",
+      "03402003002000000",
+      "litr",
+      "20500"
+    ],
+    [
+      "Шарбат олма 0,25 л",
+      "",
+      "02009001006000000",
+      "tonna",
+      "61500"
+    ],
+    [
+      "Keramik plitka pol uchun",
+      "",
+      "06905001001000999",
+      "kv. metr",
+      "95000"
+    ],
+    [
+      "Мош (маш) 1кг",
+      "",
+      "10106002001000000",
+      "кг",
+      "79000"
+    ],
+    [
+      "Сахар-песок 50 кг мешок",
+      "",
+      "",
+      "кг",
+      "28500"
+    ],
+    [
+      "Сут 3,2% 0,5 l",
+      "",
+      "00401001001000000",
+      "дона",
+      "48500"
+    ],
+    [
+      "Paxta yog'i 1 l",
+      "",
+      "",
+      "litr",
+      "23000"
+    ],
+    [
+      "Tuz yodlangan 1 kg",
+      "",
+      "02501001007000000",
+      "dona",
+      "36000"
+    ],
+    [
+      "Paxta yog'i 0,25 л",
+      "",
+      "01512002001000000",
+      "litr",
+      "61500"
+    ],
+    [
+      "Makaron spagetti 400g",
+      "",
+      "",
+      "dona",
+      "94500"
+    ],
+    [
+      "Effect, suyuq sovun Polietilen butilka 0,5 l.",
+      "4780016610023",
+      "03401001002060003",
+      "dona",
+      "63000"
+    ],
+    [
+      "Шампунь 0,5 l",
+      "",
+      "03305005001000000",
+      "litr",
+      "95000"
+    ],
+    [
+      "Baliq konservasi (sardina) 240 g",
+      "",
+      "",
+      "dona",
+      "83000"
+    ],
+    [
+      "Bolalar tagligi (podguznik) 4-o'lcham 50 dona",
+      "",
+      "09619002004000000",
+      "dona",
+      "45500"
+    ],
+    [
+      "Краска водоэмульсионная белая 3 кг",
+      "",
+      "03209001005000000",
+      "кг",
+      "98500"
+    ],
+    [
+      "Grechka 10 kg",
+      "",
+      "01104001005000000",
+      "dona",
+      "11000"
+    ],
+    [
+      "Olma",
+      "",
+      "00808001001000000",
+      "kg",
+      "1000"
+    ],
+    [
+      "Шампунь 400 мл",
+      "",
+      "03305005001000000",
+      "litr",
+      "55500"
+    ],
+    [
+      "Чай черный пакетированный 100 пак.",
+      "",
+      "",
+      "шт",
+      "41500"
+    ],
+    [
+      "Tish cho'tkasi o'rtacha qattiqlik",
+      "",
+      "01905012001000000",
+      "dona",
+      "53000"
+    ],
+    [
+      "Tomat pastasi 5 kg",
+      "",
+      "02002001003000000",
+      "dona",
+      "58500"
+    ],
+    [
+      "Makaron spagetti 250 gr",
+      "",
+      "01902001009000999",
+      "dona",
+      "5500"
+    ],
+    [
+      "Mineral suv gazli 1,5L",
+      "",
+      "02201002001000000",
+      "litr",
+      "12500"
+    ],
+    [
+      "Qatiq 2,5% 450 g",
+      "",
+      "03917001001000000",
+      "dona",
+      "17000"
+    ],
+    [
+      "Мыло хозяйственное 72% 200г",
+      "",
+      "03401001004000000",
+      "шт",
+      "87500"
+    ],
+    [
+      "Мыло хозяйственное 72% 5 kg",
+      "",
+      "03401001004000999",
+      "шт",
+      "86500"
+    ],
+    [
+      "Atir sovun 250 gr",
+      "",
+      "02002001003000000",
+      "dona",
+      "7000"
+    ],
+    [
+      "Pechenye sutli 300 gr",
+      "",
+      "01905012001000000",
+      "dona",
+      "8000"
+    ],
+    [
+      "Mega Xrust, unli, yog’li, kabob tami bilan, PP paket 17 gr",
+      "4780041020606",
+      "",
+      "dona",
+      "15000"
+    ],
+    [
+      "Стиральный порошок ручная стирка 5 kg",
+      "",
+      "03402003024000000",
+      "kilogramm",
+      "1000"
+    ],
+    [
+      "Manti 1 porsiya",
+      "",
+      "",
+      "dona",
+      "88500"
+    ],
+    [
+      "Рис круглозерный 3 кг",
+      "",
+      "01805001001000000",
+      "dona",
+      "80500"
+    ],
+    [
+      "Gips shtukaturka 30 kg",
+      "",
+      "01101001001000000",
+      "kilogramm",
+      "33500"
+    ],
+    [
+      "Oqartiruvchi vosita 1,5 L",
+      "",
+      "03402001003000000",
+      "metr",
+      "72500"
+    ],
+    [
+      "Suli yormasi 10 kg",
+      "",
+      "",
+      "dona",
+      "90500"
+    ],
+    [
+      "Bodring",
+      "",
+      "00707001001000000",
+      "kg",
+      "11500"
+    ],
+    [
+      "Масло подсолнечное 5л",
+      "",
+      "",
+      "л",
+      "76000"
+    ],
+    [
+      "Труба ПВХ 110 мм",
+      "",
+      "3917001001000000",
+      "м",
+      "65000"
+    ],
+    [
+      "Kir yuvish kukuni avtomat 3 кг",
+      "",
+      "03402003002000000",
+      "kilogramm",
+      "26000"
+    ],
+    [
+      "Салфетки бумажные 100 шт",
+      "",
+      "01905012001000000",
+      "упак",
+      "41500"
+    ],
+    [
+      "Baliq konservasi (sardina) 2 kg",
+      "",
+      "01604001001000000",
+      "dona",
+      "62500"
+    ],
+    [
+      "Asal tabiiy 500 gr",
+      "",
+      "",
+      "dona",
+      "50000"
+    ],
+    [
+      "Palov 1 porsiya (oshxona)",
+      "",
+      "",
+      "dona",
+      "33000"
+    ],
+    [
+      "Ketchup 500 g",
+      "",
+      "02103004001000000",
+      "dona",
+      "25500"
+    ],
+    [
+      "Майонез 67% 400 мл",
+      "",
+      "02103002004000000",
+      "шт",
+      "500"
+    ],
+    [
+      "Sirka 9% 0,25 л",
+      "",
+      "02209001001000000",
+      "litr",
+      "71000"
+    ],
+    [
+      "Shakar 1 kg qadoqlangan",
+      "",
+      "07607001001000000",
+      "dona",
+      "7000"
+    ],
+    [
+      "Sostoned, alyumin banka 0.33 l",
+      "8594196130549",
+      "",
+      "dona",
+      "56000"
+    ],
+    [
+      "Guruch Devzira 250 gr",
+      "",
+      "01006001003000000",
+      "dona",
+      "62000"
+    ],
+    [
+      "Qatiq 2,5% 3 кг",
+      "",
+      "02002001003000000",
+      "dona",
+      "2000"
+    ],
+    [
+      "Сахар-песок 10 kg",
+      "",
+      "",
+      "кг",
+      "96500"
+    ],
+    [
+      "Краска водоэмульсионная белая 10 кг",
+      "",
+      "03209001005000999",
+      "кг",
+      "67500"
+    ],
+    [
+      "Kakao kukuni 100 gr",
+      "",
+      "01805001001000000",
+      "dona",
+      "66500"
+    ],
+    [
+      "POKIZA, kukunsimon, oqartirish vositasi, kart. quti 120 g.",
+      "4780031390092",
+      "",
+      "dona",
+      "90000"
+    ],
+    [
+      "Tvorog 9% 200 gr",
+      "",
+      "",
+      "dona",
+      "62000"
+    ],
+    [
+      "Мука пшеничная в/с 2 кг",
+      "",
+      "02523002009000000",
+      "кг",
+      "31000"
+    ],
+    [
+      "Tish pastasi 0,25 л",
+      "",
+      "",
+      "dona",
+      "44000"
+    ],
+    [
+      "Gips shtukaturka 5 kg",
+      "",
+      "01701001001000000",
+      "kilogramm",
+      "32000"
+    ],
+    [
+      "Shokolad sutli 250 gr",
+      "",
+      "01806001008000000",
+      "kilogramm",
+      "30500"
+    ],
+    [
+      "Нон буханка 1 кг",
+      "",
+      "",
+      "дона",
+      "87000"
+    ],
+    [
+      "Raffaello, confetteria 80g",
+      "4607086410288",
+      "01806003001026001",
+      "dona",
+      "58000"
+    ],
+    [
+      "Shakar-rafinad 500 gr",
+      "",
+      "03209001005000000",
+      "dona",
+      "31000"
+    ],
+    [
+      "Kungaboqar yog'i rafinatsiya 0,5 l",
+      "",
+      "01512001001000000",
+      "litr",
+      "88000"
+    ],
+    [
+      "Сут 3,2% 1 л",
+      "",
+      "00201001001000000",
+      "дона",
+      "93500"
+    ],
+    [
+      "New Bek Best Cleaner, xo’jalik uchun pet baklajka 3000 gr.",
+      "4780088820139",
+      "03401001002321001",
+      "dona",
+      "10500"
+    ],
+    [
+      "Qahva eriydigan 1 кг",
+      "",
+      "02101001001000000",
+      "dona",
+      "20500"
+    ],
+    [
+      "Tish pastasi 100 ml",
+      "",
+      "03306001001000999",
+      "dona",
+      "97000"
+    ],
+    [
+      "Tuz yodlangan 1 кг",
+      "",
+      "02501001007000000",
+      "dona",
+      "72500"
+    ],
+    [
+      "Батарейка AA 2 шт",
+      "",
+      "",
+      "упак",
+      "59500"
+    ],
+    [
+      "No'xat 1 кг",
+      "",
+      "00708001001000000",
+      "kg",
+      "63000"
+    ],
+    [
+      "Suli yormasi 500 gr",
+      "",
+      "00902001001000000",
+      "dona",
+      "28500"
+    ],
+    [
+      "Вермишель 5 кг",
+      "",
+      "01902001009000000",
+      "кг",
+      "87500"
+    ],
+    [
+      "Конфеты шоколадные весовые",
+      "",
+      "01806003001000000",
+      "кг",
+      "24000"
+    ]
+  ],
+  "labels": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    {
+      "intent": "wrong_code",
+      "correctCode": "07317001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "08544002019000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01006001003000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "06901001002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01101001002000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "00406002001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "10112006002000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "04818001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "03214001003000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "02007002002000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01101001002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01905012001504001"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00403999008000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "01701001001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "01101001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00706001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "08516999043000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "02007002002000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00703001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "03402001023044007"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01601002002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01101001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "04802001006000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03402002001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "02101001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03214001003000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00405001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02202002005132023"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03605001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01905012001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02201001001401003"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01512001001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "00708005001000000"
+    },
+    {
+      "intent": "unit_conflict",
+      "correctCode": "02009001006000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00702001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00805002001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01905002007000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03402002001000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "01006001003000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02202002001099001"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00902001001000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "03402001003000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "10202001002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02523002009000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01905012001295006"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00405001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00201001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01104001005000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02201001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00207001009000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "03401001002111012"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01905002001032005"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03402003024000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "04820002001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02201001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01905012001472001"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02103002004000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01905012001230023"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02209001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "03401001002009003"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02202004004000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "10106002001000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "02002001003000000"
+    },
+    {
+      "intent": "unit_conflict",
+      "correctCode": "00406001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00902001001000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "02103004001000000"
+    },
+    {
+      "intent": "unit_conflict",
+      "correctCode": "01601002002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00701001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "02202002001001008"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00403999008000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03401001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01601001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01905002007000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00407001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "09608001001000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "00409001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01701001002000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "08516999043000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02202002001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01704001018001005"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "02202002005013001"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "02202004004000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "07607001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00708001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00803001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01806001008000000"
+    },
+    {
+      "intent": "unit_conflict",
+      "correctCode": "03402003002000000"
+    },
+    {
+      "intent": "unit_conflict",
+      "correctCode": "02009001006000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "06905001001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "00708005001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01701001006000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00401001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01512002001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02501001007000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01512002001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01902001009000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03401001002060003"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03305005001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01604001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "09619002004000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03209001005000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01104001005000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00808001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03305005001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00902001002000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "09603002002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02002001003000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "01902001009000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02201002001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "00403003002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03401001004000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "03401001004000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "03401001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01905012001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01905002004125007"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03402003024000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "10202001006000001"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "01006001003000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "02520002003000000"
+    },
+    {
+      "intent": "unit_conflict",
+      "correctCode": "03402001003000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01103001006000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00707001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01512001001000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "03917001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03402003002000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "04803001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01604001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00409001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "10202001006000001"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02103004001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02103002004000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02209001001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "01701001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "02202003001081001"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01006001003000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "00403003002000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01701001006000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "03209001005000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01805001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "03402001003016001"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "00406002001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "01101001001000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "03306001001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "02520002003000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01806001008000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "01905002007000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01806003001026001"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "01701001002000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01512001001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "00401001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "03401001002321001"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02101001001000000"
+    },
+    {
+      "intent": "not_found",
+      "correctCode": "03306001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "02501001007000000"
+    },
+    {
+      "intent": "missing",
+      "correctCode": "08506001001000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "00708001001000000"
+    },
+    {
+      "intent": "wrong_code",
+      "correctCode": "01103001006000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01902001009000000"
+    },
+    {
+      "intent": "clean",
+      "correctCode": "01806003001000000"
+    }
+  ]
+}
