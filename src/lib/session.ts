@@ -34,8 +34,10 @@ function assertSecret(): void {
 }
 
 export async function getSession() {
-  assertSecret();
+  // cookies() first: it marks the page dynamic, so `next build` never tries to
+  // prerender a signed-in page (and never needs the secret at build time).
   const store = await cookies();
+  assertSecret();
   return getIronSession<SessionData>(store, sessionOptions);
 }
 
