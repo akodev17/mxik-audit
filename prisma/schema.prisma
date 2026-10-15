@@ -142,8 +142,22 @@ model Organization {
   events    AuditEvent[]
   /// Remembered column mapping, so a repeat upload does not re-ask.
   columnMap Json?
+  kind      OrgKind  @default(customer)
+  /// Demo copies are deleted after this by `npm run purge:expired`.
+  expiresAt DateTime?
 
+  @@index([kind, expiresAt])
   @@map("organization")
+}
+
+/// customer = a real client. demo_template = the seeded demo catalogue, never
+/// signed into. demo = one visitor's throwaway copy of the template.
+enum OrgKind {
+  customer
+  demo_template
+  demo
+
+  @@map("org_kind")
 }
 
 model User {
@@ -256,10 +270,13 @@ model Finding {
   chosenMxik    String?
   decidedBy     String?
   decidedAt     DateTime?
+  /// The AuditEvent that set the current decision; undo targets it. Null while pending.
+  decisionEventId String?
 
   item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId])
+  @@index([decisionEventId])
   @@index([type])
   @@index([decision])
   @@map("finding")
@@ -313,6 +330,8 @@ model Lead {
   note      String?
   createdAt DateTime @default(now())
   handledAt DateTime?
+  /// When fileData was erased, on request or by retention (`npm run purge:expired`).
+  fileDeletedAt DateTime?
 
   @@index([createdAt])
   @@map("lead")
