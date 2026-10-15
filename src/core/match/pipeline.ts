@@ -22,6 +22,8 @@ export type PipelineOptions = {
   reranker: RerankProvider;
   /** Only rows this gate calls uncertain go to the reranker. Absent = all fused rows. */
   rerankGate?: RerankGate | undefined;
+  /** Stages to switch off, for ablation in the eval. Production leaves this empty. */
+  disabledStages?: ReadonlySet<DisableableStage> | undefined;
   /** How many rows each retrieval stage pulls. */
   retrievalLimit?: number;
   /** How many fused candidates go to the reranker. */
@@ -29,6 +31,8 @@ export type PipelineOptions = {
   /** How many results to return. */
   topK?: number;
 };
+
+export type DisableableStage = 'barcode' | 'exact' | 'lexical' | 'vector';
 
 const DEFAULTS = { retrievalLimit: 50, rerankLimit: 20, topK: 5 } as const;
 
@@ -63,13 +67,14 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
   const normalized = normalizeName(input.rawName);
   const preparedDish = isPreparedDish(input.rawName);
   const rowUnit = input.unit ?? null;
+  const off = (stage: DisableableStage): boolean => opts.disabledStages?.has(stage) ?? false;
 
   if (preparedDish) notes.push('Detected as a prepared dish; general codes preferred.');
   if (!embedder.semantic) notes.push(`Vector stage is using "${embedder.name}" — surface-form only, not semantic.`);
   if (!reranker.available) notes.push(`Reranker unavailable (${reranker.name}); confidence is capped.`);
 
   // ---------------------------------------------------------------- 1. barcode
-  const barcode = normalizeBarcode(input.barcode);
+  const barcode = off('barcode') ? null : normalizeBarcode(input.barcode);
   if (barcode) {
     const hits = await store.byBarcode(barcode);
     if (hits.length === 1 && hits[0]) {
@@ -81,12 +86,12 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     if (hits.length > 1) {
       notes.push(`Barcode ${barcode} maps to ${hits.length} codes; falling through to name matching.`);
     }
-  } else if (input.barcode) {
+  } else if (input.barcode && !off('barcode')) {
     notes.push(`Barcode "${input.barcode}" is not a valid GTIN length; ignored.`);
   }
 
   // ---------------------------------------------------------- 2. folded exact
-  if (normalized.matchKey) {
+  if (normalized.matchKey && !off('exact')) {
     const exact = await store.byMatchKey([normalized.matchKey, normalized.sortedKey]);
     if (exact.length === 1 && exact[0]) {
       return {
@@ -101,17 +106,18 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
   const query = normalized.queryKey || normalized.matchKey || normalized.core;
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
-  const vectorStage = embedder
+  type Hit = { candidate: MxikCandidate; score: number };
+  const vectorStage: Promise<Hit[]> = off('vector') ? Promise.resolve([]) : embedder
     .embed([query])
     .then(([vec]) => (vec ? store.byVector(vec, limits.retrievalLimit) : []))
     .catch((error: unknown) => {
       notes.push(`Vector stage unavailable (${error instanceof Error ? error.message : String(error)}); using lexical retrieval only.`);
-      return [] as { candidate: MxikCandidate; score: number }[];
+      return [] as Hit[];
     });
 
   const [lexical, fullText, vector] = await Promise.all([
-    store.byLexical(query, limits.retrievalLimit),
-    store.byFullText(query, limits.retrievalLimit),
+    off('lexical') ? Promise.resolve([] as Hit[]) : store.byLexical(query, limits.retrievalLimit),
+    off('lexical') ? Promise.resolve([] as Hit[]) : store.byFullText(query, limits.retrievalLimit),
     vectorStage,
   ]);
 

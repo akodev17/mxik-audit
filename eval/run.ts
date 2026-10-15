@@ -1,230 +1,257 @@
-// Gate 1 evaluation harness. Built before the algorithm was tuned, so the
-// numbers are a check on the pipeline rather than a description of it.
-// Run: npm run eval
+// Matching evaluation. Reads eval/golden.csv (real) and eval/synthetic.csv
+// (derived from classifier names), runs the full pipeline plus one ablation per
+// stage, reports real and synthetic separately, and appends the run to
+// docs/eval-results.json without overwriting earlier runs.
+// Run: npm run eval [-- --label "after key" --no-ablate]
 import '../src/lib/load-env.js'; // must precede anything reading process.env
-import { readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { z } from 'zod';
 import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { matchProduct } from '../src/core/match/pipeline.js';
-import { rerankFromEnv } from '../src/core/match/rerank.js';
+import { matchProduct, type DisableableStage } from '../src/core/match/pipeline.js';
+import { NoopRerankProvider, rerankFromEnv } from '../src/core/match/rerank.js';
 import { MemoryRerankCache } from '../src/core/match/rerank-cache.js';
+import { costPer1000Rows, formatLlmUsage } from '../src/core/match/rerank-usage.js';
 import { PostgresCandidateStore } from '../src/core/match/store.js';
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
 import { BANDS } from '../src/core/match/score.js';
+import type { RerankProvider, RerankVerdict } from '../src/core/match/types.js';
+import { parseCases, type EvalCase } from './cases.js';
+import { MemoStore } from './memo-store.js';
+import { bySource, type GroupMetrics, type Outcome } from './metrics.js';
 
-const CaseSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  difficulty: z.enum(['easy', 'medium', 'hard']),
-  rawName: z.string().min(1),
-  barcode: z.string().nullish(),
-  unit: z.string().nullish(),
-  existingMxik: z.string().nullish(),
-  expected: z.string().regex(/^\d{17}$/),
-  acceptable: z.array(z.string().regex(/^\d{17}$/)).default([]),
-  why: z.string(),
-});
+const FILES = ['eval/golden.csv', 'eval/synthetic.csv'];
+const RESULTS = 'docs/eval-results.json';
+const CONCURRENCY = 6;
 
-const GoldenSchema = z.object({
-  note: z.string(),
-  catalogSnapshot: z.string(),
-  cases: z.array(CaseSchema).min(1),
-});
+const argValue = (flag: string): string | undefined => {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+};
+const LABEL = argValue('--label') ?? 'eval';
+const ABLATE = !process.argv.includes('--no-ablate');
 
-const golden = GoldenSchema.parse(JSON.parse(readFileSync('eval/golden.json', 'utf8')));
+// ------------------------------------------------------------------ cases
+const loaded: EvalCase[] = [];
+for (const file of FILES) {
+  if (!existsSync(file)) {
+    console.log(`(skipping ${file}: not found — run \`npm run eval:synthetic\` for the synthetic set)`);
+    continue;
+  }
+  const { cases, errors } = parseCases(readFileSync(file, 'utf8'), file.replace(/^eval\//, ''));
+  for (const e of errors) console.log(`INVALID ROW ${e}`);
+  loaded.push(...cases);
+}
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
-const pool = new Pool({ connectionString: DATABASE_URL, max: 4 });
+const pool = new Pool({ connectionString: DATABASE_URL, max: 8 });
 const configured = embeddingProviderFromEnv();
-const { reranker, gate } = rerankFromEnv(process.env, new MemoryRerankCache());
-
-// Never compare a query embedded by one model against vectors stored by another.
 const readiness = await checkVectorReadiness(pool, configured);
 const embedder = readiness.embedder;
-const store = new PostgresCandidateStore(pool, {
+const baseStore = new PostgresCandidateStore(pool, {
   // The placeholder embedder's sparse vectors defeat HNSW; see store.ts.
   exactVectorScan: !embedder.semantic,
   vectorEnabled: readiness.usable,
 });
+const store = new MemoStore(baseStore);
+
+// Never score against a label that is not a live classifier code.
+const live = await baseStore.liveCodes([...new Set(loaded.flatMap((c) => c.correct))]);
+const excluded: string[] = [];
+const cases = loaded.flatMap((c) => {
+  const correct = c.correct.filter((code) => live.has(code));
+  if (correct.length === 0) {
+    excluded.push(`${c.id} (${c.correct.join('|')} not in classifier)`);
+    return [];
+  }
+  return [{ ...c, correct }];
+});
+
+const { reranker: realReranker, gate } = rerankFromEnv(process.env, new MemoryRerankCache());
+
+/** Without a key, still measure what the gate would send, at zero cost and no effect on scores. */
+class DryRunReranker implements RerankProvider {
+  readonly name = 'dry run (gate only, no call)';
+  readonly available = true;
+  rerank(): Promise<RerankVerdict[]> { return Promise.resolve([]); }
+}
+const reranker: RerankProvider = realReranker.available ? realReranker : new DryRunReranker();
+
+// --------------------------------------------------------------- header
+const codeCount = (await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM mxik_code WHERE "retiredAt" IS NULL')).rows[0]?.n ?? '?';
+const commit = (() => {
+  try {
+    const sha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    const dirty = execSync('git status --porcelain -- src eval', { encoding: 'utf8' }).trim() !== '';
+    return dirty ? `${sha}+dirty` : sha;
+  } catch {
+    return 'unknown';
+  }
+})();
+
+const real = cases.filter((c) => c.source === 'real');
+const synthetic = cases.filter((c) => c.source === 'synthetic');
 
 console.log('='.repeat(78));
-console.log('MXIK matching evaluation');
+console.log(`MXIK matching evaluation — ${LABEL}`);
 console.log('='.repeat(78));
-console.log(`cases           ${golden.cases.length} (${golden.cases.filter((c) => c.source === 'seeded').length} seeded)`);
-console.log(`catalog         ${golden.catalogSnapshot}`);
+console.log(`code            ${commit}`);
+console.log(`classifier      ${Number(codeCount).toLocaleString()} live codes`);
+console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
+for (const e of excluded) console.log(`  excluded: ${e}`);
 console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- NOT SEMANTIC'}`);
-if (readiness.stored) console.log(`  stored vectors  ${readiness.stored.provider} (${readiness.stored.rowsEmbedded.toLocaleString()} rows)`);
 if (readiness.reason) console.log(`  vector stage    ${readiness.usable ? 'SUBSTITUTED' : 'DISABLED'}: ${readiness.reason}`);
-console.log(`reranker        ${reranker.name}${reranker.available ? '' : '   <-- DISABLED'}`);
-if (!embedder.semantic || !reranker.available || !readiness.usable) {
-  console.log('');
-  console.log('  WARNING: the pipeline is running degraded. Stage 4 (vector) and/or');
-  console.log('  stage 6 (LLM rerank) are not using real providers, so these numbers are');
-  console.log('  a floor, not the achievable accuracy. See docs/scoring.md.');
+console.log(`reranker        ${realReranker.name}${realReranker.available ? '' : '   <-- DISABLED (gate measured in dry run)'}`);
+console.log(`rerank gate     top-1 < ${gate.minConfidence} or margin < ${gate.minMargin}`);
+console.log('');
+console.log('  NOTE: "real" here means hand-written cases, not customer files, until real');
+console.log('  catalogue rows are added to eval/golden.csv.');
+console.log('  WARNING: synthetic cases are derived from classifier names. They measure');
+console.log('  robustness to noise and OVERESTIMATE accuracy on real catalogues.');
+if (!embedder.semantic || !realReranker.available || !readiness.usable) {
+  console.log('  WARNING: stage 4 and/or stage 6 are degraded; these numbers are a floor.');
 }
 console.log('');
 
-type Outcome = {
-  id: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  rawName: string;
-  expected: string;
-  acceptable: string[];
-  predicted: string | null;
-  predictedName: string | null;
-  confidence: number;
-  band: string;
-  rankOfCorrect: number | null;
-  inPool: boolean;
-  poolSize: number;
-  rankInPool: number | null;
-  top1: boolean;
-  top5: boolean;
-  decidedBy: string;
-  reason: string;
-  notes: string[];
-  ms: number;
-};
+// ------------------------------------------------------------------ run
+type Config = { key: string; label: string; disabled: DisableableStage[]; reranker: RerankProvider };
 
-const outcomes: Outcome[] = [];
-
-for (const testCase of golden.cases) {
-  const accept = new Set([testCase.expected, ...testCase.acceptable]);
-  const t0 = Date.now();
-  const result = await matchProduct({
-    rawName: testCase.rawName,
-    barcode: testCase.barcode ?? null,
-    unit: testCase.unit ?? null,
-    existingMxik: testCase.existingMxik ?? null,
-  }, { store, embedder, reranker, rerankGate: gate });
-  const ms = Date.now() - t0;
-
-  const codes = result.candidates.map((c) => c.candidate.code);
-  const rankIndex = codes.findIndex((c) => accept.has(c));
-  const poolIndex = result.pool.findIndex((c) => accept.has(c));
-  const top = result.candidates[0];
-
-  outcomes.push({
-    id: testCase.id,
-    difficulty: testCase.difficulty,
-    rawName: testCase.rawName,
-    expected: testCase.expected,
-    acceptable: testCase.acceptable,
-    predicted: top?.candidate.code ?? null,
-    predictedName: top?.candidate.nameUz ?? null,
-    confidence: top?.confidence ?? 0,
-    band: top?.band ?? 'none',
-    rankOfCorrect: rankIndex === -1 ? null : rankIndex + 1,
-    inPool: poolIndex !== -1,
-    poolSize: result.pool.length,
-    rankInPool: poolIndex === -1 ? null : poolIndex + 1,
-    top1: rankIndex === 0,
-    top5: rankIndex !== -1 && rankIndex < 5,
-    decidedBy: result.decidedBy,
-    reason: top?.reason ?? '(no candidate)',
-    notes: result.notes,
-    ms,
-  });
+async function runConfig(config: Config): Promise<Outcome[]> {
+  const outcomes: Outcome[] = new Array<Outcome>(cases.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
+    for (;;) {
+      const index = next++;
+      const testCase = cases[index];
+      if (!testCase) return;
+      let sent = false;
+      const tracked: RerankProvider = {
+        name: config.reranker.name,
+        available: config.reranker.available,
+        rerank: (request) => { sent = true; return config.reranker.rerank(request); },
+      };
+      const t0 = Date.now();
+      const result = await matchProduct(
+        { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit },
+        { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled) },
+      );
+      const accept = new Set(testCase.correct);
+      const rankIndex = result.candidates.findIndex((c) => accept.has(c.candidate.code));
+      const top = result.candidates[0];
+      outcomes[index] = {
+        id: testCase.id,
+        source: testCase.source,
+        name: testCase.name,
+        correct: testCase.correct,
+        predicted: top?.candidate.code ?? null,
+        confidence: top?.confidence ?? 0,
+        band: top?.band ?? 'none',
+        rank: rankIndex === -1 ? null : rankIndex + 1,
+        inPool: result.pool.some((c) => accept.has(c)),
+        decidedBy: result.decidedBy,
+        sentToLlm: sent,
+        ms: Date.now() - t0,
+      };
+    }
+  }));
+  return outcomes;
 }
 
-// ------------------------------------------------------------------ aggregate
-const n = outcomes.length;
-const top1 = outcomes.filter((o) => o.top1).length;
-const top5 = outcomes.filter((o) => o.top5).length;
-const correct = outcomes.filter((o) => o.top1);
-const incorrect = outcomes.filter((o) => !o.top1);
-const mean = (xs: number[]): number => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
+const configs: Config[] = [
+  { key: 'full', label: 'all stages', disabled: [], reranker },
+  ...(ABLATE ? [
+    { key: 'no-barcode', label: 'stage 1 off (barcode)', disabled: ['barcode'], reranker },
+    { key: 'no-exact', label: 'stage 2 off (exact name)', disabled: ['exact'], reranker },
+    { key: 'no-lexical', label: 'stage 3 off (trigram + full-text)', disabled: ['lexical'], reranker },
+    { key: 'no-vector', label: 'stage 4 off (vector)', disabled: ['vector'], reranker },
+    { key: 'no-rerank', label: 'stage 6 off (reranker)', disabled: [], reranker: new NoopRerankProvider('ablation') },
+  ] satisfies Config[] : []),
+];
 
-const meanCorrect = mean(correct.map((o) => o.confidence));
-const meanIncorrect = mean(incorrect.map((o) => o.confidence));
+const results: Record<string, ReturnType<typeof bySource>> = {};
+let fullOutcomes: Outcome[] = [];
+for (const config of configs) {
+  const t0 = Date.now();
+  const outcomes = await runConfig(config);
+  results[config.key] = bySource(outcomes);
+  if (config.key === 'full') fullOutcomes = outcomes;
+  console.log(`ran ${config.label.padEnd(36)} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+}
 
-console.log('per-case breakdown');
-console.log('-'.repeat(78));
-console.log('res  rank  conf  band    decidedBy  case');
-for (const o of outcomes) {
-  const mark = o.top1 ? ' ok ' : o.top5 ? 'top5' : 'MISS';
-  const rank = o.rankOfCorrect === null ? '  - ' : String(o.rankOfCorrect).padStart(4);
-  console.log(`${mark} ${rank}  ${o.confidence.toFixed(2)}  ${o.band.padEnd(6)}  ${o.decidedBy.padEnd(9)}  ${o.id}`);
-  if (!o.top1) {
-    console.log(`            want ${o.expected}${o.acceptable.length ? ` (or ${o.acceptable.join(', ')})` : ''}`);
-    console.log(`            got  ${o.predicted ?? '(none)'}  ${(o.predictedName ?? '').slice(0, 52)}`);
+// --------------------------------------------------------------- report
+const f = (n: number | null, digits = 1): string => (n === null ? '   - ' : n.toFixed(digits).padStart(5));
+function table(title: string, pick: (m: ReturnType<typeof bySource>) => GroupMetrics): void {
+  console.log('');
+  console.log(title);
+  console.log('  config                               n   top1%  top5%  high-cov%  high-prec%  pool%  llm%');
+  for (const config of configs) {
+    const metrics = results[config.key];
+    if (!metrics) continue;
+    const m = pick(metrics);
+    console.log(`  ${config.label.padEnd(34)} ${String(m.n).padStart(4)}  ${f(m.top1Pct)}  ${f(m.top5Pct)}  ${f(m.highCoveragePct).padStart(9)}  ${f(m.highPrecisionPct).padStart(10)}  ${f(m.ceilingPct)} ${f(m.llmSharePct)}`);
   }
 }
+table('REAL (hand-written) cases', (m) => m.real);
+table('SYNTHETIC cases (derived from classifier names — optimistic)', (m) => m.synthetic);
+console.log('');
+console.log(`  high band = confidence >= ${BANDS.high}, the only band bulk accept may touch.`);
+console.log('  pool% = correct code reached the rerank pool (the ceiling stage 6 can reach).');
+console.log('  llm% = rows the gate sends to the reranker.');
 
 console.log('');
-console.log('='.repeat(78));
-console.log('RESULTS');
-console.log('='.repeat(78));
-console.log(`top-1 accuracy               ${top1}/${n}  ${((top1 / n) * 100).toFixed(1)}%`);
-console.log(`top-5 accuracy               ${top5}/${n}  ${((top5 / n) * 100).toFixed(1)}%`);
-console.log(`mean confidence when right   ${meanCorrect.toFixed(3)}  (n=${correct.length})`);
-console.log(`mean confidence when wrong   ${meanIncorrect.toFixed(3)}  (n=${incorrect.length})`);
-console.log(`separation (right - wrong)   ${(meanCorrect - meanIncorrect).toFixed(3)}${meanCorrect > meanIncorrect ? '' : '   <-- INVERTED: confidence is anti-predictive'}`);
-console.log(`median latency               ${[...outcomes].map((o) => o.ms).sort((a, b) => a - b)[Math.floor(n / 2)]}ms`);
-
-const inPool = outcomes.filter((o) => o.inPool).length;
-console.log('');
-console.log(`RERANKER CEILING             ${inPool}/${n}  ${((inPool / n) * 100).toFixed(1)}%`);
-console.log('  = share of cases where a correct code reached the pool handed to stage 6.');
-console.log('  A perfect reranker could not beat this; a code absent from the pool is');
-console.log('  unreachable. Gap to top-1 is what reranking has left to win.');
-console.log(`  headroom: ${(((inPool - top1) / n) * 100).toFixed(1)} points`);
-const missedPool = outcomes.filter((o) => !o.inPool);
-if (missedPool.length > 0) {
-  console.log('  never retrieved at all:');
-  for (const o of missedPool) console.log(`    ${o.id} (pool of ${o.poolSize})`);
+console.log('real-case breakdown (all stages)');
+for (const o of fullOutcomes.filter((x) => x.source === 'real')) {
+  const mark = o.rank === 1 ? ' ok ' : o.rank !== null ? 'top5' : 'MISS';
+  console.log(`  ${mark} ${o.confidence.toFixed(2)} ${o.band.padEnd(6)} ${o.decidedBy.padEnd(7)} ${o.name.slice(0, 48)}`);
+  if (o.rank !== 1) console.log(`              want ${o.correct.join(' | ')}  got ${o.predicted ?? '(none)'}`);
 }
 
+const synthMisses = fullOutcomes.filter((o) => o.source === 'synthetic' && o.rank === null);
+const noiseOf = (id: string): string[] => {
+  const c = cases.find((x) => x.id === id);
+  return /noise: ([^;]+)/.exec(c?.notes ?? '')?.[1]?.split(',').map((s) => s.trim()) ?? [];
+};
+const missByNoise = new Map<string, number>();
+for (const o of synthMisses) for (const n of noiseOf(o.id)) missByNoise.set(n, (missByNoise.get(n) ?? 0) + 1);
 console.log('');
-console.log('by difficulty');
-for (const level of ['easy', 'medium', 'hard'] as const) {
-  const group = outcomes.filter((o) => o.difficulty === level);
-  if (group.length === 0) continue;
-  console.log(`  ${level.padEnd(7)} top-1 ${group.filter((o) => o.top1).length}/${group.length}   top-5 ${group.filter((o) => o.top5).length}/${group.length}`);
+console.log(`synthetic top-5 misses by noise type: ${[...missByNoise].map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`);
+
+const usage = realReranker.usage?.() ?? null;
+if (usage) {
+  console.log('');
+  console.log(formatLlmUsage(usage, cases.length));
 }
 
-console.log('');
-console.log('band calibration (does the band mean what it claims?)');
-for (const band of ['high', 'medium', 'low'] as const) {
-  const group = outcomes.filter((o) => o.band === band);
-  if (group.length === 0) { console.log(`  ${band.padEnd(6)} (none)`); continue; }
-  const precision = group.filter((o) => o.top1).length / group.length;
-  console.log(`  ${band.padEnd(6)} n=${String(group.length).padStart(2)}  top-1 precision ${(precision * 100).toFixed(0)}%`);
-}
-console.log(`  thresholds: high >= ${BANDS.high}, medium >= ${BANDS.medium}, low below`);
-
-console.log('');
-console.log('decision rule');
-const t5 = (top5 / n) * 100;
-const t1 = (top1 / n) * 100;
-if (t5 < 80) {
-  console.log(`  top-5 is ${t5.toFixed(1)}%, below the 80% floor -> HALT. The tool cannot reduce manual work.`);
-} else if (t1 > 95) {
-  console.log(`  top-1 is ${t1.toFixed(1)}%, above 95% -> the golden set is too easy. Ask for harder cases.`);
-} else if (t1 >= 60 && t1 <= 85 && t5 > 90) {
-  console.log(`  top-1 ${t1.toFixed(1)}%, top-5 ${t5.toFixed(1)}% -> the intended shape. AI proposes, human confirms.`);
-} else {
-  console.log(`  top-1 ${t1.toFixed(1)}%, top-5 ${t5.toFixed(1)}% -> between the stated bands; needs a judgement call.`);
+// -------------------------------------------------------------- history
+type History = { note: string; runs: unknown[] };
+const NOTE = 'Append-only history of `npm run eval`. Each run records code version, classifier size, providers, per-config metrics split by real/synthetic, and per-case outcomes for the full pipeline.';
+let history: History = { note: NOTE, runs: [] };
+if (existsSync(RESULTS)) {
+  const previous = JSON.parse(readFileSync(RESULTS, 'utf8')) as Partial<History> & Record<string, unknown>;
+  history = Array.isArray(previous.runs)
+    ? { note: NOTE, runs: previous.runs }
+    // Older single-run format: keep it as the first history entry.
+    : { note: NOTE, runs: [{ label: 'gate 1 (single-run format)', ...previous }] };
 }
 
-writeFileSync('docs/eval-results.json', JSON.stringify({
+history.runs.push({
+  label: LABEL,
   ranAt: new Date().toISOString(),
-  catalogSnapshot: golden.catalogSnapshot,
+  code: commit,
+  classifierLiveCodes: Number(codeCount),
   providers: {
-    embedding: embedder.name, embeddingSemantic: embedder.semantic,
-    reranker: reranker.name, rerankerAvailable: reranker.available,
-    embeddingConfigured: configured.name, vectorUsable: readiness.usable,
-    vectorSubstituted: readiness.substituted, storedEmbeddingProvider: readiness.stored?.provider ?? null,
+    embedding: embedder.name, embeddingSemantic: embedder.semantic, vectorUsable: readiness.usable,
+    reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
   },
-  summary: {
-    n, top1, top5,
-    top1Pct: (top1 / n) * 100, top5Pct: (top5 / n) * 100,
-    meanConfidenceCorrect: meanCorrect, meanConfidenceIncorrect: meanIncorrect,
-    rerankerCeiling: inPool, rerankerCeilingPct: (inPool / n) * 100,
-  },
-  outcomes,
-}, null, 2));
-console.log('\nwrote docs/eval-results.json');
+  cases: { real: real.length, synthetic: synthetic.length, excluded },
+  metrics: results,
+  llm: usage ? { ...usage, costPer1000Rows: costPer1000Rows(usage, cases.length) } : null,
+  outcomes: fullOutcomes.map((o) => ({
+    id: o.id, source: o.source, predicted: o.predicted, rank: o.rank,
+    confidence: Number(o.confidence.toFixed(4)), band: o.band, decidedBy: o.decidedBy, sentToLlm: o.sentToLlm,
+  })),
+});
+writeFileSync(RESULTS, JSON.stringify(history, null, 2) + '\n');
+console.log(`\nappended run ${history.runs.length} to ${RESULTS}`);
 
 await pool.end();
