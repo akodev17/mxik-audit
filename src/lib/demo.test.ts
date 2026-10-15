@@ -63,10 +63,17 @@ describe('demo mode (database)', { skip }, () => {
   });
 
   it('purges expired demo copies and nothing else', async () => {
-    const latest = await db.organization.findMany({ where: { id: { in: sessions.map((s) => s.orgId) } }, select: { expiresAt: true } });
-    const afterExpiry = new Date(Math.max(...latest.map((o) => o.expiresAt?.getTime() ?? 0)) + 1000);
-    await purgeExpiredDemos(afterExpiry);
-    assert.equal(await db.organization.count({ where: { id: { in: sessions.map((s) => s.orgId) } } }), 0);
+    // Expire only this test's copies, then purge at the real current time. A
+    // future "now" would also delete live demos of anyone using this database.
+    const ids = sessions.map((s) => s.orgId);
+    await db.organization.updateMany({ where: { id: { in: ids } }, data: { expiresAt: new Date(Date.now() - 60_000) } });
+    const live = await startDemoSession();
+    assert.ok(live);
+    sessions.push(live);
+
+    await purgeExpiredDemos(new Date());
+    assert.equal(await db.organization.count({ where: { id: { in: ids } } }), 0);
+    assert.equal(await db.organization.count({ where: { id: live.orgId } }), 1, 'an unexpired demo must survive');
     assert.equal(await db.organization.count({ where: { id: { in: [template.orgId, customer.orgId] } } }), 2);
   });
 });
