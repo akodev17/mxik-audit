@@ -100,16 +100,33 @@ const timer: StageTimer = {
 };
 elapsed = lap();
 let lastLog = 0;
-const outcome = await auditCatalog(catalog.id, {
-  timer,
-  onProgress: ({ done, total }) => {
-    const now = performance.now();
-    if (now - lastLog < 15_000 && done !== total) return;
-    lastLog = now;
-    const s = elapsed() / 1000;
-    process.stderr.write(`  audited ${done.toLocaleString()} / ${total.toLocaleString()}  ${(done / s).toFixed(1)} rows/s  ETA ${Math.round((total - done) / (done / s))}s\n`);
-  },
-});
+let watermark = 0;
+let resumes = 0;
+let outcome: Awaited<ReturnType<typeof auditCatalog>> | undefined;
+// A dropped connection (Docker Desktop's port proxy does this under load) costs
+// a resume from the last contiguous finished row, not hours of work.
+while (!outcome) {
+  const base = watermark;
+  try {
+    outcome = await auditCatalog(catalog.id, {
+      timer,
+      fromRow: base,
+      onProgress: ({ done, total, watermark: w }) => {
+        watermark = w;
+        const now = performance.now();
+        if (now - lastLog < 15_000 && base + done !== total) return;
+        lastLog = now;
+        const s = elapsed() / 1000;
+        const rate = (base + done) / s;
+        process.stderr.write(`  audited ${(base + done).toLocaleString()} / ${total.toLocaleString()}  ${rate.toFixed(1)} rows/s  ETA ${Math.round((total - base - done) / rate)}s\n`);
+      },
+    });
+  } catch (error) {
+    if (++resumes > 5) throw error;
+    console.error(`  resuming from row ${watermark} after: ${error instanceof Error ? error.message : String(error)}`);
+    await db.finding.deleteMany({ where: { item: { catalogId: catalog.id, rowIndex: { gte: watermark } } } });
+  }
+}
 timings['audit'] = elapsed();
 await db.catalog.update({ where: { id: catalog.id }, data: { status: 'ready' } });
 
@@ -133,7 +150,8 @@ const result = {
   machine: { cpu: cpus()[0]?.model, threads: availableParallelism(), memGb: Math.round(totalmem() / 1e9) },
   rows: parsed.rows.length,
   embedder: embedder.name,
-  findings: outcome.findingsCreated,
+  findings: await db.finding.count({ where: { item: { catalogId: catalog.id } } }),
+  resumes,
   degradedReasons: outcome.degradedReasons,
   secondsUploadToReport: Number((total / 1000).toFixed(1)),
   steps: Object.fromEntries(Object.entries(timings).map(([k, v]) => [k, Number((v / 1000).toFixed(1))])),
