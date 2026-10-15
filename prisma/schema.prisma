@@ -152,12 +152,24 @@ model Organization {
 
 /// customer = a real client. demo_template = the seeded demo catalogue, never
 /// signed into. demo = one visitor's throwaway copy of the template.
+/// internal = our own seed, perf and test orgs; never counted as traction.
 enum OrgKind {
   customer
   demo_template
   demo
+  internal
 
   @@map("org_kind")
+}
+
+/// One row per demo session started. Demo orgs are purged after a day, so this
+/// is the durable count for traction metrics. Holds nothing about the visitor.
+model DemoVisit {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("demo_visit")
 }
 
 model User {

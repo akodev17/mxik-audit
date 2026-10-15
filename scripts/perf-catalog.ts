@@ -68,7 +68,7 @@ const parsed = await parseUpload(buffer, 'perf.xlsx');
 timings['parse'] = elapsed();
 
 elapsed = lap();
-const org = await db.organization.create({ data: { name: `perf-${Date.now()}` } });
+const org = await db.organization.create({ data: { name: `perf-${Date.now()}`, kind: 'internal' } });
 const map = { name: 0, barcode: 1, mxik: 2, unit: 3, price: 4 };
 const catalog = await db.catalog.create({
   data: { orgId: org.id, filename: 'perf.xlsx', rowCount: parsed.rows.length, status: 'analyzing', headers: parsed.headers, columnMap: map },

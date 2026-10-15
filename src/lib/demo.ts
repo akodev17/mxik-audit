@@ -71,6 +71,8 @@ export async function startDemoSession(now = new Date()): Promise<DemoSession | 
       },
     });
     await tx.auditEvent.create({ data: { orgId: org.id, actorId: user.id, action: 'demo.started', payload: {} } });
+    // Outlives the demo org, which is purged after a day: the traction count.
+    await tx.demoVisit.create({ data: {} });
     return { orgId: org.id, userId: user.id, email };
   }, { timeout: 60_000 });
 }

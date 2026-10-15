@@ -61,6 +61,30 @@ export type Dict = {
   historyBulk: (n: number) => string;
   historyUndone: (n: number) => string;
 
+  // admin traction metrics
+  adminTitle: string;
+  adminHint: string;
+  adminOrgs: string;
+  adminCatalogs: string;
+  adminRowsAudited: string;
+  adminRiskyRows: string;
+  adminLast30: (n: number) => string;
+  adminByType: string;
+  adminDecisions: string;
+  adminAccepted: string;
+  adminEdited: string;
+  adminRejected: string;
+  adminPending: string;
+  adminBulk: string;
+  adminUndone: string;
+  adminReviewTime: string;
+  adminReviewValue: (seconds: number | null) => string;
+  adminReviewNote: (samples: number) => string;
+  adminDemo: string;
+  adminLeads: string;
+  adminLeadsFiles: (n: number) => string;
+  adminGenerated: string;
+
   // demo
   demoTitle: string;
   demoIntro: string;
@@ -207,6 +231,29 @@ export const uz: Dict = {
   historyRejected: 'Rad etildi',
   historyBulk: (n) => `${n} ta taklif birdaniga qabul qilindi`,
   historyUndone: (n) => (n > 1 ? `${n} ta qaror bekor qilindi` : 'Qaror bekor qilindi'),
+
+  adminTitle: 'Koʻrsatkichlar',
+  adminHint: 'Faqat haqiqiy mijozlar hisoblanadi: demo nusxalar, demo shabloni va ichki (namuna, sinov) tashkilotlar kiritilmagan.',
+  adminOrgs: 'Mijoz tashkilotlar',
+  adminCatalogs: 'Yuklangan kataloglar',
+  adminRowsAudited: 'Tahlil qilingan qatorlar',
+  adminRiskyRows: 'Riskli qatorlar',
+  adminLast30: (n) => `oxirgi 30 kunda: ${n.toLocaleString('uz-UZ')}`,
+  adminByType: 'Topilmalar turi boʻyicha',
+  adminDecisions: 'Takliflar boʻyicha qarorlar',
+  adminAccepted: 'Qabul qilindi (taklif etilgan kod)',
+  adminEdited: 'Qabul qilindi (boshqa kod tanlandi)',
+  adminRejected: 'Rad etildi',
+  adminPending: 'Koʻrib chiqilmagan',
+  adminBulk: 'Birdaniga qabul qilingan qatorlar',
+  adminUndone: 'Bekor qilingan qarorlar',
+  adminReviewTime: 'Bir qatorni koʻrib chiqish vaqti (mediana)',
+  adminReviewValue: (s) => (s === null ? 'hali maʼlumot yoʻq' : `${s.toLocaleString('uz-UZ')} soniya`),
+  adminReviewNote: (n) => `${n.toLocaleString('uz-UZ')} ta oraliq asosida; 10 daqiqadan uzun tanaffuslar hisobga olinmaydi.`,
+  adminDemo: 'Demo sessiyalar',
+  adminLeads: 'Bepul audit soʻrovlari',
+  adminLeadsFiles: (n) => `fayl bilan: ${n.toLocaleString('uz-UZ')}`,
+  adminGenerated: 'Hisoblangan vaqt',
 
   demoTitle: 'Demoni sinab koʻrish',
   demoIntro: 'Roʻyxatdan oʻtmasdan, namuna katalog ustida dasturning toʻliq ishini koʻring: risk hisoboti, takliflarni koʻrib chiqish va tuzatilgan faylni yuklab olish.',

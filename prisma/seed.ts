@@ -113,11 +113,16 @@ async function main(): Promise<void> {
   const headers = ['№', 'Tovar nomi', 'Narxi', 'Ed. izm.', 'MXIK kodi', 'Штрих-код'];
   const columnMap = { name: 1, barcode: 5, mxik: 4, unit: 3, price: 2 };
 
-  await db.auditEvent.deleteMany({ where: { org: { name: 'Demo Savdo MChJ' } } });
-  await db.organization.deleteMany({ where: { name: 'Demo Savdo MChJ' } });
+  // Only this seed's own org. The /demo template and visitor copies share the
+  // name, and must survive a re-seed. (`customer` covers seeds made before the
+  // `internal` kind existed.)
+  const previous = { name: 'Demo Savdo MChJ', kind: { in: ['internal', 'customer'] as ('internal' | 'customer')[] } };
+  await db.auditEvent.deleteMany({ where: { org: previous } });
+  await db.organization.deleteMany({ where: previous });
 
   const org = await db.organization.create({
-    data: { name: 'Demo Savdo MChJ', columnMap },
+    // Our own sample data: never counted as a customer in traction metrics.
+    data: { name: 'Demo Savdo MChJ', columnMap, kind: 'internal' },
   });
 
   await db.user.create({

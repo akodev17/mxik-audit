@@ -30,8 +30,11 @@ describe('demo mode (database)', { skip }, () => {
   });
 
   it('gives each visitor a separate, undecided copy of the template', async () => {
+    const visitsBefore = await db.demoVisit.count();
     const one = await startDemoSession();
     const two = await startDemoSession();
+    // The durable traction count survives the copies' daily purge.
+    assert.equal(await db.demoVisit.count(), visitsBefore + 2);
     assert.ok(one && two);
     sessions.push(one, two);
     assert.notEqual(one.orgId, two.orgId);
