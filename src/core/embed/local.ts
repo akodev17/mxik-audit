@@ -29,7 +29,8 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   constructor(
     private readonly model: LocalModel,
     private readonly cacheDir = process.env['LOCAL_MODEL_DIR']?.trim() || 'data/models',
-    private readonly batchSize = 64,
+    /** 256 measured ~1.6x faster than 64 on the backfill; queries are single texts. */
+    private readonly batchSize = 256,
   ) {
     this.name = `local:${model.id}`;
   }
