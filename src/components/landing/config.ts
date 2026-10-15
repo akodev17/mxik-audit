@@ -36,6 +36,17 @@ export const SITE_URL = (() => {
 export const TELEGRAM_URL = safeHref(process.env.NEXT_PUBLIC_TELEGRAM_URL);
 
 /**
+ * Days a file sent through the lead form is kept before `npm run purge:expired`
+ * erases it. Same variable and default as leadFileRetentionDays in
+ * src/lib/retention.ts (not imported: that module pulls in the database). The
+ * promise holds only where the daily purge job runs — see DEPLOY.md.
+ */
+export const LEAD_FILE_RETENTION_DAYS = (() => {
+  const n = Number(process.env.LEAD_FILE_RETENTION_DAYS);
+  return Number.isFinite(n) && n > 0 ? n : 30;
+})();
+
+/**
  * Tax Code art. 223 part 5 as the citation on the "Jarima" card.
  * Keep false until a tax adviser has confirmed the wording against lex.uz.
  */

@@ -22,11 +22,13 @@ const ITEMS = [
     show: true,
   },
   {
-    // AuditEvent, append-only (only `create` is ever called on it)
-    title: 'Qarorlar jurnali',
+    // AuditEvent (append-only), shown by src/app/review/decision-history.tsx;
+    // undo is a new event, not an edit.
+    title: 'Qarorlar tarixi',
     body:
       'Har bir tasdiq va rad etish kim tomonidan va qachon qilingani bilan '
-      + 'yoziladi. Savol tugʻilsa, kod oʻylab koʻrilib qoʻyilganini koʻrsatadi.',
+      + 'yoziladi va koʻrinib turadi. Xato bosilgan qarorni bekor qilasiz — bu ham '
+      + 'tarixda qoladi.',
     show: true,
   },
   {
@@ -38,9 +40,19 @@ const ITEMS = [
     show: true,
   },
   {
-    // NOT BUILT: every screen reads the organisation's newest catalogue.
-    title: 'Har bir mijoz — alohida',
-    body: 'Bir hisobda bir nechta mijoz katalogi, har biriga alohida hisobot va tarix.',
+    // /catalogs (src/app/catalogs/page.tsx); report, review and export take
+    // ?catalog= for any earlier upload.
+    title: 'Har bir katalog — alohida hisobot',
+    body:
+      'Yuklangan kataloglar roʻyxatda saqlanadi: istalganining hisoboti, koʻrib '
+      + 'chiqish va eksporti alohida ochiladi. Keragini oʻzingiz oʻchirasiz.',
+    show: true,
+  },
+  {
+    // NOT BUILT: catalogues are not grouped by client, and there is no
+    // per-client access. Hidden until it exists.
+    title: 'Mijozlar boʻyicha ajratish',
+    body: 'Kataloglarni mijoz nomi bilan guruhlash va har bir mijozga alohida kirish.',
     show: SHOW_MULTI_CLIENT,
   },
 ] as const;

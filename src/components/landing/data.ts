@@ -1,4 +1,5 @@
 import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
+import { LEAD_FILE_RETENTION_DAYS } from './config';
 
 export const nf = new Intl.NumberFormat('uz-UZ');
 
@@ -249,8 +250,12 @@ export const COLUMN_MAP = [
          a derived yes/no "prepared dish" flag, to the reranker (Anthropic) —
          renderRow in src/core/match/rerank-prompt.ts (since eb10b2c).
      Barcode, price and every other column never do.
-   - Deletion: there is no deletion mechanism in code. Files are removed by
-     hand on request, and the copy says exactly that. */
+   - Deletion: lead files are erased after LEAD_FILE_RETENTION_DAYS by
+     `npm run purge:expired` (daily job, DEPLOY.md) and at once on request
+     (`npm run lead:delete`), src/lib/retention.ts. App users delete their own
+     catalogues at /catalogs, which also removes findings, cached AI verdicts
+     and the log entries naming its products (deleteCatalog,
+     src/lib/catalogs.ts). */
 export const DATA_FLOW = {
   stored:
     'Fayl serverimizda saqlanadi — tuzatilgan Excelni asl koʻrinishida '
@@ -261,7 +266,12 @@ export const DATA_FLOW = {
     + 'oʻlchov birligi yuborilishi mumkin. Narx, shtrix kod, miqdor va boshqa '
     + 'ustunlar serverdan chiqmaydi.',
   optOut: 'Xohlasangiz, katalogingizni tashqi xizmatsiz tekshiramiz.',
-  deletion: 'Soʻrovingiz boʻyicha faylni qoʻlda oʻchiramiz.',
+  deletion:
+    `Bepul audit uchun yuborilgan fayl ${LEAD_FILE_RETENTION_DAYS} kundan keyin oʻchiriladi, `
+    + 'soʻrovingiz boʻyicha — darhol.',
+  appDeletion:
+    'Ilovaga yuklagan katalogingizni istalgan payt oʻzingiz oʻchirasiz — '
+    + 'topilmalari va qarorlar yozuvlari bilan birga.',
   purpose: 'Fayl faqat shu audit uchun ishlatiladi.',
 } as const;
 

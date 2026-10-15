@@ -4,7 +4,7 @@ import { DATA_FLOW } from './data';
 /* Five questions an accountant asks before sending a file. Each answer is
    limited to what the code does today:
    - portal: we read the official export (scripts/fetch-catalog.ts);
-   - data: DATA_FLOW, checked against the pipeline (see data.ts);
+   - data: DATA_FLOW, checked against the pipeline and retention (see data.ts);
    - timing: the lead form's own promise, "bir ish kuni ichida";
    - Russian: header hints in both scripts (src/app/actions/catalog.ts), the
      classifier loaded in three languages (nameUz / nameRu / nameUzCyrl) and
@@ -26,7 +26,8 @@ const FAQ = [
     q: 'Maʼlumotlarim qayerga ketadi?',
     a: (
       <>
-        {DATA_FLOW.stored} {DATA_FLOW.external} {DATA_FLOW.deletion} Batafsil —{' '}
+        {DATA_FLOW.stored} {DATA_FLOW.external} {DATA_FLOW.deletion}{' '}
+        {DATA_FLOW.appDeletion} Batafsil —{' '}
         <Link href="/maxfiylik" className="underline">
           maxfiylik siyosatida
         </Link>
@@ -59,7 +60,7 @@ const FAQ = [
       <>
         Yoʻq. Bitta tovar uchun yagona toʻgʻri MXIKni belgilaydigan hujjat yoʻq. Tizim
         kodni taklif qiladi, ishonch darajasi va tasniflagichdagi oʻrnini koʻrsatadi.
-        Qarorni siz qabul qilasiz, va u jurnalga yoziladi.
+        Qarorni siz qabul qilasiz, va u qarorlar tarixiga yoziladi.
       </>
     ),
   },

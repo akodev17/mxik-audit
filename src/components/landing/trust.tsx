@@ -29,9 +29,9 @@ export function Trust() {
             <h3 className="text-[19px]">Har bir qaror qayd etiladi</h3>
             <p className="mt-2 text-sm text-ink-soft">
               Har bir tasdiq va rad etish kim tomonidan va qachon qilingani bilan
-              yoziladi. Jurnalga faqat qoʻshiladi, undan oʻchirilmaydi. Bu ichki
-              hujjat: kodlar koʻrib chiqilib qoʻyilganini koʻrsatadi. Uni yuridik
-              kafolat sifatida taqdim etmaymiz.
+              yoziladi va «Qarorlar tarixi»da koʻrinadi. Yozuvlar tahrirlanmaydi:
+              bekor qilish ham yangi yozuv boʻlib qoʻshiladi. Bu ichki hujjat — kodlar
+              koʻrib chiqilib qoʻyilganini koʻrsatadi, yuridik kafolat emas.
             </p>
           </div>
           <div>
@@ -40,7 +40,7 @@ export function Trust() {
               {DATA_FLOW.stored} {DATA_FLOW.external}
             </p>
             <p className="mt-2 text-sm text-ink-soft">
-              {DATA_FLOW.optOut} {DATA_FLOW.deletion}
+              {DATA_FLOW.optOut} {DATA_FLOW.deletion} {DATA_FLOW.appDeletion}
             </p>
           </div>
         </div>

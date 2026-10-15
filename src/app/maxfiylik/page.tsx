@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { LEAD_FILE_RETENTION_DAYS } from '@/components/landing/config';
 import { LegalPage, Todo } from '@/components/landing/legal-page';
 
 /* Every factual sentence below was checked against code on 15.10.2026:
@@ -12,7 +13,11 @@ import { LegalPage, Todo } from '@/components/landing/legal-page';
    - external AI, only when a key is configured: the reranker (renderRow in
      src/core/match/rerank-prompt.ts, uncertain rows only, off when
      MXIK_LLM_ENABLED=false) and the embedder (src/core/embed/index.ts);
-   - deletion: no mechanism in code yet, so: by hand, on request.
+   - deletion: lead files after LEAD_FILE_RETENTION_DAYS (default 30) by
+     `npm run purge:expired`, at once on request by `npm run lead:delete`
+     (src/lib/retention.ts); catalogues by their owner at /catalogs, with
+     findings, cached AI verdicts and log entries (src/lib/catalogs.ts);
+     demo copies after DEMO_TTL_HOURS (src/lib/demo-config.ts).
    Company details are TODOs. Never fill them with guesses. */
 export const metadata: Metadata = {
   title: 'Maxfiylik siyosati — MXIK Audit',
@@ -43,7 +48,8 @@ export default function PrivacyPage() {
           <li>
             <strong className="font-medium text-ink">Ilovada:</strong> email, parol (faqat
             xeshi saqlanadi, parolning oʻzi emas), yuklangan kataloglar — barcha ustunlari
-            bilan, topilmalar va qarorlar jurnali (kim, qachon, qaysi kod).
+            bilan, topilmalar, qarorlar tarixi (kim, qachon, qaysi kod) va tashqi AI
+            bergan takliflar (qayta soʻramaslik uchun; kaliti — xesh, tovar matni emas).
           </li>
           <li>
             <strong className="font-medium text-ink">IP manzil:</strong> formani suiisteʼmol
@@ -90,10 +96,24 @@ export default function PrivacyPage() {
         <h2>Qayerda va qancha saqlanadi</h2>
         <p className="mt-2">
           Maʼlumotlar bizning serverimizdagi maʼlumotlar bazasida saqlanadi:{' '}
-          <Todo>server joylashuvi va hosting provayderi</Todo>. Saqlash muddati:{' '}
-          <Todo>muddat</Todo>. Hozircha avtomatik oʻchirish yoʻq — soʻrovingiz boʻyicha
-          faylni va unga tegishli maʼlumotlarni qoʻlda oʻchiramiz.
+          <Todo>server joylashuvi va hosting provayderi</Todo>.
         </p>
+        <ul>
+          <li>
+            Bepul audit uchun yuborilgan fayl {LEAD_FILE_RETENTION_DAYS} kundan keyin
+            avtomatik oʻchiriladi; soʻrovingiz boʻyicha — darhol, xohlasangiz aloqa
+            maʼlumotingiz bilan birga.
+          </li>
+          <li>
+            Ilovadagi katalogni «Kataloglar» sahifasida istalgan payt oʻzingiz
+            oʻchirasiz: qatorlari, topilmalari, AI takliflari va tovar nomlari bor
+            tarix yozuvlari birga oʻchadi.
+          </li>
+          <li>Demo nusxasi oʻz muddati tugagach oʻchiriladi.</li>
+          <li>
+            Aloqa maʼlumotlari va hisob: <Todo>saqlash muddati</Todo>.
+          </li>
+        </ul>
       </section>
 
       <section>
