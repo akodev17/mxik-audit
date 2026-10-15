@@ -17,7 +17,7 @@ const DESCRIPTION =
   + 'solishtiriladi, xato kodlar ajratiladi va mos kod taklif qilinadi. Risk auditi bepul.';
 
 export const metadata: Metadata = {
-  ...(SITE_URL ? { metadataBase: SITE_URL, alternates: { canonical: '/' } } : {}),
+  ...(SITE_URL ? { alternates: { canonical: '/' } } : {}),
   title: TITLE,
   description: DESCRIPTION,
   openGraph: {

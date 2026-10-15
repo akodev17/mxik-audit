@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from 'next/font/google';
+import { SITE_URL } from '@/components/landing/config';
 import { t } from '@/lib/i18n';
 import './globals.css';
 
@@ -30,6 +31,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  // Absolute base for every route's Open Graph image (NEXT_PUBLIC_SITE_URL);
+  // without it Telegram shows no link preview in production.
+  ...(SITE_URL ? { metadataBase: SITE_URL } : {}),
   title: `${t.appName} — ${t.tagline}`,
   description: t.tagline,
 };
