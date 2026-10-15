@@ -9,13 +9,14 @@ export const nf = new Intl.NumberFormat('uz-UZ');
    Deliberately NOT on this page: the current 66.7% / 83.3% matching accuracy.
    It is measured over 12 of 30 golden cases with the LLM reranker off and a
    non-semantic embedding stand-in, so it is internal and incomplete. Also not
-   here: the old "99% strict unit binding" figure, which Gate 0 disproved. */
+   here: the old "99% strict unit binding" figure, which Gate 0 disproved, and
+   the size of the test suite — a developer metric, not a reason for an
+   accountant to trust anything. */
 export const CATALOG_CODES = 438_925;      // gate0 §1 — codes in the official export
 export const SUBPOSITIONS = 10_215;        // gate0 §9 — subposition nodes
 export const CANONICAL_UNITS = 168;        // gate0 §4 — parsed canonical unit names
 export const MARKED_CODES = 124_169;       // gate0 §5 — confirmed digitally marked
 export const STRICT_UNIT_PCT = '87,8%';    // gate0 §4 — 385,414 of 438,925
-export const AUTOMATED_TESTS = 198;        // npm test — keep in step with the suite
 export const SNAPSHOT = '20.08.2026';
 
 /* ------------------------------------------------------------- diagram source
@@ -28,7 +29,10 @@ export const SNAPSHOT = '20.08.2026';
 
    That rules out the placeholder codes a concept diagram would normally use
    (12345678901234567): to this audience a made-up MXIK reads as carelessness,
-   and we have real ones to hand. */
+   and we have real ones to hand.
+
+   The totals (rows, risky rows, per-type counts) appear in ONE place only: the
+   sample report section. Figures elsewhere show rows, never the sum. */
 
 const rowOfType = (type: string) =>
   SAMPLE_REPORT.rows.find((r) => r.type === type) ?? SAMPLE_REPORT.rows[0];
@@ -37,43 +41,37 @@ const rowOfType = (type: string) =>
  *  the finding that is impossible to spot by eye, so it carries the walkthrough. */
 export const FOCUS_ROW = rowOfType('MISMATCH');
 
-export const CLEAN_ROWS = SAMPLE_REPORT.totalRows - SAMPLE_REPORT.riskyRows;
+/* ------------------------------------------------------------------ evidence
 
-/* ------------------------------------------------------------------ evidence */
+   What the portal's own search returns, re-run on PORTAL_CHECKED with
+   `npm run check:portal-examples` (output: docs/portal-examples.json). The
+   numbers drift — Coca-Cola 1.5L topped with Paracetamol on 20.08.2026 and
+   with Ketoprofen on 15.10.2026 — so re-run the script before a demo and copy
+   today's figures here with today's date. Three examples, no more.
 
-/* Live queries against the portal's own search on the snapshot date; gate0 §7.
-   These two are the headline pair because they need no explanation: the same
-   product, spelled two ways, answered usefully once and uselessly the other
-   time. The reader recognises both products instantly. */
-export const HEADLINE_EVIDENCE = [
+   The framing is deliberate: the portal is the authoritative source and is
+   fine for looking up one code. It is not built to check a catalogue in bulk,
+   and these show why. We complement it; we do not attack it. */
+export const PORTAL_CHECKED = '15.10.2026';
+
+export const PORTAL_EXAMPLES = [
   {
     query: 'Coca-Cola 1.5L',
-    queryNote: 'doʻkon katalogida yozilganidek',
-    result: 'Paracetamol',
-    resultNote: 'birinchi natija — «Цефекон Д»',
-    contrastQuery: 'Coca Cola',
-    contrastResult: '68 natija, birinchisi toʻgʻri',
-    lesson: 'Nomdagi qadoq oʻlchami qidiruvni butunlay buzadi.',
+    note: 'doʻkon katalogida yozilganidek',
+    result: 'Birinchi natija — dori vositasi (Ketoprofen)',
+    contrast: 'Coca Cola → 57 natija, birinchisi toʻgʻri',
   },
   {
     query: "no'xat",
-    queryNote: 'klaviaturadagi oddiy apostrof',
-    result: 'akril polimer dispersiyasi',
-    resultNote: 'yagona natija, va u notoʻgʻri',
-    contrastQuery: 'noʻxat',
-    contrastResult: '105 natija',
-    lesson: 'Bitta belgi — apostrof — javobni almashtirib yuboradi.',
+    note: 'klaviaturadagi oddiy apostrof bilan',
+    result: '1 natija — akril polimer dispersiyasi',
+    contrast: 'noʻxat → 68 natija',
   },
-] as const;
-
-export const EVIDENCE_ROWS = [
-  { query: 'цемент портланд', note: 'ikkita toʻgʻri ruscha soʻz', result: '0 natija', bad: true },
-  { query: 'tibbiy xizmat', note: 'toʻgʻri oʻzbek lotin yozuvi', result: '0 natija', bad: true },
   {
-    query: 'тиббий хизмат',
-    note: 'xuddi shu soʻrov, kirill yozuvida',
-    result: '297 natija — yuqorisida elektr choynak va tagliklar',
-    bad: true,
+    query: 'цемент портланд',
+    note: 'ikkita toʻgʻri ruscha soʻz',
+    result: '0 natija',
+    contrast: null,
   },
 ] as const;
 
@@ -234,27 +232,6 @@ export const COLUMN_MAP = [
   { from: 'Ед. изм.', to: 'Oʻlchov birligi' },
 ] as const;
 
-export const DELIVERABLES = [
-  {
-    title: 'Risk hisoboti',
-    body: 'Qaysi pozitsiyalar muammoli ekanini va nimasi notoʻgʻri ekanini koʻrasiz.',
-  },
-  {
-    title: 'Tavsiya etilgan MXIK',
-    body: 'Mos kelishi mumkin boʻlgan kod, tasniflagichdagi oʻrni va sababi.',
-  },
-  {
-    title: 'Tekshiruv tarixi',
-    // The log is stored (AuditEvent, append-only) but no screen shows it yet,
-    // so this must not say "koʻrasiz".
-    body: 'Har bir qaror kim tomonidan va qachon qabul qilingani bilan yozib boriladi.',
-  },
-  {
-    title: 'Excel eksport',
-    body: 'Tasdiqlangan oʻzgarishlarni katalogingizga qaytarib olasiz.',
-  },
-] as const;
-
 /* ------------------------------------------------------------------ data flow
 
    One wording, used everywhere the page talks about the customer's file, so
@@ -286,12 +263,6 @@ export const DATA_FLOW = {
   deletion: 'Soʻrovingiz boʻyicha faylni qoʻlda oʻchiramiz.',
   purpose: 'Fayl faqat shu audit uchun ishlatiladi.',
 } as const;
-
-export const PRICING = [
-  { rows: '500 SKU gacha', price: '700 000' },
-  { rows: '2 000 SKU gacha', price: '1 500 000' },
-  { rows: '10 000 SKU gacha', price: '4 000 000' },
-] as const;
 
 export const TYPE_LABEL: Record<string, string> = {
   MISSING: 'Kod yoʻq',

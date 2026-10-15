@@ -1,62 +1,66 @@
-import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
-import { CATALOG_CODES, STRICT_UNIT_PCT, SUBPOSITIONS, nf } from './data';
-import { BeforeAfterFigure, RiskStrip } from './figures';
-import { DataBand, Eyebrow, WRAP } from './primitives';
+import { PORTAL_CHECKED, PORTAL_EXAMPLES } from './data';
+import { BeforeAfterFigure } from './figures';
+import { SectionHead, WRAP } from './primitives';
 
+/* Why the dangerous codes are the ones that look fine, then why the portal —
+   the right tool for one code — is the wrong tool for a whole catalogue. */
 export function Problem() {
   return (
-    <section className="border-t border-rule pt-14 sm:pt-16">
+    <section className="border-t border-rule py-14 sm:py-16">
       <div className={WRAP}>
-        <Eyebrow>Muammo</Eyebrow>
-        <h2 className="mt-3 max-w-[24ch] text-[27px] leading-tight sm:text-[32px]">
-          Muammo minglab oddiy qator ichida yashiringan
-        </h2>
-        <p className="mt-4 max-w-[62ch] text-ink-soft">
-          Rasmiy tasniflagich — bir necha yuz ming pozitsiyadan iborat, toʻrt
-          darajali daraxt. Portal kodlarni bittalab qidiradi. Uch ming pozitsiyali
-          katalogni shu yoʻl bilan tekshirish — haftalar ish, va har bir qator odam
-          eʼtiborining aniqligiga bogʻliq.
-        </p>
-
-        <div className="mt-9">
-          <RiskStrip />
-        </div>
-
-        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-12">
-          <div className="min-w-0 lg:order-2">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-12">
+          <div className="min-w-0">
+            <SectionHead
+              eyebrow="Muammo"
+              title="Eng xavfli kod — normal koʻrinadigani"
+              titleClass="max-w-[22ch]"
+            />
+            <div className="mt-4 max-w-[54ch] space-y-3 text-ink-soft">
+              <p>
+                Boʻsh katak darrov koʻzga tashlanadi. Haqiqiy, lekin boshqa tovarga
+                tegishli kod esa mutlaqo normal koʻrinadi: 17 xona raqam joyida.
+              </p>
+              <p>
+                Buni faqat kodni tasniflagichdagi nomi bilan solishtirib bilish
+                mumkin. Bir necha ming qatorli katalogda buni qoʻlda qilish — haftalar
+                ish.
+              </p>
+            </div>
+          </div>
+          <div className="min-w-0">
             <BeforeAfterFigure />
           </div>
-          <div className="lg:order-1">
-            <h3 className="text-[19px]">Eng xavfli topilma — koʻrinmaydigani</h3>
-            <p className="mt-2.5 max-w-[52ch] text-ink-soft">
-              Boʻsh kod ustun boʻylab darrov koʻzga tashlanadi. Haqiqiy, lekin boshqa
-              tovarga tegishli kod esa tashqaridan mutlaqo normal koʻrinadi: 17 xona
-              raqam oʻz joyida turadi. Buni faqat kodni tasniflagichdagi nomi bilan
-              solishtirib aniqlash mumkin.
-            </p>
-            <p className="mt-3 max-w-[52ch] text-ink-soft">
-              Namuna auditda ana shunday qatorlar eng katta guruhni tashkil qildi:{' '}
-              <span className="tnum">{SAMPLE_REPORT.byType.MISMATCH}</span> ta.
-            </p>
-          </div>
         </div>
-      </div>
 
-      <div className="mt-14">
-        <DataBand
-          items={[
-            { value: nf.format(CATALOG_CODES), label: 'Tasniflagichdagi kod soni' },
-            {
-              value: nf.format(SUBPOSITIONS),
-              label: 'Subpozitsiya — kod tanlanadigan daraja',
-            },
-            {
-              value: STRICT_UNIT_PCT,
-              label: 'Kodlarda oʻlchov birligi qatʼiy biriktirilgan',
-              note: 'Yaʼni birlik mos kelmasa, buni tekshirib aniqlash mumkin',
-            },
-          ]}
-        />
+        <div className="mt-14 border-t border-rule pt-10">
+          <h3 className="max-w-[40ch] text-[21px] leading-snug">
+            Portal kodni bittalab qidirish uchun. Katalogni ommaviy tekshirish uchun emas.
+          </h3>
+          <p className="mt-3 max-w-[62ch] text-sm text-ink-soft">
+            Rasmiy tasniflagich — yagona manba, biz ham undan foydalanamiz. Lekin
+            uning qidiruvi soʻrov qanday yozilganiga juda sezgir. Portal qidiruvi
+            natijalari, {PORTAL_CHECKED} holatiga:
+          </p>
+
+          <dl className="mt-6 grid grid-cols-1 gap-px border border-rule bg-rule md:grid-cols-3">
+            {PORTAL_EXAMPLES.map((e) => (
+              <div key={e.query} className="bg-paper p-5">
+                <dt>
+                  <span className="break-words code text-[15px] font-medium">{e.query}</span>
+                  <span className="mt-1 block text-xs text-ink-faint">{e.note}</span>
+                </dt>
+                <dd className="mt-4">
+                  <span className="block text-[15px] text-risk">{e.result}</span>
+                  {e.contrast ? (
+                    <span className="mt-2 block text-xs text-ink-soft">
+                      Taqqoslang: <span className="code">{e.contrast}</span>
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
     </section>
   );

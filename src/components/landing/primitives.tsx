@@ -1,20 +1,69 @@
+import { DEMO_URL } from './config';
+
 export const WRAP = 'mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-10';
 
-/** One primary action on the page, in three places: hero, after the report, and
- *  the form itself. Anything else on the page is a quiet link. */
-export function Cta({ className = '' }: { className?: string }) {
+const BUTTON = {
+  primary: 'bg-ink text-paper hover:bg-black border border-ink',
+  secondary: 'border border-ink bg-paper text-ink hover:bg-paper-tint',
+} as const;
+
+export function ButtonLink({
+  href,
+  children,
+  variant = 'primary',
+  className = '',
+}: {
+  href: string;
+  children: React.ReactNode;
+  variant?: keyof typeof BUTTON;
+  className?: string;
+}) {
   return (
     <a
-      href="#audit"
+      href={href}
       className={
-        'inline-flex items-center justify-center gap-2 bg-ink px-6 py-3.5 '
-        + 'font-medium text-paper transition-colors hover:bg-black '
-        + `focus-visible:outline-offset-4 ${className}`
+        'inline-flex min-h-12 items-center justify-center gap-2 px-6 py-3 '
+        + `font-medium transition-colors focus-visible:outline-offset-4 ${BUTTON[variant]} ${className}`
       }
     >
-      <span className="whitespace-nowrap">Katalogni bepul tekshirtirish</span>
+      <span className="whitespace-nowrap">{children}</span>
       <span aria-hidden="true">→</span>
     </a>
+  );
+}
+
+/**
+ * The page's two actions. The demo is primary because this audience trusts
+ * what it sees working — but no public demo exists in the app yet, so until
+ * NEXT_PUBLIC_DEMO_URL is set the free audit becomes the primary action and
+ * the second slot shows `fallback` (by default: a link to the sample report).
+ */
+export function CtaPair({
+  className = '',
+  fallback = <ButtonLink href="#hisobot" variant="secondary">Namuna hisobotni koʻrish</ButtonLink>,
+}: {
+  className?: string;
+  fallback?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={
+        'flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 '
+        + className
+      }
+    >
+      {DEMO_URL ? (
+        <>
+          <ButtonLink href={DEMO_URL}>Demoni sinab koʻrish</ButtonLink>
+          <ButtonLink href="#audit" variant="secondary">Katalogni bepul tekshirtirish</ButtonLink>
+        </>
+      ) : (
+        <>
+          <ButtonLink href="#audit">Katalogni bepul tekshirtirish</ButtonLink>
+          {fallback}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -22,47 +71,24 @@ export function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="eyebrow">{children}</p>;
 }
 
-/**
- * Full-bleed rule-to-rule band. Big measured numbers should feel like a total
- * line ruled off in a report, not like a KPI card, so: hairlines, tabular
- * figures, no rounded corners, no shadow, no icon.
- */
-export function DataBand({
-  items,
-  tone = 'neutral',
+/** Eyebrow + heading + optional lead paragraph: every section opens this way. */
+export function SectionHead({
+  eyebrow,
+  title,
+  lead,
+  titleClass = 'max-w-[28ch]',
 }: {
-  items: readonly { value: string; label: string; note?: string }[];
-  tone?: 'neutral' | 'risk';
+  eyebrow: string;
+  title: React.ReactNode;
+  lead?: React.ReactNode;
+  titleClass?: string;
 }) {
   return (
-    <div className={`border-y border-rule ${tone === 'risk' ? 'bg-risk-tint' : 'bg-paper-tint'}`}>
-      <dl
-        className={
-          `${WRAP} grid grid-cols-1 divide-y divide-rule sm:grid-cols-3 `
-          + 'sm:divide-x sm:divide-y-0'
-        }
-      >
-        {items.map((item) => (
-          <div key={item.label} className="py-7 sm:px-7 sm:py-8 sm:first:pl-0 sm:last:pr-0">
-            <dt className="sr-only">{item.label}</dt>
-            <dd>
-              <span
-                className={
-                  'block font-serif text-[34px] leading-none tnum sm:text-[40px] '
-                  + (tone === 'risk' ? 'text-risk' : '')
-                }
-              >
-                {item.value}
-              </span>
-              <span className="mt-2.5 block max-w-[26ch] text-sm text-ink-soft">{item.label}</span>
-              {item.note ? (
-                <span className="mt-1 block max-w-[30ch] text-xs text-ink-faint">{item.note}</span>
-              ) : null}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+    <>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2 className={`mt-3 text-[27px] leading-tight sm:text-[32px] ${titleClass}`}>{title}</h2>
+      {lead ? <p className="mt-4 max-w-[62ch] text-ink-soft">{lead}</p> : null}
+    </>
   );
 }
 
@@ -78,7 +104,7 @@ export function FigureHead({ label, meta }: { label: string; meta?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-rule px-4 py-2.5">
       <span className="eyebrow">{label}</span>
-      {meta ? <span className="text-[11px] text-ink-faint tnum">{meta}</span> : null}
+      {meta ? <span className="text-xs text-ink-faint tnum">{meta}</span> : null}
     </div>
   );
 }
@@ -100,7 +126,7 @@ export function Mark({ risk }: { risk: boolean }) {
 
 export function FlowArrow({ label }: { label?: string }) {
   return (
-    <div className="flex items-center gap-3 py-3.5" aria-hidden="true">
+    <div className="flex items-center gap-3 py-3" aria-hidden="true">
       <span className="text-ink-faint">↓</span>
       {label ? <span className="eyebrow">{label}</span> : null}
       <span className="h-px flex-1 bg-rule" />

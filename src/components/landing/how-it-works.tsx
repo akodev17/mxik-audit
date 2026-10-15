@@ -1,5 +1,6 @@
+import { SNAPSHOT, CATALOG_CODES, STRICT_UNIT_PCT, SUBPOSITIONS, nf } from './data';
 import { ChecksFigure, DecisionFigure, MappingFigure } from './figures';
-import { Eyebrow, WRAP } from './primitives';
+import { SectionHead, WRAP } from './primitives';
 
 const STEPS = [
   {
@@ -22,18 +23,17 @@ const STEPS = [
     n: '03',
     title: 'Qaror qiling',
     body:
-      'Tavsiya etilgan kodni tasdiqlaysiz yoki rad etasiz. Natijani Excel '
-      + 'sifatida olasiz, qarorlar tarixi saqlanadi.',
+      'Taklif etilgan kodni tasdiqlaysiz yoki rad etasiz. Natijani Excel '
+      + 'sifatida olasiz, har bir qaror qayd etiladi.',
     figure: <DecisionFigure />,
   },
 ];
 
-export function Steps() {
+export function HowItWorks() {
   return (
     <section className="border-t border-rule py-14 sm:py-16">
       <div className={WRAP}>
-        <Eyebrow>Qanday ishlaydi</Eyebrow>
-        <h2 className="mt-3 text-[27px] leading-tight sm:text-[32px]">Uch qadam</h2>
+        <SectionHead eyebrow="Qanday ishlaydi" title="Uch qadam" />
 
         <ol className="mt-10 grid grid-cols-1 list-none gap-10 p-0 lg:grid-cols-3 lg:gap-8">
           {STEPS.map((step) => (
@@ -51,6 +51,15 @@ export function Steps() {
             </li>
           ))}
         </ol>
+
+        {/* Classifier facts as one compact line, not a stats band: they explain
+            what the audit compares against, they are not the pitch. */}
+        <p className="mt-10 border-t border-rule pt-4 text-[13px] text-ink-soft">
+          Tasniflagich: <span className="tnum">{nf.format(CATALOG_CODES)}</span> kod ·{' '}
+          <span className="tnum">{nf.format(SUBPOSITIONS)}</span> subpozitsiya · kodlarning{' '}
+          <span className="tnum">{STRICT_UNIT_PCT}</span>ida oʻlchov birligi qatʼiy
+          biriktirilgan · <span className="mono">tasnif.soliq.uz</span> eksporti, {SNAPSHOT}
+        </p>
       </div>
     </section>
   );
