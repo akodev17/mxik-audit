@@ -224,12 +224,11 @@ docs/                 Gate 0 findings, scoring rationale, eval history, session 
 
 ## Known limitations
 
-- **MISMATCH raises many false alarms without the reranker.** On the demo
-  catalogue, `npm run demo:quality` measures 33% precision for MISMATCH (19
-  right, 39 correctly coded rows flagged): a short shop name scores low
-  against its own generic base code on retrieval alone. MISSING and NOT_FOUND
-  are 100%. Not changed pending an evidence-backed decision; see
-  `docs/SESSION_STATE.md`.
+- **MISMATCH still raises false alarms without the reranker.** On the demo
+  catalogue `npm run demo:quality` measures 58% precision for MISMATCH (19
+  right, 14 correctly coded rows flagged; 33% before the same-position rule of
+  2026-10-15). MISSING and NOT_FOUND are 100%. The rule no longer flags a
+  wrong code inside the code's own 8-digit position; see `docs/scoring.md`.
 - **The "real" eval cases are hand-written**, not taken from a customer file;
   none has been run through the tool yet.
 - **The review screen is built for desktop.** It works at phone width, but the

@@ -147,13 +147,25 @@ fire on our own inability to parse.
   hits, since nothing else can reach it without a reranker).
 
 The checks that consume these numbers are scored separately by
-`npm run demo:quality` against the labelled demo catalogue. Today MISMATCH
-("code valid but scores < 0.6 against the name") has 33% precision without a
-reranker: short shop names score low against their own generic base code. The
-threshold is unchanged pending evidence; a candidate fix (do not flag when the
-row's code and the suggestion share the 8-digit position) removed 25 of 39
-false alarms and no true positives on that fixture, but the fixture's planted
-errors are all cross-group, so that result is biased in the fix's favour.
+`npm run demo:quality` against the labelled demo catalogue.
+
+MISMATCH ("code valid but scores < 0.6 against the name") had 33% precision
+without a reranker: short shop names score low against their own generic base
+code. Since 2026-10-15 (approved by the product owner) it also requires the
+best suggestion to lie in a **different 8-digit position** than the row's code.
+The 0.6 threshold is unchanged. Measured on the demo catalogue's 159 labelled
+rows, without a reranker:
+
+| | before | after |
+|---|---|---|
+| MISMATCH precision | 33% (19/58) | 58% (19/33) |
+| MISMATCH recall | 100% | 100% |
+| clean rows flagged | 45% | 16% |
+
+Caveat: the fixture's planted wrong codes all come from another group, so it
+cannot show what the rule now misses — a wrong code inside the same position
+(for example another brand's identifying code under the same base code) is no
+longer flagged. Re-measure on a real catalogue.
 
 ## Known weaknesses
 
