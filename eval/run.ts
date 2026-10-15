@@ -2,7 +2,7 @@
 // (derived from classifier names), runs the full pipeline plus one ablation per
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
-// Run: npm run eval [-- --label "after key" --no-ablate]
+// Run: npm run eval [-- --label "after key" --no-ablate --fulltext-common-docs N]
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -48,10 +48,12 @@ const pool = new Pool({ connectionString: DATABASE_URL, max: 8 });
 const configured = embeddingProviderFromEnv();
 const readiness = await checkVectorReadiness(pool, configured);
 const embedder = readiness.embedder;
+const commonDocs = argValue('--fulltext-common-docs');
 const baseStore = new PostgresCandidateStore(pool, {
   // The placeholder embedder's sparse vectors defeat HNSW; see store.ts.
   exactVectorScan: !embedder.semantic,
   vectorEnabled: readiness.usable,
+  ...(commonDocs === undefined ? {} : { fullTextCommonDocs: Number(commonDocs) }),
 });
 const store = new MemoStore(baseStore);
 

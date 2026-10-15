@@ -92,19 +92,51 @@ export type StoreOptions = {
    * were produced by a different model than the one embedding queries.
    */
   vectorEnabled?: boolean;
+  /**
+   * Full-text terms found in more live classifier rows than this still count in
+   * the ranking but no longer select candidates: "uchun" alone matches 117k rows,
+   * and ranking all of them cost ~0.4s per query. 0 = every term selects.
+   */
+  fullTextCommonDocs?: number;
 };
+
+/** See StoreOptions.fullTextCommonDocs; chosen by eval (docs/eval-results.json). */
+export const DEFAULT_FULLTEXT_COMMON_DOCS = 10_000;
+/** Floor for the cached term counts; any useful cutoff sits above it. */
+const TERM_STATS_FLOOR = 1000;
+/** Per pool: how many live rows contain each frequent full-text term. */
+const termStats = new WeakMap<Pool, Promise<Map<string, number>>>();
+
+function loadTermStats(pool: Pool): Promise<Map<string, number>> {
+  const cached = termStats.get(pool);
+  if (cached) return cached;
+  // ~5s once per process; a failure is not cached, and filters on every term meanwhile.
+  const loading = pool.query<{ word: string; ndoc: number }>(
+    `SELECT word, ndoc FROM ts_stat('SELECT "searchVector" FROM mxik_code WHERE "retiredAt" IS NULL')
+     WHERE ndoc > $1`,
+    [TERM_STATS_FLOOR],
+  ).then((res) => new Map(res.rows.map((r) => [r.word, Number(r.ndoc)])))
+    .catch(() => {
+      termStats.delete(pool);
+      return new Map<string, number>();
+    });
+  termStats.set(pool, loading);
+  return loading;
+}
 
 export class PostgresCandidateStore implements CandidateStore {
   private readonly embeddingColumn: 'embeddingUz' | 'embeddingRu';
   private readonly exactVectorScan: boolean;
   private readonly efSearch: number;
   private readonly vectorEnabled: boolean;
+  private readonly fullTextCommonDocs: number;
 
   constructor(private readonly pool: Pool, options: StoreOptions = {}) {
     this.embeddingColumn = options.embeddingColumn ?? 'embeddingUz';
     this.exactVectorScan = options.exactVectorScan ?? false;
     this.efSearch = options.efSearch ?? 100;
     this.vectorEnabled = options.vectorEnabled ?? true;
+    this.fullTextCommonDocs = options.fullTextCommonDocs ?? DEFAULT_FULLTEXT_COMMON_DOCS;
   }
 
   async byBarcode(barcode: string): Promise<MxikCandidate[]> {
@@ -152,15 +184,16 @@ export class PostgresCandidateStore implements CandidateStore {
     const terms = query.split(/\s+/).filter(Boolean);
     if (terms.length === 0) return [];
     // OR the terms so a partial cover still retrieves; ranking sorts it out.
-    const tsquery = terms.map((t) => t.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean).join(' | ');
-    if (!tsquery) return [];
+    const words = terms.map((t) => t.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean);
+    if (words.length === 0) return [];
+    const selecting = await this.selectingTerms(words);
     const res = await this.read(() => this.pool.query<Row & { score: number }>(
       `SELECT ${SELECT_FIELDS}, ts_rank_cd("searchVector", q) AS score
-       FROM mxik_code, to_tsquery('simple', $1) AS q
-       WHERE "searchVector" @@ q AND "retiredAt" IS NULL
+       FROM mxik_code, to_tsquery('simple', $1) AS q, to_tsquery('simple', $3) AS f
+       WHERE "searchVector" @@ f AND "retiredAt" IS NULL
        ORDER BY score DESC, "isBase" DESC, code
        LIMIT $2`,
-      [tsquery, limit],
+      [words.join(' | '), limit, selecting.join(' | ')],
     ));
     return res.rows.map((r) => ({ candidate: toCandidate(r), score: Number(r.score) }));
   }
@@ -203,6 +236,14 @@ export class PostgresCandidateStore implements CandidateStore {
         client.release(failure);
       }
     });
+  }
+
+  /** The query's terms rare enough to select candidates; all of them when none are. */
+  private async selectingTerms(words: readonly string[]): Promise<readonly string[]> {
+    if (this.fullTextCommonDocs <= 0) return words;
+    const stats = await loadTermStats(this.pool);
+    const rare = words.filter((w) => (stats.get(w.toLowerCase()) ?? 0) <= this.fullTextCommonDocs);
+    return rare.length > 0 ? rare : words;
   }
 
   /**
