@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { TELEGRAM_URL } from './config';
-import { CANONICAL_UNITS, CATALOG_CODES, MARKED_CODES, SNAPSHOT, nf } from './data';
+import { CANONICAL_UNITS, CATALOG_CODES, MARKED_CODES, SNAPSHOT, SUBPOSITIONS, nf } from './data';
 import { CONTAINER } from './container';
 
 const LINK = 'rounded-lp text-lp-ink underline decoration-lp-line-strong underline-offset-4 hover:decoration-lp-ink';
@@ -15,8 +15,9 @@ export function SiteFooter() {
           <p>
             Tasniflagich maʼlumotlari <span className="text-lp-ink">tasnif.soliq.uz</span> rasmiy
             eksportidan olingan, holati {SNAPSHOT}: <span className="num">{nf.format(CATALOG_CODES)}</span> ta
-            kod, shundan <span className="num">{nf.format(MARKED_CODES)}</span> tasi markirovka
-            qilinadigan, <span className="num">{CANONICAL_UNITS}</span> ta oʻlchov birligi.
+            kod, <span className="num">{nf.format(SUBPOSITIONS)}</span> ta subpozitsiya, shundan{' '}
+            <span className="num">{nf.format(MARKED_CODES)}</span> ta kod markirovka qilinadigan,{' '}
+            <span className="num">{CANONICAL_UNITS}</span> ta oʻlchov birligi.
           </p>
           <p>
             Yuridik havolalar lex.uz va Soliq qoʻmitasining rasmiy kanaliga olib boradi. Soliq

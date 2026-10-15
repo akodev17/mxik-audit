@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SampleCatalogRow, SampleCode } from '@/lib/sample-report.generated';
 import { ScanPanel } from './scan-panel';
-import { TYPE_META, primaryFinding } from './workspace-model';
+import { FILTERS, TYPE_META, countsFor, primaryFinding } from './workspace-model';
 
 const DURATION = 2000;
 // Rows visible without scrolling get most of the scan time, so the sweep is seen.
@@ -133,6 +133,8 @@ export function LiveScan({
   }, [open]);
 
   const mobileRows = expanded ? catalog : catalog.slice(0, MOBILE_ROWS);
+  const counts = useMemo(() => countsFor(catalog), [catalog]);
+  const LEGEND = (['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'] as const).map((t) => ({ key: t, label: TYPE_META[t].label, tone: TYPE_META[t].tone }));
 
   return (
     <div ref={frame} className="relative overflow-hidden rounded-lp border border-lp-line-strong bg-lp-base">
@@ -151,6 +153,20 @@ export function LiveScan({
           <span className="block text-[15px] text-lp-muted">qator riskli</span>
         </p>
       </div>
+
+      {/* Legend with the per-type breakdown: rows can carry more than one finding. */}
+      <ul className="flex flex-wrap gap-x-5 gap-y-1.5 border-b border-lp-line px-4 py-3 text-[15px] sm:px-5">
+        {LEGEND.map((l) => (
+          <li key={l.key} className="flex items-center gap-2">
+            <span aria-hidden="true" className={`h-2.5 w-2.5 ${MARK[l.tone]}`} />
+            {l.label} <span className="num font-bold">{counts[l.key]}</span>
+          </li>
+        ))}
+        <li className="flex items-center gap-2">
+          <span aria-hidden="true" className="h-2.5 w-2.5 bg-lp-ok" />
+          {FILTERS.find((f) => f.key === 'clean')?.label} <span className="num font-bold">{counts.clean}</span>
+        </li>
+      </ul>
 
       {/* Desktop: the spreadsheet. */}
       <div className="hidden max-h-[520px] overflow-auto lg:block">
