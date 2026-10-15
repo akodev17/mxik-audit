@@ -2,6 +2,7 @@
 // then persists findings. Server-only.
 import { Pool } from 'pg';
 import { db } from './db.js';
+import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
 import { matchProduct, timed, type StageTimer } from '../core/match/pipeline.js';
 import { rerankFromEnv } from '../core/match/rerank.js';
@@ -88,87 +89,81 @@ export async function auditCatalog(catalogId: string, options: AuditOptions = {}
   const SELF_MATCH_DEPTH = 20;
   let done = 0;
   let findingsCreated = 0;
-  let next = 0;
   // Rows finish out of order; the watermark only advances over a contiguous run.
   const finished = new Array<boolean>(items.length).fill(false);
   let contiguous = 0;
   const watermark = (): number => items[contiguous]?.rowIndex ?? total;
 
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
-    for (;;) {
-      const index = next++;
-      const item = items[index];
-      if (!item) return;
+  // A failed row stops the run cleanly, so a resume never races leftover workers.
+  await runPool(items, CONCURRENCY, async (item, index) => {
+    // Ranked deeper than the suggestions so the row's own code is usually
+    // scorable from this one retrieval, without a second pass.
+    const match = await matchProduct({
+      rawName: item.rawName,
+      barcode: item.barcode,
+      unit: item.unit,
+      existingMxik: item.existingMxik,
+    }, { store, embedder, reranker, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
 
-      // Ranked deeper than the suggestions so the row's own code is usually
-      // scorable from this one retrieval, without a second pass.
-      const match = await matchProduct({
-        rawName: item.rawName,
-        barcode: item.barcode,
-        unit: item.unit,
-        existingMxik: item.existingMxik,
-      }, { store, embedder, reranker, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
-
-      // Resolve the row's own code so NOT_FOUND and retirement can be judged.
-      const code = readCode(item.existingMxik);
-      let existing: ResolvedRow['existing'] = { found: false, retired: false, candidate: null };
-      if (code) {
-        existing = await timed(timer, 'existing-code', async () => {
-          const state = await store.exists(code);
-          return {
-            found: state.found,
-            retired: state.retired,
-            candidate: state.found ? await store.byCode(code) : null,
-          };
-        });
-      }
-
-      // The row's own code must be scorable even when retrieval never surfaced
-      // it, otherwise a correct code that happens to rank poorly looks missing.
-      let suggestions: ScoredCandidate[] = match.candidates.slice(0, SUGGESTIONS);
-      if (code && existing.found && existing.candidate && !suggestions.some((s) => s.candidate.code === code)) {
-        let found = match.candidates.find((s) => s.candidate.code === code);
-        // A barcode hit skips name retrieval, so only then is a second pass needed.
-        if (!found && match.decidedBy === 'barcode') {
-          const selfMatch = await timed(timer, 'self-match', () => matchProduct(
-            { rawName: item.rawName, unit: item.unit },
-            // Same name + unit, so a reranked row is a cache hit here, not a second call.
-            { store, embedder, reranker, rerankGate: gate, topK: SELF_MATCH_DEPTH },
-          ));
-          found = selfMatch.candidates.find((s) => s.candidate.code === code);
-        }
-        if (found) suggestions = [...suggestions, found];
-      }
-
-      const findings = runChecks({
-        existingMxik: item.existingMxik,
-        unit: item.unit,
-        existing,
-        suggestions,
+    // Resolve the row's own code so NOT_FOUND and retirement can be judged.
+    const code = readCode(item.existingMxik);
+    let existing: ResolvedRow['existing'] = { found: false, retired: false, candidate: null };
+    if (code) {
+      existing = await timed(timer, 'existing-code', async () => {
+        const state = await store.exists(code);
+        return {
+          found: state.found,
+          retired: state.retired,
+          candidate: state.found ? await store.byCode(code) : null,
+        };
       });
-
-      if (findings.length > 0) {
-        await timed(timer, 'persist', () => db.finding.createMany({
-          data: findings.map((f) => ({
-            itemId: item.id,
-            type: f.type,
-            severity: f.severity,
-            suggestedMxik: f.suggestedMxik,
-            confidence: f.confidence,
-            alternatives: f.alternatives,
-            reason: f.reason,
-            wasRetired: f.wasRetired,
-          })),
-        }));
-        findingsCreated += findings.length;
-      }
-
-      done++;
-      finished[index] = true;
-      while (finished[contiguous]) contiguous++;
-      onProgress?.({ done, total, watermark: watermark() });
     }
-  }));
+
+    // The row's own code must be scorable even when retrieval never surfaced
+    // it, otherwise a correct code that happens to rank poorly looks missing.
+    let suggestions: ScoredCandidate[] = match.candidates.slice(0, SUGGESTIONS);
+    if (code && existing.found && existing.candidate && !suggestions.some((s) => s.candidate.code === code)) {
+      let found = match.candidates.find((s) => s.candidate.code === code);
+      // A barcode hit skips name retrieval, so only then is a second pass needed.
+      if (!found && match.decidedBy === 'barcode') {
+        const selfMatch = await timed(timer, 'self-match', () => matchProduct(
+          { rawName: item.rawName, unit: item.unit },
+          // Same name + unit, so a reranked row is a cache hit here, not a second call.
+          { store, embedder, reranker, rerankGate: gate, topK: SELF_MATCH_DEPTH },
+        ));
+        found = selfMatch.candidates.find((s) => s.candidate.code === code);
+      }
+      if (found) suggestions = [...suggestions, found];
+    }
+
+    const findings = runChecks({
+      existingMxik: item.existingMxik,
+      unit: item.unit,
+      existing,
+      suggestions,
+    });
+
+    if (findings.length > 0) {
+      await timed(timer, 'persist', () => db.finding.createMany({
+        data: findings.map((f) => ({
+          itemId: item.id,
+          type: f.type,
+          severity: f.severity,
+          suggestedMxik: f.suggestedMxik,
+          confidence: f.confidence,
+          alternatives: f.alternatives,
+          reason: f.reason,
+          wasRetired: f.wasRetired,
+        })),
+      }));
+      findingsCreated += findings.length;
+    }
+
+    done++;
+    finished[index] = true;
+    while (finished[contiguous]) contiguous++;
+    onProgress?.({ done, total, watermark: watermark() });
+  });
 
   return {
     itemsAudited: items.length,
