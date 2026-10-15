@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { TELEGRAM_URL } from './config';
 import { CANONICAL_UNITS, CATALOG_CODES, MARKED_CODES, SNAPSHOT, nf } from './data';
-import { WRAP } from './primitives';
+import { WIDE } from './primitives';
 
 export function SiteFooter() {
   return (
     <footer className="border-t border-rule py-9">
-      <div className={`${WRAP} space-y-5 text-[13px] text-ink-soft`}>
+      <div className={`${WIDE} space-y-5 text-[13px] text-ink-soft`}>
         <nav aria-label="Huquqiy" className="flex flex-wrap gap-x-6 gap-y-2">
           <Link href="/maxfiylik" className="underline hover:text-ink">
             Maxfiylik siyosati

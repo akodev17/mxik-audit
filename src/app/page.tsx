@@ -1,15 +1,15 @@
 import type { Metadata } from 'next';
 import { Accountants } from '@/components/landing/accountants';
+import { Anatomy } from '@/components/landing/anatomy';
 import { SITE_URL } from '@/components/landing/config';
 import { Consequences } from '@/components/landing/consequences';
 import { GetStarted } from '@/components/landing/get-started';
-import { Hero } from '@/components/landing/hero';
-import { HowItWorks } from '@/components/landing/how-it-works';
-import { Problem } from '@/components/landing/problem';
-import { SampleReport } from '@/components/landing/sample-report';
+import { Opening } from '@/components/landing/opening';
+import { Pricing } from '@/components/landing/pricing';
 import { SiteFooter } from '@/components/landing/site-footer';
 import { SiteHeader } from '@/components/landing/site-header';
 import { Trust } from '@/components/landing/trust';
+import { Workflow } from '@/components/landing/workflow';
 
 const TITLE = 'MXIK Audit — katalogingizdagi xavfli MXIK kodlarini toping';
 const DESCRIPTION =
@@ -30,21 +30,24 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 };
 
-/* Each section lives in src/components/landing/, one file per section. Shared
-   figures, constants and their sources are in data.ts and figures.tsx there;
-   flags and prices in config.ts. */
+/* One audit, told in order: the result itself (01, explorable), one risky row
+   opened level by level (02), why it matters (03), how a finding becomes a
+   corrected file (04), who it is for (05), what it does not promise and where
+   the data goes (06), price (07), and the two real ways to start (08). Each
+   chapter lives in src/components/landing/; facts and their sources in
+   data.ts, flags and prices in config.ts. */
 export default function LandingPage() {
   return (
     <>
       <SiteHeader />
       <main>
-        <Hero />
-        <Problem />
+        <Opening />
+        <Anatomy />
         <Consequences />
-        <HowItWorks />
-        <SampleReport />
+        <Workflow />
         <Accountants />
         <Trust />
+        <Pricing />
         <GetStarted />
       </main>
       <SiteFooter />

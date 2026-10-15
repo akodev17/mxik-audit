@@ -44,8 +44,13 @@
   --color-paper-tint: #f2f3f6;
   --color-paper-raised: #ffffff;
 
+  /* Two-step risk scale, matching the app's severities: high (no code, code
+     not in the classifier) is risk; medium (code for another product, unit
+     the code is not bound to) is caution. Both clear 6:1 on paper. */
   --color-risk: #a32b22;
   --color-risk-tint: #fbf1f0;
+  --color-caution: #8a5300;
+  --color-caution-tint: #faf3e3;
   --color-ok: #1b6b52;
   --color-ok-tint: #eff6f2;
 }

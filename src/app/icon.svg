@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A code read in segments; the last one flagged. Same ink and risk as the page. -->
+  <rect width="32" height="32" fill="#14161c"/>
+  <rect x="5" y="13" width="6" height="6" fill="#fbfbfc"/>
+  <rect x="13" y="13" width="4" height="6" fill="#fbfbfc"/>
+  <rect x="19" y="13" width="8" height="6" fill="#e0574b"/>
+</svg>

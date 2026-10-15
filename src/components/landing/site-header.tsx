@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { DEMO_URL, TELEGRAM_URL } from './config';
-import { WRAP } from './primitives';
+import { WIDE } from './primitives';
 
 const LINK = '-my-2 inline-block py-2 text-sm text-ink-soft underline-offset-4 hover:text-ink hover:underline';
 
@@ -9,7 +9,7 @@ const LINK = '-my-2 inline-block py-2 text-sm text-ink-soft underline-offset-4 h
 export function SiteHeader() {
   return (
     <header className="border-b border-rule">
-      <div className={`${WRAP} flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-4`}>
+      <div className={`${WIDE} flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-4`}>
         <Link href="/" className="font-serif text-lg font-semibold">
           MXIK Audit
         </Link>

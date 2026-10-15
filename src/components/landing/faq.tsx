@@ -66,23 +66,23 @@ const FAQ = [
   },
 ] as const;
 
+/* Open, not folded: five short answers are faster to scan than to click, and
+   an accountant deciding whether to send a file wants to see all of them. */
 export function Faq() {
   return (
     <div id="savollar" className="scroll-mt-4">
-      <h2 className="text-[27px] leading-tight sm:text-[32px]">Koʻp beriladigan savollar</h2>
-      <div className="mt-7 border-t border-rule">
+      <h3 className="text-[22px]">Koʻp beriladigan savollar</h3>
+      <dl className="mt-5 border-t border-rule">
         {FAQ.map((item) => (
-          <details key={item.q} className="group border-b border-rule">
-            <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 py-4 text-[17px] [&::-webkit-details-marker]:hidden">
-              <span>{item.q}</span>
-              <span aria-hidden="true" className="shrink-0 text-ink-faint transition-transform group-open:rotate-45">
-                +
-              </span>
-            </summary>
-            <p className="max-w-[68ch] pb-5 text-sm text-ink-soft">{item.a}</p>
-          </details>
+          <div
+            key={item.q}
+            className="grid grid-cols-1 gap-x-10 gap-y-1.5 border-b border-rule py-5 md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]"
+          >
+            <dt className="font-medium">{item.q}</dt>
+            <dd className="max-w-[68ch] text-sm text-ink-soft">{item.a}</dd>
+          </div>
         ))}
-      </div>
+      </dl>
     </div>
   );
 }
