@@ -1,5 +1,5 @@
 import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
-import { CHECKS, COLUMN_MAP, FOCUS_ROW, STRICT_UNIT_PCT, TYPE_LABEL } from './data';
+import { CHECKS, COLUMN_MAP, FOCUS_ROW, STRICT_UNIT_PCT, TYPE_LABEL, fixText } from './data';
 import { FigureHead, FlowArrow, Mark } from './primitives';
 
 /**
@@ -46,9 +46,15 @@ export function TransformFigure() {
                 <Mark risk />
                 <span className="text-[13px] text-risk">{TYPE_LABEL[row.type] ?? row.type}</span>
               </span>
-              <span className="code text-xs text-ok">
-                {row.suggestedMxik ? `→ ${row.suggestedMxik}` : '—'}
-              </span>
+              {row.type === 'UNIT_CONFLICT' ? (
+                <span className="text-xs text-ok">
+                  birlik «{row.unit}» → «{row.requiredUnit}»
+                </span>
+              ) : (
+                <span className="code text-xs text-ok">
+                  {row.suggestedMxik ? `→ ${row.suggestedMxik}` : '—'}
+                </span>
+              )}
             </li>
           ))}
         </ul>
@@ -74,6 +80,12 @@ export function BeforeAfterFigure() {
           <div>
             <dt className="eyebrow">Katalogdagi kod</dt>
             <dd className="mt-1.5 code text-[15px] sm:text-[17px]">{FOCUS_ROW.currentMxik}</dd>
+            {/* The whole point: what this valid-looking code actually means. */}
+            {FOCUS_ROW.currentName ? (
+              <dd className="mt-1 text-sm text-ink-soft">
+                Tasniflagichda bu kod: <span className="text-ink">{FOCUS_ROW.currentName}</span>
+              </dd>
+            ) : null}
           </div>
 
           <div className="border-l-2 border-risk pl-4">
@@ -87,9 +99,9 @@ export function BeforeAfterFigure() {
           </div>
 
           <div>
-            <dt className="eyebrow">Tavsiya etilgan kod</dt>
+            <dt className="eyebrow">Taklif etilgan kod</dt>
             <dd className="mt-1.5 code text-[15px] text-ok sm:text-[17px]">
-              {FOCUS_ROW.suggestedMxik}
+              {fixText(FOCUS_ROW)}
             </dd>
             <dd className="mt-1 text-sm text-ink-soft">{FOCUS_ROW.suggestedName}</dd>
           </div>

@@ -1,11 +1,15 @@
-import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
+import { SAMPLE_REPORT, type SampleRow } from '@/lib/sample-report.generated';
 import { LEAD_FILE_RETENTION_DAYS } from './config';
 
 export const nf = new Intl.NumberFormat('uz-UZ');
 
-/* Every figure on this page is measured, not estimated. Sources are in
-   docs/gate0-report.md, which names the npm script that reproduces each one.
-   Nothing here may become a round number because it reads better.
+/* Every figure on this page is measured, not estimated, and nothing here may
+   become a round number because it reads better.
+
+   The classifier facts are counted by scripts/make-sample-report.ts from the
+   same database the sample audit ran against, so the page cannot quote one
+   snapshot while auditing with another. What each one means is documented in
+   docs/gate0-report.md (§1 codes, §4 strict units, §5 marking, §9 subpositions).
 
    Deliberately NOT on this page: the current 66.7% / 83.3% matching accuracy.
    It is measured over 12 of 30 golden cases with the LLM reranker off and a
@@ -13,12 +17,14 @@ export const nf = new Intl.NumberFormat('uz-UZ');
    here: the old "99% strict unit binding" figure, which Gate 0 disproved, and
    the size of the test suite — a developer metric, not a reason for an
    accountant to trust anything. */
-export const CATALOG_CODES = 438_925;      // gate0 §1 — codes in the official export
-export const SUBPOSITIONS = 10_215;        // gate0 §9 — subposition nodes
-export const CANONICAL_UNITS = 168;        // gate0 §4 — parsed canonical unit names
-export const MARKED_CODES = 124_169;       // gate0 §5 — confirmed digitally marked
-export const STRICT_UNIT_PCT = '87,8%';    // gate0 §4 — 385,414 of 438,925
-export const SNAPSHOT = '20.08.2026';
+const C = SAMPLE_REPORT.classifier;
+export const CATALOG_CODES = C.codes;          // codes in the official export
+export const SUBPOSITIONS = C.subpositions;    // subposition nodes, where a code is chosen
+export const CANONICAL_UNITS = C.canonicalUnits; // parsed canonical unit names
+export const MARKED_CODES = C.markedCodes;     // confirmed digitally marked
+/** Share of codes with a strictly bound unit, one decimal, Uzbek decimal comma. */
+export const STRICT_UNIT_PCT = `${((100 * C.strictUnitCodes) / C.codes).toFixed(1).replace('.', ',')}%`;
+export const SNAPSHOT = C.snapshot;
 
 /* ------------------------------------------------------------- diagram source
 
@@ -35,8 +41,11 @@ export const SNAPSHOT = '20.08.2026';
    The totals (rows, risky rows, per-type counts) appear in ONE place only: the
    sample report section. Figures elsewhere show rows, never the sum. */
 
-const rowOfType = (type: string) =>
-  SAMPLE_REPORT.rows.find((r) => r.type === type) ?? SAMPLE_REPORT.rows[0];
+function rowOfType(type: string): SampleRow {
+  const row = SAMPLE_REPORT.rows.find((r) => r.type === type) ?? SAMPLE_REPORT.rows[0];
+  if (!row) throw new Error('The frozen sample report has no rows; run npm run make:sample-report.');
+  return row;
+}
 
 /** The MISMATCH case: a real code that is valid but describes another product —
  *  the finding that is impossible to spot by eye, so it carries the walkthrough. */
@@ -281,3 +290,15 @@ export const TYPE_LABEL: Record<string, string> = {
   MISMATCH: 'Nomga mos emas',
   UNIT_CONFLICT: 'Oʻlchov birligi',
 };
+
+/**
+ * What to do about a row, in one line. A UNIT_CONFLICT keeps its code — the
+ * pipeline suggests the same code back — so showing that code as "the fix"
+ * would read as "nothing to do". Say what actually changes.
+ */
+export function fixText(row: SampleRow): string {
+  if (row.type === 'UNIT_CONFLICT') {
+    return `Kod toʻgʻri — oʻlchov birligini «${row.unit ?? '—'}» → «${row.requiredUnit ?? '—'}» ga oʻzgartiring`;
+  }
+  return row.suggestedMxik ?? 'Mos kod topilmadi';
+}

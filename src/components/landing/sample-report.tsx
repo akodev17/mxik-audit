@@ -1,6 +1,20 @@
 import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
-import { FINDINGS, TYPE_LABEL, nf } from './data';
+import { FINDINGS, TYPE_LABEL, fixText, nf } from './data';
 import { CtaPair, SectionHead, WRAP } from './primitives';
+
+/** What a code means in the classifier, under the code: every code on the page
+ *  can be checked by eye against its own name. Two lines, full text on hover. */
+function ClassifierName({ name, notFound = false }: { name: string | null; notFound?: boolean }) {
+  if (notFound) {
+    return <span className="mt-1 block font-sans text-xs text-risk">tasniflagichda bunday kod yoʻq</span>;
+  }
+  if (!name) return null;
+  return (
+    <span title={name} className="mt-1 line-clamp-2 block font-sans text-xs text-ink-soft">
+      {name}
+    </span>
+  );
+}
 
 /* The report is the product, and this is the only place on the page where the
    sample's totals appear. Everything here comes from the frozen sample audit. */
@@ -69,10 +83,16 @@ export function SampleReport() {
                   <td className="whitespace-nowrap px-4 py-3 text-[13px] text-risk">
                     {TYPE_LABEL[row.type] ?? row.type}
                   </td>
-                  <td className="px-4 py-3 code text-[13px]">
-                    {row.currentMxik ?? <span className="font-sans text-ink-faint">yoʻq</span>}
+                  <td className="max-w-[30ch] px-4 py-3 text-[13px]">
+                    <span className="code">
+                      {row.currentMxik ?? <span className="font-sans text-ink-faint">yoʻq</span>}
+                    </span>
+                    <ClassifierName name={row.currentName} notFound={row.type === 'NOT_FOUND'} />
                   </td>
-                  <td className="px-4 py-3 code text-[13px] text-ok">{row.suggestedMxik ?? '—'}</td>
+                  <td className="max-w-[30ch] px-4 py-3 text-[13px] text-ok">
+                    <span className={row.type === 'UNIT_CONFLICT' ? '' : 'code'}>{fixText(row)}</span>
+                    {row.type === 'UNIT_CONFLICT' ? null : <ClassifierName name={row.suggestedName} />}
+                  </td>
                   <td className="px-4 py-3 text-[13px] tnum">
                     {row.confidence === null ? '—' : `${Math.round(row.confidence * 100)}%`}
                   </td>
@@ -94,22 +114,40 @@ export function SampleReport() {
               </p>
               <dl className="mt-2.5 grid grid-cols-[9ch_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px]">
                 <dt className="text-ink-faint">Hozirgi</dt>
-                <dd className="code">{row.currentMxik ?? <span className="font-sans text-ink-faint">yoʻq</span>}</dd>
+                <dd className="min-w-0">
+                  <span className="code">{row.currentMxik ?? <span className="font-sans text-ink-faint">yoʻq</span>}</span>
+                  <ClassifierName name={row.currentName} notFound={row.type === 'NOT_FOUND'} />
+                </dd>
                 <dt className="text-ink-faint">Taklif</dt>
-                <dd className="code text-ok">{row.suggestedMxik ?? '—'}</dd>
+                <dd className="min-w-0 text-ok">
+                  <span className={row.type === 'UNIT_CONFLICT' ? '' : 'code'}>{fixText(row)}</span>
+                  {row.type === 'UNIT_CONFLICT' ? null : <ClassifierName name={row.suggestedName} />}
+                </dd>
               </dl>
             </li>
           ))}
         </ul>
 
         <p className="mt-5 max-w-[68ch] text-[13px] text-ink-soft">
-          Kodlar, topilma turlari va ishonch koʻrsatkichlari — tizim chiqargani,
-          qoʻlda tanlanmagan. Katalogning oʻzi namunaviy: real katalogda nisbatlar
-          ham, ishonch koʻrsatkichlari ham boshqacha chiqadi. Buni faqat oʻz
-          faylingizda koʻrish mumkin.
+          Katalog oʻylab topilgan doʻkonniki: nomlar va narxlar bizniki, shtrix kodlar
+          va kodlar — tasniflagichdan. Topilmalar, takliflar va ishonch
+          koʻrsatkichlari — tizim chiqargani, qoʻlda tanlanmagan. Jadvalda har
+          turdan fayldagi birinchi ikki qator. Real katalogda nisbatlar boshqacha
+          chiqadi — buni faqat oʻz faylingizda koʻrish mumkin.
         </p>
 
         <CtaPair className="mt-8" fallback={null} />
+        {/* The exact file this report came from: upload it and you get the same
+            findings — which is the point of showing it. */}
+        <p className="mt-4">
+          <a
+            href="/demo/namuna-katalog.xlsx"
+            download
+            className="-my-2 inline-block py-2 text-sm text-ink-soft underline hover:text-ink"
+          >
+            Shu namuna faylni yuklab olish (.xlsx)
+          </a>
+        </p>
       </div>
     </section>
   );

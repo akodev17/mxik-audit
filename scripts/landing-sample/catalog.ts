@@ -64,14 +64,14 @@ export const SAMPLE_ROWS: readonly Row[] = [
   ['Duracell AA LR6 4шт', '5000394052536', '08506001001004004', 'шт', '28000'],
 ];
 
-/** The sample as an .xlsx buffer, codes stored as text so Excel keeps all 17 digits. */
-export async function sampleWorkbook(): Promise<Buffer> {
+/** Rows as an .xlsx buffer, codes stored as text so Excel keeps all 17 digits. */
+export async function sampleWorkbook(rows: readonly (readonly string[])[] = SAMPLE_ROWS): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'MXIK Audit — namuna';
   const sheet = workbook.addWorksheet('Katalog');
   sheet.addRow([...SAMPLE_HEADERS]);
   sheet.getRow(1).font = { bold: true };
-  for (const row of SAMPLE_ROWS) sheet.addRow([...row]);
+  for (const row of rows) sheet.addRow([...row]);
   for (const col of [SAMPLE_MAPPING.barcode + 1, SAMPLE_MAPPING.mxik + 1]) {
     sheet.getColumn(col).numFmt = '@';
     sheet.getColumn(col).width = 20;
