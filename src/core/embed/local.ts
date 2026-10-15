@@ -1,6 +1,7 @@
 // Local multilingual sentence embeddings on CPU (transformers.js / ONNX).
 // No API key, no per-call cost, and no product name leaves the server. The
 // weights are downloaded once from the Hugging Face hub into LOCAL_MODEL_DIR.
+import { availableParallelism } from 'node:os';
 import type { EmbeddingProvider } from '../match/types.js';
 
 export type LocalModel = {
@@ -17,6 +18,12 @@ export const LOCAL_MODELS: Record<string, LocalModel> = {
 };
 
 export const DEFAULT_LOCAL_MODEL = 'multilingual-e5-small';
+
+/** LOCAL_EMBED_THREADS, else half the logical CPUs (leaves room for Postgres and the web server). */
+export function embedThreads(env: Record<string, string | undefined> = process.env): number {
+  const n = Number(env['LOCAL_EMBED_THREADS']);
+  return Number.isInteger(n) && n > 0 ? n : Math.max(1, Math.floor(availableParallelism() / 2));
+}
 
 type Extractor = (texts: string[], options: { pooling: 'mean'; normalize: boolean }) => Promise<{ tolist(): number[][] }>;
 
@@ -38,7 +45,11 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   private load(): Promise<Extractor> {
     this.extractor ??= import('@huggingface/transformers').then(async ({ env, pipeline }) => {
       env.cacheDir = this.cacheDir;
-      const extractor: Extractor = await pipeline('feature-extraction', this.model.id, { dtype: 'q8' });
+      const extractor: Extractor = await pipeline('feature-extraction', this.model.id, {
+        dtype: 'q8',
+        // ONNX Runtime's default used ~2 cores; the backfill is CPU-bound.
+        session_options: { intraOpNumThreads: embedThreads() },
+      });
       return extractor;
     });
     return this.extractor;
