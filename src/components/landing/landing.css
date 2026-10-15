@@ -1,0 +1,52 @@
+/* Landing-only tokens. Prefixed lp- and scoped to .landing so app routes keep their own look. */
+@theme {
+  --color-lp-base: #ffffff;
+  --color-lp-surface: #f3f6f9;
+  --color-lp-ink: #15202b;
+  --color-lp-muted: #5b6875;
+  --color-lp-line: #dbe2ea;
+  --color-lp-line-strong: #b9c4d0;
+  --color-lp-risk: #d23a2a;
+  --color-lp-warn: #e39b12;
+  --color-lp-ok: #1f8a55;
+  --color-lp-brand: #2457f5;
+  --color-lp-brand-ink: #1a44cc;
+
+  /* Conditional-formatting fills: meaning only, text on them stays ink. */
+  --color-lp-risk-fill: #fbe3e0;
+  --color-lp-warn-fill: #fcefd3;
+  --color-lp-ok-fill: #e3f2ea;
+  --color-lp-brand-fill: #e8eefe;
+  /* Stronger fill for the one cell a finding is about. */
+  --color-lp-risk-cell: #f6c9c3;
+  --color-lp-warn-cell: #f8dfa6;
+
+  --radius-lp: 10px;
+}
+
+.landing {
+  font-family: var(--font-onest), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--color-lp-ink);
+  background: var(--color-lp-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The app's global headings are serif; the landing uses one family throughout. */
+.landing :is(h1, h2, h3, h4) {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.landing .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.landing :focus-visible {
+  outline: 3px solid var(--color-lp-brand);
+  outline-offset: 2px;
+}

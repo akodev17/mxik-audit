@@ -135,7 +135,7 @@ export function readFinding(
       return {
         what: 'Kod toʻgʻri, oʻlchov birligi emas.',
         why: `Kod «${finding.requiredUnit ?? '—'}» birligiga qatʼiy bogʻlangan, qatorda «${row.unit ?? '—'}».`,
-        next: `Birlikni «${row.unit ?? '—'}» → «${finding.requiredUnit ?? '—'}» ga oʻzgartiring. Kod oʻzgarmaydi.`,
+        next: `Birlikni «${row.unit ?? '—'}» oʻrniga «${finding.requiredUnit ?? '—'}» deb yozing. Kod oʻzgarmaydi.`,
       };
   }
 }

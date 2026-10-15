@@ -1,51 +1,35 @@
 import { PRICING } from './config';
-import { Chapter } from './primitives';
 
-/** A price list, set like one: item, leader, amount. Every number and plan
- *  name comes from PRICING in config.ts. */
-function Line({ item, detail, amount, unit, tone }: {
-  item: React.ReactNode; detail: string; amount: string; unit?: string; tone?: 'ok';
-}) {
-  return (
-    <div className="border-b border-rule py-4">
-      <div className="flex items-baseline gap-3">
-        <span className={`min-w-0 ${tone === 'ok' ? 'font-medium text-ok' : ''}`}>{item}</span>
-        <span aria-hidden="true" className="mb-1 min-w-6 flex-1 border-b border-dotted border-rule-strong" />
-        <span className={`shrink-0 font-serif text-[22px] tnum ${tone === 'ok' ? 'text-ok' : ''}`}>
-          {amount}
-          {unit ? <span className="ml-1.5 font-sans text-sm text-ink-soft">{unit}</span> : null}
-        </span>
-      </div>
-      <p className="mt-0.5 text-[13px] text-ink-soft">{detail}</p>
-    </div>
-  );
-}
-
+// Price list from PRICING in config.ts; nothing here repeats a number.
 export function Pricing() {
   return (
-    <Chapter n="07" label="Narx" id="narxlar">
-      <div className="grid grid-cols-1 gap-x-14 gap-y-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <div>
-          <h2 className="text-[28px] leading-tight sm:text-[34px]">Narxlar</h2>
-          <p className="mt-4 max-w-[44ch] text-ink-soft">
-            Avval nechta pozitsiya riskli ekanini bepul koʻrasiz. Toʻgʻrilash kerakmi —
-            shundan keyin oʻzingiz hal qilasiz.
-          </p>
-        </div>
-        <div className="border-t border-ink">
-          <Line item={PRICING.free.name} detail={PRICING.free.detail} amount={PRICING.free.price} tone="ok" />
-          {PRICING.plans.map((p) => (
-            <Line
-              key={p.rows}
-              item={<>{PRICING.planName} · <span className="font-medium">{p.rows}</span></>}
-              detail={PRICING.planDetail}
-              amount={p.price}
-              unit={PRICING.currency}
-            />
-          ))}
-          <p className="pt-3 text-[13px] text-ink-soft">{PRICING.paymentNote}</p>
-        </div>
-      </div>
-    </Chapter>
+    <div>
+      <h2 id="narxlar" className="scroll-mt-6 text-[30px] sm:text-[42px]">Narxlar</h2>
+      <p className="mt-4 max-w-[36rem] text-[18px] text-lp-muted">
+        Avval nechta pozitsiya riskli ekanini bepul koʻrasiz. Toʻgʻrilash kerakmi, shundan keyin
+        oʻzingiz hal qilasiz.
+      </p>
+      <ul className="mt-8 border-t-4 border-lp-ink">
+        <li className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-lp-line py-5">
+          <span>
+            <span className="block text-[20px] font-bold">{PRICING.free.name}</span>
+            <span className="block text-[16px] text-lp-muted">{PRICING.free.detail}</span>
+          </span>
+          <span className="text-[26px] font-bold">Bepul</span>
+        </li>
+        {PRICING.plans.map((p) => (
+          <li key={p.rows} className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-lp-line py-5">
+            <span>
+              <span className="block text-[20px] font-bold">{PRICING.planName}, {p.rows}</span>
+              <span className="block text-[16px] text-lp-muted">{PRICING.planDetail}</span>
+            </span>
+            <span className="num text-[26px] font-bold">
+              {p.price} <span className="text-[17px] font-medium text-lp-muted">{PRICING.currency}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 text-[16px] text-lp-muted">{PRICING.paymentNote}</p>
+    </div>
   );
 }

@@ -1,42 +1,43 @@
 import Link from 'next/link';
 import { TELEGRAM_URL } from './config';
 import { CANONICAL_UNITS, CATALOG_CODES, MARKED_CODES, SNAPSHOT, nf } from './data';
-import { WIDE } from './primitives';
+import { CONTAINER } from './container';
 
+const LINK = 'rounded-lp text-lp-ink underline decoration-lp-line-strong underline-offset-4 hover:decoration-lp-ink';
+
+// Source of the classifier data, legal links, contact and the tax-advice note.
 export function SiteFooter() {
   return (
-    <footer className="border-t border-rule py-9">
-      <div className={`${WIDE} space-y-5 text-[13px] text-ink-soft`}>
-        <nav aria-label="Huquqiy" className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/maxfiylik" className="underline hover:text-ink">
-            Maxfiylik siyosati
-          </Link>
-          <Link href="/oferta" className="underline hover:text-ink">
-            Ommaviy oferta
-          </Link>
-          {TELEGRAM_URL ? (
-            <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-ink">
-              Telegram orqali bogʻlanish
-            </a>
-          ) : (
-            <Link href="/#audit" className="underline hover:text-ink">
-              Bogʻlanish — forma orqali
-            </Link>
-          )}
-        </nav>
-        <div className="space-y-1.5 text-xs text-ink-faint">
+    <footer className="border-t border-lp-line bg-lp-surface">
+      <div className={`${CONTAINER} grid grid-cols-1 gap-8 py-12 md:grid-cols-[1fr_auto]`}>
+        <div className="max-w-[68ch] space-y-3 text-[15px] text-lp-muted">
+          <p className="text-[17px] font-bold text-lp-ink">MXIK Audit</p>
           <p>
-            Tasniflagich maʼlumotlari <span className="mono">tasnif.soliq.uz</span> rasmiy
-            eksportidan olingan, holat: {SNAPSHOT} — {nf.format(CATALOG_CODES)} kod,
-            shundan {nf.format(MARKED_CODES)} tasi markirovka qilinadigan,
-            {' '}{nf.format(CANONICAL_UNITS)} oʻlchov birligi.
+            Tasniflagich maʼlumotlari <span className="text-lp-ink">tasnif.soliq.uz</span> rasmiy
+            eksportidan olingan, holati {SNAPSHOT}: <span className="num">{nf.format(CATALOG_CODES)}</span> ta
+            kod, shundan <span className="num">{nf.format(MARKED_CODES)}</span> tasi markirovka
+            qilinadigan, <span className="num">{CANONICAL_UNITS}</span> ta oʻlchov birligi.
           </p>
           <p>
-            Yuridik havolalar <span className="mono">lex.uz</span> va Soliq qoʻmitasi
-            rasmiy kanaliga ishora qiladi. Soliq oqibatlari boʻyicha qarorni oʻz
-            maslahatchingiz bilan tasdiqlang.
+            Yuridik havolalar lex.uz va Soliq qoʻmitasining rasmiy kanaliga olib boradi. Soliq
+            oqibatlari boʻyicha qarorni oʻz maslahatchingiz bilan tasdiqlang.
           </p>
         </div>
+        <nav aria-label="Huquqiy va aloqa">
+          <ul className="space-y-2 text-[16px]">
+            <li><Link href="/maxfiylik" className={LINK}>Maxfiylik siyosati</Link></li>
+            <li><Link href="/oferta" className={LINK}>Ommaviy oferta</Link></li>
+            <li>
+              {TELEGRAM_URL ? (
+                <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className={LINK}>
+                  Telegram orqali yozish
+                </a>
+              ) : (
+                <Link href="/#audit" className={LINK}>Forma orqali yozish</Link>
+              )}
+            </li>
+          </ul>
+        </nav>
       </div>
     </footer>
   );

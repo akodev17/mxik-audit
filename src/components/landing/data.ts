@@ -59,13 +59,13 @@ export const PORTAL_EXAMPLES = [
     query: 'Coca-Cola 1.5L',
     note: 'doʻkon katalogida yozilganidek',
     result: 'Birinchi natija — dori vositasi (Ketoprofen)',
-    contrast: 'Coca Cola → 57 natija, birinchisi toʻgʻri',
+    contrast: { query: 'Coca Cola', result: '57 natija, birinchisi toʻgʻri' },
   },
   {
     query: "no'xat",
     note: 'klaviaturadagi oddiy apostrof bilan',
     result: '1 natija — akril polimer dispersiyasi',
-    contrast: 'noʻxat → 68 natija',
+    contrast: { query: 'noʻxat', result: '68 natija' },
   },
   {
     query: 'цемент портланд',

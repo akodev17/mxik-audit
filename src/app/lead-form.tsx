@@ -22,27 +22,27 @@ export function LeadForm() {
   if (state.ok) {
     return (
       <div role="status" aria-live="polite">
-        <p className="font-serif text-[22px] leading-snug text-ok">
+        <p className="text-[24px] font-bold leading-snug">
           Soʻrovingiz qabul qilindi.
         </p>
-        <ol className="mt-4 list-none space-y-3 border-t border-rule p-0 pt-4 text-sm text-ink-soft">
+        <ol className="mt-4 list-none space-y-3 border-t border-lp-line p-0 pt-4 text-[17px]">
           <li className="flex gap-3">
-            <span className="shrink-0 tnum text-ink-faint">1.</span>
+            <span className="num shrink-0 font-bold text-lp-brand">1.</span>
             <span>Faylni oʻqib, katalogni tasniflagich bilan solishtiramiz.</span>
           </li>
           <li className="flex gap-3">
-            <span className="shrink-0 tnum text-ink-faint">2.</span>
+            <span className="num shrink-0 font-bold text-lp-brand">2.</span>
             <span>
               Bir ish kuni ichida riskli pozitsiyalar roʻyxatini yuboramiz — siz
               koʻrsatgan raqam yoki Telegram orqali.
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="shrink-0 tnum text-ink-faint">3.</span>
+            <span className="num shrink-0 font-bold text-lp-brand">3.</span>
             <span>Toʻgʻrilash kerak yoki yoʻqligini shundan keyin hal qilasiz.</span>
           </li>
         </ol>
-        <p className="mt-5 text-[13px] text-ink-soft">
+        <p className="mt-5 text-[15px] text-lp-muted">
           Bu bosqich uchun toʻlov yoʻq va hech narsaga obuna boʻlmaysiz.
         </p>
       </div>
@@ -55,8 +55,8 @@ export function LeadForm() {
   return (
     <form action={action} className="space-y-5" noValidate>
       <div>
-        <label htmlFor="lead-contact" className="block text-sm font-medium">
-          Telegram yoki telefon <span className="text-risk" aria-hidden="true">*</span>
+        <label htmlFor="lead-contact" className="block text-[16px] font-bold">
+          Telegram yoki telefon <span className="text-lp-risk" aria-hidden="true">*</span>
         </label>
         <input
           id="lead-contact"
@@ -69,43 +69,43 @@ export function LeadForm() {
           aria-invalid={contactError ? true : undefined}
           aria-describedby={contactError ? 'lead-error lead-contact-hint' : 'lead-contact-hint'}
           className={
-            'mt-1.5 w-full border bg-paper px-3.5 py-3 text-base focus:border-ink focus:outline-none '
-            + (contactError ? 'border-risk' : 'border-rule-strong')
+            'mt-2 min-h-12 w-full rounded-lp border-2 bg-lp-base px-4 py-3 text-[17px] text-lp-ink placeholder:text-lp-muted focus:border-lp-brand focus:outline-none '
+            + (contactError ? 'border-lp-risk' : 'border-lp-line-strong')
           }
         />
-        <p id="lead-contact-hint" className="mt-1.5 text-[13px] text-ink-soft">
+        <p id="lead-contact-hint" className="mt-1.5 text-[15px] text-lp-muted">
           Javobni shu manzilga yuboramiz.
         </p>
       </div>
 
       {/* One label wrapping both the caption and the click target: two labels
           pointing at the same input is invalid and confuses screen readers. */}
-      <label htmlFor="lead-file" className="block">
-        <span className="block text-sm font-medium">
+      <label htmlFor="lead-file" className="block rounded-lp has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-lp-brand has-[input:focus-visible]:outline-solid">
+        <span className="block text-[16px] font-bold">
           Excel yoki CSV katalog{' '}
-          <span className="font-normal text-ink-soft">(.xlsx, .csv — 20 MB gacha)</span>
+          <span className="font-normal text-lp-muted">(.xlsx, .csv — 20 MB gacha)</span>
         </span>
         <span
           className={
-            'mt-1.5 flex min-h-[3.25rem] cursor-pointer items-center justify-between gap-3 '
-            + 'border border-dashed px-3.5 py-3 transition-colors hover:border-ink '
-            + (fileError ? 'border-risk' : file ? 'border-ok bg-ok-tint' : 'border-rule-strong')
+            'mt-2 flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lp '
+            + 'border-2 border-dashed px-4 py-3 transition-colors hover:border-lp-brand '
+            + (fileError ? 'border-lp-risk' : file ? 'border-lp-ok bg-lp-ok-fill' : 'border-lp-line-strong bg-lp-base')
           }
         >
           <span className="min-w-0">
             <span
-              className={`block truncate text-sm ${file ? 'text-ink' : 'text-ink-soft'}`}
+              className={`block truncate text-[16px] ${file ? 'text-lp-ink' : 'text-lp-muted'}`}
               data-testid="lead-filename"
             >
               {file ? file.name : 'Faylni tanlang'}
             </span>
             {file ? (
-              <span className="block text-xs text-ink-soft tnum">
+              <span className="num block text-[15px] text-lp-muted">
                 {(file.size / 1024).toFixed(0)} KB — yuborishga tayyor
               </span>
             ) : null}
           </span>
-          <span className="shrink-0 text-sm text-ink-soft underline">
+          <span className="shrink-0 text-[16px] font-medium text-lp-brand-ink underline underline-offset-4">
             {file ? 'almashtirish' : 'tanlash'}
           </span>
         </span>
@@ -136,7 +136,7 @@ export function LeadForm() {
         <p
           id="lead-error"
           role="alert"
-          className="border-l-2 border-risk bg-risk-tint px-3.5 py-2.5 text-sm text-risk"
+          className="rounded-lp border-l-4 border-lp-risk bg-lp-risk-fill px-4 py-3 text-[16px] text-lp-ink"
         >
           {state.error}
           {fileError ? ' Faylni qayta tanlang.' : null}
@@ -146,17 +146,17 @@ export function LeadForm() {
       <button
         type="submit"
         disabled={pending}
-        className="min-h-12 w-full bg-ink px-6 py-3.5 font-medium text-paper transition-colors hover:bg-black disabled:opacity-60"
+        className="min-h-12 w-full rounded-lp bg-lp-brand px-6 py-3 text-[17px] font-medium text-white transition-colors hover:bg-lp-brand-ink disabled:opacity-60"
       >
         {pending ? 'Yuborilmoqda…' : 'Bepul audit soʻrash'}
       </button>
 
-      <p className="text-[13px] text-ink-soft">
+      <p className="text-[15px] text-lp-muted">
         Roʻyxatdan oʻtish, parol yoki karta kerak emas. Fayl faqat shu audit uchun
         ishlatiladi. Tashqi AI xizmatiga faqat tovar nomi va oʻlchov birligi
         borishi mumkin — narx, shtrix kod va boshqa ustunlar emas. Batafsil:{' '}
-        <Link href="/maxfiylik" className="underline">maxfiylik siyosati</Link>,{' '}
-        <Link href="/oferta" className="underline">oferta</Link>.
+        <Link href="/maxfiylik" className="rounded-lp text-lp-ink underline underline-offset-4">maxfiylik siyosati</Link>,{' '}
+        <Link href="/oferta" className="rounded-lp text-lp-ink underline underline-offset-4">oferta</Link>.
       </p>
     </form>
   );

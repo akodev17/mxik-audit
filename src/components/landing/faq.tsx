@@ -1,24 +1,15 @@
 import Link from 'next/link';
 import { DATA_FLOW } from './data';
 
-/* Five questions an accountant asks before sending a file. Each answer is
-   limited to what the code does today:
-   - portal: we read the official export (scripts/fetch-catalog.ts);
-   - data: DATA_FLOW, checked against the pipeline and retention (see data.ts);
-   - timing: the lead form's own promise, "bir ish kuni ichida";
-   - Russian: header hints in both scripts (src/app/actions/catalog.ts), the
-     classifier loaded in three languages (nameUz / nameRu / nameUzCyrl) and
-     transliteration in src/core/normalize/script.ts;
-   - guarantee: none, by design. */
+// Answers limited to what the code does today; sources noted in data.ts.
 const FAQ = [
   {
     q: 'Bu soliq.uz oʻrnini bosadimi?',
     a: (
       <>
-        Yoʻq. Rasmiy tasniflagich — <span className="mono">tasnif.soliq.uz</span> — yagona
-        manba, biz ham uning rasmiy eksportidan foydalanamiz. Portal bitta kodni topish
-        uchun qulay. MXIK Audit esa butun katalogni bir martada tekshirib, qaysi
-        qatorlarga eʼtibor kerakligini koʻrsatadi.
+        Yoʻq. Rasmiy tasniflagich tasnif.soliq.uz yagona manba, biz ham uning rasmiy eksportidan
+        foydalanamiz. Portal bitta kodni topish uchun qulay. MXIK Audit esa butun katalogni bir
+        martada tekshirib, qaysi qatorlarga eʼtibor kerakligini koʻrsatadi.
       </>
     ),
   },
@@ -26,10 +17,10 @@ const FAQ = [
     q: 'Maʼlumotlarim qayerga ketadi?',
     a: (
       <>
-        {DATA_FLOW.stored} {DATA_FLOW.external} {DATA_FLOW.deletion}{' '}
-        {DATA_FLOW.appDeletion} Batafsil —{' '}
-        <Link href="/maxfiylik" className="underline">
-          maxfiylik siyosatida
+        {DATA_FLOW.stored} {DATA_FLOW.external} {DATA_FLOW.deletion} {DATA_FLOW.appDeletion}{' '}
+        Batafsil:{' '}
+        <Link href="/maxfiylik" className="rounded-lp font-medium text-lp-brand-ink underline decoration-2 underline-offset-4">
+          maxfiylik siyosati
         </Link>
         .
       </>
@@ -39,8 +30,8 @@ const FAQ = [
     q: 'Natija qancha vaqtda?',
     a: (
       <>
-        Bepul audit uchun faylni olganimizdan keyin bir ish kuni ichida riskli
-        pozitsiyalar roʻyxatini siz koʻrsatgan telefon yoki Telegramga yuboramiz.
+        Bepul audit uchun faylni olganimizdan keyin bir ish kuni ichida riskli pozitsiyalar
+        roʻyxatini siz koʻrsatgan telefon yoki Telegramga yuboramiz.
       </>
     ),
   },
@@ -48,9 +39,9 @@ const FAQ = [
     q: 'Ruscha katalog ishlaydimi?',
     a: (
       <>
-        Ha. Ruscha va oʻzbekcha sarlavhalar avtomatik taniladi. Tovar nomlari ruscha,
-        oʻzbekcha lotin yoki kirill yozuvida boʻlishi mumkin: tasniflagich uch tilda
-        yuklangan, nomlar bir yozuvdan ikkinchisiga oʻgirib solishtiriladi.
+        Ha. Ruscha va oʻzbekcha sarlavhalar avtomatik taniladi. Tovar nomlari ruscha, oʻzbekcha
+        lotin yoki kirill yozuvida boʻlishi mumkin: tasniflagich uch tilda yuklangan, nomlar bir
+        yozuvdan ikkinchisiga oʻgirib solishtiriladi.
       </>
     ),
   },
@@ -58,31 +49,31 @@ const FAQ = [
     q: 'Kod toʻgʻriligiga kafolat berasizmi?',
     a: (
       <>
-        Yoʻq. Bitta tovar uchun yagona toʻgʻri MXIKni belgilaydigan hujjat yoʻq. Tizim
-        kodni taklif qiladi, ishonch darajasi va tasniflagichdagi oʻrnini koʻrsatadi.
-        Qarorni siz qabul qilasiz, va u qarorlar tarixiga yoziladi.
+        Yoʻq. Bitta tovar uchun yagona toʻgʻri MXIKni belgilaydigan hujjat yoʻq. Tizim kodni
+        taklif qiladi, ishonch darajasi va tasniflagichdagi oʻrnini koʻrsatadi. Qarorni siz qabul
+        qilasiz, va u qarorlar tarixiga yoziladi.
       </>
     ),
   },
 ] as const;
 
-/* Open, not folded: five short answers are faster to scan than to click, and
-   an accountant deciding whether to send a file wants to see all of them. */
+// Native disclosure: works without JavaScript, keyboard included.
 export function Faq() {
   return (
-    <div id="savollar" className="scroll-mt-4">
-      <h3 className="text-[22px]">Koʻp beriladigan savollar</h3>
-      <dl className="mt-5 border-t border-rule">
+    <div>
+      <h2 id="savollar" className="scroll-mt-6 text-[30px] sm:text-[42px]">Koʻp beriladigan savollar</h2>
+      <div className="mt-8 border-t border-lp-line">
         {FAQ.map((item) => (
-          <div
-            key={item.q}
-            className="grid grid-cols-1 gap-x-10 gap-y-1.5 border-b border-rule py-5 md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]"
-          >
-            <dt className="font-medium">{item.q}</dt>
-            <dd className="max-w-[68ch] text-sm text-ink-soft">{item.a}</dd>
-          </div>
+          <details key={item.q} className="group border-b border-lp-line">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-lp py-4 text-[19px] font-bold hover:text-lp-brand-ink [&::-webkit-details-marker]:hidden">
+              {item.q}
+              <span aria-hidden="true" className="text-[24px] font-normal text-lp-muted group-open:hidden">+</span>
+              <span aria-hidden="true" className="hidden text-[24px] font-normal text-lp-muted group-open:inline">−</span>
+            </summary>
+            <p className="max-w-[68ch] pb-6 text-[17px] text-lp-muted">{item.a}</p>
+          </details>
         ))}
-      </dl>
+      </div>
     </div>
   );
 }
