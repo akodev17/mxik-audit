@@ -167,16 +167,26 @@ cannot show what the rule now misses — a wrong code inside the same position
 (for example another brand's identifying code under the same base code) is no
 longer flagged. Re-measure on a real catalogue.
 
+With the e5 vectors (P1.1, 2026-10-16) the same rule measures 45% (19/42):
+recall is still 100%, but it raises 9 more false alarms (23 vs 14), and clean
+rows flagged by any check rose 16% → 25%. Thresholds and weights were not
+changed.
+
 ## Known weaknesses
 
 1. **The weights are reasoned, not fitted.** 30 cases is far too few to tune six
    constants without overfitting. They should be re-derived once a few thousand
    human accept/reject decisions have accumulated in `AuditEvent` — which is
    exactly what that table is for.
-2. **The vector weight is currently unearned.** With the local placeholder
-   embedder the vector stage is a second lexical channel, not a semantic one, so
-   0.25 is being spent on a signal correlated with the 0.45 already allocated to
-   lexical. Revisit once a real multilingual model is wired in.
+2. **The vector weight is reasoned, not re-fitted for e5.** Under the old
+   placeholder embedder the vector stage was a second lexical channel. Since
+   2026-10-16 it is multilingual-e5-small, and the gap between mean confidence
+   on right and wrong answers widened on the real cases (0.10 → 0.22) with the
+   0.25 weight unchanged. It has not been tuned to e5's similarity range.
 3. **`ts_rank_cd` is unbounded**, so the full-text score is normalized against
    the best hit *in its own result set*. That makes it a relative signal: it says
-   "best of what full-text found", not "good in absolute terms".
+   "best of what full-text found", not "good in absolute terms". It also has no
+   notion of term rarity, so since 2026-10-16 terms found in more than 10,000
+   live codes (`uchun`, `va`, `boshqa`…) still count in the rank but no longer
+   select candidates. Eval: real unchanged, synthetic top-1 77.5 → 79.1, top-5
+   and pool unchanged, full-text query 459 → ~49 ms median.

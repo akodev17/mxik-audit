@@ -316,8 +316,8 @@ Implementation: `src/core/match/pipeline.ts`.
 |---|---|---|---|
 | 1 | Barcode exact (GTIN → `internationalCode`) | 1.00 | **active** |
 | 2 | Folded name exact (`matchKeys`) | 0.95 | **active** |
-| 3 | Lexical: pg_trgm `word_similarity` + full-text | scored | **active** |
-| 4 | Vector: pgvector cosine, per-language embeddings | scored | **active but non-semantic** — see below |
+| 3 | Lexical: pg_trgm `word_similarity` + full-text (terms in > 10,000 codes rank but do not select, since 2026-10-16) | scored | **active** |
+| 4 | Vector: pgvector HNSW cosine over `embeddingUz` | scored | **active, semantic** (local multilingual-e5-small since 2026-10-16) |
 | 5 | Reciprocal rank fusion of 3 + 4 | scored | **active** |
 | 6 | LLM rerank with full hierarchy path | scored | **DISABLED** — no `ANTHROPIC_API_KEY` |
 
@@ -327,9 +327,12 @@ Implementation: `src/core/match/pipeline.ts`.
   Consequence: confidence is capped at `NO_RERANK_CEILING = 0.85`, so **nothing
   reaches the high / bulk-accept band** on retrieval signals alone. This is
   deliberate and safe.
-- **Stage 4 is non-semantic.** `embedding_state` records the stored vectors as
-  `hashing (local, non-semantic)`. All 438,925 rows are embedded with the local
-  placeholder, which behaves as a second lexical channel, not a semantic one.
+- **Stage 4 was non-semantic until 2026-10-16.** It used the hashing
+  placeholder, which behaves as a second lexical channel and needs an exact
+  vector scan (~1.7 s per row). Since P1.1, `embedding_state` reads
+  `local:Xenova/multilingual-e5-small`: all 442,719 `embeddingUz` vectors come
+  from e5 run locally (ONNX, fp32), `embeddingRu` is NULL, and HNSW is used.
+  Revert: `EMBEDDING_PROVIDER=hashing npm run embed:catalog -- --restart` (~24 min).
 - An **OpenAI key was supplied once and had no billing quota** (HTTP 429
   `insufficient_quota`). Configuring it made accuracy *worse* (top-1 50%,
   top-5 58.3%) because it disabled the working placeholder without replacing it.
@@ -347,7 +350,15 @@ Implementation: `src/core/match/pipeline.ts`.
   RRF 0.30, renormalized over present signals; LLM weight 0.40; margin weight
   0.15; ceiling 0.85 without a reranker.
 - `src/core/match/vector-readiness.ts` — refuses to compare a query embedded by
-  one model against vectors stored by another.
+  one model against vectors stored by another; substitutes a stored local
+  provider (e5 or hashing); turns the stage off while `embedding_state` reads
+  `rebuilding:…` during a backfill.
+- `src/core/embed/local.ts` — e5 / paraphrase-multilingual-MiniLM through
+  `@huggingface/transformers` 4.3.0 (pinned), weights in `data/models`,
+  `LOCAL_EMBED_THREADS` (default 4), `LOCAL_EMBED_DEVICE` (`cpu` | `dml`).
+- `src/core/match/store.ts` — reads retry once on a dropped connection; a
+  failed client is destroyed, never returned to the pool; full-text term counts
+  (`ts_stat`, ~5 s) are loaded once per process.
 
 ---
 
@@ -439,7 +450,14 @@ Prisma + Postgres 16 + pgvector, `iron-session` auth.
 | Export | `/export` + `/api/export` | works; rebuilds the original file, verified round-trip |
 | Catalogues | `/catalogs` | every catalogue of the org; report/review/export via `?catalog=`; delete with confirmation |
 | Demo | `/demo` | one click into a private copy of the demo catalogue; no signup; upload disabled |
+| Admin | `/admin` | traction metrics across customer orgs; 404 unless the signed-in email is in `ADMIN_EMAILS` |
 | Health | `/api/health` | 200 when DB + classifier are up, 503 otherwise |
+
+Audits run in the background since P1.2: upload returns at once, the report
+page shows a progress bar (refresh every 2 s), `instrumentation.ts` resumes an
+interrupted audit from its watermark on server start, a failed audit offers
+"retry" to its own org only, and `/api/export` answers 409 until the catalogue
+is ready.
 | Landing | `/` | complete; see Landing Page |
 
 ### Verified application behaviour

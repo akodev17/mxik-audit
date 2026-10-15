@@ -5,12 +5,16 @@ HTTPS and proxies to the app. Nothing here depends on a particular provider.
 
 ## 0. What you need
 
-- A VPS with Ubuntu 22.04 or 24.04, **4 GB RAM minimum** (the classifier import
-  and the vector index build are the heavy parts), 2+ vCPU, 30 GB disk.
+- A VPS with Ubuntu 22.04 or 24.04, **4 vCPU and 8 GB RAM recommended**
+  (Postgres, the vector index build and the ~1 GB local embedding model share
+  it; 4 GB is the bare minimum), 30 GB disk. Audit speed scales with the CPUs
+  Postgres gets: on 4 it measured 2.4–15 rows/s depending on the products.
 - A domain name with an `A` record pointing at the server's IP.
+- Outbound HTTPS to `huggingface.co` once, for the embedding model's weights.
 - An SSH login with `sudo`.
 
-Expect about 30–45 minutes, most of it waiting for the classifier import.
+Expect about 3–4 hours, most of it embedding the 442,719 classifier names once
+on the CPU (step 4). Everything else takes 30–45 minutes.
 
 ## 1. Prepare the server
 
@@ -48,6 +52,8 @@ Edit `.env` (`nano .env`). Every variable is documented in the file. At minimum:
 | `NEXT_PUBLIC_DEMO_URL` | `/demo` |
 | `NEXT_PUBLIC_TELEGRAM_URL` | your Telegram link, or leave empty to hide it |
 | `ANTHROPIC_API_KEY` | optional; without it suggestions stay capped below bulk-accept |
+| `EMBEDDING_PROVIDER` | `local` (already set in `.env.example`) |
+| `ADMIN_EMAILS` | sign-in emails allowed to open `/admin`, comma-separated |
 
 `DATABASE_URL` in `.env` is ignored inside Docker; compose points the app at
 the `db` container itself.
@@ -78,9 +84,14 @@ mx npx prisma migrate deploy        # tables and indexes
 mx npm run fetch:catalog            # 3 official Excel exports, ~93 MB, ~1 min
 mx npm run ingest -- --enrich       # normalize + marking flags, ~10 min
 mx npm run load:db                  # ~443k codes into Postgres, ~3 min
-mx npm run embed:catalog            # vectors + HNSW indexes, ~25 min
+mx npm run embed:catalog            # local e5 vectors + HNSW index, ~2.7 h on 4 vCPU
 mx npm run seed:demo                # the demo catalogue behind /demo, ~1 min
 ```
+
+`embed:catalog` first downloads the model (~470 MB) into `./data/models`, which
+persists across rebuilds. It is resumable: if the session drops, run the same
+command again and it continues from `data/embed-checkpoint.json`. Run it inside
+`tmux` or `screen` so a dropped SSH session does not stop it.
 
 `ingest -- --enrich` calls the public tasnif.soliq.uz API for every code; if
 that is unreachable from the server, run `mx npm run ingest` (without
@@ -92,6 +103,9 @@ that is unreachable from the server, run `mx npm run ingest` (without
 docker compose --profile app up -d app
 curl -s http://127.0.0.1:3000/api/health    # {"status":"ok","database":true,"classifier":true}
 ```
+
+Audits run in the background. If the app restarts mid-audit, it resumes the
+catalogue from its last finished row on startup.
 
 ## 6. nginx and HTTPS
 
@@ -158,6 +172,7 @@ Copy backups off the server too; a backup on the same disk is not a backup.
 | Erase a lead's file on request | `mx npm run lead:delete -- --list`, then `mx npm run lead:delete -- <leadId>` (`--all` also removes the contact) |
 | Rebuild the demo | `mx npm run seed:demo` |
 | Which LLM/embedding setup is active | `mx npm run check:providers` |
+| Traction metrics | `https://your-domain/admin`, signed in as an `ADMIN_EMAILS` address |
 
 ### Updating to a new version
 
@@ -180,7 +195,9 @@ mx npm run fetch:catalog && mx npm run ingest -- --enrich && mx npm run load:db 
 ```
 
 `load:db` records a snapshot and marks codes that disappeared as retired, so
-catalogues still using them are reported as not found.
+catalogues still using them are reported as not found. `embed:catalog`
+re-embeds every code (~2.7 h on 4 vCPU) and the vector stage stays off until it
+finishes, so audits during that window are lexical-only. Run it off-hours.
 
 ### Restoring a backup
 

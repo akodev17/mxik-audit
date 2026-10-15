@@ -1,0 +1,97 @@
+{
+  "note": "Append-only history of `npm run perf`.",
+  "runs": [
+    {
+      "label": "300 rows, e5 vectors, no LLM (stage profile)",
+      "ranAt": "2026-10-15T19:32:34.818Z",
+      "machine": {
+        "cpu": "Intel(R) Core(TM) i5-14400F",
+        "threads": 16,
+        "memGb": 26
+      },
+      "rows": 300,
+      "embedder": "local:Xenova/multilingual-e5-small",
+      "findings": 90,
+      "degradedReasons": [
+        "LLM qayta tartiblash oʻchirilgan"
+      ],
+      "secondsUploadToReport": 310.2,
+      "steps": {
+        "generate": 0.8,
+        "parse": 0.1,
+        "store": 0.1,
+        "audit": 310,
+        "report": 0
+      },
+      "auditRowsPerSecond": 1,
+      "stageMsPerRow": {
+        "exact": 694.55,
+        "lexical": 2865.93,
+        "barcode": 146.71,
+        "embed": 85.24,
+        "persist": 17.2,
+        "fulltext": 3045.63,
+        "existing-code": 975.29,
+        "vector": 1014.71,
+        "self-match": 2472.61
+      },
+      "stageCalls": {
+        "exact": 247,
+        "lexical": 217,
+        "barcode": 53,
+        "embed": 217,
+        "persist": 89,
+        "fulltext": 217,
+        "existing-code": 253,
+        "vector": 217,
+        "self-match": 122
+      }
+    },
+    {
+      "label": "300 rows after self-match removal + full-text cutoff, e5, no LLM",
+      "ranAt": "2026-10-15T19:50:05.286Z",
+      "machine": {
+        "cpu": "Intel(R) Core(TM) i5-14400F",
+        "threads": 16,
+        "memGb": 26
+      },
+      "rows": 300,
+      "embedder": "local:Xenova/multilingual-e5-small",
+      "findings": 110,
+      "degradedReasons": [
+        "LLM qayta tartiblash oʻchirilgan"
+      ],
+      "secondsUploadToReport": 125.9,
+      "steps": {
+        "generate": 0.9,
+        "parse": 0.1,
+        "store": 0.1,
+        "audit": 125.6,
+        "report": 0
+      },
+      "auditRowsPerSecond": 2.4,
+      "stageMsPerRow": {
+        "exact": 239.51,
+        "lexical": 2438.46,
+        "barcode": 64.82,
+        "existing-code": 318.75,
+        "embed": 68.32,
+        "persist": 10.81,
+        "vector": 488.65,
+        "fulltext": 1153.94,
+        "self-match": 25.14
+      },
+      "stageCalls": {
+        "exact": 247,
+        "lexical": 217,
+        "barcode": 53,
+        "existing-code": 253,
+        "embed": 217,
+        "persist": 109,
+        "vector": 217,
+        "fulltext": 217,
+        "self-match": 8
+      }
+    }
+  ]
+}
