@@ -1,6 +1,7 @@
 // Runs the matching pipeline and the five checks across a stored catalogue,
 // then persists findings. Server-only.
 import { Pool } from 'pg';
+import { startHeartbeat } from './audit-heartbeat.js';
 import { db } from './db.js';
 import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
@@ -49,12 +50,30 @@ export type AuditOutcome = {
 };
 
 /**
- * Audits a catalogue's rows from `fromRow` on. Rows are processed in small
- * concurrent batches: each row costs a handful of Postgres queries, and
- * uncertain rows are grouped into shared LLM calls, so unbounded concurrency
- * would exhaust both.
+ * Audits a catalogue's rows from `fromRow` on, keeping its heartbeat fresh
+ * throughout so no other process resumes it in parallel.
  */
 export async function auditCatalog(catalogId: string, options: AuditOptions = {}): Promise<AuditOutcome> {
+  const heartbeat = await startHeartbeat(catalogId, options.fromRow ?? 0);
+  try {
+    return await auditRows(catalogId, {
+      ...options,
+      onProgress: (p) => {
+        heartbeat.mark(p.watermark);
+        options.onProgress?.(p);
+      },
+    });
+  } finally {
+    heartbeat.stop();
+  }
+}
+
+/**
+ * Rows are processed in small concurrent batches: each row costs a handful of
+ * Postgres queries, and uncertain rows are grouped into shared LLM calls, so
+ * unbounded concurrency would exhaust both.
+ */
+async function auditRows(catalogId: string, options: AuditOptions): Promise<AuditOutcome> {
   const { fromRow = 0, onProgress, timer } = options;
   const configured = embeddingProviderFromEnv();
   const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });

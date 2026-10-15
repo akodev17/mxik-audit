@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { resumeStaleAudits, retryAudit, startAudit } from './audit-jobs.js';
+import { isAuditRunning, resumeStaleAudits, retryAudit, startAudit, STARTUP_STALE_MS } from './audit-jobs.js';
+import { auditCatalog } from './audit-runner.js';
 import { db } from './db.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';
 
@@ -76,6 +77,21 @@ describe('background audits (database)', { skip }, () => {
     assert.ok(await db.finding.findUnique({ where: { id: kept.id } }), 'finished rows are not redone');
     const row1 = await db.finding.findMany({ where: { itemId: items[1]?.id ?? '' } });
     assert.deepEqual(row1.map((f) => f.type), ['MISSING']);
+  });
+
+  it('leaves an audit another process is running alone on server start', async () => {
+    // CLI scripts mark the catalogue analyzing, with no heartbeat yet, and audit it themselves.
+    const id = await rawCatalog(a.orgId, [{ name: 'Kartoshka', code: null }], 'analyzing');
+    const audit = auditCatalog(id);
+    for (let i = 0; i < 100; i++) {
+      const c = await db.catalog.findUnique({ where: { id }, select: { auditHeartbeatAt: true } });
+      if (c?.auditHeartbeatAt) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.equal(await resumeStaleAudits(STARTUP_STALE_MS, id), 0);
+    assert.equal(isAuditRunning(id), false);
+    await audit;
+    await db.catalog.update({ where: { id }, data: { status: 'ready' } });
   });
 
   it('lets only the owning org retry a failed audit', async () => {

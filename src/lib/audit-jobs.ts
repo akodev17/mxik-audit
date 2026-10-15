@@ -4,13 +4,17 @@
 // next server start (src/instrumentation.ts) or a stale heartbeat resumes it
 // from the last fully audited row.
 import type { Prisma } from '@prisma/client';
+import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
 import { db } from './db.js';
 
-/** A running audit bumps its heartbeat at least this often. */
-const HEARTBEAT_MS = 2_000;
 /** Without a heartbeat for this long, an "analyzing" catalogue is presumed orphaned. */
 export const STALE_MS = 120_000;
+/**
+ * On server start, missing a few beats is enough: the old process is gone. Not
+ * 0, because a CLI script (seed, perf) may be auditing in another process.
+ */
+export const STARTUP_STALE_MS = 5 * HEARTBEAT_MS;
 
 const running = new Set<string>();
 
@@ -37,17 +41,8 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
     // Rows at or past the resume point may have half-written findings.
     if (fromRow > 0) await db.finding.deleteMany({ where: { item: { catalogId, rowIndex: { gte: fromRow } } } });
 
-    let lastBeat = 0;
-    const outcome = await auditCatalog(catalogId, {
-      fromRow,
-      onProgress: ({ watermark }) => {
-        const now = Date.now();
-        if (now - lastBeat < HEARTBEAT_MS) return;
-        lastBeat = now;
-        void db.catalog.update({ where: { id: catalogId }, data: { progressDone: watermark, auditHeartbeatAt: new Date(now) } })
-          .catch(() => undefined);
-      },
-    });
+    // auditCatalog keeps the heartbeat and watermark current while it runs.
+    const outcome = await auditCatalog(catalogId, { fromRow });
 
     const catalog = await db.catalog.update({
       where: { id: catalogId },
@@ -79,8 +74,8 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
 
 /**
  * Resumes audits that no live worker is running: every "analyzing" catalogue
- * whose heartbeat is older than `staleMs` (0 on server start, when none can be
- * live). Optionally limited to one catalogue.
+ * whose heartbeat is older than `staleMs` (STARTUP_STALE_MS on server start).
+ * Optionally limited to one catalogue.
  */
 export async function resumeStaleAudits(staleMs = STALE_MS, catalogId?: string): Promise<number> {
   const cutoff = new Date(Date.now() - staleMs);
