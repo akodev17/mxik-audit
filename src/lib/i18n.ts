@@ -215,6 +215,9 @@ export type Dict = {
   uploadColumnUnit: string;
   uploadColumnPrice: string;
   uploadColumnSales: string;
+  uploadPreset: string;
+  uploadPresetAuto: string;
+  uploadPresetHint: string;
   codeRequestButton: string;
   codeRequestCopy: string;
   codeRequestCopied: string;
@@ -297,6 +300,20 @@ export type Dict = {
   exportHint: string;
   exportSummary: (accepted: number, rejected: number, pending: number) => string;
   exportDownload: string;
+  export1c: string;
+  export1cHint: string;
+  payTitle: string;
+  payPrice: (price: string, rows: string) => string;
+  payPaid: string;
+  payLarge: string;
+  payClick: string;
+  payPayme: string;
+  payNote: string;
+  payRequired: string;
+  subTitle: string;
+  subPrice: (price: string) => string;
+  subUntil: (date: string) => string;
+  subNone: string;
   exportStatusColumn: string;
   exportStatusAccepted: string;
   exportStatusRejected: string;
@@ -544,6 +561,9 @@ export const uz: Dict = {
   uploadColumnUnit: 'Oʻlchov birligi',
   uploadColumnPrice: 'Narx',
   uploadColumnSales: 'Sotuv summasi',
+  uploadPreset: 'Fayl qayerdan',
+  uploadPresetAuto: 'Avtomatik aniqlash',
+  uploadPresetHint: '“Taxminiy” andozalar haqiqiy fayl bilan tekshirilmagan — ustunlarni koʻzdan kechiring.',
   codeRequestButton: 'Yangi kod soʻrovi matni',
   codeRequestCopy: 'Nusxa olish',
   codeRequestCopied: 'Nusxa olindi',
@@ -625,6 +645,20 @@ export const uz: Dict = {
   exportSummary: (accepted, rejected, pending) =>
     `${accepted} qabul qilindi · ${rejected} rad etildi · ${pending} kutilmoqda`,
   exportDownload: 'Faylni yuklab olish',
+  export1c: '1C uchun CSV',
+  export1cHint: '“1C uchun CSV” — nom, IKPU, oʻlchov birligi va shtrix-kod ustunlari (UTF-8, “;” ajratgich). 1C da jadval hujjatidan yuklash orqali ustunlarni moslab yuklanadi.',
+  payTitle: 'Toʻgʻrilangan katalog',
+  payPrice: (price, rows) => `${price} soʻm · ${rows} SKU gacha`,
+  payPaid: 'Toʻlangan.',
+  payLarge: '10 000 dan ortiq qatorli katalog uchun narx alohida kelishiladi.',
+  payClick: 'Click orqali toʻlash',
+  payPayme: 'Payme orqali toʻlash',
+  payNote: 'Toʻlov Click yoki Payme sahifasida amalga oshiriladi; tasdiqlangach shu yerda “Toʻlangan” deb koʻrinadi.',
+  payRequired: 'Tuzatilgan faylni yuklab olish uchun avval katalog uchun toʻlang yoki firma obunasini faollashtiring.',
+  subTitle: 'Firma obunasi',
+  subPrice: (price) => `${price} soʻm / oy`,
+  subUntil: (date) => `Faol: ${date} gacha`,
+  subNone: 'Obuna faol emas.',
   exportStatusColumn: 'audit_status',
   exportStatusAccepted: 'qabul_qilindi',
   exportStatusRejected: 'rad_etildi',

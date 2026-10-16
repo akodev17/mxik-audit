@@ -193,6 +193,26 @@ Without a public HTTPS URL (development), run the bot with long polling
 instead: `npm run telegram:bot` (it removes any webhook first; audits started
 from the bot run in that process).
 
+## 7b. Payments (optional)
+
+Click and Payme stay off until their keys are in `.env` (see `.env.example`);
+without them no payment button appears. Prices: `src/lib/billing/plans.ts`
+(the firm monthly plan is hidden until its price is set there).
+
+- **Click** (SHOP API): in the merchant cabinet set both Prepare URL and
+  Complete URL to `https://your-domain/api/payments/click`; put
+  `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` in `.env`.
+- **Payme** (Merchant API): set the endpoint to
+  `https://your-domain/api/payments/payme`, account field `order_id`; put
+  `PAYME_MERCHANT_ID` and `PAYME_KEY`. For the sandbox
+  (test.paycom.uz), set `PAYME_TEST_MODE=true` and `PAYME_TEST_KEY`.
+- `APP_URL` must be the public https origin (return links after payment).
+- `BILLING_REQUIRED_FOR_EXPORT=true` makes the corrected-file download
+  require a paid order for that catalogue or an active firm subscription.
+
+A paid order writes `billing.paid` to the audit log; orders and provider
+transactions are in the `order` and `payment_transaction` tables.
+
 ## 8. Operating it
 
 | Task | Command |

@@ -189,8 +189,11 @@ model Organization {
   clients   Client[]
   notifications Notification[]
   telegramLinks TelegramLink[]
+  orders    Order[]
   catalogs  Catalog[]
   events    AuditEvent[]
+  /// Paid firm subscription runs until this moment; null = none.
+  subscriptionUntil DateTime?
   /// Firm name printed on client PDF reports; null = the org name.
   brandName String?
   /// Logo printed on client PDF reports (PNG or JPEG, small).
@@ -539,6 +542,63 @@ model TelegramPending {
 
   @@index([chatId])
   @@map("telegram_pending")
+}
+
+/// A purchase: one "Toʻgʻrilangan katalog" for a catalogue, or a month of the
+/// firm plan. Amount in soʻm, fixed when the order is created.
+model Order {
+  id          String      @id @default(cuid())
+  orgId       String
+  catalogId   String?
+  planId      String
+  amount      Int
+  status      OrderStatus @default(created)
+  provider    String?
+  createdAt   DateTime    @default(now())
+  paidAt      DateTime?
+  cancelledAt DateTime?
+
+  org          Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transactions PaymentTransaction[]
+
+  @@index([orgId, createdAt])
+  @@index([catalogId])
+  @@map("order")
+}
+
+enum OrderStatus {
+  created
+  paid
+  cancelled
+
+  @@map("order_status")
+}
+
+/// A payment provider's transaction for an order (Click or Payme), with the
+/// state and times their protocols require us to remember.
+model PaymentTransaction {
+  /// Also Click's merchant_prepare_id / merchant_confirm_id, hence an integer.
+  id           Int      @id @default(autoincrement())
+  orderId      String
+  provider     String
+  /// click_trans_id or the Payme transaction id.
+  externalId   String
+  amountTiyin  BigInt
+  /// Payme: 1 created, 2 performed, -1 cancelled before, -2 cancelled after.
+  /// Click: 1 prepared, 2 completed, -1 cancelled.
+  state        Int
+  /// Provider-side creation time (Payme "time"), ms.
+  providerTime BigInt?
+  createTime   BigInt
+  performTime  BigInt?
+  cancelTime   BigInt?
+  reason       Int?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([orderId])
+  @@map("payment_transaction")
 }
 
 /// LLM rerank verdicts keyed by a hash of model + prompt version + normalized

@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Header, Shell } from '@/components/chrome';
+import { PayButtons } from '@/components/pay-buttons';
+import { billingConfig } from '@/lib/billing/config';
+import { firmPlan } from '@/lib/billing/plans';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
@@ -19,8 +22,14 @@ export default async function SettingsPage() {
   const [demo, links, org] = await Promise.all([
     isDemoOrg(user.orgId),
     listLinks(user.orgId),
-    db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true } }),
+    db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, subscriptionUntil: true } }),
   ]);
+  // The firm plan shows only once its price is set and a provider is configured.
+  const billing = billingConfig();
+  const plan = firmPlan();
+  const providers = [billing.click ? 'click' as const : null, billing.payme ? 'payme' as const : null]
+    .filter((x): x is 'click' | 'payme' => x !== null);
+  const active = org.subscriptionUntil && org.subscriptionUntil > new Date() ? org.subscriptionUntil : null;
   const logoUrl = org.logoData && org.logoMime ? `data:${org.logoMime};base64,${Buffer.from(org.logoData).toString('base64')}` : null;
 
   return (
@@ -34,6 +43,15 @@ export default async function SettingsPage() {
             <h2 className="mb-1 text-lg">{t.brandSection}</h2>
             <p className="mb-4 text-sm text-ink-soft">{t.brandHint}</p>
             <BrandForm brandName={org.brandName ?? ''} orgName={org.name} logoUrl={logoUrl} />
+          </section>
+        ) : null}
+
+        {plan && providers.length > 0 && !demo ? (
+          <section className="mt-10 max-w-3xl">
+            <h2 className="mb-1 text-lg">{t.subTitle}</h2>
+            <p className="text-sm text-ink-soft tnum">{t.subPrice(plan.price.toLocaleString('uz-UZ'))}</p>
+            <p className="mb-3 text-sm">{active ? t.subUntil(active.toLocaleDateString('uz-UZ')) : t.subNone}</p>
+            <PayButtons planId={plan.id} catalogId={null} providers={providers} />
           </section>
         ) : null}
 

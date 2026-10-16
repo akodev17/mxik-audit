@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { commitUpload, previewUpload, type PreviewState } from '@/app/actions/catalog';
 import type { ColumnMap } from '@/lib/column-map';
 import { t } from '@/lib/i18n';
+import { applyPreset, IMPORT_PRESETS, presetLabel } from '@/lib/import-presets';
 
 const FIELDS: { key: keyof ColumnMap; label: string; required: boolean }[] = [
   { key: 'name', label: t.uploadColumnName, required: true },
@@ -116,6 +117,21 @@ export function UploadForm({ hadPreviousMapping, clients, initialClientId }: {
             {hadPreviousMapping ? (
               <p className="mt-1 text-xs text-ink-faint">{t.uploadRemembered}</p>
             ) : null}
+            <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+              <span>{t.uploadPreset}:</span>
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const preset = IMPORT_PRESETS.find((p) => p.id === e.target.value);
+                  setMapping(preset ? applyPreset(preset, preview.headers, preview.suggested) : null);
+                }}
+                className="border border-rule bg-paper px-2 py-1 text-ink focus:border-ink focus:outline-none"
+              >
+                <option value="">{t.uploadPresetAuto}</option>
+                {IMPORT_PRESETS.map((p) => <option key={p.id} value={p.id}>{presetLabel(p)}</option>)}
+              </select>
+              <span className="text-xs text-ink-faint">{t.uploadPresetHint}</span>
+            </label>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {FIELDS.map((field) => (
                 <div key={field.key}>

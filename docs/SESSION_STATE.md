@@ -740,7 +740,7 @@ commit only with explicit pathspecs (`git commit -- <paths>`), never `git add -A
 | L money at risk | done | `L:` |
 | M new code request | done | `M:` |
 | N construction general→detailed | not implemented, doc | `N:` |
-| O formats + payments | in progress | |
+| O formats + payments | done | `O:` |
 | F–O | next, in order | |
 
 Gotcha found: in `node -e`/heredoc edit scripts, a `\\s` inside a JS template
