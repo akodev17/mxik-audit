@@ -1,4 +1,4 @@
-import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
+import { SAMPLE_REPORT, type SampleRow } from '@/lib/sample-report.generated';
 import { LEAD_FILE_RETENTION_DAYS } from './config';
 
 export const nf = new Intl.NumberFormat('uz-UZ');
@@ -26,20 +26,30 @@ export const MARKED_CODES = C.markedCodes;     // confirmed digitally marked
 export const STRICT_UNIT_PCT = `${((100 * C.strictUnitCodes) / C.codes).toFixed(1).replace('.', ',')}%`;
 export const SNAPSHOT = C.snapshot;
 
-/** The sample's download name, under public/demo/. Same value as SAMPLE_FILENAME
- *  in scripts/landing-sample/catalog.ts (a test holds them together); not
- *  imported from there because that module pulls in exceljs. */
-export const SAMPLE_FILENAME = 'namuna-katalog.xlsx';
+/* ------------------------------------------------------------- diagram source
 
-/* ------------------------------------------------------------- the sample
+   Nothing on this page is a screenshot of the application, and nothing is an
+   invented number either: the diagrams are built from HTML and driven by the
+   frozen sample audit in src/lib/sample-report.generated.ts. So the product
+   names, the 17-digit codes, the finding types and the totals in every figure
+   below are what the pipeline actually produced on the demo catalogue.
 
-   Nothing on this page is a screenshot and nothing is an invented number: the
-   workspace and the code anatomy are driven by the frozen sample audit in
-   src/lib/sample-report.generated.ts, the demo's own catalogue run through the
-   real pipeline. A made-up MXIK (12345678901234567) would read as carelessness
-   to this audience, and we have real ones to hand.
+   That rules out the placeholder codes a concept diagram would normally use
+   (12345678901234567): to this audience a made-up MXIK reads as carelessness,
+   and we have real ones to hand.
 
-   The sample's totals appear in ONE place only: the workspace at the top. */
+   The totals (rows, risky rows, per-type counts) appear in ONE place only: the
+   sample report section. Figures elsewhere show rows, never the sum. */
+
+function rowOfType(type: string): SampleRow {
+  const row = SAMPLE_REPORT.rows.find((r) => r.type === type) ?? SAMPLE_REPORT.rows[0];
+  if (!row) throw new Error('The frozen sample report has no rows; run npm run make:sample-report.');
+  return row;
+}
+
+/** The MISMATCH case: a real code that is valid but describes another product —
+ *  the finding that is impossible to spot by eye, so it carries the walkthrough. */
+export const FOCUS_ROW = rowOfType('MISMATCH');
 
 /* ------------------------------------------------------------------ evidence
 
@@ -190,6 +200,27 @@ export function consequences(showLegal223: boolean): readonly Consequence[] {
   ];
 }
 
+/* --------------------------------------------------------------- the findings */
+
+export const FINDINGS = [
+  { key: 'MISSING' as const, label: 'Kod yoʻq', body: 'Qatorda MXIK kodi koʻrsatilmagan.' },
+  {
+    key: 'NOT_FOUND' as const,
+    label: 'Bazada topilmadi',
+    body: 'Kod yozilgan, lekin tasniflagichda bunday kod yoʻq.',
+  },
+  {
+    key: 'MISMATCH' as const,
+    label: 'Nomga mos emas',
+    body: 'Kod haqiqiy, lekin u boshqa tovarni bildiradi.',
+  },
+  {
+    key: 'UNIT_CONFLICT' as const,
+    label: 'Oʻlchov birligi mos emas',
+    body: 'Kodga qatʼiy biriktirilgan birlik katalogdagidan farq qiladi.',
+  },
+] as const;
+
 /* The four checks, in the order the audit runs them — the content of the
    "Tekshiring" diagram. Only ARCHIVED is missing, and deliberately: Gate 0
    established that no accessible source exposes deprecation status, so it is
@@ -199,6 +230,16 @@ export const CHECKS = [
   { q: 'Kod tasniflagichda bormi?', fail: 'Bazada topilmadi' },
   { q: 'Kod tovar nomiga mos keladimi?', fail: 'Nomga mos emas' },
   { q: 'Oʻlchov birligi kodga mos keladimi?', fail: 'Oʻlchov birligi mos emas' },
+] as const;
+
+/* Column headers the importer recognises. Both scripts appear in real
+   catalogues — Gate 0 found 23% of the official Latin export carries Cyrillic
+   inside otherwise Latin strings, and customer files are worse. */
+export const COLUMN_MAP = [
+  { from: 'Наименование товара', to: 'Tovar nomi' },
+  { from: 'Штрих-код', to: 'Shtrix kod' },
+  { from: 'MXIK kodi', to: 'MXIK kodi' },
+  { from: 'Ед. изм.', to: 'Oʻlchov birligi' },
 ] as const;
 
 /* ------------------------------------------------------------------ data flow
@@ -242,3 +283,22 @@ export const DATA_FLOW = {
     + 'topilmalari va qarorlar yozuvlari bilan birga.',
   purpose: 'Fayl faqat shu audit uchun ishlatiladi.',
 } as const;
+
+export const TYPE_LABEL: Record<string, string> = {
+  MISSING: 'Kod yoʻq',
+  NOT_FOUND: 'Bazada topilmadi',
+  MISMATCH: 'Nomga mos emas',
+  UNIT_CONFLICT: 'Oʻlchov birligi',
+};
+
+/**
+ * What to do about a row, in one line. A UNIT_CONFLICT keeps its code — the
+ * pipeline suggests the same code back — so showing that code as "the fix"
+ * would read as "nothing to do". Say what actually changes.
+ */
+export function fixText(row: SampleRow): string {
+  if (row.type === 'UNIT_CONFLICT') {
+    return `Kod toʻgʻri — oʻlchov birligini «${row.unit ?? '—'}» → «${row.requiredUnit ?? '—'}» ga oʻzgartiring`;
+  }
+  return row.suggestedMxik ?? 'Mos kod topilmadi';
+}
