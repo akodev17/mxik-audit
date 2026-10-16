@@ -22,6 +22,7 @@ function scored(code: string, confidence: number, overrides: Partial<MxikCandida
     signals: {}, ranks: {}, confidence,
     band: confidence >= 0.9 ? 'high' : confidence >= 0.6 ? 'medium' : 'low',
     reason: 'because', stage: 'fusion', adjustments: [],
+    evidence: { stage: 'fusion', barcode: false, exactName: false, matchedWords: [], unit: 'none', rerankReason: null, rerankNone: false },
   };
 }
 

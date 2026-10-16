@@ -3,9 +3,12 @@ import { redirect } from 'next/navigation';
 import { ConfidenceBadge, Header, Shell, TypeBadge } from '@/components/chrome';
 import { CatalogStatus } from '@/components/catalog-status';
 import { CatalogSwitcher } from '@/components/catalog-switcher';
+import { CodeCell } from '@/components/code-cell';
+import { BarcodeBadge, WhyThisCode } from '@/components/evidence';
 import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
+import { findingRows } from '@/lib/finding-view';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { PrintButton } from './print-button';
@@ -87,8 +90,9 @@ export default async function ReportPage(
     // to look at come to the top.
     orderBy: [{ severity: 'asc' }, { confidence: 'asc' }],
     take: 300,
-    include: { item: { select: { rowIndex: true, rawName: true, existingMxik: true, unit: true } } },
+    include: { item: { select: { id: true, rowIndex: true, rawName: true, existingMxik: true, unit: true } } },
   });
+  const { rows } = await findingRows(findings);
 
   const totalFindings = [...counts.values()].reduce((a, b) => a + b, 0);
   const clean = riskyRows === 0;
@@ -167,7 +171,7 @@ export default async function ReportPage(
           </div>
         </div>
 
-        {findings.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="mt-8 text-ink-soft">{t.reportEmpty}</p>
         ) : (
           <div className="mt-4 overflow-x-auto border border-rule">
@@ -183,19 +187,25 @@ export default async function ReportPage(
                 </tr>
               </thead>
               <tbody>
-                {findings.map((f) => (
-                  <tr key={f.id} className="border-b border-rule align-top last:border-0">
-                    <td className="px-3 py-2 text-ink-faint tnum">{f.item.rowIndex + 1}</td>
-                    <td className="max-w-md px-3 py-2">
-                      <span className="block">{f.item.rawName}</span>
-                      <span className="block text-xs text-ink-faint">{f.reason}</span>
+                {rows.map((r) => (
+                  <tr key={r.findingId} className="border-b border-rule align-top last:border-0">
+                    <td className="px-3 py-2 text-ink-faint tnum">{r.rowIndex + 1}</td>
+                    <td className="max-w-sm px-3 py-2">
+                      <span className="block">{r.productName}</span>
+                      <span className="block text-xs text-ink-faint">{r.reason}</span>
                     </td>
-                    <td className="px-3 py-2"><TypeBadge type={f.type} severity={f.severity} /></td>
-                    <td className="px-3 py-2 code text-xs">
-                      {f.item.existingMxik ?? <span className="text-ink-faint">{t.reviewNoCode}</span>}
+                    <td className="px-3 py-2"><TypeBadge type={r.type} severity={r.severity} /></td>
+                    <td className="max-w-xs px-3 py-2">
+                      <CodeCell code={r.currentMxik} info={r.currentInfo} empty={t.reviewNoCode} />
                     </td>
-                    <td className="px-3 py-2 code text-xs">{f.suggestedMxik ?? '—'}</td>
-                    <td className="px-3 py-2"><ConfidenceBadge confidence={f.confidence} /></td>
+                    <td className="max-w-xs px-3 py-2">
+                      <CodeCell code={r.suggestedMxik} info={r.suggestedInfo} />
+                      {r.evidence?.barcode ? <span className="mt-1 block"><BarcodeBadge /></span> : null}
+                      <span className="no-print block">
+                        <WhyThisCode evidence={r.evidence} confidence={r.confidence} rowUnit={r.unit} codeUnit={r.suggestedInfo?.unit ?? null} />
+                      </span>
+                    </td>
+                    <td className="px-3 py-2"><ConfidenceBadge confidence={r.confidence} barcode={r.evidence?.barcode} /></td>
                   </tr>
                 ))}
               </tbody>

@@ -4,36 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { acceptAllAbove, decide, lookupCodes, undo, type ClassifierHit } from '@/app/actions/review';
 import { ConfidenceBadge, TypeBadge } from '@/components/chrome';
+import { CodeCell } from '@/components/code-cell';
+import { BarcodeBadge, WhyThisCode } from '@/components/evidence';
+import type { FindingRow } from '@/lib/finding-view';
 import { t } from '@/lib/i18n';
 
-export type Alternative = {
-  code: string;
-  name: string;
-  confidence: number;
-  reason: string;
-  isBase: boolean;
-};
-
-export type ReviewRow = {
-  findingId: string;
-  rowIndex: number;
-  productName: string;
-  currentMxik: string | null;
-  unit: string | null;
-  type: string;
-  severity: string;
-  reason: string;
-  suggestedMxik: string | null;
-  suggestedName: string | null;
-  suggestedPath: string | null;
-  suggestedUnit: string | null;
-  confidence: number | null;
-  alternatives: Alternative[];
-  decision: 'pending' | 'accepted' | 'rejected';
-  chosenMxik: string | null;
-  /** The audit event behind the current decision; what undo reverts. */
-  decisionEventId: string | null;
-};
+export type ReviewRow = FindingRow;
 
 const DECISION_LABEL = {
   pending: t.reviewPending,
@@ -243,46 +219,47 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
                   <span className="mt-1 block text-xs text-ink-faint">{row.reason}</span>
                 </td>
 
-                <td className="px-3 py-2 code text-xs">
-                  {row.currentMxik ?? <span className="font-sans text-ink-faint">{t.reviewNoCode}</span>}
+                <td className="max-w-xs px-3 py-2">
+                  <CodeCell code={row.currentMxik} info={row.currentInfo} empty={t.reviewNoCode} />
                 </td>
 
                 <td className="max-w-md px-3 py-2">
                   {row.suggestedMxik ? (
                     <>
-                      <span className="code block text-xs">
-                        {row.chosenMxik && row.chosenMxik !== row.suggestedMxik ? row.chosenMxik : row.suggestedMxik}
-                      </span>
-                      {row.suggestedName ? (
-                        <span className="block text-xs text-ink-soft">{row.suggestedName}</span>
-                      ) : null}
-                      {row.suggestedPath ? (
-                        <span className="mt-0.5 block text-xs text-ink-faint">
-                          {t.reviewHierarchy}: {row.suggestedPath}
-                        </span>
-                      ) : null}
-                      {row.suggestedUnit ? (
+                      {row.chosenMxik && row.chosenMxik !== row.suggestedMxik
+                        ? <CodeCell code={row.chosenMxik} info={row.chosenInfo} />
+                        : <CodeCell code={row.suggestedMxik} info={row.suggestedInfo} />}
+                      {row.suggestedInfo?.unit ? (
                         <span className="block text-xs text-ink-faint">
-                          {t.reviewBoundUnit}: {row.suggestedUnit}
+                          {t.reviewBoundUnit}: {row.suggestedInfo.unit}
                         </span>
                       ) : null}
+                      {row.evidence?.barcode ? <span className="mt-1 block"><BarcodeBadge /></span> : null}
+                      <WhyThisCode
+                        evidence={row.evidence} confidence={row.confidence}
+                        rowUnit={row.unit} codeUnit={row.suggestedInfo?.unit ?? null}
+                      />
                       {row.alternatives.length > 1 ? (
                         <details className="mt-1">
                           <summary className="cursor-pointer text-xs text-ink-soft">
                             {t.reviewAlternatives} ({row.alternatives.length - 1})
                           </summary>
-                          <ul className="mt-1 space-y-1">
+                          <ul className="mt-1 space-y-1.5">
                             {row.alternatives.slice(1).map((alt) => (
-                              <li key={alt.code} className="flex items-baseline gap-2">
+                              <li key={alt.code} className="flex items-start gap-2">
                                 <button
                                   type="button"
                                   onClick={() => apply(row.findingId, 'accepted', alt.code)}
-                                  className="code text-xs underline hover:text-ink"
+                                  disabled={alt.info !== null && !alt.info.live}
+                                  className="code shrink-0 text-xs underline hover:text-ink disabled:no-underline disabled:opacity-50"
                                 >
                                   {alt.code}
                                 </button>
-                                <span className="text-xs text-ink-faint">{alt.name}</span>
-                                <ConfidenceBadge confidence={alt.confidence} />
+                                <span className="text-xs text-ink-faint">
+                                  {alt.info?.name ?? alt.name}
+                                  {alt.info?.shortPath ? <span className="block" title={alt.info.fullPath}>{alt.info.shortPath}</span> : null}
+                                </span>
+                                <ConfidenceBadge confidence={alt.confidence} barcode={alt.evidence?.barcode} />
                               </li>
                             ))}
                           </ul>
@@ -300,13 +277,13 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
                   ) : null}
                 </td>
 
-                <td className="px-3 py-2"><ConfidenceBadge confidence={row.confidence} /></td>
+                <td className="px-3 py-2"><ConfidenceBadge confidence={row.confidence} barcode={row.evidence?.barcode} /></td>
 
                 <td className="px-3 py-2">
                   {row.decision === 'pending' ? (
                     <div className="flex flex-col gap-1">
                       <button
-                        type="button" disabled={!row.suggestedMxik}
+                        type="button" disabled={!row.suggestedMxik || row.suggestedInfo?.live === false}
                         onClick={() => apply(row.findingId, 'accepted')}
                         className="whitespace-nowrap bg-ink px-2 py-1 text-xs text-paper disabled:opacity-40"
                       >

@@ -175,6 +175,7 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
           alternatives: f.alternatives,
           reason: f.reason,
           wasRetired: f.wasRetired,
+          evidence: f.evidence ?? undefined,
         })),
       }));
       findingsCreated += findings.length;

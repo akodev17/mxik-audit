@@ -9,6 +9,8 @@ import { normalizeBarcode, normalizeName } from '../normalize/index.js';
 import { reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankGate } from './rerank-gate.js';
+import { evidenceFor } from './evidence.js';
+import { NONE_REASON } from './rerank-parse.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
 import { bandOf, calibrate } from './score.js';
 import type {
@@ -59,6 +61,7 @@ function certain(
   reason: string,
   rowUnit: string | null,
   preparedDish: boolean,
+  productName: string,
 ): ScoredCandidate {
   const rules = applyRules({ candidate, rowUnit, preparedDish });
   return {
@@ -72,6 +75,7 @@ function certain(
     reason,
     stage,
     adjustments: rules.notes,
+    evidence: evidenceFor({ stage, productName, rowUnit, candidate }),
   };
 }
 
@@ -95,7 +99,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     if (hits.length === 1 && hits[0]) {
       return {
         input, normalized, decidedBy: 'barcode', notes, pool: [hits[0].code],
-        candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, preparedDish)],
+        candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, preparedDish, input.rawName)],
       };
     }
     if (hits.length > 1) {
@@ -111,7 +115,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code],
-        candidates: [certain(exact[0], 0.95, 'exact', 'Product name matches this classifier entry exactly after normalization.', rowUnit, preparedDish)],
+        candidates: [certain(exact[0], 0.95, 'exact', 'Product name matches this classifier entry exactly after normalization.', rowUnit, preparedDish, input.rawName)],
       };
     }
     if (exact.length > 1) notes.push(`${exact.length} codes share this normalized name; ranking them.`);
@@ -172,6 +176,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
   // ------------------------------------------------------------- 6. rerank
   const llmScore = new Map<string, { confidence: number; reason: string }>();
   let decidedBy: MatchResult['decidedBy'] = 'fusion';
+  let rerankNone = false;
   if (reranker.available && fused.length > 0) {
     // The gate reads uncapped retrieval confidence; skipping never lifts the cap.
     const gate = rerankGate(
@@ -198,6 +203,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
         }
         for (const v of valid) llmScore.set(v.code, { confidence: v.confidence, reason: v.reason });
         if (valid.length > 0) decidedBy = 'rerank';
+        rerankNone = valid.length > 0 && valid.every((v) => v.confidence === 0 && v.reason === NONE_REASON);
       } catch (error) {
         notes.push(`Reranker failed (${error instanceof Error ? error.message : String(error)}); falling back to fusion order.`);
       }
@@ -239,6 +245,14 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
       reason: llm?.reason ?? describeMatch(p.fused.item, p.signals.lexical),
       stage: llm ? 'rerank' : 'fusion',
       adjustments: p.rules.notes,
+      evidence: evidenceFor({
+        stage: llm ? 'rerank' : 'fusion',
+        productName: input.rawName,
+        rowUnit,
+        candidate: p.fused.item,
+        rerankReason: llm && !rerankNone ? llm.reason : null,
+        rerankNone,
+      }),
     };
   }).sort((a, b) => b.confidence - a.confidence);
 

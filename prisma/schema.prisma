@@ -280,6 +280,8 @@ model Finding {
   /// Runner-up candidates, each with code, name, path, confidence and reason.
   alternatives  Json
   reason        String
+  /// Why the suggested code was proposed (src/core/match/evidence.ts). Null on older audits.
+  evidence      Json?
   /// True when this code existed in an earlier snapshot and has since vanished.
   /// Carries the archive signal until there is enough history to surface it.
   wasRetired    Boolean     @default(false)

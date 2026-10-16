@@ -62,6 +62,7 @@ export async function startDemoSession(now = new Date()): Promise<DemoSession | 
       itemId: idByRow.get(i.rowIndex) ?? '',
       type: f.type, severity: f.severity, suggestedMxik: f.suggestedMxik, confidence: f.confidence,
       alternatives: f.alternatives ?? [], reason: f.reason, wasRetired: f.wasRetired,
+      evidence: f.evidence ?? undefined,
     })));
     if (findings.length > 0) await tx.finding.createMany({ data: findings });
     await tx.auditEvent.create({

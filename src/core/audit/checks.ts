@@ -5,6 +5,7 @@
 // retired code reports as NOT_FOUND with `wasRetired` set. Once snapshot history
 // accumulates, flipping it into its own type is an enum addition and one branch.
 import { unitsCompatible } from '../normalize/units.js';
+import type { MatchEvidence } from '../match/evidence.js';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 
 export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT';
@@ -48,9 +49,12 @@ export type Finding = {
     confidence: number;
     reason: string;
     isBase: boolean;
+    evidence: MatchEvidence;
   }[];
   reason: string;
   wasRetired: boolean;
+  /** Why the suggested code was proposed; null when nothing was suggested. */
+  evidence: MatchEvidence | null;
 };
 
 /** Normalizes whatever the spreadsheet had into a code or nothing. */
@@ -67,6 +71,7 @@ function alternativesOf(suggestions: readonly ScoredCandidate[]): Finding['alter
     confidence: s.confidence,
     reason: s.reason,
     isBase: s.candidate.isBase,
+    evidence: s.evidence,
   }));
 }
 
@@ -93,6 +98,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `Qatorda MXIK kodi yoʻq. Taklif: ${best.candidate.code}.`
         : 'Qatorda MXIK kodi yoʻq va mos kod topilmadi.',
       wasRetired: false,
+      evidence: best?.evidence ?? null,
     });
     return findings;
   }
@@ -109,6 +115,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `${code} kodi klassifikatorning joriy versiyasida yoʻq (avvalgi versiyada mavjud edi).`
         : `${code} kodi klassifikatorda topilmadi.`,
       wasRetired: row.existing.retired,
+      evidence: best?.evidence ?? null,
     });
     return findings;
   }
@@ -135,6 +142,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `${code} kodi tovar nomiga mos kelmaydi. Taklif: ${best.candidate.code}.`
         : `${code} kodi tovar nomiga mos kelmaydi.`,
       wasRetired: false,
+      evidence: best?.evidence ?? null,
     });
   }
 
@@ -151,6 +159,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
       alternatives: [],
       reason: `Oʻlchov birligi notoʻgʻri: qatorda "${row.unit ?? ''}", kod talab qiladi "${existing.unitCanonical.join(' / ')}".`,
       wasRetired: false,
+      evidence: null,
     });
   }
 

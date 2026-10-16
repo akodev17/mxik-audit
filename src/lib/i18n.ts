@@ -182,6 +182,28 @@ export type Dict = {
   confidenceLikely: string;
   confidenceCheck: string;
   confidenceDetail: (percent: number) => string;
+
+  // what a code means, and why it was suggested
+  codeArchived: string;
+  codeUnknown: string;
+  badgeBarcode: string;
+  whyTitle: string;
+  whyBarcode: string;
+  whyExact: string;
+  whyWords: (words: readonly string[]) => string;
+  whyNoWords: string;
+  whyUnitMatch: (unit: string) => string;
+  whyUnitConflict: (rowUnit: string, codeUnit: string) => string;
+  whyUnitUnknown: string;
+  whyUnitNone: string;
+  whyRerank: (reason: string) => string;
+  whyRerankNone: string;
+  whyScore: (percent: number) => string;
+  exportPreviewTitle: string;
+  exportPreviewEmpty: string;
+  exportPreviewMore: (n: number) => string;
+  exportBefore: string;
+  exportAfter: string;
 };
 
 export const uz: Dict = {
@@ -353,6 +375,27 @@ export const uz: Dict = {
   confidenceLikely: 'Ehtimoliy',
   confidenceCheck: 'Tekshirish kerak',
   confidenceDetail: (percent) => `Moslik bahosi: ${percent}%`,
+
+  codeArchived: 'Tasniflagichda arxivlangan',
+  codeUnknown: 'Tasniflagichda topilmadi',
+  badgeBarcode: 'Shtrix-kod boʻyicha',
+  whyTitle: 'Nega bu kod?',
+  whyBarcode: 'Qatordagi shtrix-kod tasniflagichda aynan shu kodga biriktirilgan.',
+  whyExact: 'Tovar nomi tasniflagichdagi nom bilan bir xil (yozilish farqlari hisobga olinmagan).',
+  whyWords: (words) => `Nomdagi mos soʻzlar: ${words.join(', ')}.`,
+  whyNoWords: 'Tovar nomi va kod nomida umumiy soʻz yoʻq.',
+  whyUnitMatch: (unit) => `Oʻlchov birligi mos: ${unit}.`,
+  whyUnitConflict: (rowUnit, codeUnit) => `Oʻlchov birligi mos emas: qatorda “${rowUnit}”, kod talab qiladi “${codeUnit}”.`,
+  whyUnitUnknown: 'Oʻlchov birligini solishtirib boʻlmadi.',
+  whyUnitNone: 'Kodga qatʼiy oʻlchov birligi biriktirilmagan.',
+  whyRerank: (reason) => `Tahlil: ${reason}`,
+  whyRerankNone: 'Tahlil: topilgan kodlarning hech biri bu tovarga mos kelmadi.',
+  whyScore: (percent) => `Moslik bahosi: ${percent}%.`,
+  exportPreviewTitle: 'Faylda oʻzgaradigan qatorlar',
+  exportPreviewEmpty: 'Hali birorta taklif qabul qilinmagan — fayl asl holicha qaytadi.',
+  exportPreviewMore: (n) => `yana ${n.toLocaleString('uz-UZ')} ta qator`,
+  exportBefore: 'Hozirgi kod',
+  exportAfter: 'Yangi kod',
 };
 
 const DICTS: Record<Locale, Dict> = { uz };
