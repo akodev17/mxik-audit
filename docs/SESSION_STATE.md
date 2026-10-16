@@ -727,12 +727,12 @@ Documented, **not fixed**.
 ## PRODUCT PASS A–O (done, 2026-10-16)
 
 Built on `feature/product-pass`, fast-forwarded into `main` (not pushed).
-One commit per feature (B+C share one, plus a test fix after K). The staged
-landing rollback in the index is someone else's undecided work: commit only
-with explicit pathspecs (`git commit -- <paths>`), never `git add -A`; the
-working-tree `package-lock.json` diff (48 `libc` lines) is npm-version churn,
-also not ours — dependency commits (grammy, pdfkit, dejavu-fonts-ttf) were
-built from HEAD's lockfile plus only the new packages.
+One commit per feature (B+C share one, plus a test fix after K). The
+landing rollback to the 15 Oct design, staged during the pass, was then
+committed to `main` at the owner's request ("Landing: restore the 15 Oct
+design"). The working-tree `package-lock.json` diff (48 `libc` lines) is
+npm-version churn, never committed — dependency commits (grammy, pdfkit,
+dejavu-fonts-ttf) were built from HEAD's lockfile plus only the new packages.
 
 Quality gate at the end: `tsc` clean, `npm run lint` 0 errors (1 accepted
 warning), `npm test` 326/326 with the DB, `npm run build` passes. 11 new
