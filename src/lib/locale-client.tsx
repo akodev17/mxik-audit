@@ -20,3 +20,6 @@ export function useI18n(): Value {
 
 /** BCP 47 tag for number and date formatting. */
 export const useFormatTag = (): string => (useContext(Ctx).locale === 'ru' ? 'ru-RU' : 'uz-UZ');
+
+/** Same tag without the hook, for callbacks. */
+export const formatTagOf = (locale: Locale): string => (locale === 'ru' ? 'ru-RU' : 'uz-UZ');

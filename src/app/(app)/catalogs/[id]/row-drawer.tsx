@@ -14,6 +14,7 @@ import { Skeleton } from '@/ui/skeleton';
 import { CodeCompare } from './code-compare';
 import { CodeSearch } from './code-search';
 import { RequestText } from './request-text';
+import { RowComments } from './row-comments';
 import { WrongFeedback } from './wrong-feedback';
 
 type Props = {
@@ -23,6 +24,7 @@ type Props = {
   onReject: () => void;
   onUndo: () => void;
   onChoose: (code: string, name: string) => void;
+  onComments: (count: number, flag: string | null) => void;
   readOnly: boolean;
 };
 
@@ -38,7 +40,7 @@ function Meta({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose']; readOnly: boolean }) {
+function Body({ row, detail, onChoose, onComments, readOnly }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose']; onComments: Props['onComments']; readOnly: boolean }) {
   const { t, ta } = useI18n();
   const pending = row.decision === 'pending' && !readOnly;
   const conf = confidenceView(t, detail.confidence, row.barcode || row.dictionary);
@@ -101,6 +103,7 @@ function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDe
         <CodeSearch disabled={!pending} onPick={onChoose} />
       </section>
 
+      <RowComments findingId={detail.findingId} flag={row.flag} readOnly={readOnly} onChange={onComments} />
       {showRequest ? <RequestText findingId={detail.findingId} /> : null}
       {!readOnly && !detail.noSuggestion && detail.suggested ? <WrongFeedback findingId={detail.findingId} /> : null}
     </div>
@@ -108,7 +111,7 @@ function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDe
 }
 
 /** Right-hand detail panel for the active row; the grid stays usable behind it. */
-export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose, readOnly }: Props) {
+export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose, onComments, readOnly }: Props) {
   const { ta } = useI18n();
   const [detail, setDetail] = useState<RowDetail | null>(null);
   const [failed, setFailed] = useState(false);
@@ -146,7 +149,7 @@ export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose, 
         </div>
       ) : null}
     >
-      {row && detail ? <Body row={row} detail={detail} onChoose={onChoose} readOnly={readOnly} /> : null}
+      {row && detail ? <Body row={row} detail={detail} onChoose={onChoose} onComments={onComments} readOnly={readOnly} /> : null}
       {row && !detail && !failed ? (
         <div className="space-y-3" aria-busy="true"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-40 w-full" /><Skeleton className="h-40 w-full" /></div>
       ) : null}

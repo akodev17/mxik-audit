@@ -26,7 +26,7 @@ export type WorkspaceProps = {
   initialRows: GridRow[];
   initialNext: string | null;
   count: number;
-  filter: { type: string | null; q: string; pendingOnly: boolean };
+  filter: { type: string | null; q: string; pendingOnly: boolean; commented: boolean };
   /** Storage key for the one-time demo tips; null when they do not apply. */
   hintKey: string | null;
   /** Viewers see everything and change nothing. */
@@ -43,7 +43,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
   const toast = useToast();
   const [delta, setDelta] = useState(0);
   const onReviewed = useCallback((d: number) => setDelta((x) => x + d), []);
-  const { rows, apply, applyGroup, revert, append, markSure, markDictionary, applyMany, flagMany } = useDecisions(initialRows, onReviewed);
+  const { rows, apply, applyGroup, revert, append, markSure, markDictionary, applyMany, flagMany, setCommentMeta } = useDecisions(initialRows, onReviewed);
 
   const [next, setNext] = useState(initialNext);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -79,6 +79,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     setLoadFailed(false);
     try {
       const qs = new URLSearchParams({ cursor: next, pending: filter.pendingOnly ? '1' : '0' });
+      if (filter.commented) qs.set('comments', '1');
       if (filter.type) qs.set('type', filter.type);
       if (filter.q) qs.set('q', filter.q);
       const res = await fetch(`/api/catalogs/${catalogId}/rows?${qs}`);
@@ -172,7 +173,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     if (readOnly) return;
     setBulkBusy(true);
     const target = allFiltered
-      ? { filter: { type: filter.type, q: filter.q, pendingOnly: filter.pendingOnly } }
+      ? { filter: { type: filter.type, q: filter.q, pendingOnly: filter.pendingOnly, commented: filter.commented } }
       : { ids: [...selected] };
     const result = await bulkAction({ catalogId, target, action });
     setBulkBusy(false);
@@ -272,7 +273,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
       <SummaryStrip summary={summary} reviewedDelta={delta} activeType={filter.type} />
       <Toolbar
-        count={count} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy} readOnly={readOnly}
+        count={count} commented={filter.commented} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy} readOnly={readOnly}
         onCompact={setDensity} onGrouped={setGrouped} onAcceptSure={() => { void acceptSure(); }}
         dictionaryPending={summary.dictionaryPending} onAcceptDictionary={() => { void acceptDict(); }}
       />
@@ -316,6 +317,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
         onReject={() => { if (openRow) reject(openRow); }}
         onUndo={() => { if (openRow?.decisionEventId) void revert({ eventId: openRow.decisionEventId, findingId: openRow.findingId }); }}
         onChoose={(code, name) => { if (openRow) accept(openRow, { code, name }); }}
+        onComments={(count, flag) => { if (openRow) setCommentMeta(openRow.findingId, count, flag); }}
       />
     </div>
   );

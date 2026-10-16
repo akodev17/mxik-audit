@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!catalog) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const q = request.nextUrl.searchParams;
-  const filter = readFilter({ type: q.get('type'), q: q.get('q'), pending: q.get('pending') });
+  const filter = readFilter({ type: q.get('type'), q: q.get('q'), pending: q.get('pending'), comments: q.get('comments') });
   const { ids, next } = await workspacePageIds(catalog.id, filter, decodeCursor(q.get('cursor')), PAGE);
   const rows = await gridRows(user.orgId, catalog.id, ids);
   return NextResponse.json({ rows, next });

@@ -109,6 +109,11 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     return risky;
   }, []);
 
+  /** Keeps the grid's comment count and flag in step with the drawer. */
+  const setCommentMeta = useCallback((findingId: string, comments: number, flag: string | null) => {
+    patch(new Set([findingId]), (r) => ({ ...r, comments, flag }));
+  }, [patch]);
+
   /** Sets a flag on rows after the server did. */
   const flagMany = useCallback((ids: readonly string[], flag: string | null) => {
     const set = new Set(ids);
@@ -123,5 +128,5 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     return risky;
   }, []);
 
-  return { rows, apply, applyGroup, revert, append, markSure, markDictionary, applyMany, flagMany };
+  return { rows, apply, applyGroup, revert, append, markSure, markDictionary, applyMany, flagMany, setCommentMeta };
 }

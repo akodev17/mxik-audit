@@ -410,6 +410,7 @@ export const taRu: AppDict = {
       'finding.undone': 'Решение отменено',
       'finding.carried_over': 'Решения из прошлой версии перенесены',
       'finding.flagged': 'Строки помечены',
+      'finding.commented': 'Оставлен комментарий',
       'finding.split_from_group': 'Строка вынесена из группы',
       'suggestion.reported_wrong': 'Предложение отмечено как неверное',
       'dictionary.edited': 'Запись словаря изменена',
@@ -435,5 +436,15 @@ export const taRu: AppDict = {
       'schedule.set': 'Изменено расписание ежемесячной проверки',
     },
     system: 'система',
+  },
+  comments: {
+    title: 'Комментарии',
+    internal: 'Внутренние заметки: не видны в ссылке для клиента и в отчётах.',
+    askClient: 'Запросить у клиента',
+    resolved: 'Решено',
+    none: 'Комментариев пока нет.',
+    placeholder: 'Напишите комментарий…',
+    add: 'Добавить комментарий',
+    onlyCommented: 'Строки с комментариями',
   },
 };

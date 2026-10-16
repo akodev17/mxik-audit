@@ -8,7 +8,7 @@ import { RISKY_FINDING, RISKY_ITEM } from './risk';
 export const FINDING_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'] as const;
 export type WsType = (typeof FINDING_TYPES)[number];
 /** Chip filters: a finding type, markirovka, or null for all risky rows. */
-export type WsFilter = { type: WsType | 'MARKING' | null; q: string; pendingOnly: boolean };
+export type WsFilter = { type: WsType | 'MARKING' | null; q: string; pendingOnly: boolean; commented: boolean };
 
 export type WsSummary = {
   total: number;
@@ -39,9 +39,9 @@ export async function workspaceSummary(catalogId: string, rowCount: number): Pro
   };
 }
 
-export function readFilter(params: { type?: string | null; q?: string | null; pending?: string | null }): WsFilter {
+export function readFilter(params: { type?: string | null; q?: string | null; pending?: string | null; comments?: string | null }): WsFilter {
   const type = params.type === 'MARKING' ? 'MARKING' : FINDING_TYPES.find((x) => x === params.type) ?? null;
-  return { type, q: (params.q ?? '').trim().slice(0, 100), pendingOnly: params.pending !== '0' };
+  return { type, q: (params.q ?? '').trim().slice(0, 100), pendingOnly: params.pending !== '0', commented: params.comments === '1' };
 }
 
 export type Cursor = { sev: string; conf: number; row: number; id: string };
@@ -65,6 +65,7 @@ function conditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
   else if (filter.type) where.push(Prisma.sql`f.type = ${filter.type}::finding_type`);
   else where.push(Prisma.sql`f.severity IN ('high'::severity, 'medium'::severity)`);
   if (filter.pendingOnly) where.push(Prisma.sql`f.decision = 'pending'::decision`);
+  if (filter.commented) where.push(Prisma.sql`EXISTS (SELECT 1 FROM finding_comment fc WHERE fc."findingId" = f.id)`);
   if (filter.q) {
     const like = `%${filter.q.replace(/[\\%_]/g, '\\$&')}%`;
     const digits = /^\d{3,17}$/.test(filter.q) ? `${filter.q}%` : null;

@@ -409,6 +409,7 @@ export const taUz = {
       'finding.undone': 'Qaror bekor qilindi',
       'finding.carried_over': 'Oldingi versiyadagi qarorlar koʻchirildi',
       'finding.flagged': 'Qatorlar belgilandi',
+      'finding.commented': 'Izoh qoldirildi',
       'finding.split_from_group': 'Qator guruhdan ajratildi',
       'suggestion.reported_wrong': 'Taklif notoʻgʻri deb belgilandi',
       'dictionary.edited': 'Lugʻat yozuvi oʻzgartirildi',
@@ -434,6 +435,16 @@ export const taUz = {
       'schedule.set': 'Oylik tekshiruv jadvali oʻzgartirildi',
     } as Record<string, string>,
     system: 'tizim',
+  },
+  comments: {
+    title: 'Izohlar',
+    internal: 'Ichki yozuvlar: mijoz havolasida va hisobotlarda koʻrinmaydi.',
+    askClient: 'Mijozdan soʻrash',
+    resolved: 'Hal qilindi',
+    none: 'Hali izoh yoʻq.',
+    placeholder: 'Izoh yozing…',
+    add: 'Izoh qoʻshish',
+    onlyCommented: 'Izohli qatorlar',
   },
 };
 

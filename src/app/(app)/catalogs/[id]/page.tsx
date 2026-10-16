@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const FIRST_PAGE = 120;
 
-type SearchParams = { type?: string; q?: string; pending?: string };
+type SearchParams = { type?: string; q?: string; pending?: string; comments?: string };
 
 export default async function CatalogWorkspacePage(
   { params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> },
@@ -62,7 +62,7 @@ export default async function CatalogWorkspacePage(
         <MoneyAtRisk catalogId={catalog.id} columnMap={catalog.columnMap} />
       </Suspense>
       <Workspace
-        key={`${catalog.id}|${filter.type}|${filter.q}|${filter.pendingOnly}`}
+        key={`${catalog.id}|${filter.type}|${filter.q}|${filter.pendingOnly}|${filter.commented}`}
         catalogId={catalog.id}
         summary={summary}
         initialRows={rows}

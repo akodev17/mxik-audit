@@ -11,6 +11,7 @@ type Props = {
   grouped: boolean;
   pendingOnly: boolean;
   query: string;
+  commented: boolean;
   busy: boolean;
   onCompact: (v: boolean) => void;
   onGrouped: (v: boolean) => void;
@@ -36,7 +37,7 @@ function Segment({ options, value, onChange, label }: { options: [string, string
 }
 
 /** Density, grouping, review scope and bulk accept for the grid below. */
-export function Toolbar({ count, compact, grouped, pendingOnly, query, busy, onCompact, onGrouped, onAcceptSure, readOnly, dictionaryPending, onAcceptDictionary }: Props) {
+export function Toolbar({ count, compact, grouped, pendingOnly, query, commented, busy, onCompact, onGrouped, onAcceptSure, readOnly, dictionaryPending, onAcceptDictionary }: Props) {
   const { ta } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -62,6 +63,13 @@ export function Toolbar({ count, compact, grouped, pendingOnly, query, busy, onC
           onChange={(e) => go((p) => { if (e.target.checked) p.delete('pending'); else p.set('pending', '0'); })}
         />
         {ta.ws.onlyUnreviewed}
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox" checked={commented} className="size-4 accent-[var(--color-brand)]"
+          onChange={(e) => go((p) => { if (e.target.checked) p.set('comments', '1'); else p.delete('comments'); })}
+        />
+        {ta.comments.onlyCommented}
       </label>
       <div className="ml-auto flex flex-wrap items-center gap-3">
         {readOnly || dictionaryPending === 0 ? null : <Button size="sm" variant="secondary" disabled={busy} onClick={onAcceptDictionary}>{ta.dict.acceptAll(dictionaryPending)}</Button>}

@@ -1,6 +1,7 @@
 // Grid rows: lean, JSON-safe, with just the names the grid prints.
 import { groupKeyOf } from '../core/match/group-key.js';
 import { readEvidence } from '../core/match/evidence.js';
+import { commentCounts } from './comments';
 import { codeDetails, type CodeDetail } from './code-details';
 import { db } from './db';
 
@@ -26,6 +27,8 @@ export type GridRow = {
   marking: boolean;
   /** ask_client, resolved or null. */
   flag: string | null;
+  /** Notes on the row. */
+  comments: number;
   decision: 'pending' | 'accepted' | 'rejected';
   chosenMxik: string | null;
   chosenName: string | null;
@@ -45,6 +48,7 @@ export async function gridRows(orgId: string, catalogId: string, ids: readonly s
   });
   const details = await codeDetails(findings.flatMap((f) => [f.item.existingMxik, f.suggestedMxik, f.chosenMxik]));
   const byId = new Map(findings.map((f) => [f.id, f]));
+  const counts = await commentCounts(findings.map((f) => f.id));
 
   return ids.flatMap((id) => {
     const f = byId.get(id);
@@ -71,6 +75,7 @@ export async function gridRows(orgId: string, catalogId: string, ids: readonly s
       noSuggestion: !f.suggestedMxik || evidence?.rerankNone === true,
       marking: f.item.markingRequired,
       flag: f.flag,
+      comments: counts.get(f.id) ?? 0,
       decision: f.decision,
       chosenMxik: f.chosenMxik,
       chosenName: chosen?.name ?? null,

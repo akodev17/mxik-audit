@@ -4,6 +4,7 @@ import { useI18n } from '@/lib/locale-client';
 import { memo } from 'react';
 import type { GridRow } from '@/lib/workspace-rows';
 import { Badge, StatusChip } from '@/ui/badge';
+import { IconComment } from '@/ui/icons';
 import { Button } from '@/ui/button';
 import { confidenceView, typeLabels, typeTone } from '@/ui/labels';
 import { CodeCell } from './code-cell';
@@ -82,6 +83,7 @@ export const GridRowView = memo(function GridRowView({ row, active, compact, inG
           <span className="flex items-center gap-2 text-xs text-muted">
             {row.unit ? <span>{row.unit}</span> : null}
             {row.marking ? <Badge tone="warn" title={ta.ws.marking_title}>{ta.ws.marking}</Badge> : null}
+            {row.comments > 0 ? <span className="inline-flex items-center gap-1 text-muted" title={ta.comments.title}><IconComment />{row.comments}</span> : null}
           </span>
         )}
       </span>
