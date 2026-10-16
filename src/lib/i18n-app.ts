@@ -194,4 +194,18 @@ export const ta = {
     autoHint: 'Oʻchiq boʻlsa, ular taklif sifatida koʻrinadi va bitta tugma bilan qabul qilinadi.',
     saved: 'Saqlandi',
   },
+  diff: {
+    title: 'Versiyalar farqi',
+    hint: 'Shu katalog mijozning oldingi versiyasi bilan solishtirilgan. Oʻzgarmagan qatorlardagi qarorlar avtomatik koʻchirilgan.',
+    versions: 'Versiya',
+    none: 'Oldingi versiya yoʻq',
+    noneHint: 'Mijozning shu katalogdan oldingi tayyor katalogi topilmadi.',
+    added: 'Qoʻshilgan qatorlar',
+    removed: 'Olib tashlangan qatorlar',
+    changed: 'Oʻzgargan qatorlar',
+    statusChanged: 'Holati oʻzgargan qatorlar',
+    note: 'Izoh',
+    openPrevious: 'Oldingi versiyani ochish',
+    firstOnly: (n: number) => `Dastlabki ${n} ta qator koʻrsatilgan.`,
+  },
 } as const;

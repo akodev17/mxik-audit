@@ -424,6 +424,8 @@ model Catalog {
   auditError       String?
   /// Set when the file came through the Telegram bot: the chat that gets the summary.
   telegramChatId   String?
+  /// The earlier version of this client's catalogue this one replaces; decisions carry over from it.
+  previousId       String?
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -431,6 +433,7 @@ model Catalog {
 
   @@index([orgId])
   @@index([clientId, createdAt])
+  @@index([previousId])
   @@map("catalog")
 }
 

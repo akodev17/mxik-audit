@@ -8,7 +8,7 @@ import { ExportActions } from './export-actions';
 
 type Props = {
   orgId: string;
-  catalog: { id: string; filename: string; createdAt: Date; rowCount: number };
+  catalog: { id: string; filename: string; createdAt: Date; rowCount: number; previousId?: string | null };
   client: { id: string; name: string };
 };
 
@@ -22,6 +22,7 @@ export async function WorkspaceHeader({ orgId, catalog, client }: Props) {
     [ta.ws.client, <Link key="c" href={`/clients/${client.id}`} className="text-brand hover:underline">{client.name}</Link>],
     [ta.ws.date, catalog.createdAt.toLocaleDateString('uz-UZ')],
     [ta.ws.classifier, snapshot ? `v${snapshot.id}, ${snapshot.takenAt.toLocaleDateString('uz-UZ')}` : '—'],
+    ...(catalog.previousId ? [[ta.diff.versions, <Link key="v" href={`/catalogs/${catalog.id}/diff`} className="text-brand hover:underline">{ta.diff.title}</Link>] as [string, React.ReactNode]] : []),
   ];
   return (
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-4">

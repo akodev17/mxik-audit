@@ -10,6 +10,7 @@ import { catalogScope } from './access.js';
 import { db } from './db.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { runPrivilegeCheck } from './privileges.js';
+import { carryOver, linkPrevious } from './versions.js';
 import { runPurchaseCheck } from './purchases.js';
 
 /** Without a heartbeat for this long, an "analyzing" catalogue is presumed orphaned. */
@@ -32,6 +33,7 @@ export type AuditActor = { orgId: string; userId: string } | null;
 
 /** Marks the catalogue as analyzing and starts its audit without waiting for it. */
 export async function startAudit(catalogId: string, actor: AuditActor, extra: Prisma.InputJsonObject = {}): Promise<void> {
+  await linkPrevious(catalogId);
   await db.catalog.update({
     where: { id: catalogId },
     data: { status: 'analyzing', progressDone: 0, auditStartedAt: new Date(), auditHeartbeatAt: new Date(), auditError: null },
@@ -57,6 +59,8 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
     await runPurchaseCheck(catalogId);
     // Privilege-linked codes, from the classifier's own privilege column.
     await runPrivilegeCheck(catalogId);
+    // Decisions on rows that did not change since the client's last version carry over.
+    await carryOver(catalogId, actor?.userId ?? null);
     // Dictionary matches are accepted for the org when it chose so.
     await autoAcceptDictionary(catalogId, actor);
 

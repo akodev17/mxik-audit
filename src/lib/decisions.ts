@@ -9,7 +9,7 @@ import { db } from './db.js';
 export type Actor = { userId: string; orgId: string; clientIds?: string[] | null };
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
-export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted'] as const;
+export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.carried_over'] as const;
 const HISTORY_ACTIONS = [...DECISION_ACTIONS, 'finding.undone'];
 
 const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
