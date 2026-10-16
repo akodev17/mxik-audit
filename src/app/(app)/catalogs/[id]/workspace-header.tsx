@@ -5,15 +5,18 @@ import { db } from '@/lib/db';
 import { ta } from '@/lib/i18n-app';
 import { BillingBox } from './billing-box';
 import { ExportActions } from './export-actions';
+import { ShareButton } from './share-button';
 
 type Props = {
   orgId: string;
   catalog: { id: string; filename: string; createdAt: Date; rowCount: number; previousId?: string | null };
   client: { id: string; name: string };
+  /** Only writers may create share links. */
+  canShare?: boolean;
 };
 
 /** Catalogue name, client, date and classifier version, with the export actions. */
-export async function WorkspaceHeader({ orgId, catalog, client }: Props) {
+export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Props) {
   const [snapshot, paid] = await Promise.all([
     db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true, takenAt: true } }),
     billingConfig().requiredForExport ? catalogPaid(orgId, catalog.id) : Promise.resolve(true),
@@ -37,6 +40,7 @@ export async function WorkspaceHeader({ orgId, catalog, client }: Props) {
       <ExportActions
         catalogId={catalog.id}
         locked={!paid}
+        share={canShare ? <ShareButton catalogId={catalog.id} /> : null}
         panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} />}
       />
     </header>

@@ -5,10 +5,10 @@ import { ta } from '@/lib/i18n-app';
 import { Button, ButtonLink } from '@/ui/button';
 import { IconDownload, IconPrint } from '@/ui/icons';
 
-type Props = { catalogId: string; locked: boolean; panel: ReactNode };
+type Props = { catalogId: string; locked: boolean; panel: ReactNode; share?: ReactNode };
 
 /** Excel export (behind payment when billing requires it), 1C CSV, PDF report, print. */
-export function ExportActions({ catalogId, locked, panel }: Props) {
+export function ExportActions({ catalogId, locked, panel, share }: Props) {
   const [open, setOpen] = useState(false);
   const pdf = `/api/report-pdf?catalog=${catalogId}`;
   return (
@@ -20,6 +20,7 @@ export function ExportActions({ catalogId, locked, panel }: Props) {
       )}
       {locked ? null : <ButtonLink href={`/api/export?catalog=${catalogId}&format=1c`} download>{ta.ws.export1c}</ButtonLink>}
       <ButtonLink href={pdf} target="_blank">{ta.ws.pdf}</ButtonLink>
+      {share}
       <ButtonLink href={pdf} target="_blank" variant="ghost"><IconPrint />{ta.ws.print}</ButtonLink>
       {locked && open ? (
         <div className="absolute right-0 top-12 z-40 w-[360px] rounded-ctl border border-line bg-base p-4 shadow-pop">{panel}</div>

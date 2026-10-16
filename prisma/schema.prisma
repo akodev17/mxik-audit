@@ -195,6 +195,7 @@ model Organization {
   invites   Invite[]
   mappings  FirmMapping[]
   feedback  SuggestionFeedback[]
+  shareLinks ShareLink[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Paid firm subscription runs until this moment; null = none.
@@ -342,6 +343,28 @@ model SuggestionFeedback {
   @@map("suggestion_feedback")
 }
 
+/// A read-only report link for one catalogue. Only the token's hash is stored.
+model ShareLink {
+  id           String    @id @default(cuid())
+  orgId        String
+  catalogId    String
+  tokenHash    String    @unique
+  includePdf   Boolean   @default(true)
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  views        Int       @default(0)
+  lastViewedAt DateTime?
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalog Catalog      @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+
+  @@index([catalogId])
+  @@index([orgId])
+  @@map("share_link")
+}
+
 enum CatalogStatus {
   uploaded
   analyzing
@@ -453,6 +476,7 @@ model Catalog {
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items    CatalogItem[]
+  shareLinks ShareLink[]
 
   @@index([orgId])
   @@index([clientId, createdAt])

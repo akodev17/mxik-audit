@@ -54,7 +54,7 @@ export default async function CatalogWorkspacePage(
 
   return (
     <div className="flex h-full flex-col">
-      <WorkspaceHeader orgId={user.orgId} catalog={catalog} client={client} />
+      <WorkspaceHeader orgId={user.orgId} catalog={catalog} client={client} canShare={canWrite(user) && catalog.status === 'ready'} />
       <Suspense fallback={null}>
         <MoneyAtRisk catalogId={catalog.id} columnMap={catalog.columnMap} />
       </Suspense>
