@@ -214,6 +214,13 @@ export type Dict = {
   uploadColumnMxik: string;
   uploadColumnUnit: string;
   uploadColumnPrice: string;
+  uploadColumnSales: string;
+  moneyTitle: string;
+  moneyRisky: (amount: string) => string;
+  moneyShare: (percent: string) => string;
+  moneyNote: string;
+  moneyFine: (amount: string) => string;
+  moneyFineNote: string;
   uploadColumnIgnore: string;
   uploadRequiredName: string;
   uploadStart: string;
@@ -532,6 +539,13 @@ export const uz: Dict = {
   uploadColumnMxik: 'MXIK kodi',
   uploadColumnUnit: 'Oʻlchov birligi',
   uploadColumnPrice: 'Narx',
+  uploadColumnSales: 'Sotuv summasi',
+  moneyTitle: 'Riskli qatorlar boʻyicha sotuv summasi (taxminiy)',
+  moneyRisky: (amount) => `${amount} soʻm`,
+  moneyShare: (percent) => `faylingizdagi jami sotuvning ${percent}%`,
+  moneyNote: 'Faylingizdagi “Sotuv summasi” ustuni boʻyicha hisoblangan taxminiy summa. Riskli qator — yuqori yoki oʻrta muhimlikdagi kamida bitta topilmasi bor qator. Bu jarima miqdori emas.',
+  moneyFine: (amount) => `Taxminiy jarima: ${amount} soʻm (riskli sotuvning 1%)`,
+  moneyFineNote: 'Taxminiy; har bir hisobvaraq-faktura alohida koʻriladi.',
   uploadColumnIgnore: '— hisobga olinmaydi —',
   uploadRequiredName: 'Tovar nomi ustunini koʻrsatish shart.',
   uploadStart: 'Tahlilni boshlash',

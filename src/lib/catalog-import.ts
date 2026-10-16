@@ -18,26 +18,30 @@ const HINTS: Record<keyof ColumnMap, string[]> = {
   mxik: ['mxik', 'ikpu', 'мхик', 'икпу', 'spic', 'tasnif'],
   unit: ['birlik', 'oʻlchov', 'olchov', 'единиц', 'изм', 'unit', 'uom'],
   price: ['narx', 'цена', 'price', 'summa', 'сумма', 'стоим'],
+  sales: ['sotuv summa', 'savdo summa', 'сумма продаж', 'сумма реализ', 'выручк', 'sales'],
 };
 
 export function guessMapping(headers: readonly string[]): ColumnMap {
   const lower = headers.map((h) => h.toLowerCase());
-  const find = (field: keyof ColumnMap): number => {
+  const find = (field: keyof ColumnMap, skip = -1): number => {
     const hints = HINTS[field];
     for (let i = 0; i < lower.length; i++) {
       const h = lower[i] ?? '';
-      if (hints.some((hint) => h.includes(hint))) return i;
+      if (i !== skip && hints.some((hint) => h.includes(hint))) return i;
     }
     return -1;
   };
   const name = find('name');
+  // "Sotuv summasi" also contains "summa": claim it for sales before price looks.
+  const sales = find('sales');
   // The name column is required; fall back to the first column.
   return {
     name: name === -1 ? 0 : name,
     barcode: find('barcode'),
     mxik: find('mxik'),
     unit: find('unit'),
-    price: find('price'),
+    price: find('price', sales),
+    sales,
   };
 }
 
@@ -45,8 +49,21 @@ export function guessMapping(headers: readonly string[]): ColumnMap {
 export async function mappingFor(orgId: string, headers: readonly string[]): Promise<ColumnMap> {
   const org = await db.organization.findUnique({ where: { id: orgId }, select: { columnMap: true } });
   const remembered = ColumnMapSchema.safeParse(org?.columnMap);
+  const guess = guessMapping(headers);
   const fits = remembered.success && Object.values(remembered.data).every((i) => i < headers.length);
-  return fits && remembered.success ? remembered.data : guessMapping(headers);
+  if (!fits || !remembered.success) return guess;
+  // Fields the remembered file did not have (e.g. a new sales column) come
+  // from the header guess, unless that column is already taken.
+  const merged = { ...remembered.data };
+  const taken = new Set(Object.values(merged).filter((i) => i >= 0));
+  for (const field of Object.keys(merged) as (keyof ColumnMap)[]) {
+    const guessed = guess[field];
+    if (merged[field] === -1 && guessed >= 0 && !taken.has(guessed)) {
+      merged[field] = guessed;
+      taken.add(guessed);
+    }
+  }
+  return merged;
 }
 
 /** Rows as stored on the item: every original cell, for re-export and remapping. */
@@ -83,6 +100,7 @@ export function deriveItem(catalogId: string, row: readonly string[], rowIndex: 
     existingMxik: readCode(pick(row, mapping.mxik)),
     unit: pick(row, mapping.unit),
     price: parseAmount(pick(row, mapping.price)),
+    salesAmount: parseAmount(pick(row, mapping.sales)),
     attrs: { original: [...row] },
   };
 }

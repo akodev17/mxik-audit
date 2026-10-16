@@ -14,6 +14,7 @@ import { RISKY_ITEM } from '@/lib/risk';
 import { NOT_PURCHASED_NOTE } from '@/core/audit/purchases';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
+import { MoneyAtRisk } from './money-at-risk';
 import { PrintButton } from './print-button';
 
 type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED'
@@ -145,6 +146,8 @@ export default async function ReportPage(
             {catalog.filename} · {catalog.createdAt.toLocaleDateString('uz-UZ')}
           </p>
         </section>
+
+        <MoneyAtRisk catalogId={catalog.id} columnMap={catalog.columnMap} />
 
         <div className="no-print mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

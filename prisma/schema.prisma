@@ -365,6 +365,8 @@ model CatalogItem {
   existingMxik   String?
   unit           String?
   price          Decimal? @db.Decimal(18, 2)
+  /// Sales amount from a mapped "Sotuv summasi" column, if the file has one.
+  salesAmount    Decimal? @db.Decimal(20, 2)
   /// Attributes parsed out of the name, plus every original cell for re-export.
   attrs          Json
   /// The current code or a suggested code is flagged for digital marking

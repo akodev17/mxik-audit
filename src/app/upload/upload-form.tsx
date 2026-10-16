@@ -12,6 +12,7 @@ const FIELDS: { key: keyof ColumnMap; label: string; required: boolean }[] = [
   { key: 'mxik', label: t.uploadColumnMxik, required: false },
   { key: 'unit', label: t.uploadColumnUnit, required: false },
   { key: 'price', label: t.uploadColumnPrice, required: false },
+  { key: 'sales', label: t.uploadColumnSales, required: false },
 ];
 
 type ClientOption = { id: string; name: string };
