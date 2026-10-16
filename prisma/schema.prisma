@@ -113,8 +113,41 @@ model CatalogSnapshot {
   source     String
   /// Codes present in the previous snapshot but absent from this one.
   retiredCodes String[]
+  addedCount       Int       @default(0)
+  retiredCount     Int       @default(0)
+  unitChangedCount Int       @default(0)
+  nameChangedCount Int       @default(0)
+  /// When every client's latest catalogue was re-checked against this snapshot.
+  recheckedAt      DateTime?
+
+  changes ClassifierChange[]
 
   @@map("catalog_snapshot")
+}
+
+/// One code that changed in a classifier import, against the previous one.
+model ClassifierChange {
+  id         Int                  @id @default(autoincrement())
+  snapshotId Int
+  code       String               @db.Char(17)
+  kind       ClassifierChangeKind
+  before     Json?
+  after      Json?
+
+  snapshot CatalogSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId, kind])
+  @@index([code])
+  @@map("classifier_change")
+}
+
+enum ClassifierChangeKind {
+  added
+  retired
+  unit_changed
+  name_changed
+
+  @@map("classifier_change_kind")
 }
 
 /// Which provider produced the vectors currently stored in mxik_code.
@@ -139,6 +172,7 @@ model Organization {
 
   users     User[]
   clients   Client[]
+  notifications Notification[]
   catalogs  Catalog[]
   events    AuditEvent[]
   /// Remembered column mapping, so a repeat upload does not re-ask.
@@ -208,6 +242,7 @@ model Client {
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   catalogs Catalog[]
+  notifications Notification[]
 
   @@index([orgId])
   @@map("client")
@@ -316,6 +351,8 @@ model Finding {
   wasRetired    Boolean     @default(false)
   /// The reviewer took this row out of its group of similar rows.
   groupSplit    Boolean     @default(false)
+  /// The classifier import that caused this finding; null = the original audit.
+  snapshotId    Int?
   decision      Decision    @default(pending)
   /// Code the reviewer actually chose, which may differ from suggestedMxik.
   chosenMxik    String?
@@ -349,6 +386,31 @@ model AuditEvent {
 
   @@index([orgId, createdAt])
   @@map("audit_event")
+}
+
+/// Something an org should know about, shown in the app and sent to its linked
+/// Telegram chats. Not an audit record: AuditEvent keeps that.
+model Notification {
+  id        String    @id @default(cuid())
+  orgId     String
+  clientId  String?
+  /// e.g. classifier.updated
+  kind      String
+  title     String
+  body      String
+  /// Site-relative link to what the notification is about.
+  href      String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  /// Set once delivered to the org's Telegram chats; null = not sent (yet).
+  telegramSentAt DateTime?
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([clientId, createdAt])
+  @@map("notification")
 }
 
 /// LLM rerank verdicts keyed by a hash of model + prompt version + normalized

@@ -12,8 +12,9 @@ import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
 import { PostgresCandidateStore } from '../core/match/store.js';
 import { checkVectorReadiness } from '../core/match/vector-readiness.js';
 import { normalizeName } from '../core/normalize/index.js';
-import { readCode, runChecks, type ResolvedRow } from '../core/audit/checks.js';
-import type { RerankUsage, ScoredCandidate } from '../core/match/types.js';
+import { readCode, runChecks, type Finding, type ResolvedRow } from '../core/audit/checks.js';
+import type { RerankGate } from '../core/match/rerank-config.js';
+import type { EmbeddingProvider, RerankProvider, RerankUsage, ScoredCandidate } from '../core/match/types.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 
@@ -73,13 +74,20 @@ export async function auditCatalog(catalogId: string, options: AuditOptions = {}
  * Postgres queries, and uncertain rows are grouped into shared LLM calls, so
  * unbounded concurrency would exhaust both.
  */
-async function auditRows(catalogId: string, options: AuditOptions): Promise<AuditOutcome> {
-  const { fromRow = 0, onProgress, timer } = options;
+/** Everything one audit needs to check rows: retrieval, embeddings, reranker. */
+export type AuditContext = {
+  store: PostgresCandidateStore;
+  embedder: EmbeddingProvider;
+  reranker: RerankProvider;
+  gate: RerankGate;
+  timer?: StageTimer | undefined;
+  degradedReasons: string[];
+};
+
+/** Builds the matching setup for one org; cached LLM verdicts never cross orgs. */
+export async function auditContext(orgId: string, timer?: StageTimer): Promise<AuditContext> {
   const configured = embeddingProviderFromEnv();
-  const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });
-  if (!catalogOrg) throw new Error(`no catalogue ${catalogId}`);
-  // Cached verdicts are scoped to the org, never shared across customers.
-  const cache = new PostgresRerankCache(pool, catalogOrg.orgId, rerankConfigFromEnv(process.env).model);
+  const cache = new PostgresRerankCache(pool, orgId, rerankConfigFromEnv(process.env).model);
   const { reranker, gate } = rerankFromEnv(process.env, cache);
   const readiness = await checkVectorReadiness(pool, configured);
   const embedder = readiness.embedder;
@@ -87,11 +95,103 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
     exactVectorScan: !embedder.semantic,
     vectorEnabled: readiness.usable,
   });
-
   const degradedReasons: string[] = [];
   if (!reranker.available) degradedReasons.push('LLM qayta tartiblash oʻchirilgan');
   if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
+  return { store, embedder, reranker, gate, timer, degradedReasons };
+}
+
+export type AuditableItem = {
+  rawName: string;
+  barcode: string | null;
+  existingMxik: string | null;
+  unit: string | null;
+};
+
+export type ItemCheck = { findings: Finding[]; markingRequired: boolean };
+
+const SUGGESTIONS = 5;
+const SELF_MATCH_DEPTH = 20;
+
+/** Matches one row and runs every check on it. Writes nothing. */
+export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise<ItemCheck> {
+  const { store, embedder, reranker, gate, timer } = ctx;
+  // Ranked deeper than the suggestions so the row's own code is usually
+  // scorable from this one retrieval, without a second pass.
+  const match = await matchProduct({
+    rawName: item.rawName,
+    barcode: item.barcode,
+    unit: item.unit,
+    existingMxik: item.existingMxik,
+  }, { store, embedder, reranker, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
+
+  // Resolve the row's own code so NOT_FOUND and retirement can be judged.
+  const code = readCode(item.existingMxik);
+  let existing: ResolvedRow['existing'] = { found: false, retired: false, candidate: null };
+  if (code) {
+    existing = await timed(timer, 'existing-code', async () => {
+      const state = await store.exists(code);
+      return {
+        found: state.found,
+        retired: state.retired,
+        candidate: state.found ? await store.byCode(code) : null,
+      };
+    });
+  }
+
+  // The row's own code must be scorable even when retrieval never surfaced
+  // it, otherwise a correct code that happens to rank poorly looks missing.
+  let suggestions: ScoredCandidate[] = match.candidates.slice(0, SUGGESTIONS);
+  if (code && existing.found && existing.candidate && !suggestions.some((s) => s.candidate.code === code)) {
+    let found = match.candidates.find((s) => s.candidate.code === code);
+    // A barcode hit skips name retrieval, so only then is a second pass needed.
+    if (!found && match.decidedBy === 'barcode') {
+      const selfMatch = await timed(timer, 'self-match', () => matchProduct(
+        { rawName: item.rawName, unit: item.unit },
+        // Same name + unit, so a reranked row is a cache hit here, not a second call.
+        { store, embedder, reranker, rerankGate: gate, topK: SELF_MATCH_DEPTH },
+      ));
+      found = selfMatch.candidates.find((s) => s.candidate.code === code);
+    }
+    if (found) suggestions = [...suggestions, found];
+  }
+
+  const findings = runChecks({
+    existingMxik: item.existingMxik,
+    unit: item.unit,
+    existing,
+    suggestions,
+  });
+
+  // Marking follows the classifier's own flag on the row's code or on a code we suggest.
+  const suggestedMarked = findings.some((f) =>
+    suggestions.find((s) => s.candidate.code === f.suggestedMxik)?.candidate.isMarked === true);
+  return { findings, markingRequired: existing.candidate?.isMarked === true || suggestedMarked };
+}
+
+/** Finding rows ready for createMany. */
+export function findingData(itemId: string, findings: readonly Finding[], snapshotId: number | null = null) {
+  return findings.map((f) => ({
+    itemId,
+    type: f.type,
+    severity: f.severity,
+    suggestedMxik: f.suggestedMxik,
+    confidence: f.confidence,
+    alternatives: f.alternatives,
+    reason: f.reason,
+    wasRetired: f.wasRetired,
+    evidence: f.evidence ?? undefined,
+    snapshotId,
+  }));
+}
+
+async function auditRows(catalogId: string, options: AuditOptions): Promise<AuditOutcome> {
+  const { fromRow = 0, onProgress, timer } = options;
+  const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });
+  if (!catalogOrg) throw new Error(`no catalogue ${catalogId}`);
+  const ctx = await auditContext(catalogOrg.orgId, timer);
+  const { degradedReasons, reranker } = ctx;
   // Operator-facing only: never shown on customer screens (see /admin).
   if (degradedReasons.length > 0) console.warn(`[audit ${catalogId}] degraded: ${degradedReasons.join('; ')}`);
 
@@ -106,8 +206,6 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
   });
 
   const CONCURRENCY = 8;
-  const SUGGESTIONS = 5;
-  const SELF_MATCH_DEPTH = 20;
   let done = 0;
   let findingsCreated = 0;
   // Rows finish out of order; the watermark only advances over a contiguous run.
@@ -117,74 +215,12 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
 
   // A failed row stops the run cleanly, so a resume never races leftover workers.
   await runPool(items, CONCURRENCY, async (item, index) => {
-    // Ranked deeper than the suggestions so the row's own code is usually
-    // scorable from this one retrieval, without a second pass.
-    const match = await matchProduct({
-      rawName: item.rawName,
-      barcode: item.barcode,
-      unit: item.unit,
-      existingMxik: item.existingMxik,
-    }, { store, embedder, reranker, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
-
-    // Resolve the row's own code so NOT_FOUND and retirement can be judged.
-    const code = readCode(item.existingMxik);
-    let existing: ResolvedRow['existing'] = { found: false, retired: false, candidate: null };
-    if (code) {
-      existing = await timed(timer, 'existing-code', async () => {
-        const state = await store.exists(code);
-        return {
-          found: state.found,
-          retired: state.retired,
-          candidate: state.found ? await store.byCode(code) : null,
-        };
-      });
-    }
-
-    // The row's own code must be scorable even when retrieval never surfaced
-    // it, otherwise a correct code that happens to rank poorly looks missing.
-    let suggestions: ScoredCandidate[] = match.candidates.slice(0, SUGGESTIONS);
-    if (code && existing.found && existing.candidate && !suggestions.some((s) => s.candidate.code === code)) {
-      let found = match.candidates.find((s) => s.candidate.code === code);
-      // A barcode hit skips name retrieval, so only then is a second pass needed.
-      if (!found && match.decidedBy === 'barcode') {
-        const selfMatch = await timed(timer, 'self-match', () => matchProduct(
-          { rawName: item.rawName, unit: item.unit },
-          // Same name + unit, so a reranked row is a cache hit here, not a second call.
-          { store, embedder, reranker, rerankGate: gate, topK: SELF_MATCH_DEPTH },
-        ));
-        found = selfMatch.candidates.find((s) => s.candidate.code === code);
-      }
-      if (found) suggestions = [...suggestions, found];
-    }
-
-    const findings = runChecks({
-      existingMxik: item.existingMxik,
-      unit: item.unit,
-      existing,
-      suggestions,
-    });
-
-    // Marking follows the classifier's own flag on the row's code or on a code we suggest.
-    const suggestedMarked = findings.some((f) =>
-      suggestions.find((s) => s.candidate.code === f.suggestedMxik)?.candidate.isMarked === true);
-    if (existing.candidate?.isMarked === true || suggestedMarked) {
+    const { findings, markingRequired } = await checkItem(item, ctx);
+    if (markingRequired) {
       await db.catalogItem.update({ where: { id: item.id }, data: { markingRequired: true } });
     }
-
     if (findings.length > 0) {
-      await timed(timer, 'persist', () => db.finding.createMany({
-        data: findings.map((f) => ({
-          itemId: item.id,
-          type: f.type,
-          severity: f.severity,
-          suggestedMxik: f.suggestedMxik,
-          confidence: f.confidence,
-          alternatives: f.alternatives,
-          reason: f.reason,
-          wasRetired: f.wasRetired,
-          evidence: f.evidence ?? undefined,
-        })),
-      }));
+      await timed(timer, 'persist', () => db.finding.createMany({ data: findingData(item.id, findings) }));
       findingsCreated += findings.length;
     }
 

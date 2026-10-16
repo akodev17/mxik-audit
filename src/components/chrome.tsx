@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { confidenceLabel } from '@/core/match/confidence-labels';
 import { demoTtlHours } from '@/lib/demo-config';
 import { t } from '@/lib/i18n';
+import { NotificationLink } from './notification-link';
 
 const STEPS = [
   { href: '/upload', label: t.navUpload, perCatalog: false },
@@ -50,6 +50,7 @@ export function Header({ email, current, catalogId, demo }: HeaderProps) {
         </nav>
         {email ? (
           <form action="/api/sign-out" method="post" className="no-print flex items-baseline gap-3">
+            <NotificationLink />
             <span className="text-xs text-ink-faint">{email}</span>
             <button type="submit" className="text-xs text-ink-soft underline hover:text-ink">
               {t.signOut}
@@ -74,50 +75,4 @@ export function Shell({ children, demo }: { children: React.ReactNode; demo?: bo
   );
 }
 
-const LABEL_STYLE = {
-  sure: 'bg-ok-tint text-ok border-ok/30',
-  likely: 'bg-[#fdf6e7] text-[#8a5a00] border-[#8a5a00]/25',
-  check: 'bg-risk-tint text-risk border-risk/25',
-} as const;
-
-const LABEL_TEXT = {
-  sure: t.confidenceSure,
-  likely: t.confidenceLikely,
-  check: t.confidenceCheck,
-} as const;
-
-/** A plain-language label; the raw number is detail, kept in the tooltip. */
-export function ConfidenceBadge({ confidence, barcode }: { confidence: number | null; barcode?: boolean }) {
-  if (confidence === null) return <span className="text-xs text-ink-faint">—</span>;
-  const label = confidenceLabel(confidence, { barcode });
-  return (
-    <span
-      title={t.confidenceDetail(Math.round(confidence * 100))}
-      className={`inline-block whitespace-nowrap border px-1.5 py-0.5 text-xs ${LABEL_STYLE[label]}`}
-    >
-      {LABEL_TEXT[label]}
-    </span>
-  );
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  MISSING: t.typeMissing,
-  NOT_FOUND: t.typeNotFound,
-  MISMATCH: t.typeMismatch,
-  UNIT_CONFLICT: t.typeUnitConflict,
-};
-
-export function TypeBadge({ type, severity }: { type: string; severity: string }) {
-  const high = severity === 'high';
-  return (
-    <span
-      className={`inline-block whitespace-nowrap border px-1.5 py-0.5 text-xs ${
-        high ? 'border-risk/30 bg-risk-tint text-risk' : 'border-rule bg-paper-tint text-ink-soft'
-      }`}
-    >
-      {TYPE_LABEL[type] ?? type}
-    </span>
-  );
-}
-
-export { TYPE_LABEL };
+export { ConfidenceBadge, TypeBadge, TYPE_LABEL } from './badges';

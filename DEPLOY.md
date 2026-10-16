@@ -152,14 +152,28 @@ so sign-in only works over HTTPS.
 ```cron
 # Erase lead files past LEAD_FILE_RETENTION_DAYS and delete expired demo copies.
 15 3 * * * cd /opt/mxik-audit && docker compose --profile app exec -T app npm run purge:expired >> /var/log/mxik-purge.log 2>&1
+# Weekly classifier update: download, diff, embed new codes, re-check every
+# client's latest catalogue, notify affected orgs (in the app and on Telegram).
+0 4 * * 1 cd /opt/mxik-audit && docker compose --profile app exec -T app npm run classifier:update >> /var/log/mxik-classifier.log 2>&1
 # Nightly database backup, 14 kept.
 45 3 * * * docker exec mxik-audit-db pg_dump -U mxik -Fc mxik > /opt/mxik-audit/backups/mxik-$(date +\%F).dump && find /opt/mxik-audit/backups -name '*.dump' -mtime +14 -delete
 ```
 
 ```bash
 mkdir -p /opt/mxik-audit/backups
-sudo touch /var/log/mxik-purge.log && sudo chown "$USER" /var/log/mxik-purge.log
+sudo touch /var/log/mxik-purge.log /var/log/mxik-classifier.log && sudo chown "$USER" /var/log/mxik-purge.log /var/log/mxik-classifier.log
 ```
+
+The classifier update can also be started over HTTP, e.g. from an external
+scheduler, when `CRON_SECRET` (16+ characters) is set in `.env`; without it
+the route answers 503. It returns 202 at once and writes its log to
+`data/classifier-update.log` inside the container:
+
+```cron
+0 4 * * 1 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/classifier-update
+```
+
+Only one update runs at a time (a Postgres advisory lock); a second start exits.
 
 Copy backups off the server too; a backup on the same disk is not a backup.
 
@@ -191,13 +205,23 @@ Never run `prisma migrate dev` against this database; see README "Migrations".
 The portal regenerates its export on every request. To pick up new codes:
 
 ```bash
-mx npm run fetch:catalog && mx npm run ingest -- --enrich && mx npm run load:db && mx npm run embed:catalog
+mx npm run classifier:update                    # what the weekly cron runs
+mx npm run classifier:update -- --dry-run       # download and show the diff, write nothing
+mx npm run classifier:update -- --recheck <id>  # re-check clients against snapshot <id> again
 ```
 
-`load:db` records a snapshot and marks codes that disappeared as retired, so
-catalogues still using them are reported as not found. `embed:catalog`
+The update downloads the export, records a new snapshot with its diff
+(added, retired, unit binding changed, name changed — table
+`classifier_change`), marks vanished codes as retired, embeds only the codes
+it added (same model as the stored vectors), then re-checks every client's
+latest catalogue: rows whose code changed are re-checked and new problems are
+added with the reason prefix "Tasniflagich yangilandi:"; earlier decisions are
+kept. Each affected client gets a `classifier.updated` event and a
+notification.
+
+`npm run embed:catalog` is only needed to switch embedding models: it
 re-embeds every code (~2.7 h on 4 vCPU) and the vector stage stays off until it
-finishes, so audits during that window are lexical-only. Run it off-hours.
+finishes. Run it off-hours.
 
 ### Restoring a backup
 

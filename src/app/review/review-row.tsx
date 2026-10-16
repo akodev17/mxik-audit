@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { lookupCodes, type ClassifierHit } from '@/app/actions/review';
-import { ConfidenceBadge, TypeBadge } from '@/components/chrome';
+import { ConfidenceBadge, TypeBadge } from '@/components/badges';
 import { CodeCell } from '@/components/code-cell';
 import { BarcodeBadge, MarkingBadge, WhyThisCode } from '@/components/evidence';
 import type { FindingRow } from '@/lib/finding-view';

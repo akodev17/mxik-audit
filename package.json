@@ -20,6 +20,7 @@
     "test": "node scripts/test.mjs",
     "eval:translit": "tsx eval/translit.ts",
     "load:db": "tsx scripts/load-db.ts",
+    "classifier:update": "tsx scripts/update-classifier.ts",
     "embed:catalog": "tsx scripts/embed-catalog.ts",
     "eval": "tsx eval/run.ts",
     "eval:synthetic": "tsx eval/make-synthetic.ts",

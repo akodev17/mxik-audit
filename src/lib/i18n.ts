@@ -52,6 +52,11 @@ export type Dict = {
   clientNoCatalogs: string;
   historyAction: Record<string, string>;
   uploadClient: string;
+  notificationsNav: string;
+  notificationsTitle: string;
+  notificationsHint: string;
+  notificationsEmpty: string;
+  notificationsOpen: string;
 
   // catalogue history and deletion
   catalogsTitle: string;
@@ -289,8 +294,14 @@ export const uz: Dict = {
     'catalog.exported': 'Tuzatilgan fayl yuklab olindi',
     'catalog.deleted': 'Katalog oʻchirildi',
     'client.created': 'Mijoz qoʻshildi',
+    'classifier.updated': 'Tasniflagich yangilandi',
   },
   uploadClient: 'Mijoz',
+  notificationsNav: 'Xabarnomalar',
+  notificationsTitle: 'Xabarnomalar',
+  notificationsHint: 'Tasniflagich yangilanganda mijozlaringiz kataloglarida nima oʻzgargani shu yerda koʻrinadi. Telegram ulangan boʻlsa, u yerga ham yuboriladi.',
+  notificationsEmpty: 'Hali xabarnoma yoʻq.',
+  notificationsOpen: 'Hisobotni ochish',
 
   catalogsTitle: 'Yuklangan kataloglar',
   catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',

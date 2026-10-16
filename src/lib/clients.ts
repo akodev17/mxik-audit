@@ -3,6 +3,7 @@
 // never reaches another org's data.
 import { db } from './db.js';
 import type { Actor, Result } from './decisions.js';
+import { latestPerClient } from './notifications.js';
 import { RISKY_ITEM } from './risk.js';
 
 export type ClientRef = { id: string; name: string; isDefault: boolean };
@@ -80,7 +81,7 @@ export async function listClients(orgId: string): Promise<ClientSummary[]> {
     _count: { _all: true },
   });
   const markingBy = new Map(marking.map((m) => [m.catalogId, m._count._all]));
-  const notices = await lastNotifications(orgId, clients.map((c) => c.id));
+  const notices = await latestPerClient(orgId, clients.map((c) => c.id));
 
   return clients.map((c) => ({
     id: c.id,
@@ -96,14 +97,7 @@ export async function listClients(orgId: string): Promise<ClientSummary[]> {
   }));
 }
 
-/** Latest notification per client. Empty until notifications exist (feature G). */
-function lastNotifications(orgId: string, clientIds: string[]): Promise<Map<string, { title: string; createdAt: Date }>> {
-  void orgId;
-  void clientIds;
-  return Promise.resolve(new Map<string, { title: string; createdAt: Date }>());
-}
-
-const HISTORY_ACTIONS = ['catalog.uploaded', 'catalog.audited', 'catalog.exported', 'catalog.deleted', 'client.created'];
+const HISTORY_ACTIONS = ['catalog.uploaded', 'catalog.audited', 'catalog.exported', 'catalog.deleted', 'client.created', 'classifier.updated'];
 
 export type ClientEvent = { id: string; action: string; createdAt: Date; payload: Record<string, unknown> };
 

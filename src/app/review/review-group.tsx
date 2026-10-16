@@ -1,6 +1,6 @@
 'use client';
 
-import { ConfidenceBadge } from '@/components/chrome';
+import { ConfidenceBadge } from '@/components/badges';
 import { CodeCell } from '@/components/code-cell';
 import { WhyThisCode } from '@/components/evidence';
 import { t } from '@/lib/i18n';
