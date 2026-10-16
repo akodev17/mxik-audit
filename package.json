@@ -30,7 +30,7 @@
     "perf": "tsx scripts/perf-catalog.ts",
     "lint": "eslint src eval scripts",
     "check:providers": "tsx scripts/check-providers.ts",
-    "dev": "next dev -p 3100",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "seed": "tsx prisma/seed.ts",

@@ -34,10 +34,16 @@ npm run eval                  # matching accuracy, real vs synthetic, per stage
 npm run seed:demo             # the invented 186-row demo behind /demo
 npm run seed                  # sign-in org + a messy 200-row catalogue
 npm run seed:audit <id>       # audit it (the seed prints the id)
-npm run dev                   # http://localhost:3100
+npm run dev                   # http://localhost:3000
 ```
 
-No-signup demo: `http://localhost:3100/demo`. Sign-in org: `buxgalter@demo.uz` / `demo12345`.
+No-signup demo: `http://localhost:3000/demo`. Sign-in org: `buxgalter@demo.uz` / `demo12345`.
+
+One app, one port: locally the app is `npm run dev` on 3000 and Docker runs
+only the database (plain `docker compose up -d` starts just `db`). The
+compose `app` profile is the production build for servers and also listens
+on 3000 — don't start it next to the dev server. If it is running locally,
+`docker compose --profile app rm -s -f app` removes it (image and data stay).
 Deploying to a server: [`DEPLOY.md`](DEPLOY.md).
 
 Do not run `npm run build` while `npm run dev` is running — they share

@@ -783,7 +783,9 @@ literal is written as plain `s` — use the Edit tool for regex text.
 `C:\Users\USER\Desktop\Pets\mxik-audit-\mxik-audit`, a git repository on
 `main` (pushed to `origin` only by the owner; nothing pushed by sessions).
 Node 24.18, Docker running `mxik-audit-db` (Postgres 16 + pgvector) on host
-port **54329**. Dev server on **3100**.
+port **54329**. Dev server on **3000** since 2026-10-16 (was 3100 while a
+local `app` container held 3000; that container was removed so there is one
+app on one port — see README).
 
 Quality gate on 2026-10-15: `tsc --noEmit` clean · `npm run lint` 0 errors,
 1 accepted warning · `npm test` **293 passing, 24 files** (database tests
