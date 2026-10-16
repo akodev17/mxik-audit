@@ -107,6 +107,28 @@ export type Dict = {
   brandRemoveLogo: string;
   brandBadLogo: string;
 
+  // purchases (Kirim) and NOT_PURCHASED
+  typeNotPurchased: string;
+  reportBreakdownNotPurchased: (n: number) => string;
+  severityInfo: string;
+  purchasesNav: string;
+  purchasesTitle: string;
+  purchasesHint: string;
+  purchasesTemplate: string;
+  purchasesUpload: string;
+  purchasesApply: string;
+  purchasesApplied: (codes: number) => string;
+  purchasesLists: string;
+  purchasesNone: string;
+  purchasesCodes: string;
+  purchasesDelete: string;
+  purchasesStatus: Record<string, string>;
+  activityLabel: string;
+  activityOptions: Record<'savdo' | 'ishlab_chiqarish' | 'boshqa', string>;
+  activityHint: string;
+  purchaseNoteTitle: string;
+  purchaseNoteSources: string;
+
   // catalogue history and deletion
   catalogsTitle: string;
   catalogsHint: string;
@@ -398,6 +420,27 @@ export const uz: Dict = {
   brandSaved: 'Saqlandi.',
   brandRemoveLogo: 'Logotipni oʻchirish',
   brandBadLogo: 'Logotip PNG yoki JPEG boʻlishi va 300 KB dan oshmasligi kerak.',
+
+  typeNotPurchased: 'Xaridlarda yoʻq',
+  reportBreakdownNotPurchased: (n) => `${n} — xaridlarda topilmadi`,
+  severityInfo: 'Maʼlumot uchun',
+  purchasesNav: 'Kirim (xaridlar)',
+  purchasesTitle: 'Kirim (xaridlar)',
+  purchasesHint: 'Mijozning xaridlar roʻyxatini yuklang: kirim EHF eksporti yoki istalgan Excel/CSV roʻyxat. Katalogdagi kodlar xaridlardagi MXIK kodlari (va oʻlchov birligi) bilan solishtiriladi.',
+  purchasesTemplate: 'Shablonni yuklab olish',
+  purchasesUpload: 'Xaridlar faylini tanlash',
+  purchasesApply: 'Solishtirishni boshlash',
+  purchasesApplied: (codes) => `${codes.toLocaleString('uz-UZ')} ta MXIK kodi olindi. Mijozning oxirgi katalogi qayta tekshirildi.`,
+  purchasesLists: 'Yuklangan roʻyxatlar',
+  purchasesNone: 'Hali xaridlar roʻyxati yuklanmagan — xaridlar bilan solishtirish oʻtkazilmaydi.',
+  purchasesCodes: 'MXIK kodlari',
+  purchasesDelete: 'Oʻchirish',
+  purchasesStatus: { uploaded: 'Ustunlar tanlanmagan', ready: 'Ishlatilmoqda' },
+  activityLabel: 'Faoliyat turi',
+  activityOptions: { savdo: 'Savdo', ishlab_chiqarish: 'Ishlab chiqarish', boshqa: 'Boshqa' },
+  activityHint: 'Savdo uchun xaridlarda topilmagan tovar yuqori risk sifatida koʻrsatiladi; qolganlar uchun — maʼlumot uchun.',
+  purchaseNoteTitle: 'Xaridlar bilan solishtirish',
+  purchaseNoteSources: 'Manbalar',
 
   catalogsTitle: 'Yuklangan kataloglar',
   catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',

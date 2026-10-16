@@ -9,14 +9,16 @@ import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
 import { findingRows } from '@/lib/finding-view';
+import { PURCHASE_CHECK_SOURCES } from '@/lib/legal-sources';
 import { RISKY_ITEM } from '@/lib/risk';
+import { NOT_PURCHASED_NOTE } from '@/core/audit/purchases';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { PrintButton } from './print-button';
 
-type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT';
+type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED';
 
-const TYPE_ORDER: FindingType[] = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'];
+const TYPE_ORDER: FindingType[] = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED'];
 
 export default async function ReportPage(
   { searchParams }: { searchParams: Promise<{ type?: string; severity?: string; catalog?: string; marking?: string }> },
@@ -77,7 +79,7 @@ export default async function ReportPage(
   const typeFilter = TYPE_ORDER.includes(params.type as FindingType)
     ? (params.type as FindingType)
     : null;
-  const severityFilter = params.severity === 'high' || params.severity === 'medium'
+  const severityFilter = params.severity === 'high' || params.severity === 'medium' || params.severity === 'info'
     ? params.severity
     : null;
   const markingFilter = params.marking === '1';
@@ -126,6 +128,7 @@ export default async function ReportPage(
                 count('NOT_FOUND') > 0 ? t.reportBreakdownNotFound(count('NOT_FOUND')) : null,
                 count('MISMATCH') > 0 ? t.reportBreakdownMismatch(count('MISMATCH')) : null,
                 count('UNIT_CONFLICT') > 0 ? t.reportBreakdownUnit(count('UNIT_CONFLICT')) : null,
+                count('NOT_PURCHASED') > 0 ? t.reportBreakdownNotPurchased(count('NOT_PURCHASED')) : null,
               ].filter(Boolean).join('  ·  ')}
             </p>
           ) : null}
@@ -167,6 +170,11 @@ export default async function ReportPage(
             <Link href={link('severity=medium')} className={severityFilter === 'medium' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
               {t.severityMedium}
             </Link>
+            {count('NOT_PURCHASED') > 0 ? (
+              <Link href={link('severity=info')} className={severityFilter === 'info' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
+                {t.severityInfo}
+              </Link>
+            ) : null}
           </div>
           {markingTotal > 0 ? (
             <Link href={link('marking=1')} className={markingFilter ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
@@ -185,6 +193,21 @@ export default async function ReportPage(
             ) : null}
           </div>
         </div>
+
+        {count('NOT_PURCHASED') > 0 ? (
+          <aside className="mt-6 border-l-2 border-rule bg-paper-tint px-4 py-3 text-sm text-ink-soft">
+            <strong className="font-medium text-ink">{t.purchaseNoteTitle}.</strong> {NOT_PURCHASED_NOTE}
+            <span className="mt-1 block text-xs">
+              {t.purchaseNoteSources}:{' '}
+              {PURCHASE_CHECK_SOURCES.map((s, i) => (
+                <span key={s.href}>
+                  {i > 0 ? ' · ' : ''}
+                  <a href={s.href} target="_blank" rel="noopener noreferrer" className="underline" title={s.supports}>{s.label}</a>
+                </span>
+              ))}
+            </span>
+          </aside>
+        ) : null}
 
         {rows.length === 0 ? (
           <p className="mt-8 text-ink-soft">{t.reportEmpty}</p>

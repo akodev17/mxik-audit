@@ -8,8 +8,9 @@ import { unitsCompatible } from '../normalize/units.js';
 import type { MatchEvidence } from '../match/evidence.js';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 
-export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT';
-export type Severity = 'high' | 'medium';
+export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED';
+/** "info" findings are shown but never counted as risk. */
+export type Severity = 'high' | 'medium' | 'info';
 
 /** Below this, a present-and-valid code is treated as not matching the name. */
 export const MISMATCH_THRESHOLD = 0.6;
@@ -175,11 +176,11 @@ export type Summary = {
 /** The Report screen's headline block. Counts rows at risk, not findings. */
 export function summarize(perRow: readonly Finding[][], totalRows: number): Summary {
   const byType: Record<FindingType, number> = {
-    MISSING: 0, NOT_FOUND: 0, MISMATCH: 0, UNIT_CONFLICT: 0,
+    MISSING: 0, NOT_FOUND: 0, MISMATCH: 0, UNIT_CONFLICT: 0, NOT_PURCHASED: 0,
   };
   let riskyRows = 0;
   for (const findings of perRow) {
-    if (findings.length > 0) riskyRows++;
+    if (findings.some((f) => f.severity !== 'info')) riskyRows++;
     for (const f of findings) byType[f.type]++;
   }
   return { totalRows, riskyRows, byType };

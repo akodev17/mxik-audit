@@ -7,6 +7,7 @@ import { CodeCell } from '@/components/code-cell';
 import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
 import { findingRows } from '@/lib/finding-view';
+import { RISKY_FINDING } from '@/lib/risk';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 
@@ -50,7 +51,7 @@ export default async function ExportPage(
 
   const grouped = await db.finding.groupBy({
     by: ['decision'],
-    where: { item: { catalogId: catalog.id } },
+    where: { item: { catalogId: catalog.id }, ...RISKY_FINDING },
     _count: { _all: true },
   });
   const counts = new Map(grouped.map((g) => [g.decision, g._count._all]));

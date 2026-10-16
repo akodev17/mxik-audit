@@ -5,7 +5,9 @@ import { listCatalogs } from '@/lib/catalogs';
 import { clientHistory, ownedClient } from '@/lib/clients';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
+import { db } from '@/lib/db';
 import { RememberClient } from '../client-forms';
+import { ActivityForm } from './activity-form';
 
 const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 
@@ -22,6 +24,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     clientHistory(user.orgId, client.id),
   ]);
   const latest = catalogs[0]?.id ?? null;
+  const { activity } = await db.client.findUniqueOrThrow({ where: { id: client.id }, select: { activity: true } });
 
   return (
     <>
@@ -34,6 +37,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           {!user.demo ? (
             <Link href={`/upload?client=${client.id}`} className="bg-ink px-4 py-2 text-sm text-paper">{t.clientUpload}</Link>
           ) : null}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4 border border-rule px-4 py-3">
+          {!user.demo ? <ActivityForm clientId={client.id} activity={activity} /> : <span />}
+          <Link href={`/clients/${client.id}/purchases`} className="text-sm underline">{t.purchasesNav}</Link>
         </div>
 
         <section className="mt-8">

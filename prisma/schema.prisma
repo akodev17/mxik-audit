@@ -244,14 +244,67 @@ model Client {
   /// Catalogues uploaded before clients existed, or without naming a client,
   /// land here. Exactly one per org (partial unique index in the migration).
   isDefault Boolean  @default(false)
+  /// Decides how a sale without a matching purchase is rated (NOT_PURCHASED).
+  activity  ClientActivity @default(boshqa)
   createdAt DateTime @default(now())
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   catalogs Catalog[]
   notifications Notification[]
+  purchaseLists PurchaseList[]
 
   @@index([orgId])
   @@map("client")
+}
+
+/// savdo = trade (the purchase check is a high risk), ishlab_chiqarish =
+/// production, boshqa = anything else; for the last two it is informational.
+enum ClientActivity {
+  savdo
+  ishlab_chiqarish
+  boshqa
+
+  @@map("client_activity")
+}
+
+/// A client's purchases ("Kirim"), uploaded as a file of their choosing (an
+/// EHF export or any list), mapped like a catalogue. Its MXIK codes are the
+/// set the NOT_PURCHASED check compares sales against.
+model PurchaseList {
+  id        String   @id @default(cuid())
+  orgId     String
+  clientId  String
+  filename  String
+  rowCount  Int
+  headers   String[]
+  columnMap Json
+  /// uploaded = waiting for the column mapping; ready = in use.
+  status    String   @default("uploaded")
+  createdAt DateTime @default(now())
+
+  client Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  PurchaseItem[]
+
+  @@index([orgId])
+  @@index([clientId])
+  @@map("purchase_list")
+}
+
+model PurchaseItem {
+  id       String  @id @default(cuid())
+  listId   String
+  rowIndex Int
+  name     String?
+  mxik     String?
+  unit     String?
+  /// Every original cell, so the mapping can be applied after upload.
+  attrs    Json
+
+  list PurchaseList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+  @@index([mxik])
+  @@map("purchase_item")
 }
 
 model Catalog {
@@ -323,6 +376,8 @@ enum FindingType {
   MISMATCH
   /// Row's unit contradicts the code's strictly bound unit.
   UNIT_CONFLICT
+  /// The row's code is not among the client's purchase codes (savdo: high, else info).
+  NOT_PURCHASED
 
   @@map("finding_type")
 }
@@ -330,6 +385,8 @@ enum FindingType {
 enum Severity {
   high
   medium
+  /// Shown for information; never counted as risk.
+  info
 
   @@map("severity")
 }

@@ -233,7 +233,7 @@ describe('summarize', () => {
   it('handles a clean catalogue', () => {
     const s = summarize([[], [], []], 3);
     assert.equal(s.riskyRows, 0);
-    assert.deepEqual(Object.values(s.byType), [0, 0, 0, 0]);
+    assert.ok(Object.values(s.byType).every((n) => n === 0));
   });
 
   it('handles an empty catalogue without dividing by anything', () => {

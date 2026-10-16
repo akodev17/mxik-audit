@@ -7,6 +7,7 @@ import type { Prisma } from '@prisma/client';
 import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
 import { db } from './db.js';
+import { runPurchaseCheck } from './purchases.js';
 
 /** Without a heartbeat for this long, an "analyzing" catalogue is presumed orphaned. */
 export const STALE_MS = 120_000;
@@ -43,6 +44,8 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
 
     // auditCatalog keeps the heartbeat and watermark current while it runs.
     const outcome = await auditCatalog(catalogId, { fromRow });
+    // Sales against the client's purchases, when it has any.
+    await runPurchaseCheck(catalogId);
 
     const catalog = await db.catalog.update({
       where: { id: catalogId },

@@ -33,15 +33,17 @@ const TYPE_LABEL: Record<string, string> = {
   NOT_FOUND: t.typeNotFound,
   MISMATCH: t.typeMismatch,
   UNIT_CONFLICT: t.typeUnitConflict,
+  NOT_PURCHASED: t.typeNotPurchased,
 };
 
 export function TypeBadge({ type, severity }: { type: string; severity: string }) {
-  const high = severity === 'high';
+  const style = severity === 'high'
+    ? 'border-risk/30 bg-risk-tint text-risk'
+    : severity === 'info' ? 'border-rule bg-paper text-ink-faint' : 'border-rule bg-paper-tint text-ink-soft';
   return (
     <span
-      className={`inline-block whitespace-nowrap border px-1.5 py-0.5 text-xs ${
-        high ? 'border-risk/30 bg-risk-tint text-risk' : 'border-rule bg-paper-tint text-ink-soft'
-      }`}
+      title={severity === 'info' ? t.severityInfo : undefined}
+      className={`inline-block whitespace-nowrap border px-1.5 py-0.5 text-xs ${style}`}
     >
       {TYPE_LABEL[type] ?? type}
     </span>

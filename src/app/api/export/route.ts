@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   const items = await db.catalogItem.findMany({
     where: { catalogId: catalog.id },
     orderBy: { rowIndex: 'asc' },
-    include: { findings: { select: { decision: true, chosenMxik: true, type: true } } },
+    include: { findings: { select: { decision: true, chosenMxik: true, type: true, severity: true } } },
   });
 
   // One lookup per distinct accepted code, for its bound unit and packaging.
@@ -53,7 +53,8 @@ export async function GET(request: Request) {
     const attrs = StoredAttrs.safeParse(item.attrs);
     const original = attrs.success ? attrs.data.original : [];
 
-    if (item.findings.length === 0) {
+    // Informational findings (e.g. a non-trade client's purchase check) are not risk.
+    if (item.findings.every((f) => f.severity === 'info')) {
       return {
         original,
         mxik: item.existingMxik ?? '',
