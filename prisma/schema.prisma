@@ -200,6 +200,7 @@ model Organization {
   savedViews SavedView[]
   schedules ClientSchedule[]
   reminderTasks ReminderTask[]
+  docLists  DocList[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -462,6 +463,77 @@ model ReminderTask {
   @@map("reminder_task")
 }
 
+/// An uploaded list of what a client sold: kind cheques (the tax cabinet's wrong-code list) or sales (cheque or EHF lines).
+model DocList {
+  id            String   @id @default(cuid())
+  orgId         String
+  clientId      String
+  kind          String
+  filename      String
+  rowCount      Int
+  headers       String[]
+  columnMap     Json
+  /// uploaded = waiting for the column mapping; analyzing; ready; failed.
+  status        String   @default("uploaded")
+  progressDone  Int      @default(0)
+  progressTotal Int      @default(0)
+  error         String?
+  createdAt     DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  DocItem[]
+  groups DocGroup[]
+
+  @@index([clientId, kind])
+  @@index([orgId])
+  @@map("doc_list")
+}
+
+model DocItem {
+  id         String    @id @default(cuid())
+  listId     String
+  rowIndex   Int
+  name       String?
+  mxik       String?
+  unit       String?
+  quantity   Decimal?  @db.Decimal(20, 3)
+  amount     Decimal?  @db.Decimal(20, 2)
+  occurredAt DateTime? @db.Date
+  /// Every original cell, so the mapping can be applied after upload.
+  attrs      Json
+
+  list DocList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+  @@map("doc_item")
+}
+
+/// Lines of a list that share a code (and, for cheques, a name), with what the checks found.
+model DocGroup {
+  id            String   @id @default(cuid())
+  listId        String
+  name          String?
+  /// The most common names behind this group, for the report.
+  names         Json
+  mxik          String?
+  unit          String?
+  lines         Int
+  quantity      Decimal? @db.Decimal(20, 3)
+  amount        Decimal? @db.Decimal(20, 2)
+  /// INVALID_CODE, MISSING_CODE, MISMATCH, UNIT_CONFLICT, NOT_IN_CATALOG, NOT_PURCHASED.
+  issues        String[]
+  suggestedMxik String?
+  confidence    Float?
+  /// Reasons, alternatives and matching catalogue rows.
+  detail        Json
+
+  list DocList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+  @@map("doc_group")
+}
+
 enum CatalogStatus {
   uploaded
   analyzing
@@ -491,6 +563,7 @@ model Client {
   assignments ClientAssignment[]
   schedule ClientSchedule?
   reminderTasks ReminderTask[]
+  docLists DocList[]
 
   @@index([orgId])
   @@map("client")

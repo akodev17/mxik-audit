@@ -43,7 +43,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-ctl bg-surface px-4 py-3">
         {!user.demo ? <ActivityForm clientId={client.id} activity={activity} /> : <span />}
-        <Link href={`/clients/${client.id}/purchases`} className="text-sm font-medium text-brand hover:underline">{t.purchasesNav}</Link>
+        <span className="flex flex-wrap gap-4">
+          <Link href={`/clients/${client.id}/purchases`} className="text-sm font-medium text-brand hover:underline">{t.purchasesNav}</Link>
+          <Link href={`/clients/${client.id}/imports`} className="text-sm font-medium text-brand hover:underline">{ta.docs.title}</Link>
+        </span>
       </div>
 
       {user.demo || !canWrite(user) ? null : (
