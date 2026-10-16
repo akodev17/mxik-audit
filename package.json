@@ -68,6 +68,7 @@
     "@anthropic-ai/sdk": "^0.134.0",
     "@huggingface/transformers": "4.3.0",
     "@prisma/client": "^6.19.3",
+    "@tanstack/react-virtual": "^3.14.21",
     "dejavu-fonts-ttf": "^2.37.3",
     "exceljs": "^4.4.0",
     "grammy": "^1.46.0",

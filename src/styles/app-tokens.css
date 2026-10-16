@@ -1,0 +1,56 @@
+/* App design tokens: the single source for the signed-in product UI. Names differ
+   from the landing tokens on purpose, so the two never collide. */
+@theme {
+  --color-base: #ffffff;
+  --color-surface: #f3f6f9;
+  --color-line: #e2e8ee;
+  --color-line-strong: #cbd5df;
+  --color-fg: #15202b;
+  --color-muted: #5b6875;
+
+  --color-brand: #2457f5;
+  --color-brand-tint: #eaf0fe;
+  --color-danger: #d23a2a;
+  --color-danger-tint: #fcefed;
+  --color-warn: #e39b12;
+  --color-warn-ink: #8a5a00;
+  --color-warn-tint: #fdf4e1;
+  --color-good: #1f8a55;
+  --color-good-tint: #e8f5ee;
+
+  --radius-ctl: 8px;
+  --shadow-pop: 0 8px 28px rgb(21 32 43 / 0.16), 0 1px 3px rgb(21 32 43 / 0.1);
+}
+
+/* Everything inside the signed-in app sits under .app */
+.app {
+  background: var(--color-base);
+  color: var(--color-fg);
+  font-family: var(--font-onest), "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.app h1, .app h2, .app h3 {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.app :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+
+/* Dense grid text */
+.app .dense { font-size: 15px; }
+
+.app .skeleton {
+  background: linear-gradient(90deg, var(--color-surface) 25%, #e9eef3 50%, var(--color-surface) 75%);
+  background-size: 200% 100%;
+  animation: skeleton 1.2s linear infinite;
+}
+@keyframes skeleton { to { background-position: -200% 0; } }
+
+@media print {
+  .app .no-print { display: none !important; }
+}
