@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { searchClassifier } from '@/lib/audit-runner';
+import { codeRequestText } from '@/lib/code-request';
 import { BANDS } from '@/core/match/score';
 import { bulkAccept, recordDecision, recordGroupDecision, splitFromGroup, undoDecision, undoLast } from '@/lib/decisions';
 
@@ -109,6 +110,14 @@ export async function undo(payload: unknown): Promise<UndoResult> {
   if (!result.ok) return { ok: false, error: t.reviewUndoFailed };
   refresh();
   return result;
+}
+
+/** Draft text for a new-code request on tasnif.soliq.uz. Never submitted from here. */
+export async function newCodeRequest(findingId: unknown): Promise<string | null> {
+  const user = await currentUser();
+  const id = z.string().min(1).safeParse(findingId);
+  if (!user || !id.success) return null;
+  return codeRequestText(user.orgId, id.data);
 }
 
 export type ClassifierHit = {

@@ -6,9 +6,17 @@ import { ConfidenceBadge, TypeBadge } from '@/components/badges';
 import { CodeCell } from '@/components/code-cell';
 import { BarcodeBadge, MarkingBadge, WhyThisCode } from '@/components/evidence';
 import type { FindingRow } from '@/lib/finding-view';
+import { CodeRequest } from './code-request';
 import { t } from '@/lib/i18n';
 
 export type ReviewRow = FindingRow;
+
+const CODE_TYPES = new Set(['MISSING', 'NOT_FOUND', 'MISMATCH']);
+
+/** No acceptable candidate: nothing suggested, the reranker said none, or the reviewer rejected it. */
+function needsNewCode(row: ReviewRow): boolean {
+  return CODE_TYPES.has(row.type) && (!row.suggestedMxik || row.evidence?.rerankNone === true || row.decision === 'rejected');
+}
 
 const DECISION_LABEL = {
   pending: t.reviewPending,
@@ -135,6 +143,7 @@ export function RowView(props: RowViewProps) {
             <button type="button" onClick={() => onPicker(true)} className="whitespace-nowrap text-xs text-ink-soft underline">
               {t.reviewPickOther}
             </button>
+            {needsNewCode(row) ? <CodeRequest findingId={row.findingId} /> : null}
             {inGroup && onSplit ? (
               <button type="button" disabled={busy} onClick={onSplit} className="whitespace-nowrap text-xs text-ink-soft underline disabled:opacity-50">
                 {t.groupSplit}
@@ -146,6 +155,7 @@ export function RowView(props: RowViewProps) {
             <span className={`whitespace-nowrap text-xs ${row.decision === 'accepted' ? 'text-ok' : 'text-ink-faint'}`}>
               {DECISION_LABEL[row.decision]}
             </span>
+            {needsNewCode(row) ? <CodeRequest findingId={row.findingId} /> : null}
             {row.decisionEventId ? (
               <button
                 type="button" disabled={busy} onClick={onUndo}

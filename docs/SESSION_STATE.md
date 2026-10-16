@@ -738,7 +738,8 @@ commit only with explicit pathspecs (`git commit -- <paths>`), never `git add -A
 | J purchases + NOT_PURCHASED | done | `J:` |
 | K privilege codes | done | `K:` |
 | L money at risk | done | `L:` |
-| M new code request | in progress | |
+| M new code request | done | `M:` |
+| N construction general→detailed | in progress | |
 | F–O | next, in order | |
 
 Gotcha found: in `node -e`/heredoc edit scripts, a `\\s` inside a JS template

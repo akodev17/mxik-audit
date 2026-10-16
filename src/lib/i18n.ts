@@ -215,6 +215,10 @@ export type Dict = {
   uploadColumnUnit: string;
   uploadColumnPrice: string;
   uploadColumnSales: string;
+  codeRequestButton: string;
+  codeRequestCopy: string;
+  codeRequestCopied: string;
+  codeRequestHint: string;
   moneyTitle: string;
   moneyRisky: (amount: string) => string;
   moneyShare: (percent: string) => string;
@@ -540,6 +544,10 @@ export const uz: Dict = {
   uploadColumnUnit: 'Oʻlchov birligi',
   uploadColumnPrice: 'Narx',
   uploadColumnSales: 'Sotuv summasi',
+  codeRequestButton: 'Yangi kod soʻrovi matni',
+  codeRequestCopy: 'Nusxa olish',
+  codeRequestCopied: 'Nusxa olindi',
+  codeRequestHint: 'Matnni tekshirib, tasnif.soliq.uz saytida oʻzingiz yuboring. Dastur hech narsani avtomatik yubormaydi.',
   moneyTitle: 'Riskli qatorlar boʻyicha sotuv summasi (taxminiy)',
   moneyRisky: (amount) => `${amount} soʻm`,
   moneyShare: (percent) => `faylingizdagi jami sotuvning ${percent}%`,
