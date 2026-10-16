@@ -1,43 +1,34 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { signIn, type SignInState } from '@/app/actions/auth';
 import { t } from '@/lib/i18n';
+import { Button } from '@/ui/button';
+import { Field, Input } from '@/ui/input';
 
 export default function SignInPage() {
   const [state, action, pending] = useActionState<SignInState, FormData>(signIn, {});
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <h1 className="text-2xl">{t.appName}</h1>
-      <p className="mt-1 mb-8 text-sm text-ink-soft">{t.tagline}</p>
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
+      <Link href="/" className="text-xl font-bold tracking-tight">{t.appName}</Link>
+      <p className="mb-6 mt-1 text-sm text-muted">{t.tagline}</p>
 
-      <form action={action} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-sm text-ink-soft">{t.email}</label>
-          <input
-            id="email" name="email" type="email" required autoComplete="username" autoFocus
-            className="mt-1 w-full border border-rule bg-paper px-3 py-2 focus:border-ink focus:outline-none"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm text-ink-soft">{t.password}</label>
-          <input
-            id="password" name="password" type="password" required autoComplete="current-password"
-            className="mt-1 w-full border border-rule bg-paper px-3 py-2 focus:border-ink focus:outline-none"
-          />
-        </div>
+      <form action={action} className="space-y-4 rounded-ctl border border-line bg-base p-6 shadow-pop">
+        <h1 className="text-lg">{t.signIn}</h1>
+        <Field label={t.email}>
+          <Input id="email" name="email" type="email" required autoComplete="username" autoFocus />
+        </Field>
+        <Field label={t.password}>
+          <Input id="password" name="password" type="password" required autoComplete="current-password" />
+        </Field>
         {state.error ? (
-          <p role="alert" className="border-l-2 border-risk bg-risk-tint px-3 py-2 text-sm text-risk">
-            {state.error}
-          </p>
+          <p role="alert" className="rounded-ctl bg-danger-tint px-3 py-2 text-sm text-danger">{state.error}</p>
         ) : null}
-        <button
-          type="submit" disabled={pending}
-          className="w-full bg-ink px-4 py-2 text-paper disabled:opacity-50"
-        >
+        <Button type="submit" variant="primary" disabled={pending} className="w-full">
           {pending ? t.loading : t.signInAction}
-        </button>
+        </Button>
       </form>
     </main>
   );
