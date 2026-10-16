@@ -2,7 +2,8 @@
 
 ## Last Updated
 
-2026-10-15 (P0 demo-readiness block). Measurements under "Verified Data Facts"
+2026-10-16 (product pass A–O, see "PRODUCT PASS A–O" near the end), on top
+of 2026-10-15 (P0 demo-readiness block). Measurements under "Verified Data Facts"
 are dated 2026-08-20 (438,925 codes) unless marked; the export of 2026-10-15
 has 442,719 codes.
 
@@ -608,7 +609,11 @@ Do not revisit these without a specific reason.
 
 ## Out of Scope
 
-Explicitly excluded from the MVP:
+Explicitly excluded from the MVP. Since the 2026-10-16 product pass, these
+are built after all: tax-privilege flagging (K, informational), 1C/MoySklad/
+Billz import presets (approximate) and a 1C CSV export, payments (Click,
+Payme) and a firm subscription, recurring classifier updates with
+notifications, and per-client workspaces. The rest still stands:
 
 - Razriv audit (needs EHF data)
 - Tax privilege / VAT rate conflict checking (`taxPrivilegeIds` stored, nothing
@@ -719,11 +724,37 @@ Documented, **not fixed**.
 
 ---
 
-## PRODUCT PASS A–O (in progress, 2026-10-16)
+## PRODUCT PASS A–O (done, 2026-10-16)
 
-Branch `feature/product-pass` (not pushed). One commit per feature (B+C
-share one). The staged landing rollback in the index is someone else's work:
-commit only with explicit pathspecs (`git commit -- <paths>`), never `git add -A`.
+Built on `feature/product-pass`, fast-forwarded into `main` (not pushed).
+One commit per feature (B+C share one, plus a test fix after K). The staged
+landing rollback in the index is someone else's undecided work: commit only
+with explicit pathspecs (`git commit -- <paths>`), never `git add -A`; the
+working-tree `package-lock.json` diff (48 `libc` lines) is npm-version churn,
+also not ours — dependency commits (grammy, pdfkit, dejavu-fonts-ttf) were
+built from HEAD's lockfile plus only the new packages.
+
+Quality gate at the end: `tsc` clean, `npm run lint` 0 errors (1 accepted
+warning), `npm test` 326/326 with the DB, `npm run build` passes. 11 new
+migrations (20261016100000 … 20261016200000), all additive.
+
+New env vars (all in `.env.example` and DEPLOY.md): `CRON_SECRET`,
+`CLASSIFIER_UPDATE_LOG`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`,
+`TELEGRAM_BOT_USERNAME`, `TELEGRAM_API_ROOT`, `APP_URL`, `CLICK_SERVICE_ID`,
+`CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY`, `PAYME_MERCHANT_ID`, `PAYME_KEY`,
+`PAYME_TEST_MODE`, `PAYME_TEST_KEY`, `BILLING_REQUIRED_FOR_EXPORT`.
+New scripts: `classifier:update`, `privileges:fetch`, `telegram:bot`,
+`telegram:webhook`.
+
+Owner still to provide: `ANTHROPIC_API_KEY` (reranker never run with a
+key), Telegram bot token, Click/Payme merchant keys, the firm monthly price
+(`PLANS.firmMonthly.price` in `src/lib/billing/plans.ts`), real 1C /
+MoySklad / Billz export samples (presets are "taxminiy"), a tax adviser's
+check of the privilege wording (docs/imtiyoz-data.md) and of art. 223 p.5.
+
+Local test data left in the seed org `buxgalter@demo.uz`: client "Baraka
+Savdo MChJ" with small test catalogues, a purchase list and branding
+"Hisob Plus". Telegram/billing/re-check test rows were deleted.
 
 | Feature | State | Commit |
 |---|---|---|
@@ -741,7 +772,6 @@ commit only with explicit pathspecs (`git commit -- <paths>`), never `git add -A
 | M new code request | done | `M:` |
 | N construction general→detailed | not implemented, doc | `N:` |
 | O formats + payments | done | `O:` |
-| F–O | next, in order | |
 
 Gotcha found: in `node -e`/heredoc edit scripts, a `\\s` inside a JS template
 literal is written as plain `s` — use the Edit tool for regex text.
