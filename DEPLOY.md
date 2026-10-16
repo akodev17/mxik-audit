@@ -152,16 +152,84 @@ so sign-in only works over HTTPS.
 ```cron
 # Erase lead files past LEAD_FILE_RETENTION_DAYS and delete expired demo copies.
 15 3 * * * cd /opt/mxik-audit && docker compose --profile app exec -T app npm run purge:expired >> /var/log/mxik-purge.log 2>&1
+# Weekly classifier update: download, diff, embed new codes, re-check every
+# client's latest catalogue, notify affected orgs (in the app and on Telegram).
+0 4 * * 1 cd /opt/mxik-audit && docker compose --profile app exec -T app npm run classifier:update >> /var/log/mxik-classifier.log 2>&1
 # Nightly database backup, 14 kept.
 45 3 * * * docker exec mxik-audit-db pg_dump -U mxik -Fc mxik > /opt/mxik-audit/backups/mxik-$(date +\%F).dump && find /opt/mxik-audit/backups -name '*.dump' -mtime +14 -delete
 ```
 
 ```bash
 mkdir -p /opt/mxik-audit/backups
-sudo touch /var/log/mxik-purge.log && sudo chown "$USER" /var/log/mxik-purge.log
+sudo touch /var/log/mxik-purge.log /var/log/mxik-classifier.log && sudo chown "$USER" /var/log/mxik-purge.log /var/log/mxik-classifier.log
 ```
 
+The classifier update can also be started over HTTP, e.g. from an external
+scheduler, when `CRON_SECRET` (16+ characters) is set in `.env`; without it
+the route answers 503. It returns 202 at once and writes its log to
+`data/classifier-update.log` inside the container:
+
+```cron
+0 4 * * 1 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/classifier-update
+```
+
+Only one update runs at a time (a Postgres advisory lock); a second start exits.
+
 Copy backups off the server too; a backup on the same disk is not a backup.
+
+## 7a. Telegram bot (optional)
+
+1. Create a bot with @BotFather; put the token in `.env` as
+   `TELEGRAM_BOT_TOKEN`, a long random `TELEGRAM_WEBHOOK_SECRET`, the bot's
+   `TELEGRAM_BOT_USERNAME`, and `APP_URL=https://your-domain`. Restart the app.
+2. Point Telegram at the app once: `mx npm run telegram:webhook`
+   (`-- --delete` removes it).
+3. Users link a chat in the app: Sozlamalar → Telegram → "Ulash kodini olish",
+   then send `/start CODE` to the bot. Linked chats can send .xlsx/.csv files
+   (20 MB Bot API limit), pick the client, and get the summary when the audit
+   finishes; classifier-update notifications go to every linked chat.
+
+Without a public HTTPS URL (development), run the bot with long polling
+instead: `npm run telegram:bot` (it removes any webhook first; audits started
+from the bot run in that process).
+
+## 7b. Payments (optional)
+
+Click and Payme stay off until their keys are in `.env` (see `.env.example`);
+without them no payment button appears. Prices: `src/lib/billing/plans.ts`
+(the firm monthly plan is hidden until its price is set there).
+
+- **Click** (SHOP API): in the merchant cabinet set both Prepare URL and
+  Complete URL to `https://your-domain/api/payments/click`; put
+  `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` in `.env`.
+- **Payme** (Merchant API): set the endpoint to
+  `https://your-domain/api/payments/payme`, account field `order_id`; put
+  `PAYME_MERCHANT_ID` and `PAYME_KEY`. For the sandbox
+  (test.paycom.uz), set `PAYME_TEST_MODE=true` and `PAYME_TEST_KEY`.
+- `APP_URL` must be the public https origin (return links after payment).
+- `BILLING_REQUIRED_FOR_EXPORT=true` makes the corrected-file download
+  require a paid order for that catalogue or an active firm subscription.
+
+A paid order writes `billing.paid` to the audit log; orders and provider
+transactions are in the `order` and `payment_transaction` tables.
+
+## 7c. Team, email and roles (optional)
+
+Members join through invite links created in Sozlamalar. To also email the link set `SMTP_URL` and `MAIL_FROM`; without them the link is only shown on screen. `APP_URL` makes links absolute. Roles: admin (everything), accountant (works on assigned clients), viewer (read-only). An accountant or viewer with no assigned clients sees every client of the org.
+
+## 7d. Signup, trial and plan limits
+
+/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan stays hidden until its price is set in src/lib/billing/plans.ts. "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot.
+
+## 7e. Daily jobs (monthly reminders)
+
+Once a day call the daily route (same `CRON_SECRET` as the classifier update):
+
+```cron
+15 6 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/daily
+```
+
+It creates the monthly-check tasks that are due (per client: Sozlamalar of the client page), tells the accountant responsible on Telegram when the bot is configured, and runs the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
 
 ## 8. Operating it
 
@@ -191,13 +259,23 @@ Never run `prisma migrate dev` against this database; see README "Migrations".
 The portal regenerates its export on every request. To pick up new codes:
 
 ```bash
-mx npm run fetch:catalog && mx npm run ingest -- --enrich && mx npm run load:db && mx npm run embed:catalog
+mx npm run classifier:update                    # what the weekly cron runs
+mx npm run classifier:update -- --dry-run       # download and show the diff, write nothing
+mx npm run classifier:update -- --recheck <id>  # re-check clients against snapshot <id> again
 ```
 
-`load:db` records a snapshot and marks codes that disappeared as retired, so
-catalogues still using them are reported as not found. `embed:catalog`
+The update downloads the export, records a new snapshot with its diff
+(added, retired, unit binding changed, name changed — table
+`classifier_change`), marks vanished codes as retired, embeds only the codes
+it added (same model as the stored vectors), then re-checks every client's
+latest catalogue: rows whose code changed are re-checked and new problems are
+added with the reason prefix "Tasniflagich yangilandi:"; earlier decisions are
+kept. Each affected client gets a `classifier.updated` event and a
+notification.
+
+`npm run embed:catalog` is only needed to switch embedding models: it
 re-embeds every code (~2.7 h on 4 vCPU) and the vector stage stays off until it
-finishes, so audits during that window are lexical-only. Run it off-hours.
+finishes. Run it off-hours.
 
 ### Restoring a backup
 

@@ -52,7 +52,7 @@ export async function startDemoSession(now = new Date()): Promise<DemoSession | 
       data: catalog.items.map((i) => ({
         catalogId: copy.id, rowIndex: i.rowIndex, rawName: i.rawName, normalizedName: i.normalizedName,
         barcode: i.barcode, existingMxik: i.existingMxik, unit: i.unit, price: i.price,
-        attrs: i.attrs ?? {},
+        attrs: i.attrs ?? {}, markingRequired: i.markingRequired,
       })),
       select: { id: true, rowIndex: true },
     });
@@ -62,6 +62,7 @@ export async function startDemoSession(now = new Date()): Promise<DemoSession | 
       itemId: idByRow.get(i.rowIndex) ?? '',
       type: f.type, severity: f.severity, suggestedMxik: f.suggestedMxik, confidence: f.confidence,
       alternatives: f.alternatives ?? [], reason: f.reason, wasRetired: f.wasRetired,
+      evidence: f.evidence ?? undefined,
     })));
     if (findings.length > 0) await tx.finding.createMany({ data: findings });
     await tx.auditEvent.create({

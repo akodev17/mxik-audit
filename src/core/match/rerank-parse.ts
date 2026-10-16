@@ -17,7 +17,15 @@ const RowSchema = z.object({
 const OutputSchema = z.object({ rows: z.array(z.unknown()) });
 
 /** Reason shown to reviewers when the model rejects every candidate. */
-export const NONE_REASON = 'LLM: none of the retrieved candidates fits this product.';
+export const NONE_REASON = 'Topilgan nomzodlarning hech biri bu tovarga mos emas.';
+
+/** Keeps the first sentence only, capped, so the UI shows one line. */
+export function oneSentence(text: string, max = 200): string {
+  const trimmed = text.replace(/\s+/g, ' ').trim();
+  const end = trimmed.search(/[.!?](\s|$)/);
+  const sentence = end === -1 ? trimmed : trimmed.slice(0, end + 1);
+  return sentence.length > max ? `${sentence.slice(0, max - 1).trimEnd()}…` : sentence;
+}
 
 export type RowVerdicts = {
   verdicts: RerankVerdict[];
@@ -52,7 +60,7 @@ export function rowVerdicts(raw: unknown, offered: readonly string[]): RowVerdic
       continue;
     }
     seen.add(code);
-    verdicts.push({ code, confidence: v.confidence, reason: v.reason.slice(0, 300) });
+    verdicts.push({ code, confidence: v.confidence, reason: oneSentence(v.reason) });
   }
   return verdicts.length > 0 ? { verdicts, discarded } : null;
 }

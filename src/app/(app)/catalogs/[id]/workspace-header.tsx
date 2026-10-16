@@ -1,0 +1,49 @@
+import { getI18n } from '@/lib/locale';
+import Link from 'next/link';
+import { billingConfig } from '@/lib/billing/config';
+import { catalogPaid } from '@/lib/billing/orders';
+import { db } from '@/lib/db';
+import { BillingBox } from './billing-box';
+import { ExportActions } from './export-actions';
+import { ShareButton } from './share-button';
+
+type Props = {
+  orgId: string;
+  catalog: { id: string; filename: string; createdAt: Date; rowCount: number; previousId?: string | null };
+  client: { id: string; name: string };
+  /** Only writers may create share links. */
+  canShare?: boolean;
+};
+
+/** Catalogue name, client, date and classifier version, with the export actions. */
+export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Props) {
+  const { ta } = await getI18n();
+  const [snapshot, paid] = await Promise.all([
+    db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true, takenAt: true } }),
+    billingConfig().requiredForExport ? catalogPaid(orgId, catalog.id) : Promise.resolve(true),
+  ]);
+  const meta: [string, React.ReactNode][] = [
+    [ta.ws.client, <Link key="c" href={`/clients/${client.id}`} className="text-brand hover:underline">{client.name}</Link>],
+    [ta.ws.date, catalog.createdAt.toLocaleDateString('uz-UZ')],
+    [ta.ws.classifier, snapshot ? `v${snapshot.id}, ${snapshot.takenAt.toLocaleDateString('uz-UZ')}` : '—'],
+    ...(catalog.previousId ? [[ta.diff.versions, <Link key="v" href={`/catalogs/${catalog.id}/diff`} className="text-brand hover:underline">{ta.diff.title}</Link>] as [string, React.ReactNode]] : []),
+  ];
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <div className="min-w-0">
+        <h1 className="truncate text-xl" title={catalog.filename}>{catalog.filename}</h1>
+        <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          {meta.map(([label, value]) => (
+            <div key={label} className="flex gap-1.5"><dt className="text-muted">{label}:</dt><dd>{value}</dd></div>
+          ))}
+        </dl>
+      </div>
+      <ExportActions
+        catalogId={catalog.id}
+        locked={!paid}
+        share={canShare ? <ShareButton catalogId={catalog.id} /> : null}
+        panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} />}
+      />
+    </header>
+  );
+}

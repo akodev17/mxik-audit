@@ -1,0 +1,14 @@
+import { LanguageSwitch } from '@/ui/language-switch';
+import { LocaleScope } from '@/ui/locale-scope';
+import { onest } from '@/ui/onest';
+
+export default function InviteLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`app ${onest.variable} min-h-screen bg-surface`}>
+      <LocaleScope>
+        <div className="absolute right-4 top-4 z-10"><LanguageSwitch /></div>
+        {children}
+      </LocaleScope>
+    </div>
+  );
+}

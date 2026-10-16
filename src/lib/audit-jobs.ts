@@ -6,7 +6,13 @@
 import type { Prisma } from '@prisma/client';
 import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
+import { catalogScope } from './access.js';
 import { db } from './db.js';
+import { acceptDictionaryMatches } from './dictionary-accept.js';
+import { runPrivilegeCheck } from './privileges.js';
+import { completeFor } from './reminders.js';
+import { carryOver, linkPrevious } from './versions.js';
+import { runPurchaseCheck } from './purchases.js';
 
 /** Without a heartbeat for this long, an "analyzing" catalogue is presumed orphaned. */
 export const STALE_MS = 120_000;
@@ -18,10 +24,17 @@ export const STARTUP_STALE_MS = 5 * HEARTBEAT_MS;
 
 const running = new Set<string>();
 
+async function autoAcceptDictionary(catalogId: string, actor: AuditActor): Promise<void> {
+  const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, org: { select: { dictAutoAccept: true } } } });
+  if (!catalog?.org.dictAutoAccept) return;
+  await acceptDictionaryMatches({ orgId: catalog.orgId, userId: actor?.userId ?? null }, catalogId);
+}
+
 export type AuditActor = { orgId: string; userId: string } | null;
 
 /** Marks the catalogue as analyzing and starts its audit without waiting for it. */
 export async function startAudit(catalogId: string, actor: AuditActor, extra: Prisma.InputJsonObject = {}): Promise<void> {
+  await linkPrevious(catalogId);
   await db.catalog.update({
     where: { id: catalogId },
     data: { status: 'analyzing', progressDone: 0, auditStartedAt: new Date(), auditHeartbeatAt: new Date(), auditError: null },
@@ -43,12 +56,22 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
 
     // auditCatalog keeps the heartbeat and watermark current while it runs.
     const outcome = await auditCatalog(catalogId, { fromRow });
+    // Sales against the client's purchases, when it has any.
+    await runPurchaseCheck(catalogId);
+    // Privilege-linked codes, from the classifier's own privilege column.
+    await runPrivilegeCheck(catalogId);
+    // Decisions on rows that did not change since the client's last version carry over.
+    await carryOver(catalogId, actor?.userId ?? null);
+    // Dictionary matches are accepted for the org when it chose so.
+    await autoAcceptDictionary(catalogId, actor);
 
     const catalog = await db.catalog.update({
       where: { id: catalogId },
       data: { status: 'ready', progressDone: await db.catalogItem.count({ where: { catalogId } }), auditHeartbeatAt: new Date() },
-      select: { orgId: true, rowCount: true },
+      select: { orgId: true, rowCount: true, clientId: true },
     });
+    // A catalogue audited for the client settles its open monthly checks.
+    if (catalog.clientId) await completeFor(catalog.clientId);
     await db.auditEvent.create({
       data: {
         orgId: catalog.orgId, actorId: actor?.userId ?? null, action: 'catalog.audited', targetId: catalogId,
@@ -69,6 +92,17 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
       where: { id: catalogId },
       data: { status: 'failed', auditError: error instanceof Error ? error.message.slice(0, 500) : 'failed' },
     }).catch(() => undefined);
+  }
+  await replyToTelegram(catalogId);
+}
+
+/** A catalogue that came through the bot gets its summary (or failure) back there. */
+async function replyToTelegram(catalogId: string): Promise<void> {
+  try {
+    const { sendAuditSummary } = await import('./telegram/deliver.js');
+    await sendAuditSummary(catalogId);
+  } catch (error) {
+    console.warn(`[audit ${catalogId}] telegram reply failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -96,9 +130,9 @@ export function isAuditRunning(catalogId: string): boolean {
 }
 
 /** Restarts a failed audit from scratch, for the org that owns the catalogue. */
-export async function retryAudit(actor: { orgId: string; userId: string }, catalogId: string): Promise<boolean> {
+export async function retryAudit(actor: { orgId: string; userId: string; clientIds?: string[] | null }, catalogId: string): Promise<boolean> {
   const catalog = await db.catalog.findFirst({
-    where: { id: catalogId, orgId: actor.orgId, status: 'failed' },
+    where: { id: catalogId, ...catalogScope(actor), status: 'failed' },
     select: { id: true },
   });
   if (!catalog) return false;

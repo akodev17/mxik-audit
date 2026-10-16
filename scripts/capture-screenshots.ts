@@ -11,13 +11,13 @@
 // (`npm run seed`) and afterwards deletes only the catalogue it created there.
 //
 // Run: the app running elsewhere (npm run dev, or a production build), then
-//      npm run capture       (CAPTURE_BASE_URL defaults to http://localhost:3100)
+//      npm run capture       (CAPTURE_BASE_URL defaults to http://localhost:3000)
 import '../src/lib/load-env.js';
 import { mkdir } from 'node:fs/promises';
 import { chromium, type Browser, type Page } from 'playwright';
 import { db } from '../src/lib/db.js';
 
-const BASE = process.env['CAPTURE_BASE_URL'] ?? 'http://localhost:3100';
+const BASE = process.env['CAPTURE_BASE_URL'] ?? 'http://localhost:3000';
 const EMAIL = process.env['SEED_EMAIL'] ?? 'buxgalter@demo.uz';
 const PASSWORD = process.env['SEED_PASSWORD'] ?? 'demo12345';
 const OUT = 'public/screenshots';

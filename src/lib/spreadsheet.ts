@@ -1,6 +1,7 @@
 // Reading uploaded catalogues and writing the corrected file back out.
 // Server-only (exceljs). Deliberately separate from scripts/lib/xlsx.ts, which
 // is a stripped-down streaming reader for the one 205 MB classifier layout.
+import { Readable } from 'node:stream';
 import ExcelJS from 'exceljs';
 
 export type SheetData = {
@@ -40,8 +41,10 @@ export async function parseUpload(buffer: Buffer, filename: string): Promise<Par
   const isCsv = /\.csv$/i.test(filename);
 
   if (isCsv) {
-    const { Readable } = await import('node:stream');
-    await workbook.csv.read(Readable.from(buffer.toString('utf8')));
+    // Static import: under Next's bundler a dynamic import('node:stream') has no Readable.
+    // Keep every cell as written: the default mapper turns 17-digit codes into
+    // floats, dropping the leading zero and digits beyond 2^53.
+    await workbook.csv.read(Readable.from(buffer.toString('utf8')), { map: (value: unknown) => value });
   } else {
     // exceljs declares its own Buffer type, which drifts from @types/node's
     // generic Buffer<ArrayBufferLike>. Same bytes either way.

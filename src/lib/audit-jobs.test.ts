@@ -58,7 +58,8 @@ describe('background audits (database)', { skip }, () => {
     await waitFor(id, 'ready');
     const catalog = await db.catalog.findUnique({ where: { id } });
     assert.equal(catalog?.progressDone, 2);
-    const types = (await db.finding.findMany({ where: { item: { catalogId: id } }, select: { type: true } })).map((f) => f.type).sort();
+    // Informational findings (e.g. a privilege-linked suggestion) may come on top.
+    const types = (await db.finding.findMany({ where: { item: { catalogId: id }, severity: { not: 'info' } }, select: { type: true } })).map((f) => f.type).sort();
     assert.deepEqual(types, ['MISSING', 'NOT_FOUND']);
     assert.ok(await db.auditEvent.findFirst({ where: { orgId: a.orgId, action: 'catalog.audited', targetId: id } }));
   });

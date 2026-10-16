@@ -1,12 +1,13 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { getI18n } from '@/lib/locale';
 import { z } from 'zod';
-import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
+import { writer } from '@/lib/guard';
 import { searchClassifier } from '@/lib/audit-runner';
+import { codeRequestText } from '@/lib/code-request';
 import { BANDS } from '@/core/match/score';
-import { bulkAccept, recordDecision, undoDecision, undoLast } from '@/lib/decisions';
+import { bulkAccept, recordDecision, recordGroupDecision, splitFromGroup, undoDecision, undoLast } from '@/lib/decisions';
 
 const DecideInput = z.object({
   findingId: z.string().min(1),
@@ -17,23 +18,47 @@ const DecideInput = z.object({
 
 export type DecideResult = { ok: true; eventId: string } | { ok: false; error: string };
 
-function refresh(): void {
-  revalidatePath('/review');
-  revalidatePath('/report');
-  revalidatePath('/export');
-}
-
 /** Records one accept/reject and its audit event. Never overwrites a decision. */
 export async function decide(payload: unknown): Promise<DecideResult> {
-  const user = await currentUser();
+  const { t } = await getI18n();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = DecideInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
 
   const result = await recordDecision(user, parsed.data);
   if (!result.ok) return { ok: false, error: t.errorGeneric };
-  refresh();
   return result;
+}
+
+const GroupInput = z.object({
+  findingIds: z.array(z.string().min(1)).min(1).max(5000),
+  decision: z.enum(['accepted', 'rejected']),
+});
+
+export type GroupResult = { ok: true; decided: { findingId: string; eventId: string }[] } | { ok: false; error: string };
+
+/** One accept/reject for a group of similar rows; one audit event per row. */
+export async function decideGroup(payload: unknown): Promise<GroupResult> {
+  const { t } = await getI18n();
+  const user = await writer();
+  if (!user) return { ok: false, error: t.errorGeneric };
+  const parsed = GroupInput.safeParse(payload);
+  if (!parsed.success) return { ok: false, error: t.errorGeneric };
+
+  const result = await recordGroupDecision(user, parsed.data);
+  if (!result.ok) return { ok: false, error: t.errorGeneric };
+  return result;
+}
+
+/** Takes a row out of its group so it can be decided on its own. */
+export async function splitRow(findingId: unknown): Promise<{ ok: boolean }> {
+  const user = await writer();
+  if (!user) return { ok: false };
+  const id = z.string().min(1).safeParse(findingId);
+  if (!id.success) return { ok: false };
+  const result = await splitFromGroup(user, id.data);
+  return { ok: result.ok };
 }
 
 const BulkInput = z.object({
@@ -47,14 +72,14 @@ export type BulkResult = { ok: true; count: number } | { ok: false; error: strin
 
 /** "Accept all above 90%." Only touches pending findings that have a suggestion. */
 export async function acceptAllAbove(payload: unknown): Promise<BulkResult> {
-  const user = await currentUser();
+  const { t } = await getI18n();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = BulkInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
 
   const result = await bulkAccept(user, parsed.data);
   if (!result.ok) return { ok: false, error: t.errorGeneric };
-  refresh();
   return { ok: true, count: result.count };
 }
 
@@ -67,7 +92,8 @@ const UndoInput = z.union([
 
 /** Undo a decision event (or one row of it), or the latest one still in effect for a catalogue. */
 export async function undo(payload: unknown): Promise<UndoResult> {
-  const user = await currentUser();
+  const { t } = await getI18n();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = UndoInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
@@ -76,8 +102,15 @@ export async function undo(payload: unknown): Promise<UndoResult> {
     ? await undoDecision(user, parsed.data.eventId, parsed.data.findingId)
     : await undoLast(user, parsed.data.lastInCatalog);
   if (!result.ok) return { ok: false, error: t.reviewUndoFailed };
-  refresh();
   return result;
+}
+
+/** Draft text for a new-code request on tasnif.soliq.uz. Never submitted from here. */
+export async function newCodeRequest(findingId: unknown): Promise<string | null> {
+  const user = await writer();
+  const id = z.string().min(1).safeParse(findingId);
+  if (!user || !id.success) return null;
+  return codeRequestText(user.orgId, id.data);
 }
 
 export type ClassifierHit = {

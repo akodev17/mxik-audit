@@ -5,10 +5,13 @@
 // retired code reports as NOT_FOUND with `wasRetired` set. Once snapshot history
 // accumulates, flipping it into its own type is an enum addition and one branch.
 import { unitsCompatible } from '../normalize/units.js';
+import type { MatchEvidence } from '../match/evidence.js';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 
-export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT';
-export type Severity = 'high' | 'medium';
+export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED'
+  | 'PRIVILEGE_CODE' | 'PRIVILEGE_OPPORTUNITY';
+/** "info" findings are shown but never counted as risk. */
+export type Severity = 'high' | 'medium' | 'info';
 
 /** Below this, a present-and-valid code is treated as not matching the name. */
 export const MISMATCH_THRESHOLD = 0.6;
@@ -48,9 +51,12 @@ export type Finding = {
     confidence: number;
     reason: string;
     isBase: boolean;
+    evidence: MatchEvidence;
   }[];
   reason: string;
   wasRetired: boolean;
+  /** Why the suggested code was proposed; null when nothing was suggested. */
+  evidence: MatchEvidence | null;
 };
 
 /** Normalizes whatever the spreadsheet had into a code or nothing. */
@@ -67,6 +73,7 @@ function alternativesOf(suggestions: readonly ScoredCandidate[]): Finding['alter
     confidence: s.confidence,
     reason: s.reason,
     isBase: s.candidate.isBase,
+    evidence: s.evidence,
   }));
 }
 
@@ -93,6 +100,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `Qatorda MXIK kodi yoʻq. Taklif: ${best.candidate.code}.`
         : 'Qatorda MXIK kodi yoʻq va mos kod topilmadi.',
       wasRetired: false,
+      evidence: best?.evidence ?? null,
     });
     return findings;
   }
@@ -109,6 +117,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `${code} kodi klassifikatorning joriy versiyasida yoʻq (avvalgi versiyada mavjud edi).`
         : `${code} kodi klassifikatorda topilmadi.`,
       wasRetired: row.existing.retired,
+      evidence: best?.evidence ?? null,
     });
     return findings;
   }
@@ -135,6 +144,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `${code} kodi tovar nomiga mos kelmaydi. Taklif: ${best.candidate.code}.`
         : `${code} kodi tovar nomiga mos kelmaydi.`,
       wasRetired: false,
+      evidence: best?.evidence ?? null,
     });
   }
 
@@ -151,6 +161,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
       alternatives: [],
       reason: `Oʻlchov birligi notoʻgʻri: qatorda "${row.unit ?? ''}", kod talab qiladi "${existing.unitCanonical.join(' / ')}".`,
       wasRetired: false,
+      evidence: null,
     });
   }
 
@@ -166,11 +177,12 @@ export type Summary = {
 /** The Report screen's headline block. Counts rows at risk, not findings. */
 export function summarize(perRow: readonly Finding[][], totalRows: number): Summary {
   const byType: Record<FindingType, number> = {
-    MISSING: 0, NOT_FOUND: 0, MISMATCH: 0, UNIT_CONFLICT: 0,
+    MISSING: 0, NOT_FOUND: 0, MISMATCH: 0, UNIT_CONFLICT: 0, NOT_PURCHASED: 0,
+    PRIVILEGE_CODE: 0, PRIVILEGE_OPPORTUNITY: 0,
   };
   let riskyRows = 0;
   for (const findings of perRow) {
-    if (findings.length > 0) riskyRows++;
+    if (findings.some((f) => f.severity !== 'info')) riskyRows++;
     for (const f of findings) byType[f.type]++;
   }
   return { totalRows, riskyRows, byType };

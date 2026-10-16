@@ -34,7 +34,8 @@ export type RerankConfig = {
 };
 
 // Current IDs and first-party prices from https://platform.claude.com/docs/en/models/overview
-// (checked 2026-10-15). Default is the model that page recommends starting with.
+// (re-checked 2026-10-16 against the claude-api reference cached 2026-10-06).
+// Default is the model that page recommends starting with.
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 
 const PRICES: Record<string, { inputPerMTok: number; outputPerMTok: number }> = {

@@ -105,6 +105,21 @@ enum UnitBinding {
   @@map("unit_binding")
 }
 
+/// The portal's tax-privilege reference (/integration-mxik/references/lgota):
+/// what each id in mxik_code.taxPrivilegeIds means. Loaded by
+/// `npm run privileges:fetch`; see docs/imtiyoz-data.md.
+model TaxPrivilege {
+  id          String    @id
+  nameLatn    String?
+  nameRu      String?
+  docNum      Int?
+  docDate     DateTime?
+  docNameLatn String?
+  fetchedAt   DateTime  @default(now())
+
+  @@map("tax_privilege")
+}
+
 /// Each catalogue import, so codes that vanish between imports can be detected.
 model CatalogSnapshot {
   id         Int      @id @default(autoincrement())
@@ -113,8 +128,41 @@ model CatalogSnapshot {
   source     String
   /// Codes present in the previous snapshot but absent from this one.
   retiredCodes String[]
+  addedCount       Int       @default(0)
+  retiredCount     Int       @default(0)
+  unitChangedCount Int       @default(0)
+  nameChangedCount Int       @default(0)
+  /// When every client's latest catalogue was re-checked against this snapshot.
+  recheckedAt      DateTime?
+
+  changes ClassifierChange[]
 
   @@map("catalog_snapshot")
+}
+
+/// One code that changed in a classifier import, against the previous one.
+model ClassifierChange {
+  id         Int                  @id @default(autoincrement())
+  snapshotId Int
+  code       String               @db.Char(17)
+  kind       ClassifierChangeKind
+  before     Json?
+  after      Json?
+
+  snapshot CatalogSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId, kind])
+  @@index([code])
+  @@map("classifier_change")
+}
+
+enum ClassifierChangeKind {
+  added
+  retired
+  unit_changed
+  name_changed
+
+  @@map("classifier_change_kind")
 }
 
 /// Which provider produced the vectors currently stored in mxik_code.
@@ -138,8 +186,32 @@ model Organization {
   createdAt DateTime @default(now())
 
   users     User[]
+  clients   Client[]
+  notifications Notification[]
+  telegramLinks TelegramLink[]
+  orders    Order[]
   catalogs  Catalog[]
   events    AuditEvent[]
+  invites   Invite[]
+  mappings  FirmMapping[]
+  feedback  SuggestionFeedback[]
+  shareLinks ShareLink[]
+  comments  FindingComment[]
+  savedViews SavedView[]
+  schedules ClientSchedule[]
+  reminderTasks ReminderTask[]
+  docLists  DocList[]
+  /// Accept dictionary matches automatically when a catalogue is audited.
+  dictAutoAccept Boolean @default(false)
+  /// Free trial runs until this moment; null for demo and internal orgs.
+  trialEndsAt DateTime?
+  /// Paid firm subscription runs until this moment; null = none.
+  subscriptionUntil DateTime?
+  /// Firm name printed on client PDF reports; null = the org name.
+  brandName String?
+  /// Logo printed on client PDF reports (PNG or JPEG, small).
+  logoData  Bytes?
+  logoMime  String?
   /// Remembered column mapping, so a repeat upload does not re-ask.
   columnMap Json?
   kind      OrgKind  @default(customer)
@@ -179,10 +251,287 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
+  /// admin manages the org; accountant works on assigned clients; viewer is read-only.
+  role         UserRole @default(admin)
+  /// Set when the address was confirmed (or the account predates verification).
+  emailVerifiedAt DateTime?
+  emailTokens  EmailToken[]
+  savedViews   SavedView[]
+  /// Interface language, uz or ru; null = the default.
+  locale       String?
+
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assignments ClientAssignment[]
 
   @@index([orgId])
   @@map("user")
+}
+
+enum UserRole {
+  admin
+  accountant
+  viewer
+
+  @@map("user_role")
+}
+
+/// Limits an accountant or viewer to these clients; none assigned = all of the org's.
+model ClientAssignment {
+  userId    String
+  clientId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@id([userId, clientId])
+  @@index([clientId])
+  @@map("client_assignment")
+}
+
+/// A link that lets one person join an org. Only the hash of the token is stored.
+model Invite {
+  id        String    @id @default(cuid())
+  orgId     String
+  tokenHash String    @unique
+  email     String?
+  role      UserRole
+  clientIds String[]
+  createdBy String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("invite")
+}
+
+/// What an org decided before: normalised name + unit (or a barcode) to a code.
+model FirmMapping {
+  id        String    @id @default(cuid())
+  orgId     String
+  /// name = normalised name + unit, barcode = the row's barcode.
+  kind      String
+  key       String
+  /// The normalised name (or barcode) as shown in the dictionary page.
+  label     String
+  unit      String?
+  code      String
+  uses      Int       @default(1)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  /// Set when the code left the classifier; the mapping is then ignored.
+  staleAt   DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, kind, key])
+  @@index([orgId])
+  @@map("firm_mapping")
+}
+
+/// A reviewer's reason for calling a suggestion wrong; feeds the accuracy metrics.
+model SuggestionFeedback {
+  id            String   @id @default(cuid())
+  orgId         String
+  findingId     String   @unique
+  userId        String?
+  /// other_category, service_goods, finished_raw, unit or other.
+  reason        String
+  note          String?
+  /// The pipeline stage and confidence label that produced the suggestion.
+  stage         String?
+  label         String?
+  suggestedMxik String?
+  productName   String
+  createdAt     DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@map("suggestion_feedback")
+}
+
+/// A read-only report link for one catalogue. Only the token's hash is stored.
+model ShareLink {
+  id           String    @id @default(cuid())
+  orgId        String
+  catalogId    String
+  tokenHash    String    @unique
+  includePdf   Boolean   @default(true)
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  views        Int       @default(0)
+  lastViewedAt DateTime?
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalog Catalog      @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+
+  @@index([catalogId])
+  @@index([orgId])
+  @@map("share_link")
+}
+
+/// One-time link that confirms an email address. Only the hash is stored.
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_token")
+}
+
+/// A note on one row. Internal: never shown on share links or in exports.
+model FindingComment {
+  id        String   @id @default(cuid())
+  orgId     String
+  findingId String
+  userId    String?
+  body      String
+  createdAt DateTime @default(now())
+
+  finding Finding      @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([findingId, createdAt])
+  @@index([orgId])
+  @@map("finding_comment")
+}
+
+/// A named set of workspace filters, sort, density and grouping. One default per user.
+model SavedView {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  name      String
+  params    Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_view")
+}
+
+/// When a client's monthly check is due (day of month 1-28) and who is told.
+model ClientSchedule {
+  clientId   String   @id
+  orgId      String
+  dayOfMonth Int
+  /// The accountant to remind; null = the client's assigned accountants, else the admins.
+  assigneeId String?
+  enabled    Boolean  @default(true)
+  /// The last month (YYYY-MM) a task was created for.
+  lastPeriod String?
+  updatedAt  DateTime @default(now())
+
+  client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("client_schedule")
+}
+
+/// One monthly check to do. Open until a catalogue is audited for the client, or marked done.
+model ReminderTask {
+  id        String    @id @default(cuid())
+  orgId     String
+  clientId  String
+  period    String
+  dueOn     DateTime  @db.Date
+  doneAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, period])
+  @@index([orgId, doneAt])
+  @@map("reminder_task")
+}
+
+/// An uploaded list of what a client sold: kind cheques (the tax cabinet's wrong-code list) or sales (cheque or EHF lines).
+model DocList {
+  id            String   @id @default(cuid())
+  orgId         String
+  clientId      String
+  kind          String
+  filename      String
+  rowCount      Int
+  headers       String[]
+  columnMap     Json
+  /// uploaded = waiting for the column mapping; analyzing; ready; failed.
+  status        String   @default("uploaded")
+  progressDone  Int      @default(0)
+  progressTotal Int      @default(0)
+  error         String?
+  createdAt     DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  DocItem[]
+  groups DocGroup[]
+
+  @@index([clientId, kind])
+  @@index([orgId])
+  @@map("doc_list")
+}
+
+model DocItem {
+  id         String    @id @default(cuid())
+  listId     String
+  rowIndex   Int
+  name       String?
+  mxik       String?
+  unit       String?
+  quantity   Decimal?  @db.Decimal(20, 3)
+  amount     Decimal?  @db.Decimal(20, 2)
+  occurredAt DateTime? @db.Date
+  /// Every original cell, so the mapping can be applied after upload.
+  attrs      Json
+
+  list DocList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+  @@map("doc_item")
+}
+
+/// Lines of a list that share a code (and, for cheques, a name), with what the checks found.
+model DocGroup {
+  id            String   @id @default(cuid())
+  listId        String
+  name          String?
+  /// The most common names behind this group, for the report.
+  names         Json
+  mxik          String?
+  unit          String?
+  lines         Int
+  quantity      Decimal? @db.Decimal(20, 3)
+  amount        Decimal? @db.Decimal(20, 2)
+  /// INVALID_CODE, MISSING_CODE, MISMATCH, UNIT_CONFLICT, NOT_IN_CATALOG, NOT_PURCHASED.
+  issues        String[]
+  suggestedMxik String?
+  confidence    Float?
+  /// Reasons, alternatives and matching catalogue rows.
+  detail        Json
+
+  list DocList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+  @@map("doc_group")
 }
 
 enum CatalogStatus {
@@ -194,9 +543,89 @@ enum CatalogStatus {
   @@map("catalog_status")
 }
 
+/// A business whose catalogues an organization audits. An accounting firm has
+/// many; a company audits itself through its one default client.
+model Client {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  /// Catalogues uploaded before clients existed, or without naming a client,
+  /// land here. Exactly one per org (partial unique index in the migration).
+  isDefault Boolean  @default(false)
+  /// Decides how a sale without a matching purchase is rated (NOT_PURCHASED).
+  activity  ClientActivity @default(boshqa)
+  createdAt DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalogs Catalog[]
+  notifications Notification[]
+  purchaseLists PurchaseList[]
+  assignments ClientAssignment[]
+  schedule ClientSchedule?
+  reminderTasks ReminderTask[]
+  docLists DocList[]
+
+  @@index([orgId])
+  @@map("client")
+}
+
+/// savdo = trade (the purchase check is a high risk), ishlab_chiqarish =
+/// production, boshqa = anything else; for the last two it is informational.
+enum ClientActivity {
+  savdo
+  ishlab_chiqarish
+  boshqa
+
+  @@map("client_activity")
+}
+
+/// A client's purchases ("Kirim"), uploaded as a file of their choosing (an
+/// EHF export or any list), mapped like a catalogue. Its MXIK codes are the
+/// set the NOT_PURCHASED check compares sales against.
+model PurchaseList {
+  id        String   @id @default(cuid())
+  orgId     String
+  clientId  String
+  filename  String
+  rowCount  Int
+  headers   String[]
+  columnMap Json
+  /// uploaded = waiting for the column mapping; ready = in use.
+  status    String   @default("uploaded")
+  createdAt DateTime @default(now())
+
+  client Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  PurchaseItem[]
+
+  @@index([orgId])
+  @@index([clientId])
+  @@map("purchase_list")
+}
+
+model PurchaseItem {
+  id       String  @id @default(cuid())
+  listId   String
+  rowIndex Int
+  name     String?
+  mxik     String?
+  unit     String?
+  /// Every original cell, so the mapping can be applied after upload.
+  attrs    Json
+
+  list PurchaseList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+  @@index([mxik])
+  @@map("purchase_item")
+}
+
 model Catalog {
   id        String        @id @default(cuid())
   orgId     String
+  /// NOT NULL in the database: a BEFORE INSERT trigger fills the org's default
+  /// client when a caller omits it (see the clients migration). Optional here
+  /// only so callers that predate clients keep compiling.
+  clientId  String?
   filename  String
   rowCount  Int
   status    CatalogStatus @default(uploaded)
@@ -211,11 +640,19 @@ model Catalog {
   /// Bumped while an audit runs; a stale one means the worker died.
   auditHeartbeatAt DateTime?
   auditError       String?
+  /// Set when the file came through the Telegram bot: the chat that gets the summary.
+  telegramChatId   String?
+  /// The earlier version of this client's catalogue this one replaces; decisions carry over from it.
+  previousId       String?
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items    CatalogItem[]
+  shareLinks ShareLink[]
 
   @@index([orgId])
+  @@index([clientId, createdAt])
+  @@index([previousId])
   @@map("catalog")
 }
 
@@ -229,14 +666,20 @@ model CatalogItem {
   existingMxik   String?
   unit           String?
   price          Decimal? @db.Decimal(18, 2)
+  /// Sales amount from a mapped "Sotuv summasi" column, if the file has one.
+  salesAmount    Decimal? @db.Decimal(20, 2)
   /// Attributes parsed out of the name, plus every original cell for re-export.
   attrs          Json
+  /// The current code or a suggested code is flagged for digital marking
+  /// (classifier `label` = 1). Set by the audit; drives the report filter.
+  markingRequired Boolean @default(false)
 
   catalog  Catalog   @relation(fields: [catalogId], references: [id], onDelete: Cascade)
   findings Finding[]
 
   @@unique([catalogId, rowIndex])
   @@index([catalogId])
+  @@index([catalogId, markingRequired])
   @@map("catalog_item")
 }
 
@@ -251,6 +694,12 @@ enum FindingType {
   MISMATCH
   /// Row's unit contradicts the code's strictly bound unit.
   UNIT_CONFLICT
+  /// The row's code is not among the client's purchase codes (savdo: high, else info).
+  NOT_PURCHASED
+  /// The row's code is linked to a tax privilege in the classifier: verify it fits.
+  PRIVILEGE_CODE
+  /// The suggested code is privilege-linked and the row's code is not.
+  PRIVILEGE_OPPORTUNITY
 
   @@map("finding_type")
 }
@@ -258,6 +707,8 @@ enum FindingType {
 enum Severity {
   high
   medium
+  /// Shown for information; never counted as risk.
+  info
 
   @@map("severity")
 }
@@ -280,9 +731,15 @@ model Finding {
   /// Runner-up candidates, each with code, name, path, confidence and reason.
   alternatives  Json
   reason        String
+  /// Why the suggested code was proposed (src/core/match/evidence.ts). Null on older audits.
+  evidence      Json?
   /// True when this code existed in an earlier snapshot and has since vanished.
   /// Carries the archive signal until there is enough history to surface it.
   wasRetired    Boolean     @default(false)
+  /// The reviewer took this row out of its group of similar rows.
+  groupSplit    Boolean     @default(false)
+  /// The classifier import that caused this finding; null = the original audit.
+  snapshotId    Int?
   decision      Decision    @default(pending)
   /// Code the reviewer actually chose, which may differ from suggestedMxik.
   chosenMxik    String?
@@ -290,13 +747,17 @@ model Finding {
   decidedAt     DateTime?
   /// The AuditEvent that set the current decision; undo targets it. Null while pending.
   decisionEventId String?
+  /// ask_client = waiting on the client; resolved = settled. Null = no flag.
+  flag          String?
 
   item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  comments FindingComment[]
 
   @@index([itemId])
   @@index([decisionEventId])
   @@index([type])
   @@index([decision])
+  @@index([flag])
   @@map("finding")
 }
 
@@ -316,6 +777,130 @@ model AuditEvent {
 
   @@index([orgId, createdAt])
   @@map("audit_event")
+}
+
+/// Something an org should know about, shown in the app and sent to its linked
+/// Telegram chats. Not an audit record: AuditEvent keeps that.
+model Notification {
+  id        String    @id @default(cuid())
+  orgId     String
+  clientId  String?
+  /// e.g. classifier.updated
+  kind      String
+  title     String
+  body      String
+  /// Site-relative link to what the notification is about.
+  href      String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  /// Set once delivered to the org's Telegram chats; null = not sent (yet).
+  telegramSentAt DateTime?
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([clientId, createdAt])
+  @@map("notification")
+}
+
+/// A Telegram chat linked to an org: receives notifications and may send files.
+model TelegramLink {
+  id        String   @id @default(cuid())
+  orgId     String
+  /// Telegram chat id, kept as text (it can exceed 2^31).
+  chatId    String   @unique
+  username  String?
+  linkedBy  String?
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("telegram_link")
+}
+
+/// One-time code shown in the web app; "/start CODE" in the bot links the chat.
+model TelegramLinkCode {
+  code      String    @id
+  orgId     String
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([orgId])
+  @@map("telegram_link_code")
+}
+
+/// A file sent to the bot, waiting for the user to pick the client.
+model TelegramPending {
+  id        String   @id @default(cuid())
+  chatId    String
+  orgId     String
+  fileId    String
+  filename  String
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+  @@map("telegram_pending")
+}
+
+/// A purchase: one "Toʻgʻrilangan katalog" for a catalogue, or a month of the
+/// firm plan. Amount in soʻm, fixed when the order is created.
+model Order {
+  id          String      @id @default(cuid())
+  orgId       String
+  catalogId   String?
+  planId      String
+  amount      Int
+  status      OrderStatus @default(created)
+  provider    String?
+  createdAt   DateTime    @default(now())
+  paidAt      DateTime?
+  cancelledAt DateTime?
+
+  org          Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transactions PaymentTransaction[]
+
+  @@index([orgId, createdAt])
+  @@index([catalogId])
+  @@map("order")
+}
+
+enum OrderStatus {
+  created
+  paid
+  cancelled
+
+  @@map("order_status")
+}
+
+/// A payment provider's transaction for an order (Click or Payme), with the
+/// state and times their protocols require us to remember.
+model PaymentTransaction {
+  /// Also Click's merchant_prepare_id / merchant_confirm_id, hence an integer.
+  id           Int      @id @default(autoincrement())
+  orderId      String
+  provider     String
+  /// click_trans_id or the Payme transaction id.
+  externalId   String
+  amountTiyin  BigInt
+  /// Payme: 1 created, 2 performed, -1 cancelled before, -2 cancelled after.
+  /// Click: 1 prepared, 2 completed, -1 cancelled.
+  state        Int
+  /// Provider-side creation time (Payme "time"), ms.
+  providerTime BigInt?
+  createTime   BigInt
+  performTime  BigInt?
+  cancelTime   BigInt?
+  reason       Int?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([orderId])
+  @@map("payment_transaction")
 }
 
 /// LLM rerank verdicts keyed by a hash of model + prompt version + normalized

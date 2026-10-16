@@ -10,9 +10,11 @@ export const ColumnMapSchema = z.object({
   mxik: z.number().int().min(-1),
   unit: z.number().int().min(-1),
   price: z.number().int().min(-1),
+  /** Sales amount per row, for the money-at-risk estimate. Older mappings lack it. */
+  sales: z.number().int().min(-1).default(-1),
 });
 
 export type ColumnMap = z.infer<typeof ColumnMapSchema>;
 
 /** Field order as the mapping UI presents it. */
-export const COLUMN_FIELDS = ['name', 'barcode', 'mxik', 'unit', 'price'] as const;
+export const COLUMN_FIELDS = ['name', 'barcode', 'mxik', 'unit', 'price', 'sales'] as const;

@@ -4,11 +4,14 @@
 // that it happened.
 import { normalizeName } from '../core/normalize/index.js';
 import { rerankCacheKey } from '../core/match/rerank-cache.js';
+import { catalogScope } from './access.js';
 import { db } from './db.js';
 import type { Actor, Result } from './decisions.js';
+import { RISKY_ITEM } from './risk.js';
 
 export type CatalogSummary = {
   id: string;
+  clientId: string | null;
   filename: string;
   rowCount: number;
   status: string;
@@ -16,13 +19,14 @@ export type CatalogSummary = {
   riskyRows: number;
 };
 
-export async function listCatalogs(orgId: string): Promise<CatalogSummary[]> {
+/** The org's catalogues, optionally only one client's. */
+export async function listCatalogs(orgId: string, clientId?: string | null, scope?: string[] | null): Promise<CatalogSummary[]> {
   const catalogs = await db.catalog.findMany({
-    where: { orgId },
+    where: { orgId, ...(clientId ? { clientId } : scope ? { clientId: { in: scope } } : {}) },
     orderBy: { createdAt: 'desc' },
     select: {
-      id: true, filename: true, rowCount: true, status: true, createdAt: true,
-      _count: { select: { items: { where: { findings: { some: {} } } } } },
+      id: true, clientId: true, filename: true, rowCount: true, status: true, createdAt: true,
+      _count: { select: { items: { where: RISKY_ITEM } } },
     },
   });
   return catalogs.map(({ _count, ...c }) => ({ ...c, riskyRows: _count.items }));
@@ -30,17 +34,18 @@ export async function listCatalogs(orgId: string): Promise<CatalogSummary[]> {
 
 /**
  * The catalogue a screen should show: the requested one if it belongs to the
- * org, otherwise none; the latest when nothing was requested.
+ * org, otherwise none; else the latest of the given client (or of the org).
  */
-export async function resolveCatalog(orgId: string, requestedId?: string | null) {
-  if (requestedId) return db.catalog.findFirst({ where: { id: requestedId, orgId } });
-  return db.catalog.findFirst({ where: { orgId }, orderBy: { createdAt: 'desc' } });
+export async function resolveCatalog(orgId: string, requestedId?: string | null, clientId?: string | null, scope?: string[] | null) {
+  const limit = scope ? { clientId: { in: scope } } : {};
+  if (requestedId) return db.catalog.findFirst({ where: { id: requestedId, orgId, ...limit } });
+  return db.catalog.findFirst({ where: { orgId, ...(clientId ? { clientId } : limit) }, orderBy: { createdAt: 'desc' } });
 }
 
 export type DeleteOutcome = { rows: number; findings: number; logEntries: number; cacheEntries: number };
 
 export async function deleteCatalog(actor: Actor, catalogId: string): Promise<Result<DeleteOutcome>> {
-  const catalog = await db.catalog.findFirst({ where: { id: catalogId, orgId: actor.orgId }, select: { id: true } });
+  const catalog = await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(actor) }, select: { id: true } });
   if (!catalog) return { ok: false, error: 'not found' };
 
   const items = await db.catalogItem.findMany({ where: { catalogId }, select: { rawName: true, unit: true } });

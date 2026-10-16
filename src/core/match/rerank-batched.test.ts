@@ -16,7 +16,7 @@ function candidate(code: string): MxikCandidate {
 }
 
 function request(name: string, codes: string[]): RerankRequest {
-  return { productName: name, normalizedKey: name, unit: 'dona', preparedDish: false, candidates: codes.map(candidate) };
+  return { productName: name, normalizedKey: name, unit: 'dona', candidates: codes.map(candidate) };
 }
 
 const A = '01901001003000000';

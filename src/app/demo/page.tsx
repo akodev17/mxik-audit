@@ -1,29 +1,32 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { t } from '@/lib/i18n';
 import { StartDemoButton } from './start-button';
 
-export const metadata: Metadata = {
-  title: `${t.demoTitle} — ${t.appName}`,
-  robots: { index: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.demoTitle} — ${t.appName}`, robots: { index: false } };
+}
 
 /** Landing CTA target: one click into a private copy of the sample catalogue. */
-export default function DemoPage() {
+export default async function DemoPage() {
+  const { t } = await getI18n();
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
-      <Link href="/" className="font-serif text-lg font-semibold tracking-tight">{t.appName}</Link>
-      <h1 className="mt-6 text-3xl">{t.demoTitle}</h1>
-      <p className="mt-4 text-ink-soft">{t.demoIntro}</p>
-      <ul className="mt-6 list-none space-y-2.5 p-0 text-sm text-ink-soft">
-        {t.demoPoints.map((point) => (
-          <li key={point} className="flex gap-3">
-            <span aria-hidden="true" className="text-ok">✓</span>
-            <span>{point}</span>
-          </li>
-        ))}
-      </ul>
-      <StartDemoButton />
+    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
+      <Link href="/" className="text-xl font-bold tracking-tight">{t.appName}</Link>
+      <div className="mt-6 rounded-ctl border border-line bg-base p-6 shadow-pop">
+        <h1 className="text-xl">{t.demoTitle}</h1>
+        <p className="mt-2 text-sm text-muted">{t.demoIntro}</p>
+        <ul className="mt-4 list-none space-y-2 p-0 text-sm">
+          {t.demoPoints.map((point) => (
+            <li key={point} className="flex gap-3">
+              <span aria-hidden="true" className="text-good">✓</span>
+              <span>{point}</span>
+            </li>
+          ))}
+        </ul>
+        <StartDemoButton />
+      </div>
     </main>
   );
 }

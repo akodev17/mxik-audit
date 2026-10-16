@@ -2,12 +2,14 @@
 // acting user and scopes every query by their org. The audit log stays
 // append-only: undo writes a new event and never edits or deletes an old one.
 import { BANDS } from '../core/match/score.js';
+import { catalogScope } from './access.js';
+import { learnQuietly } from './dictionary.js';
 import { db } from './db.js';
 
-export type Actor = { userId: string; orgId: string };
+export type Actor = { userId: string; orgId: string; clientIds?: string[] | null };
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
-export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted'] as const;
+export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.carried_over'] as const;
 const HISTORY_ACTIONS = [...DECISION_ACTIONS, 'finding.undone'];
 
 const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
@@ -21,11 +23,11 @@ async function isLiveCode(code: string): Promise<boolean> {
 
 export async function recordDecision(
   actor: Actor,
-  input: { findingId: string; decision: 'accepted' | 'rejected'; chosenMxik?: string | null },
+  input: { findingId: string; decision: 'accepted' | 'rejected'; chosenMxik?: string | null; groupSize?: number },
 ): Promise<Result<{ eventId: string }>> {
   const finding = await db.finding.findFirst({
-    where: { id: input.findingId, item: { catalog: { orgId: actor.orgId } } },
-    select: { id: true, suggestedMxik: true, type: true, decision: true, item: { select: { rawName: true, catalogId: true } } },
+    where: { id: input.findingId, item: { catalog: catalogScope(actor) } },
+    select: { id: true, suggestedMxik: true, type: true, decision: true, item: { select: { rawName: true, catalogId: true, unit: true, barcode: true } } },
   });
   if (!finding) return fail('not found');
   // A decided row must be undone first, so no decision is ever overwritten silently.
@@ -51,6 +53,7 @@ export async function recordDecision(
             suggestedMxik: finding.suggestedMxik,
             chosenMxik: chosen,
             overrodeSuggestion: chosen !== null && chosen !== finding.suggestedMxik,
+            ...(input.groupSize ? { groupSize: input.groupSize } : {}),
           },
         },
       });
@@ -65,10 +68,47 @@ export async function recordDecision(
       if (updated.count !== 1) throw new Error('already decided');
       return event.id;
     });
+    // Accepting teaches the firm dictionary; a later row with the same product reuses it.
+    if (chosen) await learnQuietly(actor.orgId, actor.userId, [{ rawName: finding.item.rawName, unit: finding.item.unit, barcode: finding.item.barcode, code: chosen }]);
     return { ok: true, eventId };
   } catch (error) {
     return fail(error instanceof Error ? error.message : 'failed');
   }
+}
+
+/**
+ * One decision for a group of similar rows. Each row still gets its own audit
+ * event, so every row's history reads exactly as if decided alone.
+ */
+export async function recordGroupDecision(
+  actor: Actor,
+  input: { findingIds: string[]; decision: 'accepted' | 'rejected' },
+): Promise<Result<{ decided: { findingId: string; eventId: string }[] }>> {
+  const decided: { findingId: string; eventId: string }[] = [];
+  for (const findingId of input.findingIds) {
+    const result = await recordDecision(actor, { findingId, decision: input.decision, groupSize: input.findingIds.length });
+    if (result.ok) decided.push({ findingId, eventId: result.eventId });
+  }
+  return decided.length > 0 ? { ok: true, decided } : fail('nothing decided');
+}
+
+/** Takes one row out of its group, so it is reviewed on its own. */
+export async function splitFromGroup(actor: Actor, findingId: string): Promise<Result> {
+  const finding = await db.finding.findFirst({
+    where: { id: findingId, item: { catalog: catalogScope(actor) } },
+    select: { id: true, item: { select: { catalogId: true, rawName: true } } },
+  });
+  if (!finding) return fail('not found');
+  await db.$transaction([
+    db.finding.update({ where: { id: finding.id }, data: { groupSplit: true } }),
+    db.auditEvent.create({
+      data: {
+        orgId: actor.orgId, actorId: actor.userId, action: 'finding.split_from_group', targetId: finding.id,
+        payload: { catalogId: finding.item.catalogId, productName: finding.item.rawName },
+      },
+    }),
+  ]);
+  return { ok: true };
 }
 
 /** "Accept all above 90%." Only pending findings with a suggestion, high band only. */
@@ -77,7 +117,7 @@ export async function bulkAccept(
   input: { catalogId: string; minConfidence: number },
 ): Promise<Result<{ count: number; eventId: string | null }>> {
   if (input.minConfidence < BANDS.high) return fail('threshold below the high band');
-  const catalog = await db.catalog.findFirst({ where: { id: input.catalogId, orgId: actor.orgId }, select: { id: true } });
+  const catalog = await db.catalog.findFirst({ where: { id: input.catalogId, ...catalogScope(actor) }, select: { id: true } });
   if (!catalog) return fail('not found');
 
   const targets = await db.finding.findMany({
@@ -87,7 +127,7 @@ export async function bulkAccept(
       confidence: { gte: input.minConfidence },
       suggestedMxik: { not: null },
     },
-    select: { id: true, suggestedMxik: true, confidence: true, item: { select: { rawName: true } } },
+    select: { id: true, suggestedMxik: true, confidence: true, item: { select: { rawName: true, unit: true, barcode: true } } },
   });
   if (targets.length === 0) return { ok: true, count: 0, eventId: null };
 
@@ -116,6 +156,7 @@ export async function bulkAccept(
     return event.id;
   }, { timeout: 120_000 });
 
+  await learnQuietly(actor.orgId, actor.userId, targets.flatMap((f) => (f.suggestedMxik ? [{ rawName: f.item.rawName, unit: f.item.unit, barcode: f.item.barcode, code: f.suggestedMxik }] : [])));
   return { ok: true, count: targets.length, eventId };
 }
 
@@ -139,7 +180,7 @@ export async function undoDecision(
   const findings = await db.finding.findMany({
     where: {
       decisionEventId: event.id,
-      item: { catalog: { orgId: actor.orgId } },
+      item: { catalog: catalogScope(actor) },
       ...(onlyFindingId ? { id: onlyFindingId } : {}),
     },
     select: { id: true, decision: true, chosenMxik: true, item: { select: { rawName: true, catalogId: true } } },

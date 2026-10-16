@@ -6,9 +6,14 @@
 //   3 lexical (trigram)  |
 //   4 vector (pgvector)  |-> 5 reciprocal rank fusion -> 6 LLM rerank
 import { normalizeBarcode, normalizeName } from '../normalize/index.js';
+import { dictionaryKeys, type DictionaryLookup } from './dictionary.js';
+import { NoopRerankProvider } from './rerank.js';
 import { reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankGate } from './rerank-gate.js';
+import { evidenceFor } from './evidence.js';
+import { NONE_REASON } from './rerank-parse.js';
+import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
 import { bandOf, calibrate } from './score.js';
 import type {
@@ -20,6 +25,8 @@ export type PipelineOptions = {
   store: CandidateStore;
   embedder: EmbeddingProvider;
   reranker: RerankProvider;
+  /** What this org confirmed before; checked first and ranked above everything else. */
+  dictionary?: DictionaryLookup | undefined;
   /** Only rows this gate calls uncertain go to the reranker. Absent = all fused rows. */
   rerankGate?: RerankGate | undefined;
   /** Stages to switch off, for ablation in the eval. Production leaves this empty. */
@@ -59,6 +66,7 @@ function certain(
   reason: string,
   rowUnit: string | null,
   preparedDish: boolean,
+  productName: string,
 ): ScoredCandidate {
   const rules = applyRules({ candidate, rowUnit, preparedDish });
   return {
@@ -72,10 +80,38 @@ function certain(
     reason,
     stage,
     adjustments: rules.notes,
+    evidence: evidenceFor({ stage, productName, rowUnit, candidate }),
   };
 }
 
+/** Confidence of a code the org itself confirmed: in the high band, never above a barcode identity. */
+export const DICTIONARY_CONFIDENCE = 0.96;
+
+/** Stage 0: the firm dictionary, then the normal cascade for the alternatives. */
 export async function matchProduct(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
+  const hit = opts.dictionary?.find(dictionaryKeys(input)) ?? null;
+  const candidate = hit ? await opts.store.byCode(hit.code) : null;
+  // A mapping whose code left the classifier is ignored, never shown.
+  if (!hit || !candidate || !(await opts.store.liveCodes([hit.code])).has(hit.code)) return matchCore(input, opts);
+
+  // The org already decided, so the cascade runs only for alternatives: no LLM call.
+  const base = await matchCore(input, { ...opts, reranker: new NoopRerankProvider('dictionary') });
+  const top: ScoredCandidate = {
+    candidate,
+    signals: {},
+    ranks: {},
+    confidence: DICTIONARY_CONFIDENCE,
+    band: bandOf(DICTIONARY_CONFIDENCE),
+    reason: 'Firma bu mahsulotni avval shu kodga tasdiqlagan.',
+    stage: 'dictionary',
+    adjustments: [],
+    evidence: { ...evidenceFor({ stage: 'dictionary', productName: input.rawName, rowUnit: input.unit ?? null, candidate }), dictionaryUses: hit.uses },
+  };
+  const rest = base.candidates.filter((c) => c.candidate.code !== hit.code);
+  return { ...base, decidedBy: 'dictionary', candidates: [top, ...rest].slice(0, opts.topK ?? DEFAULTS.topK) };
+}
+
+async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
   const limits = { ...DEFAULTS, ...opts };
   const { store, embedder, reranker } = opts;
   const notes: string[] = [];
@@ -95,7 +131,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     if (hits.length === 1 && hits[0]) {
       return {
         input, normalized, decidedBy: 'barcode', notes, pool: [hits[0].code],
-        candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, preparedDish)],
+        candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, preparedDish, input.rawName)],
       };
     }
     if (hits.length > 1) {
@@ -111,7 +147,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code],
-        candidates: [certain(exact[0], 0.95, 'exact', 'Product name matches this classifier entry exactly after normalization.', rowUnit, preparedDish)],
+        candidates: [certain(exact[0], 0.95, 'exact', 'Product name matches this classifier entry exactly after normalization.', rowUnit, preparedDish, input.rawName)],
       };
     }
     if (exact.length > 1) notes.push(`${exact.length} codes share this normalized name; ranking them.`);
@@ -172,6 +208,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
   // ------------------------------------------------------------- 6. rerank
   const llmScore = new Map<string, { confidence: number; reason: string }>();
   let decidedBy: MatchResult['decidedBy'] = 'fusion';
+  let rerankNone = false;
   if (reranker.available && fused.length > 0) {
     // The gate reads uncapped retrieval confidence; skipping never lifts the cap.
     const gate = rerankGate(
@@ -190,7 +227,6 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
           productName: normalized.display,
           normalizedKey: normalized.matchKey,
           unit: rowUnit,
-          preparedDish,
           candidates: fused.map((f) => f.item),
         }));
         const valid = await keepKnownCodes(verdicts, fused.map((f) => f.item.code), store);
@@ -199,6 +235,7 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
         }
         for (const v of valid) llmScore.set(v.code, { confidence: v.confidence, reason: v.reason });
         if (valid.length > 0) decidedBy = 'rerank';
+        rerankNone = valid.length > 0 && valid.every((v) => v.confidence === 0 && v.reason === NONE_REASON);
       } catch (error) {
         notes.push(`Reranker failed (${error instanceof Error ? error.message : String(error)}); falling back to fusion order.`);
       }
@@ -240,13 +277,25 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
       reason: llm?.reason ?? describeMatch(p.fused.item, p.signals.lexical),
       stage: llm ? 'rerank' : 'fusion',
       adjustments: p.rules.notes,
+      evidence: evidenceFor({
+        stage: llm ? 'rerank' : 'fusion',
+        productName: input.rawName,
+        rowUnit,
+        candidate: p.fused.item,
+        rerankReason: llm && !rerankNone ? llm.reason : null,
+        rerankNone,
+      }),
     };
   }).sort((a, b) => b.confidence - a.confidence);
 
+  // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
+  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence));
+  if (kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
+
   return {
-    input, normalized, decidedBy, notes,
+    input, normalized, decidedBy: kept.length === 0 ? 'none' : decidedBy, notes,
     pool: provisional.map((x) => x.fused.item.code),
-    candidates: scored.slice(0, limits.topK),
+    candidates: kept.slice(0, limits.topK),
   };
 }
 

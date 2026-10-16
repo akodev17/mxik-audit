@@ -1,0 +1,112 @@
+'use client';
+
+import { useI18n } from '@/lib/locale-client';
+import { memo } from 'react';
+import type { GridRow } from '@/lib/workspace-rows';
+import { Badge, StatusChip } from '@/ui/badge';
+import { IconComment } from '@/ui/icons';
+import { Button } from '@/ui/button';
+import { confidenceView, typeLabels, typeTone } from '@/ui/labels';
+import { CodeCell } from './code-cell';
+import { InlineCodePicker } from './inline-code-picker';
+import { COLUMNS } from './columns';
+
+type Props = {
+  row: GridRow;
+  active: boolean;
+  compact: boolean;
+  inGroup: boolean;
+  onSelect: () => void;
+  onAccept: () => void;
+  onReject: () => void;
+  onUndo: () => void;
+  readOnly: boolean;
+  selected: boolean;
+  editing: boolean;
+  onCheck: (shift: boolean) => void;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onPick: (code: string, name: string) => void;
+};
+
+function Decision({ row, onAccept, onReject, onUndo, onSelect, readOnly }: Pick<Props, 'row' | 'onAccept' | 'onReject' | 'onUndo' | 'onSelect' | 'readOnly'>) {
+  const { ta } = useI18n();
+  if (readOnly && row.decision === 'pending') return <span className="text-sm text-muted">{ta.ws.pending}</span>;
+  if (row.decision === 'pending') {
+    return (
+      <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+        {row.noSuggestion || !row.suggestedMxik ? (
+          <Button size="sm" variant="secondary" onClick={onSelect}>{ta.ws.pickCode}</Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={onAccept}>{ta.ws.accept}</Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={onReject}>{ta.ws.reject}</Button>
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+      <StatusChip tone={row.decision === 'accepted' ? 'good' : 'neutral'}>
+        {row.decision === 'accepted' ? ta.ws.accepted : ta.ws.rejected}
+      </StatusChip>
+      {readOnly ? null : <button type="button" onClick={onUndo} className="text-sm text-brand hover:underline">{ta.ws.undo}</button>}
+    </span>
+  );
+}
+
+/** One finding as a grid row. Memoised: a decision re-renders only its own row. */
+export const GridRowView = memo(function GridRowView({ row, active, compact, inGroup, onSelect, onAccept, onReject, onUndo, readOnly, selected, editing, onCheck, onEdit, onCancelEdit, onPick }: Props) {
+  const { t, ta } = useI18n();
+  const conf = confidenceView(t, row.confidence, row.barcode || row.dictionary);
+  const shownCode = row.chosenMxik ?? row.suggestedMxik;
+  const shownName = row.chosenMxik ? row.chosenName : row.suggestedName;
+  return (
+    <div
+      role="row"
+      aria-selected={active}
+      onClick={onSelect}
+      style={{ gridTemplateColumns: COLUMNS }}
+      className={`dense grid h-full cursor-pointer items-center border-b border-line ${active ? 'bg-brand-tint shadow-[inset_3px_0_0_var(--color-brand)]' : inGroup ? 'bg-surface/60 hover:bg-surface' : 'hover:bg-surface/70'}`}
+    >
+      <span className="px-3" onClick={(e) => e.stopPropagation()}>
+        {readOnly || row.decision !== 'pending' ? null : (
+          <input
+            type="checkbox" aria-label={ta.bulk.selectRow} checked={selected} className="size-4 accent-[var(--color-brand)]"
+            onChange={() => undefined} onClick={(e) => onCheck(e.shiftKey)}
+          />
+        )}
+      </span>
+      <span className="px-3 text-sm text-muted">{row.rowIndex + 1}</span>
+      <span className="flex min-w-0 flex-col justify-center px-3">
+        <span className="truncate font-medium" title={row.productName}>{row.productName}</span>
+        {compact ? null : (
+          <span className="flex items-center gap-2 text-xs text-muted">
+            {row.unit ? <span>{row.unit}</span> : null}
+            {row.marking ? <Badge tone="warn" title={ta.ws.marking_title}>{ta.ws.marking}</Badge> : null}
+            {row.comments > 0 ? <span className="inline-flex items-center gap-1 text-muted" title={ta.comments.title}><IconComment />{row.comments}</span> : null}
+          </span>
+        )}
+      </span>
+      <span className="px-3"><StatusChip tone={typeTone(row.type, row.severity)}>{typeLabels(t)[row.type] ?? row.type}</StatusChip></span>
+      <span className="min-w-0 px-3">
+        <CodeCell code={row.currentMxik} name={row.currentName} state={row.currentState} empty={ta.ws.noCode} compact={compact} />
+      </span>
+      <span
+        className={`min-w-0 px-3 ${readOnly || row.decision !== 'pending' ? '' : 'cursor-text'}`}
+        title={readOnly || row.decision !== 'pending' ? undefined : ta.bulk.editHint}
+        onClick={readOnly || row.decision !== 'pending' ? undefined : (e) => { e.stopPropagation(); onEdit(); }}
+      >
+        {editing ? <InlineCodePicker onPick={onPick} onCancel={onCancelEdit} /> : null}
+        {editing ? null : row.noSuggestion && !row.chosenMxik
+          ? <span className="block truncate text-sm italic text-muted" title={ta.ws.noSuggestion}>{ta.ws.noSuggestion}</span>
+          : <CodeCell code={shownCode} name={shownName} empty="—" compact={compact} />}
+        {editing ? null : row.flag === 'ask_client' ? <Badge tone="warn" className="mt-0.5">{ta.bulk.askBadge}</Badge> : null}
+        {row.dictionary && !row.chosenMxik && !editing ? <Badge tone="good" className="mt-0.5">{ta.dict.badge}</Badge> : null}
+      </span>
+      <span className="px-3">
+        {conf && !row.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : <span className="text-muted">—</span>}
+      </span>
+      <span className="px-3"><Decision row={row} onAccept={onAccept} onReject={onReject} onUndo={onUndo} onSelect={onSelect} readOnly={readOnly} /></span>
+    </div>
+  );
+});

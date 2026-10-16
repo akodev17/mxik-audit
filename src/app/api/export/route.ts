@@ -5,6 +5,9 @@ import { resolveCatalog } from '@/lib/catalogs';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
+import { billingConfig } from '@/lib/billing/config';
+import { catalogPaid } from '@/lib/billing/orders';
+import { build1cCsv } from '@/lib/export-1c';
 import { buildExport, type ExportRow } from '@/lib/spreadsheet';
 
 const StoredAttrs = z.object({ original: z.array(z.string()) });
@@ -23,11 +26,17 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   // Any of the org's catalogues; another org's id is the same 404 as a missing one.
-  const requested = new URL(request.url).searchParams.get('catalog');
-  const catalog = await resolveCatalog(user.orgId, requested);
+  const url = new URL(request.url);
+  const requested = url.searchParams.get('catalog');
+  const format = url.searchParams.get('format') === '1c' ? '1c' : 'original';
+  const catalog = requested ? await resolveCatalog(user.orgId, requested, null, user.clientIds) : null;
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   // An unaudited catalogue would export every row as "risk_yoq".
   if (catalog.status !== 'ready') return NextResponse.json({ error: 'audit not finished' }, { status: 409 });
+  // Only when the operator turned payment on for exports.
+  if (billingConfig().requiredForExport && !(await catalogPaid(user.orgId, catalog.id))) {
+    return NextResponse.json({ error: 'payment required' }, { status: 402 });
+  }
 
   const mapping = StoredMap.safeParse(catalog.columnMap);
   if (!mapping.success) return NextResponse.json({ error: 'bad mapping' }, { status: 500 });
@@ -35,7 +44,7 @@ export async function GET(request: Request) {
   const items = await db.catalogItem.findMany({
     where: { catalogId: catalog.id },
     orderBy: { rowIndex: 'asc' },
-    include: { findings: { select: { decision: true, chosenMxik: true, type: true } } },
+    include: { findings: { select: { decision: true, chosenMxik: true, type: true, severity: true } } },
   });
 
   // One lookup per distinct accepted code, for its bound unit and packaging.
@@ -53,7 +62,8 @@ export async function GET(request: Request) {
     const attrs = StoredAttrs.safeParse(item.attrs);
     const original = attrs.success ? attrs.data.original : [];
 
-    if (item.findings.length === 0) {
+    // Informational findings (e.g. a non-trade client's purchase check) are not risk.
+    if (item.findings.every((f) => f.severity === 'info')) {
       return {
         original,
         mxik: item.existingMxik ?? '',
@@ -89,6 +99,30 @@ export async function GET(request: Request) {
     };
   });
 
+  const base = catalog.filename.replace(/\.(xlsx|csv)$/i, '');
+  if (format === '1c') {
+    const csv = build1cCsv(items.map((item, i) => ({
+      name: item.rawName,
+      mxik: rows[i]?.mxik ?? '',
+      unit: rows[i]?.unit ?? '',
+      barcode: item.barcode ?? '',
+      auditStatus: rows[i]?.auditStatus ?? '',
+    })));
+    await db.auditEvent.create({
+      data: {
+        orgId: user.orgId, actorId: user.userId, action: 'catalog.exported', targetId: catalog.id,
+        payload: { rows: rows.length, acceptedCodes: accepted.length, format: '1c' },
+      },
+    });
+    return new NextResponse(new Uint8Array(csv), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="${encodeURIComponent(base)}-1c.csv"`,
+        'cache-control': 'no-store',
+      },
+    });
+  }
+
   const buffer = await buildExport({
     headers: catalog.headers,
     rows,
@@ -110,7 +144,6 @@ export async function GET(request: Request) {
     },
   });
 
-  const base = catalog.filename.replace(/\.(xlsx|csv)$/i, '');
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

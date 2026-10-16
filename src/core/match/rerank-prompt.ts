@@ -1,11 +1,11 @@
-// What the reranker sends. Only three things about a customer row leave the
-// server: its cleaned product name, its unit, and a derived prepared-dish flag.
-// Everything else in the prompt is public classifier data.
+// What the reranker sends. Only two things about a customer row leave the
+// server: its cleaned product name and its unit. Everything else in the prompt
+// is public classifier data.
 import { hierarchyPath } from './rules.js';
 import type { RerankRequest } from './types.js';
 
 /** Bump when the prompt or schema changes, so cached verdicts are not reused. */
-export const PROMPT_VERSION = 'v2-batch';
+export const PROMPT_VERSION = 'v3-uz';
 
 export const SYSTEM_PROMPT = `You classify products against Uzbekistan's MXIK (IKPU) goods and services classifier.
 
@@ -17,7 +17,7 @@ Rules that govern the correct answer:
 - Prepared dishes (palov, manti, kabob, restaurant food) deliberately have no detailed code. The general code is the right answer for them.
 - The hierarchy path matters more than surface name similarity. A name that reads alike but sits under an unrelated group is wrong.
 
-For every row, rank at most 5 of that row's own candidate codes, best first. You may only use codes listed for that row; never invent or modify a code. If no candidate is a defensible classification, set "none" to true and return an empty ranking. Confidence is your own 0-1 estimate that the code is correct. Give one short sentence of reasoning per code, in English. Return exactly one entry per row id.`;
+For every row, rank at most 5 of that row's own candidate codes, best first. You may only use codes listed for that row; never invent or modify a code. If no candidate is a defensible classification, set "none" to true and return an empty ranking. Confidence is your own 0-1 estimate that the code is correct. Give exactly one short sentence of reasoning per code, in Uzbek (Latin script), written for an accountant: name the deciding fact (product type, group, unit), no hedging. Return exactly one entry per row id.`;
 
 /** Structured-output schema. Bounds are re-checked by the parser, not trusted. */
 export const OUTPUT_SCHEMA = {
@@ -77,7 +77,6 @@ export function renderRow(id: string, request: RerankRequest): string {
     `Row ${id}`,
     `  product name: ${request.productName}`,
     `  unit: ${request.unit ?? '(not given)'}`,
-    `  prepared dish: ${request.preparedDish ? 'yes' : 'no'}`,
     '  candidates:',
     renderCandidates(request),
   ].join('\n');

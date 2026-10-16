@@ -1,16 +1,19 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { canSeeClient, catalogScope } from '@/lib/access';
 import { retryAudit, startAudit } from '@/lib/audit-jobs';
 import { deleteCatalog } from '@/lib/catalogs';
+import { ownedClient, resolveClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
-import { t } from '@/lib/i18n';
+import { gate } from '@/lib/plan';
 import { parseUpload } from '@/lib/spreadsheet';
-import { currentUser } from '@/lib/session';
-import { normalizeName } from '@/core/normalize/index';
-import { readCode } from '@/core/audit/checks';
+import { getSession } from '@/lib/session';
+import { writer } from '@/lib/guard';
+import { applyMapping, mappingFor, MAX_UPLOAD_BYTES, storeCatalog } from '@/lib/catalog-import';
 import { ColumnMapSchema, type ColumnMap } from '@/lib/column-map';
 
 export type PreviewState = {
@@ -28,126 +31,46 @@ export type PreviewState = {
   };
 };
 
-/** Header keywords, in both scripts, that identify each field. */
-const HINTS: Record<keyof ColumnMap, string[]> = {
-  name: ['nom', 'tovar', 'mahsulot', 'наимен', 'товар', 'продукт', 'name', 'product'],
-  barcode: ['shtrix', 'shtrih', 'штрих', 'barcode', 'ean', 'gtin', 'bar code'],
-  mxik: ['mxik', 'ikpu', 'мхик', 'икпу', 'spic', 'tasnif'],
-  unit: ['birlik', 'oʻlchov', 'olchov', 'единиц', 'изм', 'unit', 'uom'],
-  price: ['narx', 'цена', 'price', 'summa', 'сумма', 'стоим'],
-};
-
-function guessMapping(headers: readonly string[]): ColumnMap {
-  const lower = headers.map((h) => h.toLowerCase());
-  const find = (field: keyof ColumnMap): number => {
-    const hints = HINTS[field];
-    for (let i = 0; i < lower.length; i++) {
-      const h = lower[i] ?? '';
-      if (hints.some((hint) => h.includes(hint))) return i;
-    }
-    return -1;
-  };
-  const name = find('name');
-  // The name column is required; fall back to the first column.
-  return {
-    name: name === -1 ? 0 : name,
-    barcode: find('barcode'),
-    mxik: find('mxik'),
-    unit: find('unit'),
-    price: find('price'),
-  };
-}
-
-const MAX_BYTES = 20 * 1024 * 1024;
-const CHUNK = 1000;
-
-/** Rows as stored on the item: every original cell, for re-export and remapping. */
-const StoredAttrs = z.object({ original: z.array(z.string()) });
-
-function pick(row: readonly string[], index: number): string | null {
-  if (index < 0) return null;
-  const value = row[index];
-  return value === undefined || value.trim() === '' ? null : value.trim();
-}
-
-function deriveItem(catalogId: string, row: readonly string[], rowIndex: number, mapping: ColumnMap) {
-  const rawName = pick(row, mapping.name) ?? '';
-  const priceRaw = pick(row, mapping.price);
-  const price = priceRaw === null
-    ? null
-    : Number(priceRaw.replace(/[^\d.,-]/g, '').replace(',', '.'));
-  return {
-    catalogId,
-    rowIndex,
-    rawName,
-    normalizedName: normalizeName(rawName).matchKey,
-    barcode: pick(row, mapping.barcode),
-    existingMxik: readCode(pick(row, mapping.mxik)),
-    unit: pick(row, mapping.unit),
-    price: price !== null && Number.isFinite(price) ? price : null,
-    attrs: { original: [...row] },
-  };
-}
-
 /**
  * Parses the upload, stores every row, and returns a five-row preview. The file
  * is read exactly once: the mapping is applied later against the stored cells,
  * so changing it does not mean re-uploading.
  */
 export async function previewUpload(_prev: PreviewState, form: FormData): Promise<PreviewState> {
-  const user = await currentUser();
+  const { t, ta } = await getI18n();
+  const user = await writer();
   if (!user) return { error: t.errorGeneric };
   // Real files never enter a demo org, whatever the browser sends.
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
 
   const file = form.get('file');
-  if (!(file instanceof File) || file.size === 0) return { error: 'Fayl tanlanmadi.' };
-  if (file.size > MAX_BYTES) return { error: 'Fayl juda katta (20 MB dan oshmasligi kerak).' };
+  if (!(file instanceof File) || file.size === 0) return { error: ta.msg.fileNone };
+  if (file.size > MAX_UPLOAD_BYTES) return { error: ta.msg.fileTooBig };
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
     const parsed = await parseUpload(buffer, file.name);
-    if (parsed.rows.length === 0) return { error: 'Faylda maʼlumot qatorlari topilmadi.' };
+    if (parsed.rows.length === 0) return { error: ta.msg.fileEmpty };
 
-    const org = await db.organization.findUnique({
-      where: { id: user.orgId },
-      select: { columnMap: true },
-    });
-    const remembered = ColumnMapSchema.safeParse(org?.columnMap);
-    // A remembered mapping only applies if it still fits this file's width.
-    const fits = remembered.success
-      && Object.values(remembered.data).every((i) => i < parsed.headers.length);
-    const mapping = fits && remembered.success ? remembered.data : guessMapping(parsed.headers);
+    const allowed = await gate(user.orgId, 'rowsPerMonth', parsed.rows.length);
+    if (!allowed.ok) return { error: ta.msg.gate[allowed.reason] };
 
-    const catalog = await db.catalog.create({
-      data: {
-        orgId: user.orgId,
-        filename: file.name,
-        rowCount: parsed.rows.length,
-        status: 'uploaded',
-        headers: parsed.headers,
-        columnMap: mapping,
-      },
-    });
+    const mapping = await mappingFor(user.orgId, parsed.headers);
 
-    for (let i = 0; i < parsed.rows.length; i += CHUNK) {
-      await db.catalogItem.createMany({
-        data: parsed.rows.slice(i, i + CHUNK).map((row, j) =>
-          deriveItem(catalog.id, row, i + j, mapping)),
-      });
-    }
+    // A named client must be the org's; otherwise the one being worked on.
+    const requestedClient = form.get('clientId');
+    const client = typeof requestedClient === 'string' && requestedClient
+      ? await ownedClient(user.orgId, requestedClient)
+      : await resolveClient(user.orgId, user.clientId);
+    if (!client || !canSeeClient(user, client.id)) return { error: t.errorGeneric };
 
-    await db.auditEvent.create({
-      data: {
-        orgId: user.orgId, actorId: user.userId, action: 'catalog.uploaded',
-        targetId: catalog.id,
-        payload: { filename: file.name, rowCount: parsed.rows.length, truncated: parsed.truncated },
-      },
+    const { catalogId } = await storeCatalog({
+      orgId: user.orgId, userId: user.userId, clientId: client.id, filename: file.name, parsed, mapping,
     });
 
     return {
       preview: {
-        catalogId: catalog.id,
+        catalogId,
         filename: file.name,
         headers: parsed.headers,
         rows: parsed.rows.slice(0, 5),
@@ -157,7 +80,7 @@ export async function previewUpload(_prev: PreviewState, form: FormData): Promis
       },
     };
   } catch (error) {
-    return { error: `Faylni oʻqishda xatolik: ${error instanceof Error ? error.message : ''}` };
+    return { error: ta.msg.fileReadFailed(error instanceof Error ? error.message : '') };
   }
 }
 
@@ -174,7 +97,8 @@ export type CommitState = { error?: string; catalogId?: string };
  * server.
  */
 export async function commitUpload(payload: unknown): Promise<CommitState> {
-  const user = await currentUser();
+  const { t } = await getI18n();
+  const user = await writer();
   if (!user) return { error: t.errorGeneric };
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
 
@@ -184,41 +108,19 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
 
   // Scope by org: a catalogue id alone must not be enough to reach another org's data.
   const catalog = await db.catalog.findFirst({
-    where: { id: catalogId, orgId: user.orgId },
-    select: { id: true },
+    where: { id: catalogId, ...catalogScope(user) },
+    select: { id: true, clientId: true },
   });
   if (!catalog) return { error: t.errorGeneric };
-
-  const stored = await db.catalogItem.findMany({
-    where: { catalogId },
-    orderBy: { rowIndex: 'asc' },
-    select: { rowIndex: true, attrs: true },
-  });
-
-  // Re-derive from the original cells under the confirmed mapping. Replacing the
-  // rows in bulk is far cheaper than updating each one.
-  const rebuilt = stored.flatMap((item) => {
-    const attrs = StoredAttrs.safeParse(item.attrs);
-    if (!attrs.success) return [];
-    const derived = deriveItem(catalogId, attrs.data.original, item.rowIndex, mapping);
-    return derived.rawName === '' ? [] : [derived];
-  });
-
-  if (rebuilt.length === 0) {
-    return { error: 'Tanlangan ustunda tovar nomlari topilmadi.' };
+  // The client just uploaded to is the one being worked on.
+  if (catalog.clientId && catalog.clientId !== user.clientId) {
+    const session = await getSession();
+    session.clientId = catalog.clientId;
+    await session.save();
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.catalogItem.deleteMany({ where: { catalogId } });
-    for (let i = 0; i < rebuilt.length; i += CHUNK) {
-      await tx.catalogItem.createMany({ data: rebuilt.slice(i, i + CHUNK) });
-    }
-    await tx.catalog.update({
-      where: { id: catalogId },
-      data: { status: 'analyzing', rowCount: rebuilt.length, columnMap: mapping },
-    });
-    await tx.organization.update({ where: { id: user.orgId }, data: { columnMap: mapping } });
-  }, { timeout: 120_000 });
+  const applied = await applyMapping(user.orgId, catalogId, mapping);
+  if ('error' in applied) return { error: applied.error };
 
   // Large catalogues take minutes, so the audit runs in the background and the
   // report shows its progress; the request returns as soon as rows are stored.
@@ -233,7 +135,7 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
 
 /** Restarts an audit that failed. */
 export async function retryCatalogAudit(catalogId: unknown): Promise<{ ok: boolean }> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false };
   const id = z.string().min(1).safeParse(catalogId);
   if (!id.success) return { ok: false };
@@ -246,7 +148,8 @@ export type RemoveResult = { ok: true; rows: number } | { ok: false; error: stri
 
 /** Deletes one of the org's catalogues and everything derived from it. */
 export async function removeCatalog(catalogId: unknown): Promise<RemoveResult> {
-  const user = await currentUser();
+  const { t } = await getI18n();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const id = z.string().min(1).safeParse(catalogId);
   if (!id.success) return { ok: false, error: t.errorGeneric };

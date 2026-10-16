@@ -1,14 +1,23 @@
-// Uzbek (Latin) UI strings.
+// Uzbek (Latin) UI strings; the Russian mirror is in i18n-ru.ts.
 //
-// `Dict` is an exhaustive record type, so adding a Russian mirror later is
-// compiler-checked: a missing key will not compile. Per the brief, the Russian
-// strings are deliberately not written yet.
+// `Dict` is an exhaustive record type, so a missing key in either language
+// does not compile.
 //
 // Every apostrophe below is U+02BB (ʻ) or U+02BC (ʼ) — never an ASCII quote.
 // Accountants notice, and Gate 0 found the correct character in only 74 of
 // 438,925 rows of the official export, so the bar is low and worth clearing.
 
-export type Locale = 'uz';
+import { ru } from './i18n-ru';
+
+export type Locale = 'uz' | 'ru';
+
+export const LOCALES: Locale[] = ['uz', 'ru'];
+
+/** Any stored or submitted value as a supported locale. */
+export function parseLocale(value: unknown): Locale {
+  return LOCALES.find((l) => l === value) ?? DEFAULT_LOCALE;
+}
+export const DEFAULT_LOCALE: Locale = 'uz';
 
 export type Dict = {
   // chrome
@@ -23,43 +32,121 @@ export type Dict = {
 
   // navigation
   navUpload: string;
-  navReport: string;
-  navReview: string;
-  navExport: string;
   navCatalogs: string;
+
+  // clients
+  clientLabel: string;
+  clientsTitle: string;
+  clientsHint: string;
+  clientsName: string;
+  clientsLastAudit: string;
+  clientsTrend: string;
+  clientsMarking: string;
+  clientsLastNotice: string;
+  clientsNever: string;
+  clientsAdd: string;
+  clientsNewName: string;
+  clientsDefault: string;
+  clientsBadName: string;
+  clientCatalogs: string;
+  clientHistory: string;
+  clientHistoryEmpty: string;
+  clientUpload: string;
+  clientNoCatalogs: string;
+  historyAction: Record<string, string>;
+  uploadClient: string;
+  notificationsTitle: string;
+  notificationsHint: string;
+  notificationsEmpty: string;
+  notificationsOpen: string;
+
+  // settings and Telegram
+  settingsTitle: string;
+  tgSection: string;
+  tgOff: string;
+  tgIntro: (bot: string | null) => string;
+  tgGetCode: string;
+  tgCodeShown: (code: string, minutes: number) => string;
+  tgLinkedChats: string;
+  tgNoChats: string;
+  tgUnlink: string;
+  tgDemoOff: string;
+  tgHelp: string;
+  tgHelpLinked: string;
+  tgLinked: (org: string) => string;
+  tgBadCode: string;
+  tgDemo: string;
+  tgBadType: string;
+  tgTooBig: string;
+  tgChooseClient: (file: string) => string;
+  tgExpired: string;
+  tgEmptyFile: string;
+  tgNoNames: string;
+  tgStarted: (client: string, rows: number) => string;
+  tgAuditDone: (client: string) => string;
+  tgAuditFailed: (file: string) => string;
+  tgFile: string;
+  tgReport: string;
+  tgError: string;
+
+  // client PDF and branding
+  pdfTitle: string;
+  pdfStatus: string;
+  pdfDate: string;
+  pdfClassifier: string;
+  pdfTruncated: (n: number) => string;
+  pdfDisclaimer: string;
+  pdfPage: (page: number, total: number) => string;
+  brandSection: string;
+  brandHint: string;
+  brandName: string;
+  brandLogo: string;
+  brandLogoHint: string;
+  brandSave: string;
+  brandSaved: string;
+  brandRemoveLogo: string;
+  brandBadLogo: string;
+
+  // purchases (Kirim) and NOT_PURCHASED
+  typeNotPurchased: string;
+  typePrivilegeCode: string;
+  typePrivilegeOpportunity: string;
+  purchasesNav: string;
+  purchasesTitle: string;
+  purchasesHint: string;
+  purchasesTemplate: string;
+  purchasesUpload: string;
+  purchasesApply: string;
+  purchasesApplied: (codes: number) => string;
+  purchasesLists: string;
+  purchasesNone: string;
+  purchasesCodes: string;
+  purchasesDelete: string;
+  purchasesStatus: Record<string, string>;
+  activityLabel: string;
+  activityOptions: Record<'savdo' | 'ishlab_chiqarish' | 'boshqa', string>;
+  activityHint: string;
 
   // catalogue history and deletion
   catalogsTitle: string;
   catalogsHint: string;
-  catalogsEmpty: string;
   catalogsFile: string;
   catalogsDate: string;
   catalogsRows: string;
   catalogsRisky: string;
   catalogsStatus: string;
-  catalogsOpen: string;
   catalogsDelete: string;
   catalogsDeleteConfirm: (filename: string) => string;
   catalogsDeleted: (rows: number) => string;
   catalogStatus: Record<'uploaded' | 'analyzing' | 'ready' | 'failed', string>;
-  catalogSwitch: string;
   catalogAnalyzing: (done: number, total: number) => string;
   catalogAnalyzingHint: string;
   catalogNotAudited: string;
   catalogFailed: string;
   catalogRetry: string;
-  exportNotReady: string;
 
   // undo and decision history
-  reviewUndo: string;
-  reviewUndoLast: string;
   reviewUndoFailed: string;
-  reviewHistory: string;
-  reviewHistoryEmpty: string;
-  historyAccepted: string;
-  historyRejected: string;
-  historyBulk: (n: number) => string;
-  historyUndone: (n: number) => string;
 
   // admin traction metrics
   adminTitle: string;
@@ -84,6 +171,7 @@ export type Dict = {
   adminLeads: string;
   adminLeadsFiles: (n: number) => string;
   adminGenerated: string;
+  adminPipeline: string;
 
   // demo
   demoTitle: string;
@@ -91,80 +179,70 @@ export type Dict = {
   demoPoints: string[];
   demoStart: string;
   demoUnavailable: string;
-  demoBadge: string;
-  demoBanner: (hours: number) => string;
   demoUploadDisabled: string;
 
   // upload
   uploadTitle: string;
   uploadHint: string;
-  uploadDrop: string;
-  uploadChoose: string;
   uploadMapTitle: string;
-  uploadMapHint: string;
-  uploadPreviewTitle: string;
   uploadColumnName: string;
   uploadColumnBarcode: string;
   uploadColumnMxik: string;
   uploadColumnUnit: string;
   uploadColumnPrice: string;
+  uploadColumnSales: string;
+  uploadPreset: string;
+  uploadPresetAuto: string;
+  uploadPresetHint: string;
+  moneyTitle: string;
+  moneyRisky: (amount: string) => string;
+  moneyShare: (percent: string) => string;
+  moneyNote: string;
+  moneyFine: (amount: string) => string;
+  moneyFineNote: string;
   uploadColumnIgnore: string;
-  uploadRequiredName: string;
-  uploadStart: string;
-  uploadAnalyzing: string;
   uploadRowsFound: (n: number) => string;
   uploadRemembered: string;
 
   // report
-  reportTitle: string;
   reportHeadline: (risky: number, total: number) => string;
   reportClean: (total: number) => string;
-  reportBreakdownMissing: (n: number) => string;
-  reportBreakdownNotFound: (n: number) => string;
-  reportBreakdownMismatch: (n: number) => string;
-  reportBreakdownUnit: (n: number) => string;
-  reportFilterAll: string;
   reportFilterType: string;
-  reportFilterSeverity: string;
-  reportPrint: string;
-  reportGoReview: string;
-  reportEmpty: string;
 
   // findings
   typeMissing: string;
   typeNotFound: string;
   typeMismatch: string;
   typeUnitConflict: string;
-  severityHigh: string;
-  severityMedium: string;
 
   // review
-  reviewTitle: string;
   reviewProduct: string;
   reviewCurrentCode: string;
   reviewSuggested: string;
-  reviewAlternatives: string;
   reviewNoCode: string;
-  reviewAccept: string;
-  reviewReject: string;
-  reviewPickOther: string;
-  reviewAcceptAllAbove: string;
-  reviewDecided: string;
   reviewPending: string;
   reviewAccepted: string;
   reviewRejected: string;
-  reviewKeyboardHint: string;
-  reviewBoundUnit: string;
-  reviewHierarchy: string;
-  reviewConfidence: string;
-  reviewProgress: (done: number, total: number) => string;
-  reviewNothingToReview: string;
+  markingBadge: string;
+  markingCurrent: string;
+  markingSuggested: string;
+  groupAccept: (n: number) => string;
+  groupReject: (n: number) => string;
+  groupSplit: string;
 
   // export
-  exportTitle: string;
-  exportHint: string;
-  exportSummary: (accepted: number, rejected: number, pending: number) => string;
-  exportDownload: string;
+  export1c: string;
+  payTitle: string;
+  payPrice: (price: string, rows: string) => string;
+  payPaid: string;
+  payLarge: string;
+  payClick: string;
+  payPayme: string;
+  payNote: string;
+  payRequired: string;
+  subPrice: (price: string) => string;
+  subUntil: (date: string) => string;
+  subNone: string;
   exportStatusColumn: string;
   exportStatusAccepted: string;
   exportStatusRejected: string;
@@ -177,10 +255,13 @@ export type Dict = {
   back: string;
   rows: string;
   code: string;
-  confidenceHigh: string;
-  confidenceMedium: string;
-  confidenceLow: string;
-  degradedNotice: string;
+  confidenceSure: string;
+  confidenceLikely: string;
+  confidenceCheck: string;
+
+  // what a code means, and why it was suggested
+  codeArchived: string;
+  codeUnknown: string;
 };
 
 export const uz: Dict = {
@@ -194,43 +275,124 @@ export const uz: Dict = {
   signInError: 'Elektron pochta yoki parol notoʻgʻri',
 
   navUpload: 'Yuklash',
-  navReport: 'Hisobot',
-  navReview: 'Koʻrib chiqish',
-  navExport: 'Eksport',
   navCatalogs: 'Kataloglar',
+
+  clientLabel: 'Mijoz',
+  clientsTitle: 'Mijozlar',
+  clientsHint: 'Har bir mijozning kataloglari, hisobotlari va tarixi alohida saqlanadi.',
+  clientsName: 'Mijoz',
+  clientsLastAudit: 'Oxirgi tahlil',
+  clientsTrend: 'Riskli qatorlar (oxirgi 5 tahlil)',
+  clientsMarking: 'Markirovka',
+  clientsLastNotice: 'Oxirgi xabarnoma',
+  clientsNever: 'hali yoʻq',
+  clientsAdd: 'Mijoz qoʻshish',
+  clientsNewName: 'Mijoz nomi, masalan: “Baraka Savdo” MChJ',
+  clientsDefault: 'asosiy',
+  clientsBadName: 'Nomni kiriting (kamida 2 ta belgi).',
+  clientCatalogs: 'Kataloglar',
+  clientHistory: 'Tarix',
+  clientHistoryEmpty: 'Hali hech narsa boʻlmagan.',
+  clientUpload: 'Shu mijoz uchun katalog yuklash',
+  clientNoCatalogs: 'Bu mijoz uchun hali katalog yuklanmagan.',
+  historyAction: {
+    'catalog.uploaded': 'Katalog yuklandi',
+    'catalog.audited': 'Tahlil tugadi',
+    'catalog.exported': 'Tuzatilgan fayl yuklab olindi',
+    'catalog.deleted': 'Katalog oʻchirildi',
+    'client.created': 'Mijoz qoʻshildi',
+    'classifier.updated': 'Tasniflagich yangilandi',
+  },
+  uploadClient: 'Mijoz',
+  notificationsTitle: 'Xabarnomalar',
+  notificationsHint: 'Tasniflagich yangilanganda mijozlaringiz kataloglarida nima oʻzgargani shu yerda koʻrinadi. Telegram ulangan boʻlsa, u yerga ham yuboriladi.',
+  notificationsEmpty: 'Hali xabarnoma yoʻq.',
+  notificationsOpen: 'Hisobotni ochish',
+
+  settingsTitle: 'Sozlamalar',
+  tgSection: 'Telegram',
+  tgOff: 'Telegram bot bu serverda sozlanmagan (TELEGRAM_BOT_TOKEN yoʻq).',
+  tgIntro: (bot) => `Botga katalog faylini yuboring — u tahlil qilinadi va natija shu chatga keladi. Tasniflagich yangilanganda xabarnomalar ham shu yerga keladi.${bot ? ` Bot: @${bot}.` : ''}`,
+  tgGetCode: 'Ulash kodini olish',
+  tgCodeShown: (code, minutes) => `Botga yuboring: /start ${code} — kod ${minutes} daqiqa amal qiladi va bir marta ishlatiladi.`,
+  tgLinkedChats: 'Ulangan chatlar',
+  tgNoChats: 'Hali hech qanday chat ulanmagan.',
+  tgUnlink: 'Uzish',
+  tgDemoOff: 'Demo rejimida Telegram ulanmaydi.',
+  tgHelp: 'Salom! Bu MXIK Audit boti. Ulash uchun veb-ilovada Sozlamalar → Telegram boʻlimidan kod oling va shu yerga “/start KOD” deb yuboring.',
+  tgHelpLinked: 'Katalog faylini (.xlsx yoki .csv) shu chatga yuboring — tahlil qilib, natijani yuboraman.',
+  tgLinked: (org) => `Ulandi: ${org}. Endi katalog faylini (.xlsx yoki .csv) yuborishingiz mumkin.`,
+  tgBadCode: 'Kod notoʻgʻri yoki muddati oʻtgan. Veb-ilovada yangi kod oling.',
+  tgDemo: 'Demo hisobni Telegramga ulab boʻlmaydi.',
+  tgBadType: 'Faqat .xlsx yoki .csv fayl qabul qilinadi.',
+  tgTooBig: 'Fayl juda katta (20 MB dan oshmasligi kerak).',
+  tgChooseClient: (file) => `“${file}” qaysi mijozniki?`,
+  tgExpired: 'Bu soʻrov eskirgan. Faylni qaytadan yuboring.',
+  tgEmptyFile: 'Faylda maʼlumot qatorlari topilmadi.',
+  tgNoNames: 'Faylda tovar nomlari ustuni topilmadi. Faylni veb-ilova orqali yuklab, ustunlarni koʻrsating.',
+  tgStarted: (client, rows) => `Qabul qilindi: ${client}, ${rows.toLocaleString('uz-UZ')} qator. Tahlil tugagach natija shu yerga keladi.`,
+  tgAuditDone: (client) => `Tahlil tugadi — ${client}`,
+  tgAuditFailed: (file) => `“${file}” tahlili xatolik bilan toʻxtadi. Veb-ilovada qayta urinib koʻring.`,
+  tgFile: 'Fayl',
+  tgReport: 'Hisobot',
+  tgError: 'Xatolik yuz berdi. Birozdan soʻng qayta urinib koʻring.',
+
+  pdfTitle: 'MXIK audit hisoboti',
+  pdfStatus: 'Holat',
+  pdfDate: 'Hisobot sanasi',
+  pdfClassifier: 'Tasniflagich versiyasi',
+  pdfTruncated: (n) => `Birinchi ${n.toLocaleString('uz-UZ')} ta riskli qator koʻrsatilgan; toʻliq roʻyxat ilovada.`,
+  pdfDisclaimer: 'Kodlar avtomatik tahlil asosida taklif qilingan; har bir qaror foydalanuvchi tomonidan qabul qilinadi. Ushbu hisobot yuridik maslahat emas.',
+  pdfPage: (page, total) => `${page} / ${total}`,
+  brandSection: 'Mijoz hisobotlari (PDF)',
+  brandHint: 'PDF hisobotda shu nom va logotip chiqadi.',
+  brandName: 'Firma nomi',
+  brandLogo: 'Logotip',
+  brandLogoHint: 'PNG yoki JPEG, 300 KB gacha.',
+  brandSave: 'Saqlash',
+  brandSaved: 'Saqlandi.',
+  brandRemoveLogo: 'Logotipni oʻchirish',
+  brandBadLogo: 'Logotip PNG yoki JPEG boʻlishi va 300 KB dan oshmasligi kerak.',
+
+  typeNotPurchased: 'Xaridlarda yoʻq',
+  typePrivilegeCode: 'Imtiyozli kod',
+  typePrivilegeOpportunity: 'Imtiyoz imkoniyati',
+  purchasesNav: 'Kirim (xaridlar)',
+  purchasesTitle: 'Kirim (xaridlar)',
+  purchasesHint: 'Mijozning xaridlar roʻyxatini yuklang: kirim EHF eksporti yoki istalgan Excel/CSV roʻyxat. Katalogdagi kodlar xaridlardagi MXIK kodlari (va oʻlchov birligi) bilan solishtiriladi.',
+  purchasesTemplate: 'Shablonni yuklab olish',
+  purchasesUpload: 'Xaridlar faylini tanlash',
+  purchasesApply: 'Solishtirishni boshlash',
+  purchasesApplied: (codes) => `${codes.toLocaleString('uz-UZ')} ta MXIK kodi olindi. Mijozning oxirgi katalogi qayta tekshirildi.`,
+  purchasesLists: 'Yuklangan roʻyxatlar',
+  purchasesNone: 'Hali xaridlar roʻyxati yuklanmagan — xaridlar bilan solishtirish oʻtkazilmaydi.',
+  purchasesCodes: 'MXIK kodlari',
+  purchasesDelete: 'Oʻchirish',
+  purchasesStatus: { uploaded: 'Ustunlar tanlanmagan', ready: 'Ishlatilmoqda' },
+  activityLabel: 'Faoliyat turi',
+  activityOptions: { savdo: 'Savdo', ishlab_chiqarish: 'Ishlab chiqarish', boshqa: 'Boshqa' },
+  activityHint: 'Savdo uchun xaridlarda topilmagan tovar yuqori risk sifatida koʻrsatiladi; qolganlar uchun — maʼlumot uchun.',
 
   catalogsTitle: 'Yuklangan kataloglar',
   catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',
-  catalogsEmpty: 'Hali katalog yuklanmagan.',
   catalogsFile: 'Fayl',
   catalogsDate: 'Sana',
   catalogsRows: 'Qatorlar',
   catalogsRisky: 'Riskli',
   catalogsStatus: 'Holat',
-  catalogsOpen: 'Ochish',
   catalogsDelete: 'Oʻchirish',
   catalogsDeleteConfirm: (filename) =>
     `“${filename}” katalogi butunlay oʻchiriladi: qatorlar, takliflar va qarorlar tarixi bilan birga. Buni qaytarib boʻlmaydi. Davom etasizmi?`,
   catalogsDeleted: (rows) => `Katalog oʻchirildi (${rows.toLocaleString('uz-UZ')} qator).`,
   catalogStatus: { uploaded: 'Yuklangan', analyzing: 'Tahlil qilinmoqda', ready: 'Tayyor', failed: 'Xatolik' },
-  catalogSwitch: 'Katalog',
   catalogAnalyzing: (done, total) =>
     `Tahlil qilinmoqda: ${done.toLocaleString('uz-UZ')} / ${total.toLocaleString('uz-UZ')} qator`,
   catalogAnalyzingHint: 'Sahifa oʻzi yangilanadi. Katta katalog bir necha daqiqa olishi mumkin; sahifani yopsangiz ham tahlil davom etadi.',
   catalogNotAudited: 'Bu katalog hali tahlil qilinmagan: ustunlar moslashtirilishi tasdiqlanmagan.',
   catalogFailed: 'Tahlil xatolik bilan toʻxtadi.',
   catalogRetry: 'Qayta tahlil qilish',
-  exportNotReady: 'Tahlil tugagach, faylni eksport qilish mumkin boʻladi.',
 
-  reviewUndo: 'Bekor qilish',
-  reviewUndoLast: 'Oxirgi qarorni bekor qilish',
   reviewUndoFailed: 'Bekor qilib boʻlmadi: bu qaror allaqachon bekor qilingan.',
-  reviewHistory: 'Qarorlar tarixi',
-  reviewHistoryEmpty: 'Hali qaror qabul qilinmagan.',
-  historyAccepted: 'Qabul qilindi',
-  historyRejected: 'Rad etildi',
-  historyBulk: (n) => `${n} ta taklif birdaniga qabul qilindi`,
-  historyUndone: (n) => (n > 1 ? `${n} ta qaror bekor qilindi` : 'Qaror bekor qilindi'),
 
   adminTitle: 'Koʻrsatkichlar',
   adminHint: 'Faqat haqiqiy mijozlar hisoblanadi: demo nusxalar, demo shabloni va ichki (namuna, sinov) tashkilotlar kiritilmagan.',
@@ -254,6 +416,7 @@ export const uz: Dict = {
   adminLeads: 'Bepul audit soʻrovlari',
   adminLeadsFiles: (n) => `fayl bilan: ${n.toLocaleString('uz-UZ')}`,
   adminGenerated: 'Hisoblangan vaqt',
+  adminPipeline: 'Taklif tizimi holati (faqat administratorga koʻrinadi)',
 
   demoTitle: 'Demoni sinab koʻrish',
   demoIntro: 'Roʻyxatdan oʻtmasdan, namuna katalog ustida dasturning toʻliq ishini koʻring: risk hisoboti, takliflarni koʻrib chiqish va tuzatilgan faylni yuklab olish.',
@@ -264,78 +427,67 @@ export const uz: Dict = {
   ],
   demoStart: 'Demoni boshlash',
   demoUnavailable: 'Demo hozircha tayyor emas. Birozdan soʻng qayta urinib koʻring.',
-  demoBadge: 'Demo',
-  demoBanner: (hours) => `Demo rejimi: namuna katalog. Ushbu nusxa ${hours} soatdan soʻng oʻchiriladi.`,
   demoUploadDisabled: 'Demo rejimida fayl yuklash oʻchirilgan. Oʻz katalogingizni tekshirish uchun bosh sahifadagi forma orqali yuboring.',
 
   uploadTitle: 'Katalogni yuklash',
   uploadHint: 'Excel (.xlsx) yoki CSV fayl. Birinchi qator — sarlavhalar.',
-  uploadDrop: 'Faylni shu yerga tashlang',
-  uploadChoose: 'yoki fayl tanlang',
   uploadMapTitle: 'Ustunlarni moslashtirish',
-  uploadMapHint: 'Faylingizdagi ustunlar qaysi maydonga tegishli ekanini koʻrsating.',
-  uploadPreviewTitle: 'Dastlabki 5 qator',
   uploadColumnName: 'Tovar nomi',
   uploadColumnBarcode: 'Shtrix kod',
   uploadColumnMxik: 'MXIK kodi',
   uploadColumnUnit: 'Oʻlchov birligi',
   uploadColumnPrice: 'Narx',
+  uploadColumnSales: 'Sotuv summasi',
+  uploadPreset: 'Fayl qayerdan',
+  uploadPresetAuto: 'Avtomatik aniqlash',
+  uploadPresetHint: '“Taxminiy” andozalar haqiqiy fayl bilan tekshirilmagan — ustunlarni koʻzdan kechiring.',
+  moneyTitle: 'Riskli qatorlar boʻyicha sotuv summasi (taxminiy)',
+  moneyRisky: (amount) => `${amount} soʻm`,
+  moneyShare: (percent) => `faylingizdagi jami sotuvning ${percent}%`,
+  moneyNote: 'Faylingizdagi “Sotuv summasi” ustuni boʻyicha hisoblangan taxminiy summa. Riskli qator — yuqori yoki oʻrta muhimlikdagi kamida bitta topilmasi bor qator. Bu jarima miqdori emas.',
+  moneyFine: (amount) => `Taxminiy jarima: ${amount} soʻm (riskli sotuvning 1%)`,
+  moneyFineNote: 'Taxminiy; har bir hisobvaraq-faktura alohida koʻriladi.',
   uploadColumnIgnore: '— hisobga olinmaydi —',
-  uploadRequiredName: 'Tovar nomi ustunini koʻrsatish shart.',
-  uploadStart: 'Tahlilni boshlash',
-  uploadAnalyzing: 'Tahlil qilinmoqda…',
   uploadRowsFound: (n) => `${n.toLocaleString('uz-UZ')} qator topildi`,
   uploadRemembered: 'Oldingi yuklashdagi moslashtirish saqlangan.',
 
-  reportTitle: 'Risk hisoboti',
   reportHeadline: (risky, total) =>
     `${total.toLocaleString('uz-UZ')} pozitsiyadan ${risky.toLocaleString('uz-UZ')} tasi riskli`,
   reportClean: (total) =>
     `${total.toLocaleString('uz-UZ')} pozitsiyaning barchasi tekshiruvdan oʻtdi`,
-  reportBreakdownMissing: (n) => `${n} — kod yoʻq`,
-  reportBreakdownNotFound: (n) => `${n} — kod bazada topilmadi`,
-  reportBreakdownMismatch: (n) => `${n} — nomga mos emas`,
-  reportBreakdownUnit: (n) => `${n} — oʻlchov birligi notoʻgʻri`,
-  reportFilterAll: 'Barchasi',
   reportFilterType: 'Turi',
-  reportFilterSeverity: 'Muhimligi',
-  reportPrint: 'Chop etish',
-  reportGoReview: 'Koʻrib chiqishga oʻtish',
-  reportEmpty: 'Hech qanday risk topilmadi.',
 
   typeMissing: 'Kod yoʻq',
   typeNotFound: 'Bazada topilmadi',
   typeMismatch: 'Nomga mos emas',
   typeUnitConflict: 'Oʻlchov birligi',
-  severityHigh: 'Yuqori',
-  severityMedium: 'Oʻrta',
 
-  reviewTitle: 'Koʻrib chiqish',
   reviewProduct: 'Tovar',
   reviewCurrentCode: 'Hozirgi kod',
   reviewSuggested: 'Taklif etilgan kod',
-  reviewAlternatives: 'Boshqa variantlar',
   reviewNoCode: 'kod yoʻq',
-  reviewAccept: 'Qabul qilish',
-  reviewReject: 'Rad etish',
-  reviewPickOther: 'Boshqasini tanlash',
-  reviewAcceptAllAbove: '90% dan yuqori barchasini qabul qilish',
-  reviewDecided: 'Hal qilindi',
   reviewPending: 'Kutilmoqda',
   reviewAccepted: 'Qabul qilindi',
   reviewRejected: 'Rad etildi',
-  reviewKeyboardHint: 'j / k — harakat · Enter — qabul · r — rad etish · u — oxirgisini bekor qilish',
-  reviewBoundUnit: 'Biriktirilgan oʻlchov birligi',
-  reviewHierarchy: 'Tasniflagichdagi oʻrni',
-  reviewConfidence: 'Ishonch',
-  reviewProgress: (done, total) => `${done} / ${total} hal qilindi`,
-  reviewNothingToReview: 'Koʻrib chiqish uchun pozitsiya qolmadi.',
+  markingBadge: 'Markirovka talab qilinadi',
+  markingCurrent: 'hozirgi kod',
+  markingSuggested: 'taklif etilgan kod',
+  groupAccept: (n) => `${n} ta qatorni qabul qilish`,
+  groupReject: (n) => `${n} ta qatorni rad etish`,
+  groupSplit: 'Guruhdan ajratish',
 
-  exportTitle: 'Eksport',
-  exportHint: 'Fayl asl tuzilishida qaytariladi, qabul qilingan kodlar qoʻyilgan holda.',
-  exportSummary: (accepted, rejected, pending) =>
-    `${accepted} qabul qilindi · ${rejected} rad etildi · ${pending} kutilmoqda`,
-  exportDownload: 'Faylni yuklab olish',
+  export1c: '1C uchun CSV',
+  payTitle: 'Toʻgʻrilangan katalog',
+  payPrice: (price, rows) => `${price} soʻm · ${rows} SKU gacha`,
+  payPaid: 'Toʻlangan.',
+  payLarge: '10 000 dan ortiq qatorli katalog uchun narx alohida kelishiladi.',
+  payClick: 'Click orqali toʻlash',
+  payPayme: 'Payme orqali toʻlash',
+  payNote: 'Toʻlov Click yoki Payme sahifasida amalga oshiriladi; tasdiqlangach shu yerda “Toʻlangan” deb koʻrinadi.',
+  payRequired: 'Tuzatilgan faylni yuklab olish uchun avval katalog uchun toʻlang yoki firma obunasini faollashtiring.',
+  subPrice: (price) => `${price} soʻm / oy`,
+  subUntil: (date) => `Faol: ${date} gacha`,
+  subNone: 'Obuna faol emas.',
   exportStatusColumn: 'audit_status',
   exportStatusAccepted: 'qabul_qilindi',
   exportStatusRejected: 'rad_etildi',
@@ -347,18 +499,19 @@ export const uz: Dict = {
   back: 'Orqaga',
   rows: 'qator',
   code: 'Kod',
-  confidenceHigh: 'Yuqori ishonch',
-  confidenceMedium: 'Tekshirish kerak',
-  confidenceLow: 'Past ishonch',
-  degradedNotice:
-    'Diqqat: taklif tizimi toʻliq quvvatda ishlamayapti. Ishonch koʻrsatkichlari pastroq baholangan.',
+  confidenceSure: 'Aniq',
+  confidenceLikely: 'Ehtimoliy',
+  confidenceCheck: 'Tekshirish kerak',
+
+  codeArchived: 'Tasniflagichda arxivlangan',
+  codeUnknown: 'Tasniflagichda topilmadi',
 };
 
-const DICTS: Record<Locale, Dict> = { uz };
+const DICTS: Record<Locale, Dict> = { uz, ru };
 
-export function dict(locale: Locale = 'uz'): Dict {
+export function dict(locale: Locale = DEFAULT_LOCALE): Dict {
   return DICTS[locale];
 }
 
-/** The one place UI text is read from, so a locale switch is a one-line change. */
+/** Uzbek default, for code that is not tied to a request (scripts, tests). */
 export const t: Dict = uz;
