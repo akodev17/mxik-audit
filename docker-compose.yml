@@ -1,7 +1,17 @@
-# Development: `docker compose up -d` starts only the database (host port 54329;
-# 5432 and 5433 are taken by other projects on this machine).
-# Production: `docker compose --profile app up -d` adds the web app. DEPLOY.md
-# has the full sequence, including migrations and the classifier import.
+# Development: `docker compose up -d` starts only the database (host port 54329).
+# Everything: `docker compose --profile app up -d --build` runs db, app (migrates on
+# start), scheduler (purge, classifier update, daily reminders) and nightly backup.
+# Add `--profile bot` for the Telegram long-polling bot. DEPLOY.md has the details.
+# Inlined into the browser bundle at build time; rebuild after changing.
+x-app-build: &app-build
+  context: .
+  args:
+    NEXT_PUBLIC_DEMO_URL: ${NEXT_PUBLIC_DEMO_URL:-/demo}
+    NEXT_PUBLIC_TELEGRAM_URL: ${NEXT_PUBLIC_TELEGRAM_URL:-}
+    NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
+    NEXT_PUBLIC_SHOW_LEGAL_223: ${NEXT_PUBLIC_SHOW_LEGAL_223:-false}
+    NEXT_PUBLIC_FEATURE_MULTI_CLIENT: ${NEXT_PUBLIC_FEATURE_MULTI_CLIENT:-false}
+
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -40,17 +50,11 @@ services:
 
   app:
     profiles: ["app"]
-    build:
-      context: .
-      # Inlined into the browser bundle at build time; rebuild after changing.
-      args:
-        NEXT_PUBLIC_DEMO_URL: ${NEXT_PUBLIC_DEMO_URL:-/demo}
-        NEXT_PUBLIC_TELEGRAM_URL: ${NEXT_PUBLIC_TELEGRAM_URL:-}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
-        NEXT_PUBLIC_SHOW_LEGAL_223: ${NEXT_PUBLIC_SHOW_LEGAL_223:-false}
-        NEXT_PUBLIC_FEATURE_MULTI_CLIENT: ${NEXT_PUBLIC_FEATURE_MULTI_CLIENT:-false}
+    build: *app-build
     image: mxik-audit-app
     container_name: mxik-audit-app
+    # Applies pending migrations, then serves.
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run start"]
     restart: unless-stopped
     env_file: .env
     environment:
@@ -63,6 +67,65 @@ services:
     volumes:
       # Classifier downloads and the ingest output live on the host.
       - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+
+  # Scheduled jobs (purge, weekly classifier update, daily reminders); replaces the host crontab.
+  scheduler:
+    profiles: ["app"]
+    image: mxik-audit-app
+    container_name: mxik-audit-scheduler
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
+      NODE_ENV: production
+    command: ["node", "scripts/scheduler.mjs"]
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      app:
+        condition: service_healthy
+
+  # Telegram long-polling bot, for setups without a public HTTPS webhook (profile "bot").
+  telegram-bot:
+    profiles: ["bot"]
+    build: *app-build
+    image: mxik-audit-app
+    container_name: mxik-audit-telegram-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
+      NODE_ENV: production
+    command: ["npm", "run", "telegram:bot"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Nightly pg_dump at 03:45 UTC+5, 14 dumps kept in ./backups.
+  backup:
+    profiles: ["app"]
+    image: pgvector/pgvector:pg16
+    container_name: mxik-audit-backup
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-mxik}
+      TZ: Asia/Tashkent
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          now=$$(date +%s); next=$$(date -d "03:45" +%s)
+          [ $$next -le $$now ] && next=$$((next + 86400))
+          sleep $$((next - now))
+          pg_dump -h db -U mxik -Fc mxik > /backups/mxik-$$(date +%F).dump
+          find /backups -name '*.dump' -mtime +14 -delete
+        done
     depends_on:
       db:
         condition: service_healthy

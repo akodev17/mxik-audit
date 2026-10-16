@@ -284,3 +284,13 @@ docker compose --profile app stop app
 docker exec -i mxik-audit-db pg_restore -U mxik -d mxik --clean --if-exists < backups/mxik-YYYY-MM-DD.dump
 docker compose --profile app start app
 ```
+
+## 9. Everything in Docker
+
+`docker compose --profile app up -d --build` runs the whole stack as containers:
+`db`, `app` (applies pending migrations, then serves on 127.0.0.1:3000),
+`scheduler` (purge at 03:15, classifier update on Mondays 04:00, daily reminders
+at 06:15, all UTC+5; replaces the crontab in section 7 and the daily route call
+in 7e, which needs `CRON_SECRET`) and `backup` (nightly `pg_dump` at 03:45 into
+`./backups`, 14 kept). Add `--profile bot` for the Telegram long-polling bot.
+Copy `./backups` off the server as well.

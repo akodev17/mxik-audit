@@ -13,3 +13,4 @@ data/mxik.ndjson
 # Local embedding model weights and an interrupted backfill's checkpoint
 data/models/
 data/embed-checkpoint.json
+backups/
