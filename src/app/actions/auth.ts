@@ -54,5 +54,5 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
     data: { orgId: user.orgId, actorId: user.id, action: 'user.signed_in', payload: {} },
   });
 
-  redirect('/catalogs');
+  redirect('/dashboard');
 }

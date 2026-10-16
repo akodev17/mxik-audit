@@ -17,5 +17,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   session.demo = false;
   session.clientId = undefined;
   await session.save();
-  return NextResponse.redirect(`${origin}/catalogs`);
+  return NextResponse.redirect(`${origin}/dashboard`);
 }

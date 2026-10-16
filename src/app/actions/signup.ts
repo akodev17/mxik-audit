@@ -28,5 +28,5 @@ export async function signUp(_prev: SignUpState, form: FormData): Promise<SignUp
   session.demo = false;
   session.clientId = undefined;
   await session.save();
-  redirect('/catalogs');
+  redirect('/dashboard');
 }

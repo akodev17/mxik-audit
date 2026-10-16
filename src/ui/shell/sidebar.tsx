@@ -4,7 +4,7 @@ import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cx } from '../cx';
-import { IconGear, IconTable, IconUpload, IconUsers, IconMenu, IconBook } from '../icons';
+import { IconGear, IconTable, IconUpload, IconUsers, IconMenu, IconBook, IconHome } from '../icons';
 
 type Props = { collapsed: boolean; onToggle: () => void; canWrite: boolean };
 
@@ -12,6 +12,7 @@ export function Sidebar({ collapsed, onToggle, canWrite }: Props) {
   const { t, ta } = useI18n();
   const pathname = usePathname();
   const ITEMS = [
+    { href: '/dashboard', label: ta.nav.dashboard, icon: <IconHome /> },
     { href: '/clients', label: ta.nav.clients, icon: <IconUsers /> },
     { href: '/catalogs', label: ta.nav.catalogs, icon: <IconTable /> },
     { href: '/upload', label: ta.nav.upload, icon: <IconUpload /> },

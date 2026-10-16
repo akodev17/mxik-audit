@@ -45,5 +45,5 @@ export async function GET(request: NextRequest) {
   session.clientId = undefined;
   await session.save();
   await db.auditEvent.create({ data: { orgId: user.orgId, actorId: user.id, action: 'user.signed_in', payload: { via: 'telegram' } } });
-  return back('/catalogs');
+  return back('/dashboard');
 }
