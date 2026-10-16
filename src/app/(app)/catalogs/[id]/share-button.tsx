@@ -1,14 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useEffect, useState, useTransition } from 'react';
 import { shareCreate, shareList, shareRevoke, type ShareRow } from '@/app/actions/share';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 
 const date = (iso: string): string => new Date(iso).toLocaleDateString('uz-UZ');
 
 /** Create, copy and revoke read-only report links for this catalogue. */
 export function ShareButton({ catalogId }: { catalogId: string }) {
+  const { ta } = useI18n();
   const [open, setOpen] = useState(false);
   const [links, setLinks] = useState<ShareRow[]>([]);
   const [url, setUrl] = useState<string | null>(null);

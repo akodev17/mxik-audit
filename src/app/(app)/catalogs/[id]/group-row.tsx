@@ -1,6 +1,6 @@
 'use client';
 
-import { ta } from '@/lib/i18n-app';
+import { useI18n } from '@/lib/locale-client';
 import type { GridRow } from '@/lib/workspace-rows';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -21,6 +21,7 @@ type Props = {
 
 /** Header of a group of similar rows: one decision covers every pending member. */
 export function GroupRowView({ rows, active, expanded, onSelect, onToggle, onAccept, onReject, readOnly }: Props) {
+  const { ta } = useI18n();
   const first = rows[0];
   const pending = rows.filter((r) => r.decision === 'pending').length;
   return (

@@ -1,13 +1,13 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useActionState, useEffect } from 'react';
 import { addClient, rememberClient, type AddClientState } from '@/app/actions/clients';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 
 export function NewClientForm() {
+  const { t, ta } = useI18n();
   const [state, action, pending] = useActionState<AddClientState, FormData>(addClient, {});
   return (
     <form action={action} className="flex flex-wrap items-start gap-2">

@@ -1,10 +1,9 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { listCatalogs } from '@/lib/catalogs';
 import { clientScope } from '@/lib/access';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
 import { CatalogTable } from '@/ui/catalog-table';
@@ -12,9 +11,13 @@ import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { DeleteCatalogButton } from './delete-button';
 
-export const metadata: Metadata = { title: `${t.catalogsTitle} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.catalogsTitle} — ${t.appName}` };
+}
 
 export default async function CatalogsPage() {
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const [catalogs, clients] = await Promise.all([

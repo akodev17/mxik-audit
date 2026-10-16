@@ -1,11 +1,12 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { setDictAutoAccept } from '@/app/actions/dictionary';
-import { ta } from '@/lib/i18n-app';
 
 export function DictionarySetting({ initial }: { initial: boolean }) {
+  const { ta } = useI18n();
   const router = useRouter();
   const [on, setOn] = useState(initial);
   const [busy, start] = useTransition();

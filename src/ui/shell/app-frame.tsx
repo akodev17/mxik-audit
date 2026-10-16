@@ -1,9 +1,9 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { ShellData } from '@/lib/shell-data';
-import { ta } from '@/lib/i18n-app';
 import { Badge } from '../badge';
 import { IconBell } from '../icons';
 import { ToastProvider } from '../toast';
@@ -16,6 +16,7 @@ import { UserMenu } from './user-menu';
 const STORE_KEY = 'mxik.sidebar.collapsed';
 
 export function AppFrame({ shell, children }: { shell: ShellData; children: ReactNode }) {
+  const { ta } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {

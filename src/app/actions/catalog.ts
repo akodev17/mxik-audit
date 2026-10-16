@@ -1,5 +1,6 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { canSeeClient, catalogScope } from '@/lib/access';
@@ -8,8 +9,7 @@ import { deleteCatalog } from '@/lib/catalogs';
 import { ownedClient, resolveClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
-import { t } from '@/lib/i18n';
-import { GATE_MESSAGE, gate } from '@/lib/plan';
+import { gate } from '@/lib/plan';
 import { parseUpload } from '@/lib/spreadsheet';
 import { getSession } from '@/lib/session';
 import { writer } from '@/lib/guard';
@@ -37,22 +37,23 @@ export type PreviewState = {
  * so changing it does not mean re-uploading.
  */
 export async function previewUpload(_prev: PreviewState, form: FormData): Promise<PreviewState> {
+  const { t, ta } = await getI18n();
   const user = await writer();
   if (!user) return { error: t.errorGeneric };
   // Real files never enter a demo org, whatever the browser sends.
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
 
   const file = form.get('file');
-  if (!(file instanceof File) || file.size === 0) return { error: 'Fayl tanlanmadi.' };
-  if (file.size > MAX_UPLOAD_BYTES) return { error: 'Fayl juda katta (20 MB dan oshmasligi kerak).' };
+  if (!(file instanceof File) || file.size === 0) return { error: ta.msg.fileNone };
+  if (file.size > MAX_UPLOAD_BYTES) return { error: ta.msg.fileTooBig };
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
     const parsed = await parseUpload(buffer, file.name);
-    if (parsed.rows.length === 0) return { error: 'Faylda maʼlumot qatorlari topilmadi.' };
+    if (parsed.rows.length === 0) return { error: ta.msg.fileEmpty };
 
     const allowed = await gate(user.orgId, 'rowsPerMonth', parsed.rows.length);
-    if (!allowed.ok) return { error: GATE_MESSAGE[allowed.reason] };
+    if (!allowed.ok) return { error: ta.msg.gate[allowed.reason] };
 
     const mapping = await mappingFor(user.orgId, parsed.headers);
 
@@ -79,7 +80,7 @@ export async function previewUpload(_prev: PreviewState, form: FormData): Promis
       },
     };
   } catch (error) {
-    return { error: `Faylni oʻqishda xatolik: ${error instanceof Error ? error.message : ''}` };
+    return { error: ta.msg.fileReadFailed(error instanceof Error ? error.message : '') };
   }
 }
 
@@ -96,6 +97,7 @@ export type CommitState = { error?: string; catalogId?: string };
  * server.
  */
 export async function commitUpload(payload: unknown): Promise<CommitState> {
+  const { t } = await getI18n();
   const user = await writer();
   if (!user) return { error: t.errorGeneric };
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
@@ -146,6 +148,7 @@ export type RemoveResult = { ok: true; rows: number } | { ok: false; error: stri
 
 /** Deletes one of the org's catalogues and everything derived from it. */
 export async function removeCatalog(catalogId: unknown): Promise<RemoveResult> {
+  const { t } = await getI18n();
   const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const id = z.string().min(1).safeParse(catalogId);

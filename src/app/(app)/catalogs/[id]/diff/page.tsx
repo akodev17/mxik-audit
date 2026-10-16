@@ -1,10 +1,9 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { currentUser } from '@/lib/session';
 import { versionDiff, type DiffRow } from '@/lib/versions';
 import { Badge } from '@/ui/badge';
@@ -13,9 +12,13 @@ import { EmptyState } from '@/ui/empty-state';
 import { Page, Section } from '@/ui/page';
 import { Table, Td, Th } from '@/ui/table';
 
-export const metadata: Metadata = { title: `${ta.diff.title} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t, ta } = await getI18n();
+  return { title: `${ta.diff.title} — ${t.appName}` };
+}
 
-function RowsTable({ rows }: { rows: DiffRow[] }) {
+async function RowsTable({ rows }: { rows: DiffRow[] }) {
+  const { t, ta } = await getI18n();
   return (
     <Table>
       <thead><tr><Th>#</Th><Th>{t.reviewProduct}</Th><Th>{ta.ws.colCurrent}</Th><Th>{ta.diff.note}</Th></tr></thead>
@@ -25,7 +28,7 @@ function RowsTable({ rows }: { rows: DiffRow[] }) {
             <Td className="text-muted">{r.rowIndex + 1}</Td>
             <Td className="max-w-md truncate font-medium" title={r.name}>{r.name}{r.unit ? <span className="ml-2 text-xs text-muted">{r.unit}</span> : null}</Td>
             <Td>{r.code ? <CodeChip code={r.code} /> : <span className="text-muted">{ta.ws.noCode}</span>}</Td>
-            <Td>{r.note ? <Badge>{r.note}</Badge> : null}</Td>
+            <Td>{r.notes ? r.notes.map((n) => <Badge key={n} className="mr-1">{ta.msg.diffNotes[n]}</Badge>) : null}</Td>
           </tr>
         ))}
       </tbody>
@@ -34,6 +37,7 @@ function RowsTable({ rows }: { rows: DiffRow[] }) {
 }
 
 export default async function DiffPage({ params }: { params: Promise<{ id: string }> }) {
+  const { ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { id } = await params;

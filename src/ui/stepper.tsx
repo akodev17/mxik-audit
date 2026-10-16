@@ -1,9 +1,13 @@
+'use client';
+
+import { useI18n } from '@/lib/locale-client';
 import { cx } from './cx';
 
 /** Horizontal stages; everything before `current` is done. */
 export function Stepper({ stages, current }: { stages: readonly string[]; current: number }) {
+  const { ta } = useI18n();
   return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-2" aria-label="Bosqichlar">
+    <ol className="flex flex-wrap items-center gap-x-2 gap-y-2" aria-label={ta.shell.steps}>
       {stages.map((label, i) => {
         const done = i < current;
         const active = i === current;

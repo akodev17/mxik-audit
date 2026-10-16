@@ -1,7 +1,7 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
 import { z } from 'zod';
-import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { writer } from '@/lib/guard';
 import { searchClassifier } from '@/lib/audit-runner';
@@ -20,6 +20,7 @@ export type DecideResult = { ok: true; eventId: string } | { ok: false; error: s
 
 /** Records one accept/reject and its audit event. Never overwrites a decision. */
 export async function decide(payload: unknown): Promise<DecideResult> {
+  const { t } = await getI18n();
   const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = DecideInput.safeParse(payload);
@@ -39,6 +40,7 @@ export type GroupResult = { ok: true; decided: { findingId: string; eventId: str
 
 /** One accept/reject for a group of similar rows; one audit event per row. */
 export async function decideGroup(payload: unknown): Promise<GroupResult> {
+  const { t } = await getI18n();
   const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = GroupInput.safeParse(payload);
@@ -70,6 +72,7 @@ export type BulkResult = { ok: true; count: number } | { ok: false; error: strin
 
 /** "Accept all above 90%." Only touches pending findings that have a suggestion. */
 export async function acceptAllAbove(payload: unknown): Promise<BulkResult> {
+  const { t } = await getI18n();
   const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = BulkInput.safeParse(payload);
@@ -89,6 +92,7 @@ const UndoInput = z.union([
 
 /** Undo a decision event (or one row of it), or the latest one still in effect for a catalogue. */
 export async function undo(payload: unknown): Promise<UndoResult> {
+  const { t } = await getI18n();
   const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = UndoInput.safeParse(payload);

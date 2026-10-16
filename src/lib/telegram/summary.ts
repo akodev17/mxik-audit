@@ -1,18 +1,14 @@
 // The audit summary a catalogue sent through the bot gets back. Counts only
 // risky findings, by type, the same way the report does.
 import { db } from '../db.js';
-import { t } from '../i18n.js';
+import type { Dict } from '../i18n.js';
 import { RISKY_FINDING, RISKY_ITEM } from '../risk.js';
 
 const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'] as const;
-const TYPE_TEXT: Record<string, string> = {
-  MISSING: t.typeMissing,
-  NOT_FOUND: t.typeNotFound,
-  MISMATCH: t.typeMismatch,
-  UNIT_CONFLICT: t.typeUnitConflict,
-};
-
-export async function auditSummaryText(catalogId: string, reportUrl: string | null): Promise<string> {
+export async function auditSummaryText(catalogId: string, reportUrl: string | null, t: Dict): Promise<string> {
+  const TYPE_TEXT: Record<string, string> = {
+    MISSING: t.typeMissing, NOT_FOUND: t.typeNotFound, MISMATCH: t.typeMismatch, UNIT_CONFLICT: t.typeUnitConflict,
+  };
   const catalog = await db.catalog.findUniqueOrThrow({
     where: { id: catalogId },
     select: { filename: true, rowCount: true, status: true, client: { select: { name: true } } },

@@ -1,27 +1,26 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { cx } from '../cx';
 import { IconGear, IconTable, IconUpload, IconUsers, IconMenu, IconBook } from '../icons';
-
-const ITEMS = [
-  { href: '/clients', label: ta.nav.clients, icon: <IconUsers /> },
-  { href: '/catalogs', label: ta.nav.catalogs, icon: <IconTable /> },
-  { href: '/upload', label: ta.nav.upload, icon: <IconUpload /> },
-  { href: '/dictionary', label: ta.nav.dictionary, icon: <IconBook /> },
-  { href: '/settings', label: ta.nav.settings, icon: <IconGear /> },
-] as const;
 
 type Props = { collapsed: boolean; onToggle: () => void; canWrite: boolean };
 
 export function Sidebar({ collapsed, onToggle, canWrite }: Props) {
+  const { t, ta } = useI18n();
   const pathname = usePathname();
+  const ITEMS = [
+    { href: '/clients', label: ta.nav.clients, icon: <IconUsers /> },
+    { href: '/catalogs', label: ta.nav.catalogs, icon: <IconTable /> },
+    { href: '/upload', label: ta.nav.upload, icon: <IconUpload /> },
+    { href: '/dictionary', label: ta.nav.dictionary, icon: <IconBook /> },
+    { href: '/settings', label: ta.nav.settings, icon: <IconGear /> },
+  ];
   return (
     <nav
-      aria-label="Asosiy"
+      aria-label={ta.shell.main}
       className={cx('no-print flex shrink-0 flex-col border-r border-line bg-surface transition-[width]', collapsed ? 'w-14' : 'w-56')}
     >
       <div className="flex h-14 items-center gap-2 px-3">

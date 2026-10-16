@@ -1,14 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useActionState } from 'react';
 import { saveBranding, type BrandState } from '@/app/actions/settings';
-import { t } from '@/lib/i18n';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
 
 type Props = { brandName: string; orgName: string; logoUrl: string | null };
 
 export function BrandForm({ brandName, orgName, logoUrl }: Props) {
+  const { t } = useI18n();
   const [state, action, pending] = useActionState<BrandState, FormData>(saveBranding, {});
   return (
     <form action={action} className="max-w-md space-y-4">

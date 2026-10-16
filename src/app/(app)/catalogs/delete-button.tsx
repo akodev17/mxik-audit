@@ -1,13 +1,14 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { removeCatalog } from '@/app/actions/catalog';
-import { t } from '@/lib/i18n';
 import { Button } from '@/ui/button';
 
 /** Irreversible, so it always asks first and says exactly what goes. */
 export function DeleteCatalogButton({ catalogId, filename }: { catalogId: string; filename: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [busy, startBusy] = useTransition();
   const [message, setMessage] = useState<string | null>(null);

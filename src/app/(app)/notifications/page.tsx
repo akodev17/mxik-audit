@@ -1,17 +1,20 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { listNotifications, markAllRead } from '@/lib/notifications';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 
-export const metadata: Metadata = { title: `${t.notificationsTitle} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.notificationsTitle} — ${t.appName}` };
+}
 
 export default async function NotificationsPage() {
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const items = await listNotifications(user.orgId);

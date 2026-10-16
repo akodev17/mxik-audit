@@ -1,13 +1,17 @@
+import type { Metadata } from 'next';
+import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { telegramConfig } from '@/lib/telegram/config';
 import { TelegramLogin } from '@/ui/telegram-login';
 import { SignUpForm } from './sign-up-form';
 
-export const metadata = { title: `${ta.signup.title} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t, ta } = await getI18n();
+  return { title: `${ta.signup.title} — ${t.appName}` };
+}
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  const { t, ta } = await getI18n();
   const tg = telegramConfig();
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-10">

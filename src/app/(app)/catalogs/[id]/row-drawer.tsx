@@ -1,15 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useEffect, useState } from 'react';
 import { loadRowDetail } from '@/app/actions/workspace';
-import { ta } from '@/lib/i18n-app';
 import type { RowDetail } from '@/lib/row-detail';
 import type { GridRow } from '@/lib/workspace-rows';
 import { Badge, StatusChip } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
 import { Drawer } from '@/ui/drawer';
-import { confidenceView, TYPE_LABEL, typeTone } from '@/ui/labels';
+import { confidenceView, typeLabels, typeTone } from '@/ui/labels';
 import { Skeleton } from '@/ui/skeleton';
 import { CodeCompare } from './code-compare';
 import { CodeSearch } from './code-search';
@@ -29,6 +29,7 @@ type Props = {
 const SIGNAL_DOT = { good: 'bg-good', warn: 'bg-warn', bad: 'bg-danger', neutral: 'bg-line-strong' } as const;
 
 function Meta({ label, value }: { label: string; value: string | null }) {
+  const { ta } = useI18n();
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted">{label}</dt>
@@ -38,15 +39,16 @@ function Meta({ label, value }: { label: string; value: string | null }) {
 }
 
 function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose']; readOnly: boolean }) {
+  const { t, ta } = useI18n();
   const pending = row.decision === 'pending' && !readOnly;
-  const conf = confidenceView(detail.confidence, row.barcode || row.dictionary);
+  const conf = confidenceView(t, detail.confidence, row.barcode || row.dictionary);
   const showRequest = detail.noSuggestion || row.decision === 'rejected';
   return (
     <div className="space-y-5">
       <div>
         <h3 className="text-lg leading-snug">{detail.productName}</h3>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <StatusChip tone={typeTone(detail.type, row.severity)}>{TYPE_LABEL[detail.type] ?? detail.type}</StatusChip>
+          <StatusChip tone={typeTone(detail.type, row.severity)}>{typeLabels(t)[detail.type] ?? detail.type}</StatusChip>
           {conf && !detail.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : null}
           {row.dictionary ? <Badge tone="good">{ta.dict.badge}</Badge> : null}
           {detail.markingCurrent || detail.markingSuggested ? <Badge tone="warn">{ta.drawer.markirovka}</Badge> : null}
@@ -107,6 +109,7 @@ function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDe
 
 /** Right-hand detail panel for the active row; the grid stays usable behind it. */
 export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose, readOnly }: Props) {
+  const { ta } = useI18n();
   const [detail, setDetail] = useState<RowDetail | null>(null);
   const [failed, setFailed] = useState(false);
   const id = row?.findingId ?? null;

@@ -1,16 +1,20 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { resolveClient } from '@/lib/clients';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { UploadForm } from './upload-form';
 
-export const metadata: Metadata = { title: `${t.uploadTitle} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.uploadTitle} — ${t.appName}` };
+}
 
 export default async function UploadPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
+  const { t } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const params = await searchParams;

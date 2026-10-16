@@ -1,16 +1,17 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { rememberClient } from '@/app/actions/clients';
-import { ta } from '@/lib/i18n-app';
 import { IconChevron } from '../icons';
 
 type Props = { clients: { id: string; name: string }[]; active: { id: string; name: string } };
 
 /** Switches which client the app works on; opens as a small popover. */
 export function ClientSwitcher({ clients, active }: Props) {
+  const { ta } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [, start] = useTransition();

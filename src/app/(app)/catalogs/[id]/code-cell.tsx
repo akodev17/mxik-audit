@@ -1,5 +1,6 @@
-import { ta } from '@/lib/i18n-app';
-import { t } from '@/lib/i18n';
+'use client';
+
+import { useI18n } from '@/lib/locale-client';
 import { CodeChip } from '@/ui/code-chip';
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 
 /** Code chip with a one-line, truncated classifier name. */
 export function CodeCell({ code, name, state, empty, compact }: Props) {
+  const { t, ta } = useI18n();
   if (!code) return <span className="text-sm text-muted">{empty}</span>;
   const flag = state === 'archived' ? t.codeArchived : state === 'unknown' ? ta.drawer.unknown : null;
   return (

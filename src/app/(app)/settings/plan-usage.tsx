@@ -1,10 +1,11 @@
+import { getI18n } from '@/lib/locale';
 import type { PlanStatus } from '@/lib/plan';
-import { ta } from '@/lib/i18n-app';
 
 const KEYS = ['clients', 'rowsPerMonth', 'seats'] as const;
 
 /** State of the plan and usage against each limit. */
-export function PlanUsage({ status, until }: { status: PlanStatus; until: string | null }) {
+export async function PlanUsage({ status, until }: { status: PlanStatus; until: string | null }) {
+  const { ta } = await getI18n();
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium">

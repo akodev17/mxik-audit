@@ -1,8 +1,8 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useCallback, useRef, useState } from 'react';
 import { decide, decideGroup, undo } from '@/app/actions/review';
-import { ta } from '@/lib/i18n-app';
 import type { GridRow } from '@/lib/workspace-rows';
 import { useToast } from '@/ui/toast';
 
@@ -12,6 +12,7 @@ type Chosen = { code: string; name: string | null };
 
 /** Row state with optimistic accept, reject and undo; never refetches the catalogue. */
 export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => void) {
+  const { ta } = useI18n();
   const toast = useToast();
   const [rows, setRows] = useState<GridRow[]>(initial);
   const rowsRef = useRef(rows);

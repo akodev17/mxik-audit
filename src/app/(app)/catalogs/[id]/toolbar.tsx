@@ -1,7 +1,7 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 import { cx } from '@/ui/cx';
 
@@ -37,6 +37,7 @@ function Segment({ options, value, onChange, label }: { options: [string, string
 
 /** Density, grouping, review scope and bulk accept for the grid below. */
 export function Toolbar({ count, compact, grouped, pendingOnly, query, busy, onCompact, onGrouped, onAcceptSure, readOnly, dictionaryPending, onAcceptDictionary }: Props) {
+  const { ta } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -49,7 +50,7 @@ export function Toolbar({ count, compact, grouped, pendingOnly, query, busy, onC
 
   return (
     <div className="no-print flex flex-wrap items-center gap-3 border-b border-line px-5 py-2">
-      <span className="text-sm text-muted">{count.toLocaleString('uz-UZ')} qator</span>
+      <span className="text-sm text-muted">{ta.ws.rowCount(count)}</span>
       {query ? (
         <button type="button" onClick={() => go((p) => p.delete('q'))} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-brand-tint px-3 text-sm text-brand" title={ta.ws.clearSearch}>
           {ta.ws.searchActive(query)} <span aria-hidden>✕</span>

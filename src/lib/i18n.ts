@@ -1,14 +1,23 @@
-// Uzbek (Latin) UI strings.
+// Uzbek (Latin) UI strings; the Russian mirror is in i18n-ru.ts.
 //
-// `Dict` is an exhaustive record type, so adding a Russian mirror later is
-// compiler-checked: a missing key will not compile. Per the brief, the Russian
-// strings are deliberately not written yet.
+// `Dict` is an exhaustive record type, so a missing key in either language
+// does not compile.
 //
 // Every apostrophe below is U+02BB (ʻ) or U+02BC (ʼ) — never an ASCII quote.
 // Accountants notice, and Gate 0 found the correct character in only 74 of
 // 438,925 rows of the official export, so the bar is low and worth clearing.
 
-export type Locale = 'uz';
+import { ru } from './i18n-ru';
+
+export type Locale = 'uz' | 'ru';
+
+export const LOCALES: Locale[] = ['uz', 'ru'];
+
+/** Any stored or submitted value as a supported locale. */
+export function parseLocale(value: unknown): Locale {
+  return LOCALES.find((l) => l === value) ?? DEFAULT_LOCALE;
+}
+export const DEFAULT_LOCALE: Locale = 'uz';
 
 export type Dict = {
   // chrome
@@ -23,11 +32,7 @@ export type Dict = {
 
   // navigation
   navUpload: string;
-  navReport: string;
-  navReview: string;
-  navExport: string;
   navCatalogs: string;
-  navClients: string;
 
   // clients
   clientLabel: string;
@@ -41,9 +46,7 @@ export type Dict = {
   clientsNever: string;
   clientsAdd: string;
   clientsNewName: string;
-  clientsCreate: string;
   clientsDefault: string;
-  clientsOpen: string;
   clientsBadName: string;
   clientCatalogs: string;
   clientHistory: string;
@@ -52,14 +55,12 @@ export type Dict = {
   clientNoCatalogs: string;
   historyAction: Record<string, string>;
   uploadClient: string;
-  notificationsNav: string;
   notificationsTitle: string;
   notificationsHint: string;
   notificationsEmpty: string;
   notificationsOpen: string;
 
   // settings and Telegram
-  navSettings: string;
   settingsTitle: string;
   tgSection: string;
   tgOff: string;
@@ -89,7 +90,6 @@ export type Dict = {
   tgError: string;
 
   // client PDF and branding
-  pdfDownload: string;
   pdfTitle: string;
   pdfStatus: string;
   pdfDate: string;
@@ -111,10 +111,6 @@ export type Dict = {
   typeNotPurchased: string;
   typePrivilegeCode: string;
   typePrivilegeOpportunity: string;
-  reportBreakdownPrivilege: (n: number) => string;
-  reportBreakdownPrivilegeChance: (n: number) => string;
-  reportBreakdownNotPurchased: (n: number) => string;
-  severityInfo: string;
   purchasesNav: string;
   purchasesTitle: string;
   purchasesHint: string;
@@ -130,41 +126,27 @@ export type Dict = {
   activityLabel: string;
   activityOptions: Record<'savdo' | 'ishlab_chiqarish' | 'boshqa', string>;
   activityHint: string;
-  purchaseNoteTitle: string;
-  purchaseNoteSources: string;
 
   // catalogue history and deletion
   catalogsTitle: string;
   catalogsHint: string;
-  catalogsEmpty: string;
   catalogsFile: string;
   catalogsDate: string;
   catalogsRows: string;
   catalogsRisky: string;
   catalogsStatus: string;
-  catalogsOpen: string;
   catalogsDelete: string;
   catalogsDeleteConfirm: (filename: string) => string;
   catalogsDeleted: (rows: number) => string;
   catalogStatus: Record<'uploaded' | 'analyzing' | 'ready' | 'failed', string>;
-  catalogSwitch: string;
   catalogAnalyzing: (done: number, total: number) => string;
   catalogAnalyzingHint: string;
   catalogNotAudited: string;
   catalogFailed: string;
   catalogRetry: string;
-  exportNotReady: string;
 
   // undo and decision history
-  reviewUndo: string;
-  reviewUndoLast: string;
   reviewUndoFailed: string;
-  reviewHistory: string;
-  reviewHistoryEmpty: string;
-  historyAccepted: string;
-  historyRejected: string;
-  historyBulk: (n: number) => string;
-  historyUndone: (n: number) => string;
 
   // admin traction metrics
   adminTitle: string;
@@ -197,18 +179,12 @@ export type Dict = {
   demoPoints: string[];
   demoStart: string;
   demoUnavailable: string;
-  demoBadge: string;
-  demoBanner: (hours: number) => string;
   demoUploadDisabled: string;
 
   // upload
   uploadTitle: string;
   uploadHint: string;
-  uploadDrop: string;
-  uploadChoose: string;
   uploadMapTitle: string;
-  uploadMapHint: string;
-  uploadPreviewTitle: string;
   uploadColumnName: string;
   uploadColumnBarcode: string;
   uploadColumnMxik: string;
@@ -218,10 +194,6 @@ export type Dict = {
   uploadPreset: string;
   uploadPresetAuto: string;
   uploadPresetHint: string;
-  codeRequestButton: string;
-  codeRequestCopy: string;
-  codeRequestCopied: string;
-  codeRequestHint: string;
   moneyTitle: string;
   moneyRisky: (amount: string) => string;
   moneyShare: (percent: string) => string;
@@ -229,79 +201,37 @@ export type Dict = {
   moneyFine: (amount: string) => string;
   moneyFineNote: string;
   uploadColumnIgnore: string;
-  uploadRequiredName: string;
-  uploadStart: string;
-  uploadAnalyzing: string;
   uploadRowsFound: (n: number) => string;
   uploadRemembered: string;
 
   // report
-  reportTitle: string;
   reportHeadline: (risky: number, total: number) => string;
   reportClean: (total: number) => string;
-  reportBreakdownMissing: (n: number) => string;
-  reportBreakdownNotFound: (n: number) => string;
-  reportBreakdownMismatch: (n: number) => string;
-  reportBreakdownUnit: (n: number) => string;
-  reportFilterAll: string;
   reportFilterType: string;
-  reportFilterSeverity: string;
-  reportPrint: string;
-  reportGoReview: string;
-  reportEmpty: string;
 
   // findings
   typeMissing: string;
   typeNotFound: string;
   typeMismatch: string;
   typeUnitConflict: string;
-  severityHigh: string;
-  severityMedium: string;
 
   // review
-  reviewTitle: string;
   reviewProduct: string;
   reviewCurrentCode: string;
   reviewSuggested: string;
-  reviewAlternatives: string;
   reviewNoCode: string;
-  reviewAccept: string;
-  reviewReject: string;
-  reviewPickOther: string;
-  reviewAcceptAllAbove: string;
-  reviewDecided: string;
   reviewPending: string;
   reviewAccepted: string;
   reviewRejected: string;
-  reviewKeyboardHint: string;
-  reviewBoundUnit: string;
-  reviewHierarchy: string;
-  reviewConfidence: string;
-  reviewProgress: (done: number, total: number) => string;
-  reviewNothingToReview: string;
   markingBadge: string;
-  markingTooltip: (which: string) => string;
   markingCurrent: string;
   markingSuggested: string;
-  markingSummary: (total: number, risky: number) => string;
-  markingFilter: string;
-  groupTitle: (n: number) => string;
-  groupShow: string;
-  groupHide: string;
-  groupCurrentMixed: string;
   groupAccept: (n: number) => string;
   groupReject: (n: number) => string;
-  groupDecided: (accepted: number, rejected: number) => string;
   groupSplit: string;
-  groupCount: (n: number) => string;
 
   // export
-  exportTitle: string;
-  exportHint: string;
-  exportSummary: (accepted: number, rejected: number, pending: number) => string;
-  exportDownload: string;
   export1c: string;
-  export1cHint: string;
   payTitle: string;
   payPrice: (price: string, rows: string) => string;
   payPaid: string;
@@ -310,7 +240,6 @@ export type Dict = {
   payPayme: string;
   payNote: string;
   payRequired: string;
-  subTitle: string;
   subPrice: (price: string) => string;
   subUntil: (date: string) => string;
   subNone: string;
@@ -329,29 +258,10 @@ export type Dict = {
   confidenceSure: string;
   confidenceLikely: string;
   confidenceCheck: string;
-  confidenceDetail: (percent: number) => string;
 
   // what a code means, and why it was suggested
   codeArchived: string;
   codeUnknown: string;
-  badgeBarcode: string;
-  whyTitle: string;
-  whyBarcode: string;
-  whyExact: string;
-  whyWords: (words: readonly string[]) => string;
-  whyNoWords: string;
-  whyUnitMatch: (unit: string) => string;
-  whyUnitConflict: (rowUnit: string, codeUnit: string) => string;
-  whyUnitUnknown: string;
-  whyUnitNone: string;
-  whyRerank: (reason: string) => string;
-  whyRerankNone: string;
-  whyScore: (percent: number) => string;
-  exportPreviewTitle: string;
-  exportPreviewEmpty: string;
-  exportPreviewMore: (n: number) => string;
-  exportBefore: string;
-  exportAfter: string;
 };
 
 export const uz: Dict = {
@@ -365,11 +275,7 @@ export const uz: Dict = {
   signInError: 'Elektron pochta yoki parol notoʻgʻri',
 
   navUpload: 'Yuklash',
-  navReport: 'Hisobot',
-  navReview: 'Koʻrib chiqish',
-  navExport: 'Eksport',
   navCatalogs: 'Kataloglar',
-  navClients: 'Mijozlar',
 
   clientLabel: 'Mijoz',
   clientsTitle: 'Mijozlar',
@@ -382,9 +288,7 @@ export const uz: Dict = {
   clientsNever: 'hali yoʻq',
   clientsAdd: 'Mijoz qoʻshish',
   clientsNewName: 'Mijoz nomi, masalan: “Baraka Savdo” MChJ',
-  clientsCreate: 'Qoʻshish',
   clientsDefault: 'asosiy',
-  clientsOpen: 'Ochish',
   clientsBadName: 'Nomni kiriting (kamida 2 ta belgi).',
   clientCatalogs: 'Kataloglar',
   clientHistory: 'Tarix',
@@ -400,13 +304,11 @@ export const uz: Dict = {
     'classifier.updated': 'Tasniflagich yangilandi',
   },
   uploadClient: 'Mijoz',
-  notificationsNav: 'Xabarnomalar',
   notificationsTitle: 'Xabarnomalar',
   notificationsHint: 'Tasniflagich yangilanganda mijozlaringiz kataloglarida nima oʻzgargani shu yerda koʻrinadi. Telegram ulangan boʻlsa, u yerga ham yuboriladi.',
   notificationsEmpty: 'Hali xabarnoma yoʻq.',
   notificationsOpen: 'Hisobotni ochish',
 
-  navSettings: 'Sozlamalar',
   settingsTitle: 'Sozlamalar',
   tgSection: 'Telegram',
   tgOff: 'Telegram bot bu serverda sozlanmagan (TELEGRAM_BOT_TOKEN yoʻq).',
@@ -435,7 +337,6 @@ export const uz: Dict = {
   tgReport: 'Hisobot',
   tgError: 'Xatolik yuz berdi. Birozdan soʻng qayta urinib koʻring.',
 
-  pdfDownload: 'PDF yuklab olish',
   pdfTitle: 'MXIK audit hisoboti',
   pdfStatus: 'Holat',
   pdfDate: 'Hisobot sanasi',
@@ -456,10 +357,6 @@ export const uz: Dict = {
   typeNotPurchased: 'Xaridlarda yoʻq',
   typePrivilegeCode: 'Imtiyozli kod',
   typePrivilegeOpportunity: 'Imtiyoz imkoniyati',
-  reportBreakdownPrivilege: (n) => `${n} — imtiyozli kod, tekshirish kerak`,
-  reportBreakdownPrivilegeChance: (n) => `${n} — imtiyoz imkoniyati`,
-  reportBreakdownNotPurchased: (n) => `${n} — xaridlarda topilmadi`,
-  severityInfo: 'Maʼlumot uchun',
   purchasesNav: 'Kirim (xaridlar)',
   purchasesTitle: 'Kirim (xaridlar)',
   purchasesHint: 'Mijozning xaridlar roʻyxatini yuklang: kirim EHF eksporti yoki istalgan Excel/CSV roʻyxat. Katalogdagi kodlar xaridlardagi MXIK kodlari (va oʻlchov birligi) bilan solishtiriladi.',
@@ -475,41 +372,27 @@ export const uz: Dict = {
   activityLabel: 'Faoliyat turi',
   activityOptions: { savdo: 'Savdo', ishlab_chiqarish: 'Ishlab chiqarish', boshqa: 'Boshqa' },
   activityHint: 'Savdo uchun xaridlarda topilmagan tovar yuqori risk sifatida koʻrsatiladi; qolganlar uchun — maʼlumot uchun.',
-  purchaseNoteTitle: 'Xaridlar bilan solishtirish',
-  purchaseNoteSources: 'Manbalar',
 
   catalogsTitle: 'Yuklangan kataloglar',
   catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',
-  catalogsEmpty: 'Hali katalog yuklanmagan.',
   catalogsFile: 'Fayl',
   catalogsDate: 'Sana',
   catalogsRows: 'Qatorlar',
   catalogsRisky: 'Riskli',
   catalogsStatus: 'Holat',
-  catalogsOpen: 'Ochish',
   catalogsDelete: 'Oʻchirish',
   catalogsDeleteConfirm: (filename) =>
     `“${filename}” katalogi butunlay oʻchiriladi: qatorlar, takliflar va qarorlar tarixi bilan birga. Buni qaytarib boʻlmaydi. Davom etasizmi?`,
   catalogsDeleted: (rows) => `Katalog oʻchirildi (${rows.toLocaleString('uz-UZ')} qator).`,
   catalogStatus: { uploaded: 'Yuklangan', analyzing: 'Tahlil qilinmoqda', ready: 'Tayyor', failed: 'Xatolik' },
-  catalogSwitch: 'Katalog',
   catalogAnalyzing: (done, total) =>
     `Tahlil qilinmoqda: ${done.toLocaleString('uz-UZ')} / ${total.toLocaleString('uz-UZ')} qator`,
   catalogAnalyzingHint: 'Sahifa oʻzi yangilanadi. Katta katalog bir necha daqiqa olishi mumkin; sahifani yopsangiz ham tahlil davom etadi.',
   catalogNotAudited: 'Bu katalog hali tahlil qilinmagan: ustunlar moslashtirilishi tasdiqlanmagan.',
   catalogFailed: 'Tahlil xatolik bilan toʻxtadi.',
   catalogRetry: 'Qayta tahlil qilish',
-  exportNotReady: 'Tahlil tugagach, faylni eksport qilish mumkin boʻladi.',
 
-  reviewUndo: 'Bekor qilish',
-  reviewUndoLast: 'Oxirgi qarorni bekor qilish',
   reviewUndoFailed: 'Bekor qilib boʻlmadi: bu qaror allaqachon bekor qilingan.',
-  reviewHistory: 'Qarorlar tarixi',
-  reviewHistoryEmpty: 'Hali qaror qabul qilinmagan.',
-  historyAccepted: 'Qabul qilindi',
-  historyRejected: 'Rad etildi',
-  historyBulk: (n) => `${n} ta taklif birdaniga qabul qilindi`,
-  historyUndone: (n) => (n > 1 ? `${n} ta qaror bekor qilindi` : 'Qaror bekor qilindi'),
 
   adminTitle: 'Koʻrsatkichlar',
   adminHint: 'Faqat haqiqiy mijozlar hisoblanadi: demo nusxalar, demo shabloni va ichki (namuna, sinov) tashkilotlar kiritilmagan.',
@@ -544,17 +427,11 @@ export const uz: Dict = {
   ],
   demoStart: 'Demoni boshlash',
   demoUnavailable: 'Demo hozircha tayyor emas. Birozdan soʻng qayta urinib koʻring.',
-  demoBadge: 'Demo',
-  demoBanner: (hours) => `Demo rejimi: namuna katalog. Ushbu nusxa ${hours} soatdan soʻng oʻchiriladi.`,
   demoUploadDisabled: 'Demo rejimida fayl yuklash oʻchirilgan. Oʻz katalogingizni tekshirish uchun bosh sahifadagi forma orqali yuboring.',
 
   uploadTitle: 'Katalogni yuklash',
   uploadHint: 'Excel (.xlsx) yoki CSV fayl. Birinchi qator — sarlavhalar.',
-  uploadDrop: 'Faylni shu yerga tashlang',
-  uploadChoose: 'yoki fayl tanlang',
   uploadMapTitle: 'Ustunlarni moslashtirish',
-  uploadMapHint: 'Faylingizdagi ustunlar qaysi maydonga tegishli ekanini koʻrsating.',
-  uploadPreviewTitle: 'Dastlabki 5 qator',
   uploadColumnName: 'Tovar nomi',
   uploadColumnBarcode: 'Shtrix kod',
   uploadColumnMxik: 'MXIK kodi',
@@ -564,10 +441,6 @@ export const uz: Dict = {
   uploadPreset: 'Fayl qayerdan',
   uploadPresetAuto: 'Avtomatik aniqlash',
   uploadPresetHint: '“Taxminiy” andozalar haqiqiy fayl bilan tekshirilmagan — ustunlarni koʻzdan kechiring.',
-  codeRequestButton: 'Yangi kod soʻrovi matni',
-  codeRequestCopy: 'Nusxa olish',
-  codeRequestCopied: 'Nusxa olindi',
-  codeRequestHint: 'Matnni tekshirib, tasnif.soliq.uz saytida oʻzingiz yuboring. Dastur hech narsani avtomatik yubormaydi.',
   moneyTitle: 'Riskli qatorlar boʻyicha sotuv summasi (taxminiy)',
   moneyRisky: (amount) => `${amount} soʻm`,
   moneyShare: (percent) => `faylingizdagi jami sotuvning ${percent}%`,
@@ -575,78 +448,35 @@ export const uz: Dict = {
   moneyFine: (amount) => `Taxminiy jarima: ${amount} soʻm (riskli sotuvning 1%)`,
   moneyFineNote: 'Taxminiy; har bir hisobvaraq-faktura alohida koʻriladi.',
   uploadColumnIgnore: '— hisobga olinmaydi —',
-  uploadRequiredName: 'Tovar nomi ustunini koʻrsatish shart.',
-  uploadStart: 'Tahlilni boshlash',
-  uploadAnalyzing: 'Tahlil qilinmoqda…',
   uploadRowsFound: (n) => `${n.toLocaleString('uz-UZ')} qator topildi`,
   uploadRemembered: 'Oldingi yuklashdagi moslashtirish saqlangan.',
 
-  reportTitle: 'Risk hisoboti',
   reportHeadline: (risky, total) =>
     `${total.toLocaleString('uz-UZ')} pozitsiyadan ${risky.toLocaleString('uz-UZ')} tasi riskli`,
   reportClean: (total) =>
     `${total.toLocaleString('uz-UZ')} pozitsiyaning barchasi tekshiruvdan oʻtdi`,
-  reportBreakdownMissing: (n) => `${n} — kod yoʻq`,
-  reportBreakdownNotFound: (n) => `${n} — kod bazada topilmadi`,
-  reportBreakdownMismatch: (n) => `${n} — nomga mos emas`,
-  reportBreakdownUnit: (n) => `${n} — oʻlchov birligi notoʻgʻri`,
-  reportFilterAll: 'Barchasi',
   reportFilterType: 'Turi',
-  reportFilterSeverity: 'Muhimligi',
-  reportPrint: 'Chop etish',
-  reportGoReview: 'Koʻrib chiqishga oʻtish',
-  reportEmpty: 'Hech qanday risk topilmadi.',
 
   typeMissing: 'Kod yoʻq',
   typeNotFound: 'Bazada topilmadi',
   typeMismatch: 'Nomga mos emas',
   typeUnitConflict: 'Oʻlchov birligi',
-  severityHigh: 'Yuqori',
-  severityMedium: 'Oʻrta',
 
-  reviewTitle: 'Koʻrib chiqish',
   reviewProduct: 'Tovar',
   reviewCurrentCode: 'Hozirgi kod',
   reviewSuggested: 'Taklif etilgan kod',
-  reviewAlternatives: 'Boshqa variantlar',
   reviewNoCode: 'kod yoʻq',
-  reviewAccept: 'Qabul qilish',
-  reviewReject: 'Rad etish',
-  reviewPickOther: 'Boshqasini tanlash',
-  reviewAcceptAllAbove: 'Barcha “Aniq” takliflarni qabul qilish',
-  reviewDecided: 'Hal qilindi',
   reviewPending: 'Kutilmoqda',
   reviewAccepted: 'Qabul qilindi',
   reviewRejected: 'Rad etildi',
-  reviewKeyboardHint: 'j / k — harakat · Enter — qabul · r — rad etish · u — oxirgisini bekor qilish',
-  reviewBoundUnit: 'Biriktirilgan oʻlchov birligi',
-  reviewHierarchy: 'Tasniflagichdagi oʻrni',
-  reviewConfidence: 'Ishonch',
-  reviewProgress: (done, total) => `${done} / ${total} hal qilindi`,
-  reviewNothingToReview: 'Koʻrib chiqish uchun pozitsiya qolmadi.',
   markingBadge: 'Markirovka talab qilinadi',
-  markingTooltip: (which) => `Tasniflagich maʼlumotida ${which} raqamli markirovka belgisi bilan belgilangan (tasnif.soliq.uz, label = 1).`,
   markingCurrent: 'hozirgi kod',
   markingSuggested: 'taklif etilgan kod',
-  markingSummary: (total, risky) => `${total.toLocaleString('uz-UZ')} ta pozitsiya kodi markirovka talab qiladi (shundan ${risky.toLocaleString('uz-UZ')} tasi riskli)`,
-  markingFilter: 'Markirovka',
-  groupTitle: (n) => `Oʻxshash tovarlar: ${n} ta qator`,
-  groupShow: 'Qatorlarni koʻrsatish',
-  groupHide: 'Qatorlarni yashirish',
-  groupCurrentMixed: 'har bir qatorda oʻzi',
   groupAccept: (n) => `${n} ta qatorni qabul qilish`,
   groupReject: (n) => `${n} ta qatorni rad etish`,
-  groupDecided: (accepted, rejected) => `${accepted} qabul qilindi · ${rejected} rad etildi`,
   groupSplit: 'Guruhdan ajratish',
-  groupCount: (n) => `${n} ta guruh`,
 
-  exportTitle: 'Eksport',
-  exportHint: 'Fayl asl tuzilishida qaytariladi, qabul qilingan kodlar qoʻyilgan holda.',
-  exportSummary: (accepted, rejected, pending) =>
-    `${accepted} qabul qilindi · ${rejected} rad etildi · ${pending} kutilmoqda`,
-  exportDownload: 'Faylni yuklab olish',
   export1c: '1C uchun CSV',
-  export1cHint: '“1C uchun CSV” — nom, IKPU, oʻlchov birligi va shtrix-kod ustunlari (UTF-8, “;” ajratgich). 1C da jadval hujjatidan yuklash orqali ustunlarni moslab yuklanadi.',
   payTitle: 'Toʻgʻrilangan katalog',
   payPrice: (price, rows) => `${price} soʻm · ${rows} SKU gacha`,
   payPaid: 'Toʻlangan.',
@@ -655,7 +485,6 @@ export const uz: Dict = {
   payPayme: 'Payme orqali toʻlash',
   payNote: 'Toʻlov Click yoki Payme sahifasida amalga oshiriladi; tasdiqlangach shu yerda “Toʻlangan” deb koʻrinadi.',
   payRequired: 'Tuzatilgan faylni yuklab olish uchun avval katalog uchun toʻlang yoki firma obunasini faollashtiring.',
-  subTitle: 'Firma obunasi',
   subPrice: (price) => `${price} soʻm / oy`,
   subUntil: (date) => `Faol: ${date} gacha`,
   subNone: 'Obuna faol emas.',
@@ -673,35 +502,16 @@ export const uz: Dict = {
   confidenceSure: 'Aniq',
   confidenceLikely: 'Ehtimoliy',
   confidenceCheck: 'Tekshirish kerak',
-  confidenceDetail: (percent) => `Moslik bahosi: ${percent}%`,
 
   codeArchived: 'Tasniflagichda arxivlangan',
   codeUnknown: 'Tasniflagichda topilmadi',
-  badgeBarcode: 'Shtrix-kod boʻyicha',
-  whyTitle: 'Nega bu kod?',
-  whyBarcode: 'Qatordagi shtrix-kod tasniflagichda aynan shu kodga biriktirilgan.',
-  whyExact: 'Tovar nomi tasniflagichdagi nom bilan bir xil (yozilish farqlari hisobga olinmagan).',
-  whyWords: (words) => `Nomdagi mos soʻzlar: ${words.join(', ')}.`,
-  whyNoWords: 'Tovar nomi va kod nomida umumiy soʻz yoʻq.',
-  whyUnitMatch: (unit) => `Oʻlchov birligi mos: ${unit}.`,
-  whyUnitConflict: (rowUnit, codeUnit) => `Oʻlchov birligi mos emas: qatorda “${rowUnit}”, kod talab qiladi “${codeUnit}”.`,
-  whyUnitUnknown: 'Oʻlchov birligini solishtirib boʻlmadi.',
-  whyUnitNone: 'Kodga qatʼiy oʻlchov birligi biriktirilmagan.',
-  whyRerank: (reason) => `Tahlil: ${reason}`,
-  whyRerankNone: 'Tahlil: topilgan kodlarning hech biri bu tovarga mos kelmadi.',
-  whyScore: (percent) => `Moslik bahosi: ${percent}%.`,
-  exportPreviewTitle: 'Faylda oʻzgaradigan qatorlar',
-  exportPreviewEmpty: 'Hali birorta taklif qabul qilinmagan — fayl asl holicha qaytadi.',
-  exportPreviewMore: (n) => `yana ${n.toLocaleString('uz-UZ')} ta qator`,
-  exportBefore: 'Hozirgi kod',
-  exportAfter: 'Yangi kod',
 };
 
-const DICTS: Record<Locale, Dict> = { uz };
+const DICTS: Record<Locale, Dict> = { uz, ru };
 
-export function dict(locale: Locale = 'uz'): Dict {
+export function dict(locale: Locale = DEFAULT_LOCALE): Dict {
   return DICTS[locale];
 }
 
-/** The one place UI text is read from, so a locale switch is a one-line change. */
+/** Uzbek default, for code that is not tied to a request (scripts, tests). */
 export const t: Dict = uz;

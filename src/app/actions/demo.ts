@@ -1,10 +1,10 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { startDemoSession } from '@/lib/demo';
-import { t } from '@/lib/i18n';
 import { clientKey, createRateLimiter } from '@/lib/lead-guard';
 import { getSession } from '@/lib/session';
 
@@ -17,6 +17,7 @@ const MAX_LIVE_DEMOS = 500;
 
 /** Signs the visitor into a fresh demo org. No signup, no password. */
 export async function startDemo(_prev: DemoState): Promise<DemoState> {
+  const { t } = await getI18n();
   if (!limiter.hit(clientKey(await headers())).allowed) return { error: t.demoUnavailable };
   const live = await db.organization.count({ where: { kind: 'demo', expiresAt: { gt: new Date() } } });
   if (live >= MAX_LIVE_DEMOS) return { error: t.demoUnavailable };

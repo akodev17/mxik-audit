@@ -1,13 +1,13 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useActionState } from 'react';
 import { signUp, type SignUpState } from '@/app/actions/signup';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
 
 export function SignUpForm() {
+  const { t, ta } = useI18n();
   const [state, action, pending] = useActionState<SignUpState, FormData>(signUp, {});
   if (state.checkEmail) {
     return <p role="status" className="rounded-ctl border border-line bg-base p-6 text-sm shadow-pop">{ta.signup.checkEmail}</p>;

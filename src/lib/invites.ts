@@ -1,6 +1,8 @@
 // Invite links. Only a hash of the token is stored; the link is shown once.
 import { createHash, randomBytes } from 'node:crypto';
 import { absoluteUrl } from './app-url';
+import { appDict } from './i18n-app';
+import type { Locale } from './i18n';
 import { db } from './db';
 import { mailEnabled, sendMail } from './mailer';
 import { hashPassword } from './password';
@@ -12,7 +14,7 @@ const hash = (token: string): string => createHash('sha256').update(token).diges
 type Actor = { userId: string; orgId: string };
 
 export async function createInvite(
-  actor: Actor, input: { email: string | null; role: Role; clientIds: string[] },
+  actor: Actor, input: { email: string | null; role: Role; clientIds: string[]; locale?: Locale },
 ): Promise<{ url: string; emailed: boolean }> {
   const token = randomBytes(24).toString('base64url');
   // Only the org's own clients can be attached.
@@ -31,8 +33,9 @@ export async function createInvite(
   const url = absoluteUrl(`/invite/${token}`);
   const org = await db.organization.findUnique({ where: { id: actor.orgId }, select: { name: true } });
   const name = org?.name ?? 'MXIK Audit';
+  const ta = appDict(input.locale ?? 'uz');
   const emailed = input.email && mailEnabled()
-    ? await sendMail({ to: input.email, subject: `${name}: taklifnoma`, text: `Sizni ${name} jamoasiga taklif qilishdi.\nQabul qilish: ${url}\nHavola ${INVITE_DAYS} kun amal qiladi.` })
+    ? await sendMail({ to: input.email, subject: ta.msg.mail.inviteSubject(name), text: ta.msg.mail.inviteBody(name, url, INVITE_DAYS) })
     : false;
   return { url, emailed };
 }
@@ -46,17 +49,18 @@ export async function readInvite(token: string): Promise<InviteView | null> {
   return { orgName: invite.org.name, role: invite.role, email: invite.email };
 }
 
-export type AcceptResult = { ok: true; userId: string; orgId: string; email: string } | { ok: false; error: string };
+export type InviteError = 'inviteBad' | 'inviteWrongEmail' | 'passwordShort' | 'emailTaken' | 'inviteUsed';
+export type AcceptResult = { ok: true; userId: string; orgId: string; email: string } | { ok: false; error: InviteError };
 
 export async function acceptInvite(token: string, emailInput: string, password: string): Promise<AcceptResult> {
   const invite = await db.invite.findUnique({ where: { tokenHash: hash(token) } });
-  if (!invite || invite.usedAt || invite.expiresAt < new Date()) return { ok: false, error: 'Taklifnoma muddati tugagan yoki ishlatilgan.' };
+  if (!invite || invite.usedAt || invite.expiresAt < new Date()) return { ok: false, error: 'inviteBad' };
   const email = (invite.email ?? emailInput).trim().toLowerCase();
   if (invite.email && emailInput.trim().toLowerCase() !== invite.email.toLowerCase()) {
-    return { ok: false, error: 'Taklifnoma boshqa elektron pochta uchun berilgan.' };
+    return { ok: false, error: 'inviteWrongEmail' };
   }
-  if (password.length < 8) return { ok: false, error: 'Parol kamida 8 belgidan iborat boʻlsin.' };
-  if (await db.user.findUnique({ where: { email }, select: { id: true } })) return { ok: false, error: 'Bu elektron pochta band. Kirish sahifasidan foydalaning.' };
+  if (password.length < 8) return { ok: false, error: 'passwordShort' };
+  if (await db.user.findUnique({ where: { email }, select: { id: true } })) return { ok: false, error: 'emailTaken' };
 
   const passwordHash = await hashPassword(password);
   const user = await db.$transaction(async (tx) => {
@@ -70,6 +74,6 @@ export async function acceptInvite(token: string, emailInput: string, password: 
     await tx.auditEvent.create({ data: { orgId: invite.orgId, actorId: created.id, action: 'team.joined', payload: { role: invite.role, email } } });
     return created;
   }).catch(() => null);
-  if (!user) return { ok: false, error: 'Taklifnoma ishlatilgan.' };
+  if (!user) return { ok: false, error: 'inviteUsed' };
   return { ok: true, userId: user.id, orgId: user.orgId, email };
 }

@@ -1,5 +1,9 @@
 // Uzbek Latin copy for the signed-in app UI. Older screens keep theirs in i18n.ts.
-export const ta = {
+// Russian lives in i18n-app-ru.ts and must match this shape.
+import { taRu } from './i18n-app-ru';
+import type { Locale } from './i18n';
+
+export const taUz = {
   nav: { clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', dictionary: 'Lugʻat', settings: 'Sozlamalar' },
   shell: {
     collapse: 'Yon panelni yigʻish',
@@ -12,6 +16,12 @@ export const ta = {
     demoPill: 'Demo',
     demoTitle: 'Bu namunaviy maʼlumotlar bilan demo; sizning ma’lumotlaringiz emas.',
     addClient: 'Mijoz qoʻshish',
+    language: 'Til',
+    main: 'Asosiy',
+    close: 'Yopish',
+    tip: 'Maslahat',
+    summary: 'Xulosa',
+    steps: 'Bosqichlar',
   },
   ws: {
     client: 'Mijoz',
@@ -71,6 +81,8 @@ export const ta = {
     failedToast: 'Saqlab boʻlmadi. Qayta urinib koʻring.',
     bulkToast: (n: number) => `${n} ta qator tasdiqlandi`,
     notReady: 'Katalog hali tekshirilmagan',
+    pickCode: 'Kod tanlash',
+    rowCount: (n: number) => `${n.toLocaleString('uz-UZ')} qator`,
   },
   hint: {
     step: (n: number, total: number) => `${n}/${total}`,
@@ -294,4 +306,75 @@ export const ta = {
     stateLabel: { unlimited: 'Cheklovsiz', trial: 'Sinov muddati', firm: 'Firma obunasi', expired: 'Sinov tugagan' } as Record<'unlimited' | 'trial' | 'firm' | 'expired', string>,
     until: (date: string) => `${date} gacha`,
   },
-} as const;
+  msg: {
+    pageFailed: 'Sahifani yuklab boʻlmadi',
+    pageFailedHint: 'Server javob bermadi. Qayta urinib koʻring; muammo davom etsa, birozdan soʻng yana kiring. Qarorlaringiz saqlangan.',
+    retry: 'Qayta urinish',
+    fileNone: 'Fayl tanlanmadi.',
+    fileTooBig: 'Fayl juda katta (20 MB dan oshmasligi kerak).',
+    fileEmpty: 'Faylda maʼlumot qatorlari topilmadi.',
+    fileReadFailed: (detail: string) => `Faylni oʻqishda xatolik: ${detail}`,
+    codeNotInClassifier: 'Bu kod tasniflagichda yoʻq.',
+    tooManyAttempts: 'Juda koʻp urinish. Birozdan soʻng qayta urinib koʻring.',
+    notices: {
+      telegram: 'Telegram orqali kirib boʻlmadi. Qayta urinib koʻring yoki parol bilan kiring.',
+      verify: 'Tasdiqlash havolasi yaroqsiz yoki muddati tugagan. Qaytadan roʻyxatdan oʻting.',
+    } as Record<string, string>,
+    verifyNeeded: 'Elektron pochtani tasdiqlang: xatdagi havolani oching.',
+    lastAdmin: 'Kamida bitta administrator qolishi kerak.',
+    gate: {
+      expired: 'Sinov muddati tugadi. Davom etish uchun Sozlamalar sahifasida tarifni faollashtiring.',
+      clients: 'Tarifdagi mijozlar soni chegarasiga yetdingiz. Tarifni yangilang.',
+      rowsPerMonth: 'Bu oy uchun qatorlar chegarasi tugadi. Tarifni yangilang.',
+      seats: 'Tarifdagi foydalanuvchilar soni chegarasiga yetdingiz. Tarifni yangilang.',
+    } as Record<'expired' | 'clients' | 'rowsPerMonth' | 'seats', string>,
+    account: {
+      emailBad: 'Elektron pochta notoʻgʻri.',
+      passwordShort: 'Parol kamida 8 belgidan iborat boʻlsin.',
+      emailTaken: 'Bu elektron pochta band. Kirish sahifasidan foydalaning.',
+      inviteBad: 'Taklifnoma muddati tugagan yoki ishlatilgan.',
+      inviteWrongEmail: 'Taklifnoma boshqa elektron pochta uchun berilgan.',
+      inviteUsed: 'Taklifnoma ishlatilgan.',
+    } as Record<'emailBad' | 'passwordShort' | 'emailTaken' | 'inviteBad' | 'inviteWrongEmail' | 'inviteUsed', string>,
+    mail: {
+      inviteSubject: (org: string) => `${org}: taklifnoma`,
+      inviteBody: (org: string, url: string, days: number) => `Sizni ${org} jamoasiga taklif qilishdi.\nQabul qilish: ${url}\nHavola ${days} kun amal qiladi.`,
+      verifySubject: 'MXIK Audit: elektron pochtani tasdiqlang',
+      verifyBody: (url: string, hours: number) => `Hisobni faollashtirish uchun havolani oching:\n${url}\nHavola ${hours} soat amal qiladi.`,
+    },
+    signals: {
+      dictionaryLabel: 'Lugʻat',
+      dictionary: (n: number) => `Firmangiz bu mahsulotni shu kodga ${n} marta tasdiqlagan.`,
+      barcodeLabel: 'Shtrix-kod',
+      barcode: 'Qatordagi shtrix-kod tasniflagichda aynan shu kodga biriktirilgan.',
+      nameLabel: 'Nom',
+      exact: 'Tovar nomi tasniflagichdagi nom bilan bir xil.',
+      words: (words: string) => `Mos soʻzlar: ${words}.`,
+      noWords: 'Tovar nomi va kod nomida umumiy soʻz yoʻq.',
+      unitLabel: 'Birlik',
+      unitMatch: (unit: string) => `Oʻlchov birligi mos: ${unit}.`,
+      unitConflict: (row: string, code: string) => `Qatorda “${row}”, kod talab qiladi “${code}”.`,
+      unitUnknown: 'Oʻlchov birligini solishtirib boʻlmadi.',
+      unitNone: 'Kodga qatʼiy oʻlchov birligi biriktirilmagan.',
+      analysisLabel: 'Tahlil',
+      rerankNone: 'Topilgan kodlarning hech biri bu tovarga mos kelmadi.',
+      scoreLabel: 'Moslik',
+      score: (percent: number) => `Moslik bahosi: ${percent}%.`,
+    },
+    diffNotes: {
+      name: 'nom', unit: 'birlik', code: 'kod',
+      classifier: 'tasniflagich yangilanishi', nowRisky: 'endi xavfli', nowSafe: 'endi xavfsiz',
+    } as Record<'name' | 'unit' | 'code' | 'classifier' | 'nowRisky' | 'nowSafe', string>,
+  },
+};
+
+export type AppDict = typeof taUz;
+
+const APP_DICTS: Record<Locale, AppDict> = { uz: taUz, ru: taRu };
+
+export function appDict(locale: Locale = 'uz'): AppDict {
+  return APP_DICTS[locale];
+}
+
+/** Uzbek default, for code that is not tied to a request. */
+export const ta: AppDict = taUz;

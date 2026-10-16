@@ -1,11 +1,12 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useActionState } from 'react';
 import { startDemo, type DemoState } from '@/app/actions/demo';
-import { t } from '@/lib/i18n';
 import { Button } from '@/ui/button';
 
 export function StartDemoButton() {
+  const { t } = useI18n();
   const [state, action, pending] = useActionState<DemoState>(startDemo, {});
   return (
     <form action={action} className="mt-6">

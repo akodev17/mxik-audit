@@ -1,21 +1,24 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { canWrite } from '@/lib/access';
 import { db } from '@/lib/db';
 import { codeDetails } from '@/lib/code-details';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { currentUser } from '@/lib/session';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { DictionaryTable, type DictRow } from './dictionary-table';
 
-export const metadata: Metadata = { title: `${ta.dict.title} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t, ta } = await getI18n();
+  return { title: `${ta.dict.title} — ${t.appName}` };
+}
 
 const PAGE = 100;
 
 export default async function DictionaryPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
+  const { ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const sp = await searchParams;

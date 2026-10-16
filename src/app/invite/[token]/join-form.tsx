@@ -1,13 +1,13 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useActionState } from 'react';
 import { joinWithInvite, type JoinState } from '@/app/actions/team';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
 
 export function JoinForm({ token, email }: { token: string; email: string | null }) {
+  const { t, ta } = useI18n();
   const [state, action, pending] = useActionState<JoinState, FormData>(joinWithInvite.bind(null, token), {});
   return (
     <form action={action} className="space-y-4 rounded-ctl border border-line bg-base p-6 shadow-pop">

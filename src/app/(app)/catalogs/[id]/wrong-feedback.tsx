@@ -1,14 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useState, useTransition } from 'react';
 import { reportWrongSuggestion } from '@/app/actions/feedback';
-import { ta } from '@/lib/i18n-app';
 import { WRONG_REASONS } from '@/lib/wrong-reasons';
 import { Button } from '@/ui/button';
 import { useToast } from '@/ui/toast';
 
 /** "Taklif notoʻgʻri": a reason and an optional note, recorded for the accuracy metrics. */
 export function WrongFeedback({ findingId }: { findingId: string }) {
+  const { ta } = useI18n();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<(typeof WRONG_REASONS)[number]>('other_category');

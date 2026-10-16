@@ -1,12 +1,13 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useEffect, useState } from 'react';
-import { ta } from '@/lib/i18n-app';
 
 const KEY = 'mxik.shortcuts.seen';
 
 /** One-line keyboard hint, shown until dismissed once. */
 export function ShortcutHint({ suppressed }: { suppressed: boolean }) {
+  const { ta } = useI18n();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {

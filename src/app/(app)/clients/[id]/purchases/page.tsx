@@ -1,8 +1,8 @@
+import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ownedClient } from '@/lib/clients';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
 import { canSeeClient } from '@/lib/access';
 import { currentUser } from '@/lib/session';
 import { Page, Section } from '@/ui/page';
@@ -12,6 +12,7 @@ import { PurchaseForm } from './purchase-form';
 const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 
 export default async function PurchasesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { id } = await params;

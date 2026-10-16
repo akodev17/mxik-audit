@@ -251,6 +251,8 @@ model User {
   /// Set when the address was confirmed (or the account predates verification).
   emailVerifiedAt DateTime?
   emailTokens  EmailToken[]
+  /// Interface language, uz or ru; null = the default.
+  locale       String?
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   assignments ClientAssignment[]

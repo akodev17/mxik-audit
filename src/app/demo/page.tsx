@@ -1,15 +1,16 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { t } from '@/lib/i18n';
 import { StartDemoButton } from './start-button';
 
-export const metadata: Metadata = {
-  title: `${t.demoTitle} — ${t.appName}`,
-  robots: { index: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.demoTitle} — ${t.appName}`, robots: { index: false } };
+}
 
 /** Landing CTA target: one click into a private copy of the sample catalogue. */
-export default function DemoPage() {
+export default async function DemoPage() {
+  const { t } = await getI18n();
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
       <Link href="/" className="text-xl font-bold tracking-tight">{t.appName}</Link>

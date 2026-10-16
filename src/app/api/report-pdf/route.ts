@@ -4,6 +4,7 @@ import { catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { reportPdfData } from '@/lib/pdf/report-data';
 import { buildReportPdf } from '@/lib/pdf/report-pdf';
+import { getLocale } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   // Another org's catalogue is the same 404 as a missing or unfinished one.
   const data = await reportPdfData(user.orgId, catalogId);
   if (!data) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
-  const pdf = await buildReportPdf(data);
+  const pdf = await buildReportPdf(data, await getLocale());
 
   await db.auditEvent.create({
     data: {

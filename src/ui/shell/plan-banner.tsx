@@ -1,9 +1,12 @@
+'use client';
+
+import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import type { ShellData } from '@/lib/shell-data';
-import { ta } from '@/lib/i18n-app';
 
 /** One slim line under the top bar: expired, a full limit, a limit near 80%, or a trial ending soon. */
 export function PlanBanner({ plan }: { plan: ShellData['plan'] }) {
+  const { ta } = useI18n();
   const names = (keys: ShellData['plan']['full']): string => keys.map((k) => ta.plan.keys[k]).join(', ');
   let text: string | null = null;
   let tone = 'bg-warn-tint text-warn-ink';

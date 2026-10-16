@@ -1,16 +1,18 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ta } from '@/lib/i18n-app';
 import { Page, Section } from '@/ui/page';
-import { TYPE_LABEL } from '@/ui/labels';
+import { typeLabels } from '@/ui/labels';
 import { isAdmin } from '@/lib/admin';
-import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { pipelineStatus } from '@/lib/pipeline-status';
 import { tractionMetrics } from '@/lib/traction';
 
-export const metadata: Metadata = { title: `${t.adminTitle} — ${t.appName}`, robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.adminTitle} — ${t.appName}`, robots: { index: false } };
+}
 
 const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 
@@ -39,6 +41,7 @@ function Rows({ rows }: { rows: [string, number][] }) {
 
 /** Cross-org traction numbers. Only ADMIN_EMAILS may see it; everyone else gets a 404. */
 export default async function AdminPage() {
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user || !isAdmin(user.email)) notFound();
   const [m, pipeline] = await Promise.all([tractionMetrics(), pipelineStatus()]);
@@ -54,7 +57,7 @@ export default async function AdminPage() {
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
         <Section title={t.adminByType}>
-          <Rows rows={Object.entries(m.findingsByType).map(([type, n]) => [TYPE_LABEL[type] ?? type, n])} />
+          <Rows rows={Object.entries(m.findingsByType).map(([type, n]) => [typeLabels(t)[type] ?? type, n])} />
         </Section>
         <Section title={t.adminDecisions}>
           <Rows rows={[

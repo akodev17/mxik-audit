@@ -1,15 +1,16 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { telegramCode, telegramUnlink } from '@/app/actions/settings';
-import { t } from '@/lib/i18n';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
 
 type Chat = { id: string; username: string | null; linkedAt: string };
 
 export function TelegramPanel({ chats }: { chats: Chat[] }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [code, setCode] = useState<{ code: string; minutes: number } | null>(null);
   const [busy, start] = useTransition();

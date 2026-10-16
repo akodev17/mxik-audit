@@ -1,9 +1,9 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { deleteMapping, updateMapping } from '@/app/actions/dictionary';
-import { ta } from '@/lib/i18n-app';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
@@ -16,6 +16,7 @@ export type DictRow = {
 };
 
 function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
+  const { ta } = useI18n();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [code, setCode] = useState(row.code);
@@ -64,6 +65,7 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
 }
 
 export function DictionaryTable({ rows, canEdit }: { rows: DictRow[]; canEdit: boolean }) {
+  const { ta } = useI18n();
   return (
     <Table>
       <thead>

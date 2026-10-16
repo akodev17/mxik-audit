@@ -1,8 +1,8 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useEffect, useState } from 'react';
 import { lookupCodes, type ClassifierHit } from '@/app/actions/review';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
 import { Input } from '@/ui/input';
@@ -11,6 +11,7 @@ type Props = { disabled: boolean; onPick: (code: string, name: string) => void }
 
 /** Search the whole classifier and pick any code. */
 export function CodeSearch({ disabled, onPick }: Props) {
+  const { ta } = useI18n();
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<ClassifierHit[] | null>(null);
 

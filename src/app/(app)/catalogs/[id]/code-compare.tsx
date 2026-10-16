@@ -1,4 +1,6 @@
-import { ta } from '@/lib/i18n-app';
+'use client';
+
+import { useI18n } from '@/lib/locale-client';
 import type { CodeView } from '@/lib/row-detail';
 
 /** Index of the first of the five blocks where two codes differ; -1 when equal. */
@@ -8,6 +10,7 @@ export function divergence(a: CodeView | null, b: CodeView | null): number {
 }
 
 function Blocks({ view, from }: { view: CodeView; from: number }) {
+  const { ta } = useI18n();
   return (
     <ol className="space-y-1">
       {view.blocks.map((b, i) => {
@@ -28,6 +31,7 @@ type Props = { title: string; view: CodeView | null; other: CodeView | null; emp
 
 /** A code split into guruh / sinf / pozitsiya / subpozitsiya / brend; levels from the first difference are tinted. */
 export function CodeCompare({ title, view, other, empty }: Props) {
+  const { ta } = useI18n();
   const from = divergence(view, other);
   return (
     <section className="rounded-ctl border border-line p-3">

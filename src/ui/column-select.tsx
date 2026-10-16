@@ -1,4 +1,6 @@
-import { t } from '@/lib/i18n';
+'use client';
+
+import { useI18n } from '@/lib/locale-client';
 
 type Props = {
   label: string;
@@ -10,6 +12,7 @@ type Props = {
 
 /** Pick which uploaded column feeds a field. */
 export function ColumnSelect({ label, required, headers, value, onChange }: Props) {
+  const { t } = useI18n();
   return (
     <label className="block text-sm">
       <span className="mb-1 block font-medium">{label}{required ? <span className="text-danger"> *</span> : null}</span>

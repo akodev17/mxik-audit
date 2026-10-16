@@ -1,11 +1,11 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { memo } from 'react';
-import { ta } from '@/lib/i18n-app';
 import type { GridRow } from '@/lib/workspace-rows';
 import { Badge, StatusChip } from '@/ui/badge';
 import { Button } from '@/ui/button';
-import { confidenceView, TYPE_LABEL, typeTone } from '@/ui/labels';
+import { confidenceView, typeLabels, typeTone } from '@/ui/labels';
 import { CodeCell } from './code-cell';
 import { InlineCodePicker } from './inline-code-picker';
 import { COLUMNS } from './columns';
@@ -29,12 +29,13 @@ type Props = {
 };
 
 function Decision({ row, onAccept, onReject, onUndo, onSelect, readOnly }: Pick<Props, 'row' | 'onAccept' | 'onReject' | 'onUndo' | 'onSelect' | 'readOnly'>) {
+  const { ta } = useI18n();
   if (readOnly && row.decision === 'pending') return <span className="text-sm text-muted">{ta.ws.pending}</span>;
   if (row.decision === 'pending') {
     return (
       <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
         {row.noSuggestion || !row.suggestedMxik ? (
-          <Button size="sm" variant="secondary" onClick={onSelect}>Kod tanlash</Button>
+          <Button size="sm" variant="secondary" onClick={onSelect}>{ta.ws.pickCode}</Button>
         ) : (
           <Button size="sm" variant="secondary" onClick={onAccept}>{ta.ws.accept}</Button>
         )}
@@ -54,7 +55,8 @@ function Decision({ row, onAccept, onReject, onUndo, onSelect, readOnly }: Pick<
 
 /** One finding as a grid row. Memoised: a decision re-renders only its own row. */
 export const GridRowView = memo(function GridRowView({ row, active, compact, inGroup, onSelect, onAccept, onReject, onUndo, readOnly, selected, editing, onCheck, onEdit, onCancelEdit, onPick }: Props) {
-  const conf = confidenceView(row.confidence, row.barcode || row.dictionary);
+  const { t, ta } = useI18n();
+  const conf = confidenceView(t, row.confidence, row.barcode || row.dictionary);
   const shownCode = row.chosenMxik ?? row.suggestedMxik;
   const shownName = row.chosenMxik ? row.chosenName : row.suggestedName;
   return (
@@ -83,7 +85,7 @@ export const GridRowView = memo(function GridRowView({ row, active, compact, inG
           </span>
         )}
       </span>
-      <span className="px-3"><StatusChip tone={typeTone(row.type, row.severity)}>{TYPE_LABEL[row.type] ?? row.type}</StatusChip></span>
+      <span className="px-3"><StatusChip tone={typeTone(row.type, row.severity)}>{typeLabels(t)[row.type] ?? row.type}</StatusChip></span>
       <span className="min-w-0 px-3">
         <CodeCell code={row.currentMxik} name={row.currentName} state={row.currentState} empty={ta.ws.noCode} compact={compact} />
       </span>

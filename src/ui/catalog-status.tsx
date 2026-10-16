@@ -1,5 +1,5 @@
+import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
-import { t } from '@/lib/i18n';
 import { AutoRefresh, RetryAuditButton } from './catalog-status-client';
 import { EmptyState } from './empty-state';
 
@@ -15,7 +15,8 @@ export type CatalogState = {
  * What a screen shows instead of results while a catalogue is not audited.
  * Without it an unaudited catalogue would read as "no risks found".
  */
-export function CatalogStatus({ catalog }: { catalog: CatalogState }) {
+export async function CatalogStatus({ catalog }: { catalog: CatalogState }) {
+  const { t } = await getI18n();
   if (catalog.status === 'ready') return null;
 
   if (catalog.status === 'analyzing') {

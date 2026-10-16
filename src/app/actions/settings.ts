@@ -1,9 +1,9 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
 import { isDemoOrg } from '@/lib/demo';
 import { admin } from '@/lib/guard';
 import { telegramConfig } from '@/lib/telegram/config';
@@ -22,6 +22,7 @@ export type BrandState = { error?: string; saved?: boolean };
 
 /** Firm name and logo for client PDF reports. */
 export async function saveBranding(_prev: BrandState, form: FormData): Promise<BrandState> {
+  const { t } = await getI18n();
   const user = await admin();
   if (!user || await isDemoOrg(user.orgId)) return { error: t.errorGeneric };
   const name = z.string().max(120).safeParse(form.get('brandName') ?? '');

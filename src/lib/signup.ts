@@ -2,6 +2,8 @@
 // email confirmation when SMTP is configured.
 import { createHash, randomBytes } from 'node:crypto';
 import { absoluteUrl } from './app-url';
+import { appDict } from './i18n-app';
+import type { Locale } from './i18n';
 import { TRIAL_DAYS } from './billing/limits';
 import { db } from './db';
 import { mailEnabled, sendMail } from './mailer';
@@ -11,14 +13,15 @@ const hash = (token: string): string => createHash('sha256').update(token).diges
 const TOKEN_HOURS = 48;
 
 export type NewAccount = { userId: string; orgId: string; email: string; needsVerification: boolean };
-export type SignupResult = { ok: true; account: NewAccount } | { ok: false; error: string };
+export type SignupError = 'emailBad' | 'passwordShort' | 'emailTaken';
+export type SignupResult = { ok: true; account: NewAccount } | { ok: false; error: SignupError };
 
-export async function createAccount(input: { email: string; password: string; firmName: string; verified?: boolean }): Promise<SignupResult> {
+export async function createAccount(input: { email: string; password: string; firmName: string; verified?: boolean; locale?: Locale }): Promise<SignupResult> {
   const email = input.email.trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return { ok: false, error: 'Elektron pochta notoʻgʻri.' };
-  if (input.password.length < 8) return { ok: false, error: 'Parol kamida 8 belgidan iborat boʻlsin.' };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return { ok: false, error: 'emailBad' };
+  if (input.password.length < 8) return { ok: false, error: 'passwordShort' };
   const name = input.firmName.replace(/\s+/g, ' ').trim().slice(0, 120) || email.split('@')[0] || 'Firma';
-  if (await db.user.findUnique({ where: { email }, select: { id: true } })) return { ok: false, error: 'Bu elektron pochta band. Kirish sahifasidan foydalaning.' };
+  if (await db.user.findUnique({ where: { email }, select: { id: true } })) return { ok: false, error: 'emailTaken' };
 
   const passwordHash = await hashPassword(input.password);
   const needsVerification = mailEnabled() && !input.verified;
@@ -28,14 +31,15 @@ export async function createAccount(input: { email: string; password: string; fi
     await tx.auditEvent.create({ data: { orgId: org.id, actorId: created.id, action: 'account.created', payload: { via: input.verified ? 'telegram' : 'signup' } } });
     return created;
   });
-  if (needsVerification) await sendVerification(user.id, email);
+  if (needsVerification) await sendVerification(user.id, email, input.locale ?? 'uz');
   return { ok: true, account: { userId: user.id, orgId: user.orgId, email, needsVerification } };
 }
 
-async function sendVerification(userId: string, email: string): Promise<void> {
+async function sendVerification(userId: string, email: string, locale: Locale): Promise<void> {
+  const ta = appDict(locale);
   const token = randomBytes(24).toString('base64url');
   await db.emailToken.create({ data: { userId, tokenHash: hash(token), expiresAt: new Date(Date.now() + TOKEN_HOURS * 3_600_000) } });
-  await sendMail({ to: email, subject: 'MXIK Audit: elektron pochtani tasdiqlang', text: `Hisobni faollashtirish uchun havolani oching:\n${absoluteUrl(`/verify/${token}`)}\nHavola ${TOKEN_HOURS} soat amal qiladi.` });
+  await sendMail({ to: email, subject: ta.msg.mail.verifySubject, text: ta.msg.mail.verifyBody(absoluteUrl(`/verify/${token}`), TOKEN_HOURS) });
 }
 
 /** Marks the address confirmed; returns the user to sign in, or null for a bad or used link. */

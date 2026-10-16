@@ -1,7 +1,7 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useState, type ReactNode } from 'react';
-import { ta } from '@/lib/i18n-app';
 import { Button, ButtonLink } from '@/ui/button';
 import { IconDownload, IconPrint } from '@/ui/icons';
 
@@ -9,6 +9,7 @@ type Props = { catalogId: string; locked: boolean; panel: ReactNode; share?: Rea
 
 /** Excel export (behind payment when billing requires it), 1C CSV, PDF report, print. */
 export function ExportActions({ catalogId, locked, panel, share }: Props) {
+  const { ta } = useI18n();
   const [open, setOpen] = useState(false);
   const pdf = `/api/report-pdf?catalog=${catalogId}`;
   return (

@@ -1,8 +1,8 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useState, useTransition } from 'react';
 import { startCheckout } from '@/app/actions/billing';
-import { t } from '@/lib/i18n';
 import { Button } from './button';
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
 
 /** Opens the provider's own payment page; nothing is charged here. */
 export function PayButtons({ planId, catalogId, providers }: Props) {
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const go = (provider: 'click' | 'payme') => start(async () => {

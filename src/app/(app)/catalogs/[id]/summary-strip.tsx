@@ -1,11 +1,11 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { ta } from '@/lib/i18n-app';
 import type { WsSummary } from '@/lib/workspace';
 import { Badge } from '@/ui/badge';
-import { TYPE_LABEL } from '@/ui/labels';
+import { typeLabels } from '@/ui/labels';
 
 const CHIP_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'] as const;
 
@@ -15,6 +15,7 @@ const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 
 /** Counts, one chip per finding type (chips are the filters) and review progress. */
 export function SummaryStrip({ summary, reviewedDelta, activeType }: Props) {
+  const { t, ta } = useI18n();
   const pathname = usePathname();
   const params = useSearchParams();
   const href = (type: string | null): string => {
@@ -38,7 +39,7 @@ export function SummaryStrip({ summary, reviewedDelta, activeType }: Props) {
   );
 
   return (
-    <section className="no-print border-b border-line px-5 py-3" aria-label="Xulosa">
+    <section className="no-print border-b border-line px-5 py-3" aria-label={ta.shell.summary}>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <dl className="flex items-baseline gap-5">
           <div><dt className="text-xs text-muted">{ta.ws.rows}</dt><dd className="text-xl font-bold">{fmt(summary.total)}</dd></div>
@@ -46,7 +47,7 @@ export function SummaryStrip({ summary, reviewedDelta, activeType }: Props) {
         </dl>
         <div className="flex flex-wrap items-center gap-2">
           {chip(null, ta.ws.allRows, summary.riskyFindings)}
-          {CHIP_TYPES.filter((type) => (summary.byType[type] ?? 0) > 0).map((type) => chip(type, TYPE_LABEL[type] ?? type, summary.byType[type] ?? 0))}
+          {CHIP_TYPES.filter((type) => (summary.byType[type] ?? 0) > 0).map((type) => chip(type, typeLabels(t)[type] ?? type, summary.byType[type] ?? 0))}
           {summary.markingTotal > 0 ? chip('MARKING', ta.ws.marking, summary.markingTotal) : null}
         </div>
       </div>

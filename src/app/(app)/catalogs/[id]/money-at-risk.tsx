@@ -1,14 +1,15 @@
 // Sales of risky rows, when the file had a sales column. An estimate, labelled
 // as one; the fine line appears only behind NEXT_PUBLIC_SHOW_LEGAL_223.
+import { getI18n } from '@/lib/locale';
 import { ColumnMapSchema } from '@/lib/column-map';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
 import { FINE_223_SOURCE } from '@/lib/legal-sources';
 import { RISKY_ITEM } from '@/lib/risk';
 
 const som = (n: number): string => Math.round(n).toLocaleString('uz-UZ');
 
 export async function MoneyAtRisk({ catalogId, columnMap }: { catalogId: string; columnMap: unknown }) {
+  const { t } = await getI18n();
   const mapping = ColumnMapSchema.safeParse(columnMap);
   if (!mapping.success || mapping.data.sales < 0) return null;
 

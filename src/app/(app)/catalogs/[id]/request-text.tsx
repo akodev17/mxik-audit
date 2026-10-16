@@ -1,12 +1,13 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useState, useTransition } from 'react';
 import { newCodeRequest } from '@/app/actions/review';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 
 /** A ready-to-copy new-code request; sending it to tasnif.soliq.uz is always the user's step. */
 export function RequestText({ findingId }: { findingId: string }) {
+  const { ta } = useI18n();
   const [text, setText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [busy, start] = useTransition();

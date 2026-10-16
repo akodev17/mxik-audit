@@ -4,6 +4,7 @@ import { codeDetails, readableLevel } from './code-details';
 import { catalogScope } from './access';
 import { db } from './db';
 import { findingRows } from './finding-view';
+import type { AppDict } from './i18n-app';
 import { rowSignals, type Signal } from './row-signals';
 
 export type CodeBlock = { digits: string; name: string | null };
@@ -47,7 +48,7 @@ function toView(code: string, names: LevelNames | undefined): CodeView {
   return { code, name: names?.nameUz ?? '', live: names ? names.retiredAt === null : false, blocks };
 }
 
-export async function rowDetail(scope: { orgId: string; clientIds?: string[] | null }, findingId: string): Promise<RowDetail | null> {
+export async function rowDetail(scope: { orgId: string; clientIds?: string[] | null }, findingId: string, ta: AppDict): Promise<RowDetail | null> {
   const f = await db.finding.findFirst({
     where: { id: findingId, item: { catalog: catalogScope(scope) } },
     include: { item: { select: { id: true, rowIndex: true, rawName: true, existingMxik: true, unit: true, barcode: true } } },
@@ -85,7 +86,7 @@ export async function rowDetail(scope: { orgId: string; clientIds?: string[] | n
     current: view(f.item.existingMxik),
     suggested: view(f.suggestedMxik),
     chosenMxik: f.chosenMxik,
-    signals: rowSignals({ evidence, confidence: f.confidence, rowUnit: f.item.unit, codeUnit: row.suggestedInfo?.unit ?? null }),
+    signals: rowSignals({ evidence, confidence: f.confidence, rowUnit: f.item.unit, codeUnit: row.suggestedInfo?.unit ?? null }, ta),
     alternatives: alts.map((a) => ({ code: a.code, name: a.name, path: a.info?.shortPath ?? '', confidence: a.confidence })),
     markingCurrent: row.currentInfo?.isMarked === true,
     markingSuggested: row.suggestedInfo?.isMarked === true,

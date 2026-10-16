@@ -1,3 +1,4 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
@@ -5,7 +6,6 @@ import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { resolveClient } from '@/lib/clients';
 import { canWrite, catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { decodeCursor, readFilter, workspaceCount, workspacePageIds, workspaceSummary } from '@/lib/workspace';
 import { gridRows } from '@/lib/workspace-rows';
@@ -14,7 +14,10 @@ import { MoneyAtRisk } from './money-at-risk';
 import { Workspace } from './workspace';
 import { WorkspaceHeader } from './workspace-header';
 
-export const metadata: Metadata = { title: `${t.navCatalogs} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.navCatalogs} — ${t.appName}` };
+}
 
 const FIRST_PAGE = 120;
 

@@ -1,9 +1,9 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useActionState, useState, useTransition } from 'react';
 import { inviteMember, removeMember, revokeInvite, updateMember, type InviteState } from '@/app/actions/team';
-import { ta } from '@/lib/i18n-app';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -16,6 +16,7 @@ type ClientOption = { id: string; name: string };
 const ROLES: Role[] = ['admin', 'accountant', 'viewer'];
 
 function RoleSelect({ value, onChange, name }: { value: Role; onChange?: (r: Role) => void; name?: string }) {
+  const { ta } = useI18n();
   return (
     <select
       name={name} value={onChange ? value : undefined} defaultValue={onChange ? undefined : value}
@@ -28,6 +29,7 @@ function RoleSelect({ value, onChange, name }: { value: Role; onChange?: (r: Rol
 }
 
 function ClientPicker({ clients, selected, onToggle, name }: { clients: ClientOption[]; selected: string[]; onToggle?: (id: string) => void; name?: string }) {
+  const { ta } = useI18n();
   if (clients.length === 0) return null;
   return (
     <fieldset className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -46,6 +48,7 @@ function ClientPicker({ clients, selected, onToggle, name }: { clients: ClientOp
 }
 
 function MemberRow({ member, clients }: { member: Member; clients: ClientOption[] }) {
+  const { ta } = useI18n();
   const router = useRouter();
   const [role, setRole] = useState<Role>(member.role);
   const [ids, setIds] = useState<string[]>(member.clientIds);
@@ -82,6 +85,7 @@ function MemberRow({ member, clients }: { member: Member; clients: ClientOption[
 }
 
 export function TeamPanel({ members, invites, clients, mailOn }: { members: Member[]; invites: PendingInvite[]; clients: ClientOption[]; mailOn: boolean }) {
+  const { ta } = useI18n();
   const router = useRouter();
   const [state, action, pending] = useActionState<InviteState, FormData>(inviteMember, {});
   const [busy, start] = useTransition();

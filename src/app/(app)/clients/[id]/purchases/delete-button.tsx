@@ -1,12 +1,13 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { removePurchases } from '@/app/actions/purchases';
-import { t } from '@/lib/i18n';
 import { Button } from '@/ui/button';
 
 export function DeletePurchaseButton({ listId }: { listId: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [busy, start] = useTransition();
   return (

@@ -1,8 +1,8 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, type RefObject } from 'react';
-import { ta } from '@/lib/i18n-app';
 import type { GridRow } from '@/lib/workspace-rows';
 import { COLUMNS, MIN_WIDTH } from './columns';
 import { entryId, type Entry } from './entries';
@@ -39,10 +39,11 @@ type Props = {
 
 const HEADER_HEIGHT = 40;
 const HEIGHT = { comfortable: 60, compact: 38 } as const;
-const HEADERS = [ta.ws.colNo, ta.ws.colProduct, ta.ws.colStatus, ta.ws.colCurrent, ta.ws.colSuggested, ta.ws.colConfidence, ta.ws.colDecision];
 
 /** Virtualised spreadsheet grid: only the rows on screen are in the DOM. */
 export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollRef, handlers, readOnly, selected, allChecked, editingId }: Props) {
+  const { ta } = useI18n();
+  const HEADERS = [ta.ws.colNo, ta.ws.colProduct, ta.ws.colStatus, ta.ws.colCurrent, ta.ws.colSuggested, ta.ws.colConfidence, ta.ws.colDecision];
   const virtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => scrollRef.current,

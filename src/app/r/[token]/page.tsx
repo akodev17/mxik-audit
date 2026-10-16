@@ -1,15 +1,17 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { countView, resolveShare } from '@/lib/share';
 import { reportPdfData } from '@/lib/pdf/report-data';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { Badge } from '@/ui/badge';
 import { CodeChip } from '@/ui/code-chip';
 import { EmptyState } from '@/ui/empty-state';
-import { TYPE_LABEL, typeTone } from '@/ui/labels';
+import { typeLabels, typeTone } from '@/ui/labels';
 import { Table, Td, Th } from '@/ui/table';
 
-export const metadata: Metadata = { title: `${ta.share.pageTitle} — ${t.appName}`, robots: { index: false, follow: false }, referrer: 'no-referrer' };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t, ta } = await getI18n();
+  return { title: `${ta.share.pageTitle} — ${t.appName}`, robots: { index: false, follow: false }, referrer: 'no-referrer' };
+}
 
 const SHOWN = 300;
 const fmt = (n: number): string => n.toLocaleString('uz-UZ');
@@ -22,6 +24,7 @@ function Code({ value }: { value: Coded }) {
 
 /** Public, read-only report for one catalogue: no comments, no other clients, nothing to edit. */
 export default async function SharedReport({ params }: { params: Promise<{ token: string }> }) {
+  const { t, ta } = await getI18n();
   const { token } = await params;
   const share = await resolveShare(token);
   const data = share ? await reportPdfData(share.orgId, share.catalogId) : null;
@@ -57,7 +60,7 @@ export default async function SharedReport({ params }: { params: Promise<{ token
         {data.markingRows > 0 ? <div><dt className="text-xs text-muted">{ta.ws.marking}</dt><dd className="text-2xl font-bold">{fmt(data.markingRows)}</dd></div> : null}
       </dl>
       <div className="mt-3 flex flex-wrap gap-2">
-        {data.byType.map((b) => <Badge key={b.type} tone={typeTone(b.type, 'high')}>{TYPE_LABEL[b.type] ?? b.type}: {fmt(b.count)}</Badge>)}
+        {data.byType.map((b) => <Badge key={b.type} tone={typeTone(b.type, 'high')}>{typeLabels(t)[b.type] ?? b.type}: {fmt(b.count)}</Badge>)}
       </div>
 
       <div className="mt-6">
@@ -68,7 +71,7 @@ export default async function SharedReport({ params }: { params: Promise<{ token
               <tr key={`${r.rowIndex}|${r.type}`}>
                 <Td className="text-muted">{r.rowIndex + 1}</Td>
                 <Td className="max-w-xs truncate font-medium" title={r.product}>{r.product}</Td>
-                <Td><Badge tone={typeTone(r.type, 'high')}>{TYPE_LABEL[r.type] ?? r.type}</Badge></Td>
+                <Td><Badge tone={typeTone(r.type, 'high')}>{typeLabels(t)[r.type] ?? r.type}</Badge></Td>
                 <Td className="max-w-[260px]"><Code value={r.current} /></Td>
                 <Td className="max-w-[260px]"><Code value={r.chosen ?? r.suggested} /></Td>
               </tr>

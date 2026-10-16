@@ -1,10 +1,9 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { listClients } from '@/lib/clients';
 import { isDemoOrg } from '@/lib/demo';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
@@ -13,11 +12,15 @@ import { Sparkline } from '@/ui/sparkline';
 import { Table, Td, Th } from '@/ui/table';
 import { NewClientForm } from './client-forms';
 
-export const metadata: Metadata = { title: `${t.clientsTitle} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.clientsTitle} — ${t.appName}` };
+}
 
 const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 
 export default async function ClientsPage() {
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const [clients, demo] = await Promise.all([listClients(user.orgId, user.clientIds), isDemoOrg(user.orgId)]);

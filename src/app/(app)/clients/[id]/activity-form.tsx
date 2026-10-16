@@ -1,14 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { setActivity } from '@/app/actions/purchases';
-import { t } from '@/lib/i18n';
 
 type Activity = 'savdo' | 'ishlab_chiqarish' | 'boshqa';
 const ACTIVITIES: Activity[] = ['savdo', 'ishlab_chiqarish', 'boshqa'];
 
 export function ActivityForm({ clientId, activity }: { clientId: string; activity: Activity }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [value, setValue] = useState<Activity>(activity);
   const [busy, start] = useTransition();

@@ -1,12 +1,14 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { LOCALE_COOKIE } from '@/lib/locale';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { mailEnabled } from '@/lib/mailer';
 import { verifyPassword } from '@/lib/password';
 import { getSession } from '@/lib/session';
-import { t } from '@/lib/i18n';
 
 const Credentials = z.object({
   email: z.string().email().max(200),
@@ -22,6 +24,7 @@ function field(form: FormData, key: string): string {
 }
 
 export async function signIn(_prev: SignInState, form: FormData): Promise<SignInState> {
+  const { t, ta } = await getI18n();
   const parsed = Credentials.safeParse({
     email: field(form, 'email').trim().toLowerCase(),
     password: field(form, 'password'),
@@ -35,8 +38,9 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
   }
 
   // With SMTP configured, a self-serve account must confirm its address first.
-  if (mailEnabled() && !user.emailVerifiedAt) return { error: 'Elektron pochtani tasdiqlang: xatdagi havolani oching.' };
+  if (mailEnabled() && !user.emailVerifiedAt) return { error: ta.msg.verifyNeeded };
 
+  if (user.locale) (await cookies()).set(LOCALE_COOKIE, user.locale, { maxAge: 60 * 60 * 24 * 365, path: '/', sameSite: 'lax' });
   const session = await getSession();
   session.userId = user.id;
   session.orgId = user.orgId;

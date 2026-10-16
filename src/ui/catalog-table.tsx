@@ -1,7 +1,6 @@
+import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ta } from '@/lib/i18n-app';
-import { t } from '@/lib/i18n';
 import type { CatalogSummary } from '@/lib/catalogs';
 import { StatusChip, type Tone } from './badge';
 import { ButtonLink } from './button';
@@ -19,7 +18,8 @@ type Props = {
 };
 
 /** Catalogues with status and a link into the workspace. */
-export function CatalogTable({ catalogs, clientNames, rowAction }: Props) {
+export async function CatalogTable({ catalogs, clientNames, rowAction }: Props) {
+  const { t, ta } = await getI18n();
   return (
     <Table>
       <thead>

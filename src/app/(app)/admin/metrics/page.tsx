@@ -1,20 +1,23 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { accuracyBy, DIMENSIONS, overall, wrongReasons, type AccuracyRow, type Dimension } from '@/lib/accuracy';
 import { isAdmin } from '@/lib/admin';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { currentUser } from '@/lib/session';
 import { Page, Section } from '@/ui/page';
 import { Table, Td, Th } from '@/ui/table';
 
-export const metadata: Metadata = { title: `${ta.metrics.title} — ${t.appName}`, robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t, ta } = await getI18n();
+  return { title: `${ta.metrics.title} — ${t.appName}`, robots: { index: false } };
+}
 
 const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 const pct = (r: number | null): string => (r === null ? '—' : `${(r * 100).toFixed(1)}%`);
 
-function AccuracyTable({ dim, rows }: { dim: Dimension; rows: AccuracyRow[] }) {
+async function AccuracyTable({ dim, rows }: { dim: Dimension; rows: AccuracyRow[] }) {
+  const { ta } = await getI18n();
   return (
     <Table>
       <thead>
@@ -41,6 +44,7 @@ function AccuracyTable({ dim, rows }: { dim: Dimension; rows: AccuracyRow[] }) {
 
 /** Cross-org suggestion accuracy. Platform admins only; everyone else gets a 404. */
 export default async function MetricsPage() {
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user || !isAdmin(user.email)) notFound();
   const [tables, reasons] = await Promise.all([Promise.all(DIMENSIONS.map(async (d) => [d, await accuracyBy(d)] as const)), wrongReasons()]);

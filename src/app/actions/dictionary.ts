@@ -1,12 +1,12 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { acceptDictionaryMatches } from '@/lib/dictionary-accept';
 import { admin, writer } from '@/lib/guard';
-import { t } from '@/lib/i18n';
 
 export type AcceptDictResult = { ok: true; count: number } | { ok: false };
 
@@ -24,11 +24,12 @@ const CODE = z.string().regex(/^\d{17}$/);
 
 /** Points an entry at another code. Only a live classifier code is accepted. */
 export async function updateMapping(payload: unknown): Promise<{ ok: boolean; error?: string }> {
+  const { t, ta } = await getI18n();
   const user = await writer();
   const parsed = z.object({ id: z.string().min(1), code: CODE }).safeParse(payload);
   if (!user || !parsed.success) return { ok: false, error: t.errorGeneric };
   const live = await db.mxikCode.findFirst({ where: { code: parsed.data.code, retiredAt: null }, select: { code: true } });
-  if (!live) return { ok: false, error: 'Bu kod tasniflagichda yoʻq.' };
+  if (!live) return { ok: false, error: ta.msg.codeNotInClassifier };
   const done = await db.firmMapping.updateMany({
     where: { id: parsed.data.id, orgId: user.orgId },
     data: { code: parsed.data.code, staleAt: null, updatedBy: user.userId, updatedAt: new Date() },

@@ -2,7 +2,7 @@
 // draws it directly (no browser); DejaVu covers Uzbek ʻ and Cyrillic names.
 import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
-import { t } from '../i18n.js';
+import { dict, type Dict, type Locale } from '../i18n.js';
 import type { PdfRow, ReportPdfData } from './report-data.js';
 
 const FONT_DIR = join(process.cwd(), 'node_modules', 'dejavu-fonts-ttf', 'ttf');
@@ -12,40 +12,47 @@ const INK = '#1c1c1c';
 const SOFT = '#555555';
 const RULE = '#cfcfcf';
 
-const COLUMNS = [
-  { key: 'n', title: '#', width: 30 },
-  { key: 'product', title: t.reviewProduct, width: 170 },
-  { key: 'type', title: t.reportFilterType, width: 80 },
-  { key: 'current', title: t.reviewCurrentCode, width: 172 },
-  { key: 'suggested', title: t.reviewSuggested, width: 172 },
-  { key: 'status', title: t.pdfStatus, width: 138 },
-] as const;
+type Text = ReturnType<typeof pdfTexts>;
 
-const TYPE_TEXT: Record<string, string> = {
-  MISSING: t.typeMissing, NOT_FOUND: t.typeNotFound, MISMATCH: t.typeMismatch, UNIT_CONFLICT: t.typeUnitConflict,
-};
-const DECISION_TEXT = { pending: t.reviewPending, accepted: t.reviewAccepted, rejected: t.reviewRejected } as const;
+function pdfTexts(t: Dict) {
+  return {
+    t,
+    columns: [
+      { key: 'n', title: '#', width: 30 },
+      { key: 'product', title: t.reviewProduct, width: 170 },
+      { key: 'type', title: t.reportFilterType, width: 80 },
+      { key: 'current', title: t.reviewCurrentCode, width: 172 },
+      { key: 'suggested', title: t.reviewSuggested, width: 172 },
+      { key: 'status', title: t.pdfStatus, width: 138 },
+    ] as const,
+    typeText: { MISSING: t.typeMissing, NOT_FOUND: t.typeNotFound, MISMATCH: t.typeMismatch, UNIT_CONFLICT: t.typeUnitConflict } as Record<string, string>,
+    decisionText: { pending: t.reviewPending, accepted: t.reviewAccepted, rejected: t.reviewRejected } as const,
+  };
+}
 
 const clip = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
-const codeText = (c: { code: string; name: string | null } | null, empty: string): string =>
-  (c ? `${c.code}\n${clip(c.name ?? t.codeUnknown, 110)}` : empty);
-const date = (d: Date): string => d.toLocaleDateString('uz-UZ');
+const codeText = (c: { code: string; name: string | null } | null, empty: string, unknown: string): string =>
+  (c ? `${c.code}\n${clip(c.name ?? unknown, 110)}` : empty);
 
-function cells(row: PdfRow): string[] {
+function cells(row: PdfRow, txt: Text): string[] {
+  const { t, decisionText: DECISION_TEXT, typeText: TYPE_TEXT } = txt;
   const status = row.chosen
-    ? `${DECISION_TEXT[row.decision]}: ${codeText(row.chosen, '')}`
+    ? `${DECISION_TEXT[row.decision]}: ${codeText(row.chosen, '', t.codeUnknown)}`
     : DECISION_TEXT[row.decision];
   return [
     String(row.rowIndex + 1),
     clip(row.product, 160),
     TYPE_TEXT[row.type] ?? row.type,
-    codeText(row.current, t.reviewNoCode),
-    codeText(row.suggested, '—'),
+    codeText(row.current, t.reviewNoCode, t.codeUnknown),
+    codeText(row.suggested, '—', t.codeUnknown),
     status,
   ];
 }
 
-export async function buildReportPdf(data: ReportPdfData): Promise<Buffer> {
+export async function buildReportPdf(data: ReportPdfData, locale: Locale = 'uz'): Promise<Buffer> {
+  const txt = pdfTexts(dict(locale));
+  const { t, columns: COLUMNS, typeText: TYPE_TEXT } = txt;
+  const date = (d: Date): string => d.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'uz-UZ');
   const doc = new PDFDocument({
     size: 'A4', layout: 'landscape', bufferPages: true,
     margins: { top: MARGIN, bottom: MARGIN + FOOTER, left: MARGIN, right: MARGIN },
@@ -110,7 +117,7 @@ export async function buildReportPdf(data: ReportPdfData): Promise<Buffer> {
     header();
     doc.font('body').fontSize(8);
     for (const row of data.rows) {
-      const texts = cells(row);
+      const texts = cells(row, txt);
       const height = Math.max(...texts.map((text, i) => doc.heightOfString(text, { width: (COLUMNS[i]?.width ?? 0) - 6 }))) + 8;
       if (doc.y + height > bottom()) {
         doc.addPage();

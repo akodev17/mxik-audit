@@ -1,7 +1,7 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useState } from 'react';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
 import { CodeSearch } from './code-search';
 
@@ -21,6 +21,7 @@ type Props = {
 
 /** Actions for the selected rows; appears only while something is selected. */
 export function BulkBar({ count, filterTotal, allFiltered, busy, onSelectFiltered, onClear, onAccept, onReject, onAssign, onAsk }: Props) {
+  const { ta } = useI18n();
   const [assigning, setAssigning] = useState(false);
   return (
     <div className="no-print border-b border-brand/30 bg-brand-tint px-5 py-2">

@@ -1,15 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useEffect, useState } from 'react';
-import { ta } from '@/lib/i18n-app';
 import { Button } from '@/ui/button';
-
-const STEPS = [ta.hint.one, ta.hint.two, ta.hint.three] as const;
 
 type Props = { storageKey: string; onDone: () => void };
 
 /** Three one-time tips for a demo visitor; dismissed once, never shown again for that session. */
 export function OnboardingHint({ storageKey, onDone }: Props) {
+  const { ta } = useI18n();
+  const STEPS = [ta.hint.one, ta.hint.two, ta.hint.three];
   const [step, setStep] = useState<number | null>(null);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export function OnboardingHint({ storageKey, onDone }: Props) {
   if (step === null) return null;
   const last = step === STEPS.length - 1;
   return (
-    <div role="dialog" aria-label="Maslahat" className="no-print fixed bottom-6 left-1/2 z-40 w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 rounded-ctl bg-fg p-4 text-white shadow-pop">
+    <div role="dialog" aria-label={ta.shell.tip} className="no-print fixed bottom-6 left-1/2 z-40 w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 rounded-ctl bg-fg p-4 text-white shadow-pop">
       <p className="text-xs font-bold uppercase tracking-wide text-[#9db8ff]">{ta.hint.step(step + 1, STEPS.length)}</p>
       <p className="mt-1 text-[15px]">{STEPS[step]}</p>
       <div className="mt-3 flex items-center justify-end gap-2">

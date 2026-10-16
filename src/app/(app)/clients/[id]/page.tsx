@@ -1,9 +1,9 @@
+import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { listCatalogs } from '@/lib/catalogs';
 import { clientHistory, ownedClient } from '@/lib/clients';
 import { db } from '@/lib/db';
-import { t } from '@/lib/i18n';
 import { canSeeClient } from '@/lib/access';
 import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
@@ -13,6 +13,7 @@ import { RememberClient } from '../client-forms';
 import { ActivityForm } from './activity-form';
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { id } = await params;

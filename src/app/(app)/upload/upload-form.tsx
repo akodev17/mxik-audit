@@ -1,25 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { startTransition, useActionState, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { commitUpload, previewUpload, type PreviewState } from '@/app/actions/catalog';
 import type { ColumnMap } from '@/lib/column-map';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { applyPreset, IMPORT_PRESETS, presetLabel } from '@/lib/import-presets';
 import { Button } from '@/ui/button';
 import { ColumnSelect } from '@/ui/column-select';
 import { PreviewTable } from '@/ui/preview-table';
 import { Stepper } from '@/ui/stepper';
-
-const FIELDS: { key: keyof ColumnMap; label: string; required: boolean }[] = [
-  { key: 'name', label: t.uploadColumnName, required: true },
-  { key: 'barcode', label: t.uploadColumnBarcode, required: false },
-  { key: 'mxik', label: t.uploadColumnMxik, required: false },
-  { key: 'unit', label: t.uploadColumnUnit, required: false },
-  { key: 'price', label: t.uploadColumnPrice, required: false },
-  { key: 'sales', label: t.uploadColumnSales, required: false },
-];
 
 type ClientOption = { id: string; name: string };
 
@@ -28,6 +18,15 @@ export function UploadForm({ hadPreviousMapping, clients, initialClientId }: {
   clients: ClientOption[];
   initialClientId: string;
 }) {
+  const { t, ta } = useI18n();
+  const FIELDS: { key: keyof ColumnMap; label: string; required: boolean }[] = [
+    { key: 'name', label: t.uploadColumnName, required: true },
+    { key: 'barcode', label: t.uploadColumnBarcode, required: false },
+    { key: 'mxik', label: t.uploadColumnMxik, required: false },
+    { key: 'unit', label: t.uploadColumnUnit, required: false },
+    { key: 'price', label: t.uploadColumnPrice, required: false },
+    { key: 'sales', label: t.uploadColumnSales, required: false },
+  ];
   const [clientId, setClientId] = useState(initialClientId);
   const [state, action, previewing] = useActionState<PreviewState, FormData>(previewUpload, {});
   const [mapping, setMapping] = useState<ColumnMap | null>(null);

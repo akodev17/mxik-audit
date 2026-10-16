@@ -1,21 +1,21 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState, useTransition } from 'react';
 import { applyPurchases, uploadPurchases, type PurchaseUploadState } from '@/app/actions/purchases';
-import { t } from '@/lib/i18n';
 import type { PurchaseMap } from '@/lib/purchases';
 import { Button } from '@/ui/button';
 import { ColumnSelect } from '@/ui/column-select';
 import { PreviewTable } from '@/ui/preview-table';
 
-const FIELDS: { key: keyof PurchaseMap; label: string; required: boolean }[] = [
-  { key: 'mxik', label: t.uploadColumnMxik, required: true },
-  { key: 'name', label: t.uploadColumnName, required: false },
-  { key: 'unit', label: t.uploadColumnUnit, required: false },
-];
-
 export function PurchaseForm({ clientId }: { clientId: string }) {
+  const { t } = useI18n();
+  const FIELDS: { key: keyof PurchaseMap; label: string; required: boolean }[] = [
+    { key: 'mxik', label: t.uploadColumnMxik, required: true },
+    { key: 'name', label: t.uploadColumnName, required: false },
+    { key: 'unit', label: t.uploadColumnUnit, required: false },
+  ];
   const router = useRouter();
   const [state, action, uploading] = useActionState<PurchaseUploadState, FormData>(uploadPurchases, {});
   const [map, setMap] = useState<PurchaseMap | null>(null);

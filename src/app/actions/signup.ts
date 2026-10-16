@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { formText } from '@/lib/form';
+import { getI18n } from '@/lib/locale';
 import { clientKey, createRateLimiter } from '@/lib/lead-guard';
 import { getSession } from '@/lib/session';
 import { createAccount } from '@/lib/signup';
@@ -14,9 +15,10 @@ const limiter = createRateLimiter({ limit: 8, windowMs: 60 * 60 * 1000 });
 
 /** Public signup: opens a 14-day trial org. With SMTP configured the address must be confirmed first. */
 export async function signUp(_prev: SignUpState, form: FormData): Promise<SignUpState> {
-  if (!limiter.hit(clientKey(await headers())).allowed) return { error: 'Juda koʻp urinish. Birozdan soʻng qayta urinib koʻring.' };
-  const result = await createAccount({ email: formText(form, 'email'), password: formText(form, 'password'), firmName: formText(form, 'firm') });
-  if (!result.ok) return { error: result.error };
+  const { ta, locale } = await getI18n();
+  if (!limiter.hit(clientKey(await headers())).allowed) return { error: ta.msg.tooManyAttempts };
+  const result = await createAccount({ email: formText(form, 'email'), password: formText(form, 'password'), firmName: formText(form, 'firm'), locale });
+  if (!result.ok) return { error: ta.msg.account[result.error] };
   if (result.account.needsVerification) return { checkEmail: true };
 
   const session = await getSession();

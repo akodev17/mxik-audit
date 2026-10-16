@@ -1,13 +1,17 @@
+import type { Metadata } from 'next';
+import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import { readInvite } from '@/lib/invites';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { EmptyState } from '@/ui/empty-state';
 import { JoinForm } from './join-form';
 
-export const metadata = { title: `${t.appName}`, robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.appName}`, robots: { index: false } };
+}
 
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+  const { t, ta } = await getI18n();
   const { token } = await params;
   const invite = await readInvite(token);
   if (!invite) {

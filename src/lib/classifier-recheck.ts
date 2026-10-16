@@ -5,6 +5,7 @@
 import type { ClassifierChangeKind } from '@prisma/client';
 import { auditContext, checkItem, findingData, type AuditContext } from './audit-runner.js';
 import { db } from './db.js';
+import { orgLocale } from './org-locale.js';
 import { updateBody, updateTitle, type UpdateCounts } from './notification-text.js';
 import { notify } from './notifications.js';
 
@@ -118,7 +119,8 @@ export async function recheckAfterUpdate(snapshotId: number, log: (line: string)
       results.push(result);
       log(`  ${target.clientName}: ${result.affectedRows} rows affected, ${result.newFindings} new findings`);
 
-      const title = updateTitle(target.clientName, result);
+      const locale = await orgLocale(target.orgId);
+      const title = updateTitle(target.clientName, result, locale);
       await db.auditEvent.create({
         data: {
           orgId: target.orgId, actorId: null, action: 'classifier.updated', targetId: target.catalogId,
@@ -130,7 +132,7 @@ export async function recheckAfterUpdate(snapshotId: number, log: (line: string)
         clientId: target.clientId,
         kind: 'classifier.updated',
         title,
-        body: updateBody(result, target.filename, snapshot.takenAt),
+        body: updateBody(result, target.filename, snapshot.takenAt, locale),
         href: `/report?catalog=${target.catalogId}`,
       });
     }

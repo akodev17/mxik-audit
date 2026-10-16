@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { reportPdfData } from '@/lib/pdf/report-data';
 import { buildReportPdf } from '@/lib/pdf/report-pdf';
+import { getLocale } from '@/lib/locale';
 import { resolveShare } from '@/lib/share';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   if (!share?.includePdf) return NextResponse.json({ error: 'not found' }, { status: 404 });
   const data = await reportPdfData(share.orgId, share.catalogId);
   if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  const pdf = await buildReportPdf(data);
+  const pdf = await buildReportPdf(data, await getLocale());
   const base = data.filename.replace(/\.(xlsx|csv)$/i, '');
   return new NextResponse(new Uint8Array(pdf), {
     headers: {

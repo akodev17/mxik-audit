@@ -1,12 +1,13 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useActionState } from 'react';
 import { signIn, type SignInState } from '@/app/actions/auth';
-import { t } from '@/lib/i18n';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
 
 export function SignInForm({ notice }: { notice: string | null }) {
+  const { t } = useI18n();
   const [state, action, pending] = useActionState<SignInState, FormData>(signIn, {});
   const error = state.error ?? notice;
   return (

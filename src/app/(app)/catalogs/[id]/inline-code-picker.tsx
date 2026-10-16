@@ -1,14 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useEffect, useRef, useState } from 'react';
 import { lookupCodes, type ClassifierHit } from '@/app/actions/review';
-import { ta } from '@/lib/i18n-app';
 import { CodeChip } from '@/ui/code-chip';
 
 type Props = { onPick: (code: string, name: string) => void; onCancel: () => void };
 
 /** Search the classifier inside the grid cell; arrows and Enter pick, Escape closes. */
 export function InlineCodePicker({ onPick, onCancel }: Props) {
+  const { ta } = useI18n();
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<ClassifierHit[]>([]);
   const [cursor, setCursor] = useState(0);

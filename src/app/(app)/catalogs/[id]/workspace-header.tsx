@@ -1,8 +1,8 @@
+import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import { billingConfig } from '@/lib/billing/config';
 import { catalogPaid } from '@/lib/billing/orders';
 import { db } from '@/lib/db';
-import { ta } from '@/lib/i18n-app';
 import { BillingBox } from './billing-box';
 import { ExportActions } from './export-actions';
 import { ShareButton } from './share-button';
@@ -17,6 +17,7 @@ type Props = {
 
 /** Catalogue name, client, date and classifier version, with the export actions. */
 export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Props) {
+  const { ta } = await getI18n();
   const [snapshot, paid] = await Promise.all([
     db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true, takenAt: true } }),
     billingConfig().requiredForExport ? catalogPaid(orgId, catalog.id) : Promise.resolve(true),

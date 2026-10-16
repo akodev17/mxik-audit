@@ -93,7 +93,8 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
   return ids.length;
 }
 
-export type DiffRow = { rowIndex: number; name: string; unit: string | null; code: string | null; note?: string };
+export type DiffNote = 'name' | 'unit' | 'code' | 'classifier' | 'nowRisky' | 'nowSafe';
+export type DiffRow = { rowIndex: number; name: string; unit: string | null; code: string | null; notes?: DiffNote[] };
 export type VersionDiff = {
   previousId: string;
   added: DiffRow[]; removed: DiffRow[]; changed: DiffRow[]; statusChanged: DiffRow[];
@@ -101,7 +102,7 @@ export type VersionDiff = {
 };
 
 const LIMIT = 200;
-const toRow = (i: VersionItem, note?: string): DiffRow => ({ rowIndex: i.rowIndex, name: i.rawName, unit: i.unit, code: i.existingMxik, ...(note ? { note } : {}) });
+const toRow = (i: VersionItem, notes?: DiffNote[]): DiffRow => ({ rowIndex: i.rowIndex, name: i.rawName, unit: i.unit, code: i.existingMxik, ...(notes ? { notes } : {}) });
 
 /** What changed between a catalogue and the version it replaces. Null without a previous version. */
 export async function versionDiff(orgId: string, catalogId: string): Promise<VersionDiff | null> {
@@ -122,10 +123,13 @@ export async function versionDiff(orgId: string, catalogId: string): Promise<Ver
   const statusChanged: DiffRow[] = [];
   for (const { prev, next } of pairing.pairs) {
     if (!unchanged(prev, next)) {
-      const what = [prev.rawName !== next.rawName ? 'nom' : null, prev.unit !== next.unit ? 'birlik' : null, prev.existingMxik !== next.existingMxik ? 'kod' : null].filter(Boolean).join(', ');
+      const what: DiffNote[] = [];
+      if (prev.rawName !== next.rawName) what.push('name');
+      if (prev.unit !== next.unit) what.push('unit');
+      if (prev.existingMxik !== next.existingMxik) what.push('code');
       changed.push(toRow(next, what));
     } else if (prevRisky.has(prev.id) !== nextRisky.has(next.id)) {
-      statusChanged.push(toRow(next, updated.has(next.id) ? 'tasniflagich yangilanishi' : nextRisky.has(next.id) ? 'endi xavfli' : 'endi xavfsiz'));
+      statusChanged.push(toRow(next, [updated.has(next.id) ? 'classifier' : nextRisky.has(next.id) ? 'nowRisky' : 'nowSafe']));
     }
   }
   return {

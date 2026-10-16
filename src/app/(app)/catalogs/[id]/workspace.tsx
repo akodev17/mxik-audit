@@ -1,10 +1,10 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { acceptDictionary } from '@/app/actions/dictionary';
 import { bulkAction, type BulkActionInput } from '@/app/actions/bulk';
 import { acceptAllAbove } from '@/app/actions/review';
-import { ta } from '@/lib/i18n-app';
 import type { WsSummary } from '@/lib/workspace';
 import type { GridRow } from '@/lib/workspace-rows';
 import { Button } from '@/ui/button';
@@ -39,6 +39,7 @@ const isTyping = (target: EventTarget | null): boolean =>
 const DENSITY_KEY = 'mxik.density';
 
 export function Workspace({ catalogId, summary, initialRows, initialNext, count, filter, hintKey, readOnly }: WorkspaceProps) {
+  const { ta } = useI18n();
   const toast = useToast();
   const [delta, setDelta] = useState(0);
   const onReviewed = useCallback((d: number) => setDelta((x) => x + d), []);

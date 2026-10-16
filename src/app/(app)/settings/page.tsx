@@ -1,11 +1,10 @@
+import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { billingConfig } from '@/lib/billing/config';
 import { firmPlan } from '@/lib/billing/plans';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
-import { t } from '@/lib/i18n';
-import { ta } from '@/lib/i18n-app';
 import { currentUser } from '@/lib/session';
 import { telegramConfig } from '@/lib/telegram/config';
 import { listLinks } from '@/lib/telegram/linking';
@@ -20,9 +19,13 @@ import { PlanUsage } from './plan-usage';
 import { TeamPanel } from './team-panel';
 import { TelegramPanel } from './telegram-panel';
 
-export const metadata: Metadata = { title: `${t.settingsTitle} — ${t.appName}` };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: `${t.settingsTitle} — ${t.appName}` };
+}
 
 export default async function SettingsPage() {
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const tg = telegramConfig();

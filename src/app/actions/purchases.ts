@@ -1,12 +1,12 @@
 'use server';
 
+import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { MAX_UPLOAD_BYTES } from '@/lib/catalog-import';
 import { ownedClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
-import { t } from '@/lib/i18n';
 import { applyPurchaseMap, deletePurchaseList, PurchaseMapSchema, recheckClientPurchases, storePurchaseList, type PurchaseMap } from '@/lib/purchases';
 import { writer } from '@/lib/guard';
 import { parseUpload } from '@/lib/spreadsheet';
@@ -18,18 +18,19 @@ export type PurchaseUploadState = {
 
 /** Stores a purchase file under the client and returns a preview for mapping. */
 export async function uploadPurchases(_prev: PurchaseUploadState, form: FormData): Promise<PurchaseUploadState> {
+  const { t, ta } = await getI18n();
   const user = await writer();
   if (!user || await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
   const clientId = form.get('clientId');
   const client = typeof clientId === 'string' ? await ownedClient(user.orgId, clientId) : null;
   if (!client) return { error: t.errorGeneric };
   const file = form.get('file');
-  if (!(file instanceof File) || file.size === 0) return { error: 'Fayl tanlanmadi.' };
-  if (file.size > MAX_UPLOAD_BYTES) return { error: 'Fayl juda katta (20 MB dan oshmasligi kerak).' };
+  if (!(file instanceof File) || file.size === 0) return { error: ta.msg.fileNone };
+  if (file.size > MAX_UPLOAD_BYTES) return { error: ta.msg.fileTooBig };
 
   try {
     const parsed = await parseUpload(Buffer.from(await file.arrayBuffer()), file.name);
-    if (parsed.rows.length === 0) return { error: 'Faylda maʼlumot qatorlari topilmadi.' };
+    if (parsed.rows.length === 0) return { error: ta.msg.fileEmpty };
     const { listId, map } = await storePurchaseList({ orgId: user.orgId, clientId: client.id, filename: file.name, parsed });
     await db.auditEvent.create({
       data: {
@@ -39,13 +40,14 @@ export async function uploadPurchases(_prev: PurchaseUploadState, form: FormData
     });
     return { preview: { listId, filename: file.name, headers: parsed.headers, rows: parsed.rows.slice(0, 5), totalRows: parsed.rows.length, map } };
   } catch (error) {
-    return { error: `Faylni oʻqishda xatolik: ${error instanceof Error ? error.message : ''}` };
+    return { error: ta.msg.fileReadFailed(error instanceof Error ? error.message : '') };
   }
 }
 
 const ApplyInput = z.object({ listId: z.string().min(1), map: PurchaseMapSchema });
 
 export async function applyPurchases(payload: unknown): Promise<{ ok: true; codes: number } | { ok: false; error: string }> {
+  const { t } = await getI18n();
   const user = await writer();
   const parsed = ApplyInput.safeParse(payload);
   if (!user || !parsed.success) return { ok: false, error: t.errorGeneric };

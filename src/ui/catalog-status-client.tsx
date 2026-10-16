@@ -1,9 +1,9 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useTransition } from 'react';
 import { retryCatalogAudit } from '@/app/actions/catalog';
-import { t } from '@/lib/i18n';
 import { Button } from './button';
 
 /** Re-renders the server page on an interval, while an audit is running. */
@@ -17,6 +17,7 @@ export function AutoRefresh({ intervalMs }: { intervalMs: number }) {
 }
 
 export function RetryAuditButton({ catalogId }: { catalogId: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [busy, start] = useTransition();
   return (

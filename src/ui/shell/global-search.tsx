@@ -1,14 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/locale-client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { ta } from '@/lib/i18n-app';
 import { IconSearch } from '../icons';
 
 const CATALOG_PATH = /^\/catalogs\/([^/]+)$/;
 
 /** Product name or code search; lands on the catalogue workspace with ?q=. */
 export function GlobalSearch({ latestCatalogId }: { latestCatalogId: string | null }) {
+  const { ta } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
