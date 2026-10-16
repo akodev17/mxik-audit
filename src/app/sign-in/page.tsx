@@ -12,6 +12,9 @@ export default function SignInPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
+      <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-fg">
+        <span aria-hidden>←</span> {t.back}
+      </Link>
       <Link href="/" className="text-xl font-bold tracking-tight">{t.appName}</Link>
       <p className="mb-6 mt-1 text-sm text-muted">{t.tagline}</p>
 
