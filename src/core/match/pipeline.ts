@@ -11,6 +11,7 @@ import type { RerankGate } from './rerank-config.js';
 import { rerankGate } from './rerank-gate.js';
 import { evidenceFor } from './evidence.js';
 import { NONE_REASON } from './rerank-parse.js';
+import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
 import { bandOf, calibrate } from './score.js';
 import type {
@@ -256,10 +257,14 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
     };
   }).sort((a, b) => b.confidence - a.confidence);
 
+  // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
+  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence));
+  if (kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
+
   return {
-    input, normalized, decidedBy, notes,
+    input, normalized, decidedBy: kept.length === 0 ? 'none' : decidedBy, notes,
     pool: provisional.map((x) => x.fused.item.code),
-    candidates: scored.slice(0, limits.topK),
+    candidates: kept.slice(0, limits.topK),
   };
 }
 

@@ -96,7 +96,10 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
     vectorEnabled: readiness.usable,
   });
   const degradedReasons: string[] = [];
-  if (!reranker.available) degradedReasons.push('LLM qayta tartiblash oʻchirilgan');
+  if (!reranker.available) {
+    degradedReasons.push('LLM qayta tartiblash oʻchirilgan');
+    console.warn(`[audit] reranker off: ${rerankConfigFromEnv(process.env).disabledReason ?? 'unavailable'}`);
+  }
   if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
   return { store, embedder, reranker, gate, timer, degradedReasons };
