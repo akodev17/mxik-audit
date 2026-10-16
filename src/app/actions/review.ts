@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
@@ -18,12 +17,6 @@ const DecideInput = z.object({
 
 export type DecideResult = { ok: true; eventId: string } | { ok: false; error: string };
 
-function refresh(): void {
-  revalidatePath('/review');
-  revalidatePath('/report');
-  revalidatePath('/export');
-}
-
 /** Records one accept/reject and its audit event. Never overwrites a decision. */
 export async function decide(payload: unknown): Promise<DecideResult> {
   const user = await currentUser();
@@ -33,7 +26,6 @@ export async function decide(payload: unknown): Promise<DecideResult> {
 
   const result = await recordDecision(user, parsed.data);
   if (!result.ok) return { ok: false, error: t.errorGeneric };
-  refresh();
   return result;
 }
 
@@ -53,7 +45,6 @@ export async function decideGroup(payload: unknown): Promise<GroupResult> {
 
   const result = await recordGroupDecision(user, parsed.data);
   if (!result.ok) return { ok: false, error: t.errorGeneric };
-  refresh();
   return result;
 }
 
@@ -64,7 +55,6 @@ export async function splitRow(findingId: unknown): Promise<{ ok: boolean }> {
   const id = z.string().min(1).safeParse(findingId);
   if (!id.success) return { ok: false };
   const result = await splitFromGroup(user, id.data);
-  if (result.ok) refresh();
   return { ok: result.ok };
 }
 
@@ -86,7 +76,6 @@ export async function acceptAllAbove(payload: unknown): Promise<BulkResult> {
 
   const result = await bulkAccept(user, parsed.data);
   if (!result.ok) return { ok: false, error: t.errorGeneric };
-  refresh();
   return { ok: true, count: result.count };
 }
 
@@ -108,7 +97,6 @@ export async function undo(payload: unknown): Promise<UndoResult> {
     ? await undoDecision(user, parsed.data.eventId, parsed.data.findingId)
     : await undoLast(user, parsed.data.lastInCatalog);
   if (!result.ok) return { ok: false, error: t.reviewUndoFailed };
-  refresh();
   return result;
 }
 

@@ -31,5 +31,7 @@ export async function startDemo(_prev: DemoState): Promise<DemoState> {
   session.demo = true;
   session.clientId = undefined;
   await session.save();
-  redirect('/report');
+  // Straight into the sample catalogue, on its risky rows.
+  const sample = await db.catalog.findFirst({ where: { orgId: demo.orgId }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+  redirect(sample ? `/catalogs/${sample.id}` : '/catalogs');
 }
