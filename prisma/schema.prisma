@@ -173,6 +173,7 @@ model Organization {
   users     User[]
   clients   Client[]
   notifications Notification[]
+  telegramLinks TelegramLink[]
   catalogs  Catalog[]
   events    AuditEvent[]
   /// Remembered column mapping, so a repeat upload does not re-ask.
@@ -269,6 +270,8 @@ model Catalog {
   /// Bumped while an audit runs; a stale one means the worker died.
   auditHeartbeatAt DateTime?
   auditError       String?
+  /// Set when the file came through the Telegram bot: the chat that gets the summary.
+  telegramChatId   String?
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -411,6 +414,48 @@ model Notification {
   @@index([orgId, createdAt])
   @@index([clientId, createdAt])
   @@map("notification")
+}
+
+/// A Telegram chat linked to an org: receives notifications and may send files.
+model TelegramLink {
+  id        String   @id @default(cuid())
+  orgId     String
+  /// Telegram chat id, kept as text (it can exceed 2^31).
+  chatId    String   @unique
+  username  String?
+  linkedBy  String?
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("telegram_link")
+}
+
+/// One-time code shown in the web app; "/start CODE" in the bot links the chat.
+model TelegramLinkCode {
+  code      String    @id
+  orgId     String
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([orgId])
+  @@map("telegram_link_code")
+}
+
+/// A file sent to the bot, waiting for the user to pick the client.
+model TelegramPending {
+  id        String   @id @default(cuid())
+  chatId    String
+  orgId     String
+  fileId    String
+  filename  String
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+  @@map("telegram_pending")
 }
 
 /// LLM rerank verdicts keyed by a hash of model + prompt version + normalized

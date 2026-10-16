@@ -70,6 +70,17 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
       data: { status: 'failed', auditError: error instanceof Error ? error.message.slice(0, 500) : 'failed' },
     }).catch(() => undefined);
   }
+  await replyToTelegram(catalogId);
+}
+
+/** A catalogue that came through the bot gets its summary (or failure) back there. */
+async function replyToTelegram(catalogId: string): Promise<void> {
+  try {
+    const { sendAuditSummary } = await import('./telegram/deliver.js');
+    await sendAuditSummary(catalogId);
+  } catch (error) {
+    console.warn(`[audit ${catalogId}] telegram reply failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /**

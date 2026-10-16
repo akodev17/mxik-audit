@@ -177,6 +177,22 @@ Only one update runs at a time (a Postgres advisory lock); a second start exits.
 
 Copy backups off the server too; a backup on the same disk is not a backup.
 
+## 7a. Telegram bot (optional)
+
+1. Create a bot with @BotFather; put the token in `.env` as
+   `TELEGRAM_BOT_TOKEN`, a long random `TELEGRAM_WEBHOOK_SECRET`, the bot's
+   `TELEGRAM_BOT_USERNAME`, and `APP_URL=https://your-domain`. Restart the app.
+2. Point Telegram at the app once: `mx npm run telegram:webhook`
+   (`-- --delete` removes it).
+3. Users link a chat in the app: Sozlamalar → Telegram → "Ulash kodini olish",
+   then send `/start CODE` to the bot. Linked chats can send .xlsx/.csv files
+   (20 MB Bot API limit), pick the client, and get the summary when the audit
+   finishes; classifier-update notifications go to every linked chat.
+
+Without a public HTTPS URL (development), run the bot with long polling
+instead: `npm run telegram:bot` (it removes any webhook first; audits started
+from the bot run in that process).
+
 ## 8. Operating it
 
 | Task | Command |

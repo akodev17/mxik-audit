@@ -58,6 +58,36 @@ export type Dict = {
   notificationsEmpty: string;
   notificationsOpen: string;
 
+  // settings and Telegram
+  navSettings: string;
+  settingsTitle: string;
+  tgSection: string;
+  tgOff: string;
+  tgIntro: (bot: string | null) => string;
+  tgGetCode: string;
+  tgCodeShown: (code: string, minutes: number) => string;
+  tgLinkedChats: string;
+  tgNoChats: string;
+  tgUnlink: string;
+  tgDemoOff: string;
+  tgHelp: string;
+  tgHelpLinked: string;
+  tgLinked: (org: string) => string;
+  tgBadCode: string;
+  tgDemo: string;
+  tgBadType: string;
+  tgTooBig: string;
+  tgChooseClient: (file: string) => string;
+  tgExpired: string;
+  tgEmptyFile: string;
+  tgNoNames: string;
+  tgStarted: (client: string, rows: number) => string;
+  tgAuditDone: (client: string) => string;
+  tgAuditFailed: (file: string) => string;
+  tgFile: string;
+  tgReport: string;
+  tgError: string;
+
   // catalogue history and deletion
   catalogsTitle: string;
   catalogsHint: string;
@@ -302,6 +332,35 @@ export const uz: Dict = {
   notificationsHint: 'Tasniflagich yangilanganda mijozlaringiz kataloglarida nima oʻzgargani shu yerda koʻrinadi. Telegram ulangan boʻlsa, u yerga ham yuboriladi.',
   notificationsEmpty: 'Hali xabarnoma yoʻq.',
   notificationsOpen: 'Hisobotni ochish',
+
+  navSettings: 'Sozlamalar',
+  settingsTitle: 'Sozlamalar',
+  tgSection: 'Telegram',
+  tgOff: 'Telegram bot bu serverda sozlanmagan (TELEGRAM_BOT_TOKEN yoʻq).',
+  tgIntro: (bot) => `Botga katalog faylini yuboring — u tahlil qilinadi va natija shu chatga keladi. Tasniflagich yangilanganda xabarnomalar ham shu yerga keladi.${bot ? ` Bot: @${bot}.` : ''}`,
+  tgGetCode: 'Ulash kodini olish',
+  tgCodeShown: (code, minutes) => `Botga yuboring: /start ${code} — kod ${minutes} daqiqa amal qiladi va bir marta ishlatiladi.`,
+  tgLinkedChats: 'Ulangan chatlar',
+  tgNoChats: 'Hali hech qanday chat ulanmagan.',
+  tgUnlink: 'Uzish',
+  tgDemoOff: 'Demo rejimida Telegram ulanmaydi.',
+  tgHelp: 'Salom! Bu MXIK Audit boti. Ulash uchun veb-ilovada Sozlamalar → Telegram boʻlimidan kod oling va shu yerga “/start KOD” deb yuboring.',
+  tgHelpLinked: 'Katalog faylini (.xlsx yoki .csv) shu chatga yuboring — tahlil qilib, natijani yuboraman.',
+  tgLinked: (org) => `Ulandi: ${org}. Endi katalog faylini (.xlsx yoki .csv) yuborishingiz mumkin.`,
+  tgBadCode: 'Kod notoʻgʻri yoki muddati oʻtgan. Veb-ilovada yangi kod oling.',
+  tgDemo: 'Demo hisobni Telegramga ulab boʻlmaydi.',
+  tgBadType: 'Faqat .xlsx yoki .csv fayl qabul qilinadi.',
+  tgTooBig: 'Fayl juda katta (20 MB dan oshmasligi kerak).',
+  tgChooseClient: (file) => `“${file}” qaysi mijozniki?`,
+  tgExpired: 'Bu soʻrov eskirgan. Faylni qaytadan yuboring.',
+  tgEmptyFile: 'Faylda maʼlumot qatorlari topilmadi.',
+  tgNoNames: 'Faylda tovar nomlari ustuni topilmadi. Faylni veb-ilova orqali yuklab, ustunlarni koʻrsating.',
+  tgStarted: (client, rows) => `Qabul qilindi: ${client}, ${rows.toLocaleString('uz-UZ')} qator. Tahlil tugagach natija shu yerga keladi.`,
+  tgAuditDone: (client) => `Tahlil tugadi — ${client}`,
+  tgAuditFailed: (file) => `“${file}” tahlili xatolik bilan toʻxtadi. Veb-ilovada qayta urinib koʻring.`,
+  tgFile: 'Fayl',
+  tgReport: 'Hisobot',
+  tgError: 'Xatolik yuz berdi. Birozdan soʻng qayta urinib koʻring.',
 
   catalogsTitle: 'Yuklangan kataloglar',
   catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',

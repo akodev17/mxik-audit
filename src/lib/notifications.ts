@@ -1,5 +1,5 @@
-// In-app notifications, scoped by org. Delivery to other channels (Telegram)
-// hangs off `deliver`; a channel that is not configured is simply skipped.
+// In-app notifications, scoped by org, also sent to the org's linked Telegram
+// chats when the bot is configured.
 import { db } from './db.js';
 
 export type NewNotification = {
@@ -10,14 +10,6 @@ export type NewNotification = {
   body: string;
   href?: string | null;
 };
-
-type Channel = (notificationId: string) => Promise<void>;
-const channels: Channel[] = [];
-
-/** Registers an extra delivery channel (e.g. Telegram). Called once at startup. */
-export function addNotificationChannel(channel: Channel): void {
-  channels.push(channel);
-}
 
 export async function notify(input: NewNotification): Promise<string> {
   const created = await db.notification.create({
@@ -30,13 +22,13 @@ export async function notify(input: NewNotification): Promise<string> {
   return created.id;
 }
 
-/** Hands one notification to every channel; a failing channel never blocks the others. */
+/** Sends a notification beyond the app; a delivery failure never loses the notification. */
 export async function deliver(notificationId: string): Promise<void> {
-  for (const channel of channels) {
-    await channel(notificationId).catch((error: unknown) => {
-      console.warn(`[notify ${notificationId}] channel failed: ${error instanceof Error ? error.message : String(error)}`);
-    });
-  }
+  // Loaded lazily so the app never loads the bot library when the bot is off.
+  const { deliverToTelegram } = await import('./telegram/deliver.js');
+  await deliverToTelegram(notificationId).catch((error: unknown) => {
+    console.warn(`[notify ${notificationId}] telegram failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
 }
 
 export async function listNotifications(orgId: string, limit = 50) {
