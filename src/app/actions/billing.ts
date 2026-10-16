@@ -7,7 +7,7 @@ import { createOrder } from '@/lib/billing/orders';
 import { paymeCheckoutUrl } from '@/lib/billing/payme';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
-import { currentUser } from '@/lib/session';
+import { admin } from '@/lib/guard';
 
 const Input = z.object({
   planId: z.string().min(1),
@@ -19,7 +19,7 @@ export type CheckoutResult = { ok: true; url: string } | { ok: false; error: str
 
 /** Creates an order at the configured price and returns the provider's payment page. */
 export async function startCheckout(payload: unknown): Promise<CheckoutResult> {
-  const user = await currentUser();
+  const user = await admin();
   const parsed = Input.safeParse(payload);
   if (!user || !parsed.success || await isDemoOrg(user.orgId)) return { ok: false, error: t.errorGeneric };
   const config = billingConfig();

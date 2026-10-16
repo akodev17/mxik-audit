@@ -6,6 +6,7 @@
 import type { Prisma } from '@prisma/client';
 import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
+import { catalogScope } from './access.js';
 import { db } from './db.js';
 import { runPrivilegeCheck } from './privileges.js';
 import { runPurchaseCheck } from './purchases.js';
@@ -113,9 +114,9 @@ export function isAuditRunning(catalogId: string): boolean {
 }
 
 /** Restarts a failed audit from scratch, for the org that owns the catalogue. */
-export async function retryAudit(actor: { orgId: string; userId: string }, catalogId: string): Promise<boolean> {
+export async function retryAudit(actor: { orgId: string; userId: string; clientIds?: string[] | null }, catalogId: string): Promise<boolean> {
   const catalog = await db.catalog.findFirst({
-    where: { id: catalogId, orgId: actor.orgId, status: 'failed' },
+    where: { id: catalogId, ...catalogScope(actor), status: 'failed' },
     select: { id: true },
   });
   if (!catalog) return false;

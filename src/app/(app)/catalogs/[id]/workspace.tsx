@@ -26,6 +26,8 @@ export type WorkspaceProps = {
   filter: { type: string | null; q: string; pendingOnly: boolean };
   /** Storage key for the one-time demo tips; null when they do not apply. */
   hintKey: string | null;
+  /** Viewers see everything and change nothing. */
+  readOnly: boolean;
 };
 
 const isTyping = (target: EventTarget | null): boolean =>
@@ -33,7 +35,7 @@ const isTyping = (target: EventTarget | null): boolean =>
 
 const DENSITY_KEY = 'mxik.density';
 
-export function Workspace({ catalogId, summary, initialRows, initialNext, count, filter, hintKey }: WorkspaceProps) {
+export function Workspace({ catalogId, summary, initialRows, initialNext, count, filter, hintKey, readOnly }: WorkspaceProps) {
   const toast = useToast();
   const [delta, setDelta] = useState(0);
   const onReviewed = useCallback((d: number) => setDelta((x) => x + d), []);
@@ -111,22 +113,25 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
   }, [entries, activeIndex]);
 
   const accept = useCallback((row: GridRow, chosen?: { code: string; name: string | null }) => {
+    if (readOnly) return;
     const index = entries.findIndex((e) => e.kind === 'row' && e.row.findingId === row.findingId);
     void apply(row.findingId, 'accepted', chosen);
     if (index >= 0) advance(index);
-  }, [apply, advance, entries]);
+  }, [apply, advance, entries, readOnly]);
 
   const reject = useCallback((row: GridRow) => {
+    if (readOnly) return;
     const index = entries.findIndex((e) => e.kind === 'row' && e.row.findingId === row.findingId);
     void apply(row.findingId, 'rejected');
     if (index >= 0) advance(index);
-  }, [apply, advance, entries]);
+  }, [apply, advance, entries, readOnly]);
 
   const decideGroup = useCallback((group: GridRow[], decision: 'accepted' | 'rejected') => {
+    if (readOnly) return;
     void applyGroup(group, decision);
     const index = entries.findIndex((e) => e.kind === 'group' && e.rows === group);
     if (index >= 0) advance(index);
-  }, [applyGroup, advance, entries]);
+  }, [applyGroup, advance, entries, readOnly]);
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((cur) => {
@@ -140,20 +145,21 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     onSelect: select,
     onAccept: (row) => accept(row),
     onReject: reject,
-    onUndo: (row) => { if (row.decisionEventId) void revert({ eventId: row.decisionEventId, findingId: row.findingId }); },
+    onUndo: (row) => { if (!readOnly && row.decisionEventId) void revert({ eventId: row.decisionEventId, findingId: row.findingId }); },
     onToggleGroup: toggleGroup,
     onGroup: decideGroup,
     onNeedMore: () => { void loadMore(); },
-  }), [select, accept, reject, revert, toggleGroup, decideGroup, loadMore]);
+  }), [select, accept, reject, revert, toggleGroup, decideGroup, loadMore, readOnly]);
 
   const acceptSure = useCallback(async () => {
+    if (readOnly) return;
     setBulkBusy(true);
     const result = await acceptAllAbove({ catalogId, minConfidence: 0.9 });
     setBulkBusy(false);
     if (!result.ok) { toast(ta.ws.failedToast, { tone: 'error' }); return; }
     toast(ta.ws.bulkToast(result.count));
     onReviewed(markSure(0.9));
-  }, [catalogId, toast, markSure, onReviewed]);
+  }, [catalogId, toast, markSure, onReviewed, readOnly]);
 
   // Keys apply to the workspace, never while typing and never to the browser's own shortcuts.
   useEffect(() => {
@@ -179,14 +185,14 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
           else if (row) reject(row);
           break;
         case 'o': if (row && entry?.kind === 'row') { e.preventDefault(); setOpenId(row.findingId); } break;
-        case 'u': e.preventDefault(); void revert({ lastInCatalog: catalogId }); break;
+        case 'u': e.preventDefault(); if (!readOnly) void revert({ lastInCatalog: catalogId }); break;
         case '/': e.preventDefault(); document.getElementById('app-search')?.focus(); break;
         default: break;
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [entries, activeIndex, move, accept, reject, decideGroup, revert, catalogId]);
+  }, [entries, activeIndex, move, accept, reject, decideGroup, revert, catalogId, readOnly]);
 
   const setDensity = (v: boolean): void => {
     setCompact(v);
@@ -198,7 +204,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
       <SummaryStrip summary={summary} reviewedDelta={delta} activeType={filter.type} />
       <Toolbar
-        count={count} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy}
+        count={count} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy} readOnly={readOnly}
         onCompact={setDensity} onGrouped={setGrouped} onAcceptSure={() => { void acceptSure(); }}
       />
       <div ref={scrollRef} className={`min-h-0 flex-1 overflow-auto ${drawerOffset}`}>
@@ -209,7 +215,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
         ) : (
           <Grid
             entries={entries} activeIndex={activeIndex} compact={compact} expanded={expanded}
-            hasMore={next !== null && !loadFailed} scrollRef={scrollRef} handlers={handlers}
+            hasMore={next !== null && !loadFailed} scrollRef={scrollRef} handlers={handlers} readOnly={readOnly}
           />
         )}
         {loadFailed ? (
@@ -222,7 +228,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
       <ShortcutHint suppressed={tips} />
       {hintKey ? <OnboardingHint storageKey={hintKey} onDone={() => setTips(false)} /> : null}
       <RowDrawer
-        row={openRow}
+        row={openRow} readOnly={readOnly}
         onClose={() => setOpenId(null)}
         onAccept={() => { if (openRow) accept(openRow); }}
         onReject={() => { if (openRow) reject(openRow); }}

@@ -2,9 +2,10 @@
 // acting user and scopes every query by their org. The audit log stays
 // append-only: undo writes a new event and never edits or deletes an old one.
 import { BANDS } from '../core/match/score.js';
+import { catalogScope } from './access.js';
 import { db } from './db.js';
 
-export type Actor = { userId: string; orgId: string };
+export type Actor = { userId: string; orgId: string; clientIds?: string[] | null };
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted'] as const;
@@ -24,7 +25,7 @@ export async function recordDecision(
   input: { findingId: string; decision: 'accepted' | 'rejected'; chosenMxik?: string | null; groupSize?: number },
 ): Promise<Result<{ eventId: string }>> {
   const finding = await db.finding.findFirst({
-    where: { id: input.findingId, item: { catalog: { orgId: actor.orgId } } },
+    where: { id: input.findingId, item: { catalog: catalogScope(actor) } },
     select: { id: true, suggestedMxik: true, type: true, decision: true, item: { select: { rawName: true, catalogId: true } } },
   });
   if (!finding) return fail('not found');
@@ -91,7 +92,7 @@ export async function recordGroupDecision(
 /** Takes one row out of its group, so it is reviewed on its own. */
 export async function splitFromGroup(actor: Actor, findingId: string): Promise<Result> {
   const finding = await db.finding.findFirst({
-    where: { id: findingId, item: { catalog: { orgId: actor.orgId } } },
+    where: { id: findingId, item: { catalog: catalogScope(actor) } },
     select: { id: true, item: { select: { catalogId: true, rawName: true } } },
   });
   if (!finding) return fail('not found');
@@ -113,7 +114,7 @@ export async function bulkAccept(
   input: { catalogId: string; minConfidence: number },
 ): Promise<Result<{ count: number; eventId: string | null }>> {
   if (input.minConfidence < BANDS.high) return fail('threshold below the high band');
-  const catalog = await db.catalog.findFirst({ where: { id: input.catalogId, orgId: actor.orgId }, select: { id: true } });
+  const catalog = await db.catalog.findFirst({ where: { id: input.catalogId, ...catalogScope(actor) }, select: { id: true } });
   if (!catalog) return fail('not found');
 
   const targets = await db.finding.findMany({
@@ -175,7 +176,7 @@ export async function undoDecision(
   const findings = await db.finding.findMany({
     where: {
       decisionEventId: event.id,
-      item: { catalog: { orgId: actor.orgId } },
+      item: { catalog: catalogScope(actor) },
       ...(onlyFindingId ? { id: onlyFindingId } : {}),
     },
     select: { id: true, decision: true, chosenMxik: true, item: { select: { rawName: true, catalogId: true } } },

@@ -27,6 +27,7 @@ type Props = {
   hasMore: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   handlers: GridHandlers;
+  readOnly: boolean;
 };
 
 const HEADER_HEIGHT = 40;
@@ -34,7 +35,7 @@ const HEIGHT = { comfortable: 60, compact: 38 } as const;
 const HEADERS = [ta.ws.colNo, ta.ws.colProduct, ta.ws.colStatus, ta.ws.colCurrent, ta.ws.colSuggested, ta.ws.colConfidence, ta.ws.colDecision];
 
 /** Virtualised spreadsheet grid: only the rows on screen are in the DOM. */
-export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollRef, handlers }: Props) {
+export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollRef, handlers, readOnly }: Props) {
   const virtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => scrollRef.current,
@@ -74,6 +75,7 @@ export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollR
             <div key={v.key} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: v.size, transform: `translateY(${v.start - HEADER_HEIGHT}px)` }}>
               {entry.kind === 'group' ? (
                 <GroupRowView
+                  readOnly={readOnly}
                   rows={entry.rows}
                   active={v.index === activeIndex}
                   expanded={expanded.has(entry.key)}
@@ -84,6 +86,7 @@ export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollR
                 />
               ) : (
                 <GridRowView
+                  readOnly={readOnly}
                   row={entry.row}
                   active={v.index === activeIndex}
                   compact={compact}

@@ -14,9 +14,9 @@ const ITEMS = [
   { href: '/settings', label: ta.nav.settings, icon: <IconGear /> },
 ] as const;
 
-type Props = { collapsed: boolean; onToggle: () => void };
+type Props = { collapsed: boolean; onToggle: () => void; canWrite: boolean };
 
-export function Sidebar({ collapsed, onToggle }: Props) {
+export function Sidebar({ collapsed, onToggle, canWrite }: Props) {
   const pathname = usePathname();
   return (
     <nav
@@ -34,7 +34,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
         {collapsed ? null : <Link href="/catalogs" className="truncate text-[17px] font-bold tracking-tight">{t.appName}</Link>}
       </div>
       <ul className="mt-2 flex flex-col gap-0.5 px-2">
-        {ITEMS.map((item) => {
+        {ITEMS.filter((item) => canWrite || item.href !== '/upload').map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <li key={item.href}>

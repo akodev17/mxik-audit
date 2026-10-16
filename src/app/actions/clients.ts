@@ -7,12 +7,14 @@ import { createClient, ownedClient } from '@/lib/clients';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
 import { currentUser, getSession } from '@/lib/session';
+import { canSeeClient } from '@/lib/access';
+import { writer } from '@/lib/guard';
 
 export type AddClientState = { error?: string };
 
 /** Creates a client and makes it the one being worked on. */
 export async function addClient(_prev: AddClientState, form: FormData): Promise<AddClientState> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { error: t.errorGeneric };
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
   const name = z.string().safeParse(form.get('name'));
@@ -35,6 +37,7 @@ export async function rememberClient(clientId: unknown): Promise<{ ok: boolean }
   if (!id.success) return { ok: false };
   const client = await ownedClient(user.orgId, id.data);
   if (!client) return { ok: false };
+  if (!canSeeClient(user, client.id)) return { ok: false };
   if (user.clientId === client.id) return { ok: true };
   const session = await getSession();
   session.clientId = client.id;

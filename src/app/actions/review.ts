@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
+import { writer } from '@/lib/guard';
 import { searchClassifier } from '@/lib/audit-runner';
 import { codeRequestText } from '@/lib/code-request';
 import { BANDS } from '@/core/match/score';
@@ -19,7 +20,7 @@ export type DecideResult = { ok: true; eventId: string } | { ok: false; error: s
 
 /** Records one accept/reject and its audit event. Never overwrites a decision. */
 export async function decide(payload: unknown): Promise<DecideResult> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = DecideInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
@@ -38,7 +39,7 @@ export type GroupResult = { ok: true; decided: { findingId: string; eventId: str
 
 /** One accept/reject for a group of similar rows; one audit event per row. */
 export async function decideGroup(payload: unknown): Promise<GroupResult> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = GroupInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
@@ -50,7 +51,7 @@ export async function decideGroup(payload: unknown): Promise<GroupResult> {
 
 /** Takes a row out of its group so it can be decided on its own. */
 export async function splitRow(findingId: unknown): Promise<{ ok: boolean }> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false };
   const id = z.string().min(1).safeParse(findingId);
   if (!id.success) return { ok: false };
@@ -69,7 +70,7 @@ export type BulkResult = { ok: true; count: number } | { ok: false; error: strin
 
 /** "Accept all above 90%." Only touches pending findings that have a suggestion. */
 export async function acceptAllAbove(payload: unknown): Promise<BulkResult> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = BulkInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
@@ -88,7 +89,7 @@ const UndoInput = z.union([
 
 /** Undo a decision event (or one row of it), or the latest one still in effect for a catalogue. */
 export async function undo(payload: unknown): Promise<UndoResult> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const parsed = UndoInput.safeParse(payload);
   if (!parsed.success) return { ok: false, error: t.errorGeneric };
@@ -102,7 +103,7 @@ export async function undo(payload: unknown): Promise<UndoResult> {
 
 /** Draft text for a new-code request on tasnif.soliq.uz. Never submitted from here. */
 export async function newCodeRequest(findingId: unknown): Promise<string | null> {
-  const user = await currentUser();
+  const user = await writer();
   const id = z.string().min(1).safeParse(findingId);
   if (!user || !id.success) return null;
   return codeRequestText(user.orgId, id.data);

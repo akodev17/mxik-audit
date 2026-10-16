@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { listCatalogs } from '@/lib/catalogs';
+import { clientScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { ta } from '@/lib/i18n-app';
@@ -17,8 +18,8 @@ export default async function CatalogsPage() {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const [catalogs, clients] = await Promise.all([
-    listCatalogs(user.orgId),
-    db.client.findMany({ where: { orgId: user.orgId }, select: { id: true, name: true } }),
+    listCatalogs(user.orgId, null, user.clientIds),
+    db.client.findMany({ where: { orgId: user.orgId, ...clientScope(user) }, select: { id: true, name: true } }),
   ]);
   const names = clients.length > 1 ? new Map(clients.map((c) => [c.id, c.name])) : undefined;
 

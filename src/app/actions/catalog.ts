@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { canSeeClient, catalogScope } from '@/lib/access';
 import { retryAudit, startAudit } from '@/lib/audit-jobs';
 import { deleteCatalog } from '@/lib/catalogs';
 import { ownedClient, resolveClient } from '@/lib/clients';
@@ -9,7 +10,8 @@ import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
 import { parseUpload } from '@/lib/spreadsheet';
-import { currentUser, getSession } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { writer } from '@/lib/guard';
 import { applyMapping, mappingFor, MAX_UPLOAD_BYTES, storeCatalog } from '@/lib/catalog-import';
 import { ColumnMapSchema, type ColumnMap } from '@/lib/column-map';
 
@@ -34,7 +36,7 @@ export type PreviewState = {
  * so changing it does not mean re-uploading.
  */
 export async function previewUpload(_prev: PreviewState, form: FormData): Promise<PreviewState> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { error: t.errorGeneric };
   // Real files never enter a demo org, whatever the browser sends.
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
@@ -55,7 +57,7 @@ export async function previewUpload(_prev: PreviewState, form: FormData): Promis
     const client = typeof requestedClient === 'string' && requestedClient
       ? await ownedClient(user.orgId, requestedClient)
       : await resolveClient(user.orgId, user.clientId);
-    if (!client) return { error: t.errorGeneric };
+    if (!client || !canSeeClient(user, client.id)) return { error: t.errorGeneric };
 
     const { catalogId } = await storeCatalog({
       orgId: user.orgId, userId: user.userId, clientId: client.id, filename: file.name, parsed, mapping,
@@ -90,7 +92,7 @@ export type CommitState = { error?: string; catalogId?: string };
  * server.
  */
 export async function commitUpload(payload: unknown): Promise<CommitState> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { error: t.errorGeneric };
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
 
@@ -100,7 +102,7 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
 
   // Scope by org: a catalogue id alone must not be enough to reach another org's data.
   const catalog = await db.catalog.findFirst({
-    where: { id: catalogId, orgId: user.orgId },
+    where: { id: catalogId, ...catalogScope(user) },
     select: { id: true, clientId: true },
   });
   if (!catalog) return { error: t.errorGeneric };
@@ -127,7 +129,7 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
 
 /** Restarts an audit that failed. */
 export async function retryCatalogAudit(catalogId: unknown): Promise<{ ok: boolean }> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false };
   const id = z.string().min(1).safeParse(catalogId);
   if (!id.success) return { ok: false };
@@ -140,7 +142,7 @@ export type RemoveResult = { ok: true; rows: number } | { ok: false; error: stri
 
 /** Deletes one of the org's catalogues and everything derived from it. */
 export async function removeCatalog(catalogId: unknown): Promise<RemoveResult> {
-  const user = await currentUser();
+  const user = await writer();
   if (!user) return { ok: false, error: t.errorGeneric };
   const id = z.string().min(1).safeParse(catalogId);
   if (!id.success) return { ok: false, error: t.errorGeneric };

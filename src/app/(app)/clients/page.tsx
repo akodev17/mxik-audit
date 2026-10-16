@@ -20,7 +20,7 @@ const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 export default async function ClientsPage() {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
-  const [clients, demo] = await Promise.all([listClients(user.orgId), isDemoOrg(user.orgId)]);
+  const [clients, demo] = await Promise.all([listClients(user.orgId, user.clientIds), isDemoOrg(user.orgId)]);
 
   return (
     <Page title={t.clientsTitle} hint={t.clientsHint} wide>

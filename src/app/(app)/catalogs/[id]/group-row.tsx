@@ -16,10 +16,11 @@ type Props = {
   onToggle: () => void;
   onAccept: () => void;
   onReject: () => void;
+  readOnly: boolean;
 };
 
 /** Header of a group of similar rows: one decision covers every pending member. */
-export function GroupRowView({ rows, active, expanded, onSelect, onToggle, onAccept, onReject }: Props) {
+export function GroupRowView({ rows, active, expanded, onSelect, onToggle, onAccept, onReject, readOnly }: Props) {
   const first = rows[0];
   const pending = rows.filter((r) => r.decision === 'pending').length;
   return (
@@ -42,8 +43,12 @@ export function GroupRowView({ rows, active, expanded, onSelect, onToggle, onAcc
       <span className="min-w-0 px-3">{first?.suggestedMxik ? <CodeChip code={first.suggestedMxik} /> : null}</span>
       <span />
       <span className="flex items-center gap-1.5 px-3" onClick={(e) => e.stopPropagation()}>
-        <Button size="sm" variant="secondary" disabled={pending === 0} onClick={onAccept}>{ta.ws.groupAccept}</Button>
-        <Button size="sm" variant="ghost" disabled={pending === 0} onClick={onReject}>{ta.ws.groupReject}</Button>
+        {readOnly ? null : (
+          <>
+            <Button size="sm" variant="secondary" disabled={pending === 0} onClick={onAccept}>{ta.ws.groupAccept}</Button>
+            <Button size="sm" variant="ghost" disabled={pending === 0} onClick={onReject}>{ta.ws.groupReject}</Button>
+          </>
+        )}
       </span>
     </div>
   );

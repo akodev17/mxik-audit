@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { resolveClient } from '@/lib/clients';
+import { canWrite, catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
@@ -28,7 +29,7 @@ export default async function CatalogWorkspacePage(
   const sp = await searchParams;
 
   // An id that is not this org's is indistinguishable from one that does not exist.
-  const catalog = await db.catalog.findFirst({ where: { id, orgId: user.orgId } });
+  const catalog = await db.catalog.findFirst({ where: { id, ...catalogScope(user) } });
   if (!catalog) notFound();
   const client = await resolveClient(user.orgId, catalog.clientId);
 
@@ -66,6 +67,7 @@ export default async function CatalogWorkspacePage(
         count={count}
         filter={filter}
         hintKey={user.demo ? `mxik.hint.${user.orgId}` : null}
+        readOnly={!canWrite(user)}
       />
     </div>
   );

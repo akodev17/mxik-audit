@@ -18,9 +18,11 @@ type Props = {
   onAccept: () => void;
   onReject: () => void;
   onUndo: () => void;
+  readOnly: boolean;
 };
 
-function Decision({ row, onAccept, onReject, onUndo, onSelect }: Pick<Props, 'row' | 'onAccept' | 'onReject' | 'onUndo' | 'onSelect'>) {
+function Decision({ row, onAccept, onReject, onUndo, onSelect, readOnly }: Pick<Props, 'row' | 'onAccept' | 'onReject' | 'onUndo' | 'onSelect' | 'readOnly'>) {
+  if (readOnly && row.decision === 'pending') return <span className="text-sm text-muted">{ta.ws.pending}</span>;
   if (row.decision === 'pending') {
     return (
       <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -38,13 +40,13 @@ function Decision({ row, onAccept, onReject, onUndo, onSelect }: Pick<Props, 'ro
       <StatusChip tone={row.decision === 'accepted' ? 'good' : 'neutral'}>
         {row.decision === 'accepted' ? ta.ws.accepted : ta.ws.rejected}
       </StatusChip>
-      <button type="button" onClick={onUndo} className="text-sm text-brand hover:underline">{ta.ws.undo}</button>
+      {readOnly ? null : <button type="button" onClick={onUndo} className="text-sm text-brand hover:underline">{ta.ws.undo}</button>}
     </span>
   );
 }
 
 /** One finding as a grid row. Memoised: a decision re-renders only its own row. */
-export const GridRowView = memo(function GridRowView({ row, active, compact, inGroup, onSelect, onAccept, onReject, onUndo }: Props) {
+export const GridRowView = memo(function GridRowView({ row, active, compact, inGroup, onSelect, onAccept, onReject, onUndo, readOnly }: Props) {
   const conf = confidenceView(row.confidence, row.barcode);
   const shownCode = row.chosenMxik ?? row.suggestedMxik;
   const shownName = row.chosenMxik ? row.chosenName : row.suggestedName;
@@ -78,7 +80,7 @@ export const GridRowView = memo(function GridRowView({ row, active, compact, inG
       <span className="px-3">
         {conf && !row.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : <span className="text-muted">—</span>}
       </span>
-      <span className="px-3"><Decision row={row} onAccept={onAccept} onReject={onReject} onUndo={onUndo} onSelect={onSelect} /></span>
+      <span className="px-3"><Decision row={row} onAccept={onAccept} onReject={onReject} onUndo={onUndo} onSelect={onSelect} readOnly={readOnly} /></span>
     </div>
   );
 });

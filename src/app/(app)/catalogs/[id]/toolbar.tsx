@@ -15,6 +15,7 @@ type Props = {
   onCompact: (v: boolean) => void;
   onGrouped: (v: boolean) => void;
   onAcceptSure: () => void;
+  readOnly: boolean;
 };
 
 function Segment({ options, value, onChange, label }: { options: [string, string][]; value: string; onChange: (v: string) => void; label: string }) {
@@ -33,7 +34,7 @@ function Segment({ options, value, onChange, label }: { options: [string, string
 }
 
 /** Density, grouping, review scope and bulk accept for the grid below. */
-export function Toolbar({ count, compact, grouped, pendingOnly, query, busy, onCompact, onGrouped, onAcceptSure }: Props) {
+export function Toolbar({ count, compact, grouped, pendingOnly, query, busy, onCompact, onGrouped, onAcceptSure, readOnly }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -60,7 +61,7 @@ export function Toolbar({ count, compact, grouped, pendingOnly, query, busy, onC
         {ta.ws.onlyUnreviewed}
       </label>
       <div className="ml-auto flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="secondary" disabled={busy} onClick={onAcceptSure}>{ta.ws.acceptAll}</Button>
+        {readOnly ? null : <Button size="sm" variant="secondary" disabled={busy} onClick={onAcceptSure}>{ta.ws.acceptAll}</Button>}
         <Segment label={ta.ws.grouped} value={grouped ? 'g' : 'f'} onChange={(v) => onGrouped(v === 'g')} options={[['f', ta.ws.flat], ['g', ta.ws.grouped]]} />
         <Segment label={ta.ws.density} value={compact ? 'c' : 'k'} onChange={(v) => onCompact(v === 'c')} options={[['k', ta.ws.comfortable], ['c', ta.ws.compact]]} />
       </div>

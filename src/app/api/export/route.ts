@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const requested = url.searchParams.get('catalog');
   const format = url.searchParams.get('format') === '1c' ? '1c' : 'original';
-  const catalog = requested ? await resolveCatalog(user.orgId, requested) : null;
+  const catalog = requested ? await resolveCatalog(user.orgId, requested, null, user.clientIds) : null;
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   // An unaudited catalogue would export every row as "risk_yoq".
   if (catalog.status !== 'ready') return NextResponse.json({ error: 'audit not finished' }, { status: 409 });

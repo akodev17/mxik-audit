@@ -192,6 +192,7 @@ model Organization {
   orders    Order[]
   catalogs  Catalog[]
   events    AuditEvent[]
+  invites   Invite[]
   /// Paid firm subscription runs until this moment; null = none.
   subscriptionUntil DateTime?
   /// Firm name printed on client PDF reports; null = the org name.
@@ -238,10 +239,55 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
+  /// admin manages the org; accountant works on assigned clients; viewer is read-only.
+  role         UserRole @default(admin)
+
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assignments ClientAssignment[]
 
   @@index([orgId])
   @@map("user")
+}
+
+enum UserRole {
+  admin
+  accountant
+  viewer
+
+  @@map("user_role")
+}
+
+/// Limits an accountant or viewer to these clients; none assigned = all of the org's.
+model ClientAssignment {
+  userId    String
+  clientId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@id([userId, clientId])
+  @@index([clientId])
+  @@map("client_assignment")
+}
+
+/// A link that lets one person join an org. Only the hash of the token is stored.
+model Invite {
+  id        String    @id @default(cuid())
+  orgId     String
+  tokenHash String    @unique
+  email     String?
+  role      UserRole
+  clientIds String[]
+  createdBy String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("invite")
 }
 
 enum CatalogStatus {
@@ -270,6 +316,7 @@ model Client {
   catalogs Catalog[]
   notifications Notification[]
   purchaseLists PurchaseList[]
+  assignments ClientAssignment[]
 
   @@index([orgId])
   @@map("client")

@@ -22,6 +22,7 @@ type Props = {
   onReject: () => void;
   onUndo: () => void;
   onChoose: (code: string, name: string) => void;
+  readOnly: boolean;
 };
 
 const SIGNAL_DOT = { good: 'bg-good', warn: 'bg-warn', bad: 'bg-danger', neutral: 'bg-line-strong' } as const;
@@ -35,8 +36,8 @@ function Meta({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function Body({ row, detail, onChoose }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose'] }) {
-  const pending = row.decision === 'pending';
+function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose']; readOnly: boolean }) {
+  const pending = row.decision === 'pending' && !readOnly;
   const conf = confidenceView(detail.confidence, row.barcode);
   const showRequest = detail.noSuggestion || row.decision === 'rejected';
   return (
@@ -102,7 +103,7 @@ function Body({ row, detail, onChoose }: { row: GridRow; detail: RowDetail; onCh
 }
 
 /** Right-hand detail panel for the active row; the grid stays usable behind it. */
-export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose }: Props) {
+export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose, readOnly }: Props) {
   const [detail, setDetail] = useState<RowDetail | null>(null);
   const [failed, setFailed] = useState(false);
   const id = row?.findingId ?? null;
@@ -123,7 +124,7 @@ export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose }
       open={row !== null}
       title={row ? `${ta.ws.colNo}${row.rowIndex + 1}` : ''}
       onClose={onClose}
-      footer={row ? (
+      footer={row && !readOnly ? (
         <div className="flex items-center gap-2">
           {pending ? (
             <>
@@ -139,7 +140,7 @@ export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose }
         </div>
       ) : null}
     >
-      {row && detail ? <Body row={row} detail={detail} onChoose={onChoose} /> : null}
+      {row && detail ? <Body row={row} detail={detail} onChoose={onChoose} readOnly={readOnly} /> : null}
       {row && !detail && !failed ? (
         <div className="space-y-3" aria-busy="true"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-40 w-full" /><Skeleton className="h-40 w-full" /></div>
       ) : null}

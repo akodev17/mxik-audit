@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ownedClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
+import { canSeeClient } from '@/lib/access';
 import { currentUser } from '@/lib/session';
 import { Page, Section } from '@/ui/page';
 import { DeletePurchaseButton } from './delete-button';
@@ -15,7 +16,7 @@ export default async function PurchasesPage({ params }: { params: Promise<{ id: 
   if (!user) redirect('/sign-in');
   const { id } = await params;
   const client = await ownedClient(user.orgId, id);
-  if (!client) notFound();
+  if (!client || !canSeeClient(user, client.id)) notFound();
   const lists = await db.purchaseList.findMany({
     where: { orgId: user.orgId, clientId: client.id },
     orderBy: { createdAt: 'desc' },

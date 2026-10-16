@@ -31,7 +31,7 @@ export function AppFrame({ shell, children }: { shell: ShellData; children: Reac
   return (
     <ToastProvider>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar collapsed={collapsed} onToggle={toggle} />
+        <Sidebar collapsed={collapsed} onToggle={toggle} canWrite={shell.canWrite} />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="no-print flex h-14 shrink-0 items-center gap-3 border-b border-line bg-base px-4">
             <ClientSwitcher clients={shell.clients} active={shell.activeClient} />

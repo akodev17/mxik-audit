@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { decodeCursor, readFilter, workspacePageIds } from '@/lib/workspace';
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const { id } = await params;
-  const catalog = await db.catalog.findFirst({ where: { id, orgId: user.orgId }, select: { id: true } });
+  const catalog = await db.catalog.findFirst({ where: { id, ...catalogScope(user) }, select: { id: true } });
   if (!catalog) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const q = request.nextUrl.searchParams;

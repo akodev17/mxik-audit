@@ -4,6 +4,7 @@ import { listCatalogs } from '@/lib/catalogs';
 import { clientHistory, ownedClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
+import { canSeeClient } from '@/lib/access';
 import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
 import { CatalogTable } from '@/ui/catalog-table';
@@ -17,7 +18,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   // Another org's client id is the same 404 as a missing one.
   const client = await ownedClient(user.orgId, id);
-  if (!client) notFound();
+  if (!client || !canSeeClient(user, client.id)) notFound();
 
   const [catalogs, history] = await Promise.all([
     listCatalogs(user.orgId, client.id),

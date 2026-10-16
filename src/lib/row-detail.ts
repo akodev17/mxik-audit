@@ -1,6 +1,7 @@
 // Everything the row drawer shows for one finding, scoped to the org.
 import { readEvidence } from '../core/match/evidence.js';
 import { codeDetails, readableLevel } from './code-details';
+import { catalogScope } from './access';
 import { db } from './db';
 import { findingRows } from './finding-view';
 import { rowSignals, type Signal } from './row-signals';
@@ -46,9 +47,9 @@ function toView(code: string, names: LevelNames | undefined): CodeView {
   return { code, name: names?.nameUz ?? '', live: names ? names.retiredAt === null : false, blocks };
 }
 
-export async function rowDetail(orgId: string, findingId: string): Promise<RowDetail | null> {
+export async function rowDetail(scope: { orgId: string; clientIds?: string[] | null }, findingId: string): Promise<RowDetail | null> {
   const f = await db.finding.findFirst({
-    where: { id: findingId, item: { catalog: { orgId } } },
+    where: { id: findingId, item: { catalog: catalogScope(scope) } },
     include: { item: { select: { id: true, rowIndex: true, rawName: true, existingMxik: true, unit: true, barcode: true } } },
   });
   if (!f) return null;

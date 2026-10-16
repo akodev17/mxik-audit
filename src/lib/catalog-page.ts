@@ -4,10 +4,10 @@ import { notFound } from 'next/navigation';
 import { listCatalogs, resolveCatalog } from './catalogs';
 import { resolveClient } from './clients';
 
-export async function catalogForPage(user: { orgId: string; clientId: string | null }, requested: string | undefined) {
+export async function catalogForPage(user: { orgId: string; clientId: string | null; clientIds?: string[] | null }, requested: string | undefined) {
   // Without an explicit catalogue, show the latest of the client being worked on.
   const active = await resolveClient(user.orgId, user.clientId);
-  const catalog = await resolveCatalog(user.orgId, requested, requested ? null : active.id);
+  const catalog = await resolveCatalog(user.orgId, requested, requested ? null : active.id, user.clientIds);
   // An id that is not this org's is indistinguishable from one that does not exist.
   if (requested && !catalog) notFound();
   const client = catalog?.clientId && catalog.clientId !== active.id

@@ -4,6 +4,7 @@
 // that it happened.
 import { normalizeName } from '../core/normalize/index.js';
 import { rerankCacheKey } from '../core/match/rerank-cache.js';
+import { catalogScope } from './access.js';
 import { db } from './db.js';
 import type { Actor, Result } from './decisions.js';
 import { RISKY_ITEM } from './risk.js';
@@ -19,9 +20,9 @@ export type CatalogSummary = {
 };
 
 /** The org's catalogues, optionally only one client's. */
-export async function listCatalogs(orgId: string, clientId?: string | null): Promise<CatalogSummary[]> {
+export async function listCatalogs(orgId: string, clientId?: string | null, scope?: string[] | null): Promise<CatalogSummary[]> {
   const catalogs = await db.catalog.findMany({
-    where: { orgId, ...(clientId ? { clientId } : {}) },
+    where: { orgId, ...(clientId ? { clientId } : scope ? { clientId: { in: scope } } : {}) },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true, clientId: true, filename: true, rowCount: true, status: true, createdAt: true,
@@ -35,15 +36,16 @@ export async function listCatalogs(orgId: string, clientId?: string | null): Pro
  * The catalogue a screen should show: the requested one if it belongs to the
  * org, otherwise none; else the latest of the given client (or of the org).
  */
-export async function resolveCatalog(orgId: string, requestedId?: string | null, clientId?: string | null) {
-  if (requestedId) return db.catalog.findFirst({ where: { id: requestedId, orgId } });
-  return db.catalog.findFirst({ where: { orgId, ...(clientId ? { clientId } : {}) }, orderBy: { createdAt: 'desc' } });
+export async function resolveCatalog(orgId: string, requestedId?: string | null, clientId?: string | null, scope?: string[] | null) {
+  const limit = scope ? { clientId: { in: scope } } : {};
+  if (requestedId) return db.catalog.findFirst({ where: { id: requestedId, orgId, ...limit } });
+  return db.catalog.findFirst({ where: { orgId, ...(clientId ? { clientId } : limit) }, orderBy: { createdAt: 'desc' } });
 }
 
 export type DeleteOutcome = { rows: number; findings: number; logEntries: number; cacheEntries: number };
 
 export async function deleteCatalog(actor: Actor, catalogId: string): Promise<Result<DeleteOutcome>> {
-  const catalog = await db.catalog.findFirst({ where: { id: catalogId, orgId: actor.orgId }, select: { id: true } });
+  const catalog = await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(actor) }, select: { id: true } });
   if (!catalog) return { ok: false, error: 'not found' };
 
   const items = await db.catalogItem.findMany({ where: { catalogId }, select: { rawName: true, unit: true } });

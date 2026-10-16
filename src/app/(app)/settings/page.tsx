@@ -9,10 +9,12 @@ import { ta } from '@/lib/i18n-app';
 import { currentUser } from '@/lib/session';
 import { telegramConfig } from '@/lib/telegram/config';
 import { listLinks } from '@/lib/telegram/linking';
-import { Badge } from '@/ui/badge';
 import { Page, Section } from '@/ui/page';
 import { PayButtons } from '@/ui/pay-buttons';
+import { isAdminRole } from '@/lib/access';
+import { mailEnabled } from '@/lib/mailer';
 import { BrandForm } from './brand-form';
+import { TeamPanel } from './team-panel';
 import { TelegramPanel } from './telegram-panel';
 
 export const metadata: Metadata = { title: `${t.settingsTitle} — ${t.appName}` };
@@ -21,11 +23,13 @@ export default async function SettingsPage() {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const tg = telegramConfig();
-  const [demo, links, org, team] = await Promise.all([
+  const [demo, links, org, team, clients, invites] = await Promise.all([
     isDemoOrg(user.orgId),
     listLinks(user.orgId),
     db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, subscriptionUntil: true } }),
-    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, createdAt: true } }),
+    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } } }),
+    db.client.findMany({ where: { orgId: user.orgId }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    db.invite.findMany({ where: { orgId: user.orgId, usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, expiresAt: true } }),
   ]);
   // The firm plan shows only once its price is set and a provider is configured.
   const billing = billingConfig();
@@ -37,7 +41,7 @@ export default async function SettingsPage() {
 
   return (
     <Page title={t.settingsTitle}>
-      {!demo ? (
+      {!demo && isAdminRole(user) ? (
         <Section title={t.brandSection} hint={t.brandHint}>
           <BrandForm brandName={org.brandName ?? ''} orgName={org.name} logoUrl={logoUrl} />
         </Section>
@@ -57,7 +61,7 @@ export default async function SettingsPage() {
       </Section>
 
       <Section title={ta.settings.plan}>
-        {plan && providers.length > 0 && !demo ? (
+        {plan && providers.length > 0 && !demo && isAdminRole(user) ? (
           <>
             <p className="text-sm text-muted">{t.subPrice(plan.price.toLocaleString('uz-UZ'))}</p>
             <p className="mb-3 text-sm font-medium">{active ? t.subUntil(active.toLocaleDateString('uz-UZ')) : t.subNone}</p>
@@ -68,17 +72,15 @@ export default async function SettingsPage() {
         )}
       </Section>
 
-      <Section title={ta.settings.team} hint={ta.settings.teamHint}>
-        <ul className="divide-y divide-line rounded-ctl border border-line">
-          {team.map((m) => (
-            <li key={m.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-              <span className="truncate">{m.email}</span>
-              {m.email === user.email ? <Badge tone="brand">{ta.settings.you}</Badge> : null}
-            </li>
-          ))}
-        </ul>
-        {team.length <= 1 ? <p className="mt-2 text-sm text-muted">{ta.settings.teamEmpty}</p> : null}
-      </Section>
+      {isAdminRole(user) && !demo ? (
+        <Section title={ta.settings.team} hint={ta.settings.teamHint}>
+          <TeamPanel
+            members={team.map((m) => ({ id: m.id, email: m.email, role: m.role, clientIds: m.assignments.map((a) => a.clientId), you: m.id === user.userId }))}
+            invites={invites.map((i) => ({ id: i.id, email: i.email, role: i.role, expires: i.expiresAt.toLocaleDateString('uz-UZ') }))}
+            clients={clients} mailOn={mailEnabled()}
+          />
+        </Section>
+      ) : null}
     </Page>
   );
 }

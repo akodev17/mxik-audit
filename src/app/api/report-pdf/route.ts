@@ -1,5 +1,6 @@
 // Client-ready PDF of one of the org's audited catalogues.
 import { NextResponse } from 'next/server';
+import { catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { reportPdfData } from '@/lib/pdf/report-data';
 import { buildReportPdf } from '@/lib/pdf/report-pdf';
@@ -13,6 +14,9 @@ export async function GET(request: Request) {
   const catalogId = new URL(request.url).searchParams.get('catalog');
   if (!catalogId) return NextResponse.json({ error: 'no catalog' }, { status: 400 });
 
+  if (!(await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(user) }, select: { id: true } }))) {
+    return NextResponse.json({ error: 'no catalog' }, { status: 404 });
+  }
   // Another org's catalogue is the same 404 as a missing or unfinished one.
   const data = await reportPdfData(user.orgId, catalogId);
   if (!data) return NextResponse.json({ error: 'no catalog' }, { status: 404 });

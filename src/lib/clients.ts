@@ -58,10 +58,10 @@ export type ClientSummary = ClientRef & {
 
 const TREND_LENGTH = 5;
 
-export async function listClients(orgId: string): Promise<ClientSummary[]> {
+export async function listClients(orgId: string, scope?: string[] | null): Promise<ClientSummary[]> {
   await defaultClient(orgId);
   const clients = await db.client.findMany({
-    where: { orgId },
+    where: { orgId, ...(scope ? { id: { in: scope } } : {}) },
     orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     select: {
       id: true, name: true, isDefault: true,

@@ -213,6 +213,10 @@ without them no payment button appears. Prices: `src/lib/billing/plans.ts`
 A paid order writes `billing.paid` to the audit log; orders and provider
 transactions are in the `order` and `payment_transaction` tables.
 
+## 7c. Team, email and roles (optional)
+
+Members join through invite links created in Sozlamalar. To also email the link set `SMTP_URL` and `MAIL_FROM`; without them the link is only shown on screen. `APP_URL` makes links absolute. Roles: admin (everything), accountant (works on assigned clients), viewer (read-only). An accountant or viewer with no assigned clients sees every client of the org.
+
 ## 8. Operating it
 
 | Task | Command |

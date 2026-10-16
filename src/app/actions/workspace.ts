@@ -9,5 +9,5 @@ export async function loadRowDetail(findingId: unknown): Promise<RowDetail | nul
   const user = await currentUser();
   const id = z.string().min(1).safeParse(findingId);
   if (!user || !id.success) return null;
-  return rowDetail(user.orgId, id.data);
+  return rowDetail(user, id.data);
 }
