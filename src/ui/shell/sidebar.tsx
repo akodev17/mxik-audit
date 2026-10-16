@@ -4,7 +4,7 @@ import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cx } from '../cx';
-import { IconGear, IconTable, IconUpload, IconUsers, IconMenu, IconBook, IconHome } from '../icons';
+import { IconGear, IconTable, IconUpload, IconUsers, IconMenu, IconBook, IconHome, IconList } from '../icons';
 
 type Props = { collapsed: boolean; onToggle: () => void; canWrite: boolean };
 
@@ -17,6 +17,7 @@ export function Sidebar({ collapsed, onToggle, canWrite }: Props) {
     { href: '/catalogs', label: ta.nav.catalogs, icon: <IconTable /> },
     { href: '/upload', label: ta.nav.upload, icon: <IconUpload /> },
     { href: '/dictionary', label: ta.nav.dictionary, icon: <IconBook /> },
+    { href: '/activity', label: ta.nav.activity, icon: <IconList /> },
     { href: '/settings', label: ta.nav.settings, icon: <IconGear /> },
   ];
   return (

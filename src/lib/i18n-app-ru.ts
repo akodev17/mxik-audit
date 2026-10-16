@@ -5,7 +5,7 @@ import type { AppDict } from './i18n-app';
 const n = (v: number): string => v.toLocaleString('ru-RU');
 
 export const taRu: AppDict = {
-  nav: { dashboard: 'Главная', clients: 'Клиенты', catalogs: 'Каталоги', upload: 'Загрузка', dictionary: 'Словарь', settings: 'Настройки' },
+  nav: { dashboard: 'Главная', clients: 'Клиенты', catalogs: 'Каталоги', upload: 'Загрузка', dictionary: 'Словарь', activity: 'Действия', settings: 'Настройки' },
   shell: {
     collapse: 'Свернуть боковую панель',
     expand: 'Развернуть боковую панель',
@@ -432,6 +432,14 @@ export const taRu: AppDict = {
       'account.created': 'Аккаунт создан',
       'billing.order_created': 'Создан заказ на оплату',
       'billing.paid': 'Оплата получена',
+      'sales.uploaded': 'Файл продаж загружен',
+      'cheques.uploaded': 'Список ошибочных кодов из чеков загружен',
+      'account.exported': 'Данные аккаунта экспортированы',
+      'apikey.created': 'Создан API-ключ',
+      'apikey.revoked': 'API-ключ отозван',
+      'security.2fa_enabled': 'Двухэтапная защита включена',
+      'security.2fa_disabled': 'Двухэтапная защита отключена',
+      'security.session_revoked': 'Сеанс завершён',
       'reminder.sent': 'Отправлено напоминание о ежемесячной проверке',
       'schedule.set': 'Изменено расписание ежемесячной проверки',
     },
@@ -460,5 +468,28 @@ export const taRu: AppDict = {
     sort: 'Порядок:',
     sortRisk: 'По риску',
     sortRow: 'Как в файле',
+  },
+  log: {
+    title: 'Журнал действий',
+    hint: 'Решения, загрузки, экспорты, ссылки для клиентов, приглашения и обновления классификатора. Записи не удаляются.',
+    client: 'Клиент',
+    user: 'Пользователь',
+    type: 'Тип',
+    from: 'С',
+    to: 'По',
+    any: 'Все',
+    apply: 'Применить',
+    when: 'Время',
+    what: 'Действие',
+    file: 'Каталог',
+    empty: 'По этому фильтру записей нет',
+    emptyHint: 'Измените фильтры или расширьте даты.',
+    newer: 'Новее',
+    older: 'Старее',
+    openAll: 'Все действия',
+    types: {
+      all: 'Все', decisions: 'Решения', uploads: 'Загрузки', exports: 'Экспорты', share: 'Ссылки для клиентов',
+      team: 'Команда и аккаунт', classifier: 'Классификатор', dictionary: 'Словарь', other: 'Другое',
+    },
   },
 };

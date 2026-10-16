@@ -13,7 +13,7 @@ import { RememberClient } from '../client-forms';
 import { ActivityForm } from './activity-form';
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
-  const { t } = await getI18n();
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { id } = await params;
@@ -45,6 +45,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       </Section>
 
       <Section title={t.clientHistory}>
+        <Link href={`/activity?client=${client.id}`} className="-mt-2 mb-3 inline-block text-sm text-brand hover:underline">{ta.log.openAll}</Link>
         {history.length === 0 ? (
           <p className="text-sm text-muted">{t.clientHistoryEmpty}</p>
         ) : (

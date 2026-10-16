@@ -19,3 +19,4 @@ export const IconCheck = () => <Svg><path d="m4 10.5 4 4 8-9" /></Svg>;
 export const IconBook = () => <Svg><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v13H5.5A1.5 1.5 0 0 0 4 17.5v-13Z" /><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H16v1.5H5.5" /></Svg>;
 export const IconHome = () => <Svg><path d="M3 9.5 10 3l7 6.5V17H3V9.5Z" /><path d="M8 17v-5h4v5" /></Svg>;
 export const IconComment = () => <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden><path d="M3 4.5h14v9H8l-4 3v-3H3v-9Z" /></svg>;
+export const IconList = () => <Svg><path d="M7 5.5h10M7 10h10M7 14.5h10" /><circle cx="3.8" cy="5.5" r="0.9" /><circle cx="3.8" cy="10" r="0.9" /><circle cx="3.8" cy="14.5" r="0.9" /></Svg>;

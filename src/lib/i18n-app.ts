@@ -4,7 +4,7 @@ import { taRu } from './i18n-app-ru';
 import type { Locale } from './i18n';
 
 export const taUz = {
-  nav: { dashboard: 'Bosh sahifa', clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', dictionary: 'Lugʻat', settings: 'Sozlamalar' },
+  nav: { dashboard: 'Bosh sahifa', clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', dictionary: 'Lugʻat', activity: 'Harakatlar', settings: 'Sozlamalar' },
   shell: {
     collapse: 'Yon panelni yigʻish',
     expand: 'Yon panelni ochish',
@@ -431,6 +431,14 @@ export const taUz = {
       'account.created': 'Hisob yaratildi',
       'billing.order_created': 'Toʻlov buyurtmasi yaratildi',
       'billing.paid': 'Toʻlov qabul qilindi',
+      'sales.uploaded': 'Sotuv fayli yuklandi',
+      'cheques.uploaded': 'Cheklardagi xato kodlar roʻyxati yuklandi',
+      'account.exported': 'Hisob maʼlumotlari eksport qilindi',
+      'apikey.created': 'API kaliti yaratildi',
+      'apikey.revoked': 'API kaliti bekor qilindi',
+      'security.2fa_enabled': 'Ikki bosqichli himoya yoqildi',
+      'security.2fa_disabled': 'Ikki bosqichli himoya oʻchirildi',
+      'security.session_revoked': 'Seans tugatildi',
       'reminder.sent': 'Oylik tekshiruv eslatmasi yuborildi',
       'schedule.set': 'Oylik tekshiruv jadvali oʻzgartirildi',
     } as Record<string, string>,
@@ -459,6 +467,29 @@ export const taUz = {
     sort: 'Tartib:',
     sortRisk: 'Xavfi boʻyicha',
     sortRow: 'Fayldagi tartib',
+  },
+  log: {
+    title: 'Harakatlar jurnali',
+    hint: 'Qarorlar, yuklashlar, eksportlar, mijoz havolalari, takliflar va tasniflagich yangilanishlari. Yozuvlar oʻchirilmaydi.',
+    client: 'Mijoz',
+    user: 'Foydalanuvchi',
+    type: 'Turi',
+    from: 'Dan',
+    to: 'Gacha',
+    any: 'Hammasi',
+    apply: 'Qoʻllash',
+    when: 'Vaqt',
+    what: 'Harakat',
+    file: 'Katalog',
+    empty: 'Bu filtr boʻyicha yozuv yoʻq',
+    emptyHint: 'Filtrlarni oʻzgartiring yoki sanani kengaytiring.',
+    newer: 'Yangiroq',
+    older: 'Eskiroq',
+    openAll: 'Barcha harakatlar',
+    types: {
+      all: 'Hammasi', decisions: 'Qarorlar', uploads: 'Yuklashlar', exports: 'Eksportlar', share: 'Mijoz havolalari',
+      team: 'Jamoa va hisob', classifier: 'Tasniflagich', dictionary: 'Lugʻat', other: 'Boshqa',
+    } as Record<'all' | 'decisions' | 'uploads' | 'exports' | 'share' | 'team' | 'classifier' | 'dictionary' | 'other', string>,
   },
 };
 
