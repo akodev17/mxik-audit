@@ -1,6 +1,7 @@
 // Findings as screens show them: each code with its classifier meaning, and the
 // evidence behind the suggestion. One details query for the whole page.
 import { evidenceFor, readEvidence, type MatchEvidence } from '../core/match/evidence.js';
+import { groupKeyOf } from '../core/match/group-key.js';
 import { codeDetails, toCodeInfo, type CodeDetail, type CodeInfo } from './code-details.js';
 
 export type Alternative = {
@@ -32,6 +33,8 @@ export type FindingRow = {
   decision: 'pending' | 'accepted' | 'rejected';
   chosenMxik: string | null;
   decisionEventId: string | null;
+  /** Rows sharing a key are reviewed as one group; null = reviewed alone. */
+  groupKey: string | null;
 };
 
 export type FindingInput = {
@@ -46,6 +49,7 @@ export type FindingInput = {
   decision: 'pending' | 'accepted' | 'rejected';
   chosenMxik: string | null;
   decisionEventId: string | null;
+  groupSplit?: boolean;
   item: { id: string; rowIndex: number; rawName: string; existingMxik: string | null; unit: string | null };
 };
 
@@ -115,6 +119,9 @@ export async function findingRows(findings: readonly FindingInput[]): Promise<{ 
     decision: f.decision,
     chosenMxik: f.chosenMxik,
     decisionEventId: f.decisionEventId,
+    groupKey: groupKeyOf({
+      productName: f.item.rawName, type: f.type, suggestedMxik: f.suggestedMxik, split: f.groupSplit === true,
+    }),
   }));
   return { rows, details };
 }

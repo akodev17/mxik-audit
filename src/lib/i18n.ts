@@ -160,6 +160,15 @@ export type Dict = {
   reviewConfidence: string;
   reviewProgress: (done: number, total: number) => string;
   reviewNothingToReview: string;
+  groupTitle: (n: number) => string;
+  groupShow: string;
+  groupHide: string;
+  groupCurrentMixed: string;
+  groupAccept: (n: number) => string;
+  groupReject: (n: number) => string;
+  groupDecided: (accepted: number, rejected: number) => string;
+  groupSplit: string;
+  groupCount: (n: number) => string;
 
   // export
   exportTitle: string;
@@ -354,6 +363,15 @@ export const uz: Dict = {
   reviewConfidence: 'Ishonch',
   reviewProgress: (done, total) => `${done} / ${total} hal qilindi`,
   reviewNothingToReview: 'Koʻrib chiqish uchun pozitsiya qolmadi.',
+  groupTitle: (n) => `Oʻxshash tovarlar: ${n} ta qator`,
+  groupShow: 'Qatorlarni koʻrsatish',
+  groupHide: 'Qatorlarni yashirish',
+  groupCurrentMixed: 'har bir qatorda oʻzi',
+  groupAccept: (n) => `${n} ta qatorni qabul qilish`,
+  groupReject: (n) => `${n} ta qatorni rad etish`,
+  groupDecided: (accepted, rejected) => `${accepted} qabul qilindi · ${rejected} rad etildi`,
+  groupSplit: 'Guruhdan ajratish',
+  groupCount: (n) => `${n} ta guruh`,
 
   exportTitle: 'Eksport',
   exportHint: 'Fayl asl tuzilishida qaytariladi, qabul qilingan kodlar qoʻyilgan holda.',

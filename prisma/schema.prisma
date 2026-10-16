@@ -285,6 +285,8 @@ model Finding {
   /// True when this code existed in an earlier snapshot and has since vanished.
   /// Carries the archive signal until there is enough history to surface it.
   wasRetired    Boolean     @default(false)
+  /// The reviewer took this row out of its group of similar rows.
+  groupSplit    Boolean     @default(false)
   decision      Decision    @default(pending)
   /// Code the reviewer actually chose, which may differ from suggestedMxik.
   chosenMxik    String?

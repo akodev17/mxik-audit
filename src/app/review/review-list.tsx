@@ -1,21 +1,43 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { acceptAllAbove, decide, lookupCodes, undo, type ClassifierHit } from '@/app/actions/review';
-import { ConfidenceBadge, TypeBadge } from '@/components/chrome';
-import { CodeCell } from '@/components/code-cell';
-import { BarcodeBadge, WhyThisCode } from '@/components/evidence';
-import type { FindingRow } from '@/lib/finding-view';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { acceptAllAbove, decide, decideGroup, splitRow, undo } from '@/app/actions/review';
 import { t } from '@/lib/i18n';
+import { GroupHeader } from './review-group';
+import { RowView, type ReviewRow } from './review-row';
 
-export type ReviewRow = FindingRow;
+export type { ReviewRow } from './review-row';
 
-const DECISION_LABEL = {
-  pending: t.reviewPending,
-  accepted: t.reviewAccepted,
-  rejected: t.reviewRejected,
-} as const;
+type Entry =
+  | { kind: 'row'; row: ReviewRow; inGroup: boolean }
+  | { kind: 'group'; key: string; rows: ReviewRow[] };
+
+/**
+ * Rows sharing a group key collapse into one group entry at the first
+ * member's position; expanded groups list their members right after it.
+ */
+function entriesOf(rows: readonly ReviewRow[], expanded: ReadonlySet<string>): Entry[] {
+  const members = new Map<string, ReviewRow[]>();
+  for (const row of rows) {
+    if (!row.groupKey) continue;
+    members.set(row.groupKey, [...(members.get(row.groupKey) ?? []), row]);
+  }
+  const out: Entry[] = [];
+  const placed = new Set<string>();
+  for (const row of rows) {
+    const group = row.groupKey ? members.get(row.groupKey) : undefined;
+    if (!row.groupKey || !group || group.length < 2) {
+      out.push({ kind: 'row', row, inGroup: false });
+      continue;
+    }
+    if (placed.has(row.groupKey)) continue;
+    placed.add(row.groupKey);
+    out.push({ kind: 'group', key: row.groupKey, rows: group });
+    if (expanded.has(row.groupKey)) out.push(...group.map((r) => ({ kind: 'row' as const, row: r, inGroup: true })));
+  }
+  return out;
+}
 
 export function ReviewList({ catalogId, rows: initial }: { catalogId: string; rows: ReviewRow[] }) {
   const router = useRouter();
@@ -23,8 +45,9 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
   const [cursor, setCursor] = useState(0);
   const [busy, startBusy] = useTransition();
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
-  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
+  const entryRefs = useRef<(HTMLTableRowElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // A server refresh (after a decision, undo or bulk accept) brings fresh row
@@ -42,6 +65,7 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
     });
   }, [initial]);
 
+  const entries = useMemo(() => entriesOf(rows, expanded), [rows, expanded]);
   const decided = rows.filter((r) => r.decision !== 'pending').length;
 
   const apply = useCallback((findingId: string, decision: 'accepted' | 'rejected', chosen?: string) => {
@@ -65,6 +89,35 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
     });
   }, [rows, router]);
 
+  const applyGroup = useCallback((group: readonly ReviewRow[], decision: 'accepted' | 'rejected') => {
+    const ids = group.filter((r) => r.decision === 'pending').map((r) => r.findingId);
+    if (ids.length === 0) return;
+    const before = rows;
+    const targets = new Set(ids);
+    setRows((current) => current.map((r) => (targets.has(r.findingId)
+      ? { ...r, decision, chosenMxik: decision === 'accepted' ? r.suggestedMxik : null }
+      : r)));
+    startBusy(async () => {
+      const result = await decideGroup({ findingIds: ids, decision });
+      if (!result.ok) {
+        setRows(before);
+        return;
+      }
+      const events = new Map(result.decided.map((d) => [d.findingId, d.eventId]));
+      // Rows the server refused (decided elsewhere meanwhile) go back to their state on refresh.
+      setRows((current) => current.map((r) => (events.has(r.findingId) ? { ...r, decisionEventId: events.get(r.findingId) ?? null } : r)));
+      router.refresh();
+    });
+  }, [rows, router]);
+
+  const split = useCallback((findingId: string) => {
+    setRows((current) => current.map((r) => (r.findingId === findingId ? { ...r, groupKey: null } : r)));
+    startBusy(async () => {
+      await splitRow(findingId);
+      router.refresh();
+    });
+  }, [router]);
+
   const revert = useCallback((payload: { eventId: string; findingId?: string } | { lastInCatalog: string }) => {
     setNotice(null);
     startBusy(async () => {
@@ -81,9 +134,18 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
     });
   }, [router]);
 
+  const toggle = useCallback((key: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   const move = useCallback((delta: number) => {
-    setCursor((c) => Math.max(0, Math.min(rows.length - 1, c + delta)));
-  }, [rows.length]);
+    setCursor((c) => Math.max(0, Math.min(entries.length - 1, c + delta)));
+  }, [entries.length]);
 
   // j/k/Enter/r. Accountants process hundreds of rows; mouse-only is rejected.
   //
@@ -105,18 +167,20 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
       const container = containerRef.current;
       if (!container || !container.contains(document.activeElement)) return;
 
-      const row = rows[cursor];
+      const entry = entries[cursor];
       switch (event.key) {
         case 'j': case 'ArrowDown': event.preventDefault(); move(1); break;
         case 'k': case 'ArrowUp': event.preventDefault(); move(-1); break;
         case 'Enter':
-          if (row?.suggestedMxik) { event.preventDefault(); apply(row.findingId, 'accepted'); move(1); }
+          if (entry?.kind === 'group') { event.preventDefault(); applyGroup(entry.rows, 'accepted'); move(1); }
+          else if (entry?.row.suggestedMxik) { event.preventDefault(); apply(entry.row.findingId, 'accepted'); move(1); }
           break;
         case 'r':
-          if (row) { event.preventDefault(); apply(row.findingId, 'rejected'); move(1); }
+          if (entry?.kind === 'group') { event.preventDefault(); applyGroup(entry.rows, 'rejected'); move(1); }
+          else if (entry) { event.preventDefault(); apply(entry.row.findingId, 'rejected'); move(1); }
           break;
         case 'o':
-          if (row) { event.preventDefault(); setPickerFor(row.findingId); }
+          if (entry?.kind === 'row') { event.preventDefault(); setPickerFor(entry.row.findingId); }
           break;
         case 'u':
           event.preventDefault();
@@ -128,10 +192,10 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cursor, rows, move, apply, revert, catalogId]);
+  }, [cursor, entries, move, apply, applyGroup, revert, catalogId]);
 
   useEffect(() => {
-    rowRefs.current[cursor]?.scrollIntoView({ block: 'nearest' });
+    entryRefs.current[cursor]?.scrollIntoView({ block: 'nearest' });
   }, [cursor]);
 
   // Focus the list on mount so a reviewer can start typing j/k straight away
@@ -157,10 +221,19 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
     return <p className="text-ink-soft">{t.reviewNothingToReview}</p>;
   }
 
+  const activate = (index: number) => () => {
+    setCursor(index);
+    containerRef.current?.focus({ preventScroll: true });
+  };
+  const groups = entries.filter((e) => e.kind === 'group').length;
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-ink-soft tnum">{t.reviewProgress(decided, rows.length)}</p>
+        <p className="text-sm text-ink-soft tnum">
+          {t.reviewProgress(decided, rows.length)}
+          {groups > 0 ? <span className="ml-2 text-ink-faint">· {t.groupCount(groups)}</span> : null}
+        </p>
         <div className="flex flex-wrap items-center gap-4">
           <span className="text-xs text-ink-faint">{t.reviewKeyboardHint}</span>
           <button
@@ -200,175 +273,37 @@ export function ReviewList({ catalogId, rows: initial }: { catalogId: string; ro
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr
-                key={row.findingId}
-                ref={(el) => { rowRefs.current[index] = el; }}
-                data-active={index === cursor}
-                onClick={() => { setCursor(index); containerRef.current?.focus({ preventScroll: true }); }}
-                className="border-b border-rule align-top last:border-0"
-              >
-                <td className="px-3 py-2 text-ink-faint tnum">{row.rowIndex + 1}</td>
-
-                <td className="max-w-sm px-3 py-2">
-                  <span className="block font-medium">{row.productName}</span>
-                  <span className="mt-0.5 flex items-center gap-2">
-                    <TypeBadge type={row.type} severity={row.severity} />
-                    {row.unit ? <span className="text-xs text-ink-faint">{row.unit}</span> : null}
-                  </span>
-                  <span className="mt-1 block text-xs text-ink-faint">{row.reason}</span>
-                </td>
-
-                <td className="max-w-xs px-3 py-2">
-                  <CodeCell code={row.currentMxik} info={row.currentInfo} empty={t.reviewNoCode} />
-                </td>
-
-                <td className="max-w-md px-3 py-2">
-                  {row.suggestedMxik ? (
-                    <>
-                      {row.chosenMxik && row.chosenMxik !== row.suggestedMxik
-                        ? <CodeCell code={row.chosenMxik} info={row.chosenInfo} />
-                        : <CodeCell code={row.suggestedMxik} info={row.suggestedInfo} />}
-                      {row.suggestedInfo?.unit ? (
-                        <span className="block text-xs text-ink-faint">
-                          {t.reviewBoundUnit}: {row.suggestedInfo.unit}
-                        </span>
-                      ) : null}
-                      {row.evidence?.barcode ? <span className="mt-1 block"><BarcodeBadge /></span> : null}
-                      <WhyThisCode
-                        evidence={row.evidence} confidence={row.confidence}
-                        rowUnit={row.unit} codeUnit={row.suggestedInfo?.unit ?? null}
-                      />
-                      {row.alternatives.length > 1 ? (
-                        <details className="mt-1">
-                          <summary className="cursor-pointer text-xs text-ink-soft">
-                            {t.reviewAlternatives} ({row.alternatives.length - 1})
-                          </summary>
-                          <ul className="mt-1 space-y-1.5">
-                            {row.alternatives.slice(1).map((alt) => (
-                              <li key={alt.code} className="flex items-start gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => apply(row.findingId, 'accepted', alt.code)}
-                                  disabled={alt.info !== null && !alt.info.live}
-                                  className="code shrink-0 text-xs underline hover:text-ink disabled:no-underline disabled:opacity-50"
-                                >
-                                  {alt.code}
-                                </button>
-                                <span className="text-xs text-ink-faint">
-                                  {alt.info?.name ?? alt.name}
-                                  {alt.info?.shortPath ? <span className="block" title={alt.info.fullPath}>{alt.info.shortPath}</span> : null}
-                                </span>
-                                <ConfidenceBadge confidence={alt.confidence} barcode={alt.evidence?.barcode} />
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      ) : null}
-                    </>
-                  ) : (
-                    <span className="text-xs text-ink-faint">—</span>
-                  )}
-                  {pickerFor === row.findingId ? (
-                    <CodePicker
-                      onPick={(code) => { apply(row.findingId, 'accepted', code); setPickerFor(null); }}
-                      onClose={() => setPickerFor(null)}
-                    />
-                  ) : null}
-                </td>
-
-                <td className="px-3 py-2"><ConfidenceBadge confidence={row.confidence} barcode={row.evidence?.barcode} /></td>
-
-                <td className="px-3 py-2">
-                  {row.decision === 'pending' ? (
-                    <div className="flex flex-col gap-1">
-                      <button
-                        type="button" disabled={!row.suggestedMxik || row.suggestedInfo?.live === false}
-                        onClick={() => apply(row.findingId, 'accepted')}
-                        className="whitespace-nowrap bg-ink px-2 py-1 text-xs text-paper disabled:opacity-40"
-                      >
-                        {t.reviewAccept}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => apply(row.findingId, 'rejected')}
-                        className="whitespace-nowrap border border-rule px-2 py-1 text-xs hover:bg-paper-tint"
-                      >
-                        {t.reviewReject}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPickerFor(row.findingId)}
-                        className="whitespace-nowrap text-xs text-ink-soft underline"
-                      >
-                        {t.reviewPickOther}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-start gap-1">
-                      <span className={`whitespace-nowrap text-xs ${row.decision === 'accepted' ? 'text-ok' : 'text-ink-faint'}`}>
-                        {DECISION_LABEL[row.decision]}
-                      </span>
-                      {row.decisionEventId ? (
-                        <button
-                          type="button" disabled={busy}
-                          onClick={() => revert({ eventId: row.decisionEventId ?? '', findingId: row.findingId })}
-                          className="whitespace-nowrap text-xs text-ink-soft underline hover:text-ink disabled:opacity-50"
-                        >
-                          {t.reviewUndo}
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {entries.map((entry, index) => (entry.kind === 'group' ? (
+              <GroupHeader
+                key={`g:${entry.key}`}
+                rows={entry.rows}
+                active={index === cursor}
+                busy={busy}
+                expanded={expanded.has(entry.key)}
+                onActivate={activate(index)}
+                onToggle={() => toggle(entry.key)}
+                onDecide={(decision) => applyGroup(entry.rows, decision)}
+                rowRef={(el) => { entryRefs.current[index] = el; }}
+              />
+            ) : (
+              <RowView
+                key={entry.row.findingId}
+                row={entry.row}
+                active={index === cursor}
+                busy={busy}
+                inGroup={entry.inGroup}
+                pickerOpen={pickerFor === entry.row.findingId}
+                onActivate={activate(index)}
+                onDecide={(decision, chosen) => apply(entry.row.findingId, decision, chosen)}
+                onUndo={() => revert({ eventId: entry.row.decisionEventId ?? '', findingId: entry.row.findingId })}
+                onPicker={(open) => setPickerFor(open ? entry.row.findingId : null)}
+                onSplit={() => split(entry.row.findingId)}
+                rowRef={(el) => { entryRefs.current[index] = el; }}
+              />
+            )))}
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-/** Free-text classifier search, for when none of the suggestions is right. */
-function CodePicker({ onPick, onClose }: { onPick: (code: string) => void; onClose: () => void }) {
-  const [query, setQuery] = useState('');
-  const [hits, setHits] = useState<ClassifierHit[]>([]);
-  const [searching, startSearch] = useTransition();
-
-  useEffect(() => {
-    if (query.trim().length < 2) { setHits([]); return; }
-    const timer = setTimeout(() => {
-      startSearch(async () => setHits(await lookupCodes(query)));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  return (
-    <div className="mt-2 border border-ink bg-paper p-2">
-      <input
-        autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-        placeholder={t.reviewPickOther}
-        className="w-full border border-rule px-2 py-1 text-sm focus:border-ink focus:outline-none"
-      />
-      {searching ? <p className="mt-1 text-xs text-ink-faint">{t.loading}</p> : null}
-      <ul className="mt-1 max-h-56 overflow-y-auto">
-        {hits.map((hit) => (
-          <li key={hit.code}>
-            <button
-              type="button" onClick={() => onPick(hit.code)}
-              className="w-full px-1 py-1 text-left hover:bg-paper-tint"
-            >
-              <span className="code block text-xs">{hit.code}</span>
-              <span className="block text-xs text-ink-soft">{hit.name}</span>
-              {hit.path ? <span className="block text-xs text-ink-faint">{hit.path}</span> : null}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <button type="button" onClick={onClose} className="mt-1 text-xs text-ink-soft underline">
-        {t.back}
-      </button>
     </div>
   );
 }

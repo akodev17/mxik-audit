@@ -6,7 +6,7 @@ import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { searchClassifier } from '@/lib/audit-runner';
 import { BANDS } from '@/core/match/score';
-import { bulkAccept, recordDecision, undoDecision, undoLast } from '@/lib/decisions';
+import { bulkAccept, recordDecision, recordGroupDecision, splitFromGroup, undoDecision, undoLast } from '@/lib/decisions';
 
 const DecideInput = z.object({
   findingId: z.string().min(1),
@@ -34,6 +34,37 @@ export async function decide(payload: unknown): Promise<DecideResult> {
   if (!result.ok) return { ok: false, error: t.errorGeneric };
   refresh();
   return result;
+}
+
+const GroupInput = z.object({
+  findingIds: z.array(z.string().min(1)).min(1).max(5000),
+  decision: z.enum(['accepted', 'rejected']),
+});
+
+export type GroupResult = { ok: true; decided: { findingId: string; eventId: string }[] } | { ok: false; error: string };
+
+/** One accept/reject for a group of similar rows; one audit event per row. */
+export async function decideGroup(payload: unknown): Promise<GroupResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: t.errorGeneric };
+  const parsed = GroupInput.safeParse(payload);
+  if (!parsed.success) return { ok: false, error: t.errorGeneric };
+
+  const result = await recordGroupDecision(user, parsed.data);
+  if (!result.ok) return { ok: false, error: t.errorGeneric };
+  refresh();
+  return result;
+}
+
+/** Takes a row out of its group so it can be decided on its own. */
+export async function splitRow(findingId: unknown): Promise<{ ok: boolean }> {
+  const user = await currentUser();
+  if (!user) return { ok: false };
+  const id = z.string().min(1).safeParse(findingId);
+  if (!id.success) return { ok: false };
+  const result = await splitFromGroup(user, id.data);
+  if (result.ok) refresh();
+  return { ok: result.ok };
 }
 
 const BulkInput = z.object({

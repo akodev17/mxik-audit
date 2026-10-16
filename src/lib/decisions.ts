@@ -21,7 +21,7 @@ async function isLiveCode(code: string): Promise<boolean> {
 
 export async function recordDecision(
   actor: Actor,
-  input: { findingId: string; decision: 'accepted' | 'rejected'; chosenMxik?: string | null },
+  input: { findingId: string; decision: 'accepted' | 'rejected'; chosenMxik?: string | null; groupSize?: number },
 ): Promise<Result<{ eventId: string }>> {
   const finding = await db.finding.findFirst({
     where: { id: input.findingId, item: { catalog: { orgId: actor.orgId } } },
@@ -51,6 +51,7 @@ export async function recordDecision(
             suggestedMxik: finding.suggestedMxik,
             chosenMxik: chosen,
             overrodeSuggestion: chosen !== null && chosen !== finding.suggestedMxik,
+            ...(input.groupSize ? { groupSize: input.groupSize } : {}),
           },
         },
       });
@@ -69,6 +70,41 @@ export async function recordDecision(
   } catch (error) {
     return fail(error instanceof Error ? error.message : 'failed');
   }
+}
+
+/**
+ * One decision for a group of similar rows. Each row still gets its own audit
+ * event, so every row's history reads exactly as if decided alone.
+ */
+export async function recordGroupDecision(
+  actor: Actor,
+  input: { findingIds: string[]; decision: 'accepted' | 'rejected' },
+): Promise<Result<{ decided: { findingId: string; eventId: string }[] }>> {
+  const decided: { findingId: string; eventId: string }[] = [];
+  for (const findingId of input.findingIds) {
+    const result = await recordDecision(actor, { findingId, decision: input.decision, groupSize: input.findingIds.length });
+    if (result.ok) decided.push({ findingId, eventId: result.eventId });
+  }
+  return decided.length > 0 ? { ok: true, decided } : fail('nothing decided');
+}
+
+/** Takes one row out of its group, so it is reviewed on its own. */
+export async function splitFromGroup(actor: Actor, findingId: string): Promise<Result> {
+  const finding = await db.finding.findFirst({
+    where: { id: findingId, item: { catalog: { orgId: actor.orgId } } },
+    select: { id: true, item: { select: { catalogId: true, rawName: true } } },
+  });
+  if (!finding) return fail('not found');
+  await db.$transaction([
+    db.finding.update({ where: { id: finding.id }, data: { groupSplit: true } }),
+    db.auditEvent.create({
+      data: {
+        orgId: actor.orgId, actorId: actor.userId, action: 'finding.split_from_group', targetId: finding.id,
+        payload: { catalogId: finding.item.catalogId, productName: finding.item.rawName },
+      },
+    }),
+  ]);
+  return { ok: true };
 }
 
 /** "Accept all above 90%." Only pending findings with a suggestion, high band only. */
