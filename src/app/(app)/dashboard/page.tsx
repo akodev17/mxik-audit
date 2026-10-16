@@ -9,6 +9,9 @@ import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
 import { Page, Section } from '@/ui/page';
 import { Table, Td, Th } from '@/ui/table';
+import { canWrite } from '@/lib/access';
+import { openTasks } from '@/lib/reminders';
+import { Tasks } from './tasks';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
@@ -40,7 +43,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const admin = isAdminRole(user);
-  const [data, activity] = await Promise.all([dashboard(user, admin ? sp.accountant ?? null : null), recentActivity(user.orgId)]);
+  const [data, activity, tasks] = await Promise.all([dashboard(user, admin ? sp.accountant ?? null : null), recentActivity(user.orgId), openTasks(user.orgId, user.clientIds)]);
   const fmt = (n: number): string => n.toLocaleString(formatTag(locale));
   const reasonText = (r: ClientCard['reasons'][number]): string => {
     const d = ta.dash.reasons;
@@ -68,6 +71,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <Stat label={ta.dash.progress} value={`${pct}%`} />
         <Stat label={ta.dash.attention} value={fmt(data.totals.attention)} tone={data.totals.attention > 0 ? 'text-warn-ink' : 'text-good'} />
       </dl>
+
+      <Section title={ta.reminders.tasks}>
+        <Tasks items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn.toISOString(), overdue: x.overdue }))} canWrite={canWrite(user)} />
+      </Section>
 
       <Section title={ta.dash.attentionTitle}>
         {needing.length === 0 ? <p className="text-sm text-muted">{ta.dash.nothing}</p> : (

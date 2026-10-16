@@ -221,6 +221,16 @@ Members join through invite links created in Sozlamalar. To also email the link 
 
 /sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan stays hidden until its price is set in src/lib/billing/plans.ts. "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot.
 
+## 7e. Daily jobs (monthly reminders)
+
+Once a day call the daily route (same `CRON_SECRET` as the classifier update):
+
+```cron
+15 6 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/daily
+```
+
+It creates the monthly-check tasks that are due (per client: Sozlamalar of the client page), tells the accountant responsible on Telegram when the bot is configured, and runs the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
+
 ## 8. Operating it
 
 | Task | Command |

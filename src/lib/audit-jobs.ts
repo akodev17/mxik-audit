@@ -10,6 +10,7 @@ import { catalogScope } from './access.js';
 import { db } from './db.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { runPrivilegeCheck } from './privileges.js';
+import { completeFor } from './reminders.js';
 import { carryOver, linkPrevious } from './versions.js';
 import { runPurchaseCheck } from './purchases.js';
 
@@ -67,8 +68,10 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
     const catalog = await db.catalog.update({
       where: { id: catalogId },
       data: { status: 'ready', progressDone: await db.catalogItem.count({ where: { catalogId } }), auditHeartbeatAt: new Date() },
-      select: { orgId: true, rowCount: true },
+      select: { orgId: true, rowCount: true, clientId: true },
     });
+    // A catalogue audited for the client settles its open monthly checks.
+    if (catalog.clientId) await completeFor(catalog.clientId);
     await db.auditEvent.create({
       data: {
         orgId: catalog.orgId, actorId: actor?.userId ?? null, action: 'catalog.audited', targetId: catalogId,

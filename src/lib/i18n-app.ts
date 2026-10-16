@@ -491,6 +491,21 @@ export const taUz = {
       team: 'Jamoa va hisob', classifier: 'Tasniflagich', dictionary: 'Lugʻat', other: 'Boshqa',
     } as Record<'all' | 'decisions' | 'uploads' | 'exports' | 'share' | 'team' | 'classifier' | 'dictionary' | 'other', string>,
   },
+  reminders: {
+    title: 'Oylik tekshiruv',
+    enable: 'Har oy tekshiruvni eslatib turish',
+    day: 'Oyning kuni:',
+    assignee: 'Kimga:',
+    assigned: 'Biriktirilgan buxgalterlar',
+    save: 'Saqlash',
+    hint: 'Shu kuni vazifa yaratiladi va Telegramga eslatma yuboriladi. Mijozning yangi katalogi tekshirilsa, vazifa yopiladi.',
+    tasks: 'Oylik tekshiruv vazifalari',
+    none: 'Ochiq vazifa yoʻq.',
+    overdue: 'muddati oʻtgan',
+    done: 'Bajarildi',
+    message: (client: string) => `Mijoz ${client}: oylik tekshiruv vaqti keldi`,
+    body: 'Katalogning yangi versiyasini yuklab, tekshiring.',
+  },
 };
 
 export type AppDict = typeof taUz;

@@ -4,13 +4,15 @@ import { notFound, redirect } from 'next/navigation';
 import { listCatalogs } from '@/lib/catalogs';
 import { clientHistory, ownedClient } from '@/lib/clients';
 import { db } from '@/lib/db';
-import { canSeeClient } from '@/lib/access';
+import { canSeeClient, canWrite } from '@/lib/access';
 import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
 import { CatalogTable } from '@/ui/catalog-table';
 import { Page, Section } from '@/ui/page';
 import { RememberClient } from '../client-forms';
 import { ActivityForm } from './activity-form';
+import { ScheduleForm } from './schedule-form';
+import { getSchedule } from '@/lib/reminders';
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { t, ta } = await getI18n();
@@ -26,6 +28,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     clientHistory(user.orgId, client.id),
   ]);
   const { activity } = await db.client.findUniqueOrThrow({ where: { id: client.id }, select: { activity: true } });
+  const [schedule, people] = await Promise.all([
+    getSchedule(user.orgId, client.id),
+    db.user.findMany({ where: { orgId: user.orgId, role: { not: 'viewer' } }, orderBy: { email: 'asc' }, select: { id: true, email: true } }),
+  ]);
 
   return (
     <Page
@@ -39,6 +45,12 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         {!user.demo ? <ActivityForm clientId={client.id} activity={activity} /> : <span />}
         <Link href={`/clients/${client.id}/purchases`} className="text-sm font-medium text-brand hover:underline">{t.purchasesNav}</Link>
       </div>
+
+      {user.demo || !canWrite(user) ? null : (
+        <Section title={ta.reminders.title}>
+          <ScheduleForm clientId={client.id} initial={schedule ? { dayOfMonth: schedule.dayOfMonth, assigneeId: schedule.assigneeId, enabled: schedule.enabled } : null} people={people} />
+        </Section>
+      )}
 
       <Section title={t.clientCatalogs}>
         {catalogs.length === 0 ? <p className="text-sm text-muted">{t.clientNoCatalogs}</p> : <CatalogTable catalogs={catalogs} />}

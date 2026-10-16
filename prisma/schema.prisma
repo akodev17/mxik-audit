@@ -198,6 +198,8 @@ model Organization {
   shareLinks ShareLink[]
   comments  FindingComment[]
   savedViews SavedView[]
+  schedules ClientSchedule[]
+  reminderTasks ReminderTask[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -423,6 +425,43 @@ model SavedView {
   @@map("saved_view")
 }
 
+/// When a client's monthly check is due (day of month 1-28) and who is told.
+model ClientSchedule {
+  clientId   String   @id
+  orgId      String
+  dayOfMonth Int
+  /// The accountant to remind; null = the client's assigned accountants, else the admins.
+  assigneeId String?
+  enabled    Boolean  @default(true)
+  /// The last month (YYYY-MM) a task was created for.
+  lastPeriod String?
+  updatedAt  DateTime @default(now())
+
+  client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("client_schedule")
+}
+
+/// One monthly check to do. Open until a catalogue is audited for the client, or marked done.
+model ReminderTask {
+  id        String    @id @default(cuid())
+  orgId     String
+  clientId  String
+  period    String
+  dueOn     DateTime  @db.Date
+  doneAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, period])
+  @@index([orgId, doneAt])
+  @@map("reminder_task")
+}
+
 enum CatalogStatus {
   uploaded
   analyzing
@@ -450,6 +489,8 @@ model Client {
   notifications Notification[]
   purchaseLists PurchaseList[]
   assignments ClientAssignment[]
+  schedule ClientSchedule?
+  reminderTasks ReminderTask[]
 
   @@index([orgId])
   @@map("client")
