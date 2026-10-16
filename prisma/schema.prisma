@@ -551,6 +551,8 @@ model Finding {
   decidedAt     DateTime?
   /// The AuditEvent that set the current decision; undo targets it. Null while pending.
   decisionEventId String?
+  /// ask_client = waiting on the client; resolved = settled. Null = no flag.
+  flag          String?
 
   item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
@@ -558,6 +560,7 @@ model Finding {
   @@index([decisionEventId])
   @@index([type])
   @@index([decision])
+  @@index([flag])
   @@map("finding")
 }
 

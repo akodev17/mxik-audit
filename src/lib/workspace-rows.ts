@@ -24,6 +24,8 @@ export type GridRow = {
   /** No acceptable suggestion: nothing found, or the reranker said none. */
   noSuggestion: boolean;
   marking: boolean;
+  /** ask_client, resolved or null. */
+  flag: string | null;
   decision: 'pending' | 'accepted' | 'rejected';
   chosenMxik: string | null;
   chosenName: string | null;
@@ -68,6 +70,7 @@ export async function gridRows(orgId: string, catalogId: string, ids: readonly s
       dictionary: evidence?.stage === 'dictionary',
       noSuggestion: !f.suggestedMxik || evidence?.rerankNone === true,
       marking: f.item.markingRequired,
+      flag: f.flag,
       decision: f.decision,
       chosenMxik: f.chosenMxik,
       chosenName: chosen?.name ?? null,

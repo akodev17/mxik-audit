@@ -94,6 +94,26 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     return risky;
   }, []);
 
+  /** Applies a bulk result the server already committed. */
+  const applyMany = useCallback((ids: readonly string[], decision: 'accepted' | 'rejected', code: string | null, name: string | null, eventId: string | null) => {
+    const set = new Set(ids);
+    const risky = rowsRef.current.filter((r) => set.has(r.findingId) && r.decision === 'pending' && isRisky(r)).length;
+    setRows((cur) => cur.map((r) => (set.has(r.findingId) && r.decision === 'pending'
+      ? {
+        ...r, decision, decisionEventId: eventId,
+        chosenMxik: decision === 'accepted' ? (code ?? r.suggestedMxik) : null,
+        chosenName: decision === 'accepted' ? (code ? name : r.suggestedName) : null,
+      }
+      : r)));
+    return risky;
+  }, []);
+
+  /** Sets a flag on rows after the server did. */
+  const flagMany = useCallback((ids: readonly string[], flag: string | null) => {
+    const set = new Set(ids);
+    setRows((cur) => cur.map((r) => (set.has(r.findingId) ? { ...r, flag } : r)));
+  }, []);
+
   /** Marks pending dictionary suggestions accepted, after the server did. */
   const markDictionary = useCallback((): number => {
     const hit = (r: GridRow): boolean => r.decision === 'pending' && r.dictionary && Boolean(r.suggestedMxik);
@@ -102,5 +122,5 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     return risky;
   }, []);
 
-  return { rows, apply, applyGroup, revert, append, markSure, markDictionary };
+  return { rows, apply, applyGroup, revert, append, markSure, markDictionary, applyMany, flagMany };
 }

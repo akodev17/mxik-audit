@@ -105,3 +105,13 @@ export async function workspaceCount(catalogId: string, filter: WsFilter): Promi
     WHERE ${Prisma.join(conditions(catalogId, filter), ' AND ')}`);
   return Number(rows[0]?.n ?? 0);
 }
+
+/** Every finding id of a filter, in workspace order, for actions on a whole filter. */
+export async function workspaceAllIds(catalogId: string, filter: WsFilter, limit: number): Promise<string[]> {
+  const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
+    SELECT f.id FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
+    WHERE ${Prisma.join(conditions(catalogId, filter), ' AND ')}
+    ORDER BY f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id
+    LIMIT ${limit}`);
+  return rows.map((r) => r.id);
+}

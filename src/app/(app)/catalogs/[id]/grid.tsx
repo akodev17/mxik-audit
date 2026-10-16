@@ -17,6 +17,10 @@ export type GridHandlers = {
   onToggleGroup: (key: string) => void;
   onGroup: (rows: GridRow[], decision: 'accepted' | 'rejected') => void;
   onNeedMore: () => void;
+  onCheck: (index: number, shift: boolean) => void;
+  onCheckAll: (checked: boolean) => void;
+  onEdit: (findingId: string | null) => void;
+  onPick: (row: GridRow, code: string, name: string) => void;
 };
 
 type Props = {
@@ -28,6 +32,9 @@ type Props = {
   scrollRef: RefObject<HTMLDivElement | null>;
   handlers: GridHandlers;
   readOnly: boolean;
+  selected: ReadonlySet<string>;
+  allChecked: boolean;
+  editingId: string | null;
 };
 
 const HEADER_HEIGHT = 40;
@@ -35,7 +42,7 @@ const HEIGHT = { comfortable: 60, compact: 38 } as const;
 const HEADERS = [ta.ws.colNo, ta.ws.colProduct, ta.ws.colStatus, ta.ws.colCurrent, ta.ws.colSuggested, ta.ws.colConfidence, ta.ws.colDecision];
 
 /** Virtualised spreadsheet grid: only the rows on screen are in the DOM. */
-export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollRef, handlers, readOnly }: Props) {
+export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollRef, handlers, readOnly, selected, allChecked, editingId }: Props) {
   const virtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => scrollRef.current,
@@ -65,6 +72,9 @@ export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollR
         style={{ gridTemplateColumns: COLUMNS }}
         className="sticky top-0 z-10 grid h-10 items-center border-b border-line-strong bg-surface text-xs font-bold uppercase tracking-wide text-muted"
       >
+        <span role="columnheader" className="px-3">
+          {readOnly ? null : <input type="checkbox" aria-label={ta.bulk.selectAll} checked={allChecked} onChange={(e) => handlers.onCheckAll(e.target.checked)} className="size-4 accent-[var(--color-brand)]" />}
+        </span>
         {HEADERS.map((h) => <span key={h} role="columnheader" className="px-3">{h}</span>)}
       </div>
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
@@ -87,6 +97,12 @@ export function Grid({ entries, activeIndex, compact, expanded, hasMore, scrollR
               ) : (
                 <GridRowView
                   readOnly={readOnly}
+                  selected={selected.has(entry.row.findingId)}
+                  editing={editingId === entry.row.findingId}
+                  onCheck={(shift) => handlers.onCheck(v.index, shift)}
+                  onEdit={() => handlers.onEdit(entry.row.findingId)}
+                  onCancelEdit={() => handlers.onEdit(null)}
+                  onPick={(code, name) => handlers.onPick(entry.row, code, name)}
                   row={entry.row}
                   active={v.index === activeIndex}
                   compact={compact}

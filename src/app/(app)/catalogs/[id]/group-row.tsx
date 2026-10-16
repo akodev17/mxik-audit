@@ -30,6 +30,7 @@ export function GroupRowView({ rows, active, expanded, onSelect, onToggle, onAcc
       style={{ gridTemplateColumns: COLUMNS }}
       className={`dense grid h-full cursor-pointer items-center border-b border-line ${active ? 'bg-brand-tint shadow-[inset_3px_0_0_var(--color-brand)]' : 'bg-surface hover:bg-[#ebf0f5]'}`}
     >
+      <span />
       <span className="px-3">
         <button type="button" aria-expanded={expanded} onClick={(e) => { e.stopPropagation(); onToggle(); }} className={`grid size-6 place-items-center text-muted transition-transform ${expanded ? 'rotate-90' : ''}`}>
           <IconChevron />

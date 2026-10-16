@@ -7,6 +7,7 @@ import { Badge, StatusChip } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { confidenceView, TYPE_LABEL, typeTone } from '@/ui/labels';
 import { CodeCell } from './code-cell';
+import { InlineCodePicker } from './inline-code-picker';
 import { COLUMNS } from './columns';
 
 type Props = {
@@ -19,6 +20,12 @@ type Props = {
   onReject: () => void;
   onUndo: () => void;
   readOnly: boolean;
+  selected: boolean;
+  editing: boolean;
+  onCheck: (shift: boolean) => void;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onPick: (code: string, name: string) => void;
 };
 
 function Decision({ row, onAccept, onReject, onUndo, onSelect, readOnly }: Pick<Props, 'row' | 'onAccept' | 'onReject' | 'onUndo' | 'onSelect' | 'readOnly'>) {
@@ -46,7 +53,7 @@ function Decision({ row, onAccept, onReject, onUndo, onSelect, readOnly }: Pick<
 }
 
 /** One finding as a grid row. Memoised: a decision re-renders only its own row. */
-export const GridRowView = memo(function GridRowView({ row, active, compact, inGroup, onSelect, onAccept, onReject, onUndo, readOnly }: Props) {
+export const GridRowView = memo(function GridRowView({ row, active, compact, inGroup, onSelect, onAccept, onReject, onUndo, readOnly, selected, editing, onCheck, onEdit, onCancelEdit, onPick }: Props) {
   const conf = confidenceView(row.confidence, row.barcode || row.dictionary);
   const shownCode = row.chosenMxik ?? row.suggestedMxik;
   const shownName = row.chosenMxik ? row.chosenName : row.suggestedName;
@@ -58,6 +65,14 @@ export const GridRowView = memo(function GridRowView({ row, active, compact, inG
       style={{ gridTemplateColumns: COLUMNS }}
       className={`dense grid h-full cursor-pointer items-center border-b border-line ${active ? 'bg-brand-tint shadow-[inset_3px_0_0_var(--color-brand)]' : inGroup ? 'bg-surface/60 hover:bg-surface' : 'hover:bg-surface/70'}`}
     >
+      <span className="px-3" onClick={(e) => e.stopPropagation()}>
+        {readOnly || row.decision !== 'pending' ? null : (
+          <input
+            type="checkbox" aria-label={ta.bulk.selectRow} checked={selected} className="size-4 accent-[var(--color-brand)]"
+            onChange={() => undefined} onClick={(e) => onCheck(e.shiftKey)}
+          />
+        )}
+      </span>
       <span className="px-3 text-sm text-muted">{row.rowIndex + 1}</span>
       <span className="flex min-w-0 flex-col justify-center px-3">
         <span className="truncate font-medium" title={row.productName}>{row.productName}</span>
@@ -72,11 +87,17 @@ export const GridRowView = memo(function GridRowView({ row, active, compact, inG
       <span className="min-w-0 px-3">
         <CodeCell code={row.currentMxik} name={row.currentName} state={row.currentState} empty={ta.ws.noCode} compact={compact} />
       </span>
-      <span className="min-w-0 px-3">
-        {row.noSuggestion && !row.chosenMxik
+      <span
+        className={`min-w-0 px-3 ${readOnly || row.decision !== 'pending' ? '' : 'cursor-text'}`}
+        title={readOnly || row.decision !== 'pending' ? undefined : ta.bulk.editHint}
+        onClick={readOnly || row.decision !== 'pending' ? undefined : (e) => { e.stopPropagation(); onEdit(); }}
+      >
+        {editing ? <InlineCodePicker onPick={onPick} onCancel={onCancelEdit} /> : null}
+        {editing ? null : row.noSuggestion && !row.chosenMxik
           ? <span className="block truncate text-sm italic text-muted" title={ta.ws.noSuggestion}>{ta.ws.noSuggestion}</span>
           : <CodeCell code={shownCode} name={shownName} empty="—" compact={compact} />}
-        {row.dictionary && !row.chosenMxik ? <Badge tone="good" className="mt-0.5">{ta.dict.badge}</Badge> : null}
+        {editing ? null : row.flag === 'ask_client' ? <Badge tone="warn" className="mt-0.5">{ta.bulk.askBadge}</Badge> : null}
+        {row.dictionary && !row.chosenMxik && !editing ? <Badge tone="good" className="mt-0.5">{ta.dict.badge}</Badge> : null}
       </span>
       <span className="px-3">
         {conf && !row.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : <span className="text-muted">—</span>}
