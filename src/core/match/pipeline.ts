@@ -6,6 +6,8 @@
 //   3 lexical (trigram)  |
 //   4 vector (pgvector)  |-> 5 reciprocal rank fusion -> 6 LLM rerank
 import { normalizeBarcode, normalizeName } from '../normalize/index.js';
+import { dictionaryKeys, type DictionaryLookup } from './dictionary.js';
+import { NoopRerankProvider } from './rerank.js';
 import { reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankGate } from './rerank-gate.js';
@@ -23,6 +25,8 @@ export type PipelineOptions = {
   store: CandidateStore;
   embedder: EmbeddingProvider;
   reranker: RerankProvider;
+  /** What this org confirmed before; checked first and ranked above everything else. */
+  dictionary?: DictionaryLookup | undefined;
   /** Only rows this gate calls uncertain go to the reranker. Absent = all fused rows. */
   rerankGate?: RerankGate | undefined;
   /** Stages to switch off, for ablation in the eval. Production leaves this empty. */
@@ -80,7 +84,34 @@ function certain(
   };
 }
 
+/** Confidence of a code the org itself confirmed: in the high band, never above a barcode identity. */
+export const DICTIONARY_CONFIDENCE = 0.96;
+
+/** Stage 0: the firm dictionary, then the normal cascade for the alternatives. */
 export async function matchProduct(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
+  const hit = opts.dictionary?.find(dictionaryKeys(input)) ?? null;
+  const candidate = hit ? await opts.store.byCode(hit.code) : null;
+  // A mapping whose code left the classifier is ignored, never shown.
+  if (!hit || !candidate || !(await opts.store.liveCodes([hit.code])).has(hit.code)) return matchCore(input, opts);
+
+  // The org already decided, so the cascade runs only for alternatives: no LLM call.
+  const base = await matchCore(input, { ...opts, reranker: new NoopRerankProvider('dictionary') });
+  const top: ScoredCandidate = {
+    candidate,
+    signals: {},
+    ranks: {},
+    confidence: DICTIONARY_CONFIDENCE,
+    band: bandOf(DICTIONARY_CONFIDENCE),
+    reason: 'Firma bu mahsulotni avval shu kodga tasdiqlagan.',
+    stage: 'dictionary',
+    adjustments: [],
+    evidence: { ...evidenceFor({ stage: 'dictionary', productName: input.rawName, rowUnit: input.unit ?? null, candidate }), dictionaryUses: hit.uses },
+  };
+  const rest = base.candidates.filter((c) => c.candidate.code !== hit.code);
+  return { ...base, decidedBy: 'dictionary', candidates: [top, ...rest].slice(0, opts.topK ?? DEFAULTS.topK) };
+}
+
+async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
   const limits = { ...DEFAULTS, ...opts };
   const { store, embedder, reranker } = opts;
   const notes: string[] = [];

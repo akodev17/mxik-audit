@@ -2,7 +2,7 @@ import type { NormalizedName } from '../normalize/index.js';
 import type { MatchEvidence } from './evidence.js';
 
 /** Which pipeline stage produced or last touched a candidate. */
-export type MatchStage = 'barcode' | 'exact' | 'lexical' | 'vector' | 'fusion' | 'rerank' | 'none';
+export type MatchStage = 'barcode' | 'exact' | 'lexical' | 'vector' | 'fusion' | 'rerank' | 'dictionary' | 'none';
 
 export type ConfidenceBand = 'high' | 'medium' | 'low';
 

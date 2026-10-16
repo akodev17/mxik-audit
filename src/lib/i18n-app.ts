@@ -1,6 +1,6 @@
 // Uzbek Latin copy for the signed-in app UI. Older screens keep theirs in i18n.ts.
 export const ta = {
-  nav: { clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', settings: 'Sozlamalar' },
+  nav: { clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', dictionary: 'Lugʻat', settings: 'Sozlamalar' },
   shell: {
     collapse: 'Yon panelni yigʻish',
     expand: 'Yon panelni ochish',
@@ -169,5 +169,29 @@ export const ta = {
     passwordHint: 'Kamida 8 belgi.',
     join: 'Hisob yaratish va kirish',
     readOnly: 'Siz kuzatuvchisiz: qarorlarni oʻzgartirib boʻlmaydi.',
+  },
+  dict: {
+    badge: 'Avval tasdiqlangan',
+    acceptAll: (n: number) => `Lugʻatdagi ${n} ta moslikni qabul qilish`,
+    title: 'Firma lugʻati',
+    hint: 'Qabul qilingan har bir qaror shu yerga yoziladi: keyingi yuklashlarda xuddi shu tovar avval tasdiqlangan kod bilan taklif qilinadi.',
+    search: 'Nom, shtrix-kod yoki kod boʻyicha qidirish',
+    colName: 'Tovar (normallashtirilgan)',
+    colKind: 'Tur',
+    colCode: 'Kod',
+    colUses: 'Ishlatilgan',
+    colUpdated: 'Yangilangan',
+    kindName: 'Nom + birlik',
+    kindBarcode: 'Shtrix-kod',
+    stale: 'Arxivlangan kod',
+    empty: 'Lugʻat hali boʻsh',
+    emptyHint: 'Birinchi qarorni qabul qilganingizda yozuv paydo boʻladi.',
+    edit: 'Kodni oʻzgartirish',
+    delete: 'Oʻchirish',
+    deleteConfirm: 'Bu yozuv lugʻatdan oʻchirilsinmi?',
+    autoTitle: 'Lugʻat',
+    autoLabel: 'Lugʻatdagi mosliklarni avtomatik qabul qilish',
+    autoHint: 'Oʻchiq boʻlsa, ular taklif sifatida koʻrinadi va bitta tugma bilan qabul qilinadi.',
+    saved: 'Saqlandi',
   },
 } as const;

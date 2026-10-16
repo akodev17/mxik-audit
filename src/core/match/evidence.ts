@@ -21,6 +21,8 @@ export type MatchEvidence = {
   rerankReason: string | null;
   /** The reranker judged that no candidate fits this row. */
   rerankNone: boolean;
+  /** The org confirmed this code for this product before; how many times. */
+  dictionaryUses?: number;
 };
 
 export type EvidenceCandidate = {
@@ -75,7 +77,7 @@ export function evidenceFor(input: EvidenceInput): MatchEvidence {
   };
 }
 
-const STAGES = new Set<MatchStage>(['barcode', 'exact', 'lexical', 'vector', 'fusion', 'rerank', 'none']);
+const STAGES = new Set<MatchStage>(['barcode', 'exact', 'lexical', 'vector', 'fusion', 'rerank', 'dictionary', 'none']);
 const UNITS = new Set<UnitEvidence>(['match', 'conflict', 'unknown', 'none']);
 
 /** Reads stored evidence back; anything malformed is treated as absent. */
@@ -91,5 +93,6 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     unit: v['unit'] as UnitEvidence,
     rerankReason: typeof v['rerankReason'] === 'string' ? v['rerankReason'] : null,
     rerankNone: v['rerankNone'] === true,
+    ...(typeof v['dictionaryUses'] === 'number' ? { dictionaryUses: v['dictionaryUses'] } : {}),
   };
 }

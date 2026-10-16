@@ -3,6 +3,7 @@
 // append-only: undo writes a new event and never edits or deletes an old one.
 import { BANDS } from '../core/match/score.js';
 import { catalogScope } from './access.js';
+import { learnQuietly } from './dictionary.js';
 import { db } from './db.js';
 
 export type Actor = { userId: string; orgId: string; clientIds?: string[] | null };
@@ -26,7 +27,7 @@ export async function recordDecision(
 ): Promise<Result<{ eventId: string }>> {
   const finding = await db.finding.findFirst({
     where: { id: input.findingId, item: { catalog: catalogScope(actor) } },
-    select: { id: true, suggestedMxik: true, type: true, decision: true, item: { select: { rawName: true, catalogId: true } } },
+    select: { id: true, suggestedMxik: true, type: true, decision: true, item: { select: { rawName: true, catalogId: true, unit: true, barcode: true } } },
   });
   if (!finding) return fail('not found');
   // A decided row must be undone first, so no decision is ever overwritten silently.
@@ -67,6 +68,8 @@ export async function recordDecision(
       if (updated.count !== 1) throw new Error('already decided');
       return event.id;
     });
+    // Accepting teaches the firm dictionary; a later row with the same product reuses it.
+    if (chosen) await learnQuietly(actor.orgId, actor.userId, [{ rawName: finding.item.rawName, unit: finding.item.unit, barcode: finding.item.barcode, code: chosen }]);
     return { ok: true, eventId };
   } catch (error) {
     return fail(error instanceof Error ? error.message : 'failed');
@@ -124,7 +127,7 @@ export async function bulkAccept(
       confidence: { gte: input.minConfidence },
       suggestedMxik: { not: null },
     },
-    select: { id: true, suggestedMxik: true, confidence: true, item: { select: { rawName: true } } },
+    select: { id: true, suggestedMxik: true, confidence: true, item: { select: { rawName: true, unit: true, barcode: true } } },
   });
   if (targets.length === 0) return { ok: true, count: 0, eventId: null };
 
@@ -153,6 +156,7 @@ export async function bulkAccept(
     return event.id;
   }, { timeout: 120_000 });
 
+  await learnQuietly(actor.orgId, actor.userId, targets.flatMap((f) => (f.suggestedMxik ? [{ rawName: f.item.rawName, unit: f.item.unit, barcode: f.item.barcode, code: f.suggestedMxik }] : [])));
   return { ok: true, count: targets.length, eventId };
 }
 

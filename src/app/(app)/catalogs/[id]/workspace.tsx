@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { acceptDictionary } from '@/app/actions/dictionary';
 import { acceptAllAbove } from '@/app/actions/review';
 import { ta } from '@/lib/i18n-app';
 import type { WsSummary } from '@/lib/workspace';
@@ -39,7 +40,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
   const toast = useToast();
   const [delta, setDelta] = useState(0);
   const onReviewed = useCallback((d: number) => setDelta((x) => x + d), []);
-  const { rows, apply, applyGroup, revert, append, markSure } = useDecisions(initialRows, onReviewed);
+  const { rows, apply, applyGroup, revert, append, markSure, markDictionary } = useDecisions(initialRows, onReviewed);
 
   const [next, setNext] = useState(initialNext);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -161,6 +162,16 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     onReviewed(markSure(0.9));
   }, [catalogId, toast, markSure, onReviewed, readOnly]);
 
+  const acceptDict = useCallback(async () => {
+    if (readOnly) return;
+    setBulkBusy(true);
+    const result = await acceptDictionary(catalogId);
+    setBulkBusy(false);
+    if (!result.ok) { toast(ta.ws.failedToast, { tone: 'error' }); return; }
+    toast(ta.ws.bulkToast(result.count));
+    onReviewed(markDictionary());
+  }, [catalogId, toast, markDictionary, onReviewed, readOnly]);
+
   // Keys apply to the workspace, never while typing and never to the browser's own shortcuts.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
@@ -206,6 +217,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
       <Toolbar
         count={count} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy} readOnly={readOnly}
         onCompact={setDensity} onGrouped={setGrouped} onAcceptSure={() => { void acceptSure(); }}
+        dictionaryPending={summary.dictionaryPending} onAcceptDictionary={() => { void acceptDict(); }}
       />
       <div ref={scrollRef} className={`min-h-0 flex-1 overflow-auto ${drawerOffset}`}>
         {entries.length === 0 ? (

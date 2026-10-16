@@ -8,6 +8,7 @@ import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
 import { catalogScope } from './access.js';
 import { db } from './db.js';
+import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { runPrivilegeCheck } from './privileges.js';
 import { runPurchaseCheck } from './purchases.js';
 
@@ -20,6 +21,12 @@ export const STALE_MS = 120_000;
 export const STARTUP_STALE_MS = 5 * HEARTBEAT_MS;
 
 const running = new Set<string>();
+
+async function autoAcceptDictionary(catalogId: string, actor: AuditActor): Promise<void> {
+  const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, org: { select: { dictAutoAccept: true } } } });
+  if (!catalog?.org.dictAutoAccept) return;
+  await acceptDictionaryMatches({ orgId: catalog.orgId, userId: actor?.userId ?? null }, catalogId);
+}
 
 export type AuditActor = { orgId: string; userId: string } | null;
 
@@ -50,6 +57,8 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
     await runPurchaseCheck(catalogId);
     // Privilege-linked codes, from the classifier's own privilege column.
     await runPrivilegeCheck(catalogId);
+    // Dictionary matches are accepted for the org when it chose so.
+    await autoAcceptDictionary(catalogId, actor);
 
     const catalog = await db.catalog.update({
       where: { id: catalogId },

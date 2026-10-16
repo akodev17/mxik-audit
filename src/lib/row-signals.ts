@@ -11,9 +11,12 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input): 
     return confidence === null ? [] : [{ label: 'Moslik', text: `Moslik bahosi: ${Math.round(confidence * 100)}%.`, tone: 'neutral' }];
   }
   const out: Signal[] = [];
+  if (evidence.stage === 'dictionary') {
+    out.push({ label: 'Lugʻat', text: `Firmangiz bu mahsulotni shu kodga ${evidence.dictionaryUses ?? 1} marta tasdiqlagan.`, tone: 'good' });
+  }
   if (evidence.barcode) out.push({ label: 'Shtrix-kod', text: 'Qatordagi shtrix-kod tasniflagichda aynan shu kodga biriktirilgan.', tone: 'good' });
   if (evidence.exactName) out.push({ label: 'Nom', text: 'Tovar nomi tasniflagichdagi nom bilan bir xil.', tone: 'good' });
-  if (!evidence.barcode && !evidence.exactName) {
+  if (!evidence.barcode && !evidence.exactName && evidence.stage !== 'dictionary') {
     out.push(evidence.matchedWords.length > 0
       ? { label: 'Nom', text: `Mos soʻzlar: ${evidence.matchedWords.join(', ')}.`, tone: 'good' }
       : { label: 'Nom', text: 'Tovar nomi va kod nomida umumiy soʻz yoʻq.', tone: 'bad' });

@@ -19,19 +19,22 @@ export type WsSummary = {
   byType: Record<string, number>;
   markingTotal: number;
   markingRisky: number;
+  /** Pending findings suggested from the firm dictionary. */
+  dictionaryPending: number;
 };
 
 export async function workspaceSummary(catalogId: string, rowCount: number): Promise<WsSummary> {
-  const [byType, riskyRows, markingTotal, markingRisky, riskyFindings, reviewed] = await Promise.all([
+  const [byType, riskyRows, markingTotal, markingRisky, riskyFindings, reviewed, dictionaryPending] = await Promise.all([
     db.finding.groupBy({ by: ['type'], where: { item: { catalogId } }, _count: { _all: true } }),
     db.catalogItem.count({ where: { catalogId, ...RISKY_ITEM } }),
     db.catalogItem.count({ where: { catalogId, markingRequired: true } }),
     db.catalogItem.count({ where: { catalogId, markingRequired: true, ...RISKY_ITEM } }),
     db.finding.count({ where: { item: { catalogId }, ...RISKY_FINDING } }),
     db.finding.count({ where: { item: { catalogId }, ...RISKY_FINDING, decision: { not: 'pending' } } }),
+    db.finding.count({ where: { item: { catalogId }, decision: 'pending', suggestedMxik: { not: null }, type: { in: ['MISSING', 'NOT_FOUND', 'MISMATCH'] }, evidence: { path: ['stage'], equals: 'dictionary' } } }),
   ]);
   return {
-    total: rowCount, riskyRows, riskyFindings, reviewed, markingTotal, markingRisky,
+    total: rowCount, riskyRows, riskyFindings, reviewed, markingTotal, markingRisky, dictionaryPending,
     byType: Object.fromEntries(byType.map((r) => [r.type, r._count._all])),
   };
 }

@@ -38,7 +38,7 @@ function Meta({ label, value }: { label: string; value: string | null }) {
 
 function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose']; readOnly: boolean }) {
   const pending = row.decision === 'pending' && !readOnly;
-  const conf = confidenceView(detail.confidence, row.barcode);
+  const conf = confidenceView(detail.confidence, row.barcode || row.dictionary);
   const showRequest = detail.noSuggestion || row.decision === 'rejected';
   return (
     <div className="space-y-5">
@@ -47,6 +47,7 @@ function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDe
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusChip tone={typeTone(detail.type, row.severity)}>{TYPE_LABEL[detail.type] ?? detail.type}</StatusChip>
           {conf && !detail.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : null}
+          {row.dictionary ? <Badge tone="good">{ta.dict.badge}</Badge> : null}
           {detail.markingCurrent || detail.markingSuggested ? <Badge tone="warn">{ta.drawer.markirovka}</Badge> : null}
           {detail.privileges.length > 0 ? <Badge tone="good" title={detail.privileges.join('; ')}>{ta.drawer.privilege}</Badge> : null}
         </div>

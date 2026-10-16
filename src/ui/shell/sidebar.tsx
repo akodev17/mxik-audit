@@ -5,12 +5,13 @@ import { usePathname } from 'next/navigation';
 import { t } from '@/lib/i18n';
 import { ta } from '@/lib/i18n-app';
 import { cx } from '../cx';
-import { IconGear, IconTable, IconUpload, IconUsers, IconMenu } from '../icons';
+import { IconGear, IconTable, IconUpload, IconUsers, IconMenu, IconBook } from '../icons';
 
 const ITEMS = [
   { href: '/clients', label: ta.nav.clients, icon: <IconUsers /> },
   { href: '/catalogs', label: ta.nav.catalogs, icon: <IconTable /> },
   { href: '/upload', label: ta.nav.upload, icon: <IconUpload /> },
+  { href: '/dictionary', label: ta.nav.dictionary, icon: <IconBook /> },
   { href: '/settings', label: ta.nav.settings, icon: <IconGear /> },
 ] as const;
 

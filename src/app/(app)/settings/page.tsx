@@ -14,6 +14,7 @@ import { PayButtons } from '@/ui/pay-buttons';
 import { isAdminRole } from '@/lib/access';
 import { mailEnabled } from '@/lib/mailer';
 import { BrandForm } from './brand-form';
+import { DictionarySetting } from './dictionary-setting';
 import { TeamPanel } from './team-panel';
 import { TelegramPanel } from './telegram-panel';
 
@@ -26,7 +27,7 @@ export default async function SettingsPage() {
   const [demo, links, org, team, clients, invites] = await Promise.all([
     isDemoOrg(user.orgId),
     listLinks(user.orgId),
-    db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, subscriptionUntil: true } }),
+    db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, subscriptionUntil: true, dictAutoAccept: true } }),
     db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } } }),
     db.client.findMany({ where: { orgId: user.orgId }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     db.invite.findMany({ where: { orgId: user.orgId, usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, expiresAt: true } }),
@@ -44,6 +45,12 @@ export default async function SettingsPage() {
       {!demo && isAdminRole(user) ? (
         <Section title={t.brandSection} hint={t.brandHint}>
           <BrandForm brandName={org.brandName ?? ''} orgName={org.name} logoUrl={logoUrl} />
+        </Section>
+      ) : null}
+
+      {!demo && isAdminRole(user) ? (
+        <Section title={ta.dict.autoTitle}>
+          <DictionarySetting initial={org.dictAutoAccept} />
         </Section>
       ) : null}
 

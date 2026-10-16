@@ -193,6 +193,9 @@ model Organization {
   catalogs  Catalog[]
   events    AuditEvent[]
   invites   Invite[]
+  mappings  FirmMapping[]
+  /// Accept dictionary matches automatically when a catalogue is audited.
+  dictAutoAccept Boolean @default(false)
   /// Paid firm subscription runs until this moment; null = none.
   subscriptionUntil DateTime?
   /// Firm name printed on client PDF reports; null = the org name.
@@ -288,6 +291,32 @@ model Invite {
 
   @@index([orgId])
   @@map("invite")
+}
+
+/// What an org decided before: normalised name + unit (or a barcode) to a code.
+model FirmMapping {
+  id        String    @id @default(cuid())
+  orgId     String
+  /// name = normalised name + unit, barcode = the row's barcode.
+  kind      String
+  key       String
+  /// The normalised name (or barcode) as shown in the dictionary page.
+  label     String
+  unit      String?
+  code      String
+  uses      Int       @default(1)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  /// Set when the code left the classifier; the mapping is then ignored.
+  staleAt   DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, kind, key])
+  @@index([orgId])
+  @@map("firm_mapping")
 }
 
 enum CatalogStatus {

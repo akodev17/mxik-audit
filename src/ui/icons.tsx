@@ -16,3 +16,4 @@ export const IconMenu = () => <Svg><path d="M3 5.5h14M3 10h14M3 14.5h14" /></Svg
 export const IconDownload = () => <Svg><path d="M10 3.5V13M6 9l4 4 4-4" /><path d="M3 13v3.5h14V13" /></Svg>;
 export const IconPrint = () => <Svg><path d="M6 7V3h8v4M6 14H3.5V8.5h13V14H14" /><rect x="6" y="11" width="8" height="6" /></Svg>;
 export const IconCheck = () => <Svg><path d="m4 10.5 4 4 8-9" /></Svg>;
+export const IconBook = () => <Svg><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v13H5.5A1.5 1.5 0 0 0 4 17.5v-13Z" /><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H16v1.5H5.5" /></Svg>;

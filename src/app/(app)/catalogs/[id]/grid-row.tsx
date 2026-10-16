@@ -47,7 +47,7 @@ function Decision({ row, onAccept, onReject, onUndo, onSelect, readOnly }: Pick<
 
 /** One finding as a grid row. Memoised: a decision re-renders only its own row. */
 export const GridRowView = memo(function GridRowView({ row, active, compact, inGroup, onSelect, onAccept, onReject, onUndo, readOnly }: Props) {
-  const conf = confidenceView(row.confidence, row.barcode);
+  const conf = confidenceView(row.confidence, row.barcode || row.dictionary);
   const shownCode = row.chosenMxik ?? row.suggestedMxik;
   const shownName = row.chosenMxik ? row.chosenName : row.suggestedName;
   return (
@@ -76,6 +76,7 @@ export const GridRowView = memo(function GridRowView({ row, active, compact, inG
         {row.noSuggestion && !row.chosenMxik
           ? <span className="block truncate text-sm italic text-muted" title={ta.ws.noSuggestion}>{ta.ws.noSuggestion}</span>
           : <CodeCell code={shownCode} name={shownName} empty="—" compact={compact} />}
+        {row.dictionary && !row.chosenMxik ? <Badge tone="good" className="mt-0.5">{ta.dict.badge}</Badge> : null}
       </span>
       <span className="px-3">
         {conf && !row.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : <span className="text-muted">—</span>}

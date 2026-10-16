@@ -7,6 +7,8 @@ import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
 import { matchProduct, timed, type StageTimer } from '../core/match/pipeline.js';
 import { rerankFromEnv } from '../core/match/rerank.js';
+import type { DictionaryLookup } from '../core/match/dictionary.js';
+import { loadDictionary } from './dictionary.js';
 import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
 import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
 import { PostgresCandidateStore } from '../core/match/store.js';
@@ -80,6 +82,8 @@ export type AuditContext = {
   embedder: EmbeddingProvider;
   reranker: RerankProvider;
   gate: RerankGate;
+  /** The org's firm dictionary, checked before the cascade. */
+  dictionary?: DictionaryLookup | undefined;
   timer?: StageTimer | undefined;
   degradedReasons: string[];
 };
@@ -102,7 +106,8 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   }
   if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
-  return { store, embedder, reranker, gate, timer, degradedReasons };
+  const dictionary = await loadDictionary(orgId).catch(() => undefined);
+  return { store, embedder, reranker, gate, dictionary, timer, degradedReasons };
 }
 
 export type AuditableItem = {
@@ -119,7 +124,7 @@ const SELF_MATCH_DEPTH = 20;
 
 /** Matches one row and runs every check on it. Writes nothing. */
 export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise<ItemCheck> {
-  const { store, embedder, reranker, gate, timer } = ctx;
+  const { store, embedder, reranker, gate, dictionary, timer } = ctx;
   // Ranked deeper than the suggestions so the row's own code is usually
   // scorable from this one retrieval, without a second pass.
   const match = await matchProduct({
@@ -127,7 +132,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     barcode: item.barcode,
     unit: item.unit,
     existingMxik: item.existingMxik,
-  }, { store, embedder, reranker, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
+  }, { store, embedder, reranker, dictionary, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
 
   // Resolve the row's own code so NOT_FOUND and retirement can be judged.
   const code = readCode(item.existingMxik);

@@ -94,5 +94,13 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     return risky;
   }, []);
 
-  return { rows, apply, applyGroup, revert, append, markSure };
+  /** Marks pending dictionary suggestions accepted, after the server did. */
+  const markDictionary = useCallback((): number => {
+    const hit = (r: GridRow): boolean => r.decision === 'pending' && r.dictionary && Boolean(r.suggestedMxik);
+    const risky = rowsRef.current.filter((r) => hit(r) && isRisky(r)).length;
+    setRows((cur) => cur.map((r) => (hit(r) ? { ...r, decision: 'accepted', chosenMxik: r.suggestedMxik, chosenName: r.suggestedName } : r)));
+    return risky;
+  }, []);
+
+  return { rows, apply, applyGroup, revert, append, markSure, markDictionary };
 }

@@ -19,6 +19,8 @@ export type GridRow = {
   suggestedName: string | null;
   confidence: number | null;
   barcode: boolean;
+  /** Suggested from what the firm confirmed before. */
+  dictionary: boolean;
   /** No acceptable suggestion: nothing found, or the reranker said none. */
   noSuggestion: boolean;
   marking: boolean;
@@ -63,6 +65,7 @@ export async function gridRows(orgId: string, catalogId: string, ids: readonly s
       suggestedName: sug?.name ?? null,
       confidence: f.confidence,
       barcode: evidence?.barcode === true,
+      dictionary: evidence?.stage === 'dictionary',
       noSuggestion: !f.suggestedMxik || evidence?.rerankNone === true,
       marking: f.item.markingRequired,
       decision: f.decision,
