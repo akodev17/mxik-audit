@@ -719,6 +719,24 @@ Documented, **not fixed**.
 
 ---
 
+## PRODUCT PASS A–O (in progress, 2026-10-16)
+
+Branch `feature/product-pass` (not pushed). One commit per feature (B+C
+share one). The staged landing rollback in the index is someone else's work:
+commit only with explicit pathspecs (`git commit -- <paths>`), never `git add -A`.
+
+| Feature | State | Commit |
+|---|---|---|
+| A reranker labels, banner off customer screens | done | `A:` |
+| B+C code meaning + "Nega bu kod?" evidence | done | `B+C:` |
+| D group similar rows | done | `D:` |
+| E markirovka badge/filter/count | done | `E:` |
+| F organizations → clients | in progress | |
+| F–O | next, in order | |
+
+Gotcha found: in `node -e`/heredoc edit scripts, a `\\s` inside a JS template
+literal is written as plain `s` — use the Edit tool for regex text.
+
 ## NEXT CONTEXT HANDOFF
 
 ### Current repository state

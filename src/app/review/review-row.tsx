@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { lookupCodes, type ClassifierHit } from '@/app/actions/review';
 import { ConfidenceBadge, TypeBadge } from '@/components/chrome';
 import { CodeCell } from '@/components/code-cell';
-import { BarcodeBadge, WhyThisCode } from '@/components/evidence';
+import { BarcodeBadge, MarkingBadge, WhyThisCode } from '@/components/evidence';
 import type { FindingRow } from '@/lib/finding-view';
 import { t } from '@/lib/i18n';
 
@@ -49,6 +49,10 @@ export function RowView(props: RowViewProps) {
         <span className="mt-0.5 flex flex-wrap items-center gap-2">
           <TypeBadge type={row.type} severity={row.severity} />
           {row.unit ? <span className="text-xs text-ink-faint">{row.unit}</span> : null}
+          <MarkingBadge
+            current={row.currentInfo?.isMarked === true}
+            suggested={row.suggestedMxik !== row.currentMxik && row.suggestedInfo?.isMarked === true}
+          />
         </span>
         <span className="mt-1 block text-xs text-ink-faint">{row.reason}</span>
       </td>

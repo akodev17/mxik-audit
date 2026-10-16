@@ -52,7 +52,7 @@ export async function startDemoSession(now = new Date()): Promise<DemoSession | 
       data: catalog.items.map((i) => ({
         catalogId: copy.id, rowIndex: i.rowIndex, rawName: i.rawName, normalizedName: i.normalizedName,
         barcode: i.barcode, existingMxik: i.existingMxik, unit: i.unit, price: i.price,
-        attrs: i.attrs ?? {},
+        attrs: i.attrs ?? {}, markingRequired: i.markingRequired,
       })),
       select: { id: true, rowIndex: true },
     });

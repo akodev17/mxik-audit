@@ -231,12 +231,16 @@ model CatalogItem {
   price          Decimal? @db.Decimal(18, 2)
   /// Attributes parsed out of the name, plus every original cell for re-export.
   attrs          Json
+  /// The current code or a suggested code is flagged for digital marking
+  /// (classifier `label` = 1). Set by the audit; drives the report filter.
+  markingRequired Boolean @default(false)
 
   catalog  Catalog   @relation(fields: [catalogId], references: [id], onDelete: Cascade)
   findings Finding[]
 
   @@unique([catalogId, rowIndex])
   @@index([catalogId])
+  @@index([catalogId, markingRequired])
   @@map("catalog_item")
 }
 

@@ -4,7 +4,7 @@ import { ConfidenceBadge, Header, Shell, TypeBadge } from '@/components/chrome';
 import { CatalogStatus } from '@/components/catalog-status';
 import { CatalogSwitcher } from '@/components/catalog-switcher';
 import { CodeCell } from '@/components/code-cell';
-import { BarcodeBadge, WhyThisCode } from '@/components/evidence';
+import { BarcodeBadge, MarkingBadge, WhyThisCode } from '@/components/evidence';
 import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
@@ -18,7 +18,7 @@ type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT';
 const TYPE_ORDER: FindingType[] = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'];
 
 export default async function ReportPage(
-  { searchParams }: { searchParams: Promise<{ type?: string; severity?: string; catalog?: string }> },
+  { searchParams }: { searchParams: Promise<{ type?: string; severity?: string; catalog?: string; marking?: string }> },
 ) {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
@@ -59,7 +59,7 @@ export default async function ReportPage(
 
   // Counts come from the database, not from loading every row into memory: a
   // 60,000-row catalogue must not be summarized in JS.
-  const [byType, riskyRows] = await Promise.all([
+  const [byType, riskyRows, markingTotal, markingRisky] = await Promise.all([
     db.finding.groupBy({
       by: ['type'],
       where: { item: { catalogId: catalog.id } },
@@ -68,6 +68,8 @@ export default async function ReportPage(
     db.catalogItem.count({
       where: { catalogId: catalog.id, findings: { some: {} } },
     }),
+    db.catalogItem.count({ where: { catalogId: catalog.id, markingRequired: true } }),
+    db.catalogItem.count({ where: { catalogId: catalog.id, markingRequired: true, findings: { some: {} } } }),
   ]);
 
   const counts = new Map<string, number>(byType.map((r) => [r.type, r._count._all]));
@@ -79,10 +81,11 @@ export default async function ReportPage(
   const severityFilter = params.severity === 'high' || params.severity === 'medium'
     ? params.severity
     : null;
+  const markingFilter = params.marking === '1';
 
   const findings = await db.finding.findMany({
     where: {
-      item: { catalogId: catalog.id },
+      item: { catalogId: catalog.id, ...(markingFilter ? { markingRequired: true } : {}) },
       ...(typeFilter ? { type: typeFilter } : {}),
       ...(severityFilter ? { severity: severityFilter } : {}),
     },
@@ -127,6 +130,11 @@ export default async function ReportPage(
               ].filter(Boolean).join('  ·  ')}
             </p>
           ) : null}
+          {markingTotal > 0 ? (
+            <p className="mt-2 text-sm text-ink-soft tnum">
+              <Link href={link('marking=1')} className="underline">{t.markingSummary(markingTotal, markingRisky)}</Link>
+            </p>
+          ) : null}
           <p className="mt-2 text-xs text-ink-faint">
             {catalog.filename} · {catalog.createdAt.toLocaleDateString('uz-UZ')}
           </p>
@@ -161,6 +169,11 @@ export default async function ReportPage(
               {t.severityMedium}
             </Link>
           </div>
+          {markingTotal > 0 ? (
+            <Link href={link('marking=1')} className={markingFilter ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
+              {t.markingFilter} <span className="tnum">{markingRisky}</span>
+            </Link>
+          ) : null}
           <div className="ml-auto flex items-center gap-4">
             <PrintButton label={t.reportPrint} />
             {riskyRows > 0 ? (
@@ -193,6 +206,12 @@ export default async function ReportPage(
                     <td className="max-w-sm px-3 py-2">
                       <span className="block">{r.productName}</span>
                       <span className="block text-xs text-ink-faint">{r.reason}</span>
+                      <span className="mt-1 block">
+                        <MarkingBadge
+                          current={r.currentInfo?.isMarked === true}
+                          suggested={r.suggestedMxik !== r.currentMxik && r.suggestedInfo?.isMarked === true}
+                        />
+                      </span>
                     </td>
                     <td className="px-3 py-2"><TypeBadge type={r.type} severity={r.severity} /></td>
                     <td className="max-w-xs px-3 py-2">

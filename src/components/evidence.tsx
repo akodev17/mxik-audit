@@ -48,3 +48,17 @@ export function WhyThisCode(props: Props) {
     </details>
   );
 }
+
+/** The classifier marks the code for digital marking; says only that. */
+export function MarkingBadge({ current, suggested }: { current: boolean; suggested: boolean }) {
+  if (!current && !suggested) return null;
+  const which = [current ? t.markingCurrent : null, suggested ? t.markingSuggested : null].filter(Boolean).join(' va ');
+  return (
+    <span
+      title={t.markingTooltip(which)}
+      className="inline-block whitespace-nowrap border border-[#8a5a00]/25 bg-[#fdf6e7] px-1.5 py-0.5 text-xs text-[#8a5a00]"
+    >
+      {t.markingBadge}
+    </span>
+  );
+}

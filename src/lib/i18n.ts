@@ -160,6 +160,12 @@ export type Dict = {
   reviewConfidence: string;
   reviewProgress: (done: number, total: number) => string;
   reviewNothingToReview: string;
+  markingBadge: string;
+  markingTooltip: (which: string) => string;
+  markingCurrent: string;
+  markingSuggested: string;
+  markingSummary: (total: number, risky: number) => string;
+  markingFilter: string;
   groupTitle: (n: number) => string;
   groupShow: string;
   groupHide: string;
@@ -363,6 +369,12 @@ export const uz: Dict = {
   reviewConfidence: 'Ishonch',
   reviewProgress: (done, total) => `${done} / ${total} hal qilindi`,
   reviewNothingToReview: 'Koʻrib chiqish uchun pozitsiya qolmadi.',
+  markingBadge: 'Markirovka talab qilinadi',
+  markingTooltip: (which) => `Tasniflagich maʼlumotida ${which} raqamli markirovka belgisi bilan belgilangan (tasnif.soliq.uz, label = 1).`,
+  markingCurrent: 'hozirgi kod',
+  markingSuggested: 'taklif etilgan kod',
+  markingSummary: (total, risky) => `${total.toLocaleString('uz-UZ')} ta pozitsiya kodi markirovka talab qiladi (shundan ${risky.toLocaleString('uz-UZ')} tasi riskli)`,
+  markingFilter: 'Markirovka',
   groupTitle: (n) => `Oʻxshash tovarlar: ${n} ta qator`,
   groupShow: 'Qatorlarni koʻrsatish',
   groupHide: 'Qatorlarni yashirish',

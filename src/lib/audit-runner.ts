@@ -164,6 +164,13 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
       suggestions,
     });
 
+    // Marking follows the classifier's own flag on the row's code or on a code we suggest.
+    const suggestedMarked = findings.some((f) =>
+      suggestions.find((s) => s.candidate.code === f.suggestedMxik)?.candidate.isMarked === true);
+    if (existing.candidate?.isMarked === true || suggestedMarked) {
+      await db.catalogItem.update({ where: { id: item.id }, data: { markingRequired: true } });
+    }
+
     if (findings.length > 0) {
       await timed(timer, 'persist', () => db.finding.createMany({
         data: findings.map((f) => ({
