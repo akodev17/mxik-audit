@@ -21,6 +21,7 @@
     "eval:translit": "tsx eval/translit.ts",
     "load:db": "tsx scripts/load-db.ts",
     "classifier:update": "tsx scripts/update-classifier.ts",
+    "privileges:fetch": "tsx scripts/fetch-privileges.ts",
     "telegram:bot": "tsx scripts/telegram-bot.ts",
     "telegram:webhook": "tsx scripts/telegram-webhook.ts",
     "embed:catalog": "tsx scripts/embed-catalog.ts",

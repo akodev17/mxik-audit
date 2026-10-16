@@ -8,7 +8,8 @@ import { unitsCompatible } from '../normalize/units.js';
 import type { MatchEvidence } from '../match/evidence.js';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 
-export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED';
+export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED'
+  | 'PRIVILEGE_CODE' | 'PRIVILEGE_OPPORTUNITY';
 /** "info" findings are shown but never counted as risk. */
 export type Severity = 'high' | 'medium' | 'info';
 
@@ -177,6 +178,7 @@ export type Summary = {
 export function summarize(perRow: readonly Finding[][], totalRows: number): Summary {
   const byType: Record<FindingType, number> = {
     MISSING: 0, NOT_FOUND: 0, MISMATCH: 0, UNIT_CONFLICT: 0, NOT_PURCHASED: 0,
+    PRIVILEGE_CODE: 0, PRIVILEGE_OPPORTUNITY: 0,
   };
   let riskyRows = 0;
   for (const findings of perRow) {

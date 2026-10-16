@@ -34,6 +34,8 @@ const TYPE_LABEL: Record<string, string> = {
   MISMATCH: t.typeMismatch,
   UNIT_CONFLICT: t.typeUnitConflict,
   NOT_PURCHASED: t.typeNotPurchased,
+  PRIVILEGE_CODE: t.typePrivilegeCode,
+  PRIVILEGE_OPPORTUNITY: t.typePrivilegeOpportunity,
 };
 
 export function TypeBadge({ type, severity }: { type: string; severity: string }) {

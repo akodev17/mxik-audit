@@ -736,7 +736,8 @@ commit only with explicit pathspecs (`git commit -- <paths>`), never `git add -A
 | H Telegram bot | done | `H:` |
 | I white-label PDF | done | `I:` |
 | J purchases + NOT_PURCHASED | done | `J:` |
-| K privilege codes | in progress | |
+| K privilege codes | done | `K:` |
+| L money at risk | in progress | |
 | F–O | next, in order | |
 
 Gotcha found: in `node -e`/heredoc edit scripts, a `\\s` inside a JS template

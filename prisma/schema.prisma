@@ -105,6 +105,21 @@ enum UnitBinding {
   @@map("unit_binding")
 }
 
+/// The portal's tax-privilege reference (/integration-mxik/references/lgota):
+/// what each id in mxik_code.taxPrivilegeIds means. Loaded by
+/// `npm run privileges:fetch`; see docs/imtiyoz-data.md.
+model TaxPrivilege {
+  id          String    @id
+  nameLatn    String?
+  nameRu      String?
+  docNum      Int?
+  docDate     DateTime?
+  docNameLatn String?
+  fetchedAt   DateTime  @default(now())
+
+  @@map("tax_privilege")
+}
+
 /// Each catalogue import, so codes that vanish between imports can be detected.
 model CatalogSnapshot {
   id         Int      @id @default(autoincrement())
@@ -378,6 +393,10 @@ enum FindingType {
   UNIT_CONFLICT
   /// The row's code is not among the client's purchase codes (savdo: high, else info).
   NOT_PURCHASED
+  /// The row's code is linked to a tax privilege in the classifier: verify it fits.
+  PRIVILEGE_CODE
+  /// The suggested code is privilege-linked and the row's code is not.
+  PRIVILEGE_OPPORTUNITY
 
   @@map("finding_type")
 }

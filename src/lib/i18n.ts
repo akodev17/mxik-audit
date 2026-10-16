@@ -109,6 +109,10 @@ export type Dict = {
 
   // purchases (Kirim) and NOT_PURCHASED
   typeNotPurchased: string;
+  typePrivilegeCode: string;
+  typePrivilegeOpportunity: string;
+  reportBreakdownPrivilege: (n: number) => string;
+  reportBreakdownPrivilegeChance: (n: number) => string;
   reportBreakdownNotPurchased: (n: number) => string;
   severityInfo: string;
   purchasesNav: string;
@@ -422,6 +426,10 @@ export const uz: Dict = {
   brandBadLogo: 'Logotip PNG yoki JPEG boʻlishi va 300 KB dan oshmasligi kerak.',
 
   typeNotPurchased: 'Xaridlarda yoʻq',
+  typePrivilegeCode: 'Imtiyozli kod',
+  typePrivilegeOpportunity: 'Imtiyoz imkoniyati',
+  reportBreakdownPrivilege: (n) => `${n} — imtiyozli kod, tekshirish kerak`,
+  reportBreakdownPrivilegeChance: (n) => `${n} — imtiyoz imkoniyati`,
   reportBreakdownNotPurchased: (n) => `${n} — xaridlarda topilmadi`,
   severityInfo: 'Maʼlumot uchun',
   purchasesNav: 'Kirim (xaridlar)',

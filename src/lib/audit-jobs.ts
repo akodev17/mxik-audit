@@ -7,6 +7,7 @@ import type { Prisma } from '@prisma/client';
 import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
 import { db } from './db.js';
+import { runPrivilegeCheck } from './privileges.js';
 import { runPurchaseCheck } from './purchases.js';
 
 /** Without a heartbeat for this long, an "analyzing" catalogue is presumed orphaned. */
@@ -46,6 +47,8 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
     const outcome = await auditCatalog(catalogId, { fromRow });
     // Sales against the client's purchases, when it has any.
     await runPurchaseCheck(catalogId);
+    // Privilege-linked codes, from the classifier's own privilege column.
+    await runPrivilegeCheck(catalogId);
 
     const catalog = await db.catalog.update({
       where: { id: catalogId },

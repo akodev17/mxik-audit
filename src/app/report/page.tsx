@@ -16,9 +16,11 @@ import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { PrintButton } from './print-button';
 
-type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED';
+type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED'
+  | 'PRIVILEGE_CODE' | 'PRIVILEGE_OPPORTUNITY';
 
-const TYPE_ORDER: FindingType[] = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED'];
+const TYPE_ORDER: FindingType[] = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'];
+const INFO_CAPABLE = new Set<FindingType>(['NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY']);
 
 export default async function ReportPage(
   { searchParams }: { searchParams: Promise<{ type?: string; severity?: string; catalog?: string; marking?: string }> },
@@ -129,6 +131,8 @@ export default async function ReportPage(
                 count('MISMATCH') > 0 ? t.reportBreakdownMismatch(count('MISMATCH')) : null,
                 count('UNIT_CONFLICT') > 0 ? t.reportBreakdownUnit(count('UNIT_CONFLICT')) : null,
                 count('NOT_PURCHASED') > 0 ? t.reportBreakdownNotPurchased(count('NOT_PURCHASED')) : null,
+                count('PRIVILEGE_CODE') > 0 ? t.reportBreakdownPrivilege(count('PRIVILEGE_CODE')) : null,
+                count('PRIVILEGE_OPPORTUNITY') > 0 ? t.reportBreakdownPrivilegeChance(count('PRIVILEGE_OPPORTUNITY')) : null,
               ].filter(Boolean).join('  ·  ')}
             </p>
           ) : null}
@@ -157,7 +161,7 @@ export default async function ReportPage(
                 href={link(`type=${type}`)}
                 className={typeFilter === type ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}
               >
-                <TypeBadge type={type} severity={type === 'MISSING' || type === 'NOT_FOUND' ? 'high' : 'medium'} />
+                <TypeBadge type={type} severity={type === 'MISSING' || type === 'NOT_FOUND' ? 'high' : INFO_CAPABLE.has(type) ? 'info' : 'medium'} />
                 <span className="ml-1 tnum">{count(type)}</span>
               </Link>
             ))}
@@ -170,7 +174,7 @@ export default async function ReportPage(
             <Link href={link('severity=medium')} className={severityFilter === 'medium' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
               {t.severityMedium}
             </Link>
-            {count('NOT_PURCHASED') > 0 ? (
+            {[...INFO_CAPABLE].some((type) => count(type) > 0) ? (
               <Link href={link('severity=info')} className={severityFilter === 'info' ? 'font-medium underline' : 'text-ink-soft hover:text-ink'}>
                 {t.severityInfo}
               </Link>

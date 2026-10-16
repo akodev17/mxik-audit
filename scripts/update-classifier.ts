@@ -58,6 +58,12 @@ try {
       snapshotId = loaded.snapshotId;
       const embedded = await embedMissing(pool, log);
       log(embedded.skippedReason ? `embedding skipped: ${embedded.skippedReason}` : `embedded ${embedded.embedded} new codes`);
+      // The privilege reference changes with the classifier; a failure here is not fatal.
+      try {
+        runScript('scripts/fetch-privileges.ts');
+      } catch (error) {
+        log(`privilege reference not refreshed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
 
