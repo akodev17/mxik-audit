@@ -9,6 +9,7 @@ import { ownedClient, resolveClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
+import { GATE_MESSAGE, gate } from '@/lib/plan';
 import { parseUpload } from '@/lib/spreadsheet';
 import { getSession } from '@/lib/session';
 import { writer } from '@/lib/guard';
@@ -49,6 +50,9 @@ export async function previewUpload(_prev: PreviewState, form: FormData): Promis
     const buffer = Buffer.from(await file.arrayBuffer());
     const parsed = await parseUpload(buffer, file.name);
     if (parsed.rows.length === 0) return { error: 'Faylda maʼlumot qatorlari topilmadi.' };
+
+    const allowed = await gate(user.orgId, 'rowsPerMonth', parsed.rows.length);
+    if (!allowed.ok) return { error: GATE_MESSAGE[allowed.reason] };
 
     const mapping = await mappingFor(user.orgId, parsed.headers);
 

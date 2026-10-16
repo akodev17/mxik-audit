@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createClient, ownedClient } from '@/lib/clients';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
+import { GATE_MESSAGE, gate } from '@/lib/plan';
 import { currentUser, getSession } from '@/lib/session';
 import { canSeeClient } from '@/lib/access';
 import { writer } from '@/lib/guard';
@@ -17,6 +18,8 @@ export async function addClient(_prev: AddClientState, form: FormData): Promise<
   const user = await writer();
   if (!user) return { error: t.errorGeneric };
   if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
+  const allowed = await gate(user.orgId, 'clients');
+  if (!allowed.ok) return { error: GATE_MESSAGE[allowed.reason] };
   const name = z.string().safeParse(form.get('name'));
   if (!name.success) return { error: t.clientsBadName };
 

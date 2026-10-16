@@ -9,6 +9,7 @@ import { IconBell } from '../icons';
 import { ToastProvider } from '../toast';
 import { ClientSwitcher } from './client-switcher';
 import { GlobalSearch } from './global-search';
+import { PlanBanner } from './plan-banner';
 import { Sidebar } from './sidebar';
 import { UserMenu } from './user-menu';
 
@@ -51,6 +52,7 @@ export function AppFrame({ shell, children }: { shell: ShellData; children: Reac
               <UserMenu email={shell.email} />
             </div>
           </header>
+          <PlanBanner plan={shell.plan} />
           <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>

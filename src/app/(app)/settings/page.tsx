@@ -14,7 +14,9 @@ import { PayButtons } from '@/ui/pay-buttons';
 import { isAdminRole } from '@/lib/access';
 import { mailEnabled } from '@/lib/mailer';
 import { BrandForm } from './brand-form';
+import { planStatus } from '@/lib/plan';
 import { DictionarySetting } from './dictionary-setting';
+import { PlanUsage } from './plan-usage';
 import { TeamPanel } from './team-panel';
 import { TelegramPanel } from './telegram-panel';
 
@@ -24,6 +26,7 @@ export default async function SettingsPage() {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const tg = telegramConfig();
+  const status = await planStatus(user.orgId);
   const [demo, links, org, team, clients, invites] = await Promise.all([
     isDemoOrg(user.orgId),
     listLinks(user.orgId),
@@ -68,6 +71,7 @@ export default async function SettingsPage() {
       </Section>
 
       <Section title={ta.settings.plan}>
+        <div id="plan" className="mb-4"><PlanUsage status={status} until={active ? active.toLocaleDateString('uz-UZ') : null} /></div>
         {plan && providers.length > 0 && !demo && isAdminRole(user) ? (
           <>
             <p className="text-sm text-muted">{t.subPrice(plan.price.toLocaleString('uz-UZ'))}</p>

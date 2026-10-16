@@ -8,6 +8,7 @@ import { admin } from '@/lib/guard';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
+import { GATE_MESSAGE, gate } from '@/lib/plan';
 import { acceptInvite, createInvite } from '@/lib/invites';
 import { getSession } from '@/lib/session';
 
@@ -19,6 +20,8 @@ export type InviteState = { error?: string; url?: string; emailed?: boolean };
 export async function inviteMember(_prev: InviteState, form: FormData): Promise<InviteState> {
   const user = await admin();
   if (!user || await isDemoOrg(user.orgId)) return { error: t.errorGeneric };
+  const allowed = await gate(user.orgId, 'seats');
+  if (!allowed.ok) return { error: GATE_MESSAGE[allowed.reason] };
   const role = RoleSchema.safeParse(form.get('role'));
   const email = z.string().email().max(200).safeParse(formText(form, 'email').trim());
   if (!role.success) return { error: t.errorGeneric };

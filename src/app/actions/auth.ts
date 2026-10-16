@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { mailEnabled } from '@/lib/mailer';
 import { verifyPassword } from '@/lib/password';
 import { getSession } from '@/lib/session';
 import { t } from '@/lib/i18n';
@@ -33,6 +34,9 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
     return { error: t.signInError };
   }
 
+  // With SMTP configured, a self-serve account must confirm its address first.
+  if (mailEnabled() && !user.emailVerifiedAt) return { error: 'Elektron pochtani tasdiqlang: xatdagi havolani oching.' };
+
   const session = await getSession();
   session.userId = user.id;
   session.orgId = user.orgId;
@@ -46,5 +50,5 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
     data: { orgId: user.orgId, actorId: user.id, action: 'user.signed_in', payload: {} },
   });
 
-  redirect('/report');
+  redirect('/catalogs');
 }

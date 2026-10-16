@@ -3,6 +3,7 @@
 // serve the webhook route and the long-polling dev script.
 import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { startAudit } from '../audit-jobs.js';
+import { GATE_MESSAGE, gate } from '../plan.js';
 import { applyMapping, mappingFor, MAX_UPLOAD_BYTES, storeCatalog } from '../catalog-import.js';
 import { ownedClient } from '../clients.js';
 import { db } from '../db.js';
@@ -42,6 +43,11 @@ async function importFile(ctx: Context, config: TelegramConfig, link: Link, pend
   const parsed = await parseUpload(buffer, pending.filename);
   if (parsed.rows.length === 0) {
     await ctx.reply(t.tgEmptyFile);
+    return;
+  }
+  const allowed = await gate(link.orgId, 'rowsPerMonth', parsed.rows.length);
+  if (!allowed.ok) {
+    await ctx.reply(GATE_MESSAGE[allowed.reason]);
     return;
   }
   // No mapping screen in a chat: the org's remembered mapping, else the header guess.

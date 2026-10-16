@@ -198,6 +198,8 @@ model Organization {
   shareLinks ShareLink[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
+  /// Free trial runs until this moment; null for demo and internal orgs.
+  trialEndsAt DateTime?
   /// Paid firm subscription runs until this moment; null = none.
   subscriptionUntil DateTime?
   /// Firm name printed on client PDF reports; null = the org name.
@@ -246,6 +248,9 @@ model User {
 
   /// admin manages the org; accountant works on assigned clients; viewer is read-only.
   role         UserRole @default(admin)
+  /// Set when the address was confirmed (or the account predates verification).
+  emailVerifiedAt DateTime?
+  emailTokens  EmailToken[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   assignments ClientAssignment[]
@@ -363,6 +368,20 @@ model ShareLink {
   @@index([catalogId])
   @@index([orgId])
   @@map("share_link")
+}
+
+/// One-time link that confirms an email address. Only the hash is stored.
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_token")
 }
 
 enum CatalogStatus {
