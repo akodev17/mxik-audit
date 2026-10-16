@@ -9,6 +9,7 @@ import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { catalogForPage } from '@/lib/catalog-page';
 import { db } from '@/lib/db';
 import { findingRows } from '@/lib/finding-view';
+import { RISKY_ITEM } from '@/lib/risk';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { PrintButton } from './print-button';
@@ -24,7 +25,7 @@ export default async function ReportPage(
   if (!user) redirect('/sign-in');
   const params = await searchParams;
 
-  const { catalog, options } = await catalogForPage(user.orgId, params.catalog);
+  const { catalog, options, client } = await catalogForPage(user, params.catalog);
 
   if (!catalog) {
     return (
@@ -49,7 +50,7 @@ export default async function ReportPage(
       <>
         <Header email={user.email} current="/report" catalogId={selected} demo={user.demo} />
         <Shell demo={user.demo}>
-          <CatalogSwitcher options={options} current={catalog.id} />
+          <CatalogSwitcher options={options} current={catalog.id} client={client} />
           <CatalogStatus catalog={catalog} />
           <p className="mt-2 text-xs text-ink-faint">{catalog.filename}</p>
         </Shell>
@@ -65,11 +66,9 @@ export default async function ReportPage(
       where: { item: { catalogId: catalog.id } },
       _count: { _all: true },
     }),
-    db.catalogItem.count({
-      where: { catalogId: catalog.id, findings: { some: {} } },
-    }),
+    db.catalogItem.count({ where: { catalogId: catalog.id, ...RISKY_ITEM } }),
     db.catalogItem.count({ where: { catalogId: catalog.id, markingRequired: true } }),
-    db.catalogItem.count({ where: { catalogId: catalog.id, markingRequired: true, findings: { some: {} } } }),
+    db.catalogItem.count({ where: { catalogId: catalog.id, markingRequired: true, ...RISKY_ITEM } }),
   ]);
 
   const counts = new Map<string, number>(byType.map((r) => [r.type, r._count._all]));
@@ -111,7 +110,7 @@ export default async function ReportPage(
     <>
       <Header email={user.email} current="/report" catalogId={selected} demo={user.demo} />
       <Shell demo={user.demo}>
-        <CatalogSwitcher options={options} current={catalog.id} />
+        <CatalogSwitcher options={options} current={catalog.id} client={client} />
 
         {/* The headline. Large, unmissable, and about risk — not features. */}
         <section className={`border-l-4 px-6 py-5 ${clean ? 'border-ok bg-ok-tint' : 'border-risk bg-risk-tint'}`}>

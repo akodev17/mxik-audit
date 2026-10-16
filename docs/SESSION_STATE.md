@@ -731,7 +731,8 @@ commit only with explicit pathspecs (`git commit -- <paths>`), never `git add -A
 | B+C code meaning + "Nega bu kod?" evidence | done | `B+C:` |
 | D group similar rows | done | `D:` |
 | E markirovka badge/filter/count | done | `E:` |
-| F organizations → clients | in progress | |
+| F organizations → clients | done | `F:` |
+| G classifier updates + re-check | in progress | |
 | F–O | next, in order | |
 
 Gotcha found: in `node -e`/heredoc edit scripts, a `\\s` inside a JS template

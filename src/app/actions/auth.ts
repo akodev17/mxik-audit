@@ -37,6 +37,9 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
   session.userId = user.id;
   session.orgId = user.orgId;
   session.email = user.email;
+  // Nothing from an earlier session (a demo, another org's client) carries over.
+  session.demo = false;
+  session.clientId = undefined;
   await session.save();
 
   await db.auditEvent.create({

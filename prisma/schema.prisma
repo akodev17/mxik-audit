@@ -138,6 +138,7 @@ model Organization {
   createdAt DateTime @default(now())
 
   users     User[]
+  clients   Client[]
   catalogs  Catalog[]
   events    AuditEvent[]
   /// Remembered column mapping, so a repeat upload does not re-ask.
@@ -194,9 +195,31 @@ enum CatalogStatus {
   @@map("catalog_status")
 }
 
+/// A business whose catalogues an organization audits. An accounting firm has
+/// many; a company audits itself through its one default client.
+model Client {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  /// Catalogues uploaded before clients existed, or without naming a client,
+  /// land here. Exactly one per org (partial unique index in the migration).
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalogs Catalog[]
+
+  @@index([orgId])
+  @@map("client")
+}
+
 model Catalog {
   id        String        @id @default(cuid())
   orgId     String
+  /// NOT NULL in the database: a BEFORE INSERT trigger fills the org's default
+  /// client when a caller omits it (see the clients migration). Optional here
+  /// only so callers that predate clients keep compiling.
+  clientId  String?
   filename  String
   rowCount  Int
   status    CatalogStatus @default(uploaded)
@@ -213,9 +236,11 @@ model Catalog {
   auditError       String?
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items    CatalogItem[]
 
   @@index([orgId])
+  @@index([clientId, createdAt])
   @@map("catalog")
 }
 

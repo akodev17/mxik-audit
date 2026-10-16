@@ -1,13 +1,21 @@
 import { redirect } from 'next/navigation';
 import { Header, Shell } from '@/components/chrome';
+import { resolveClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { UploadForm } from './upload-form';
 
-export default async function UploadPage() {
+export default async function UploadPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
+  const params = await searchParams;
+  const active = await resolveClient(user.orgId, params.client ?? user.clientId);
+  const clients = await db.client.findMany({
+    where: { orgId: user.orgId },
+    orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    select: { id: true, name: true },
+  });
 
   const org = await db.organization.findUnique({
     where: { id: user.orgId },
@@ -26,7 +34,7 @@ export default async function UploadPage() {
             </p>
           </>
         ) : (
-          <UploadForm hadPreviousMapping={org?.columnMap !== null} />
+          <UploadForm hadPreviousMapping={org?.columnMap !== null} clients={clients} initialClientId={active.id} />
         )}
       </Shell>
     </>

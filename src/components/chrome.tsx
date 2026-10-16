@@ -9,6 +9,7 @@ const STEPS = [
   { href: '/review', label: t.navReview, perCatalog: true },
   { href: '/export', label: t.navExport, perCatalog: true },
   { href: '/catalogs', label: t.navCatalogs, perCatalog: false },
+  { href: '/clients', label: t.navClients, perCatalog: false },
 ] as const;
 
 type HeaderProps = {

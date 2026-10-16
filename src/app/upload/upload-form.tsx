@@ -14,7 +14,14 @@ const FIELDS: { key: keyof ColumnMap; label: string; required: boolean }[] = [
   { key: 'price', label: t.uploadColumnPrice, required: false },
 ];
 
-export function UploadForm({ hadPreviousMapping }: { hadPreviousMapping: boolean }) {
+type ClientOption = { id: string; name: string };
+
+export function UploadForm({ hadPreviousMapping, clients, initialClientId }: {
+  hadPreviousMapping: boolean;
+  clients: ClientOption[];
+  initialClientId: string;
+}) {
+  const [clientId, setClientId] = useState(initialClientId);
   const [state, action, previewing] = useActionState<PreviewState, FormData>(previewUpload, {});
   const [mapping, setMapping] = useState<ColumnMap | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -28,6 +35,7 @@ export function UploadForm({ hadPreviousMapping }: { hadPreviousMapping: boolean
   function submitFile(file: File): void {
     const form = new FormData();
     form.set('file', file);
+    form.set('clientId', clientId);
     setMapping(null);
     setCommitError(null);
     // useActionState's dispatch must run inside a transition or isPending lies.
@@ -52,6 +60,19 @@ export function UploadForm({ hadPreviousMapping }: { hadPreviousMapping: boolean
         <h1 className="text-2xl">{t.uploadTitle}</h1>
         <p className="mt-1 text-sm text-ink-soft">{t.uploadHint}</p>
       </section>
+
+      {clients.length > 1 ? (
+        <label className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+          <span>{t.uploadClient}:</span>
+          <select
+            name="clientId" value={clientId} onChange={(e) => setClientId(e.target.value)}
+            disabled={preview !== undefined}
+            className="max-w-full border border-rule bg-paper px-2 py-1.5 text-ink focus:border-ink focus:outline-none"
+          >
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </label>
+      ) : null}
 
       <form action={action}>
         <label

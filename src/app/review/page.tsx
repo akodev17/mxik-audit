@@ -21,7 +21,7 @@ export default async function ReviewPage(
   if (!user) redirect('/sign-in');
   const params = await searchParams;
 
-  const { catalog, options } = await catalogForPage(user.orgId, params.catalog);
+  const { catalog, options, client } = await catalogForPage(user, params.catalog);
 
   if (!catalog) {
     return (
@@ -43,7 +43,7 @@ export default async function ReviewPage(
       <>
         <Header email={user.email} current="/review" catalogId={params.catalog ? catalog.id : null} demo={user.demo} />
         <Shell demo={user.demo}>
-          <CatalogSwitcher options={options} current={catalog.id} />
+          <CatalogSwitcher options={options} current={catalog.id} client={client} />
           <CatalogStatus catalog={catalog} />
         </Shell>
       </>
@@ -69,7 +69,7 @@ export default async function ReviewPage(
     <>
       <Header email={user.email} current="/review" catalogId={selected} demo={user.demo} />
       <Shell demo={user.demo}>
-        <CatalogSwitcher options={options} current={catalog.id} />
+        <CatalogSwitcher options={options} current={catalog.id} client={client} />
         <h1 className="mb-1 text-2xl">{t.reviewTitle}</h1>
         <p className="mb-6 text-sm text-ink-faint">{catalog.filename}</p>
         <ReviewList catalogId={catalog.id} rows={rows} />

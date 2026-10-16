@@ -17,7 +17,7 @@ export default async function ExportPage(
   if (!user) redirect('/sign-in');
   const params = await searchParams;
 
-  const { catalog, options } = await catalogForPage(user.orgId, params.catalog);
+  const { catalog, options, client } = await catalogForPage(user, params.catalog);
 
   if (!catalog) {
     return (
@@ -39,7 +39,7 @@ export default async function ExportPage(
       <>
         <Header email={user.email} current="/export" catalogId={params.catalog ? catalog.id : null} demo={user.demo} />
         <Shell demo={user.demo}>
-          <CatalogSwitcher options={options} current={catalog.id} />
+          <CatalogSwitcher options={options} current={catalog.id} client={client} />
           <h1 className="mb-4 text-2xl">{t.exportTitle}</h1>
           <p className="mb-4 text-sm text-ink-soft">{t.exportNotReady}</p>
           <CatalogStatus catalog={catalog} />
@@ -73,7 +73,7 @@ export default async function ExportPage(
     <>
       <Header email={user.email} current="/export" catalogId={selected} demo={user.demo} />
       <Shell demo={user.demo}>
-        <CatalogSwitcher options={options} current={catalog.id} />
+        <CatalogSwitcher options={options} current={catalog.id} client={client} />
         <h1 className="text-2xl">{t.exportTitle}</h1>
         <p className="mt-1 text-sm text-ink-soft">{t.exportHint}</p>
 

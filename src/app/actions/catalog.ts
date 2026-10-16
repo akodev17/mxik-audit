@@ -4,11 +4,12 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { retryAudit, startAudit } from '@/lib/audit-jobs';
 import { deleteCatalog } from '@/lib/catalogs';
+import { ownedClient, resolveClient } from '@/lib/clients';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { t } from '@/lib/i18n';
 import { parseUpload } from '@/lib/spreadsheet';
-import { currentUser } from '@/lib/session';
+import { currentUser, getSession } from '@/lib/session';
 import { normalizeName } from '@/core/normalize/index';
 import { readCode } from '@/core/audit/checks';
 import { ColumnMapSchema, type ColumnMap } from '@/lib/column-map';
@@ -119,9 +120,17 @@ export async function previewUpload(_prev: PreviewState, form: FormData): Promis
       && Object.values(remembered.data).every((i) => i < parsed.headers.length);
     const mapping = fits && remembered.success ? remembered.data : guessMapping(parsed.headers);
 
+    // A named client must be the org's; otherwise the one being worked on.
+    const requestedClient = form.get('clientId');
+    const client = typeof requestedClient === 'string' && requestedClient
+      ? await ownedClient(user.orgId, requestedClient)
+      : await resolveClient(user.orgId, user.clientId);
+    if (!client) return { error: t.errorGeneric };
+
     const catalog = await db.catalog.create({
       data: {
         orgId: user.orgId,
+        clientId: client.id,
         filename: file.name,
         rowCount: parsed.rows.length,
         status: 'uploaded',
@@ -141,7 +150,7 @@ export async function previewUpload(_prev: PreviewState, form: FormData): Promis
       data: {
         orgId: user.orgId, actorId: user.userId, action: 'catalog.uploaded',
         targetId: catalog.id,
-        payload: { filename: file.name, rowCount: parsed.rows.length, truncated: parsed.truncated },
+        payload: { filename: file.name, rowCount: parsed.rows.length, truncated: parsed.truncated, clientId: client.id },
       },
     });
 
@@ -185,9 +194,15 @@ export async function commitUpload(payload: unknown): Promise<CommitState> {
   // Scope by org: a catalogue id alone must not be enough to reach another org's data.
   const catalog = await db.catalog.findFirst({
     where: { id: catalogId, orgId: user.orgId },
-    select: { id: true },
+    select: { id: true, clientId: true },
   });
   if (!catalog) return { error: t.errorGeneric };
+  // The client just uploaded to is the one being worked on.
+  if (catalog.clientId && catalog.clientId !== user.clientId) {
+    const session = await getSession();
+    session.clientId = catalog.clientId;
+    await session.save();
+  }
 
   const stored = await db.catalogItem.findMany({
     where: { catalogId },

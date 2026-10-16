@@ -29,6 +29,7 @@ export async function startDemo(_prev: DemoState): Promise<DemoState> {
   session.orgId = demo.orgId;
   session.email = demo.email;
   session.demo = true;
+  session.clientId = undefined;
   await session.save();
   redirect('/report');
 }

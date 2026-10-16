@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   // Any of the org's catalogues; another org's id is the same 404 as a missing one.
   const requested = new URL(request.url).searchParams.get('catalog');
-  const catalog = await resolveCatalog(user.orgId, requested);
+  const catalog = requested ? await resolveCatalog(user.orgId, requested) : null;
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   // An unaudited catalogue would export every row as "risk_yoq".
   if (catalog.status !== 'ready') return NextResponse.json({ error: 'audit not finished' }, { status: 409 });

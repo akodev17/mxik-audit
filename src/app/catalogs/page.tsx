@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Header, Shell } from '@/components/chrome';
 import { listCatalogs } from '@/lib/catalogs';
+import { db } from '@/lib/db';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
 import { DeleteCatalogButton } from './delete-button';
@@ -9,7 +10,12 @@ import { DeleteCatalogButton } from './delete-button';
 export default async function CatalogsPage() {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
-  const catalogs = await listCatalogs(user.orgId);
+  const [catalogs, clients] = await Promise.all([
+    listCatalogs(user.orgId),
+    db.client.findMany({ where: { orgId: user.orgId }, select: { id: true, name: true } }),
+  ]);
+  const clientName = new Map(clients.map((c) => [c.id, c.name]));
+  const showClient = clients.length > 1;
 
   return (
     <>
@@ -28,6 +34,7 @@ export default async function CatalogsPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-paper-tint">
                 <tr className="text-left">
+                  {showClient ? <th className="border-b border-rule px-3 py-2 font-medium">{t.clientLabel}</th> : null}
                   <th className="border-b border-rule px-3 py-2 font-medium">{t.catalogsFile}</th>
                   <th className="border-b border-rule px-3 py-2 font-medium">{t.catalogsDate}</th>
                   <th className="border-b border-rule px-3 py-2 text-right font-medium">{t.catalogsRows}</th>
@@ -39,6 +46,11 @@ export default async function CatalogsPage() {
               <tbody>
                 {catalogs.map((c) => (
                   <tr key={c.id} className="border-b border-rule align-top last:border-0">
+                    {showClient ? (
+                      <td className="px-3 py-2">
+                        {c.clientId ? <Link href={`/clients/${c.clientId}`} className="underline">{clientName.get(c.clientId) ?? ''}</Link> : null}
+                      </td>
+                    ) : null}
                     <td className="max-w-xs break-words px-3 py-2">{c.filename}</td>
                     <td className="whitespace-nowrap px-3 py-2 tnum text-ink-soft">{c.createdAt.toLocaleString('uz-UZ')}</td>
                     <td className="px-3 py-2 text-right tnum">{c.rowCount.toLocaleString('uz-UZ')}</td>

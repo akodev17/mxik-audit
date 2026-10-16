@@ -27,6 +27,31 @@ export type Dict = {
   navReview: string;
   navExport: string;
   navCatalogs: string;
+  navClients: string;
+
+  // clients
+  clientLabel: string;
+  clientsTitle: string;
+  clientsHint: string;
+  clientsName: string;
+  clientsLastAudit: string;
+  clientsTrend: string;
+  clientsMarking: string;
+  clientsLastNotice: string;
+  clientsNever: string;
+  clientsAdd: string;
+  clientsNewName: string;
+  clientsCreate: string;
+  clientsDefault: string;
+  clientsOpen: string;
+  clientsBadName: string;
+  clientCatalogs: string;
+  clientHistory: string;
+  clientHistoryEmpty: string;
+  clientUpload: string;
+  clientNoCatalogs: string;
+  historyAction: Record<string, string>;
+  uploadClient: string;
 
   // catalogue history and deletion
   catalogsTitle: string;
@@ -236,6 +261,36 @@ export const uz: Dict = {
   navReview: 'Koʻrib chiqish',
   navExport: 'Eksport',
   navCatalogs: 'Kataloglar',
+  navClients: 'Mijozlar',
+
+  clientLabel: 'Mijoz',
+  clientsTitle: 'Mijozlar',
+  clientsHint: 'Har bir mijozning kataloglari, hisobotlari va tarixi alohida saqlanadi.',
+  clientsName: 'Mijoz',
+  clientsLastAudit: 'Oxirgi tahlil',
+  clientsTrend: 'Riskli qatorlar (oxirgi 5 tahlil)',
+  clientsMarking: 'Markirovka',
+  clientsLastNotice: 'Oxirgi xabarnoma',
+  clientsNever: 'hali yoʻq',
+  clientsAdd: 'Mijoz qoʻshish',
+  clientsNewName: 'Mijoz nomi, masalan: “Baraka Savdo” MChJ',
+  clientsCreate: 'Qoʻshish',
+  clientsDefault: 'asosiy',
+  clientsOpen: 'Ochish',
+  clientsBadName: 'Nomni kiriting (kamida 2 ta belgi).',
+  clientCatalogs: 'Kataloglar',
+  clientHistory: 'Tarix',
+  clientHistoryEmpty: 'Hali hech narsa boʻlmagan.',
+  clientUpload: 'Shu mijoz uchun katalog yuklash',
+  clientNoCatalogs: 'Bu mijoz uchun hali katalog yuklanmagan.',
+  historyAction: {
+    'catalog.uploaded': 'Katalog yuklandi',
+    'catalog.audited': 'Tahlil tugadi',
+    'catalog.exported': 'Tuzatilgan fayl yuklab olindi',
+    'catalog.deleted': 'Katalog oʻchirildi',
+    'client.created': 'Mijoz qoʻshildi',
+  },
+  uploadClient: 'Mijoz',
 
   catalogsTitle: 'Yuklangan kataloglar',
   catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',
