@@ -815,3 +815,20 @@ npm run eval -- --no-ablate --label "sanity"
 ```
 
 Then pick up the Recommended Next Steps.
+
+---
+
+## PRODUCT PASS 2 (features 1–21) — progress
+
+Done and committed (one commit each, on main, not pushed): 1 team and roles, 2 firm dictionary,
+3 incremental re-upload + version diff, 4 accuracy metrics and "Taklif notoʻgʻri", 5 bulk actions
+and inline edit, 6 client share links, 7 signup/trial/plan limits, 8 Russian UI, 9 firm dashboard,
+10 row comments, 11 saved views.
+
+In progress / next: 12 activity log, 13 monthly reminders, 14 cheque-list import, 15 sales cheques
+check, 16 names from barcode, 17 unit/packaging advice, 18 public API, 19 Google Sheets add-on,
+20 help center, 21 security and data control.
+
+Conventions used: every UI string goes in both src/lib/i18n(-app).ts and i18n(-app)-ru.ts (the
+types force it); server code gets the language from getI18n(), client code from useI18n();
+migrations are hand-authored under prisma/migrations and applied with `prisma migrate deploy`.
