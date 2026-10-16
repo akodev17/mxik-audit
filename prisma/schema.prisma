@@ -176,6 +176,11 @@ model Organization {
   telegramLinks TelegramLink[]
   catalogs  Catalog[]
   events    AuditEvent[]
+  /// Firm name printed on client PDF reports; null = the org name.
+  brandName String?
+  /// Logo printed on client PDF reports (PNG or JPEG, small).
+  logoData  Bytes?
+  logoMime  String?
   /// Remembered column mapping, so a repeat upload does not re-ask.
   columnMap Json?
   kind      OrgKind  @default(customer)

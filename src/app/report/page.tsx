@@ -175,6 +175,9 @@ export default async function ReportPage(
           ) : null}
           <div className="ml-auto flex items-center gap-4">
             <PrintButton label={t.reportPrint} />
+            <a href={`/api/report-pdf?catalog=${catalog.id}`} target="_blank" rel="noopener" className="underline text-ink-soft hover:text-ink">
+              {t.pdfDownload}
+            </a>
             {riskyRows > 0 ? (
               <Link href={selected ? `/review?catalog=${selected}` : '/review'} className="bg-ink px-4 py-2 text-paper">
                 {t.reportGoReview}

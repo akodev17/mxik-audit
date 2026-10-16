@@ -88,6 +88,25 @@ export type Dict = {
   tgReport: string;
   tgError: string;
 
+  // client PDF and branding
+  pdfDownload: string;
+  pdfTitle: string;
+  pdfStatus: string;
+  pdfDate: string;
+  pdfClassifier: string;
+  pdfTruncated: (n: number) => string;
+  pdfDisclaimer: string;
+  pdfPage: (page: number, total: number) => string;
+  brandSection: string;
+  brandHint: string;
+  brandName: string;
+  brandLogo: string;
+  brandLogoHint: string;
+  brandSave: string;
+  brandSaved: string;
+  brandRemoveLogo: string;
+  brandBadLogo: string;
+
   // catalogue history and deletion
   catalogsTitle: string;
   catalogsHint: string;
@@ -361,6 +380,24 @@ export const uz: Dict = {
   tgFile: 'Fayl',
   tgReport: 'Hisobot',
   tgError: 'Xatolik yuz berdi. Birozdan soʻng qayta urinib koʻring.',
+
+  pdfDownload: 'PDF yuklab olish',
+  pdfTitle: 'MXIK audit hisoboti',
+  pdfStatus: 'Holat',
+  pdfDate: 'Hisobot sanasi',
+  pdfClassifier: 'Tasniflagich versiyasi',
+  pdfTruncated: (n) => `Birinchi ${n.toLocaleString('uz-UZ')} ta riskli qator koʻrsatilgan; toʻliq roʻyxat ilovada.`,
+  pdfDisclaimer: 'Kodlar avtomatik tahlil asosida taklif qilingan; har bir qaror foydalanuvchi tomonidan qabul qilinadi. Ushbu hisobot yuridik maslahat emas.',
+  pdfPage: (page, total) => `${page} / ${total}`,
+  brandSection: 'Mijoz hisobotlari (PDF)',
+  brandHint: 'PDF hisobotda shu nom va logotip chiqadi.',
+  brandName: 'Firma nomi',
+  brandLogo: 'Logotip',
+  brandLogoHint: 'PNG yoki JPEG, 300 KB gacha.',
+  brandSave: 'Saqlash',
+  brandSaved: 'Saqlandi.',
+  brandRemoveLogo: 'Logotipni oʻchirish',
+  brandBadLogo: 'Logotip PNG yoki JPEG boʻlishi va 300 KB dan oshmasligi kerak.',
 
   catalogsTitle: 'Yuklangan kataloglar',
   catalogsHint: 'Har qanday katalogning hisoboti, koʻrib chiqilishi va eksporti saqlanadi. Katalogni oʻchirsangiz, undan olingan barcha maʼlumotlar ham oʻchiriladi.',
