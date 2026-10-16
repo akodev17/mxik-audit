@@ -7,6 +7,8 @@ import { resolveClient } from '@/lib/clients';
 import { canWrite, catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { currentUser } from '@/lib/session';
+import { defaultView } from '@/lib/views';
+import { viewQuery } from '@/lib/view-params';
 import { decodeCursor, readFilter, workspaceCount, workspacePageIds, workspaceSummary } from '@/lib/workspace';
 import { gridRows } from '@/lib/workspace-rows';
 import { CatalogStatus } from '@/ui/catalog-status';
@@ -21,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const FIRST_PAGE = 120;
 
-type SearchParams = { type?: string; q?: string; pending?: string; comments?: string };
+type SearchParams = { type?: string; q?: string; pending?: string; comments?: string; sort?: string; v?: string; density?: string; grouped?: string };
 
 export default async function CatalogWorkspacePage(
   { params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> },
@@ -47,6 +49,11 @@ export default async function CatalogWorkspacePage(
     );
   }
 
+  // A bare URL opens the user's default view, if they saved one.
+  if (Object.keys(sp).length === 0) {
+    const preferred = await defaultView(user);
+    if (preferred) redirect(`/catalogs/${catalog.id}?${viewQuery(preferred.params)}`);
+  }
   const filter = readFilter(sp);
   const [summary, count, page] = await Promise.all([
     workspaceSummary(catalog.id, catalog.rowCount),
@@ -62,7 +69,7 @@ export default async function CatalogWorkspacePage(
         <MoneyAtRisk catalogId={catalog.id} columnMap={catalog.columnMap} />
       </Suspense>
       <Workspace
-        key={`${catalog.id}|${filter.type}|${filter.q}|${filter.pendingOnly}|${filter.commented}`}
+        key={`${catalog.id}|${filter.type}|${filter.q}|${filter.pendingOnly}|${filter.commented}|${filter.sort}`}
         catalogId={catalog.id}
         summary={summary}
         initialRows={rows}
@@ -71,6 +78,9 @@ export default async function CatalogWorkspacePage(
         filter={filter}
         hintKey={user.demo ? `mxik.hint.${user.orgId}` : null}
         readOnly={!canWrite(user)}
+        initialDensity={sp.density === 'compact' ? 'compact' : sp.density === 'comfortable' ? 'comfortable' : null}
+        initialGrouped={sp.grouped === '1'}
+        canSaveViews={!user.demo}
       />
     </div>
   );

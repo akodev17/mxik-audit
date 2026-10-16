@@ -446,6 +446,20 @@ export const taUz = {
     add: 'Izoh qoʻshish',
     onlyCommented: 'Izohli qatorlar',
   },
+  views: {
+    title: 'Koʻrinishlar',
+    none: 'Saqlangan koʻrinish yoʻq.',
+    default: 'asosiy',
+    setDefault: 'Asosiy qilish',
+    unsetDefault: 'Asosiylikdan chiqarish',
+    remove: 'Oʻchirish',
+    namePlaceholder: 'Koʻrinish nomi',
+    makeDefault: 'Katalogni ochganda shu koʻrinish chiqsin',
+    save: 'Joriy koʻrinishni saqlash',
+    sort: 'Tartib:',
+    sortRisk: 'Xavfi boʻyicha',
+    sortRow: 'Fayldagi tartib',
+  },
 };
 
 export type AppDict = typeof taUz;

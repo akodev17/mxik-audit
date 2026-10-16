@@ -26,11 +26,15 @@ export type WorkspaceProps = {
   initialRows: GridRow[];
   initialNext: string | null;
   count: number;
-  filter: { type: string | null; q: string; pendingOnly: boolean; commented: boolean };
+  filter: { type: string | null; q: string; pendingOnly: boolean; commented: boolean; sort: 'risk' | 'row' };
   /** Storage key for the one-time demo tips; null when they do not apply. */
   hintKey: string | null;
   /** Viewers see everything and change nothing. */
   readOnly: boolean;
+  /** Set by a saved view; otherwise the density the user last chose is used. */
+  initialDensity: 'compact' | 'comfortable' | null;
+  initialGrouped: boolean;
+  canSaveViews: boolean;
 };
 
 const isTyping = (target: EventTarget | null): boolean =>
@@ -38,7 +42,7 @@ const isTyping = (target: EventTarget | null): boolean =>
 
 const DENSITY_KEY = 'mxik.density';
 
-export function Workspace({ catalogId, summary, initialRows, initialNext, count, filter, hintKey, readOnly }: WorkspaceProps) {
+export function Workspace({ catalogId, summary, initialRows, initialNext, count, filter, hintKey, readOnly, initialDensity, initialGrouped, canSaveViews }: WorkspaceProps) {
   const { ta } = useI18n();
   const toast = useToast();
   const [delta, setDelta] = useState(0);
@@ -49,7 +53,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
   const [loadFailed, setLoadFailed] = useState(false);
   const loading = useRef(false);
   const [compact, setCompact] = useState(false);
-  const [grouped, setGrouped] = useState(false);
+  const [grouped, setGrouped] = useState(initialGrouped);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -63,6 +67,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (initialDensity) { setCompact(initialDensity === 'compact'); return; }
     try { setCompact(localStorage.getItem(DENSITY_KEY) === 'compact'); } catch { /* storage blocked */ }
   }, []);
 
@@ -80,6 +85,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     try {
       const qs = new URLSearchParams({ cursor: next, pending: filter.pendingOnly ? '1' : '0' });
       if (filter.commented) qs.set('comments', '1');
+      if (filter.sort === 'row') qs.set('sort', 'row');
       if (filter.type) qs.set('type', filter.type);
       if (filter.q) qs.set('q', filter.q);
       const res = await fetch(`/api/catalogs/${catalogId}/rows?${qs}`);
@@ -173,7 +179,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     if (readOnly) return;
     setBulkBusy(true);
     const target = allFiltered
-      ? { filter: { type: filter.type, q: filter.q, pendingOnly: filter.pendingOnly, commented: filter.commented } }
+      ? { filter: { type: filter.type, q: filter.q, pendingOnly: filter.pendingOnly, commented: filter.commented, sort: filter.sort } }
       : { ids: [...selected] };
     const result = await bulkAction({ catalogId, target, action });
     setBulkBusy(false);
@@ -273,7 +279,7 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
       <SummaryStrip summary={summary} reviewedDelta={delta} activeType={filter.type} />
       <Toolbar
-        count={count} commented={filter.commented} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy} readOnly={readOnly}
+        count={count} commented={filter.commented} sort={filter.sort} canSaveViews={canSaveViews} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy} readOnly={readOnly}
         onCompact={setDensity} onGrouped={setGrouped} onAcceptSure={() => { void acceptSure(); }}
         dictionaryPending={summary.dictionaryPending} onAcceptDictionary={() => { void acceptDict(); }}
       />

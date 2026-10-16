@@ -9,7 +9,7 @@ const Input = z.object({
   catalogId: z.string().min(1),
   target: z.union([
     z.object({ ids: z.array(z.string().min(1)).min(1).max(20_000) }),
-    z.object({ filter: z.object({ type: z.string().nullable(), q: z.string().max(100), pendingOnly: z.boolean(), commented: z.boolean().optional() }) }),
+    z.object({ filter: z.object({ type: z.string().nullable(), q: z.string().max(100), pendingOnly: z.boolean(), commented: z.boolean().optional(), sort: z.enum(['risk', 'row']).optional() }) }),
   ]),
   action: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('accept') }),
@@ -31,7 +31,7 @@ export async function bulkAction(payload: unknown): Promise<BulkOutcome> {
   const { catalogId, target, action } = parsed.data;
   const result = await bulkApply(
     user, catalogId,
-    'ids' in target ? target : { filter: readFilter({ type: target.filter.type, q: target.filter.q, pending: target.filter.pendingOnly ? '1' : '0', comments: target.filter.commented ? '1' : '0' }) },
+    'ids' in target ? target : { filter: readFilter({ type: target.filter.type, q: target.filter.q, pending: target.filter.pendingOnly ? '1' : '0', comments: target.filter.commented ? '1' : '0', sort: target.filter.sort ?? 'risk' }) },
     action,
   );
   return result.ok ? { ok: true, count: result.count, eventId: result.eventId, ids: result.ids } : { ok: false };

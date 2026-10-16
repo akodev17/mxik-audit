@@ -21,6 +21,7 @@ export function SummaryStrip({ summary, reviewedDelta, activeType }: Props) {
   const href = (type: string | null): string => {
     const next = new URLSearchParams(params.toString());
     if (type) next.set('type', type); else next.delete('type');
+    next.set('v', '0');
     const qs = next.toString();
     return qs ? `${pathname}?${qs}` : pathname;
   };

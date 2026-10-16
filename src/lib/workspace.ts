@@ -8,7 +8,8 @@ import { RISKY_FINDING, RISKY_ITEM } from './risk';
 export const FINDING_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'] as const;
 export type WsType = (typeof FINDING_TYPES)[number];
 /** Chip filters: a finding type, markirovka, or null for all risky rows. */
-export type WsFilter = { type: WsType | 'MARKING' | null; q: string; pendingOnly: boolean; commented: boolean };
+export type WsSort = 'risk' | 'row';
+export type WsFilter = { type: WsType | 'MARKING' | null; q: string; pendingOnly: boolean; commented: boolean; sort: WsSort };
 
 export type WsSummary = {
   total: number;
@@ -39,9 +40,9 @@ export async function workspaceSummary(catalogId: string, rowCount: number): Pro
   };
 }
 
-export function readFilter(params: { type?: string | null; q?: string | null; pending?: string | null; comments?: string | null }): WsFilter {
+export function readFilter(params: { type?: string | null; q?: string | null; pending?: string | null; comments?: string | null; sort?: string | null }): WsFilter {
   const type = params.type === 'MARKING' ? 'MARKING' : FINDING_TYPES.find((x) => x === params.type) ?? null;
-  return { type, q: (params.q ?? '').trim().slice(0, 100), pendingOnly: params.pending !== '0', commented: params.comments === '1' };
+  return { type, q: (params.q ?? '').trim().slice(0, 100), pendingOnly: params.pending !== '0', commented: params.comments === '1', sort: params.sort === 'row' ? 'row' : 'risk' };
 }
 
 export type Cursor = { sev: string; conf: number; row: number; id: string };
@@ -78,20 +79,28 @@ function conditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
 
 type IdRow = { id: string; sev: string; conf: number; row: number };
 
+/** ORDER BY clause: riskiest first, or in file order. */
+function orderBy(sort: WsSort): Prisma.Sql {
+  return sort === 'row'
+    ? Prisma.sql`ci."rowIndex", f.id`
+    : Prisma.sql`f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id`;
+}
+
 /** One page of finding ids in workspace order, plus the cursor for the next page. */
 export async function workspacePageIds(
   catalogId: string, filter: WsFilter, cursor: Cursor | null, limit: number,
 ): Promise<{ ids: string[]; next: string | null }> {
   const where = conditions(catalogId, filter);
   if (cursor) {
-    where.push(Prisma.sql`(f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id) > (${cursor.sev}, ${cursor.conf}, ${cursor.row}, ${cursor.id})`);
+    where.push(filter.sort === 'row'
+      ? Prisma.sql`(ci."rowIndex", f.id) > (${cursor.row}, ${cursor.id})`
+      : Prisma.sql`(f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id) > (${cursor.sev}, ${cursor.conf}, ${cursor.row}, ${cursor.id})`);
   }
-  // Row comparison needs a text severity, so order by the text form too.
   const rows = await db.$queryRaw<IdRow[]>(Prisma.sql`
     SELECT f.id, f.severity::text AS sev, coalesce(f.confidence, -1)::float8 AS conf, ci."rowIndex" AS row
     FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
     WHERE ${Prisma.join(where, ' AND ')}
-    ORDER BY f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id
+    ORDER BY ${orderBy(filter.sort)}
     LIMIT ${limit + 1}`);
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
@@ -112,7 +121,7 @@ export async function workspaceAllIds(catalogId: string, filter: WsFilter, limit
   const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
     SELECT f.id FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
     WHERE ${Prisma.join(conditions(catalogId, filter), ' AND ')}
-    ORDER BY f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id
+    ORDER BY ${orderBy(filter.sort)}
     LIMIT ${limit}`);
   return rows.map((r) => r.id);
 }

@@ -197,6 +197,7 @@ model Organization {
   feedback  SuggestionFeedback[]
   shareLinks ShareLink[]
   comments  FindingComment[]
+  savedViews SavedView[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -252,6 +253,7 @@ model User {
   /// Set when the address was confirmed (or the account predates verification).
   emailVerifiedAt DateTime?
   emailTokens  EmailToken[]
+  savedViews   SavedView[]
   /// Interface language, uz or ru; null = the default.
   locale       String?
 
@@ -402,6 +404,23 @@ model FindingComment {
   @@index([findingId, createdAt])
   @@index([orgId])
   @@map("finding_comment")
+}
+
+/// A named set of workspace filters, sort, density and grouping. One default per user.
+model SavedView {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  name      String
+  params    Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_view")
 }
 
 enum CatalogStatus {

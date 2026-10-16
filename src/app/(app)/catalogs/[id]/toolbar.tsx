@@ -3,6 +3,7 @@
 import { useI18n } from '@/lib/locale-client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/ui/button';
+import { ViewsMenu } from './views-menu';
 import { cx } from '@/ui/cx';
 
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
   pendingOnly: boolean;
   query: string;
   commented: boolean;
+  sort: 'risk' | 'row';
+  canSaveViews: boolean;
   busy: boolean;
   onCompact: (v: boolean) => void;
   onGrouped: (v: boolean) => void;
@@ -37,7 +40,7 @@ function Segment({ options, value, onChange, label }: { options: [string, string
 }
 
 /** Density, grouping, review scope and bulk accept for the grid below. */
-export function Toolbar({ count, compact, grouped, pendingOnly, query, commented, busy, onCompact, onGrouped, onAcceptSure, readOnly, dictionaryPending, onAcceptDictionary }: Props) {
+export function Toolbar({ count, compact, grouped, pendingOnly, query, commented, sort, canSaveViews, busy, onCompact, onGrouped, onAcceptSure, readOnly, dictionaryPending, onAcceptDictionary }: Props) {
   const { ta } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -45,6 +48,7 @@ export function Toolbar({ count, compact, grouped, pendingOnly, query, commented
   const go = (mutate: (p: URLSearchParams) => void): void => {
     const next = new URLSearchParams(params.toString());
     mutate(next);
+    next.set('v', '0');
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
@@ -71,6 +75,20 @@ export function Toolbar({ count, compact, grouped, pendingOnly, query, commented
         />
         {ta.comments.onlyCommented}
       </label>
+      <label className="flex items-center gap-2 text-sm">
+        {ta.views.sort}
+        <select
+          value={sort} onChange={(e) => go((p) => { if (e.target.value === 'row') p.set('sort', 'row'); else p.delete('sort'); })}
+          className="h-8 rounded-ctl border border-line-strong bg-base px-2"
+        >
+          <option value="risk">{ta.views.sortRisk}</option>
+          <option value="row">{ta.views.sortRow}</option>
+        </select>
+      </label>
+      <ViewsMenu
+        canSave={canSaveViews}
+        current={{ type: params.get('type'), q: query, pending: pendingOnly, comments: commented, sort, density: compact ? 'compact' : 'comfortable', grouped }}
+      />
       <div className="ml-auto flex flex-wrap items-center gap-3">
         {readOnly || dictionaryPending === 0 ? null : <Button size="sm" variant="secondary" disabled={busy} onClick={onAcceptDictionary}>{ta.dict.acceptAll(dictionaryPending)}</Button>}
         {readOnly ? null : <Button size="sm" variant="secondary" disabled={busy} onClick={onAcceptSure}>{ta.ws.acceptAll}</Button>}
