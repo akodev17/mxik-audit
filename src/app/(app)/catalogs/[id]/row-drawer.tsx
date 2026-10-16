@@ -14,6 +14,7 @@ import { Skeleton } from '@/ui/skeleton';
 import { CodeCompare } from './code-compare';
 import { CodeSearch } from './code-search';
 import { RequestText } from './request-text';
+import { WrongFeedback } from './wrong-feedback';
 
 type Props = {
   row: GridRow | null;
@@ -99,6 +100,7 @@ function Body({ row, detail, onChoose, readOnly }: { row: GridRow; detail: RowDe
       </section>
 
       {showRequest ? <RequestText findingId={detail.findingId} /> : null}
+      {!readOnly && !detail.noSuggestion && detail.suggested ? <WrongFeedback findingId={detail.findingId} /> : null}
     </div>
   );
 }

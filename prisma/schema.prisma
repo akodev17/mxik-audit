@@ -194,6 +194,7 @@ model Organization {
   events    AuditEvent[]
   invites   Invite[]
   mappings  FirmMapping[]
+  feedback  SuggestionFeedback[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Paid firm subscription runs until this moment; null = none.
@@ -317,6 +318,28 @@ model FirmMapping {
   @@unique([orgId, kind, key])
   @@index([orgId])
   @@map("firm_mapping")
+}
+
+/// A reviewer's reason for calling a suggestion wrong; feeds the accuracy metrics.
+model SuggestionFeedback {
+  id            String   @id @default(cuid())
+  orgId         String
+  findingId     String   @unique
+  userId        String?
+  /// other_category, service_goods, finished_raw, unit or other.
+  reason        String
+  note          String?
+  /// The pipeline stage and confidence label that produced the suggestion.
+  stage         String?
+  label         String?
+  suggestedMxik String?
+  productName   String
+  createdAt     DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@map("suggestion_feedback")
 }
 
 enum CatalogStatus {

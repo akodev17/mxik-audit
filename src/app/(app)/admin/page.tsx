@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { ta } from '@/lib/i18n-app';
 import { Page, Section } from '@/ui/page';
 import { TYPE_LABEL } from '@/ui/labels';
 import { isAdmin } from '@/lib/admin';
@@ -42,7 +44,7 @@ export default async function AdminPage() {
   const [m, pipeline] = await Promise.all([tractionMetrics(), pipelineStatus()]);
 
   return (
-    <Page title={t.adminTitle} hint={t.adminHint} wide>
+    <Page title={t.adminTitle} hint={t.adminHint} wide actions={<Link href="/admin/metrics" className="text-sm font-medium text-brand hover:underline">{ta.metrics.title}</Link>}>
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label={t.adminOrgs} value={fmt(m.orgs.customers)} note={t.adminLast30(m.orgs.newLast30Days)} />
         <Stat label={t.adminCatalogs} value={fmt(m.catalogs.total)} note={t.adminLast30(m.catalogs.last30Days)} />
