@@ -112,8 +112,7 @@ export type RerankRequest = {
   normalizedKey: string;
   /** The row's unit as written. Sent. */
   unit: string | null;
-  /** Derived from the name. Sent. */
-  preparedDish: boolean;
+  /** Public classifier rows: code, name, path, binding. Sent. */
   candidates: MxikCandidate[];
 };
 

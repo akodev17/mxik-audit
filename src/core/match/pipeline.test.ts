@@ -287,7 +287,7 @@ describe('reranker safety', () => {
     );
     const sent = reranker.requests[0];
     assert.ok(sent);
-    assert.deepEqual(Object.keys(sent).sort(), ['candidates', 'normalizedKey', 'preparedDish', 'productName', 'unit']);
+    assert.deepEqual(Object.keys(sent).sort(), ['candidates', 'normalizedKey', 'productName', 'unit']);
     assert.equal(sent.unit, 'kg');
   });
 });

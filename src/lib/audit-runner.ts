@@ -92,6 +92,8 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
   if (!reranker.available) degradedReasons.push('LLM qayta tartiblash oʻchirilgan');
   if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
+  // Operator-facing only: never shown on customer screens (see /admin).
+  if (degradedReasons.length > 0) console.warn(`[audit ${catalogId}] degraded: ${degradedReasons.join('; ')}`);
 
   const total = await db.catalogItem.count({ where: { catalogId } });
   const items = await db.catalogItem.findMany({

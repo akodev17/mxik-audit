@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { confidenceLabel } from '@/core/match/confidence-labels';
 import { demoTtlHours } from '@/lib/demo-config';
 import { t } from '@/lib/i18n';
 
@@ -72,38 +73,28 @@ export function Shell({ children, demo }: { children: React.ReactNode; demo?: bo
   );
 }
 
-/** Says plainly when the suggestion engine is not at full strength. */
-export function DegradedBanner({ reasons }: { reasons: readonly string[] }) {
-  if (reasons.length === 0) return null;
-  return (
-    <div className="mb-6 border-l-2 border-risk bg-risk-tint px-4 py-3 text-sm text-ink-soft">
-      <strong className="font-medium text-ink">{t.degradedNotice}</strong>
-      <span className="ml-1">({reasons.join(', ')})</span>
-    </div>
-  );
-}
-
-const BAND_STYLE = {
-  high: 'bg-ok-tint text-ok border-ok/30',
-  medium: 'bg-[#fdf6e7] text-[#8a5a00] border-[#8a5a00]/25',
-  low: 'bg-risk-tint text-risk border-risk/25',
+const LABEL_STYLE = {
+  sure: 'bg-ok-tint text-ok border-ok/30',
+  likely: 'bg-[#fdf6e7] text-[#8a5a00] border-[#8a5a00]/25',
+  check: 'bg-risk-tint text-risk border-risk/25',
 } as const;
 
-const BAND_LABEL = {
-  high: t.confidenceHigh,
-  medium: t.confidenceMedium,
-  low: t.confidenceLow,
+const LABEL_TEXT = {
+  sure: t.confidenceSure,
+  likely: t.confidenceLikely,
+  check: t.confidenceCheck,
 } as const;
 
-export function ConfidenceBadge({ confidence }: { confidence: number | null }) {
+/** A plain-language label; the raw number is detail, kept in the tooltip. */
+export function ConfidenceBadge({ confidence, barcode }: { confidence: number | null; barcode?: boolean }) {
   if (confidence === null) return <span className="text-xs text-ink-faint">—</span>;
-  const band = confidence >= 0.9 ? 'high' : confidence >= 0.6 ? 'medium' : 'low';
+  const label = confidenceLabel(confidence, { barcode });
   return (
     <span
-      title={BAND_LABEL[band]}
-      className={`inline-block border px-1.5 py-0.5 text-xs tnum ${BAND_STYLE[band]}`}
+      title={t.confidenceDetail(Math.round(confidence * 100))}
+      className={`inline-block whitespace-nowrap border px-1.5 py-0.5 text-xs ${LABEL_STYLE[label]}`}
     >
-      {Math.round(confidence * 100)}%
+      {LABEL_TEXT[label]}
     </span>
   );
 }

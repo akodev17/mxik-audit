@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ConfidenceBadge, DegradedBanner, Header, Shell, TypeBadge } from '@/components/chrome';
+import { ConfidenceBadge, Header, Shell, TypeBadge } from '@/components/chrome';
 import { CatalogStatus } from '@/components/catalog-status';
 import { CatalogSwitcher } from '@/components/catalog-switcher';
 import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
@@ -56,7 +56,7 @@ export default async function ReportPage(
 
   // Counts come from the database, not from loading every row into memory: a
   // 60,000-row catalogue must not be summarized in JS.
-  const [byType, riskyRows, lastAudit] = await Promise.all([
+  const [byType, riskyRows] = await Promise.all([
     db.finding.groupBy({
       by: ['type'],
       where: { item: { catalogId: catalog.id } },
@@ -65,20 +65,10 @@ export default async function ReportPage(
     db.catalogItem.count({
       where: { catalogId: catalog.id, findings: { some: {} } },
     }),
-    db.auditEvent.findFirst({
-      where: { orgId: user.orgId, action: 'catalog.audited', targetId: catalog.id },
-      orderBy: { createdAt: 'desc' },
-      select: { payload: true },
-    }),
   ]);
 
   const counts = new Map<string, number>(byType.map((r) => [r.type, r._count._all]));
   const count = (type: FindingType): number => counts.get(type) ?? 0;
-
-  const payload = lastAudit?.payload as { degradedReasons?: unknown } | null;
-  const degradedReasons = Array.isArray(payload?.degradedReasons)
-    ? payload.degradedReasons.filter((r): r is string => typeof r === 'string')
-    : [];
 
   const typeFilter = TYPE_ORDER.includes(params.type as FindingType)
     ? (params.type as FindingType)
@@ -115,7 +105,6 @@ export default async function ReportPage(
       <Header email={user.email} current="/report" catalogId={selected} demo={user.demo} />
       <Shell demo={user.demo}>
         <CatalogSwitcher options={options} current={catalog.id} />
-        <DegradedBanner reasons={degradedReasons} />
 
         {/* The headline. Large, unmissable, and about risk — not features. */}
         <section className={`border-l-4 px-6 py-5 ${clean ? 'border-ok bg-ok-tint' : 'border-risk bg-risk-tint'}`}>

@@ -84,6 +84,7 @@ export type Dict = {
   adminLeads: string;
   adminLeadsFiles: (n: number) => string;
   adminGenerated: string;
+  adminPipeline: string;
 
   // demo
   demoTitle: string;
@@ -177,10 +178,10 @@ export type Dict = {
   back: string;
   rows: string;
   code: string;
-  confidenceHigh: string;
-  confidenceMedium: string;
-  confidenceLow: string;
-  degradedNotice: string;
+  confidenceSure: string;
+  confidenceLikely: string;
+  confidenceCheck: string;
+  confidenceDetail: (percent: number) => string;
 };
 
 export const uz: Dict = {
@@ -254,6 +255,7 @@ export const uz: Dict = {
   adminLeads: 'Bepul audit soʻrovlari',
   adminLeadsFiles: (n) => `fayl bilan: ${n.toLocaleString('uz-UZ')}`,
   adminGenerated: 'Hisoblangan vaqt',
+  adminPipeline: 'Taklif tizimi holati (faqat administratorga koʻrinadi)',
 
   demoTitle: 'Demoni sinab koʻrish',
   demoIntro: 'Roʻyxatdan oʻtmasdan, namuna katalog ustida dasturning toʻliq ishini koʻring: risk hisoboti, takliflarni koʻrib chiqish va tuzatilgan faylni yuklab olish.',
@@ -319,7 +321,7 @@ export const uz: Dict = {
   reviewAccept: 'Qabul qilish',
   reviewReject: 'Rad etish',
   reviewPickOther: 'Boshqasini tanlash',
-  reviewAcceptAllAbove: '90% dan yuqori barchasini qabul qilish',
+  reviewAcceptAllAbove: 'Barcha “Aniq” takliflarni qabul qilish',
   reviewDecided: 'Hal qilindi',
   reviewPending: 'Kutilmoqda',
   reviewAccepted: 'Qabul qilindi',
@@ -347,11 +349,10 @@ export const uz: Dict = {
   back: 'Orqaga',
   rows: 'qator',
   code: 'Kod',
-  confidenceHigh: 'Yuqori ishonch',
-  confidenceMedium: 'Tekshirish kerak',
-  confidenceLow: 'Past ishonch',
-  degradedNotice:
-    'Diqqat: taklif tizimi toʻliq quvvatda ishlamayapti. Ishonch koʻrsatkichlari pastroq baholangan.',
+  confidenceSure: 'Aniq',
+  confidenceLikely: 'Ehtimoliy',
+  confidenceCheck: 'Tekshirish kerak',
+  confidenceDetail: (percent) => `Moslik bahosi: ${percent}%`,
 };
 
 const DICTS: Record<Locale, Dict> = { uz };

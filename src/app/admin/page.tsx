@@ -4,6 +4,7 @@ import { Header, Shell, TYPE_LABEL } from '@/components/chrome';
 import { isAdmin } from '@/lib/admin';
 import { t } from '@/lib/i18n';
 import { currentUser } from '@/lib/session';
+import { pipelineStatus } from '@/lib/pipeline-status';
 import { tractionMetrics } from '@/lib/traction';
 
 export const metadata: Metadata = { title: `${t.adminTitle} — ${t.appName}`, robots: { index: false } };
@@ -37,7 +38,7 @@ function Rows({ rows }: { rows: [string, number][] }) {
 export default async function AdminPage() {
   const user = await currentUser();
   if (!user || !isAdmin(user.email)) notFound();
-  const m = await tractionMetrics();
+  const [m, pipeline] = await Promise.all([tractionMetrics(), pipelineStatus()]);
 
   return (
     <>
@@ -76,6 +77,18 @@ export default async function AdminPage() {
           <Stat label={t.adminDemo} value={fmt(m.demo.sessions)} note={t.adminLast30(m.demo.last30Days)} />
           <Stat label={t.adminLeads} value={fmt(m.leads.total)} note={`${t.adminLeadsFiles(m.leads.withFile)} · ${t.adminLast30(m.leads.last30Days)}`} />
         </dl>
+
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg">{t.adminPipeline}</h2>
+          <dl className="border border-rule">
+            {pipeline.map((line) => (
+              <div key={line.label} className="flex items-baseline justify-between gap-4 border-b border-rule px-4 py-2 last:border-0">
+                <dt className="text-sm text-ink-soft">{line.label}</dt>
+                <dd className={`text-sm ${line.ok ? 'text-ok' : 'text-risk'}`}>{line.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
         <p className="mt-6 text-xs text-ink-faint">{t.adminGenerated}: {m.generatedAt.toLocaleString('uz-UZ')}</p>
       </Shell>

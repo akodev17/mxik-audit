@@ -190,7 +190,6 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
           productName: normalized.display,
           normalizedKey: normalized.matchKey,
           unit: rowUnit,
-          preparedDish,
           candidates: fused.map((f) => f.item),
         }));
         const valid = await keepKnownCodes(verdicts, fused.map((f) => f.item.code), store);
