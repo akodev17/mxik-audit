@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 13px; margin: 12px; color: #1f2937; }
+      h3 { margin: 16px 0 6px; font-size: 14px; }
+      label { display: block; margin-top: 8px; color: #4b5563; }
+      input { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 2px; }
+      button { margin-top: 8px; padding: 7px 10px; cursor: pointer; }
+      button.primary { background: #1a73e8; color: #fff; border: 0; border-radius: 4px; }
+      #status { margin-top: 12px; min-height: 18px; }
+      .error { color: #b91c1c; }
+      .hint { color: #6b7280; font-size: 12px; margin-top: 4px; }
+    </style>
+  </head>
+  <body>
+    <h3>Ulanish</h3>
+    <label>Server manzili <input id="base" placeholder="https://sizning-domen.uz"></label>
+    <label>API kaliti <input id="key" type="password" placeholder="mxk_..."></label>
+    <button onclick="save()">Saqlash</button>
+    <button onclick="forget()">Kalitni oʻchirish</button>
+    <p class="hint" id="saved"></p>
+
+    <h3>Varaqni tekshirish</h3>
+    <p class="hint">Birinchi qator sarlavha. Natija varaqning oʻng tomoniga yoziladi; boshqa ustunlar oʻzgarmaydi.</p>
+    <button class="primary" onclick="run('checkSheet', done)">Varaq qatorlarini tekshirish</button>
+
+    <h3>Katalogni audit qilish</h3>
+    <p class="hint">Butun varaq serverga yuboriladi; hisobotni ilovada koʻrasiz.</p>
+    <button onclick="run('uploadSheet', uploaded)">Varaqni auditga yuborish</button>
+    <button onclick="run('reportStatus', reported)">Audit holatini koʻrish</button>
+
+    <div id="status"></div>
+
+    <script>
+      var statusEl = document.getElementById('status');
+      function show(text, isError) { statusEl.textContent = text; statusEl.className = isError ? 'error' : ''; }
+      function fail(error) { show(error.message || String(error), true); }
+      function run(name, ok) {
+        show('Ishlamoqda…');
+        google.script.run.withSuccessHandler(ok).withFailureHandler(fail)[name]();
+      }
+      function done(r) { show(r.checked + ' ta qator tekshirildi.'); }
+      function uploaded(r) { show('Yuborildi: ' + r.rows + ' qator. Katalog: ' + r.id); }
+      function reported(r) {
+        var parts = Object.keys(r.summary).map(function (k) { return k + ': ' + r.summary[k]; });
+        show('Holat: ' + r.status + ' (' + r.progress.done + '/' + r.progress.total + ')' + (parts.length ? '. ' + parts.join(', ') : ''));
+      }
+      function render(s) {
+        document.getElementById('base').value = s.baseUrl;
+        document.getElementById('saved').textContent = s.hasKey ? 'API kaliti saqlangan.' : 'API kaliti hali saqlanmagan.';
+      }
+      function save() {
+        google.script.run.withSuccessHandler(function (s) { render(s); show('Saqlandi.'); }).withFailureHandler(fail)
+          .saveSettings(document.getElementById('base').value, document.getElementById('key').value);
+        document.getElementById('key').value = '';
+      }
+      function forget() { google.script.run.withSuccessHandler(render).withFailureHandler(fail).clearKey(); }
+      google.script.run.withSuccessHandler(render).getSettings();
+    </script>
+  </body>
+</html>
