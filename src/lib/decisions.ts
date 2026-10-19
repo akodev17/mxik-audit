@@ -9,7 +9,7 @@ import { db } from './db.js';
 export type Actor = { userId: string; orgId: string; clientIds?: string[] | null };
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
-export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.carried_over'] as const;
+export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.carried_over', 'finding.auto_accepted'] as const;
 const HISTORY_ACTIONS = [...DECISION_ACTIONS, 'finding.undone'];
 
 const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
@@ -61,7 +61,7 @@ export async function recordDecision(
         where: { id: finding.id, decision: 'pending' },
         data: {
           decision: input.decision, chosenMxik: chosen, decidedBy: actor.userId,
-          decidedAt: event.createdAt, decisionEventId: event.id,
+          decidedAt: event.createdAt, decisionEventId: event.id, decisionSource: input.groupSize ? 'group' : 'manual',
         },
       });
       // Someone else decided it in the meantime: roll the event back too.
@@ -69,7 +69,7 @@ export async function recordDecision(
       return event.id;
     });
     // Accepting teaches the firm dictionary; a later row with the same product reuses it.
-    if (chosen) await learnQuietly(actor.orgId, actor.userId, [{ rawName: finding.item.rawName, unit: finding.item.unit, barcode: finding.item.barcode, code: chosen }]);
+    if (chosen) await learnQuietly(actor.orgId, actor.userId, [{ rawName: finding.item.rawName, unit: finding.item.unit, barcode: finding.item.barcode, code: chosen }], input.groupSize ? 'group' : 'manual');
     return { ok: true, eventId };
   } catch (error) {
     return fail(error instanceof Error ? error.message : 'failed');
@@ -151,12 +151,12 @@ export async function bulkAccept(
     const ids = targets.map((f) => f.id);
     await tx.$executeRaw`
       UPDATE finding SET decision = 'accepted'::decision, "chosenMxik" = "suggestedMxik",
-        "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}
+        "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}, "decisionSource" = 'bulk_sure'
       WHERE id = ANY(${ids}) AND decision = 'pending'::decision`;
     return event.id;
   }, { timeout: 120_000 });
 
-  await learnQuietly(actor.orgId, actor.userId, targets.flatMap((f) => (f.suggestedMxik ? [{ rawName: f.item.rawName, unit: f.item.unit, barcode: f.item.barcode, code: f.suggestedMxik }] : [])));
+  await learnQuietly(actor.orgId, actor.userId, targets.flatMap((f) => (f.suggestedMxik ? [{ rawName: f.item.rawName, unit: f.item.unit, barcode: f.item.barcode, code: f.suggestedMxik }] : [])), 'bulk_sure');
   return { ok: true, count: targets.length, eventId };
 }
 
@@ -192,7 +192,7 @@ export async function undoDecision(
     await db.$transaction(async (tx) => {
       const reverted = await tx.finding.updateMany({
         where: { id: { in: ids }, decisionEventId: event.id },
-        data: { decision: 'pending', chosenMxik: null, decidedBy: null, decidedAt: null, decisionEventId: null },
+        data: { decision: 'pending', chosenMxik: null, decidedBy: null, decidedAt: null, decisionEventId: null, decisionSource: null },
       });
       if (reverted.count === 0) throw new Error('already undone');
       await tx.auditEvent.create({

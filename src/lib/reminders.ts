@@ -87,12 +87,13 @@ export async function runReminders(now = new Date()): Promise<{ created: number;
   const { period, day, date } = localDate(now);
   const schedules = await db.clientSchedule.findMany({
     where: { enabled: true, dayOfMonth: { lte: day }, OR: [{ lastPeriod: null }, { lastPeriod: { not: period } }] },
-    include: { client: { select: { name: true } }, org: { select: { kind: true } } },
+    include: { client: { select: { name: true } }, org: { select: { kind: true, deletedAt: true } } },
   });
   let created = 0;
   let messaged = 0;
   for (const s of schedules) {
-    if (s.org.kind !== 'customer') continue;
+    // Closed accounts get no reminders while they wait for deletion.
+    if (s.org.kind !== 'customer' || s.org.deletedAt) continue;
     const dueOn = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), s.dayOfMonth));
     const claimed = await db.clientSchedule.updateMany({ where: { clientId: s.clientId, OR: [{ lastPeriod: null }, { lastPeriod: { not: period } }] }, data: { lastPeriod: period } });
     if (claimed.count !== 1) continue;

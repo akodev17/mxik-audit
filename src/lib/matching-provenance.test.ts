@@ -9,6 +9,7 @@ import { db } from './db.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { learn, loadDictionary } from './dictionary.js';
 import { readPipelineMeta } from './pipeline-meta.js';
+import { recordDecision, undoDecision } from './decisions.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';
 import { carryOver } from './versions.js';
 
@@ -111,6 +112,28 @@ describe('matching provenance (database)', { skip }, () => {
     assert.equal(manual?.decisionSource, 'dictionary');
     assert.equal(manual?.decidedBy, a.userId);
     assert.equal((await db.auditEvent.findUnique({ where: { id: button.eventId ?? '' } }))?.action, 'finding.bulk_accepted');
+  });
+
+  it('lets a person undo an automatic acceptance, and a single accept confirms the dictionary entry', async () => {
+    const [x = ''] = codes;
+    const { catalogId, items } = await catalogWith(a.orgId, [{ name: `Undo lugʻat ${randomBytes(3).toString('hex')}` }]);
+    const finding = await db.finding.create({
+      data: { itemId: items[0]!.id, type: 'MISSING', severity: 'high', suggestedMxik: x, confidence: 0.96, alternatives: [], reason: 'test', evidence: dictEvidence(1) },
+    });
+    const auto = await acceptDictionaryMatches({ orgId: a.orgId, userId: a.userId }, catalogId, 'auto');
+    assert.equal(auto.count, 1);
+    const undone = await undoDecision(a, auto.eventId ?? '');
+    assert.equal(undone.ok, true, 'auto-accepted rows can be reverted');
+    const reverted = await db.finding.findUnique({ where: { id: finding.id } });
+    assert.equal(reverted?.decision, 'pending');
+    assert.equal(reverted?.decisionSource, null);
+
+    const decided = await recordDecision(a, { findingId: finding.id, decision: 'accepted' });
+    assert.equal(decided.ok, true);
+    assert.equal((await db.finding.findUnique({ where: { id: finding.id } }))?.decisionSource, 'manual');
+    const entry = await db.firmMapping.findFirst({ where: { orgId: a.orgId, code: x }, orderBy: { updatedAt: 'desc' } });
+    assert.ok((entry?.confirmations ?? 0) >= 1, 'an individual accept confirms the entry');
+    assert.equal(entry?.source, 'manual');
   });
 
   it('carries decisions with their original decider and source finding, marked carry_over', async () => {

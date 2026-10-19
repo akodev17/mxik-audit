@@ -67,11 +67,11 @@ export async function bulkApply(actor: Actor, catalogId: string, target: BulkTar
       },
     });
     if (reject) {
-      await tx.$executeRaw`UPDATE finding SET decision = 'rejected'::decision, "chosenMxik" = NULL, "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id} WHERE id = ANY(${ids}) AND decision = 'pending'::decision`;
+      await tx.$executeRaw`UPDATE finding SET decision = 'rejected'::decision, "chosenMxik" = NULL, "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}, "decisionSource" = 'bulk' WHERE id = ANY(${ids}) AND decision = 'pending'::decision`;
     } else if (code) {
-      await tx.$executeRaw`UPDATE finding SET decision = 'accepted'::decision, "chosenMxik" = ${code}, "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id} WHERE id = ANY(${ids}) AND decision = 'pending'::decision`;
+      await tx.$executeRaw`UPDATE finding SET decision = 'accepted'::decision, "chosenMxik" = ${code}, "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}, "decisionSource" = 'bulk' WHERE id = ANY(${ids}) AND decision = 'pending'::decision`;
     } else {
-      await tx.$executeRaw`UPDATE finding SET decision = 'accepted'::decision, "chosenMxik" = "suggestedMxik", "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id} WHERE id = ANY(${ids}) AND decision = 'pending'::decision`;
+      await tx.$executeRaw`UPDATE finding SET decision = 'accepted'::decision, "chosenMxik" = "suggestedMxik", "decidedBy" = ${actor.userId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}, "decisionSource" = 'bulk' WHERE id = ANY(${ids}) AND decision = 'pending'::decision`;
     }
     return event.id;
   }, { timeout: 120_000 });
@@ -80,7 +80,7 @@ export async function bulkApply(actor: Actor, catalogId: string, target: BulkTar
     await learnQuietly(actor.orgId, actor.userId, targets.flatMap((r) => {
       const chosen = code ?? r.suggestedMxik;
       return chosen ? [{ rawName: r.item.rawName, unit: r.item.unit, barcode: r.item.barcode, code: chosen }] : [];
-    }));
+    }), 'bulk');
   }
   return { ok: true, count: ids.length, eventId, ids };
 }

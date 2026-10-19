@@ -7,11 +7,11 @@ export const CATEGORIES = ['all', 'decisions', 'uploads', 'exports', 'share', 't
 export type Category = (typeof CATEGORIES)[number];
 
 const GROUPS: Record<Exclude<Category, 'all' | 'other'>, string[]> = {
-  decisions: ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.undone', 'finding.carried_over', 'finding.flagged', 'finding.commented', 'finding.split_from_group', 'item.name_filled', 'suggestion.reported_wrong'],
+  decisions: ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.undone', 'finding.carried_over', 'finding.auto_accepted', 'finding.flagged', 'finding.commented', 'finding.split_from_group', 'item.name_filled', 'suggestion.reported_wrong'],
   uploads: ['catalog.uploaded', 'catalog.audited', 'catalog.deleted', 'purchases.uploaded', 'sales.uploaded', 'cheques.uploaded', 'sales.checked', 'cheques.checked'],
   exports: ['catalog.exported', 'catalog.pdf_exported', 'account.exported'],
   share: ['share.created', 'share.revoked'],
-  team: ['team.invited', 'team.joined', 'team.updated', 'team.removed', 'account.created', 'apikey.created', 'apikey.revoked', 'security.2fa_enabled', 'security.2fa_disabled', 'security.session_revoked'],
+  team: ['team.invited', 'team.joined', 'team.updated', 'team.removed', 'account.created', 'apikey.created', 'apikey.revoked', 'security.2fa_enabled', 'security.2fa_disabled', 'security.session_revoked', 'security.password_changed', 'security.password_reset', 'security.telegram_bound', 'security.telegram_unbound', 'account.deletion_requested', 'account.restored'],
   classifier: ['classifier.updated'],
   dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept'],
 };
