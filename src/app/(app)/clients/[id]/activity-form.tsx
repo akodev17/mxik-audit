@@ -1,35 +1,54 @@
 'use client';
 
-import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { setActivity } from '@/app/actions/purchases';
+import { useI18n } from '@/lib/locale-client';
+import { Button } from '@/ui/button';
+import { Select } from '@/ui/select';
+import { useToast } from '@/ui/toast';
 
 type Activity = 'savdo' | 'ishlab_chiqarish' | 'boshqa';
 const ACTIVITIES: Activity[] = ['savdo', 'ishlab_chiqarish', 'boshqa'];
 
+/** The client's activity type with an explicit save; a failed save keeps the choice and says so. */
 export function ActivityForm({ clientId, activity }: { clientId: string; activity: Activity }) {
-  const { t } = useI18n();
+  const { t, ta } = useI18n();
   const router = useRouter();
+  const toast = useToast();
+  const [saved, setSaved] = useState<Activity>(activity);
   const [value, setValue] = useState<Activity>(activity);
-  const [busy, start] = useTransition();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await setActivity({ clientId, activity: value });
+      if (!result.ok) { setError(ta.firmX.errors.forbidden); return; }
+      setSaved(value);
+      toast(ta.firmX.client.activitySaved);
+      router.refresh();
+    } catch {
+      setError(ta.shellX.ui.confirmFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="text-sm">
-      <label className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{t.activityLabel}:</span>
-        <select
-          value={value} disabled={busy}
-          onChange={(e) => {
-            const next = ACTIVITIES.find((a) => a === e.target.value) ?? 'boshqa';
-            setValue(next);
-            start(async () => { await setActivity({ clientId, activity: next }); router.refresh(); });
-          }}
-          className="h-9 rounded-ctl border border-line-strong bg-base px-2 focus:border-brand focus:outline-none"
-        >
-          {ACTIVITIES.map((a) => <option key={a} value={a}>{t.activityOptions[a]}</option>)}
-        </select>
-      </label>
-      <p className="mt-1 text-xs text-muted">{t.activityHint}</p>
+    <div className="max-w-md space-y-2">
+      <Select
+        label={t.activityLabel} hint={t.activityHint} error={error ?? undefined}
+        value={value} disabled={busy}
+        onChange={(e) => { setValue(ACTIVITIES.find((a) => a === e.target.value) ?? 'boshqa'); setError(null); }}
+      >
+        {ACTIVITIES.map((a) => <option key={a} value={a}>{t.activityOptions[a]}</option>)}
+      </Select>
+      <Button variant="secondary" size="sm" loading={busy} disabled={value === saved && !busy} onClick={() => { void save(); }}>
+        {ta.firmX.client.activitySave}
+      </Button>
     </div>
   );
 }

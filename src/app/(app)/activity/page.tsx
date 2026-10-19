@@ -1,14 +1,18 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { activityPage, CATEGORIES, type Category } from '@/lib/activity';
 import { clientScope } from '@/lib/access';
+import { activityPage, CATEGORIES, tashkentDayStart, type Category } from '@/lib/activity';
+import { groupDecisions } from '@/lib/activity-groups';
 import { db } from '@/lib/db';
-import { formatTag, getI18n } from '@/lib/locale';
+import { fmtNumber } from '@/lib/format';
+import { getI18n } from '@/lib/locale';
+import { withQuery } from '@/lib/query-string';
 import { currentUser } from '@/lib/session';
+import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
-import { Table, Td, Th } from '@/ui/table';
+import { ActivityFilters } from './activity-filters';
+import { ActivityTable } from './activity-table';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
@@ -18,12 +22,18 @@ export async function generateMetadata(): Promise<Metadata> {
 type Params = { client?: string; user?: string; type?: string; from?: string; to?: string; page?: string };
 
 export default async function ActivityPage({ searchParams }: { searchParams: Promise<Params> }) {
-  const { locale, t, ta } = await getI18n();
+  const { locale, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const category: Category = CATEGORIES.find((c) => c === sp.type) ?? 'all';
-  const page = Math.max(0, Number(sp.page) || 0);
+  const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
+
+  // Days that do not parse are dropped; a reversed range is swapped and said so.
+  let from = tashkentDayStart(sp.from ?? null) ? sp.from ?? '' : '';
+  let to = tashkentDayStart(sp.to ?? null) ? sp.to ?? '' : '';
+  const swapped = Boolean(from && to && from > to);
+  if (swapped) [from, to] = [to, from];
 
   const [clients, users] = await Promise.all([
     db.client.findMany({ where: { orgId: user.orgId, ...clientScope(user) }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
@@ -31,57 +41,44 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   ]);
   // A client id outside the user's scope is ignored, never trusted.
   const clientId = clients.find((c) => c.id === sp.client)?.id ?? null;
-  const { rows, hasMore } = await activityPage(user, { clientId, userId: users.find((u) => u.id === sp.user)?.id ?? null, category, from: sp.from ?? null, to: sp.to ?? null, page });
-
-  const href = (p: number): string => {
-    const q = new URLSearchParams(Object.entries(sp).flatMap(([k, v]) => (v && k !== 'page' ? [[k, v]] : [])));
-    q.set('page', String(p));
-    return `/activity?${q}`;
-  };
-  const select = 'h-9 rounded-ctl border border-line-strong bg-base px-2 text-sm';
+  const userId = users.find((u) => u.id === sp.user)?.id ?? null;
+  const result = await activityPage(
+    user,
+    { clientId, userId, category, from: from || null, to: to || null, page: page - 1 },
+    { withTotal: true },
+  );
+  const total = result.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / result.pageSize));
+  const firstShown = (page - 1) * result.pageSize + 1;
+  const lastShown = (page - 1) * result.pageSize + result.rows.length;
+  const params: Record<string, string | undefined> = { client: clientId ?? undefined, user: userId ?? undefined, type: category === 'all' ? undefined : category, from: from || undefined, to: to || undefined };
+  const active = Object.values(params).some(Boolean);
+  const fmt = (n: number): string => fmtNumber(locale, n);
 
   return (
-    <Page title={ta.log.title} hint={ta.log.hint} wide>
-      <form className="mb-5 flex flex-wrap items-end gap-3 text-sm">
-        {clients.length > 1 ? (
-          <label className="flex flex-col gap-1"><span className="text-xs text-muted">{ta.log.client}</span>
-            <select name="client" defaultValue={clientId ?? ''} className={select}><option value="">{ta.log.any}</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-          </label>
-        ) : null}
-        <label className="flex flex-col gap-1"><span className="text-xs text-muted">{ta.log.user}</span>
-          <select name="user" defaultValue={sp.user ?? ''} className={select}><option value="">{ta.log.any}</option>{users.map((u) => <option key={u.id} value={u.id}>{u.email}</option>)}</select>
-        </label>
-        <label className="flex flex-col gap-1"><span className="text-xs text-muted">{ta.log.type}</span>
-          <select name="type" defaultValue={category} className={select}>{CATEGORIES.map((c) => <option key={c} value={c}>{ta.log.types[c]}</option>)}</select>
-        </label>
-        <label className="flex flex-col gap-1"><span className="text-xs text-muted">{ta.log.from}</span><input type="date" name="from" defaultValue={sp.from ?? ''} className={select} /></label>
-        <label className="flex flex-col gap-1"><span className="text-xs text-muted">{ta.log.to}</span><input type="date" name="to" defaultValue={sp.to ?? ''} className={select} /></label>
-        <button type="submit" className="h-9 rounded-ctl bg-brand px-4 font-medium text-white hover:bg-[#1c47d6]">{ta.log.apply}</button>
-      </form>
+    <Page title={ta.log.title} hint={ta.firmX.log.hint} wide>
+      <ActivityFilters clients={clients} users={users} value={{ clientId, userId, category, from, to }} active={active} />
+      {swapped ? <p role="status" className="-mt-2 mb-4 text-small text-warn-ink">{ta.firmX.log.badRange}</p> : null}
 
-      {rows.length === 0 ? <EmptyState title={ta.log.empty} hint={ta.log.emptyHint} /> : (
+      {result.rows.length === 0 ? (
+        <EmptyState
+          title={ta.log.empty} hint={ta.log.emptyHint}
+          action={active || page > 1 ? <ButtonLink href="/activity" variant="secondary">{ta.firmX.log.reset}</ButtonLink> : null}
+        />
+      ) : (
         <>
-          <Table>
-            <thead><tr><Th>{ta.log.when}</Th><Th>{ta.log.what}</Th><Th>{ta.log.user}</Th><Th>{ta.log.client}</Th><Th>{ta.log.file}</Th></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-surface/60">
-                  <Td className="whitespace-nowrap text-muted">{r.at.toLocaleString(formatTag(locale))}</Td>
-                  <Td>{ta.activity.actions[r.action] ?? r.action}{r.count !== null && r.count > 1 ? <span className="ml-2 text-muted">({r.count.toLocaleString(formatTag(locale))})</span> : null}</Td>
-                  <Td className="text-muted">{r.actor ?? ta.activity.system}</Td>
-                  <Td className="text-muted">{r.clientName ?? ''}</Td>
-                  <Td className="max-w-xs truncate">{r.catalogId ? <Link href={`/catalogs/${r.catalogId}`} className="text-brand hover:underline" title={r.catalogName ?? undefined}>{r.catalogName}</Link> : null}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-          <div className="mt-3 flex items-center gap-4 text-sm">
-            {page > 0 ? <Link href={href(page - 1)} className="text-brand hover:underline">← {ta.log.newer}</Link> : null}
-            {hasMore ? <Link href={href(page + 1)} className="text-brand hover:underline">{ta.log.older} →</Link> : null}
-          </div>
+          <ActivityTable entries={groupDecisions(result.rows)} />
+          <nav aria-label={ta.log.title} className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-small text-muted">
+              {ta.firmX.log.page(page)} · {ta.firmX.log.range(fmt(firstShown), fmt(lastShown), fmt(total))}
+            </span>
+            <span className="flex gap-2">
+              {page > 1 ? <ButtonLink href={withQuery('/activity', params, { page: page - 1 > 1 ? String(page - 1) : null })} size="sm" variant="secondary">← {ta.log.newer}</ButtonLink> : null}
+              {result.hasMore && page < pages ? <ButtonLink href={withQuery('/activity', params, { page: String(page + 1) })} size="sm" variant="secondary">{ta.log.older} →</ButtonLink> : null}
+            </span>
+          </nav>
         </>
       )}
-      <span className="sr-only">{t.appName}</span>
     </Page>
   );
 }
