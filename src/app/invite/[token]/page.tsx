@@ -1,19 +1,25 @@
 import type { Metadata } from 'next';
-import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
+import { cache } from 'react';
 import { readInvite } from '@/lib/invites';
+import { getI18n } from '@/lib/locale';
 import { EmptyState } from '@/ui/empty-state';
 import { JoinForm } from './join-form';
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getI18n();
-  return { title: `${t.appName}`, robots: { index: false } };
+type Params = { params: Promise<{ token: string }> };
+
+const invitation = cache(readInvite);
+
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { t, ta } = await getI18n();
+  const invite = await invitation((await params).token);
+  return { title: `${invite ? ta.team.join : ta.team.inviteBad} — ${t.appName}`, robots: { index: false } };
 }
 
-export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function InvitePage({ params }: Params) {
   const { t, ta } = await getI18n();
   const { token } = await params;
-  const invite = await readInvite(token);
+  const invite = await invitation(token);
   if (!invite) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">

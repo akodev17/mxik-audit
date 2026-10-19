@@ -10,6 +10,7 @@ import { Notice } from '@/app/(app)/upload/notice';
 import type { DocKind, DocMap } from '@/lib/docs';
 import { useI18n } from '@/lib/locale-client';
 import { useToast } from '@/ui/toast';
+import { goTo } from '@/ui/shell/same-route-links';
 
 /** Confirm the columns of a stored cheque or sales list and start its check. */
 export function DocMapper({ clientId, kind, listId, filename, headers, rows, map, notes, onClose }: {
@@ -35,7 +36,7 @@ export function DocMapper({ clientId, kind, listId, filename, headers, rows, map
         const outcome = await applyDoc({ listId, map: chosen });
         if (!outcome.ok) return outcome;
         toast(ta.importX.docs.started);
-        router.push(`/clients/${clientId}/imports/${listId}`);
+        goTo(`/clients/${clientId}/imports/${listId}`, (href) => router.push(href));
         return { ok: true };
       }}
     />

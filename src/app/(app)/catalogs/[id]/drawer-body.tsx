@@ -16,10 +16,12 @@ import { CodeSearch } from './code-search';
 import { DecisionInfo } from './decision-info';
 import { MatchChip } from './match-chip';
 import { NameFromBarcodeOffer } from './name-from-barcode';
+import { reasonLines } from './reason-text';
 import { RequestText } from './request-text';
 import { RowComments } from './row-comments';
 import { SignalList } from './signal-list';
 import { UnitAdviceBox } from './unit-advice';
+import { unitLabel } from './unit-label';
 import { WrongFeedback } from './wrong-feedback';
 
 type Props = {
@@ -43,6 +45,8 @@ function Meta({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+const PRIVILEGE_TYPES = new Set(['PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY']);
+
 /** Everything about one finding: what the check found and why, the codes, the evidence, and the tools to resolve it. */
 export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoose, onComments, onSplit }: Props) {
   const { t, ta, locale } = useI18n();
@@ -54,6 +58,12 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
   const score = suggesting && !detail.noSuggestion && detail.confidence !== null && detail.stage !== 'barcode' && detail.stage !== 'dictionary'
     ? fmtNumber(locale, detail.confidence, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
   const showRequest = detail.noSuggestion || row.decision === 'rejected';
+  const lines = reasonLines(detail, x, (u) => unitLabel(locale, u));
+  // A viewer is told once, in the footer; a decided row says how to pick another code.
+  const whyNoPick = !readOnly && row.decision !== 'pending' ? x.drawer.decidedHint : null;
+  const chooseButton = (code: string, codeName: string) => (
+    <Button size="sm" disabled={!pending} onClick={() => onChoose(code, codeName)} aria-label={`${x.drawer.choose}: ${code}`}>{ta.drawer.choose}</Button>
+  );
 
   return (
     <div className="space-y-5">
@@ -63,7 +73,7 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
           <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{typeLabels(t)[detail.type] ?? detail.type}</StatusChip>
           {suggesting && !detail.noSuggestion && (detail.confidence !== null || detail.stage === 'barcode' || detail.stage === 'dictionary') ? <MatchChip confidence={detail.confidence} stage={detail.stage} show /> : null}
           {detail.markingCurrent || detail.markingSuggested ? <Badge tone="warn">{ta.drawer.markirovka}</Badge> : null}
-          {detail.privileges.length > 0 ? <Badge tone="info" title={detail.privileges.join('; ')}>{ta.drawer.privilege}</Badge> : null}
+          {detail.privileges.length > 0 && !PRIVILEGE_TYPES.has(detail.type) ? <Badge tone="info">{ta.drawer.privilege}</Badge> : null}
         </div>
         {score ? (
           <p className="mt-2 flex items-center gap-1.5 text-small text-muted">
@@ -81,17 +91,37 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
         </dl>
       </div>
 
-      <section className="rounded-ctl border border-line bg-surface p-3">
+      <section className="space-y-1 rounded-ctl border border-line bg-surface p-3">
         <h3 className="text-small font-semibold text-fg">{x.reasonTitle}</h3>
-        <p className="mt-1 text-small text-fg">{x.explain[detail.type]}</p>
-        <p className="mt-1 text-small text-muted"><span className="sr-only">{x.reasonAudit}: </span>{detail.reason}</p>
+        {lines.map((line, i) => <p key={line} className={i === 0 ? 'text-small text-fg' : 'text-small text-muted'}>{line}</p>)}
+        {detail.privileges.length > 0 ? (
+          <div className="pt-1">
+            <p className="text-micro font-medium text-muted">{x.reason.privileges}</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-small text-fg">
+              {detail.privileges.map((p) => <li key={p} className="break-words">{p}</li>)}
+            </ul>
+          </div>
+        ) : null}
+        {/* The audit stored its own Uzbek sentence; kept for the record, folded away, for Uzbek readers. */}
+        {locale === 'uz' && detail.reason ? (
+          <details className="pt-1 text-micro text-muted">
+            <summary className="cursor-pointer">{x.reasonAudit}</summary>
+            <p className="mt-1 break-words">{detail.reason}</p>
+          </details>
+        ) : null}
       </section>
 
       <DecisionInfo row={row} detail={detail} />
 
-      <CodeCompare title={ta.drawer.current} view={detail.current} other={suggesting ? detail.suggested : null} empty={x.noCode} />
+      <CodeCompare title={ta.drawer.current} view={detail.current} other={suggesting ? detail.suggested : detail.opportunity} empty={x.noCode} />
       {suggesting && detail.noSuggestion ? <p className="rounded-ctl bg-surface p-3 text-small text-muted">{x.noSuggestionWhy}</p> : null}
       {suggesting && !detail.noSuggestion ? <CodeCompare title={ta.drawer.suggested} view={detail.suggested} other={detail.current} empty="—" /> : null}
+      {detail.opportunity ? (
+        <CodeCompare
+          title={x.drawer.opportunity} view={detail.opportunity} other={detail.current} empty="—"
+          action={readOnly ? null : chooseButton(detail.opportunity.code, detail.opportunity.name)}
+        />
+      ) : null}
       {detail.chosen ? <CodeCompare title={x.act.chosen} view={detail.chosen} other={detail.current} empty="—" /> : null}
       {!suggesting && x.confirmMeans[detail.type] && detail.mode === 'confirm' ? <p className="rounded-ctl bg-info-tint p-3 text-small text-info-ink">{x.confirmMeans[detail.type]}</p> : null}
 
@@ -100,16 +130,17 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
       {suggesting ? (
         <section>
           <h3 className="mb-2 text-small font-semibold text-fg">{x.drawer.alternatives}</h3>
+          {detail.alternatives.length > 0 && whyNoPick ? <p className="mb-2 text-micro text-muted">{whyNoPick}</p> : null}
           {detail.alternatives.length === 0 ? <p className="text-small text-muted">{x.drawer.noAlternatives}</p> : (
             <ul className="divide-y divide-line rounded-ctl border border-line">
               {detail.alternatives.map((a) => (
                 <li key={a.code} className="flex items-center gap-3 px-3 py-2">
                   <span className="min-w-0 flex-1">
+                    {a.path ? <span className="block truncate text-micro text-muted" title={a.path}>{a.path}</span> : null}
                     <CodeChip code={a.code} />
                     <span className="mt-0.5 block truncate text-small text-fg" title={a.name}>{a.name}</span>
-                    {a.path ? <span className="block truncate text-micro text-muted" title={a.path}>{a.path}</span> : null}
                   </span>
-                  <Button size="sm" disabled={!pending} onClick={() => onChoose(a.code, a.name)} aria-label={`${x.drawer.choose}: ${a.code}`}>{ta.drawer.choose}</Button>
+                  {chooseButton(a.code, a.name)}
                 </li>
               ))}
             </ul>

@@ -1,7 +1,13 @@
 // The account data export: one zip with the org's data as Excel and JSON. Org-scoped; admin only.
+// The README and the sheet headers are in the reader's language; JSON keys stay stable.
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { db } from '../db';
+import type { Locale } from '../i18n';
+import { appDict } from '../i18n-app';
+import { getLocale } from '../locale';
+
+type ExportWords = ReturnType<typeof appDict>['setX']['data']['file'];
 
 const PAGE = 2000;
 const MAX_EVENTS = 100_000;
@@ -9,10 +15,10 @@ const MAX_EVENTS = 100_000;
 const safeName = (s: string): string => s.replace(/[^\p{L}\p{N}._-]+/gu, '_').slice(0, 60) || 'catalog';
 const json = (value: unknown): string => JSON.stringify(value, null, 2);
 
-async function catalogSheet(catalogId: string): Promise<Buffer> {
+async function catalogSheet(catalogId: string, words: ExportWords): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Katalog');
-  sheet.addRow(['row', 'name', 'barcode', 'unit', 'current_mxik', 'finding', 'severity', 'suggested_mxik', 'confidence', 'decision', 'chosen_mxik', 'reason']).font = { bold: true };
+  const sheet = workbook.addWorksheet(words.sheet);
+  sheet.addRow([...words.columns]).font = { bold: true };
   let cursor: string | undefined;
   for (;;) {
     const items = await db.catalogItem.findMany({
@@ -33,7 +39,18 @@ async function catalogSheet(catalogId: string): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-export async function buildAccountExport(orgId: string): Promise<Buffer> {
+/** The request's language when the caller does not say; Uzbek outside a request. */
+async function exportLocale(given: Locale | undefined): Promise<Locale> {
+  if (given) return given;
+  try {
+    return await getLocale();
+  } catch {
+    return 'uz';
+  }
+}
+
+export async function buildAccountExport(orgId: string, locale?: Locale): Promise<Buffer> {
+  const words = appDict(await exportLocale(locale)).setX.data.file;
   const [org, clients, users, catalogs, dictionary, events] = await Promise.all([
     db.organization.findUniqueOrThrow({ where: { id: orgId }, select: { name: true, brandName: true, createdAt: true, rawRetentionDays: true } }),
     db.client.findMany({ where: { orgId }, select: { id: true, name: true, activity: true, createdAt: true } }),
@@ -44,7 +61,7 @@ export async function buildAccountExport(orgId: string): Promise<Buffer> {
   ]);
 
   const zip = new JSZip();
-  zip.file('README.txt', 'MXIK Audit account export.\n\norganization.json, team.json, clients.json, dictionary.json, activity.json: the account data.\ncatalogs.json lists every catalogue; catalogs/*.xlsx holds each catalogue with its findings and decisions.\nPassword hashes, API keys, two-factor secrets and recovery codes are never exported.\n');
+  zip.file('README.txt', words.readme);
   zip.file('organization.json', json(org));
   zip.file('team.json', json(users.map((u) => ({ email: u.email, role: u.role, createdAt: u.createdAt, twoFactor: u.totpEnabledAt !== null, clientIds: u.assignments.map((a) => a.clientId) }))));
   zip.file('clients.json', json(clients));
@@ -52,7 +69,7 @@ export async function buildAccountExport(orgId: string): Promise<Buffer> {
   zip.file('activity.json', json(events));
   zip.file('catalogs.json', json(catalogs));
   for (const [i, c] of catalogs.entries()) {
-    zip.file(`catalogs/${String(i + 1).padStart(3, '0')}-${safeName(c.filename.replace(/\.[^.]+$/, ''))}.xlsx`, await catalogSheet(c.id));
+    zip.file(`catalogs/${String(i + 1).padStart(3, '0')}-${safeName(c.filename.replace(/\.[^.]+$/, ''))}.xlsx`, await catalogSheet(c.id, words));
   }
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }

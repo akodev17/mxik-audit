@@ -30,19 +30,15 @@ export async function IntegrationsTab({ user }: { user: CurrentUser }) {
 
   return (
     <>
-      <Section title={s.telegram} hint={s.telegramHint}>
-        {tg.enabled ? (
+      {/* Without a bot there is nothing to link, so the section is not shown. */}
+      {tg.enabled ? (
+        <Section title={s.telegram} hint={s.telegramHint}>
           <TelegramPanel
             bot={tg.username}
             chats={links.map((l) => ({ id: l.id, username: l.username, linked: fmtDate(locale, l.createdAt), by: l.linkedBy ? emailOf.get(l.linkedBy) ?? null : null }))}
           />
-        ) : (
-          <div className="max-w-xl space-y-1">
-            <p className="text-small">{s.telegramOff}</p>
-            <p className="text-micro text-muted">{s.telegramSetup}</p>
-          </div>
-        )}
-      </Section>
+        </Section>
+      ) : null}
 
       <Section title={s.api}>
         <ApiKeysPanel

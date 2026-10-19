@@ -15,6 +15,8 @@ import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
+import { IconButton } from '@/ui/icon-button';
+import { IconInfo } from '@/ui/icons';
 import { Page } from '@/ui/page';
 import { Progress } from '@/ui/progress';
 import { Table, Td, Th } from '@/ui/table';
@@ -36,7 +38,7 @@ function Freshness({ c, ta, locale }: { c: ClientStats; ta: AppDict; locale: Loc
   if (!c.auditedAt) return <span className="text-muted">{ta.firmX.clients.never}</span>;
   return (
     <span className="whitespace-nowrap">
-      <time dateTime={c.auditedAt.toISOString()} title={fmtDate(locale, c.auditedAt)}>{agoText(ta.firmX.ago, daysSince(c.auditedAt))}</time>
+      <time dateTime={c.auditedAt.toISOString()}>{agoText(ta.firmX.ago, daysSince(c.auditedAt))}</time>
       <span className="block text-small text-muted">{fmtDate(locale, c.auditedAt)}</span>
     </span>
   );
@@ -88,12 +90,14 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       <ClientFilters params={params} filter={filter} sort={sort} staleDays={staleDays} search={search} counts={data.counts} />
 
       {data.rows.length === 0 ? (
-        filtered
-          ? <EmptyState title={filter === 'archived' && !search ? words.archivedNone : words.filteredTitle} hint={words.filteredHint} action={<ButtonLink href="/clients" variant="secondary">{ta.firmX.queue.reset}</ButtonLink>} />
-          : <EmptyState title={ta.clients.emptyTitle} hint={ta.clients.emptyHint} />
+        filter === 'archived' && !search
+          ? <EmptyState title={words.archivedNone} hint={words.archivedNoneHint} action={<ButtonLink href="/clients" variant="secondary">{words.showAll}</ButtonLink>} />
+          : filtered
+            ? <EmptyState title={words.filteredTitle} hint={words.filteredHint} action={<ButtonLink href="/clients" variant="secondary">{ta.firmX.queue.reset}</ButtonLink>} />
+            : <EmptyState title={ta.clients.emptyTitle} hint={ta.clients.emptyHint} />
       ) : (
         <>
-          <p className="mb-2 text-small text-muted">{words.total(fmt(data.total), data.total)} · {words.accountantsNote}</p>
+          <p className="mb-2 text-small text-muted">{words.total(fmt(data.total), data.total)}</p>
 
           <div className="hidden md:block">
             <Table label={t.clientsTitle}>
@@ -104,7 +108,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <Th numeric>{words.colOpen}</Th>
                   <Th>{words.colProgress}</Th>
                   <Th>{words.colLastAudit}</Th>
-                  <Th>{words.colAccountants}</Th>
+                  <Th>
+                    <span className="inline-flex items-center gap-1">
+                      {words.colAccountants}
+                      <IconButton label={words.accountantsNote} icon={<IconInfo size={14} />} size="compact" tooltipAlign="end" />
+                    </span>
+                  </Th>
                 </tr>
               </thead>
               <tbody>
@@ -117,7 +126,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                         {c.archivedAt ? <Badge tone="neutral">{words.archived}</Badge> : null}
                       </span>
                     </Td>
-                    <Td><AttentionBadges reasons={reasonsOf(c)} ta={ta} locale={locale} okLabel={c.archivedAt ? undefined : words.ok} /></Td>
+                    <Td><AttentionBadges reasons={reasonsOf(c)} ta={ta} locale={locale} okLabel={c.archivedAt ? undefined : words.ok} openLabel={words.needsReview} /></Td>
                     <Td numeric className={c.openRows > 0 ? 'font-medium text-danger-ink' : undefined}>{c.catalogId ? fmt(c.openRows) : ta.firmX.dash}</Td>
                     <Td><ReviewProgress c={c} ta={ta} locale={locale} /></Td>
                     <Td><Freshness c={c} ta={ta} locale={locale} /></Td>
@@ -143,10 +152,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                       {c.isDefault ? <Badge>{t.clientsDefault}</Badge> : null}
                       {c.archivedAt ? <Badge tone="neutral">{words.archived}</Badge> : null}
                     </span>
-                    {reasons.length > 0 ? <span className="mt-2 block"><AttentionBadges reasons={reasons} ta={ta} locale={locale} /></span> : null}
+                    {reasons.length > 0 ? <span className="mt-2 block"><AttentionBadges reasons={reasons} ta={ta} locale={locale} openLabel={words.needsReview} /></span> : null}
                     <span className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-small">
                       <span><span className="block text-muted">{words.colOpen}</span><span className="font-medium tabular-nums">{c.catalogId ? fmt(c.openRows) : ta.firmX.dash}</span></span>
-                      <span><span className="block text-muted">{words.colLastAudit}</span>{c.auditedAt ? agoText(ta.firmX.ago, daysSince(c.auditedAt)) : words.never}</span>
+                      <span><span className="block text-muted">{words.colLastAudit}</span>{c.auditedAt ? <>{agoText(ta.firmX.ago, daysSince(c.auditedAt))} <span className="text-muted">· {fmtDate(locale, c.auditedAt)}</span></> : words.never}</span>
                       <span className="col-span-2"><span className="block text-muted">{words.colProgress}</span><ReviewProgress c={c} ta={ta} locale={locale} /></span>
                       <span className="col-span-2 [overflow-wrap:anywhere]"><span className="block text-muted">{words.colAccountants}</span>{c.accountants.length === 0 ? words.unassigned : c.accountants.join(', ')}</span>
                     </span>

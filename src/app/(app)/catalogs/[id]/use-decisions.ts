@@ -14,7 +14,7 @@ const isRisky = (r: GridRow): boolean => r.severity === 'high' || r.severity ===
 
 type Chosen = { code: string; name: string | null };
 type Decision = 'accepted' | 'rejected';
-export type UndoTarget = { eventId: string; findingId?: string } | { lastInCatalog: string };
+export type UndoTarget = { eventId: string; findingId?: string } | { lastInCatalog: string } | { reopen: string };
 type ManyApplied = { ids: readonly string[]; eventId: string | null; decision: Decision; code?: string | null; name?: string | null; source: GridRow['decisionSource'] };
 
 const PENDING = { decision: 'pending', chosenMxik: null, chosenName: null, decisionEventId: null, decisionSource: null } as const;

@@ -19,9 +19,10 @@ export async function TopRisk({ clients, accountantQuery }: { clients: ClientSta
         const href = `/queue?${[`client=${encodeURIComponent(c.id)}`, accountantQuery].filter(Boolean).join('&')}`;
         return (
           <li key={c.id} className="px-4 py-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <Link href={href} className="min-w-0 truncate font-medium hover:text-brand-ink hover:underline">{c.name}</Link>
-              <span className="shrink-0 text-small font-medium tabular-nums text-danger-ink">
+            {/* On a phone the count goes under the name, so the name is not cut to a few letters. */}
+            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+              <Link href={href} className="min-w-0 font-medium [overflow-wrap:anywhere] hover:text-brand-ink hover:underline sm:truncate">{c.name}</Link>
+              <span className="text-small font-medium tabular-nums text-danger-ink sm:shrink-0">
                 {ta.firmX.home.reasons.open(fmt(c.openRows), c.openRows)}
               </span>
             </div>

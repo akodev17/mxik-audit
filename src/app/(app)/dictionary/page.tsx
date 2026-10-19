@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { canWrite } from '@/lib/access';
 import { codeDetails } from '@/lib/code-details';
 import { db } from '@/lib/db';
+import { mayUseDictionary } from '@/lib/dictionary';
 import { fmtDate, fmtNumber } from '@/lib/format';
 import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
@@ -24,6 +25,14 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const x = ta.wsX.dict;
+  // Entries are product names from every client's catalogues: a member scoped to some clients sees none of them.
+  if (!mayUseDictionary(user)) {
+    return (
+      <Page title={ta.dict.title} hint={ta.dict.hint} wide>
+        <EmptyState title={x.scopedTitle} hint={x.scopedHint} />
+      </Page>
+    );
+  }
   const sp = await searchParams;
   const q = (sp.q ?? '').trim().slice(0, 80);
   const page = Math.max(0, Math.floor(Number(sp.page) || 0));

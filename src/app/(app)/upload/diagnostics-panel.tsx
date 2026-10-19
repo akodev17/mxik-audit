@@ -3,20 +3,30 @@
 import type { ImportDiagnostics } from '@/lib/import-diagnostics';
 import { fmtNumber } from '@/lib/format';
 import { useI18n } from '@/lib/locale-client';
+import { fileLine } from '@/lib/sheet-shape';
+import type { ParseMeta } from '@/lib/spreadsheet';
 import { Spinner } from '@/ui/spinner';
 import { Notice } from './notice';
 
 type Props = {
   diagnostics: ImportDiagnostics | null;
+  /** How the file was read: turns data-row samples into the file lines Excel shows. */
+  parse: ParseMeta | null;
   updating: boolean;
   error: string | null;
 };
 
 /** What the import will do under the current mapping, computed on the server. */
-export function DiagnosticsPanel({ diagnostics: d, updating, error }: Props) {
+export function DiagnosticsPanel({ diagnostics: d, parse, updating, error }: Props) {
   const { locale, t, ta } = useI18n();
   const g = ta.importX.diag;
-  const rowsAt = (sample: number[]): string => g.atRows(sample.map((r) => `#${fmtNumber(locale, r)}`).join(', '));
+  const n = (v: number): string => fmtNumber(locale, v);
+  // File lines when the upload kept them; otherwise data rows, and the label says so.
+  const rowsAt = (sample: number[]): string => {
+    const lines = parse ? sample.map((r) => fileLine(parse, r)) : [];
+    if (lines.length === sample.length && lines.every((l) => l !== null)) return g.atLines(lines.map((l) => n(l ?? 0)).join(', '));
+    return g.atRows(sample.map((r) => `#${n(r)}`).join(', '));
+  };
   // Named as the workspace names the finding each row will get.
   const badCodes = d ? g.badCodes(d.badCodes.count, t.typeNotFound) : '';
 

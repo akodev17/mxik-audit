@@ -19,7 +19,9 @@ export async function deliverToTelegram(notificationId: string): Promise<void> {
   if (!bot) return;
   const n = await db.notification.findUnique({ where: { id: notificationId } });
   if (!n || n.telegramSentAt || !(await orgActive(n.orgId))) return;
-  const chats = await db.telegramLink.findMany({ where: { orgId: n.orgId }, select: { chatId: true } });
+  // Only chats linked by someone who is still an admin of this org receive the org's notices.
+  const admins = await db.user.findMany({ where: { orgId: n.orgId, role: 'admin' }, select: { id: true } });
+  const chats = await db.telegramLink.findMany({ where: { orgId: n.orgId, linkedBy: { in: admins.map((a) => a.id) } }, select: { chatId: true } });
   if (chats.length === 0) return;
   const link = n.href ? appLink(bot.config, n.href) : null;
   const t = dict(await orgLocale(n.orgId));

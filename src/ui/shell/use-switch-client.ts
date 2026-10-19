@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import { switchClient } from '@/app/actions/shell';
 import { useI18n } from '@/lib/locale-client';
@@ -10,11 +10,12 @@ import { switchTarget } from './nav';
 type Switched = { id: string; name: string };
 
 /**
- * Makes a client the active one. Pages about one client or catalogue move to the new client's
- * equivalent; every other page stays and refreshes. Failures are reported, never hidden.
+ * Makes a client the active one, then loads the page that shows it (switchTarget): the new
+ * client's page, catalogues or filtered list. A document load, so every part of the frame reads
+ * the new client at once and no same-route router transition is involved (./navigation).
+ * Failures are reported, never hidden; on success the spinner stays until the page changes.
  */
 export function useSwitchClient() {
-  const router = useRouter();
   const pathname = usePathname();
   const toast = useToast();
   const { ta } = useI18n();
@@ -24,21 +25,17 @@ export function useSwitchClient() {
     setSwitching(clientId);
     try {
       const result = await switchClient(clientId);
-      if (!result.ok) {
-        toast(ta.shellX.client.failed, { tone: 'error' });
-        return null;
-      }
+      if (!result.ok) throw new Error(result.error);
       const target = switchTarget(pathname, window.location.search, clientId);
-      if (target) router.push(target);
-      else router.refresh();
+      if (target) window.location.assign(target);
+      else window.location.reload();
       return result.client;
     } catch {
+      setSwitching(null);
       toast(ta.shellX.client.failed, { tone: 'error' });
       return null;
-    } finally {
-      setSwitching(null);
     }
-  }, [pathname, router, toast, ta]);
+  }, [pathname, toast, ta]);
 
   return { switching, switchTo };
 }

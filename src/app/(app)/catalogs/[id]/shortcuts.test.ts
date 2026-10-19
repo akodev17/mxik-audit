@@ -19,6 +19,13 @@ describe('workspace shortcuts', () => {
     assert.equal(shortcutFor(key('Slash', '.')), null);
   });
 
+  it('searches the catalogue with F on any layout, not with Ctrl+F or a held key', () => {
+    assert.equal(shortcutFor(key('KeyF', 'f')), 'search');
+    assert.equal(shortcutFor(key('KeyF', 'а')), 'search');
+    assert.equal(shortcutFor(key('KeyF', 'f', { ctrlKey: true })), null);
+    assert.equal(shortcutFor(key('KeyF', 'f', { repeat: true })), null);
+  });
+
   it('opens help with ? on any layout', () => {
     assert.equal(shortcutFor(key('Slash', '?', { shiftKey: true })), 'help');
     assert.equal(shortcutFor(key('Digit7', '?', { shiftKey: true })), 'help');

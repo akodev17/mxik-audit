@@ -4,8 +4,9 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, type RefObject } from 'react';
 import { useI18n } from '@/lib/locale-client';
 import type { GridRow } from '@/lib/workspace-rows';
+import { Checkbox } from '@/ui/checkbox';
 import { cx } from '@/ui/cx';
-import type { ColumnKey, Layout } from './columns';
+import { cellPad, type ColumnKey, type Layout } from './columns';
 import { entryDomId, entryId, type Entry } from './entries';
 import { GridRowView } from './grid-row';
 import { GroupRowView } from './group-row';
@@ -97,14 +98,20 @@ export function Grid({ entries, total, activeIndex, compact, expanded, hasMore, 
           className="grid h-10 items-center border-b border-line-strong bg-surface text-small font-medium text-muted"
         >
           {layout.keys.map((k) => (
-            <span
-              key={k} role="columnheader"
-              className={cx('min-w-0 truncate px-3', k === 'select' && 'px-2', k === 'decision' && 'sticky right-0 flex h-full items-center border-l border-line bg-surface')}
-            >
-              {k === 'select'
-                ? (readOnly ? <span className="sr-only">{header.select}</span> : <input type="checkbox" aria-label={ta.bulk.selectAll} checked={allChecked} onChange={(e) => handlers.onCheckAll(e.target.checked)} className="size-4 accent-[var(--color-brand)]" />)
-                : header[k]}
-            </span>
+            k === 'select' ? (
+              <span key={k} role="columnheader" className="relative flex px-2">
+                {readOnly ? <span className="sr-only">{header.select}</span> : (
+                  <Checkbox label={ta.bulk.selectAll} hideLabel checked={allChecked} onChange={(e) => handlers.onCheckAll(e.target.checked)} />
+                )}
+              </span>
+            ) : (
+              <span
+                key={k} role="columnheader"
+                className={cx('min-w-0 truncate', cellPad(k), k === 'decision' && 'sticky right-0 flex h-full items-center border-l border-line bg-surface')}
+              >
+                {header[k]}
+              </span>
+            )
           ))}
         </div>
       </div>
@@ -120,6 +127,7 @@ export function Grid({ entries, total, activeIndex, compact, expanded, hasMore, 
                   {...common}
                   rows={entry.rows}
                   expanded={expanded.has(entry.key)}
+                  compact={compact}
                   onSelect={() => handlers.onSelect(v.index)}
                   onToggle={() => handlers.onToggleGroup(entry.key)}
                   onAccept={() => handlers.onGroup(entry.rows, 'accepted')}

@@ -7,6 +7,7 @@ import type { Prisma } from '@prisma/client';
 import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
 import { catalogScope } from './access.js';
+import { isOrgWriter } from './actor-role.js';
 import { db } from './db.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { runPrivilegeCheck } from './privileges.js';
@@ -90,6 +91,8 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
       },
     });
   } catch (error) {
+    // Logged here once, with the stack; the page shows only its localized message.
+    console.error(`[audit ${catalogId}] failed`, error);
     await db.catalog.update({
       where: { id: catalogId },
       data: { status: 'failed', auditError: error instanceof Error ? error.message.slice(0, 500) : 'failed' },
@@ -131,8 +134,9 @@ export function isAuditRunning(catalogId: string): boolean {
   return running.has(catalogId);
 }
 
-/** Restarts a failed audit from scratch, for the org that owns the catalogue. */
+/** Restarts a failed audit from scratch, for a writer (not a viewer) who may see the catalogue. */
 export async function retryAudit(actor: { orgId: string; userId: string; clientIds?: string[] | null }, catalogId: string): Promise<boolean> {
+  if (!(await isOrgWriter(actor.orgId, actor.userId))) return false;
   const catalog = await db.catalog.findFirst({
     where: { id: catalogId, ...catalogScope(actor), status: 'failed' },
     select: { id: true },

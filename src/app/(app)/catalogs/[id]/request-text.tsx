@@ -11,7 +11,7 @@ import { Textarea } from '@/ui/textarea';
  * the user's step. Viewers get the same draft, read-only.
  */
 export function RequestText({ findingId, readOnly }: { findingId: string; readOnly: boolean }) {
-  const { ta } = useI18n();
+  const { ta, locale } = useI18n();
   const [text, setText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +46,13 @@ export function RequestText({ findingId, readOnly }: { findingId: string; readOn
     <div className="rounded-ctl border border-line p-3">
       <Textarea value={text} onChange={(e) => setText(e.target.value)} readOnly={readOnly} rows={9} aria-label={ta.drawer.request} />
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="primary" onClick={() => { void copy(text); }}>{copied === 'yes' ? ta.drawer.copied : ta.drawer.copy}</Button>
+        <Button size="sm" variant="secondary" onClick={() => { void copy(text); }}>{copied === 'yes' ? ta.drawer.copied : ta.drawer.copy}</Button>
         <a href="https://tasnif.soliq.uz" target="_blank" rel="noopener noreferrer" className="text-small text-brand-ink hover:underline">tasnif.soliq.uz</a>
         <span aria-live="polite" className="text-micro text-muted">{copied === 'no' ? ta.shellX.ui.copyFailed : ''}</span>
       </div>
       <p className="mt-2 text-micro text-muted">{readOnly ? ta.wsX.drawer.requestReadOnly : ta.drawer.requestHint}</p>
+      {/* The draft is written for the soliq portal in Uzbek; a Russian reader is told so. */}
+      {locale === 'ru' ? <p className="mt-1 text-micro text-muted">{ta.wsX.drawer.requestLanguage}</p> : null}
     </div>
   );
 }

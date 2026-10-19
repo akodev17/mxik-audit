@@ -4,16 +4,15 @@ import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
 import { useActionState, useCallback, useEffect, useState, useTransition } from 'react';
 import {
-  changePassword, endOtherSessions, endSession, finishTwoFactor, newRecoveryCodes, securityExtras, startTelegramBind, startTwoFactor, stopTelegramLogin,
+  changePassword, finishTwoFactor, newRecoveryCodes, securityExtras, startTelegramBind, startTwoFactor, stopTelegramLogin,
   turnOffTwoFactor, type PasswordState, type SecurityExtras,
 } from '@/app/actions/security';
 import type { QrPath } from '@/lib/security/qr';
-import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
+import { Section } from '@/ui/page';
 import { TelegramLogin } from '@/ui/telegram-login';
-
-export type SessionItem = { id: string; device: string | null; created: string; seen: string; current: boolean };
+import { SessionList, type SessionItem } from './session-list';
 
 function RecoveryCodes({ codes }: { codes: string[] }) {
   const { ta } = useI18n();
@@ -103,8 +102,7 @@ function PasswordChange({ min }: { min: number }) {
     return next;
   }, {});
   return (
-    <form action={action} className="max-w-sm space-y-3">
-      <p className="text-sm text-muted">{ta.secX.password.hint}</p>
+    <form action={action} className="max-w-md space-y-3">
       <Field label={ta.secX.password.current}>
         <Input name="current" type="password" required autoComplete="current-password" maxLength={200} />
       </Field>
@@ -123,7 +121,7 @@ function TelegramSignIn({ info, result, onChange }: { info: SecurityExtras['tele
   const s = ta.secX.telegram;
   const [bindState, setBindState] = useState<string | null>(null);
   const [busy, start] = useTransition();
-  if (!info.available || !info.bot) return <p className="text-sm text-muted">{s.off}</p>;
+  if (!info.bot) return null;
   const connect = (): void => start(async () => {
     const state = await startTelegramBind();
     if (state) setBindState(state);
@@ -143,30 +141,6 @@ function TelegramSignIn({ info, result, onChange }: { info: SecurityExtras['tele
           <TelegramLogin bot={info.bot} authUrl={`/api/auth/telegram/bind/${bindState}`} />
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function Sessions({ sessions }: { sessions: SessionItem[] }) {
-  const { ta } = useI18n();
-  const router = useRouter();
-  const [busy, start] = useTransition();
-  const act = (job: () => Promise<unknown>): void => start(async () => { await job(); router.refresh(); });
-  return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted">{ta.security.sessionsHint}</p>
-      <ul className="max-w-2xl divide-y divide-line rounded-ctl border border-line">
-        {sessions.map((s) => (
-          <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-            <span className="min-w-0">
-              <span className="font-medium">{s.device ?? ta.security.unknownDevice}</span> {s.current ? <Badge tone="good">{ta.security.current}</Badge> : null}
-              <span className="block text-xs text-muted">{ta.security.lastSeen(s.created, s.seen)}</span>
-            </span>
-            {s.current ? null : <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => endSession(s.id))}>{ta.security.endSession}</Button>}
-          </li>
-        ))}
-      </ul>
-      {sessions.some((s) => !s.current) ? <Button variant="secondary" size="sm" disabled={busy} onClick={() => act(endOtherSessions)}>{ta.security.endOthers}</Button> : null}
     </div>
   );
 }
@@ -201,11 +175,18 @@ export function SecurityPanel({ enabled, recoveryLeft, sessions, extras: given =
   }, [given, reload]);
   const onTelegramChange = (result: string): void => { setTgResult(result); reload(); };
   return (
-    <div className="space-y-8">
-      <div><h3 className="mb-2 text-sm font-bold">{ta.security.twoFactor}</h3><TwoFactor enabled={enabled} recoveryLeft={recoveryLeft} /></div>
-      {extras?.passwordChangeable ? <div><h3 className="mb-2 text-sm font-bold">{ta.secX.password.title}</h3><PasswordChange min={extras.passwordMin} /></div> : null}
-      {extras ? <div id="telegram-sign-in"><h3 className="mb-2 text-sm font-bold">{ta.secX.telegram.title}</h3><TelegramSignIn info={extras.telegram} result={tgResult} onChange={onTelegramChange} /></div> : null}
-      <div><h3 className="mb-2 text-sm font-bold">{ta.security.sessions}</h3><Sessions sessions={sessions} /></div>
-    </div>
+    <>
+      <Section title={ta.security.twoFactor}><TwoFactor enabled={enabled} recoveryLeft={recoveryLeft} /></Section>
+      {extras?.passwordChangeable ? (
+        <Section title={ta.secX.password.title} hint={ta.secX.password.hint}><PasswordChange min={extras.passwordMin} /></Section>
+      ) : null}
+      {/* Without a configured bot there is no Telegram sign-in to offer, so the block is not shown. */}
+      {extras?.telegram.available ? (
+        <div id="telegram-sign-in" className="mt-8 scroll-mt-6">
+          <Section title={ta.secX.telegram.title}><TelegramSignIn info={extras.telegram} result={tgResult} onChange={onTelegramChange} /></Section>
+        </div>
+      ) : null}
+      <Section title={ta.security.sessions} hint={ta.security.sessionsHint}><SessionList sessions={sessions} /></Section>
+    </>
   );
 }

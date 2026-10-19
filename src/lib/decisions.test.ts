@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { db } from './db.js';
-import { bulkAccept, decisionHistory, recordDecision, undoDecision, undoLast } from './decisions.js';
+import { bulkAccept, decisionHistory, recordDecision, reopenDecision, undoDecision, undoLast } from './decisions.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
@@ -96,6 +96,31 @@ describe('review decisions (database)', { skip }, () => {
     assert.deepEqual(history.map((h) => h.action), ['finding.rejected', 'finding.undone', 'finding.accepted']);
     assert.deepEqual(history.map((h) => h.undoable), [true, false, false]);
     assert.equal(history[2]?.productName, 'Guruch');
+  });
+
+  it('change decision reopens a row: through its event, or with an event of its own when it has none', async () => {
+    const { findingIds } = await twoRows();
+    const decided = await recordDecision(a, { findingId: findingIds[0] ?? '', decision: 'accepted' });
+    assert.ok(decided.ok);
+    const viaEvent = await reopenDecision(a, findingIds[0] ?? '');
+    assert.ok(viaEvent.ok);
+    assert.equal((await db.finding.findUnique({ where: { id: findingIds[0] } }))?.decision, 'pending');
+    assert.ok(await db.auditEvent.findFirst({ where: { orgId: a.orgId, action: 'finding.undone', targetId: decided.eventId } }));
+
+    // An older decision recorded without an event (seeded or imported data).
+    await db.finding.update({ where: { id: findingIds[1] }, data: { decision: 'rejected', decidedBy: a.userId, decidedAt: new Date() } });
+    assert.equal((await reopenDecision(b, findingIds[1] ?? '')).ok, false, 'another org cannot reopen it');
+    const legacy = await reopenDecision(a, findingIds[1] ?? '');
+    assert.ok(legacy.ok);
+    assert.deepEqual(legacy.findingIds, [findingIds[1]]);
+    const row = await db.finding.findUnique({ where: { id: findingIds[1] } });
+    assert.equal(row?.decision, 'pending');
+    assert.equal(row?.decidedBy, null);
+    const event = await db.auditEvent.findFirst({ where: { orgId: a.orgId, action: 'finding.undone', targetId: findingIds[1] } });
+    const payload = event?.payload as { reopened?: boolean; findings?: { previousDecision?: string }[] } | undefined;
+    assert.equal(payload?.reopened, true);
+    assert.equal(payload?.findings?.[0]?.previousDecision, 'rejected');
+    assert.equal((await reopenDecision(a, findingIds[1] ?? '')).ok, false, 'a pending row has nothing to reopen');
   });
 
   it('another org can neither decide, bulk-accept, undo nor read the history', async () => {

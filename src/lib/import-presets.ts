@@ -4,14 +4,16 @@
 // None of these header lists could be checked against a real export or a
 // published template (2026-10-16): 1C has no fixed export layout (it depends
 // on the configuration and the export processing), and the MoySklad and Billz
-// import/export templates are not published as text. So every preset is
-// marked "taxminiy" (approximate). Edit the header lists here once real files
-// are available; the user can always correct the mapping after applying one.
+// import/export templates are not published as text. The picker's hint asks
+// the user to check the columns after applying one. Edit the header lists here
+// once real files are available. Labels live in the dictionaries
+// (importX.map.presets), keyed by id.
 import type { ColumnMap } from './column-map';
 
+export type PresetId = '1c' | 'moysklad' | 'billz';
+
 export type ImportPreset = {
-  id: string;
-  label: string;
+  id: PresetId;
   /** False until the headers are confirmed against a real export. */
   verified: boolean;
   /** Header names per field, compared case-insensitively, first match wins. */
@@ -21,7 +23,6 @@ export type ImportPreset = {
 export const IMPORT_PRESETS: readonly ImportPreset[] = [
   {
     id: '1c',
-    label: '1C nomenklatura eksporti',
     verified: false,
     headers: {
       name: ['Наименование', 'Наименование полное', 'Номенклатура'],
@@ -34,7 +35,6 @@ export const IMPORT_PRESETS: readonly ImportPreset[] = [
   },
   {
     id: 'moysklad',
-    label: 'MoySklad (МойСклад)',
     verified: false,
     headers: {
       name: ['Наименование'],
@@ -47,7 +47,6 @@ export const IMPORT_PRESETS: readonly ImportPreset[] = [
   },
   {
     id: 'billz',
-    label: 'Billz',
     verified: false,
     headers: {
       name: ['Название', 'Наименование', 'Название товара', 'Nomi', 'Mahsulot nomi'],
@@ -81,9 +80,4 @@ export function applyPreset(preset: ImportPreset, headers: readonly string[], fa
     price: find(preset.headers.price),
     sales: find(preset.headers.sales),
   };
-}
-
-/** Label shown in the picker, with "taxminiy" until verified. */
-export function presetLabel(preset: ImportPreset): string {
-  return preset.verified ? preset.label : `${preset.label} (taxminiy)`;
 }

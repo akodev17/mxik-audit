@@ -39,8 +39,8 @@ export async function CatalogStatus({ catalog }: { catalog: CatalogState }) {
   }
 
   if (catalog.status === 'failed') {
-    // The raw error can carry internals (SQL, paths, provider replies): it stays in the server log.
-    if (catalog.auditError) console.warn(`[catalog ${catalog.id}] audit failed: ${catalog.auditError}`);
+    // The raw error can carry internals (SQL, paths, provider replies), so it is never shown; it
+    // stays in catalog.auditError, written once when the audit failed. Rendering does not log.
     return (
       <EmptyState
         tone="danger" title={t.catalogFailed} hint={ta.importX.processing.failedHint}

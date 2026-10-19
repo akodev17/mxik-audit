@@ -1,5 +1,5 @@
 /** @jsxRuntime automatic */
-// Numbers the help articles quote, read from this server's configuration when the page renders,
+// Numbers the help articles quote, read from the app's configuration when the page renders,
 // so an article never states a limit or a price the app does not use. MDX uses them as tags.
 // (The pragma lets the node:test run render it too; Next uses the automatic runtime anyway.)
 import type { ReactNode } from 'react';
@@ -17,7 +17,7 @@ const COPY = {
     duration: 'Muddat', price: 'Narx', clients: 'Mijozlar', rows: 'Oyiga yuklanadigan qatorlar', seats: 'Foydalanuvchilar (kutilayotgan takliflar bilan)',
     apiChecks: 'Oyiga API tekshiruvlari', apiRate: 'API soʻrovlari, bitta kalitga', apiItems: 'Bitta API tekshiruvidagi mahsulotlar',
     days: (n: number) => `${n} kun`, month: '1 oy; har toʻlov bir oyga uzaytiradi', free: 'Bepul',
-    perMonth: (p: string) => `${p} soʻm / oy`, noPrice: 'hali belgilanmagan', unlimited: 'cheklanmagan', perMinute: (n: string) => `daqiqasiga ${n} ta`,
+    perMonth: (p: string) => `${p} soʻm / oy`, noPrice: 'kelishiladi', unlimited: 'cheklanmagan', perMinute: (n: string) => `daqiqasiga ${n} ta`,
     or: 'yoki',
   },
   ru: {
@@ -25,7 +25,7 @@ const COPY = {
     duration: 'Срок', price: 'Цена', clients: 'Клиенты', rows: 'Строк загрузки в месяц', seats: 'Пользователи (с ожидающими приглашениями)',
     apiChecks: 'Проверок API в месяц', apiRate: 'Запросы API на один ключ', apiItems: 'Товаров в одной проверке API',
     days: (n: number) => `${n} ${pluralRu(n, 'день', 'дня', 'дней')}`, month: '1 месяц; каждая оплата продлевает на месяц', free: 'Бесплатно',
-    perMonth: (p: string) => `${p} сум / месяц`, noPrice: 'пока не установлена', unlimited: 'без ограничений', perMinute: (n: string) => `${n} в минуту`,
+    perMonth: (p: string) => `${p} сум / месяц`, noPrice: 'по запросу', unlimited: 'без ограничений', perMinute: (n: string) => `${n} в минуту`,
     or: 'или',
   },
 };
@@ -51,7 +51,7 @@ function LiveTable({ head, rows }: { head: [string, string, string]; rows: [stri
   );
 }
 
-/** Tags an MDX article can use; each renders this server's current value in the article's language. */
+/** Tags an MDX article can use; each renders the app's current value in the article's language. */
 export function liveComponents(lang: HelpLang): Record<string, () => ReactNode> {
   const c = COPY[lang];
   const n = (v: number): string => fmtNumber(lang, v);

@@ -1,11 +1,12 @@
 import { securityExtras } from '@/app/actions/security';
-import { fmtDate, fmtDateTime } from '@/lib/format';
+import { fmtDateTime } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { deviceLabel } from '@/lib/security/device';
 import { listSessions } from '@/lib/security/session-store';
 import { twoFactorState } from '@/lib/security/two-factor';
 import { getSession, type CurrentUser } from '@/lib/session';
 import { SecurityPanel } from './security-panel';
+import { agoLabel, orderSessions } from './session-rows';
 
 /** Two-factor, password, Telegram sign-in and sessions; everything loaded here so the panel needs no round trip. */
 export async function SecurityTab({ user }: { user: CurrentUser }) {
@@ -17,9 +18,11 @@ export async function SecurityTab({ user }: { user: CurrentUser }) {
     <SecurityPanel
       {...state}
       extras={extras}
-      sessions={sessions.map((s) => ({
+      sessions={orderSessions(sessions, session.sid).map((s) => ({
         id: s.id, device: deviceLabel(s.userAgent), current: s.id === session.sid,
-        created: fmtDate(locale, s.createdAt), seen: fmtDateTime(locale, s.lastSeenAt),
+        created: fmtDateTime(locale, s.createdAt),
+        seen: agoLabel(locale, s.lastSeenAt) ?? fmtDateTime(locale, s.lastSeenAt),
+        seenAt: fmtDateTime(locale, s.lastSeenAt),
       }))}
     />
   );

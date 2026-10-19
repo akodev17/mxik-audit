@@ -7,7 +7,10 @@
 // Accountants notice, and Gate 0 found the correct character in only 74 of
 // 438,925 rows of the official export, so the bar is low and worth clearing.
 
+import { fmtNumber } from './format';
 import { ru } from './i18n-ru';
+
+const nu = (v: number): string => fmtNumber('uz', v);
 
 export type Locale = 'uz' | 'ru';
 
@@ -117,7 +120,6 @@ export type Dict = {
   purchasesTemplate: string;
   purchasesUpload: string;
   purchasesApply: string;
-  purchasesApplied: (codes: number) => string;
   purchasesLists: string;
   purchasesNone: string;
   purchasesCodes: string;
@@ -137,7 +139,6 @@ export type Dict = {
   catalogsStatus: string;
   catalogsDelete: string;
   catalogsDeleteConfirm: (filename: string) => string;
-  catalogsDeleted: (rows: number) => string;
   catalogStatus: Record<'uploaded' | 'analyzing' | 'ready' | 'failed', string>;
   catalogAnalyzing: (done: number, total: number) => string;
   catalogAnalyzingHint: string;
@@ -243,11 +244,6 @@ export type Dict = {
   subPrice: (price: string) => string;
   subUntil: (date: string) => string;
   subNone: string;
-  exportStatusColumn: string;
-  exportStatusAccepted: string;
-  exportStatusRejected: string;
-  exportStatusPending: string;
-  exportStatusOk: string;
 
   // shared
   loading: string;
@@ -266,7 +262,7 @@ export type Dict = {
 
 export const uz: Dict = {
   appName: 'MXIK Audit',
-  tagline: 'Katalogingizdagi riskli pozitsiyalarni aniqlang',
+  tagline: 'Katalogingizdagi xavfli pozitsiyalarni aniqlang',
   signIn: 'Kirish',
   signOut: 'Chiqish',
   email: 'Elektron pochta',
@@ -282,7 +278,7 @@ export const uz: Dict = {
   clientsHint: 'Har bir mijozning kataloglari, hisobotlari va tarixi alohida saqlanadi.',
   clientsName: 'Mijoz',
   clientsLastAudit: 'Oxirgi tahlil',
-  clientsTrend: 'Riskli qatorlar (oxirgi 5 tahlil)',
+  clientsTrend: 'Xavfli qatorlar (oxirgi 5 tahlil)',
   clientsMarking: 'Markirovka',
   clientsLastNotice: 'Oxirgi xabarnoma',
   clientsNever: 'hali yoʻq',
@@ -311,7 +307,7 @@ export const uz: Dict = {
 
   settingsTitle: 'Sozlamalar',
   tgSection: 'Telegram',
-  tgOff: 'Telegram bot bu serverda sozlanmagan (TELEGRAM_BOT_TOKEN yoʻq).',
+  tgOff: 'Telegram bot hozircha mavjud emas.',
   tgIntro: (bot) => `Botga katalog faylini yuboring — u tahlil qilinadi va natija shu chatga keladi. Tasniflagich yangilanganda xabarnomalar ham shu yerga keladi.${bot ? ` Bot: @${bot}.` : ''}`,
   tgGetCode: 'Ulash kodini olish',
   tgCodeShown: (code, minutes) => `Botga yuboring: /start ${code} — kod ${minutes} daqiqa amal qiladi va bir marta ishlatiladi.`,
@@ -330,7 +326,7 @@ export const uz: Dict = {
   tgExpired: 'Bu soʻrov eskirgan. Faylni qaytadan yuboring.',
   tgEmptyFile: 'Faylda maʼlumot qatorlari topilmadi.',
   tgNoNames: 'Faylda tovar nomlari ustuni topilmadi. Faylni veb-ilova orqali yuklab, ustunlarni koʻrsating.',
-  tgStarted: (client, rows) => `Qabul qilindi: ${client}, ${rows.toLocaleString('uz-UZ')} qator. Tahlil tugagach natija shu yerga keladi.`,
+  tgStarted: (client, rows) => `Qabul qilindi: ${client}, ${nu(rows)} qator. Tahlil tugagach natija shu yerga keladi.`,
   tgAuditDone: (client) => `Tahlil tugadi — ${client}`,
   tgAuditFailed: (file) => `“${file}” tahlili xatolik bilan toʻxtadi. Veb-ilovada qayta urinib koʻring.`,
   tgFile: 'Fayl',
@@ -341,7 +337,7 @@ export const uz: Dict = {
   pdfStatus: 'Holat',
   pdfDate: 'Hisobot sanasi',
   pdfClassifier: 'Tasniflagich versiyasi',
-  pdfTruncated: (n) => `Birinchi ${n.toLocaleString('uz-UZ')} ta riskli qator koʻrsatilgan; toʻliq roʻyxat ilovada.`,
+  pdfTruncated: (n) => `Birinchi ${nu(n)} ta xavfli qator koʻrsatilgan; toʻliq roʻyxat ilovada.`,
   pdfDisclaimer: 'Kodlar avtomatik tahlil asosida taklif qilingan; har bir qaror foydalanuvchi tomonidan qabul qilinadi. Ushbu hisobot yuridik maslahat emas.',
   pdfPage: (page, total) => `${page} / ${total}`,
   brandSection: 'Mijoz hisobotlari (PDF)',
@@ -363,7 +359,6 @@ export const uz: Dict = {
   purchasesTemplate: 'Shablonni yuklab olish',
   purchasesUpload: 'Xaridlar faylini tanlash',
   purchasesApply: 'Solishtirishni boshlash',
-  purchasesApplied: (codes) => `${codes.toLocaleString('uz-UZ')} ta MXIK kodi olindi. Mijozning oxirgi katalogi qayta tekshirildi.`,
   purchasesLists: 'Yuklangan roʻyxatlar',
   purchasesNone: 'Hali xaridlar roʻyxati yuklanmagan — xaridlar bilan solishtirish oʻtkazilmaydi.',
   purchasesCodes: 'MXIK kodlari',
@@ -378,15 +373,14 @@ export const uz: Dict = {
   catalogsFile: 'Fayl',
   catalogsDate: 'Sana',
   catalogsRows: 'Qatorlar',
-  catalogsRisky: 'Riskli',
+  catalogsRisky: 'Xavfli',
   catalogsStatus: 'Holat',
   catalogsDelete: 'Oʻchirish',
   catalogsDeleteConfirm: (filename) =>
     `“${filename}” katalogi butunlay oʻchiriladi: qatorlar, takliflar va qarorlar tarixi bilan birga. Buni qaytarib boʻlmaydi. Davom etasizmi?`,
-  catalogsDeleted: (rows) => `Katalog oʻchirildi (${rows.toLocaleString('uz-UZ')} qator).`,
-  catalogStatus: { uploaded: 'Yuklangan', analyzing: 'Tahlil qilinmoqda', ready: 'Tayyor', failed: 'Xatolik' },
+  catalogStatus: { uploaded: 'Tahlil qilinmagan', analyzing: 'Tahlil qilinmoqda', ready: 'Tayyor', failed: 'Xatolik' },
   catalogAnalyzing: (done, total) =>
-    `Tahlil qilinmoqda: ${done.toLocaleString('uz-UZ')} / ${total.toLocaleString('uz-UZ')} qator`,
+    `Tahlil qilinmoqda: ${nu(done)} / ${nu(total)} qator`,
   catalogAnalyzingHint: 'Sahifa oʻzi yangilanadi. Katta katalog bir necha daqiqa olishi mumkin; sahifani yopsangiz ham tahlil davom etadi.',
   catalogNotAudited: 'Bu katalog hali tahlil qilinmagan: ustunlar moslashtirilishi tasdiqlanmagan.',
   catalogFailed: 'Tahlil xatolik bilan toʻxtadi.',
@@ -399,22 +393,22 @@ export const uz: Dict = {
   adminOrgs: 'Mijoz tashkilotlar',
   adminCatalogs: 'Yuklangan kataloglar',
   adminRowsAudited: 'Tahlil qilingan qatorlar',
-  adminRiskyRows: 'Riskli qatorlar',
-  adminLast30: (n) => `oxirgi 30 kunda: ${n.toLocaleString('uz-UZ')}`,
+  adminRiskyRows: 'Xavfli qatorlar',
+  adminLast30: (n) => `oxirgi 30 kunda: ${nu(n)}`,
   adminByType: 'Topilmalar turi boʻyicha',
   adminDecisions: 'Takliflar boʻyicha qarorlar',
-  adminAccepted: 'Qabul qilindi (taklif etilgan kod)',
-  adminEdited: 'Qabul qilindi (boshqa kod tanlandi)',
+  adminAccepted: 'Tasdiqlandi (taklif etilgan kod)',
+  adminEdited: 'Tasdiqlandi (boshqa kod tanlandi)',
   adminRejected: 'Rad etildi',
   adminPending: 'Koʻrib chiqilmagan',
   adminBulk: 'Birdaniga qabul qilingan qatorlar',
   adminUndone: 'Bekor qilingan qarorlar',
   adminReviewTime: 'Bir qatorni koʻrib chiqish vaqti (mediana)',
-  adminReviewValue: (s) => (s === null ? 'hali maʼlumot yoʻq' : `${s.toLocaleString('uz-UZ')} soniya`),
-  adminReviewNote: (n) => `${n.toLocaleString('uz-UZ')} ta oraliq asosida; 10 daqiqadan uzun tanaffuslar hisobga olinmaydi.`,
+  adminReviewValue: (s) => (s === null ? 'hali maʼlumot yoʻq' : `${nu(s)} soniya`),
+  adminReviewNote: (n) => `${nu(n)} ta oraliq asosida; 10 daqiqadan uzun tanaffuslar hisobga olinmaydi.`,
   adminDemo: 'Demo sessiyalar',
   adminLeads: 'Bepul audit soʻrovlari',
-  adminLeadsFiles: (n) => `fayl bilan: ${n.toLocaleString('uz-UZ')}`,
+  adminLeadsFiles: (n) => `fayl bilan: ${nu(n)}`,
   adminGenerated: 'Hisoblangan vaqt',
   adminPipeline: 'Taklif tizimi holati (faqat administratorga koʻrinadi)',
 
@@ -441,20 +435,20 @@ export const uz: Dict = {
   uploadPreset: 'Fayl qayerdan',
   uploadPresetAuto: 'Avtomatik aniqlash',
   uploadPresetHint: '“Taxminiy” andozalar haqiqiy fayl bilan tekshirilmagan — ustunlarni koʻzdan kechiring.',
-  moneyTitle: 'Riskli qatorlar boʻyicha sotuv summasi (taxminiy)',
+  moneyTitle: 'Xavfli qatorlar boʻyicha sotuv summasi (taxminiy)',
   moneyRisky: (amount) => `${amount} soʻm`,
   moneyShare: (percent) => `faylingizdagi jami sotuvning ${percent}%`,
-  moneyNote: 'Faylingizdagi “Sotuv summasi” ustuni boʻyicha hisoblangan taxminiy summa. Riskli qator — yuqori yoki oʻrta muhimlikdagi kamida bitta topilmasi bor qator. Bu jarima miqdori emas.',
-  moneyFine: (amount) => `Taxminiy jarima: ${amount} soʻm (riskli sotuvning 1%)`,
+  moneyNote: 'Faylingizdagi “Sotuv summasi” ustuni boʻyicha hisoblangan taxminiy summa. Xavfli qator — yuqori yoki oʻrta muhimlikdagi kamida bitta topilmasi bor qator. Bu jarima miqdori emas.',
+  moneyFine: (amount) => `Taxminiy jarima: ${amount} soʻm (xavfli sotuvning 1%)`,
   moneyFineNote: 'Taxminiy; har bir hisobvaraq-faktura alohida koʻriladi.',
   uploadColumnIgnore: '— hisobga olinmaydi —',
-  uploadRowsFound: (n) => `${n.toLocaleString('uz-UZ')} qator topildi`,
+  uploadRowsFound: (n) => `${nu(n)} qator topildi`,
   uploadRemembered: 'Oldingi yuklashdagi moslashtirish saqlangan.',
 
   reportHeadline: (risky, total) =>
-    `${total.toLocaleString('uz-UZ')} pozitsiyadan ${risky.toLocaleString('uz-UZ')} tasi riskli`,
+    `${nu(total)} pozitsiyadan ${nu(risky)} tasi xavfli`,
   reportClean: (total) =>
-    `${total.toLocaleString('uz-UZ')} pozitsiyaning barchasi tekshiruvdan oʻtdi`,
+    `${nu(total)} pozitsiyaning barchasi tekshiruvdan oʻtdi`,
   reportFilterType: 'Turi',
 
   typeMissing: 'Kod yoʻq',
@@ -466,8 +460,8 @@ export const uz: Dict = {
   reviewCurrentCode: 'Hozirgi kod',
   reviewSuggested: 'Taklif etilgan kod',
   reviewNoCode: 'kod yoʻq',
-  reviewPending: 'Kutilmoqda',
-  reviewAccepted: 'Qabul qilindi',
+  reviewPending: 'Koʻrib chiqilmagan',
+  reviewAccepted: 'Tasdiqlandi',
   reviewRejected: 'Rad etildi',
   markingBadge: 'Markirovka talab qilinadi',
   markingCurrent: 'hozirgi kod',
@@ -488,11 +482,6 @@ export const uz: Dict = {
   subPrice: (price) => `${price} soʻm / oy`,
   subUntil: (date) => `Faol: ${date} gacha`,
   subNone: 'Obuna faol emas.',
-  exportStatusColumn: 'audit_status',
-  exportStatusAccepted: 'qabul_qilindi',
-  exportStatusRejected: 'rad_etildi',
-  exportStatusPending: 'korib_chiqilmagan',
-  exportStatusOk: 'risk_yoq',
 
   loading: 'Yuklanmoqda…',
   errorGeneric: 'Xatolik yuz berdi. Qaytadan urinib koʻring.',
@@ -501,7 +490,7 @@ export const uz: Dict = {
   code: 'Kod',
   confidenceSure: 'Yuqori moslik',
   confidenceLikely: 'Oʻrtacha moslik',
-  confidenceCheck: 'Tekshirish kerak',
+  confidenceCheck: 'Past moslik',
 
   codeArchived: 'Tasniflagichdan chiqarilgan',
   codeUnknown: 'Tasniflagichda topilmadi',

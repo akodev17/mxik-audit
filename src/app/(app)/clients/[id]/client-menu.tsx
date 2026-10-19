@@ -8,12 +8,14 @@ import type { Dependant } from '@/lib/client-lifecycle';
 import { fmtNumber } from '@/lib/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
+import { CodeChip } from '@/ui/code-chip';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Dialog } from '@/ui/dialog';
 import { IconAlert } from '@/ui/icons';
 import { Field, Input } from '@/ui/input';
 import { Menu, type MenuItem } from '@/ui/menu';
 import { useToast } from '@/ui/toast';
+import { goTo } from '@/ui/shell/same-route-links';
 
 type Props = {
   clientId: string; name: string; isDefault: boolean; archived: boolean; catalogs: number;
@@ -70,7 +72,8 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs, bloc
   const errorLine = error ? <p role="alert" className="mt-3 text-small font-medium text-danger-ink">{error}</p> : null;
   return (
     <>
-      <Menu label={words.menu} items={items} align="end" />
+      {/* With rename as the only action (the default client), a menu would hide a single button. */}
+      {items.length === 1 ? <Button variant="secondary" onClick={() => show('rename')}>{words.rename}</Button> : <Menu label={words.menu} items={items} align="end" />}
 
       <Dialog
         open={open === 'rename'} onClose={() => setOpen(null)} title={words.renameTitle} size="sm" dismissible={!busy}
@@ -110,6 +113,7 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs, bloc
 
       <Dialog
         open={open === 'delete'} onClose={() => setOpen(null)} title={words.deleteTitle} role="alertdialog" size="sm" dismissible={!busy}
+        icon={<IconAlert className="text-danger-ink" />}
         description={words.deleteHint(fmtNumber(locale, catalogs), catalogs)}
         footer={(
           <>
@@ -129,10 +133,12 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs, bloc
           onSubmit={(e) => {
             e.preventDefault();
             if (blocked || typed.replace(/\s+/g, ' ').trim() !== name) return;
-            void run(() => deleteClientAction({ clientId, confirmName: typed }), words.deleted, () => router.push('/clients'));
+            void run(() => deleteClientAction({ clientId, confirmName: typed }), words.deleted, () => goTo('/clients', (href) => router.push(href)));
           }}
         >
-          <Field label={words.deleteType(name)}>
+          <p className="mt-3 text-small">{words.deleteTypeIntro}</p>
+          <p className="mb-3 mt-1"><CodeChip code={name} className="select-all whitespace-normal [overflow-wrap:anywhere]" /></p>
+          <Field label={ta.firmX.clients.nameLabel}>
             <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" spellCheck={false} disabled={blocked} />
           </Field>
           {blocked ? null : errorLine}

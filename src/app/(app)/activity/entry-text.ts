@@ -21,7 +21,7 @@ export function isAutomaticEntry(entry: ActivityEntry): boolean {
 export function actorText(row: Pick<ActivityRow, 'actor' | 'actorId' | 'action'>, ta: AppDict): string {
   if (row.actor) return row.actor;
   if (isAutomaticRow(row)) return ta.firmX.log.automatic;
-  return row.actorId ? ta.firmX.log.deletedUser : ta.activity.system;
+  return row.actorId ? ta.firmX.log.deletedUser : ta.firmX.log.system;
 }
 
 export function actionText(row: Pick<ActivityRow, 'action' | 'count'>, ta: AppDict, locale: Locale): string {

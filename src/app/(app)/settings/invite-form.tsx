@@ -59,7 +59,7 @@ export function InviteForm({ clients, mailOn, days, blocked }: Props) {
           />
         </div>
         {kind === 'email' ? (
-          <Field label={s.invite.email} required error={state.fieldErrors?.email} hint={`${s.invite.emailHint(days)}${mailOn ? '' : ` ${s.invite.noMail}`}`}>
+          <Field className="max-w-md" label={s.invite.email} required error={state.fieldErrors?.email} hint={`${s.invite.emailHint(days)}${mailOn ? '' : ` ${s.invite.noMail}`}`}>
             <Input name="email" type="email" required autoComplete="off" maxLength={200} value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
         ) : (

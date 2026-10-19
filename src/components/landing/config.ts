@@ -35,6 +35,10 @@ export const SITE_URL = (() => {
 /** Telegram contact (a t.me link). Hidden in the header and footer when unset. */
 export const TELEGRAM_URL = safeHref(process.env.NEXT_PUBLIC_TELEGRAM_URL);
 
+/** Where a customer reaches us: Telegram when set, otherwise the contact form on the landing page. */
+export const SUPPORT_URL = TELEGRAM_URL ?? '/#audit';
+export const SUPPORT_EXTERNAL = TELEGRAM_URL !== null;
+
 /**
  * Days a file sent through the lead form is kept before `npm run purge:expired`
  * erases it. Same variable and default as leadFileRetentionDays in

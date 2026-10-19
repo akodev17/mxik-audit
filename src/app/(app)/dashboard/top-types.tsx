@@ -21,9 +21,10 @@ export async function TopTypes({ types, accountantQuery }: { types: TypeCount[];
             >
               {labels[x.type] ?? x.type}
             </Link>
+            {/* Rows are named only when they differ, so the line never reads "32 · 32". */}
             <span className="shrink-0 text-small text-muted">
-              <span className="font-medium tabular-nums text-fg">{fmtNumber(locale, x.findings)}</span>
-              {' · '}{ta.firmX.home.typeRows(fmtNumber(locale, x.rows), x.rows)}
+              <span className="font-medium tabular-nums text-fg">{ta.firmX.home.typeFindings(fmtNumber(locale, x.findings), x.findings)}</span>
+              {x.rows !== x.findings ? <>{' · '}{ta.firmX.home.typeRows(fmtNumber(locale, x.rows), x.rows)}</> : null}
             </span>
           </div>
           <div aria-hidden className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-sunken">

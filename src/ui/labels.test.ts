@@ -30,7 +30,8 @@ describe('suggestionLabel', () => {
   it('gives the score band otherwise, with tones that match the bands', () => {
     assert.deepEqual(suggestionLabel(t, ta, { confidence: 0.93, stage: 'rerank' }), { key: 'sure', label: 'Yuqori moslik', tone: 'good', percent: 93 });
     assert.equal(suggestionLabel(t, ta, { confidence: 0.8 })?.label, 'Oʻrtacha moslik');
-    assert.equal(suggestionLabel(t, ta, { confidence: 0.3 })?.tone, 'danger');
+    assert.deepEqual(suggestionLabel(t, ta, { confidence: 0.3 }), { key: 'check', label: 'Past moslik', tone: 'neutral', percent: 30 });
+    assert.equal(suggestionLabel(dict('ru'), appDict('ru'), { confidence: 0.74 })?.label, 'Низкое совпадение');
     assert.equal(suggestionLabel(t, ta, { confidence: null }), null);
   });
 });

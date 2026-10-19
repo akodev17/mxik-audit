@@ -25,8 +25,8 @@ describe('idempotent requests (database)', { skip }, () => {
   let keyB = '';
   before(async () => {
     a = await makeOrg();
-    await createApiKey(a, 'first');
-    await createApiKey(a, 'second');
+    await createApiKey({ ...a, role: 'admin' }, 'first');
+    await createApiKey({ ...a, role: 'admin' }, 'second');
     const keys = await db.apiKey.findMany({ where: { orgId: a.orgId }, orderBy: { createdAt: 'asc' } });
     keyA = keys[0]?.id ?? '';
     keyB = keys[1]?.id ?? '';

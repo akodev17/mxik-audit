@@ -6,6 +6,7 @@ import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
 import { catalogList } from '@/lib/catalogs';
 import { assignableAccountants, clientDependants } from '@/lib/client-lifecycle';
+import { openRowsHint, reviewedShare } from '@/lib/client-kpi';
 import { clientStats, rowProgress } from '@/lib/client-stats';
 import { db } from '@/lib/db';
 import { fmtDateTime, fmtNumber } from '@/lib/format';
@@ -15,12 +16,13 @@ import { getSchedule } from '@/lib/reminders';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
-import { IconAlert } from '@/ui/icons';
+import { IconAlert, IconChevron } from '@/ui/icons';
 import { Page, Section } from '@/ui/page';
 import { Stat } from '@/ui/stat';
 import { ActivityFeed } from '../../activity/activity-feed';
 import { actionText, actorText } from '../../activity/entry-text';
 import { CatalogList } from '../../catalogs/catalog-list';
+import { DraftUploads } from '../../catalogs/draft-uploads';
 import { RememberClient } from '../client-forms';
 import { AccountantsEditor } from './accountants-editor';
 import { ActivityForm } from './activity-form';
@@ -40,10 +42,11 @@ async function visibleClient(id: string) {
   return client && canSeeClient(user, client.id) ? { user, client } : null;
 }
 
+/** A client the user may not see reads like any missing page, never its name. */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { t } = await getI18n();
+  const { t, ta } = await getI18n();
   const found = await visibleClient((await params).id);
-  return { title: found ? `${found.client.name} — ${t.appName}` : t.appName };
+  return { title: `${found ? found.client.name : ta.shellX.notFound.title} — ${t.appName}` };
 }
 
 const HISTORY = 10;
@@ -61,9 +64,10 @@ export default async function ClientPage({ params }: Props) {
   const writer = canWrite(user) && !user.demo;
   const archived = client.archivedAt !== null;
 
-  const [statsPage, catalogs, history, schedule, staff, accountants, dependants] = await Promise.all([
+  const [statsPage, catalogs, drafts, history, schedule, staff, accountants, dependants] = await Promise.all([
     clientStats({ orgId: user.orgId, clientIds: [client.id], filter: archived ? 'archived' : 'all', limit: 1 }),
     catalogList(user, client.id),
+    writer && !archived ? catalogList(user, client.id, 0, 'drafts') : Promise.resolve({ items: [] }),
     activityPage(user, { clientId: client.id, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: 40 }),
     getSchedule(user.orgId, client.id),
     db.user.findMany({
@@ -121,13 +125,13 @@ export default async function ClientPage({ params }: Props) {
           label={words.kpiOpen}
           value={stats?.catalogId ? fmt(stats.openRows) : ta.firmX.dash}
           tone={stats && stats.openRows > 0 ? 'danger' : 'neutral'}
-          hint={stats?.catalogId ? words.kpiOpenHint(fmt(stats.pendingFindings), stats.pendingFindings) : undefined}
+          hint={stats?.catalogId ? openRowsHint(locale, ta.firmX.progress, stats.openRows, stats.pendingFindings) : undefined}
           href={stats && stats.openRows > 0 && !archived ? `/queue?client=${client.id}` : undefined}
         />
         <Stat
           label={ta.firmX.progress.label}
           value={progress ? `${fmt(progress.done)} / ${fmt(progress.total)}` : ta.firmX.dash}
-          hint={progress ? ta.firmX.progress.of(fmt(progress.done), fmt(progress.total), progress.total) : stats?.catalogId ? ta.firmX.progress.none : words.noAudit}
+          hint={progress ? reviewedShare(locale, ta.firmX.progress, progress) : stats?.catalogId ? ta.firmX.progress.none : words.noAudit}
         />
       </div>
 
@@ -152,10 +156,23 @@ export default async function ClientPage({ params }: Props) {
         </section>
       </div>
 
-      <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-small">
-        <Link href={`/clients/${client.id}/purchases`} className="font-medium text-brand-ink hover:underline">{t.purchasesNav}</Link>
-        <Link href={`/clients/${client.id}/imports`} className="font-medium text-brand-ink hover:underline">{ta.docs.title}</Link>
-      </p>
+      {/* Purchases and receipts are sections of their own, so they get cards, not bare links. */}
+      <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {[
+          { href: `/clients/${client.id}/purchases`, title: t.purchasesNav, hint: words.purchasesCard },
+          { href: `/clients/${client.id}/imports`, title: ta.docs.title, hint: words.docsCard },
+        ].map((x) => (
+          <li key={x.href}>
+            <Link href={x.href} className="flex h-full items-center justify-between gap-3 rounded-ctl border border-line bg-raised px-4 py-3 transition-colors duration-(--duration-fast) hover:border-line-strong hover:bg-surface">
+              <span className="min-w-0">
+                <span className="block font-medium text-brand-ink">{x.title}</span>
+                <span className="block text-small text-muted">{x.hint}</span>
+              </span>
+              <IconChevron size={16} className="shrink-0 text-subtle" />
+            </Link>
+          </li>
+        ))}
+      </ul>
 
       <Section title={words.settings}>
         {writer ? (
@@ -182,6 +199,7 @@ export default async function ClientPage({ params }: Props) {
       </Section>
 
       <Section title={t.clientCatalogs} hint={words.catalogsHint}>
+        <DraftUploads drafts={drafts.items} showClient={false} />
         {catalogs.items.length === 0
           ? <p className="text-small text-muted">{t.clientNoCatalogs}</p>
           : <CatalogList items={catalogs.items} showClient={false} canDelete={writer} />}

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { submitLead, type LeadState } from '@/app/actions/lead';
-import { HONEYPOT_FIELD } from '@/lib/lead-guard';
+import { HONEYPOT_FIELD, LEAD_LIMITS } from '@/lib/lead-guard';
 
 export function LeadForm() {
   const [state, action, pending] = useActionState<LeadState, FormData>(submitLead, {});
@@ -62,6 +62,7 @@ export function LeadForm() {
           id="lead-contact"
           name="contact"
           required
+          maxLength={LEAD_LIMITS.contact}
           defaultValue={state.contact ?? ''}
           placeholder="@username  yoki  +998 90 123 45 67"
           autoComplete="tel"

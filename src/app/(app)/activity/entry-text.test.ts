@@ -35,7 +35,7 @@ describe('automatic decisions in the activity log', () => {
 
   it('names the actor of an automatic decision as automatic, not as a person or the system', () => {
     assert.equal(actorText(row('finding.auto_accepted', 0, system), ta), ta.firmX.log.automatic);
-    assert.equal(actorText(row('classifier.updated', 0, system), ta), ta.activity.system);
+    assert.equal(actorText(row('classifier.updated', 0, system), ta), ta.firmX.log.system);
     assert.equal(actorText(row('finding.accepted', 0, { actor: null }), ta), ta.firmX.log.deletedUser);
   });
 });

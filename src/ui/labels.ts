@@ -24,7 +24,8 @@ export function typeTone(type: string, severity: string): Tone {
   return type === 'MISSING' || type === 'NOT_FOUND' ? 'danger' : 'warn';
 }
 
-const TONE: Record<LabelKey, Tone> = { barcode: 'good', dictionary: 'good', sure: 'good', likely: 'warn', check: 'danger' };
+// A low band is less certainty, not an error: neutral, never the danger tone of problem types.
+const TONE: Record<LabelKey, Tone> = { barcode: 'good', dictionary: 'good', sure: 'good', likely: 'warn', check: 'neutral' };
 
 function bandText(t: Dict, key: ConfidenceLabel): string {
   const text: Record<ConfidenceLabel, string> = { sure: t.confidenceSure, likely: t.confidenceLikely, check: t.confidenceCheck };
@@ -32,7 +33,7 @@ function bandText(t: Dict, key: ConfidenceLabel): string {
 }
 
 /**
- * The score band in words ("Yuqori moslik"…). `percent` is the raw match
+ * The score band in words: Yuqori / Oʻrtacha / Past moslik. `percent` is the raw match
  * score for detail views; show it as a score, never as a probability.
  * Prefer suggestionLabel, which also names barcode and dictionary sources.
  */

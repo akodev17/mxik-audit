@@ -3,7 +3,8 @@
 import { useId, type ReactNode } from 'react';
 import { cx } from './cx';
 
-export type SegmentedOption<T extends string> = { value: T; label: string; icon?: ReactNode };
+/** `lang`: the label's own language, e.g. each name in a language switch (WCAG 3.1.2). */
+export type SegmentedOption<T extends string> = { value: T; label: string; icon?: ReactNode; lang?: string };
 
 type Props<T extends string> = {
   /** Accessible name of the group. */
@@ -33,7 +34,8 @@ export function Segmented<T extends string>({ label, options, value, onChange, n
           className={cx(
             'relative inline-flex cursor-pointer select-none items-center gap-1.5 whitespace-nowrap rounded-sm px-2.5 font-medium text-muted',
             'transition-colors duration-(--duration-fast) hover:text-fg',
-            'has-[:checked]:bg-raised has-[:checked]:text-fg has-[:checked]:shadow-sm',
+            // Selected: brand tint, brand text and a 1px brand ring (>= 3:1 against the track in both themes).
+            'has-[:checked]:bg-brand-tint has-[:checked]:text-brand-ink has-[:checked]:shadow-[inset_0_0_0_1px_var(--color-brand)]',
             'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-focus',
             'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50',
             // With the 2px inset and 1px border the group matches h-control-compact (32) or -md (36).
@@ -50,7 +52,7 @@ export function Segmented<T extends string>({ label, options, value, onChange, n
             className="sr-only"
           />
           {o.icon}
-          {o.label}
+          {o.lang ? <span lang={o.lang}>{o.label}</span> : o.label}
         </label>
       ))}
     </div>

@@ -20,6 +20,7 @@ import { useToast } from '../toast';
 import { IconArrowLeft, IconBox, IconHash, IconSwitch } from './icons';
 import { NAV_ICONS, useNavLabels } from './nav-items';
 import { matchesQuery, paletteCommands, type CommandKey } from './palette-model';
+import { goTo } from './same-route-links';
 import { useSwitchClient } from './use-switch-client';
 
 type ClientRef = { id: string; name: string };
@@ -28,8 +29,15 @@ type Props = { open: boolean; onClose: () => void; canWrite: boolean; clients: C
 type Action = { kind: 'go'; href: string } | { kind: 'copy'; text: string } | { kind: 'mode' } | { kind: 'switch'; clientId: string };
 type GroupKey = 'commands' | 'clients' | 'catalogs' | 'products' | 'codes' | 'switch';
 type Option = { key: string; label: ReactNode; detail?: ReactNode; meta?: ReactNode; icon: ReactNode; action: Action; mono?: boolean };
-type Group = { key: GroupKey; label: string; options: Option[] };
-type Status = { kind: 'idle' } | { kind: 'loading'; previous: SearchResults | null } | { kind: 'failed' } | { kind: 'done'; results: SearchResults };
+type Group = { key: GroupKey; label: string; hint?: string; options: Option[] };
+type Answer = { text: string; results: SearchResults };
+type Status = { kind: 'idle' } | { kind: 'loading'; previous: Answer | null } | { kind: 'failed' } | { kind: 'done'; answer: Answer };
+
+/** Results stay on screen while the query only narrows them; a new kind of query (a code) clears them. */
+function keepWhileLoading(last: Answer | null, text: string): Answer | null {
+  if (!last || /^\d+$/.test(text)) return null;
+  return text.toLocaleLowerCase().startsWith(last.text.toLocaleLowerCase()) ? last : null;
+}
 
 const DEBOUNCE_MS = 250;
 const STATUS_TONE: Record<ProductStatus, Tone> = { attention: 'warn', decided: 'good', auto: 'brand', info: 'info', clean: 'neutral' };
@@ -75,10 +83,10 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
       return;
     }
     const mine = ++seq.current;
-    setStatus((prev) => ({ kind: 'loading', previous: prev.kind === 'done' ? prev.results : prev.kind === 'loading' ? prev.previous : null }));
+    setStatus((prev) => ({ kind: 'loading', previous: keepWhileLoading(prev.kind === 'done' ? prev.answer : prev.kind === 'loading' ? prev.previous : null, text) }));
     const timer = setTimeout(() => {
       searchEverything(text)
-        .then((r) => { if (mine === seq.current) setStatus(r.ok ? { kind: 'done', results: r.results } : { kind: 'failed' }); })
+        .then((r) => { if (mine === seq.current) setStatus(r.ok ? { kind: 'done', answer: { text, results: r.results } } : { kind: 'failed' }); })
         .catch(() => { if (mine === seq.current) setStatus({ kind: 'failed' }); });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -99,7 +107,7 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
       }));
   }, [canWrite, locale, clients.length, s, ta, navLabels, query]);
 
-  const results = status.kind === 'done' ? status.results : status.kind === 'loading' ? status.previous : null;
+  const results = status.kind === 'done' ? status.answer.results : status.kind === 'loading' ? status.previous?.results ?? null : null;
 
   const groups = useMemo<Group[]>(() => {
     if (mode === 'switch') {
@@ -128,7 +136,7 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
       })),
     });
     list.push({
-      key: 'products', label: s.groups.products,
+      key: 'products', label: s.groups.products, hint: s.groups.productsHint,
       // A clean row is not in the workspace grid: its outcome is said here, and Enter opens the catalogue.
       options: results.products.map((p) => ({
         key: `product-${p.id}`, label: p.name, icon: <IconBox />,
@@ -168,7 +176,7 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
 
   const activate = async (option: Option): Promise<void> => {
     const action = option.action;
-    if (action.kind === 'go') { onClose(); router.push(action.href); return; }
+    if (action.kind === 'go') { onClose(); goTo(action.href, (href) => router.push(href)); return; }
     if (action.kind === 'mode') { setMode('switch'); setQuery(''); input.current?.focus(); return; }
     if (action.kind === 'copy') {
       try {
@@ -209,7 +217,7 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
   let index = -1;
 
   return (
-    <Dialog open={open} onClose={onClose} title={s.title} size="lg" initialFocus={input}>
+    <Dialog open={open} onClose={onClose} title={s.title} size="lg" initialFocus={input} placement="top">
       <div className="sticky top-0 z-sticky -mt-3 bg-raised pb-1 pt-1">
         <div className="relative flex items-center gap-2">
           {mode === 'switch' ? (
@@ -238,8 +246,8 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
         </div>
       </div>
       <p role="status" className="sr-only">{announcement}</p>
-      {/* A steady height, so the dialog does not jump while results come and go. */}
-      <div className="min-h-[min(22rem,50dvh)]">
+      {/* Anchored at the top (placement), so results grow downwards and the field never moves. */}
+      <div>
         {mode === 'root' && text.length > 0 && text.length < MIN_TEXT ? <p className="px-1 pb-2 text-small text-muted">{s.short}</p> : null}
         {loading && !results ? (
           <p aria-hidden className="flex items-center gap-2 px-1 py-3 text-small text-muted"><Spinner size={14} />{s.loading}</p>
@@ -257,10 +265,10 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
           </div>
         ) : null}
         {mode === 'switch' && flat.length === 0 ? <p className="px-1 py-6 text-center text-small text-muted">{ta.shellX.client.noMatch}</p> : null}
-        <div id={listId} role="listbox" aria-label={s.results} className={cx('-mx-2', loading && 'opacity-70')}>
+        <div id={listId} role="listbox" aria-label={s.results} className={cx('-mx-2 mt-1', loading && 'opacity-70')}>
           {visible.map((g) => (
             <div key={g.key} role="group" aria-labelledby={`${listId}-${g.key}`} className="pb-1">
-              <div role="presentation" id={`${listId}-${g.key}`} className="px-3 pb-1 pt-2 text-micro font-semibold uppercase tracking-wide text-subtle">{g.label}</div>
+              <div role="presentation" id={`${listId}-${g.key}`} className="px-3 pb-1 pt-2 text-micro text-subtle"><span className="font-semibold uppercase tracking-wide">{g.label}</span>{g.hint ? <span className="ml-1.5">{g.hint}</span> : null}</div>
               {g.options.map((o) => {
                 index += 1;
                 const at = index;

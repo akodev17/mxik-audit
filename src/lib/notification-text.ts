@@ -1,4 +1,6 @@
-// Notification wording, shared by the app and Telegram. Pure.
+// Notification wording, shared by the app and Telegram. Pure. Notifications store
+// rendered text, so callers render it in the org's language (src/lib/org-locale.ts).
+import { fmtDate } from './format.js';
 import type { Locale } from './i18n.js';
 
 export type UpdateCounts = {
@@ -20,7 +22,6 @@ const WORDS = {
     none: 'Yangi muammo topilmadi.',
     updated: 'Tasniflagich yangilandi',
     file: 'Fayl',
-    tag: 'uz-UZ',
   },
   ru: {
     archived: (n: number) => `архивировано кодов: ${n}`,
@@ -31,7 +32,6 @@ const WORDS = {
     none: 'Новых проблем не найдено.',
     updated: 'Классификатор обновлён',
     file: 'Файл',
-    tag: 'ru-RU',
   },
 } as const;
 
@@ -52,5 +52,5 @@ export function updateTitle(clientName: string, c: UpdateCounts, locale: Locale 
 export function updateBody(c: UpdateCounts, filename: string, date: Date, locale: Locale = 'uz'): string {
   const w = WORDS[locale];
   const findings = c.newFindings > 0 ? w.some(c.newFindings) : w.none;
-  return `${w.updated} (${date.toLocaleDateString(w.tag)}). ${findings} ${w.file}: ${filename}.`;
+  return `${w.updated} (${fmtDate(locale, date)}). ${findings} ${w.file}: ${filename}.`;
 }

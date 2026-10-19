@@ -115,10 +115,3 @@ export async function uploadsOpen(orgId: string): Promise<Gate> {
   const status = await planStatus(orgId);
   return status.state === 'expired' ? { ok: false, reason: 'expired' } : { ok: true };
 }
-
-export const GATE_MESSAGE: Record<'expired' | LimitKey, string> = {
-  expired: 'Sinov muddati tugadi. Davom etish uchun Sozlamalar sahifasida tarifni faollashtiring.',
-  clients: 'Tarifdagi mijozlar soni chegarasiga yetdingiz. Tarifni yangilang.',
-  rowsPerMonth: 'Bu oy uchun qatorlar chegarasi tugadi. Tarifni yangilang.',
-  seats: 'Tarifdagi foydalanuvchilar soni chegarasiga yetdingiz. Tarifni yangilang.',
-};

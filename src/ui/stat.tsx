@@ -25,15 +25,17 @@ const VALUE: Record<StatTone, string> = {
 export function Stat({ label, value, hint, href, tone = 'neutral', className }: Props) {
   const body = (
     <>
-      <span className="flex items-center justify-between gap-2 text-small text-muted">
-        <span className="truncate">{label}</span>
-        {href ? <IconChevron size={14} className="shrink-0 text-subtle" /> : null}
+      <span className="flex items-start justify-between gap-2 text-small text-muted">
+        {/* Two lines before an ellipsis: the label says what the number means (Russian runs long). */}
+        <span data-stat-label className="line-clamp-2 min-w-0" title={label}>{label}</span>
+        {href ? <IconChevron size={14} className="mt-0.5 shrink-0 text-subtle" /> : null}
       </span>
-      <span className={cx('mt-1 block text-title tabular-nums', VALUE[tone])}>{value}</span>
+      {/* mt-auto: in a row of tiles the numbers line up even when one label takes two lines. */}
+      <span className={cx('mt-auto block pt-1 text-title tabular-nums', VALUE[tone])}>{value}</span>
       {hint ? <span className="mt-0.5 block text-micro text-muted">{hint}</span> : null}
     </>
   );
-  const box = cx('block min-w-0 rounded-ctl border border-line bg-raised px-4 py-3', className);
+  const box = cx('flex min-w-0 flex-col rounded-ctl border border-line bg-raised px-4 py-3', className);
   if (!href) return <div className={box}>{body}</div>;
   return (
     <Link href={href} className={cx(box, 'transition-colors duration-(--duration-fast) hover:border-line-strong hover:bg-surface')}>

@@ -5,6 +5,7 @@ import { canWrite, isAdminRole } from '@/lib/access';
 import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
 import { pendingAudits } from '@/lib/client-attention';
+import { openRowsHint, reviewedShare } from '@/lib/client-kpi';
 import { attentionReasons, rowProgress } from '@/lib/client-stats';
 import { dashboard } from '@/lib/dashboard';
 import { fmtNumber } from '@/lib/format';
@@ -83,16 +84,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       {data.clients.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Two by two on a phone, so the tiles do not fill the whole first screen; labels may wrap there. */}
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 max-sm:[&_.truncate]:whitespace-normal">
             <Stat
               label={home.openRows} value={fmt(totals.openRows)} href={queueHref()}
               tone={totals.openRows > 0 ? 'danger' : 'good'}
-              hint={home.openRowsHint(fmt(totals.pendingFindings), totals.pendingFindings)}
+              hint={openRowsHint(locale, ta.firmX.progress, totals.openRows, totals.pendingFindings)}
             />
             <Stat
               label={ta.firmX.progress.label} href="/clients?sort=progress"
               value={reviewed ? `${fmt(reviewed.done)} / ${fmt(reviewed.total)}` : ta.firmX.dash}
-              hint={reviewed ? ta.firmX.progress.of(fmt(reviewed.done), fmt(reviewed.total), reviewed.total) : audited ? ta.firmX.progress.none : ta.firmX.progress.notAudited}
+              hint={reviewed ? reviewedShare(locale, ta.firmX.progress, reviewed) : audited ? ta.firmX.progress.none : ta.firmX.progress.notAudited}
             />
             <Stat
               label={home.attention} value={fmt(totals.attention)} href="/clients?filter=attention"
@@ -106,6 +108,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
 
           {firstRun ? null : <NextStep clients={data.clients} pending={pending} tasks={tasks} canUpload={canWrite(user) && !user.demo} queueHref={queueHref} />}
+
+          {openSteps && !firstRun ? <div className="mt-6"><Onboarding steps={steps} primary={false} /></div> : null}
 
           <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 [&>section]:mt-0">
             <Section title={home.attentionTitle} actions={attention.length > 0 ? <Link href="/clients?filter=attention" className="text-small font-medium text-brand-ink hover:underline">{home.attentionAll}</Link> : null}>
@@ -146,7 +150,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           : <ActivityFeed entries={groupDecisions(recent.rows).slice(0, RECENT)} />}
       </Section>
 
-      {openSteps && !firstRun ? <div className="mt-8"><Onboarding steps={steps} primary={false} /></div> : null}
+      {openSteps && !firstRun && data.clients.length === 0 ? <div className="mt-8"><Onboarding steps={steps} primary={false} /></div> : null}
     </Page>
   );
 }

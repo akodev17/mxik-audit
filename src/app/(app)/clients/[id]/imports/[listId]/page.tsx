@@ -6,7 +6,8 @@ import { canSeeClient, canWrite } from '@/lib/access';
 import { codeDetails } from '@/lib/code-details';
 import { db } from '@/lib/db';
 import { docCheckStale, readDocMeta, type GroupDetail } from '@/lib/docs';
-import { formatTag, getI18n } from '@/lib/locale';
+import { fmtNumber } from '@/lib/format';
+import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
@@ -18,9 +19,14 @@ import { Progress } from '@/ui/progress';
 import { Table, Td, Th } from '@/ui/table';
 import { RestartDocButton } from '../restart-button';
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string; listId: string }> }): Promise<Metadata> {
   const { t, ta } = await getI18n();
-  return { title: `${ta.docs.reportTitle.cheques} — ${t.appName}` };
+  const { id, listId } = await params;
+  const user = await currentUser();
+  const list = user ? await db.docList.findFirst({ where: { id: listId, orgId: user.orgId, clientId: id }, select: { kind: true, clientId: true } }) : null;
+  // The tab names the list's kind only for someone who may open it.
+  const title = list && user && canSeeClient(user, list.clientId) ? ta.docs.reportTitle[list.kind === 'sales' ? 'sales' : 'cheques'] : ta.docs.title;
+  return { title: `${title} — ${t.appName}` };
 }
 
 const ISSUES = ['INVALID_CODE', 'MISSING_CODE', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_IN_CATALOG', 'NOT_PURCHASED'] as const;
@@ -28,7 +34,6 @@ const SHOWN = 300;
 
 export default async function DocReportPage({ params, searchParams }: { params: Promise<{ id: string; listId: string }>; searchParams: Promise<{ issue?: string }> }) {
   const { locale, t, ta } = await getI18n();
-  const tag = formatTag(locale);
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { id, listId } = await params;
@@ -89,7 +94,7 @@ export default async function DocReportPage({ params, searchParams }: { params: 
   const flagged = groups.filter((g) => g.issues.length > 0);
   const shown = (issue ? flagged.filter((g) => g.issues.includes(issue)) : flagged).slice(0, SHOWN);
   const details = await codeDetails(shown.flatMap((g) => [g.mxik, g.suggestedMxik]));
-  const money = (n: number): string => n.toLocaleString(tag, { maximumFractionDigits: 0 });
+  const num = (n: number): string => fmtNumber(locale, n);
   const totalLines = groups.reduce((n, g) => n + g.lines, 0);
   const flaggedLines = flagged.reduce((n, g) => n + g.lines, 0);
 
@@ -103,9 +108,9 @@ export default async function DocReportPage({ params, searchParams }: { params: 
     <Page title={ta.docs.reportTitle[kind]} hint={ta.docs.reportHint[kind]} wide crumbs={crumbs}>
       {notes.length > 0 ? <Notice tone="warn" className="mb-5">{notes.map((note) => <p key={note}>{note}</p>)}</Notice> : null}
       <dl className="mb-5 flex flex-wrap gap-8">
-        <div><dt className="text-xs text-muted">{ta.docs.lines}</dt><dd className="text-2xl font-bold">{totalLines.toLocaleString(tag)}</dd></div>
-        <div><dt className="text-xs text-muted">{ta.docs.flaggedLines}</dt><dd className={`text-2xl font-bold ${flaggedLines > 0 ? 'text-danger' : 'text-good'}`}>{flaggedLines.toLocaleString(tag)}</dd></div>
-        <div><dt className="text-xs text-muted">{ta.docs.groups}</dt><dd className="text-2xl font-bold">{flagged.length.toLocaleString(tag)} / {groups.length.toLocaleString(tag)}</dd></div>
+        <div><dt className="text-xs text-muted">{ta.docs.lines}</dt><dd className="text-2xl font-bold">{num(totalLines)}</dd></div>
+        <div><dt className="text-xs text-muted">{ta.docs.flaggedLines}</dt><dd className={`text-2xl font-bold ${flaggedLines > 0 ? 'text-danger' : 'text-good'}`}>{num(flaggedLines)}</dd></div>
+        <div><dt className="text-xs text-muted">{ta.docs.groups}</dt><dd className="text-2xl font-bold">{num(flagged.length)} / {num(groups.length)}</dd></div>
       </dl>
       {summary.length === 0 ? <EmptyState title={ta.docs.clean} hint={ta.docs.cleanHint} /> : (
         <>
@@ -114,7 +119,7 @@ export default async function DocReportPage({ params, searchParams }: { params: 
               <Link key={s.issue} href={`/clients/${id}/imports/${listId}?issue=${s.issue}`} className={`rounded-ctl border px-4 py-3 hover:bg-surface ${issue === s.issue ? 'border-brand bg-brand-tint' : 'border-line'}`}>
                 <p className="font-medium">{ta.docs.issues[s.issue]}</p>
                 <p className="mt-1 text-sm text-muted">{ta.docs.groupsAndLines(s.groups, s.lines)}</p>
-                {s.hasAmount ? <p className="text-sm">{ta.docs.amountLabel[kind]}: <span className="font-bold">{money(s.amount)}</span></p> : null}
+                {s.hasAmount ? <p className="text-sm">{ta.docs.amountLabel[kind]}: <span className="font-bold">{num(s.amount)}</span></p> : null}
               </Link>
             ))}
           </div>
@@ -130,12 +135,12 @@ export default async function DocReportPage({ params, searchParams }: { params: 
                     <Td className="max-w-xs"><span className="block truncate font-medium" title={names.join('\n')}>{g.name ?? '—'}</span>{names.length > 1 ? <span className="text-xs text-muted">+{names.length - 1}</span> : null}</Td>
                     <Td className="max-w-[240px]">{named(g.mxik)}</Td>
                     <Td className="text-muted">{g.unit ?? ''}</Td>
-                    <Td className="text-right">{g.lines.toLocaleString(tag)}</Td>
-                    <Td className="text-right">{g.amount === null ? '' : money(Number(g.amount))}</Td>
+                    <Td className="text-right">{num(g.lines)}</Td>
+                    <Td className="text-right">{g.amount === null ? '' : num(Number(g.amount))}</Td>
                     <Td><span className="flex flex-wrap gap-1">{g.issues.map((i) => <Badge key={i} tone={i === 'INVALID_CODE' || i === 'MISSING_CODE' ? 'danger' : 'warn'}>{ta.docs.issues[i as (typeof ISSUES)[number]] ?? i}</Badge>)}</span></Td>
                     <Td className="max-w-[240px]">{named(g.suggestedMxik)}</Td>
                     <Td className="max-w-[200px]">
-                      {detail.catalogMatches?.map((m) => <Link key={`${m.catalogId}|${m.rowIndex}`} href={`/catalogs/${m.catalogId}?q=${encodeURIComponent(m.name)}&pending=0&v=0`} className="block truncate text-sm text-brand hover:underline" title={m.name}>#{m.rowIndex + 1} {m.name}</Link>)}
+                      {detail.catalogMatches?.map((m) => <Link key={`${m.catalogId}|${m.rowIndex}`} href={`/catalogs/${m.catalogId}?q=${encodeURIComponent(m.name)}&pending=0&v=0`} className="block truncate text-sm text-brand hover:underline" title={m.name}>#{num(m.rowIndex + 1)} {m.name}</Link>)}
                     </Td>
                   </tr>
                 );

@@ -11,7 +11,11 @@ import { notify } from './notifications.js';
 
 export type ClientRecheck = UpdateCounts & { clientId: string; clientName: string; catalogId: string; affectedRows: number };
 
-/** Prefix that tells a reviewer why a finding appeared after the original audit. */
+/**
+ * Prefix that tells a reviewer why a finding appeared after the original audit. Uzbek on purpose:
+ * finding.reason is the Uzbek explanation (see the API contract); the Russian UI does not show it.
+ * The notification below is rendered in the org's language instead.
+ */
 const UPDATE_PREFIX = 'Tasniflagich yangilandi: ';
 
 /** Code → kinds of change that matter to an existing row. Added codes cannot break one. */

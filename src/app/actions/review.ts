@@ -10,7 +10,7 @@ import { codeRequestText } from '@/lib/code-request';
 import { BANDS } from '@/core/match/score';
 import type { Skipped } from '@/lib/decide-many';
 import {
-  bulkAccept, recordDecision, recordGroupDecision, splitFromGroup, sureBandPreview, undoDecision, undoLast,
+  bulkAccept, recordDecision, recordGroupDecision, reopenDecision, splitFromGroup, sureBandPreview, undoDecision, undoLast,
   type DecideFailure, type SurePreview, type UndoDone,
 } from '@/lib/decisions';
 import { FilterInput, readFilter } from '@/lib/workspace-filter';
@@ -98,18 +98,20 @@ export type UndoResult = ({ ok: true } & UndoDone) | { ok: false; error: string 
 const UndoInput = z.union([
   z.object({ eventId: z.string().min(1), findingId: z.string().min(1).optional() }),
   z.object({ lastInCatalog: z.string().min(1) }),
+  z.object({ reopen: z.string().min(1) }),
 ]);
 
-/** Undo a decision event (or one row of it), or the caller's own latest manual decision in a catalogue. */
+/** Undo a decision event (or one row of it), the caller's own latest manual decision in a catalogue, or reopen one decided row. */
 export async function undo(payload: unknown): Promise<UndoResult> {
   const { t, ta } = await getI18n();
   const user = await writer();
   const parsed = UndoInput.safeParse(payload);
   if (!user || !parsed.success) return { ok: false, error: t.errorGeneric };
 
-  const result = 'eventId' in parsed.data
-    ? await undoDecision(user, parsed.data.eventId, parsed.data.findingId)
-    : await undoLast(user, parsed.data.lastInCatalog);
+  const input = parsed.data;
+  const result = 'eventId' in input ? await undoDecision(user, input.eventId, input.findingId)
+    : 'reopen' in input ? await reopenDecision(user, input.reopen)
+      : await undoLast(user, input.lastInCatalog);
   if (result.ok) return result;
   return { ok: false, error: result.error === 'nothing to undo' ? ta.wsX.undo.nothing : t.reviewUndoFailed };
 }

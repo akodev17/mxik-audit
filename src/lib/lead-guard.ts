@@ -1,7 +1,12 @@
 // Input checks for the public lead form, kept pure so they can be tested
-// without a server: contact parsing, the honeypot, and a small rate limiter.
-// The 'use server' action in src/app/actions/lead.ts only wires them up.
+// without a server: contact parsing, the honeypot, and a small in-memory rate
+// limiter (the demo action's; leads use the database-backed one). The client
+// form imports this file too, so it stays free of heavy dependencies; the zod
+// bounds live in lead-input.ts. The 'use server' action wires them up.
 import { clientIp } from './security/client-ip.js';
+
+/** Longest values the public form accepts; longer input is refused, never cut. */
+export const LEAD_LIMITS = { contact: 120, company: 200, note: 2000, filename: 200 } as const;
 
 export type ContactResult =
   | { ok: true; kind: 'phone' | 'telegram'; value: string }
@@ -21,7 +26,7 @@ const TELEGRAM_USERNAME = /^[a-z][a-z0-9_]{3,30}[a-z0-9]$/i;
  */
 export function parseContact(raw: string): ContactResult {
   const value = raw.trim();
-  if (!value || value.length > 120) return { ok: false, error: CONTACT_ERROR };
+  if (!value || value.length > LEAD_LIMITS.contact) return { ok: false, error: CONTACT_ERROR };
 
   const telegram = value.match(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\/([^/?#\s]+)\/?$/i)?.[1]
     ?? value.match(/^@(\S+)$/)?.[1];

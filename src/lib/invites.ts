@@ -1,5 +1,6 @@
 // Invite links. Only a hash of the token is stored; the link is shown once.
 import { createHash, randomBytes } from 'node:crypto';
+import { isOrgAdmin } from './actor-role';
 import { absoluteUrl } from './app-url';
 import { appDict } from './i18n-app';
 import type { Locale } from './i18n';
@@ -17,14 +18,35 @@ const hash = (token: string): string => createHash('sha256').update(token).diges
 
 type Actor = { userId: string; orgId: string };
 
+export type InviteRefusal = 'forbidden' | 'demo' | 'bad_clients';
+
+/** Thrown for an invite the server action should already have stopped. */
+export class InviteRefused extends Error {
+  constructor(readonly reason: InviteRefusal) {
+    super(`invite refused: ${reason}`);
+  }
+}
+
+/** The requested ids when every one is an active client of the org, else null. */
+async function activeClientIds(orgId: string, ids: readonly string[]): Promise<string[] | null> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  const rows = await db.client.findMany({ where: { orgId, id: { in: unique }, archivedAt: null }, select: { id: true } });
+  return rows.length === unique.length ? rows.map((c) => c.id) : null;
+}
+
+/** Admins of a real (non-demo, open) org only; throws InviteRefused otherwise. */
 export async function createInvite(
   actor: Actor, input: { email: string | null; role: Role; clientIds: string[]; locale?: Locale },
 ): Promise<{ url: string; emailed: boolean }> {
+  if (!(await isOrgAdmin(actor.orgId, actor.userId))) throw new InviteRefused('forbidden');
+  const org = await db.organization.findUnique({ where: { id: actor.orgId }, select: { name: true, kind: true, deletedAt: true } });
+  if (!org || org.deletedAt) throw new InviteRefused('forbidden');
+  if (org.kind === 'demo' || org.kind === 'demo_template') throw new InviteRefused('demo');
+  // Refused rather than filtered: dropping every id would turn a scoped invite into an all-clients one.
+  const owned = await activeClientIds(actor.orgId, input.clientIds);
+  if (!owned) throw new InviteRefused('bad_clients');
   const token = randomBytes(24).toString('base64url');
-  // Only the org's own clients can be attached.
-  const owned = input.clientIds.length === 0 ? [] : (await db.client.findMany({
-    where: { orgId: actor.orgId, id: { in: input.clientIds } }, select: { id: true },
-  })).map((c) => c.id);
   await db.invite.create({
     data: {
       orgId: actor.orgId, tokenHash: hash(token), email: input.email, role: input.role, clientIds: owned,
@@ -35,11 +57,9 @@ export async function createInvite(
     data: { orgId: actor.orgId, actorId: actor.userId, action: 'team.invited', payload: { role: input.role, email: input.email, clients: owned.length } },
   });
   const url = absoluteUrl(`/invite/${token}`);
-  const org = await db.organization.findUnique({ where: { id: actor.orgId }, select: { name: true } });
-  const name = org?.name ?? 'MXIK Audit';
   const ta = appDict(input.locale ?? 'uz');
   const emailed = input.email && mailEnabled()
-    ? await sendMail({ to: input.email, subject: ta.msg.mail.inviteSubject(name), text: ta.msg.mail.inviteBody(name, url, INVITE_DAYS) })
+    ? await sendMail({ to: input.email, subject: ta.msg.mail.inviteSubject(org.name), text: ta.msg.mail.inviteBody(org.name, url, INVITE_DAYS) })
     : false;
   return { url, emailed };
 }

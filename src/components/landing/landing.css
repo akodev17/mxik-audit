@@ -50,3 +50,52 @@
   outline: 3px solid var(--color-lp-brand);
   outline-offset: 2px;
 }
+
+/* Dark values for the help centre, the one public page that follows the app theme (LandingShell
+   theme prop); the landing and legal pages never set data-theme and stay light. The values mirror
+   the app's dark tokens. The two blocks must stay identical. */
+@media screen {
+  .landing[data-theme="dark"] {
+    color-scheme: dark;
+    --color-lp-base: #0f151b;
+    --color-lp-surface: #151c23;
+    --color-lp-ink: #e5eaef;
+    --color-lp-muted: #9ba7b3;
+    --color-lp-line: #263039;
+    --color-lp-line-strong: #34404b;
+    --color-lp-risk: #f27b6f;
+    --color-lp-warn: #e2a63c;
+    --color-lp-ok: #4dc28a;
+    --color-lp-brand: #7aa0ff;
+    --color-lp-brand-ink: #a9c1ff;
+    --color-lp-risk-fill: #341b19;
+    --color-lp-warn-fill: #2d2412;
+    --color-lp-ok-fill: #11291d;
+    --color-lp-brand-fill: #18264a;
+    --color-lp-risk-cell: #4a2420;
+    --color-lp-warn-cell: #3d3115;
+  }
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  .landing[data-theme="system"] {
+    color-scheme: dark;
+    --color-lp-base: #0f151b;
+    --color-lp-surface: #151c23;
+    --color-lp-ink: #e5eaef;
+    --color-lp-muted: #9ba7b3;
+    --color-lp-line: #263039;
+    --color-lp-line-strong: #34404b;
+    --color-lp-risk: #f27b6f;
+    --color-lp-warn: #e2a63c;
+    --color-lp-ok: #4dc28a;
+    --color-lp-brand: #7aa0ff;
+    --color-lp-brand-ink: #a9c1ff;
+    --color-lp-risk-fill: #341b19;
+    --color-lp-warn-fill: #2d2412;
+    --color-lp-ok-fill: #11291d;
+    --color-lp-brand-fill: #18264a;
+    --color-lp-risk-cell: #4a2420;
+    --color-lp-warn-cell: #3d3115;
+  }
+}

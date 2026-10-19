@@ -1,7 +1,7 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useI18n } from '@/lib/locale-client';
 import type { GridRow } from '@/lib/workspace-rows';
 import { StatusChip, StatusIcon } from '@/ui/badge';
@@ -17,7 +17,6 @@ type Props = {
   activeId: string | null;
   hasMore: boolean;
   readOnly: boolean;
-  scrollRef: RefObject<HTMLDivElement | null>;
   onOpen: (row: GridRow) => void;
   onAccept: (row: GridRow) => void;
   onReject: (row: GridRow) => void;
@@ -25,15 +24,39 @@ type Props = {
   onNeedMore: () => void;
 };
 
-/** Phone layout: one card per finding with name, codes, status and the decision buttons. */
-export function CardList({ rows, activeId, hasMore, readOnly, scrollRef, onOpen, onAccept, onReject, onUndo, onNeedMore }: Props) {
+/**
+ * Where the list starts inside the page's one scroll container (the shell's
+ * <main>), kept current as the header and toolbar above it change height.
+ */
+function useListOffset(list: RefObject<HTMLDivElement | null>): [HTMLElement | null, number] {
+  const [main, setMain] = useState<HTMLElement | null>(null);
+  const [offset, setOffset] = useState(0);
+  useLayoutEffect(() => {
+    const el = list.current;
+    const scroller = el?.closest('main') ?? null;
+    setMain(scroller);
+    if (!el || !scroller || typeof ResizeObserver === 'undefined') return;
+    const measure = (): void => setOffset(el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop);
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
+    return () => observer.disconnect();
+  }, [list]);
+  return [main, offset];
+}
+
+/** Phone layout: one card per finding with name, codes, status and the decision buttons; the page scrolls as one. */
+export function CardList({ rows, activeId, hasMore, readOnly, onOpen, onAccept, onReject, onUndo, onNeedMore }: Props) {
   const { t, ta } = useI18n();
   const x = ta.wsX;
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [main, offset] = useListOffset(listRef);
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => main,
     estimateSize: () => 188,
     overscan: 6,
+    scrollMargin: offset,
     getItemKey: (i) => rows[i]?.findingId ?? i,
   });
   const items = virtualizer.getVirtualItems();
@@ -43,7 +66,7 @@ export function CardList({ rows, activeId, hasMore, readOnly, scrollRef, onOpen,
   }, [hasMore, lastIndex, rows.length, onNeedMore]);
 
   return (
-    <div role="list" aria-label={x.a11y.cards} style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+    <div ref={listRef} role="list" aria-label={x.a11y.cards} style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
       {items.map((v) => {
         const row = rows[v.index];
         if (!row) return null;
@@ -52,7 +75,7 @@ export function CardList({ rows, activeId, hasMore, readOnly, scrollRef, onOpen,
         return (
           <div
             key={v.key} ref={virtualizer.measureElement} data-index={v.index} role="listitem"
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${v.start}px)` }}
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${v.start - offset}px)` }}
             className="px-3 pb-2"
           >
             <article

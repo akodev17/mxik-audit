@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { diagnoseUpload } from '@/app/actions/catalog';
 import { COLUMN_FIELDS, mappingIssues, type ColumnField, type ColumnMap } from '@/lib/column-map';
 import type { ImportDiagnostics } from '@/lib/import-diagnostics';
-import { applyPreset, IMPORT_PRESETS, presetLabel } from '@/lib/import-presets';
+import { applyPreset, IMPORT_PRESETS } from '@/lib/import-presets';
 import { useI18n } from '@/lib/locale-client';
 import type { UploadPreview } from '@/lib/upload-preview';
 import { Badge } from '@/ui/badge';
@@ -93,7 +93,7 @@ export function MappingStep({ preview, mapping, onMapping, suggested, diagnostic
         }}
       >
         <option value="">{m.presetSuggested}</option>
-        {IMPORT_PRESETS.map((p) => <option key={p.id} value={p.id}>{presetLabel(p)}</option>)}
+        {IMPORT_PRESETS.map((p) => <option key={p.id} value={p.id}>{m.presets[p.id]}</option>)}
       </Select>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -115,7 +115,7 @@ export function MappingStep({ preview, mapping, onMapping, suggested, diagnostic
         })}
       </div>
 
-      <DiagnosticsPanel diagnostics={issues.length > 0 ? null : diagnostics} updating={updating} error={error} />
+      <DiagnosticsPanel diagnostics={issues.length > 0 ? null : diagnostics} parse={preview.parse} updating={updating} error={error} />
 
       <div>
         <h3 className="mb-2 text-data font-semibold">{m.sample}</h3>

@@ -55,8 +55,8 @@ describe('/api/v1 handlers (database)', { skip }, () => {
   before(async () => {
     a = await makeOrg();
     b = await makeOrg();
-    tokenA = (await createApiKey(a, 'test'))?.token ?? '';
-    tokenB = (await createApiKey(b, 'test'))?.token ?? '';
+    tokenA = (await createApiKey({ ...a, role: 'admin' }, 'test'))?.token ?? '';
+    tokenB = (await createApiKey({ ...b, role: 'admin' }, 'test'))?.token ?? '';
     for (let i = 0; i < 3; i++) ownCatalogs.push((await makeCatalog(a.orgId, [{ rawName: `Tovar ${i}`, suggestedMxik: null, confidence: null }])).catalogId);
     catalogA = ownCatalogs[0] ?? '';
     catalogB = (await makeCatalog(b.orgId, [{ rawName: 'Boshqa', suggestedMxik: null, confidence: null }])).catalogId;
@@ -139,6 +139,17 @@ describe('/api/v1 handlers (database)', { skip }, () => {
     const key = await checkRoute(call(tokenA, '/check', { method: 'POST', body: JSON.stringify({ name: 'Sut' }), headers: { 'content-type': 'application/json', 'idempotency-key': 'has space' } }));
     assert.equal(key.status, 400);
     await documentedError('check', key, 'invalid_request');
+  });
+
+  it('upload: an archived client takes no catalogue (documented 404)', async () => {
+    const archived = await db.client.create({ data: { orgId: a.orgId, name: `archived-${Date.now()}`, archivedAt: new Date() } });
+    const body = new FormData();
+    body.set('file', new File(['Tovar\nGuruch\n'], 'katalog.csv', { type: 'text/csv' }));
+    body.set('clientId', archived.id);
+    const response = await uploadRoute(call(tokenA, '/catalogs', { method: 'POST', body }));
+    assert.equal(response.status, 404);
+    await documentedError('uploadCatalog', response, 'not_found');
+    assert.equal(await db.catalog.count({ where: { clientId: archived.id } }), 0);
   });
 
   it('upload: a missing file is a documented 400', async () => {

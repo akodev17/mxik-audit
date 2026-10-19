@@ -97,7 +97,6 @@
   --animate-fade-in: ui-fade-in var(--duration-base) var(--ease-standard);
   --animate-pop-in: ui-pop-in var(--duration-base) var(--ease-standard);
   --animate-slide-in: ui-slide-in var(--duration-base) var(--ease-standard);
-
   @keyframes ui-fade-in {
     from { opacity: 0; }
   }
@@ -226,6 +225,26 @@
       --color-info-ink: #94caf6;
       --elevation-color: rgb(0 0 0 / 0.36);
       --elevation-color-strong: rgb(0 0 0 / 0.56);
+    }
+  }
+}
+
+/* The document behind .app (overscroll, rubber-band scrolling, the frame between two renders)
+   follows the app theme; otherwise body keeps the light base under a dark app. Kept after the
+   theme blocks above: tokens.test.ts reads the first rule naming each data-theme. */
+@layer base {
+  @media screen {
+    :root:has(.app[data-theme="dark"]) {
+      color-scheme: dark;
+      --color-base: #0f151b;
+      --color-fg: #e5eaef;
+    }
+  }
+  @media screen and (prefers-color-scheme: dark) {
+    :root:has(.app[data-theme="system"]) {
+      color-scheme: dark;
+      --color-base: #0f151b;
+      --color-fg: #e5eaef;
     }
   }
 }

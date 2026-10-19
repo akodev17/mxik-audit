@@ -15,7 +15,7 @@ import { rowDetail } from './row-detail.js';
 import { recordWrongSuggestion } from './suggestion-feedback.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';
 import { listViews, removeView, saveView, setDefaultView } from './views.js';
-import { workspaceCount, workspacePageIds, workspaceSummary } from './workspace.js';
+import { workspaceChipCounts, workspaceCount, workspacePageIds, workspaceSummary } from './workspace.js';
 import { readFilter } from './workspace-filter.js';
 
 const skip = await dbSkipReason();
@@ -134,6 +134,37 @@ describe('workspace review (database)', { skip }, () => {
     assert.equal(await n({ dec: 'rejected' }), 1);
     assert.equal(await n({ dec: 'carried' }), 1);
     assert.equal(await n({ dec: 'auto' }), 2);
+  });
+
+  it('counts each type chip as its list shows it under the decision filter, and searches barcodes', async () => {
+    const [x = ''] = codes;
+    const barcode = `478${Date.now() % 1_000_000_000}`.slice(0, 13);
+    const c = await catalogWith(a.orgId, [
+      { findings: [{ type: 'MISSING', suggestedMxik: x }] },
+      { findings: [{ type: 'MISSING', suggestedMxik: x, decision: 'accepted', chosenMxik: x, decisionSource: 'manual' }] },
+      { barcode, findings: [{ type: 'NOT_FOUND', suggestedMxik: x }, { type: 'PRIVILEGE_CODE', severity: 'info' }] },
+    ]);
+    const pending = await workspaceChipCounts(c.catalogId, readFilter({}));
+    assert.equal(pending.all, await workspaceCount(c.catalogId, readFilter({})));
+    assert.equal(pending.byType['MISSING'], await workspaceCount(c.catalogId, readFilter({ type: 'MISSING' })));
+    assert.deepEqual([pending.all, pending.byType['MISSING'], pending.byType['PRIVILEGE_CODE']], [2, 1, 1]);
+    const all = await workspaceChipCounts(c.catalogId, readFilter({ dec: 'all' }));
+    assert.deepEqual([all.all, all.byType['MISSING']], [3, 2]);
+    assert.equal(await workspaceCount(c.catalogId, readFilter({ q: barcode })), 1, 'a barcode finds its row');
+  });
+
+  it('row detail marks only the missing levels of an unknown code and explains from data', async () => {
+    const [x = ''] = codes;
+    let unknown = `${x.slice(0, 11)}999999`;
+    if (await db.mxikCode.findFirst({ where: { code: unknown } })) unknown = `${x.slice(0, 11)}999998`;
+    const c = await catalogWith(a.orgId, [{ existingMxik: unknown, findings: [{ type: 'NOT_FOUND', suggestedMxik: x, confidence: 0.8 }] }]);
+    const detail = await rowDetail(a, c.items[0]?.findings[0] ?? '', appDict('ru'), 'ru');
+    assert.ok(detail);
+    assert.equal(detail.current?.state, 'unknown');
+    assert.deepEqual(detail.current?.blocks.map((b) => b.missing), [false, false, false, false, true]);
+    assert.ok(detail.current?.blocks.slice(0, 4).every((b) => b.name !== null), 'the levels that exist keep their names');
+    assert.equal(detail.facts.code, unknown);
+    assert.equal(detail.facts.afterUpdate, false);
   });
 
   it('keeps one accepted code per row: a sibling with another code blocks, bulk skips it', async () => {

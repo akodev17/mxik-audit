@@ -33,6 +33,11 @@ export async function ownedClient(orgId: string, clientId: string): Promise<Clie
   return db.client.findFirst({ where: { id: clientId, orgId }, select: { id: true, name: true, isDefault: true } });
 }
 
+/** The org's client when it is not archived, or null: for writes that must not land in an archived client. */
+export async function activeOwnedClient(orgId: string, clientId: string): Promise<ClientRef | null> {
+  return db.client.findFirst({ where: { id: clientId, orgId, archivedAt: null }, select: { id: true, name: true, isDefault: true } });
+}
+
 /** Collapses whitespace; null when the name is too short or too long. */
 export function cleanClientName(name: string): string | null {
   const clean = name.replace(/\s+/g, ' ').trim();

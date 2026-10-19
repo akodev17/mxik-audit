@@ -25,6 +25,12 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
     );
   };
   const suggestion = (r: QueueRow) => {
+    // A unit finding keeps its code: the fix is the unit, so say that instead of repeating the code.
+    if (r.type === 'UNIT_CONFLICT') {
+      const fix = r.unitFix;
+      const text = !fix ? q.unitCheck : fix.current ? q.unitFix(fix.current, fix.expected) : q.unitOnly(fix.expected);
+      return <span className="text-small font-medium">{text}</span>;
+    }
     if (!r.suggestedMxik) return <span className="text-small text-muted">{q.noSuggestion}</span>;
     const label = suggestionLabel(t, ta, { confidence: r.confidence, stage: r.stage });
     return (
@@ -48,7 +54,7 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
     <span className="text-small text-muted">
       <Link href={`/clients/${r.clientId}`} className="hover:text-fg hover:underline">{r.clientName}</Link>
       {' · '}<span className="break-all">{r.catalogName}</span>
-      {' · '}{q.rowNo(r.rowIndex + 1)}
+      {' · '}<span className="whitespace-nowrap">{q.rowNo(r.rowIndex + 1)}</span>
     </span>
   );
 

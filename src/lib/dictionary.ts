@@ -177,16 +177,25 @@ export async function loadDictionary(orgId: string): Promise<DictionaryLookup & 
   };
 }
 
-type Editor = { orgId: string; userId: string } & RoleCarrier;
+/** clientIds: null for a member who sees every client; a list for one scoped to some of them. */
+type Editor = { orgId: string; userId: string; clientIds?: string[] | null } & RoleCarrier;
 
 export type MappingEdit = { ok: true } | { ok: false; code: 'forbidden' | 'not_found' | 'not_in_classifier' };
+
+/**
+ * The firm dictionary is learned from every client's decisions and has no
+ * client of its own, so only members who see every client read or change it.
+ */
+export function mayUseDictionary(user: { clientIds?: string[] | null }): boolean {
+  return user.clientIds == null;
+}
 
 /**
  * A person points an entry at another code by hand: one deliberate
  * confirmation, so confirmations restart at 1 and the source becomes "edit".
  */
 export async function editMapping(editor: Editor, id: string, code: string): Promise<MappingEdit> {
-  if (!mayWrite(editor)) return { ok: false, code: 'forbidden' };
+  if (!mayWrite(editor) || !mayUseDictionary(editor)) return { ok: false, code: 'forbidden' };
   const before = await db.firmMapping.findFirst({ where: { id, orgId: editor.orgId }, select: { code: true, confirmations: true, source: true } });
   if (!before) return { ok: false, code: 'not_found' };
   const live = await db.mxikCode.findFirst({ where: { code, retiredAt: null }, select: { code: true } });
@@ -208,7 +217,7 @@ export async function editMapping(editor: Editor, id: string, code: string): Pro
 
 /** Deletes an entry; its audit event keeps what it held. */
 export async function removeMapping(editor: Editor, id: string): Promise<MappingEdit> {
-  if (!mayWrite(editor)) return { ok: false, code: 'forbidden' };
+  if (!mayWrite(editor) || !mayUseDictionary(editor)) return { ok: false, code: 'forbidden' };
   const before = await db.firmMapping.findFirst({ where: { id, orgId: editor.orgId }, select: { kind: true, label: true, code: true, uses: true, confirmations: true } });
   if (!before) return { ok: false, code: 'not_found' };
   await db.$transaction([

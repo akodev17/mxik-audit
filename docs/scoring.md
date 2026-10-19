@@ -33,7 +33,7 @@ place a label is decided; `src/ui/labels.ts` only translates it.
 | `dictionary` | Firma lugʻatidan | Из словаря фирмы | evidence stage `dictionary` |
 | `sure` | Yuqori moslik | Высокое совпадение | score ≥ 0.90 |
 | `likely` | Oʻrtacha moslik | Среднее совпадение | 0.75 – 0.89 |
-| `check` | Tekshirish kerak | Нужно проверить | < 0.75 |
+| `check` | Past moslik | Низкое совпадение | < 0.75 |
 
 The old words were "Aniq / Ehtimoliy" ("certain / probable"). Text the
 reranker wrote is shown under "AI tahlili / Анализ ИИ" with a note that a

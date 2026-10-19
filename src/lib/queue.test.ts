@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { db } from './db.js';
 import { makeClient, makeClientCatalog, makePerson } from './firm-test-fixtures.js';
-import { decodeQueueCursor, queuePage, readQueueFilter, workspaceHref, type QueueFilter } from './queue.js';
+import { decodeQueueCursor, queuePage, readQueueFilter, unitFixOf, workspaceHref, type QueueFilter } from './queue.js';
 import { localDate } from './reminder-dates.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 
@@ -107,5 +107,18 @@ describe('review queue (database)', { skip }, () => {
     assert.equal(decodeQueueCursor('not-a-cursor'), null);
     const href = workspaceHref({ catalogId: 'c1', rawName: 'Guruch 1 kg', findingId: 'f1' });
     assert.equal(href, '/catalogs/c1?q=Guruch+1+kg&row=f1');
+  });
+});
+
+describe('unit findings in the queue', () => {
+  it('names the unit the code requires instead of repeating the code', () => {
+    assert.deepEqual(unitFixOf('dona', ['кг']), { current: 'dona', expected: 'kilogramm' });
+    assert.deepEqual(unitFixOf('  ', ['kilogramm']), { current: null, expected: 'kilogramm' });
+  });
+
+  it('keeps an unknown unit as written and gives nothing without one', () => {
+    assert.deepEqual(unitFixOf('dona', ['qadoq-x']), { current: 'dona', expected: 'qadoq-x' });
+    assert.equal(unitFixOf('dona', []), null);
+    assert.equal(unitFixOf('dona', null), null);
   });
 });

@@ -16,15 +16,18 @@ export function reasonText(r: AttentionReason, ta: AppDict, locale: Locale): str
 
 const TONE: Record<AttentionReason['kind'], Tone> = { update: 'danger', overdue: 'danger', failed: 'danger', open: 'warn', uploaded: 'warn', analyzing: 'info', empty: 'info' };
 
-/** Why a client needs attention, each reason as colour, icon and words; "OK" when there is none. */
-export function AttentionBadges({ reasons, ta, locale, okLabel }: { reasons: AttentionReason[]; ta: AppDict; locale: Locale; okLabel?: string }) {
+/**
+ * Why a client needs attention, each reason as colour, icon and words; "OK" when there is none.
+ * openLabel replaces the counted open-rows text where the count already has its own column.
+ */
+export function AttentionBadges({ reasons, ta, locale, okLabel, openLabel }: { reasons: AttentionReason[]; ta: AppDict; locale: Locale; okLabel?: string; openLabel?: string }) {
   if (reasons.length === 0) {
     return okLabel ? <StatusChip tone="good" icon={<StatusIcon tone="good" size={12} />}>{okLabel}</StatusChip> : null;
   }
   return (
     <span className="flex flex-wrap gap-1.5">
       {reasons.map((r) => (
-        <StatusChip key={r.kind} tone={TONE[r.kind]} icon={<StatusIcon tone={TONE[r.kind]} size={12} />}>{reasonText(r, ta, locale)}</StatusChip>
+        <StatusChip key={r.kind} tone={TONE[r.kind]} icon={<StatusIcon tone={TONE[r.kind]} size={12} />}>{r.kind === 'open' && openLabel ? openLabel : reasonText(r, ta, locale)}</StatusChip>
       ))}
     </span>
   );

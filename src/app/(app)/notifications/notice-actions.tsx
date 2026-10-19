@@ -40,8 +40,8 @@ export function MarkReadButton({ id }: { id: string }) {
   return <Button size="compact" variant="ghost" loading={busy} onClick={() => { void run(); }}>{ta.shellX.notices.markRead}</Button>;
 }
 
-/** Marks everything the user can see as read, for this user only. With nothing unread it says so instead. */
-export function MarkAllReadButton({ unread }: { unread: number }) {
+/** Marks everything the user can see as read, for this user only. The page shows it only while something is unread. */
+export function MarkAllReadButton() {
   const { ta } = useI18n();
   const router = useRouter();
   const toast = useToast();
@@ -59,6 +59,5 @@ export function MarkAllReadButton({ unread }: { unread: number }) {
       setBusy(false);
     }
   };
-  if (unread === 0) return <p className="text-small text-muted">{ta.shellX.notices.nothingUnread}</p>;
   return <Button loading={busy} onClick={() => { void run(); }}>{ta.shellX.bell.markAll}</Button>;
 }

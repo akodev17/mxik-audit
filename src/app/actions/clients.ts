@@ -2,7 +2,6 @@
 
 import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { switchableClient } from '@/lib/active-client';
 import { archiveClient, deleteClient, renameClient, restoreClient, setClientAccountants, type Dependant, type LifecycleError } from '@/lib/client-lifecycle';
@@ -12,27 +11,30 @@ import { gate } from '@/lib/plan';
 import { currentUser, getSession } from '@/lib/session';
 import { admin, writer } from '@/lib/guard';
 
-export type AddClientState = { error?: string };
+export type AddClientResult = { ok: true; clientId: string } | { ok: false; error: string };
 
-/** Creates a client and makes it the one being worked on. Viewers are refused here, not just in the UI. */
-export async function addClient(_prev: AddClientState, form: FormData): Promise<AddClientState> {
+/**
+ * Creates a client and makes it the one being worked on. Viewers are refused here, not just in the
+ * UI. The dialog navigates itself: a redirect from here could leave the browser on /clients.
+ */
+export async function addClient(form: FormData): Promise<AddClientResult> {
   const { t, ta } = await getI18n();
   const user = await writer();
-  if (!user) return { error: ta.firmX.errors.forbidden };
-  if (await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
+  if (!user) return { ok: false, error: ta.firmX.errors.forbidden };
+  if (await isDemoOrg(user.orgId)) return { ok: false, error: t.demoUploadDisabled };
   const allowed = await gate(user.orgId, 'clients');
-  if (!allowed.ok) return { error: ta.msg.gate[allowed.reason] };
+  if (!allowed.ok) return { ok: false, error: ta.msg.gate[allowed.reason] };
   const name = z.string().safeParse(form.get('name'));
-  if (!name.success) return { error: t.clientsBadName };
+  if (!name.success) return { ok: false, error: t.clientsBadName };
 
   const result = await createClient(user, name.data);
-  if (!result.ok) return { error: result.error === 'forbidden' ? ta.firmX.errors.forbidden : t.clientsBadName };
+  if (!result.ok) return { ok: false, error: result.error === 'forbidden' ? ta.firmX.errors.forbidden : t.clientsBadName };
   const session = await getSession();
   session.clientId = result.clientId;
   await session.save();
   revalidatePath('/clients');
   revalidatePath('/dashboard');
-  redirect(`/clients/${result.clientId}`);
+  return { ok: true, clientId: result.clientId };
 }
 
 /** Remembers which client is being worked on: the org's, visible to the user and not archived. */

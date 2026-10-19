@@ -24,9 +24,9 @@ export function SuggestionCell({ row, compact }: { row: GridRow; compact: boolea
     body = <span className="block truncate text-small text-muted" title={x.explain[row.type]}>{x.check[row.type] ?? '—'}</span>;
   }
   return (
-    <span className="flex min-w-0 flex-col items-start gap-0.5">
+    <span className="flex min-w-0 flex-col gap-0.5">
       {body}
-      <span className="flex flex-wrap gap-1">
+      <span className="flex min-w-0 flex-wrap gap-1">
         {chose ? <Badge tone="brand">{x.act.chosen}</Badge> : null}
         {row.flag === 'ask_client' ? <Badge tone="warn">{x.filter.flagOpt.ask_client}</Badge> : null}
         {row.flag === 'resolved' ? <Badge tone="good">{x.filter.flagOpt.resolved}</Badge> : null}

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { build1cCsv, ONE_C_HEADERS_RU } from './export-1c.js';
+import { fileLine } from './sheet-shape.js';
 import { MAX_ROWS, numberText, parseUpload, ParseError, sniffKind } from './spreadsheet.js';
 
 const MB = 1024 * 1024;
@@ -59,6 +60,16 @@ describe('parseUpload: text files', () => {
     // The data row is wider than the header: its third cell is kept under a placeholder name.
     assert.deepEqual(parsed.headers, ['Nomi', 'Birlik', 'Ustun 3']);
     assert.deepEqual(parsed.rows, [['Guruch', 'kg', '06301001001000000'], ['Shakar', 'kg', '']]);
+  });
+
+  it('keeps the file line of every data row, across a title and empty rows', async () => {
+    const csv = 'Narxlar roʻyxati\nNomi;MXIK\nGuruch;1\nShakar;2\n\nTuz;3\nUn;4\n';
+    const parsed = await parseUpload(Buffer.from(csv, 'utf8'), 'lines.csv');
+    assert.equal(parsed.meta.headerRow, 2);
+    assert.deepEqual(parsed.meta.lineJumps, [[3, 6]]);
+    // Data rows 1..4 are file lines 3, 4, 6 and 7: what Excel shows.
+    assert.deepEqual([1, 2, 3, 4].map((r) => fileLine(parsed.meta, r)), [3, 4, 6, 7]);
+    assert.equal(fileLine({ headerRow: 2 }, 1), null, 'uploads read before lines were kept say nothing');
   });
 
   it('marks truncation only when rows exceed the limit, and counts every row seen', async () => {
@@ -120,6 +131,7 @@ describe('parseUpload: spreadsheets', () => {
     // The name says CSV; the content decides.
     const parsed = await parseUpload(buffer, 'renamed.csv');
     assert.equal(parsed.meta.format, 'xlsx');
+    assert.deepEqual([fileLine(parsed.meta, 1), fileLine(parsed.meta, 2)], [3, 4], 'sheet rows under the merged title');
     assert.deepEqual(parsed.headers, ['Nomi', 'Narx', 'MXIK']);
     assert.deepEqual(parsed.rows, [['Guruch', '1.1250', '06301001001000000'], ['Shakar', '12500', '06301001001000001']]);
   });

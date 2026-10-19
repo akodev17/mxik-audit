@@ -37,7 +37,8 @@ export function MemberDialog({ member, clients, adminCount, open, onClose }: Pro
 
   const invalid = draftError(draft);
   const locked = lastAdminLocked(member, adminCount);
-  const selfDemote = member.you && member.role === 'admin' && draft.role !== 'admin';
+  const demote = member.role === 'admin' && draft.role !== 'admin';
+  const selfDemote = member.you && demote;
 
   const save = async (): Promise<void> => {
     setBusy(true);
@@ -70,6 +71,8 @@ export function MemberDialog({ member, clients, adminCount, open, onClose }: Pro
       <Button variant="secondary" disabled={busy} onClick={() => setConfirming(null)}>{s.back}</Button>
       <Button variant="primary" loading={busy} onClick={() => void save()}>{s.widenConfirm}</Button>
     </>
+  ) : locked ? ( // the only admin keeps the role and sees every client: nothing to save
+    <Button variant="secondary" onClick={onClose}>{s.close}</Button>
   ) : (
     <>
       <Button variant="secondary" disabled={busy} onClick={onClose}>{s.cancel}</Button>
@@ -98,6 +101,11 @@ export function MemberDialog({ member, clients, adminCount, open, onClose }: Pro
           {selfDemote ? (
             <p className="flex items-start gap-2 rounded-md bg-warn-tint px-3 py-2 text-small text-warn-ink">
               <IconAlert size={16} className="mt-0.5 shrink-0" />{s.selfDemote}
+            </p>
+          ) : null}
+          {demote ? (
+            <p className="flex items-start gap-2 rounded-md bg-warn-tint px-3 py-2 text-small text-warn-ink">
+              <IconAlert size={16} className="mt-0.5 shrink-0" />{s.demoteCut}
             </p>
           ) : null}
         </div>

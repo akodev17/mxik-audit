@@ -8,9 +8,12 @@ import { IconChevronDown } from './icons';
 import { nextIndex, typeaheadIndex } from './keys';
 import { useEscape, useOutsidePress } from './overlay';
 import { Tooltip } from './tooltip';
+import { panelPosition, usePlacement } from './use-placement';
 
 export type MenuItem = {
   label: string;
+  /** Second line in small muted text; it becomes the item's accessible description. */
+  description?: string;
   /** Runs on click, Enter or Space; the menu closes first. */
   onSelect?: () => void;
   /** Makes the item a link instead. */
@@ -34,13 +37,15 @@ type Props = {
 
 /**
  * Action menu (WAI-ARIA menu button): arrow keys, Home, End and the first letter move between
- * items; Escape closes and returns focus to the button; Tab closes and moves on.
+ * items; Escape closes and returns focus to the button; Tab closes and moves on. The list opens
+ * below the button, flips above it when there is no room and shifts to stay inside the viewport.
  */
 export function Menu({ label, items, icon, iconOnly = false, variant = 'secondary', size = 'md', align = 'start' }: Props) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
   const triggerId = useId();
   const menuId = useId();
@@ -58,6 +63,7 @@ export function Menu({ label, items, icon, iconOnly = false, variant = 'secondar
 
   useEscape(open, () => close(true));
   useOutsidePress(open, [root], () => close(false));
+  const position = panelPosition(usePlacement(open, root, list, 'bottom', align), 'bottom', align);
 
   useEffect(() => {
     if (open && active >= 0) itemRefs.current[active]?.focus({ preventScroll: true });
@@ -105,35 +111,54 @@ export function Menu({ label, items, icon, iconOnly = false, variant = 'secondar
   );
 
   const itemClass = (item: MenuItem): string => cx(
-    'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-data',
+    'flex w-full gap-2 rounded-sm px-2.5 py-1.5 text-left text-data',
+    item.description ? 'items-start' : 'items-center',
     'focus:bg-surface focus-visible:outline-offset-[-2px] aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
     item.tone === 'danger' ? 'text-danger-ink focus:bg-danger-tint' : 'text-fg',
   );
+  // Descriptions wrap, so a menu that has them gets a narrower cap than one-line menus.
+  const described = items.some((item) => item.description);
 
   return (
     <div ref={root} className="relative inline-block">
       {iconOnly ? <Tooltip content={label} describe={false}>{triggerButton}</Tooltip> : triggerButton}
       {open ? (
         <div
+          ref={list}
           id={menuId}
           role="menu"
           aria-labelledby={triggerId}
           onKeyDown={onMenuKey}
+          style={position.style}
           className={cx(
-            'absolute top-full z-dropdown mt-1 w-max min-w-48 max-w-[calc(100vw-2rem)] rounded-md border border-line bg-raised p-1 shadow-pop motion-safe:animate-pop-in',
-            align === 'end' ? 'right-0' : 'left-0',
+            'absolute z-dropdown w-max min-w-48 rounded-md border border-line bg-raised p-1 shadow-pop motion-safe:animate-pop-in',
+            described ? 'max-w-[min(22rem,calc(100vw-2rem))]' : 'max-w-[calc(100vw-2rem)]',
+            position.className,
           )}
         >
           {items.map((item, i) => {
+            // With a description the label alone names the item and the second line describes it.
+            const labelId = item.description ? `${menuId}-${i}` : undefined;
+            const descriptionId = item.description ? `${menuId}-${i}-d` : undefined;
             const common = {
               ref: (el: HTMLElement | null) => { itemRefs.current[i] = el; },
               role: 'menuitem',
               tabIndex: -1,
               'aria-disabled': item.disabled || undefined,
+              'aria-labelledby': labelId,
+              'aria-describedby': descriptionId,
               className: itemClass(item),
               onPointerMove: () => { if (!item.disabled && active !== i) setActive(i); },
             } as const;
-            const body = <>{item.icon ? <span className="shrink-0 text-muted">{item.icon}</span> : null}<span className="min-w-0 flex-1 truncate">{item.label}</span></>;
+            const body = (
+              <>
+                {item.icon ? <span className={cx('shrink-0 text-muted', item.description && 'mt-0.5')}>{item.icon}</span> : null}
+                <span className="min-w-0 flex-1">
+                  <span id={labelId} className="block truncate">{item.label}</span>
+                  {item.description ? <span id={descriptionId} className="block text-small text-muted">{item.description}</span> : null}
+                </span>
+              </>
+            );
             if (item.href && !item.disabled) {
               return <Link key={i} href={item.href} {...common} onClick={() => select(item)}>{body}</Link>;
             }

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { clientScope } from '@/lib/access';
-import { activityPage, CATEGORIES, tashkentDayStart, type Category } from '@/lib/activity';
+import { activityPage, CATEGORIES, type Category } from '@/lib/activity';
+import { parseDayInput } from '@/lib/activity-dates';
 import { groupDecisions } from '@/lib/activity-groups';
 import { db } from '@/lib/db';
 import { fmtNumber } from '@/lib/format';
@@ -29,9 +30,13 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   const category: Category = CATEGORIES.find((c) => c === sp.type) ?? 'all';
   const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
 
-  // Days that do not parse are dropped; a reversed range is swapped and said so.
-  let from = tashkentDayStart(sp.from ?? null) ? sp.from ?? '' : '';
-  let to = tashkentDayStart(sp.to ?? null) ? sp.to ?? '' : '';
+  // Days are typed as dd.mm.yyyy (older links: yyyy-mm-dd). Unreadable ones are dropped and said so;
+  // a reversed range is swapped and said so.
+  const typedFrom = parseDayInput(sp.from);
+  const typedTo = parseDayInput(sp.to);
+  const unreadable = typedFrom === null || typedTo === null;
+  let from = typedFrom ?? '';
+  let to = typedTo ?? '';
   const swapped = Boolean(from && to && from > to);
   if (swapped) [from, to] = [to, from];
 
@@ -53,18 +58,23 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   const lastShown = (page - 1) * result.pageSize + result.rows.length;
   const params: Record<string, string | undefined> = { client: clientId ?? undefined, user: userId ?? undefined, type: category === 'all' ? undefined : category, from: from || undefined, to: to || undefined };
   const active = Object.values(params).some(Boolean);
+  // A page past the end (an old link, or rows deleted since) goes to the last page, not to an empty one.
+  if (result.rows.length === 0 && page > 1 && total > 0) redirect(withQuery('/activity', params, { page: pages > 1 ? String(pages) : null }));
   const fmt = (n: number): string => fmtNumber(locale, n);
 
   return (
     <Page title={ta.log.title} hint={ta.firmX.log.hint} wide>
       <ActivityFilters clients={clients} users={users} value={{ clientId, userId, category, from, to }} active={active} />
+      {unreadable ? <p role="status" className="-mt-2 mb-4 text-small text-warn-ink">{ta.firmX.log.badDate}</p> : null}
       {swapped ? <p role="status" className="-mt-2 mb-4 text-small text-warn-ink">{ta.firmX.log.badRange}</p> : null}
 
       {result.rows.length === 0 ? (
-        <EmptyState
-          title={ta.log.empty} hint={ta.log.emptyHint}
-          action={active || page > 1 ? <ButtonLink href="/activity" variant="secondary">{ta.firmX.log.reset}</ButtonLink> : null}
-        />
+        active ? (
+          <EmptyState
+            title={ta.log.empty} hint={ta.log.emptyHint}
+            action={<ButtonLink href="/activity" variant="secondary">{ta.firmX.log.reset}</ButtonLink>}
+          />
+        ) : <EmptyState title={ta.firmX.log.emptyAll} hint={ta.firmX.log.emptyAllHint} />
       ) : (
         <>
           <ActivityTable entries={groupDecisions(result.rows)} />

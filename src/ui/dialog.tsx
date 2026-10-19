@@ -29,6 +29,8 @@ export type DialogProps = {
   role?: 'dialog' | 'alertdialog';
   /** Leading mark next to the title, e.g. a warning icon. */
   icon?: ReactNode;
+  /** top: the panel keeps its top edge while its content grows (search palettes). */
+  placement?: 'center' | 'top';
 };
 
 const WIDTH: Record<Size, string> = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' };
@@ -37,7 +39,7 @@ const WIDTH: Record<Size, string> = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w
  * Modal dialog: rendered in a portal inside .app, page behind dimmed and not scrollable, Tab kept
  * inside, Escape and a backdrop click close it, focus returns to the opener.
  */
-export function Dialog({ open, onClose, title, description, children, footer, size = 'md', initialFocus, dismissible = true, role = 'dialog', icon }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, footer, size = 'md', initialFocus, dismissible = true, role = 'dialog', icon, placement = 'center' }: DialogProps) {
   const { ta } = useI18n();
   const panel = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -80,7 +82,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-modal flex items-end justify-center p-3 sm:items-center sm:p-6">
+      <div className={cx('fixed inset-0 z-modal flex justify-center p-3 sm:p-6', placement === 'top' ? 'items-start pt-[8dvh] sm:pt-[12dvh]' : 'items-end sm:items-center')}>
         <div
           aria-hidden
           className="absolute inset-0 bg-overlay motion-safe:animate-fade-in"
@@ -101,13 +103,14 @@ export function Dialog({ open, onClose, title, description, children, footer, si
             WIDTH[size],
           )}
         >
-          <header className="flex items-start gap-3 px-5 pb-2 pt-4">
-            {icon ? <span className="mt-0.5 shrink-0">{icon}</span> : null}
-            <div className="min-w-0 flex-1">
-              <h2 id={titleId} className="text-section">{title}</h2>
-              {description ? <div id={descriptionId} className="mt-1 text-data text-muted">{description}</div> : null}
+          {/* The icon sits on the title line only; description and body share the dialog's full width and left edge. */}
+          <header className="px-5 pb-2 pt-4">
+            <div className="flex items-start gap-2.5">
+              {icon ? <span className="mt-0.5 shrink-0">{icon}</span> : null}
+              <h2 id={titleId} className="min-w-0 flex-1 text-section">{title}</h2>
+              <IconButton label={ta.shell.close} icon={<IconX size={18} />} onClick={onClose} disabled={!dismissible} tooltipAlign="end" className="-mr-1 -mt-1" />
             </div>
-            <IconButton label={ta.shell.close} icon={<IconX size={18} />} onClick={onClose} disabled={!dismissible} tooltipAlign="end" className="-mr-1 -mt-1" />
+            {description ? <div id={descriptionId} className="mt-1.5 text-data text-muted">{description}</div> : null}
           </header>
           {children ? <div ref={body} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3">{children}</div> : null}
           {footer ? <div ref={footerRef} className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface px-5 py-3">{footer}</div> : null}

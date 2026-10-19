@@ -9,6 +9,7 @@ import { Badge } from '@/ui/badge';
 import { IconInfo } from '@/ui/icons';
 import { BillingBox } from './billing-box';
 import { ExportActions } from './export-actions';
+import { InfoHint } from './info-hint';
 import { ShareButton } from './share-button';
 
 type Props = {
@@ -47,7 +48,7 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay
 
   const classifier = used
     ? <span>{h.snapshot(fmtDate(locale, used.takenAt))}</span>
-    : <span title={h.snapshotUnknownHint}>{h.snapshotUnknown}</span>;
+    : <><span>{h.snapshotUnknown}</span><InfoHint text={h.snapshotUnknownHint} label={`${ta.ws.classifier}: ${h.more}`} /></>;
 
   return (
     <header className="border-b border-line px-4 py-3 md:px-5 md:py-4">

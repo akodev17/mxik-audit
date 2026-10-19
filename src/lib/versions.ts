@@ -16,25 +16,38 @@ async function chunked<T, R>(ids: readonly T[], fn: (part: T[]) => Promise<R[]>)
   return out;
 }
 
-/** Remembers the client's earlier ready catalogue as this one's previous version. */
+/**
+ * Remembers the client's earlier ready catalogue as this one's previous
+ * version. Called when the audit starts and again before decisions carry over,
+ * so an earlier upload still being audited at the start is linked once ready.
+ */
 export async function linkPrevious(catalogId: string): Promise<void> {
-  const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, clientId: true, previousId: true, createdAt: true } });
+  const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { id: true, orgId: true, clientId: true, previousId: true, createdAt: true } });
   if (!catalog || catalog.previousId || !catalog.clientId) return;
-  const previous = await db.catalog.findFirst({
-    where: { orgId: catalog.orgId, clientId: catalog.clientId, status: 'ready', id: { not: catalogId }, createdAt: { lt: catalog.createdAt } },
-    orderBy: { createdAt: 'desc' }, select: { id: true },
-  });
-  if (previous) await db.catalog.update({ where: { id: catalogId }, data: { previousId: previous.id } });
+  const previous = await db.catalog.findFirst({ where: earlierReady(catalog), orderBy: { createdAt: 'desc' }, select: { id: true } });
+  if (previous) await db.catalog.updateMany({ where: { id: catalogId, previousId: null }, data: { previousId: previous.id } });
 }
 
-async function loadPairing(orgId: string, catalogId: string): Promise<{ pairing: Pairing; previousId: string } | null> {
-  const catalog = await db.catalog.findFirst({ where: { id: catalogId, orgId }, select: { previousId: true } });
-  if (!catalog?.previousId) return null;
-  const previous = await db.catalog.findFirst({ where: { id: catalog.previousId, orgId }, select: { id: true } });
+/** The client's audited catalogues uploaded before this one: what it can be a new version of. */
+function earlierReady(c: { id: string; orgId: string; clientId: string | null; createdAt: Date }): Prisma.CatalogWhereInput {
+  return { orgId: c.orgId, clientId: c.clientId, status: 'ready', id: { not: c.id }, createdAt: { lt: c.createdAt } };
+}
+
+/** Pairs this catalogue with its linked previous version, or with `againstId` (another of the same client). */
+async function loadPairing(orgId: string, catalogId: string, againstId?: string): Promise<{ pairing: Pairing; previousId: string } | null> {
+  const catalog = await db.catalog.findFirst({ where: { id: catalogId, orgId }, select: { id: true, orgId: true, previousId: true, clientId: true, createdAt: true } });
+  const baseId = againstId ?? catalog?.previousId;
+  if (!catalog || !baseId) return null;
+  const previous = await db.catalog.findFirst({
+    // The chosen id replaces "not this one"; being earlier already rules this one out.
+    where: againstId ? { ...earlierReady(catalog), id: baseId } : { id: baseId, orgId },
+    select: { id: true },
+  });
   if (!previous) return null;
+  // In row order: the pairing keeps it, so the (capped) lists show the file's rows in order.
   const [prevItems, nextItems] = await Promise.all([
-    db.catalogItem.findMany({ where: { catalogId: previous.id }, select: ITEM_SELECT }),
-    db.catalogItem.findMany({ where: { catalogId }, select: ITEM_SELECT }),
+    db.catalogItem.findMany({ where: { catalogId: previous.id }, orderBy: { rowIndex: 'asc' }, select: ITEM_SELECT }),
+    db.catalogItem.findMany({ where: { catalogId }, orderBy: { rowIndex: 'asc' }, select: ITEM_SELECT }),
   ]);
   return { pairing: pairVersions(prevItems, nextItems), previousId: previous.id };
 }
@@ -47,6 +60,8 @@ async function loadPairing(orgId: string, catalogId: string): Promise<{ pairing:
  * the uploader is recorded only as the one who triggered it.
  */
 export async function carryOver(catalogId: string, actorId: string | null): Promise<number> {
+  // The client's earlier upload may have finished its own audit while this one ran.
+  await linkPrevious(catalogId);
   const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });
   if (!catalog) return 0;
   const loaded = await loadPairing(catalog.orgId, catalogId);
@@ -118,6 +133,8 @@ export type CarriedRow = {
 
 export type VersionDiff = DiffParts & {
   previousId: string;
+  /** False when compared with a catalogue chosen by the user rather than the linked previous version. */
+  linked: boolean;
   previous: { filename: string; createdAt: Date };
   carried: CarriedRow[];
   counts: DiffParts['counts'] & { carried: number };
@@ -153,11 +170,17 @@ async function carriedRows(orgId: string, catalogId: string): Promise<{ rows: Ca
   };
 }
 
-/** What changed between a catalogue and the version it replaces. Null without a previous version. */
-export async function versionDiff(orgId: string, catalogId: string): Promise<VersionDiff | null> {
-  const loaded = await loadPairing(orgId, catalogId);
+/**
+ * What changed between a catalogue and the version it replaces, or another
+ * ready catalogue of the same client (`againstId`). Decisions carried over are
+ * listed only against the linked previous version, the one they came from.
+ * Null when there is nothing to compare with.
+ */
+export async function versionDiff(orgId: string, catalogId: string, againstId?: string): Promise<VersionDiff | null> {
+  const loaded = await loadPairing(orgId, catalogId, againstId);
   if (!loaded) return null;
   const { previousId } = loaded;
+  const linked = (await db.catalog.count({ where: { id: catalogId, orgId, previousId } })) > 0;
   const [previous, prevRisky, nextRisky, updated, prevDecided, nextPending, carried] = await Promise.all([
     db.catalog.findUniqueOrThrow({ where: { id: previousId }, select: { filename: true, createdAt: true } }),
     itemIds({ item: { catalogId: previousId }, ...RISKY_FINDING }),
@@ -165,8 +188,17 @@ export async function versionDiff(orgId: string, catalogId: string): Promise<Ver
     itemIds({ item: { catalogId }, snapshotId: { not: null } }),
     itemIds({ item: { catalogId: previousId }, decision: { in: ['accepted', 'rejected'] } }),
     itemIds({ item: { catalogId }, ...RISKY_FINDING, decision: 'pending' }),
-    carriedRows(orgId, catalogId),
+    linked ? carriedRows(orgId, catalogId) : { rows: [], count: 0 },
   ]);
   const parts = diffParts(loaded.pairing, { prevRisky, nextRisky, updated, prevDecided, nextPending }, LIMIT);
-  return { ...parts, previousId, previous, carried: carried.rows, counts: { ...parts.counts, carried: carried.count } };
+  return { ...parts, previousId, linked, previous, carried: carried.rows, counts: { ...parts.counts, carried: carried.count } };
+}
+
+export type CompareCandidate = { id: string; filename: string; createdAt: Date };
+
+/** The client's other ready catalogues, newest first: what a catalogue without a linked version can be compared with. */
+export async function compareCandidates(orgId: string, catalogId: string): Promise<CompareCandidate[]> {
+  const catalog = await db.catalog.findFirst({ where: { id: catalogId, orgId }, select: { id: true, orgId: true, clientId: true, createdAt: true } });
+  if (!catalog?.clientId) return [];
+  return db.catalog.findMany({ where: earlierReady(catalog), orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, filename: true, createdAt: true } });
 }

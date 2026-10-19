@@ -10,6 +10,7 @@ import { findingData } from './audit-runner.js';
 import { db } from './db.js';
 import { effectiveCode } from './export-effective.js';
 import type { ParseResult } from './spreadsheet.js';
+import { mayWrite, type RoleCarrier } from './write-access.js';
 
 export const PurchaseMapSchema = z.object({
   name: z.number().int().min(-1),
@@ -18,8 +19,8 @@ export const PurchaseMapSchema = z.object({
 });
 export type PurchaseMap = z.infer<typeof PurchaseMapSchema>;
 
-/** Who acts: the org, the user, and for a scoped accountant the clients they may open. */
-export type ListActor = { orgId: string; userId: string; clientIds?: string[] | null };
+/** Who acts: the org, the user, for a scoped accountant the clients they may open, and the role (a viewer changes nothing). */
+export type ListActor = RoleCarrier & { orgId: string; userId: string; clientIds?: string[] | null };
 
 const HINTS: Record<keyof PurchaseMap, string[]> = {
   name: ['nom', 'tovar', 'mahsulot', 'наимен', 'товар', 'name'],
@@ -49,9 +50,16 @@ const UPDATE_CHUNK = 5000;
 export type ListError = 'not_found' | 'no_codes';
 export type ListResult<T> = ({ ok: true } & T) | { ok: false; error: ListError };
 
+/** An archived client of the org: it takes no new purchase, cheque or sales files. */
+export async function clientArchived(orgId: string, clientId: string): Promise<boolean> {
+  return (await db.client.count({ where: { id: clientId, orgId, archivedAt: { not: null } } })) > 0;
+}
+
 /** Stores the file under the client (waiting for its mapping), in one transaction. */
 export async function storePurchaseList(actor: ListActor, input: { clientId: string; filename: string; parsed: ParseResult }): Promise<ListResult<{ listId: string; map: PurchaseMap }>> {
-  const client = await db.client.findFirst({ where: { id: input.clientId, orgId: actor.orgId }, select: { id: true } });
+  if (!mayWrite(actor)) return { ok: false, error: 'not_found' };
+  // An archived client takes no new files.
+  const client = await db.client.findFirst({ where: { id: input.clientId, orgId: actor.orgId, archivedAt: null }, select: { id: true } });
   if (!client || !canSeeClient(actor, client.id)) return { ok: false, error: 'not_found' };
   const map = guessPurchaseMap(input.parsed.headers);
   const listId = await db.$transaction(async (tx) => {
@@ -78,7 +86,9 @@ export async function storePurchaseList(actor: ListActor, input: { clientId: str
   return { ok: true, listId, map };
 }
 
+/** A list the actor may change: in the org, of a client they may open, and not as a viewer. */
 async function ownList(actor: ListActor, listId: string): Promise<{ id: string; clientId: string; filename: string } | null> {
+  if (!mayWrite(actor)) return null;
   const list = await db.purchaseList.findFirst({ where: { id: listId, orgId: actor.orgId }, select: { id: true, clientId: true, filename: true } });
   return list && canSeeClient(actor, list.clientId) ? list : null;
 }
@@ -135,6 +145,7 @@ export type Activity = 'savdo' | 'ishlab_chiqarish' | 'boshqa';
 
 /** "Faoliyat turi": decides whether a sale without a purchase is a high risk. */
 export async function setClientActivity(actor: ListActor, clientId: string, activity: Activity): Promise<boolean> {
+  if (!mayWrite(actor)) return false;
   const client = await db.client.findFirst({ where: { id: clientId, orgId: actor.orgId }, select: { id: true } });
   if (!client || !canSeeClient(actor, client.id)) return false;
   await db.client.update({ where: { id: client.id }, data: { activity } });

@@ -69,8 +69,8 @@ export default async function UploadPage({ searchParams }: { searchParams: Promi
   return page(
     <>
       {start === null ? <Notice tone="warn" className="mb-4">{s.resumeMissing}</Notice> : null}
+      {/* No key: the wizard rewrites this URL itself and decides which new starts replace its screen. */}
       <UploadWizard
-        key={`${start?.step ?? 'select'}|${params.catalog ?? 'new'}`}
         clients={clients} initialClientId={initialClientId} start={start ?? { step: 'select' }}
       />
     </>,

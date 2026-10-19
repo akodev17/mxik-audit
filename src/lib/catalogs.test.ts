@@ -82,7 +82,10 @@ describe('catalogue history and deletion (database)', { skip }, () => {
 
     const { items } = await catalogList({ orgId: a.orgId, clientIds: null }, null);
     assert.ok(!items.some((c) => c.id === archivedCatalog.catalogId), 'archived clients are left out of "all clients"');
-    const row = items.find((c) => c.id === pending.catalogId);
+    assert.ok(!items.some((c) => c.id === pending.catalogId), 'an unconfirmed upload is not listed as a catalogue');
+    const drafts = await catalogList({ orgId: a.orgId, clientIds: null }, null, 0, 'drafts');
+    assert.deepEqual(drafts.items.map((c) => c.id), [pending.catalogId]);
+    const row = drafts.items.find((c) => c.id === pending.catalogId);
     assert.equal(row?.riskyRows, null);
     assert.equal(row?.viaTelegram, true);
     assert.ok(row?.uploader?.startsWith('test-'));

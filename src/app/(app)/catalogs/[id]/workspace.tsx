@@ -8,7 +8,7 @@ import { splitRow, type ManyOutcome } from '@/app/actions/review';
 import { loadRows } from '@/app/actions/workspace';
 import { useI18n } from '@/lib/locale-client';
 import { OPTIONAL_COLUMNS, readHidden, type OptionalColumn, type ViewParams } from '@/lib/view-params';
-import type { WsSummary } from '@/lib/workspace';
+import type { ChipCounts, WsSummary } from '@/lib/workspace';
 import { filterQuery, type WsFilter } from '@/lib/workspace-filter';
 import type { GridRow } from '@/lib/workspace-rows';
 import { Button } from '@/ui/button';
@@ -18,7 +18,7 @@ import { EmptyState } from '@/ui/empty-state';
 import { useToast } from '@/ui/toast';
 import { BulkBar } from './bulk-bar';
 import { CardList } from './card-list';
-import { layoutFor } from './columns';
+import { fitLayout } from './columns';
 import { Completion } from './completion';
 import { DrawerResize } from './drawer-resize';
 import { buildEntries, entryId, entryRow, nextPendingIndex } from './entries';
@@ -35,12 +35,15 @@ import { Toolbar } from './toolbar';
 import { useDecisions } from './use-decisions';
 import { useDrawerWidth } from './use-drawer-width';
 import { PHONE_QUERY, TOUCH_QUERY, useMedia } from './use-media';
+import { useWidth } from './use-width';
 import { decisionText, shortName } from './ws-text';
 
 export type WorkspaceProps = {
   catalogId: string;
   clientId: string;
   summary: WsSummary;
+  /** Findings per type chip under the rest of the filter. */
+  chips: ChipCounts;
   initialRows: GridRow[];
   initialNext: string | null;
   count: number;
@@ -102,6 +105,7 @@ export function Workspace(props: WorkspaceProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   // A saved view (through the URL) wins; otherwise this browser's last choice.
   useEffect(() => {
@@ -115,14 +119,18 @@ export function Workspace(props: WorkspaceProps) {
     try { setHidden(readHidden(localStorage.getItem(COLUMNS_KEY))); } catch { /* storage blocked */ }
   }, [hiddenKey]);
 
-  const layout = useMemo(() => layoutFor(hidden, !readOnly), [hidden, readOnly]);
+  const gridWidth = useWidth(scrollRef);
+  const openRow = openId ? rows.find((r) => r.findingId === openId) ?? null : null;
+  // With the drawer beside it the grid drops optional columns rather than scroll under the sticky decision column.
+  const besideDrawer = openRow !== null && !phone;
+  const layout = useMemo(() => fitLayout(hidden, !readOnly, besideDrawer ? gridWidth : null), [hidden, readOnly, besideDrawer, gridWidth]);
   const entries = useMemo(() => buildEntries(rows, grouped, expanded), [rows, grouped, expanded]);
   const found = entries.findIndex((e) => entryId(e) === activeKey);
   const activeIndex = entries.length === 0 ? -1 : found >= 0 ? found : 0;
   const activeEntry = entries[activeIndex];
   const selectable = useMemo(() => rows.filter((r) => r.decision === 'pending').map((r) => r.findingId), [rows]);
   const allChecked = selectable.length > 0 && selectable.every((id) => selected.has(id));
-  const openRow = openId ? rows.find((r) => r.findingId === openId) ?? null : null;
+  const selectedIds = useMemo(() => [...selected], [selected]);
   const reviewed = Math.min(summary.riskyFindings, summary.reviewed + delta);
   const allDone = summary.riskyFindings > 0 && reviewed >= summary.riskyFindings;
 
@@ -226,9 +234,10 @@ export function Workspace(props: WorkspaceProps) {
     focusGrid();
   }, [readOnly, apply, advanceFrom, focusGrid]);
 
+  // A decision recorded without an event (older data) is reopened on its own.
   const undoRow = useCallback((row: GridRow) => {
-    if (readOnly || !row.decisionEventId) return;
-    void revert({ eventId: row.decisionEventId, findingId: row.findingId });
+    if (readOnly || row.decision === 'pending') return;
+    void revert(row.decisionEventId ? { eventId: row.decisionEventId, findingId: row.findingId } : { reopen: row.findingId });
   }, [readOnly, revert]);
 
   const undoLast = useCallback(async () => {
@@ -267,14 +276,14 @@ export function Workspace(props: WorkspaceProps) {
     setSelected(checked ? new Set(selectable) : new Set());
   }, [selectable]);
 
-  const runBulk = useCallback(async (action: BulkActionInput, picked?: { code: string; name: string }): Promise<ConfirmResult> => {
+  const runBulk = useCallback(async (action: BulkActionInput, picked?: { code: string; name: string }, inDialog = false): Promise<ConfirmResult> => {
     if (readOnly) return { ok: false };
     setBulkBusy(true);
     try {
       const target = allFiltered ? { filter: filterQuery(filter) } : { ids: [...selected] };
       const result = await bulkAction({ catalogId, target, action });
       if (!result.ok) {
-        if (!allFiltered) toast(result.error, { tone: 'error' });
+        if (!inDialog) toast(result.error, { tone: 'error' });
         return { ok: false, error: result.error };
       }
       if (action.kind === 'flag') flagMany(result.ids, action.flag, result.eventId);
@@ -289,7 +298,7 @@ export function Workspace(props: WorkspaceProps) {
       setAllFiltered(false);
       return { ok: true };
     } catch {
-      if (!allFiltered) toast(x.toast.network, { tone: 'error' });
+      if (!inDialog) toast(x.toast.network, { tone: 'error' });
       return { ok: false, error: x.toast.network };
     } finally {
       setBulkBusy(false);
@@ -375,6 +384,7 @@ export function Workspace(props: WorkspaceProps) {
         case 'open': if (row && entry?.kind === 'row') { e.preventDefault(); setOpenId(row.findingId); } break;
         case 'undo': e.preventDefault(); void undoLast(); break;
         case 'help': e.preventDefault(); setHelpOpen(true); break;
+        case 'search': e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select(); break;
         default: break;
       }
     }
@@ -411,7 +421,7 @@ export function Workspace(props: WorkspaceProps) {
     body = (
       <CardList
         rows={entries.flatMap((e) => (e.kind === 'row' ? [e.row] : e.rows))} activeId={openId} hasMore={next !== null && !loadFailed}
-        readOnly={readOnly} scrollRef={scrollRef}
+        readOnly={readOnly}
         onOpen={(row) => { setActiveKey(row.findingId); setOpenId(row.findingId); }}
         onAccept={(row) => accept(row)} onReject={reject} onUndo={undoRow} onNeedMore={() => { void loadMore(); }}
       />
@@ -429,7 +439,7 @@ export function Workspace(props: WorkspaceProps) {
   return (
     <div ref={rootRef} style={style} className="relative flex min-h-0 flex-1 flex-col">
       <div aria-live="polite" className="sr-only">{message}</div>
-      <SummaryStrip summary={summary} reviewedDelta={delta} activeType={filter.type} />
+      <SummaryStrip summary={summary} chips={props.chips} reviewedDelta={delta} activeType={filter.type} />
       {showCompletion ? (
         <Completion
           catalogId={catalogId} clientId={props.clientId} findings={summary.riskyFindings} exportLocked={props.exportLocked}
@@ -438,7 +448,7 @@ export function Workspace(props: WorkspaceProps) {
       ) : null}
       <Toolbar
         filter={filter} count={props.count} compact={compact} grouped={grouped} hidden={hidden} phone={phone} touch={touch}
-        readOnly={readOnly} busy={bulkBusy} saveBlocked={props.saveBlocked}
+        readOnly={readOnly} busy={bulkBusy} saveBlocked={props.saveBlocked} searchRef={searchRef}
         surePending={summary.surePending} dictionaryPending={summary.dictionaryPending} partialGroups={next !== null}
         onCompact={setDensity} onGrouped={setGrouped} onHidden={setColumns} onApplyView={applyView}
         onAcceptSure={() => setSureOpen(true)} onAcceptDictionary={() => { void acceptDict(); }} onHelp={() => setHelpOpen(true)}
@@ -447,6 +457,7 @@ export function Workspace(props: WorkspaceProps) {
         <BulkBar
           catalogId={catalogId} filter={filter}
           count={allFiltered ? props.count : selected.size}
+          ids={selectedIds} everyLoaded={allChecked && selected.size > 1}
           filterTotal={allChecked && props.count > selected.size ? props.count : null} allFiltered={allFiltered} busy={bulkBusy}
           onSelectFiltered={() => setAllFiltered(true)}
           onClear={() => { setSelected(new Set()); setAllFiltered(false); }}
@@ -455,7 +466,7 @@ export function Workspace(props: WorkspaceProps) {
       ) : null}
       <div
         ref={scrollRef}
-        className={cx('relative min-h-0 flex-1 overflow-auto max-md:h-[calc(100dvh-3.5rem)] max-md:flex-none', drawerOpen && 'lg:mr-(--drawer-width)')}
+        className={cx('relative md:min-h-0 md:flex-1 md:overflow-auto', drawerOpen && 'lg:mr-(--drawer-width)')}
       >
         {body}
         {next !== null && !loadFailed && entries.length > 0 ? <p className="sr-only">{x.load.more}</p> : null}

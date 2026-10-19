@@ -5,13 +5,15 @@ import { notFound, redirect } from 'next/navigation';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Children, isValidElement, type ComponentType, type ReactNode } from 'react';
-import { HtmlLang } from '@/components/html-lang';
 import { CONTAINER } from '@/components/landing/container';
 import { LandingShell } from '@/components/landing/shell';
-import { findArticle, HELP_ARTICLES, HELP_COPY, HELP_LANG_PARAM, headingId, helpHeadings, helpPath, type HelpHeading, type HelpLang } from '@/lib/help';
+import {
+  findArticle, HELP_ARTICLES, HELP_COPY, HELP_LANG_NAMES, HELP_LANG_PARAM, headingId, helpHeadings, helpPath, type HelpHeading, type HelpLang,
+} from '@/lib/help';
 import { helpBody } from '@/lib/help-mdx';
 import { getLocale } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
+import { readTheme } from '@/ui/shell/server-prefs';
 import { liveComponents } from './live-config';
 
 type Route = { lang: HelpLang; slug: string | null };
@@ -67,6 +69,27 @@ async function articleSource(lang: HelpLang, slug: string): Promise<string> {
 
 const ARTICLE_STYLE = 'space-y-4 text-[17px] leading-relaxed [&_h2]:mt-10 [&_h2]:text-[24px] [&_li]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-lp-brand [&_a]:underline [&_code]:rounded [&_code]:bg-lp-surface [&_code]:px-1';
 
+/** Both languages as a two-part switch; the current one is marked, the other links to the same article. */
+function LangSwitch({ lang, slug, label }: { lang: HelpLang; slug: string | null; label: string }) {
+  const href = (l: HelpLang): string => `${helpPath(l, slug ?? undefined)}${l === 'uz' ? `?${HELP_LANG_PARAM}=uz` : ''}`;
+  return (
+    <nav aria-label={label}>
+      <ul className="inline-flex rounded-lp border border-lp-line-strong p-0.5 text-[15px]">
+        {(['uz', 'ru'] as const).map((l) => (
+          <li key={l}>
+            <Link
+              href={href(l)} hrefLang={l} lang={l} aria-current={l === lang ? 'page' : undefined}
+              className={`block rounded-[7px] px-3 py-1 font-medium ${l === lang ? 'bg-lp-ink text-lp-base' : 'text-lp-muted hover:text-lp-ink'}`}
+            >
+              {HELP_LANG_NAMES[l]}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 function Toc({ headings, title }: { headings: HelpHeading[]; title: string }) {
   return (
     <nav aria-label={title} className="text-[15px]">
@@ -82,34 +105,25 @@ export default async function HelpPage({ params, searchParams }: { params: Param
   const route = resolve((await params).path);
   if (!route) notFound();
   const { lang, slug } = route;
-  // Signed-in readers get their app language and a way back to the app. cookies() first marks the page dynamic.
+  // Readers get their language cookie's version unless they chose Uzbek on the switch; signed-in
+  // readers also get a way back to the app. cookies() first marks the page dynamic.
   await cookies();
-  const user = await currentUser().catch(() => null);
   const chose = (await searchParams)[HELP_LANG_PARAM];
-  if (user && lang === 'uz' && chose !== 'uz' && (await getLocale()) === 'ru') redirect(helpPath('ru', slug ?? undefined));
+  if (lang === 'uz' && chose !== 'uz' && (await getLocale()) === 'ru') redirect(helpPath('ru', slug ?? undefined));
+  const [user, theme] = await Promise.all([currentUser().catch(() => null), readTheme()]);
 
   const copy = HELP_COPY[lang];
   const article = slug ? findArticle(slug) : null;
   const Body = article ? (await helpBody(lang, article.slug)) as ComponentType<{ components: Record<string, ComponentType> }> : null;
   const headings = article ? helpHeadings(await articleSource(lang, article.slug)) : [];
-  const other: HelpLang = lang === 'uz' ? 'ru' : 'uz';
-  const otherHref = `${helpPath(other, slug ?? undefined)}${other === 'uz' ? `?${HELP_LANG_PARAM}=uz` : ''}`;
 
   return (
-    <LandingShell>
-      <HtmlLang lang={lang} />
-      {user ? (
-        <div className="border-b border-lp-line bg-lp-surface">
-          <div className={`${CONTAINER} flex justify-end py-2`}>
-            <Link href="/dashboard" className="text-[15px] font-medium text-lp-brand underline">← {copy.backToApp}</Link>
-          </div>
-        </div>
-      ) : null}
-      <div className={`${CONTAINER} py-10 sm:py-14`} lang={lang}>
-        <p className="flex flex-wrap items-center justify-between gap-3 text-[15px]">
+    <LandingShell lang={lang} signedIn={user !== null} theme={theme}>
+      <div className={`${CONTAINER} py-10 sm:py-14`}>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-[15px]">
           {article ? <Link href={helpPath(lang)} className="text-lp-brand underline">{copy.back}</Link> : <span />}
-          <Link href={otherHref} className="text-lp-brand underline" hrefLang={other}>{copy.other}</Link>
-        </p>
+          <LangSwitch lang={lang} slug={slug} label={copy.language} />
+        </div>
         {Body && article ? (
           <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,46rem)_15rem] lg:gap-16">
             <article className="min-w-0">

@@ -1,3 +1,4 @@
+import { SUPPORT_EXTERNAL, SUPPORT_URL } from '@/components/landing/config';
 import { isAdminRole } from '@/lib/access';
 import { apiConfig, monthlyCheckCap, usageThisMonth } from '@/lib/api/limits';
 import { purchaseOf, type Purchase } from '@/lib/billing/availability';
@@ -10,6 +11,7 @@ import { getI18n } from '@/lib/locale';
 import { planStatus } from '@/lib/plan';
 import type { CurrentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
+import { ButtonLink } from '@/ui/button';
 import { Section } from '@/ui/page';
 import { PayButtons } from '@/ui/pay-buttons';
 import { Table, Td, Th } from '@/ui/table';
@@ -17,7 +19,7 @@ import { PlanUsage } from './plan-usage';
 
 type Row = { label: string; trial: string; firm: string };
 
-/** Current plan and usage, the trial/firm comparison from this server's config, and how to pay (or exactly why one cannot). */
+/** Current plan and usage, the trial/firm comparison, and how to pay or, when online payment is not open, how to request the plan. */
 export async function PlanTab({ user, demo }: { user: CurrentUser; demo: boolean }) {
   const { locale, ta } = await getI18n();
   const s = ta.setX.plan;
@@ -31,6 +33,7 @@ export async function PlanTab({ user, demo }: { user: CurrentUser; demo: boolean
   const limits = planLimits();
   const plan = firmPlan();
   const purchase: Purchase = purchaseOf({ plan, config: billingConfig(), admin, demo });
+  const byRequest = purchase.kind === 'not_for_sale' || purchase.kind === 'no_provider';
   const until = org?.subscriptionUntil && org.subscriptionUntil > new Date() ? org.subscriptionUntil : null;
   const n = (v: number): string => fmtNumber(locale, v);
   const cap = (v: number | null): string => (v === null ? s.unlimited : n(v));
@@ -66,14 +69,16 @@ export async function PlanTab({ user, demo }: { user: CurrentUser; demo: boolean
           ) : (
             <>
               <p className="text-small">{s.why[purchase.kind]}</p>
-              {admin && purchase.kind === 'not_for_sale' ? <p className="text-micro text-muted">{s.setupPrice}</p> : null}
-              {admin && purchase.kind === 'no_provider' ? <p className="text-micro text-muted">{s.setupProvider}</p> : null}
+              {byRequest && admin ? (
+                <ButtonLink variant="primary" href={SUPPORT_URL} target={SUPPORT_EXTERNAL ? '_blank' : undefined}>{s.request}</ButtonLink>
+              ) : null}
+              {byRequest && !admin ? <p className="text-micro text-muted">{s.why.admin_only}</p> : null}
             </>
           )}
         </div>
       </Section>
 
-      <Section title={s.compare} hint={s.compareHint}>
+      <Section title={s.compare}>
         <Table label={s.compare} className="max-w-3xl">
           <thead>
             <tr><Th>{s.feature}</Th>{head(s.trial, 'trial')}{head(s.firm, 'firm')}</tr>

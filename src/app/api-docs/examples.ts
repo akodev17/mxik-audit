@@ -8,9 +8,10 @@ const CLIENT = 'cm0z9y8x7w6v5u4t3s2r1q';
 const CODE = '00000000000000000';
 const AT = '2026-10-01T09:30:00.000Z';
 
-export function docExamples(base: string, rate: number) {
+/** `keyWhere` is the localised menu path to the API keys, shown as a shell comment. */
+export function docExamples(base: string, rate: number, keyWhere: string) {
   return {
-    setup: `export BASE="${base}"\nexport KEY="mxk_..."   # Settings → Integrations → API`,
+    setup: `export BASE="${base}"\nexport KEY="mxk_..."   # ${keyWhere}`,
     auth: 'Authorization: Bearer $KEY',
     headers: `HTTP/1.1 200 OK\n${HEADERS.limit}: ${rate}\n${HEADERS.remaining}: ${Math.max(0, rate - 1)}`,
     check: [

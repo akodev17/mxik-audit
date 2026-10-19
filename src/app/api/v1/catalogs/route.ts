@@ -61,6 +61,12 @@ export async function POST(request: Request) {
     const bytes = Buffer.from(await file.arrayBuffer());
 
     const run = async (): Promise<Outcome> => {
+      const chosen = clientId ? await ownedClient(caller.orgId, clientId) : null;
+      if (clientId && !chosen) return failure(UPLOAD, 'not_found', 'Unknown clientId.');
+      // Same rule as the web upload: an archived client takes no new catalogues.
+      if (chosen && await db.client.count({ where: { id: chosen.id, archivedAt: { not: null } } })) {
+        return failure(UPLOAD, 'not_found', 'The client is archived; restore it in the app before uploading.');
+      }
       const parsed = await parseUpload(bytes, file.name).catch(() => null);
       if (!parsed || parsed.rows.length === 0) return failure(UPLOAD, 'unreadable_file', 'The file could not be read or has no rows.');
       const allowed = await gate(caller.orgId, 'rowsPerMonth', parsed.rows.length);
@@ -69,8 +75,7 @@ export async function POST(request: Request) {
           ? failure(UPLOAD, 'plan_expired', 'The trial has ended; activate a plan.')
           : failure(UPLOAD, 'plan_limit', 'The monthly row allowance of the plan would be exceeded.');
       }
-      const client = clientId ? await ownedClient(caller.orgId, clientId) : await resolveClient(caller.orgId, null);
-      if (!client) return failure(UPLOAD, 'not_found', 'Unknown clientId.');
+      const client = chosen ?? await resolveClient(caller.orgId, null);
 
       const mapping = await mappingFor(caller.orgId, parsed.headers);
       const { catalogId } = await storeCatalog({ orgId: caller.orgId, userId: null, clientId: client.id, filename: file.name, parsed, mapping });

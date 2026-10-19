@@ -3,7 +3,7 @@
 // handler can return; src/lib/api/openapi.test.ts checks the schemas against the serializers.
 import { CatalogStatus, Decision, FindingType, Severity } from '@prisma/client';
 import { DECISION_SOURCES } from '../decision-source';
-import { ERROR_CODES, ERROR_STATUS, HEADERS, IDEMPOTENCY, OPERATIONS, PAGE, type ApiErrorCode, type OperationId } from './contract';
+import { ERROR_CODES, ERROR_STATUS, FINDING_FIELDS, HEADERS, IDEMPOTENCY, OPERATIONS, PAGE, type ApiErrorCode, type OperationId } from './contract';
 import { apiConfig, type ApiConfig } from './limits';
 
 type Schema = Record<string, unknown>;
@@ -17,8 +17,9 @@ const object = (properties: Record<string, Schema>, description?: string): Schem
 });
 
 const SCORE = 'Match score from 0 to 1. It ranks candidates; it is not a probability that the code is right.';
-const findingType: Schema = { type: 'string', enum: Object.values(FindingType) };
-const severity: Schema = { type: 'string', enum: Object.values(Severity), description: '"info" is shown for information and never counted as risk.' };
+const findingType: Schema = { type: 'string', enum: Object.values(FindingType), description: FINDING_FIELDS.type };
+const reason: Schema = { type: 'string', description: FINDING_FIELDS.reason };
+const severity: Schema = { type: 'string', enum: Object.values(Severity), description: 'Stable and machine-readable. "info" is shown for information and never counted as risk.' };
 
 const catalogProperties: Record<string, Schema> = {
   id: str,
@@ -48,9 +49,9 @@ function schemas(config: ApiConfig): Record<string, Schema> {
     Alternative: object({ code: str, name: str, confidence: { type: 'number', description: SCORE } }),
     CheckFinding: object({
       type: findingType, severity,
-      suggestedMxik: nullable(str),
+      suggestedMxik: nullable({ type: 'string', description: FINDING_FIELDS.suggestedMxik }),
       confidence: nullable({ type: 'number', description: SCORE }),
-      reason: str,
+      reason,
       alternatives: { type: 'array', items: ref('Alternative') },
     }),
     CheckResult: object({ name: str, markingRequired: { type: 'boolean' }, findings: { type: 'array', items: ref('CheckFinding') } }),
@@ -67,9 +68,9 @@ function schemas(config: ApiConfig): Record<string, Schema> {
       currentMxik: nullable({ type: 'string', description: 'The code in the uploaded file.' }),
       type: findingType,
       severity,
-      suggestedMxik: nullable({ type: 'string', description: 'A suggestion; it takes effect only when a person accepts it.' }),
+      suggestedMxik: nullable({ type: 'string', description: `${FINDING_FIELDS.suggestedMxik} It takes effect only when a person accepts it.` }),
       confidence: nullable({ type: 'number', description: SCORE }),
-      reason: str,
+      reason,
       decision: { type: 'string', enum: Object.values(Decision) },
       decisionSource: nullable({ type: 'string', enum: [...DECISION_SOURCES], description: 'How the decision was made: by a person (manual, group, bulk, bulk_sure, dictionary) or automatically (dictionary_auto, carry_over).' }),
       chosenMxik: nullable({ type: 'string', description: 'The code the reviewer chose; may differ from suggestedMxik.' }),

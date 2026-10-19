@@ -1,7 +1,12 @@
+import { uz as importsUz } from '@/lib/i18n-parts/imports';
 import { CONTAINER } from './container';
 import { CHECKS, STRICT_UNIT_PCT } from './data';
 
-const STEPS = [
+// The export's own column names and status words (Uzbek), so this copy cannot
+// drift from what src/app/api/export/route.ts writes.
+const EXPORT = importsUz.importX.exp;
+
+const STEPS: readonly { title: string; body: string; detail: readonly string[] }[] = [
   {
     title: 'Yuklash',
     body: 'Excel yoki CSV. Ustunlar tartibi muhim emas: oʻzbekcha yoki ruscha sarlavhadan aniqlanadi.',
@@ -14,18 +19,18 @@ const STEPS = [
   },
   {
     title: 'Qaror',
-    body: 'Har bir taklifni qabul qilasiz yoki rad etasiz, xatoni bekor qilasiz. Kim va qachon qilgani tarixda qoladi.',
+    body: 'Har bir taklifni tasdiqlaysiz yoki rad etasiz, xato qarorni bekor qilasiz. Kim va qachon qilgani tarixda qoladi.',
     detail: [
-      'Ishonchi 90% dan yuqorilarini bir bosishda qabul qilish mumkin',
-      'Klaviatura: j va k — qatorlar, Enter — qabul, r — rad',
+      'Yuqori moslikdagi takliflarni bir bosishda tasdiqlash mumkin',
+      'Klaviatura: j va k — qatorlar, Enter — tasdiqlash, r — rad etish',
     ],
   },
   {
     title: 'Eksport',
-    body: 'Asl fayl, asl ustunlar tartibida. MXIK va birlik oʻz joyida almashtiriladi, oxiriga ikki ustun qoʻshiladi.',
-    detail: ['«qadoqlash»', '«audit_status»: qabul_qilindi, rad_etildi, korib_chiqilmagan, risk_yoq'],
+    body: 'Asl fayl, asl ustunlar tartibida. Tasdiqlangan MXIK kodi va birlik oʻz ustuniga yoziladi, oxiriga ikki ustun qoʻshiladi.',
+    detail: [`«${EXPORT.columns.packaging}»`, `«${EXPORT.columns.status}»: ${Object.values(EXPORT.status).join(', ')}`],
   },
-] as const;
+];
 
 // Section 4: the only numbered element on the page.
 export function HowItWorks() {

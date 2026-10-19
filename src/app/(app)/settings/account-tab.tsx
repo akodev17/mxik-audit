@@ -7,6 +7,7 @@ import { LanguageSwitch } from '@/ui/language-switch';
 import { Section } from '@/ui/page';
 import { BrandForm } from './brand-form';
 import { DictionarySetting } from './dictionary-setting';
+import { ThemeSetting } from './theme-setting';
 
 /** Email, role and client access, language and theme; PDF branding and the dictionary setting for admins. */
 export async function AccountTab({ user, demo }: { user: CurrentUser; demo: boolean }) {
@@ -47,8 +48,9 @@ export async function AccountTab({ user, demo }: { user: CurrentUser; demo: bool
             <p className="mt-1 text-micro text-muted">{s.languageHint}</p>
           </div>
           <div>
-            <p className="mb-1 text-small font-medium">{s.theme}</p>
-            <p className="max-w-xl text-small text-muted">{s.themeHint}</p>
+            <p className="mb-1.5 text-small font-medium" aria-hidden>{s.theme}</p>
+            <ThemeSetting />
+            <p className="mt-1 text-micro text-muted">{s.themeHint}</p>
           </div>
         </div>
       </Section>

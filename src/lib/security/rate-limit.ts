@@ -25,6 +25,8 @@ export const RULES = {
   resendEmail: { kind: 'resend', limit: 3, windowMs: 60 * MINUTE },
   resendIp: { kind: 'resend_ip', limit: 10, windowMs: 60 * MINUTE },
   signupIp: { kind: 'signup', limit: 8, windowMs: 60 * MINUTE },
+  /** Public lead form submissions from one address. */
+  leadIp: { kind: 'lead_ip', limit: 5, windowMs: 10 * MINUTE },
 } as const satisfies Record<string, Rule>;
 
 export const attemptKey = (key: string): string => keyedHash('auth-attempt', key);

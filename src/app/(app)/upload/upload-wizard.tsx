@@ -17,14 +17,11 @@ import { FileCheck } from './file-check';
 import { MappingStep } from './mapping-step';
 import { Notice } from './notice';
 import { ProcessingStep } from './processing-step';
+import { followsStart, phaseOf, startKey, type WizardStart } from './wizard-start';
+
+export type { WizardStart } from './wizard-start';
 
 type ClientOption = { id: string; name: string };
-
-export type WizardStart =
-  | { step: 'select' }
-  | { step: 'map'; preview: UploadPreview }
-  | { step: 'processing'; catalogId: string }
-  | { step: 'done'; catalogId: string; summary: CompletionSummary };
 
 type State =
   | { step: 'select' }
@@ -33,6 +30,8 @@ type State =
   | { step: 'done'; catalogId: string; summary: CompletionSummary };
 
 const STEP_INDEX: Record<State['step'], number> = { select: 0, check: 1, map: 2, confirm: 3, processing: 4, done: 5 };
+
+const catalogOf = (s: State): string | null => (s.step === 'select' ? null : 'preview' in s ? s.preview.catalogId : s.catalogId);
 
 /** Select file → check → map columns → confirm → processing → done. */
 export function UploadWizard({ clients, initialClientId, start }: { clients: ClientOption[]; initialClientId: string; start: WizardStart }) {
@@ -48,6 +47,24 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [reading, startReading] = useTransition();
   const [committing, startCommit] = useTransition();
+
+  // The page renders again for the URL this wizard writes (and on refreshes). Only another upload, a fresh
+  // /upload or the same upload committed elsewhere replaces the screen; never the mapping being edited.
+  const key = startKey(start, initialClientId);
+  const [seenKey, setSeenKey] = useState(key);
+  if (key !== seenKey) {
+    setSeenKey(key);
+    if (followsStart(start, { catalogId: catalogOf(state), phase: phaseOf(state.step) })) {
+      setState(start);
+      setClientId(initialClientId);
+      setMapping(start.step === 'map' ? start.preview.mapping : null);
+      setSuggested(true);
+      setDiagnostics(start.step === 'map' ? start.preview.diagnostics : null);
+      setError(null);
+      setCommittedId(null);
+      setConfirmDiscard(false);
+    }
+  }
 
   const preview = state.step === 'check' || state.step === 'map' || state.step === 'confirm' ? state.preview : null;
 
@@ -127,21 +144,21 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
 
       {state.step === 'map' && mapping ? (
         <MappingStep
-          preview={state.preview} mapping={mapping} onMapping={onMapping} suggested={suggested}
+          key={state.preview.catalogId} preview={state.preview} mapping={mapping} onMapping={onMapping} suggested={suggested}
           diagnostics={diagnostics} onDiagnostics={setDiagnostics}
           onBack={() => setState({ step: 'check', preview: state.preview })}
           onNext={() => { setError(null); setState({ step: 'confirm', preview: state.preview }); }}
         />
       ) : null}
 
-      {state.step === 'confirm' && diagnostics ? (
+      {state.step === 'confirm' && diagnostics && mapping ? (
         <ConfirmStep
-          preview={state.preview} diagnostics={diagnostics} busy={committing} error={error} committedId={committedId}
+          preview={state.preview} mapping={mapping} diagnostics={diagnostics} busy={committing} error={error} committedId={committedId}
           onBack={() => setState({ step: 'map', preview: state.preview })} onStart={commit}
         />
       ) : null}
 
-      {state.step === 'processing' ? <ProcessingStep catalogId={state.catalogId} onDone={onDone} /> : null}
+      {state.step === 'processing' ? <ProcessingStep key={state.catalogId} catalogId={state.catalogId} onDone={onDone} /> : null}
 
       {state.step === 'done' ? <DoneStep catalogId={state.catalogId} summary={state.summary} onAnother={startOver} /> : null}
 
@@ -149,7 +166,7 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
         <ConfirmDialog
           open={confirmDiscard} onClose={() => setConfirmDiscard(false)} tone="danger"
           title={x.discard.title} description={x.discard.description} scope={`${preview.client.name} · ${preview.filename}`}
-          confirmLabel={x.discard.confirm}
+          confirmLabel={x.discard.confirm} cancelLabel={x.discard.keep}
           onConfirm={async () => {
             const result = await discardUpload(preview.catalogId).catch(() => ({ ok: false as const, error: x.errors.network }));
             if (!result.ok) return result;

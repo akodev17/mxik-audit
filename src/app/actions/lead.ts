@@ -2,22 +2,17 @@
 
 import { headers } from 'next/headers';
 import { db } from '@/lib/db';
-import {
-  clientKey, createRateLimiter, isHoneypotFilled, parseContact,
-} from '@/lib/lead-guard';
+import { isHoneypotFilled, LEAD_LIMITS, parseContact } from '@/lib/lead-guard';
+import { leadFilenameOk, parseLeadText } from '@/lib/lead-input';
+import { clientIp } from '@/lib/security/client-ip';
+import { hit, minutesOf, RULES } from '@/lib/security/rate-limit';
 import { looksLikeZip, zipWithinLimits } from '@/lib/security/zip-guard';
 import { parseUpload } from '@/lib/spreadsheet';
 
 // A sample file is enough for a lead; a smaller cap keeps an anonymous form from loading the server.
 const MAX_BYTES = 5 * 1024 * 1024;
 
-/* Five requests per address per ten minutes: a person who mistyped their number
-   twice is never blocked, a script filling the leads table is. Per process, so
-   kept on globalThis to survive dev-server module reloads. */
-const globalForLimiter = globalThis as unknown as { mxikLeadLimiter?: ReturnType<typeof createRateLimiter> };
-const limiter = globalForLimiter.mxikLeadLimiter
-  ?? createRateLimiter({ limit: 5, windowMs: 10 * 60 * 1000 });
-globalForLimiter.mxikLeadLimiter = limiter;
+const SAVE_FAILED = 'Soʻrovni saqlab boʻlmadi. Birozdan keyin qayta urinib koʻring.';
 
 export type LeadState = {
   ok?: true;
@@ -34,25 +29,32 @@ function field(form: FormData, key: string): string {
 }
 
 export async function submitLead(_prev: LeadState, form: FormData): Promise<LeadState> {
-  const typed = field(form, 'contact');
+  const raw = field(form, 'contact');
+  // Echoed back to the form, so never more than the field can hold; validation sees it all.
+  const typed = raw.slice(0, LEAD_LIMITS.contact);
 
   // A filled honeypot is a bot. Answer exactly as for a person, store nothing:
   // telling it what tripped would only teach it to skip the field.
   if (isHoneypotFilled(form)) return { ok: true };
 
-  const { allowed, retryAfterMs } = limiter.hit(clientKey(await headers()));
-  if (!allowed) {
-    const minutes = Math.max(1, Math.ceil(retryAfterMs / 60_000));
+  /* Five requests per address per ten minutes, kept in the database so a restart or a
+     second instance does not reset it: a person who mistyped their number twice is
+     never blocked, a script filling the leads table is. */
+  const verdict = await hit(RULES.leadIp, clientIp(await headers())).catch(() => null);
+  if (!verdict) return { error: SAVE_FAILED, contact: typed };
+  if (!verdict.allowed) {
     return {
-      error: `Soʻrovlar juda koʻp. ${minutes} daqiqadan keyin qayta urinib koʻring.`,
+      error: `Soʻrovlar juda koʻp. ${minutesOf(verdict.retryAfterMs)} daqiqadan keyin qayta urinib koʻring.`,
       contact: typed,
     };
   }
 
-  const contact = parseContact(typed);
+  const contact = parseContact(raw);
   if (!contact.ok) return { error: contact.error, field: 'contact', contact: typed };
 
-  const company = field(form, 'company') || null;
+  // The form has no company or note fields today; anything sent anyway is bounded.
+  const text = parseLeadText(form);
+  if (!text) return { error: 'Matn juda uzun.', contact: typed };
   const file = form.get('file');
 
   let filename: string | null = null;
@@ -65,6 +67,9 @@ export async function submitLead(_prev: LeadState, form: FormData): Promise<Lead
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_BYTES) {
       return { error: 'Fayl juda katta (5 MB dan oshmasligi kerak).', field: 'file', contact: typed };
+    }
+    if (!leadFilenameOk(file.name)) {
+      return { error: `Fayl nomi juda uzun (${LEAD_LIMITS.filename} belgigacha).`, field: 'file', contact: typed };
     }
     if (!/\.(xlsx|csv)$/i.test(file.name)) {
       return { error: 'Faqat .xlsx yoki .csv fayl yuborish mumkin.', field: 'file', contact: typed };
@@ -90,21 +95,10 @@ export async function submitLead(_prev: LeadState, form: FormData): Promise<Lead
 
   try {
     await db.lead.create({
-      data: {
-        contact: contact.value,
-        company,
-        filename,
-        fileBytes,
-        fileData,
-        rowGuess,
-        note: field(form, 'note') || null,
-      },
+      data: { contact: contact.value, company: text.company, filename, fileBytes, fileData, rowGuess, note: text.note },
     });
   } catch {
-    return {
-      error: 'Soʻrovni saqlab boʻlmadi. Birozdan keyin qayta urinib koʻring.',
-      contact: typed,
-    };
+    return { error: SAVE_FAILED, contact: typed };
   }
 
   return { ok: true };

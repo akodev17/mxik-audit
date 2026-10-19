@@ -63,13 +63,20 @@ export function decodeCursor(raw: string | null): Cursor | null {
 
 const SEVERITY_RANK = Prisma.sql`(CASE f.severity WHEN 'high'::severity THEN 0 WHEN 'medium'::severity THEN 1 ELSE 2 END)`;
 
+const RISKY_SEVERITY = Prisma.sql`f.severity IN ('high'::severity, 'medium'::severity)`;
+
 /** WHERE parts for a filter; expects `finding f JOIN catalog_item ci`. */
 export function filterConditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
-  const where: Prisma.Sql[] = [Prisma.sql`ci."catalogId" = ${catalogId}`];
+  const where = scopeConditions(catalogId, filter);
   if (filter.type === 'MARKING') where.push(Prisma.sql`ci."markingRequired" = true`);
   else if (filter.type) where.push(Prisma.sql`f.type = ${filter.type}::finding_type`);
-  else where.push(Prisma.sql`f.severity IN ('high'::severity, 'medium'::severity)`);
+  else where.push(RISKY_SEVERITY);
+  return where;
+}
 
+/** Everything a filter narrows except the finding type (what the type chips choose between). */
+function scopeConditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
+  const where: Prisma.Sql[] = [Prisma.sql`ci."catalogId" = ${catalogId}`];
   if (filter.decision === 'pending') where.push(Prisma.sql`f.decision = 'pending'::decision`);
   else if (filter.decision === 'accepted') where.push(Prisma.sql`f.decision = 'accepted'::decision`);
   else if (filter.decision === 'rejected') where.push(Prisma.sql`f.decision = 'rejected'::decision`);
@@ -85,10 +92,31 @@ export function filterConditions(catalogId: string, filter: WsFilter): Prisma.Sq
     const like = `%${filter.q.replace(/[\\%_]/g, '\\$&')}%`;
     const digits = /^\d{3,17}$/.test(filter.q) ? `${filter.q}%` : null;
     where.push(digits
-      ? Prisma.sql`(ci."rawName" ILIKE ${like} OR ci."existingMxik" LIKE ${digits} OR f."suggestedMxik" LIKE ${digits})`
+      ? Prisma.sql`(ci."rawName" ILIKE ${like} OR ci."existingMxik" LIKE ${digits} OR f."suggestedMxik" LIKE ${digits} OR ci.barcode LIKE ${digits})`
       : Prisma.sql`ci."rawName" ILIKE ${like}`);
   }
   return where;
+}
+
+export type ChipCounts = { all: number; byType: Record<string, number>; marking: number };
+
+/**
+ * Findings behind each type chip under the rest of the filter (decision, flag,
+ * search…), so a chip's number is the count its list shows.
+ */
+export async function workspaceChipCounts(catalogId: string, filter: WsFilter): Promise<ChipCounts> {
+  const rows = await db.$queryRaw<{ type: string; n: bigint; risky: bigint; marking: bigint }[]>(Prisma.sql`
+    SELECT f.type::text AS type, count(*) AS n,
+           count(*) FILTER (WHERE ${RISKY_SEVERITY}) AS risky,
+           count(*) FILTER (WHERE ci."markingRequired" = true) AS marking
+    FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
+    WHERE ${Prisma.join(scopeConditions(catalogId, filter), ' AND ')}
+    GROUP BY f.type`);
+  return {
+    all: rows.reduce((s, r) => s + Number(r.risky), 0),
+    byType: Object.fromEntries(rows.map((r) => [r.type, Number(r.n)])),
+    marking: rows.reduce((s, r) => s + Number(r.marking), 0),
+  };
 }
 
 type IdRow = { id: string; sev: number; conf: number; row: number };

@@ -1,7 +1,10 @@
+import { fmtNumber } from '@/lib/format';
 import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
 import { LEAD_FILE_RETENTION_DAYS } from './config';
 
-export const nf = new Intl.NumberFormat('uz-UZ');
+/** Whole numbers as the app writes them ("438 925"). Not Intl 'uz-UZ': browsers and Node
+ *  disagree on its separators, which breaks hydration in a client component. */
+export const nf = { format: (value: number): string => fmtNumber('uz', value) } as const;
 
 /* Every figure on this page is measured, not estimated, and nothing here may
    become a round number because it reads better.

@@ -8,6 +8,7 @@ import { filterQuery, type WsFilter } from '@/lib/workspace-filter';
 import { Button } from '@/ui/button';
 import { ConfirmDialog, type ConfirmResult } from '@/ui/confirm-dialog';
 import { CodeSearch } from './code-search';
+import { needsBulkConfirm } from './bulk-confirm';
 import { count } from './ws-text';
 
 type Picked = { code: string; name: string };
@@ -16,22 +17,27 @@ type Props = {
   catalogId: string;
   filter: WsFilter;
   count: number;
+  /** The selected finding ids (ignored once the whole filter is selected). */
+  ids: readonly string[];
+  /** Every loaded pending row is selected. */
+  everyLoaded: boolean;
   /** Rows of the whole filter, when more than the loaded ones can be selected. */
   filterTotal: number | null;
   allFiltered: boolean;
   busy: boolean;
   onSelectFiltered: () => void;
   onClear: () => void;
-  /** Runs the action on the selection or the whole filter; resolves to a ConfirmDialog result. */
-  onRun: (action: BulkActionInput, picked?: Picked) => Promise<ConfirmResult>;
+  /** Runs the action on the selection or the whole filter; `inDialog`: errors show in the dialog, not as a toast. */
+  onRun: (action: BulkActionInput, picked?: Picked, inDialog?: boolean) => Promise<ConfirmResult>;
 };
 
 type Pending = { action: BulkActionInput; picked?: Picked; preview: DryRunResult | null };
 
 /**
- * Actions for the selected rows. On the whole filter every action first
- * shows how many pending rows it will touch (a server dry run) and whether the
- * per-action cap cuts it short.
+ * Actions for the selected rows. A small hand-picked selection runs at once
+ * (with an undo toast); a larger one, every loaded row, or the whole filter
+ * first shows how many pending rows the action will touch (a server dry run)
+ * and whether the per-action cap cuts it short.
  */
 export function BulkBar(p: Props) {
   const { ta, locale } = useI18n();
@@ -40,9 +46,10 @@ export function BulkBar(p: Props) {
   const [pending, setPending] = useState<Pending | null>(null);
 
   const start = (action: BulkActionInput, picked?: Picked): void => {
-    if (!p.allFiltered) { void p.onRun(action, picked); return; }
+    if (!needsBulkConfirm({ allFiltered: p.allFiltered, selected: p.count, everyLoaded: p.everyLoaded })) { void p.onRun(action, picked); return; }
     setPending({ action, picked, preview: null });
-    bulkDryRun({ catalogId: p.catalogId, target: { filter: filterQuery(p.filter) }, action })
+    const target = p.allFiltered ? { filter: filterQuery(p.filter) } : { ids: [...p.ids] };
+    bulkDryRun({ catalogId: p.catalogId, target, action })
       .then((preview) => setPending((cur) => (cur && cur.action === action ? { ...cur, preview } : cur)))
       .catch(() => setPending((cur) => (cur && cur.action === action ? { ...cur, preview: { ok: false, error: ta.wsX.toast.network } } : cur)));
   };
@@ -51,14 +58,15 @@ export function BulkBar(p: Props) {
   const preview = pending?.preview ?? null;
   const ready = preview?.ok ? preview : null;
   const touch = ready?.willTouch ?? 0;
+  const nothing = p.allFiltered ? b.nothing : b.nothingSel;
   const confirmOnly = ready && ready.confirmOnly > 0 ? count(locale, b.dryRunConfirmOnly, ready.confirmOnly) : null;
   const description = !preview ? b.checking
     : !preview.ok ? preview.error
-      : touch === 0 ? [b.nothing, confirmOnly].filter(Boolean).join(' ')
+      : touch === 0 ? [nothing, confirmOnly].filter(Boolean).join(' ')
         : [
           count(locale, kind === 'flag' ? b.dryRunFlag : b.dryRun, touch),
           confirmOnly,
-          ready?.capped ? b.capped(fmtNumber(locale, ready.limit), fmtNumber(locale, ready.matching)) : null,
+          ready?.capped ? b.capped(fmtNumber(locale, ready.limit), fmtNumber(locale, ready.matching), ready.matching) : null,
         ].filter(Boolean).join(' ');
 
   return (
@@ -73,7 +81,7 @@ export function BulkBar(p: Props) {
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button size="sm" variant="primary" disabled={p.busy} onClick={() => start({ kind: 'accept' })}>{b.accept}</Button>
           <Button size="sm" disabled={p.busy} aria-expanded={assigning} onClick={() => setAssigning((a) => !a)}>{b.assign}</Button>
-          <Button size="sm" disabled={p.busy} onClick={() => start({ kind: 'reject' })}>{b.reject}</Button>
+          <Button size="sm" variant="danger" disabled={p.busy} onClick={() => start({ kind: 'reject' })}>{b.reject}</Button>
           <Button size="sm" disabled={p.busy} onClick={() => start({ kind: 'flag', flag: 'ask_client' })}>{b.ask}</Button>
           <Button size="sm" variant="ghost" onClick={p.onClear}>{b.clear}</Button>
         </div>
@@ -87,14 +95,14 @@ export function BulkBar(p: Props) {
       <ConfirmDialog
         open={pending !== null}
         onClose={() => setPending(null)}
-        title={b.confirmTitle[kind]}
+        title={(p.allFiltered ? b.confirmTitle : b.confirmTitleSel)[kind]}
         description={description}
-        scope={b.scopeFilter}
+        scope={p.allFiltered ? b.scopeFilter : count(locale, b.scopeSelection, p.count)}
         tone={kind === 'reject' ? 'danger' : 'default'}
         confirmLabel={count(locale, b.confirmLabel[kind], touch)}
         onConfirm={async () => {
-          if (!pending || !ready || touch === 0) return { ok: false, error: !preview ? b.checking : b.nothing };
-          return p.onRun(pending.action, pending.picked);
+          if (!pending || !ready || touch === 0) return { ok: false, error: !preview ? b.checking : nothing };
+          return p.onRun(pending.action, pending.picked, true);
         }}
       />
     </div>

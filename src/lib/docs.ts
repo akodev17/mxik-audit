@@ -14,6 +14,7 @@ import { auditContext, checkItem } from './audit-runner.js';
 import { db } from './db.js';
 import { listMeta, type ListActor } from './purchases.js';
 import type { ParseResult } from './spreadsheet.js';
+import { mayWrite } from './write-access.js';
 
 export type DocKind = 'cheques' | 'sales';
 export const DOC_KINDS: DocKind[] = ['cheques', 'sales'];
@@ -85,7 +86,9 @@ export function docCheckStale(list: { status: string; meta: unknown; createdAt: 
 }
 
 export async function storeDocList(actor: ListActor, input: { clientId: string; kind: DocKind; filename: string; parsed: ParseResult }): Promise<{ listId: string; map: DocMap } | null> {
-  const client = await db.client.findFirst({ where: { id: input.clientId, orgId: actor.orgId }, select: { id: true } });
+  if (!mayWrite(actor)) return null;
+  // An archived client takes no new files.
+  const client = await db.client.findFirst({ where: { id: input.clientId, orgId: actor.orgId, archivedAt: null }, select: { id: true } });
   if (!client || !canSeeClient(actor, client.id)) return null;
   const map = guessDocMap(input.parsed.headers);
   const listId = await db.$transaction(async (tx) => {
@@ -109,7 +112,9 @@ export async function storeDocList(actor: ListActor, input: { clientId: string; 
   return { listId, map };
 }
 
+/** A list the actor may change: in the org, of a client they may open, and not as a viewer. */
 async function ownDocList(actor: ListActor, listId: string) {
+  if (!mayWrite(actor)) return null;
   const list = await db.docList.findFirst({ where: { id: listId, orgId: actor.orgId }, select: { id: true, clientId: true, kind: true, filename: true, status: true, meta: true, createdAt: true } });
   return list && canSeeClient(actor, list.clientId) ? list : null;
 }

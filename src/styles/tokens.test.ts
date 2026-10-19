@@ -81,6 +81,8 @@ describe('app tokens', () => {
           assert.ok(ratio(set, 'focus', bg) >= 3, `focus on ${bg}`);
           assert.ok(ratio(set, 'danger', bg) >= 3, `invalid border on ${bg}`);
         }
+        // Segmented: the selected option's brand ring against the surface track.
+        assert.ok(ratio(set, 'brand', 'surface') >= 3, `selected segment ring on surface: ${ratio(set, 'brand', 'surface').toFixed(2)}`);
       });
     });
   }

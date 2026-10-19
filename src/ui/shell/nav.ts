@@ -35,16 +35,58 @@ export function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-const CLIENT_PAGE = /^\/clients\/[^/]+/;
+const CLIENT_PAGE = /^\/clients\/([^/]+)/;
 const CATALOG_PAGE = /^\/catalogs\/[^/]+/;
+/** Lists that filter by a `client` query parameter. */
+const CLIENT_LISTS = ['/queue', '/activity', '/catalogs'];
 
 /**
- * Where to go after switching to `clientId`: pages about one client or catalogue move to the new
- * client's equivalent; everything else stays put and refreshes (null).
+ * Where to go after switching to `clientId`, so the switch always shows: a client's page moves to
+ * the new client's page, a catalogue to that client's catalogues, a list filtered by client to the
+ * same list for the new client, and a firm-wide page to the client's page. Upload stays and
+ * reloads (null), since it already works on the active client.
  */
 export function switchTarget(pathname: string, search: string, clientId: string): string | null {
-  if (CLIENT_PAGE.test(pathname)) return `/clients/${encodeURIComponent(clientId)}`;
-  if (CATALOG_PAGE.test(pathname)) return '/catalogs';
-  if (isActive(pathname, '/upload') && new URLSearchParams(search).has('client')) return '/upload';
-  return null;
+  const id = encodeURIComponent(clientId);
+  if (CLIENT_PAGE.test(pathname)) return `/clients/${id}`;
+  if (CATALOG_PAGE.test(pathname)) return `/catalogs?client=${id}`;
+  if (CLIENT_LISTS.includes(pathname)) {
+    const params = new URLSearchParams(search);
+    params.set('client', clientId);
+    params.delete('page');
+    params.delete('after');
+    return `${pathname}?${params.toString()}`;
+  }
+  if (isActive(pathname, '/upload')) return new URLSearchParams(search).has('client') ? '/upload' : null;
+  return `/clients/${id}`;
+}
+
+/**
+ * What the header's client control stands for on this page: the page's own client, the active
+ * client (pages that default to it), all clients (firm-wide pages and unfiltered lists), or
+ * nothing on a catalogue, whose header names its own client. `fallback` applies when the id is
+ * not among the user's clients.
+ */
+export type SwitcherScope =
+  | { kind: 'client'; id: string; fallback: 'all' | 'record' }
+  | { kind: 'active' }
+  | { kind: 'all' }
+  | { kind: 'record' };
+
+export function switcherScope(pathname: string, search: string): SwitcherScope {
+  const page = CLIENT_PAGE.exec(pathname)?.[1];
+  if (page) {
+    try {
+      return { kind: 'client', id: decodeURIComponent(page), fallback: 'record' };
+    } catch {
+      return { kind: 'record' };
+    }
+  }
+  if (CATALOG_PAGE.test(pathname)) return { kind: 'record' };
+  const client = new URLSearchParams(search).get('client');
+  // The catalogue list shows the active client's catalogues until another choice is made.
+  if (pathname === '/catalogs') return client === 'all' ? { kind: 'all' } : client ? { kind: 'client', id: client, fallback: 'all' } : { kind: 'active' };
+  if (CLIENT_LISTS.includes(pathname)) return client ? { kind: 'client', id: client, fallback: 'all' } : { kind: 'all' };
+  if (isActive(pathname, '/upload')) return client ? { kind: 'client', id: client, fallback: 'all' } : { kind: 'active' };
+  return { kind: 'all' };
 }

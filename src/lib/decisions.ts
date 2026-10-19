@@ -321,6 +321,51 @@ export async function undoDecision(actor: Actor, eventId: string, onlyFindingId?
 }
 
 /**
+ * Takes one row's decision back so it can be decided again ("change
+ * decision"). A decision with its event is undone through it, which also
+ * takes back what it taught the dictionary; an older decision recorded
+ * without an event is reopened with a `finding.undone` event of its own that
+ * keeps what it was.
+ */
+export async function reopenDecision(actor: Actor, findingId: string): Promise<Result<UndoDone>> {
+  if (!mayWrite(actor)) return fail('forbidden');
+  const f = await db.finding.findFirst({
+    where: { id: findingId, item: { catalog: catalogScope(actor) } },
+    select: {
+      id: true, decision: true, chosenMxik: true, decisionEventId: true, decisionSource: true, decidedBy: true, decidedAt: true,
+      item: { select: { rawName: true, catalogId: true, rowIndex: true } },
+    },
+  });
+  if (!f) return fail('not found');
+  if (f.decision === 'pending') return fail('already undone');
+  if (f.decisionEventId) return undoDecision(actor, f.decisionEventId, f.id);
+  try {
+    await db.$transaction(async (tx) => {
+      const reopened = await tx.finding.updateMany({
+        where: { id: f.id, decision: { not: 'pending' }, decisionEventId: null },
+        data: { decision: 'pending', chosenMxik: null, decidedBy: null, decidedAt: null, decisionSource: null },
+      });
+      if (reopened.count === 0) throw new Error('already undone');
+      await tx.auditEvent.create({
+        data: {
+          orgId: actor.orgId, actorId: actor.userId, action: 'finding.undone', targetId: f.id,
+          payload: {
+            catalogId: f.item.catalogId, undoneEventId: null, undoneAction: null, reopened: true,
+            findings: [{
+              id: f.id, productName: f.item.rawName, previousDecision: f.decision, previousChosenMxik: f.chosenMxik,
+              previousSource: f.decisionSource, previousDecidedBy: f.decidedBy, previousDecidedAt: f.decidedAt?.toISOString() ?? null,
+            }],
+          },
+        },
+      });
+    });
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : 'failed');
+  }
+  return { ok: true, findingIds: [f.id], row: { findingId: f.id, productName: f.item.rawName, rowIndex: f.item.rowIndex } };
+}
+
+/**
  * Undoes the actor's own latest manual decision in this catalogue that is
  * still in effect: a single accept or reject, or a group decision. Other
  * people's decisions and bulk actions are undone from their own controls.
@@ -369,9 +414,12 @@ export type HistoryEntry = {
   undoable: boolean;
 };
 
+/** Decision events of one catalogue the actor may see; nothing for a catalogue outside their clients. */
 export async function decisionHistory(actor: Actor, catalogId: string, limit = 50): Promise<HistoryEntry[]> {
+  const catalog = await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(actor) }, select: { id: true } });
+  if (!catalog) return [];
   const events = await db.auditEvent.findMany({
-    where: { orgId: actor.orgId, action: { in: HISTORY_ACTIONS }, payload: { path: ['catalogId'], equals: catalogId } },
+    where: { orgId: actor.orgId, action: { in: HISTORY_ACTIONS }, payload: { path: ['catalogId'], equals: catalog.id } },
     orderBy: { createdAt: 'desc' },
     take: limit,
     select: { id: true, action: true, createdAt: true, actorId: true, payload: true },

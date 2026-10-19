@@ -14,6 +14,12 @@ export const uz = {
     resend: 'Tasdiqlash havolasini qayta yuborish',
     resendSent: 'Agar elektron pochta va parol toʻgʻri boʻlsa va manzil hali tasdiqlanmagan boʻlsa, yangi havola yuborildi. Pochtani, jumladan “Spam” jildini tekshiring.',
     backToSignIn: 'Kirish sahifasiga qaytish',
+    required: { email: 'Elektron pochtani kiriting.', password: 'Parolni kiriting.' },
+    sessions: {
+      endOthersTitle: 'Boshqa barcha seanslar tugatilsinmi?',
+      endOthersText: 'Bu qurilmadan boshqa barcha brauzer va qurilmalarda hisobdan chiqiladi. U yerda qayta kirish uchun parol kerak boʻladi.',
+      endFailed: 'Seanslar tugatilmadi. Sahifani yangilab, qayta urinib koʻring.',
+    },
     notices: {
       '2fa_locked': 'Kod bir necha marta notoʻgʻri kiritildi. Xavfsizlik uchun qaytadan parol bilan kiring.',
       '2fa_expired': 'Kirish muddati tugadi. Qaytadan parol bilan kiring.',
@@ -30,7 +36,8 @@ export const uz = {
       intro: 'Hisobingiz elektron pochtasini kiriting. Parolni yangilash havolasini yuboramiz; u 1 soat amal qiladi.',
       submit: 'Havolani yuborish',
       sent: 'Agar bu manzil bilan hisob boʻlsa, unga parolni yangilash havolasi yuborildi. Havola 1 soat amal qiladi.',
-      noMail: 'Bu serverda elektron pochta sozlanmagan, shuning uchun havola yuborib boʻlmaydi. Yangi parol oʻrnatish uchun xizmat administratoriga murojaat qiling.',
+      noMail: 'Hozir tiklash havolasini elektron pochta orqali yuborib boʻlmaydi. Yangi parol oʻrnatish uchun bizga yozing.',
+      contact: 'Bizga yozish',
     },
     reset: {
       title: 'Yangi parol',
@@ -55,7 +62,6 @@ export const uz = {
     },
     telegram: {
       title: 'Telegram orqali kirish',
-      off: 'Telegram bot bu serverda sozlanmagan.',
       unbound: 'Ulanmagan. Ulasangiz, kirish sahifasidagi “Telegram orqali kirish” tugmasi aynan shu hisobga kiritadi.',
       bound: 'Ulangan. Kirish sahifasidagi “Telegram orqali kirish” tugmasi shu hisobga kiritadi.',
       separate: 'Bu bildirishnoma chatlaridan alohida: chatni ulash hech kimga kirish huquqini bermaydi.',
@@ -91,6 +97,12 @@ export const ru: typeof uz = {
     resend: 'Отправить ссылку подтверждения ещё раз',
     resendSent: 'Если почта и пароль верны, а адрес ещё не подтверждён, мы отправили новую ссылку. Проверьте почту, в том числе папку «Спам».',
     backToSignIn: 'Вернуться ко входу',
+    required: { email: 'Введите электронную почту.', password: 'Введите пароль.' },
+    sessions: {
+      endOthersTitle: 'Завершить все остальные сеансы?',
+      endOthersText: 'Вы выйдете из аккаунта во всех браузерах и на всех устройствах, кроме этого. Чтобы войти там снова, понадобится пароль.',
+      endFailed: 'Сеансы не завершены. Обновите страницу и попробуйте ещё раз.',
+    },
     notices: {
       '2fa_locked': 'Код несколько раз введён неверно. Для безопасности войдите заново с паролем.',
       '2fa_expired': 'Время для входа истекло. Войдите заново с паролем.',
@@ -107,7 +119,8 @@ export const ru: typeof uz = {
       intro: 'Введите почту вашего аккаунта. Мы отправим ссылку для смены пароля; она действует 1 час.',
       submit: 'Отправить ссылку',
       sent: 'Если аккаунт с этим адресом существует, мы отправили на него ссылку для смены пароля. Ссылка действует 1 час.',
-      noMail: 'На этом сервере не настроена электронная почта, поэтому ссылку отправить нельзя. Чтобы установить новый пароль, обратитесь к администратору сервиса.',
+      noMail: 'Сейчас ссылку для восстановления нельзя отправить по почте. Чтобы задать новый пароль, напишите нам.',
+      contact: 'Написать нам',
     },
     reset: {
       title: 'Новый пароль',
@@ -132,7 +145,6 @@ export const ru: typeof uz = {
     },
     telegram: {
       title: 'Вход через Telegram',
-      off: 'Telegram-бот на этом сервере не настроен.',
       unbound: 'Не привязан. После привязки кнопка «Войти через Telegram» на странице входа будет открывать именно этот аккаунт.',
       bound: 'Привязан. Кнопка «Войти через Telegram» на странице входа открывает этот аккаунт.',
       separate: 'Это отдельно от чатов для уведомлений: привязка чата никому не даёт права входа.',

@@ -4,8 +4,11 @@
 // is decided on the page.
 //
 // Wording follows the app (src/lib/i18n.ts): finding types, severities and the
-// confidence bands (≥ 0.9 "Yuqori ishonch", ≥ 0.6 "Tekshirish kerak", below
-// "Past ishonch") — the same thresholds as bandOf in src/core/match/score.ts.
+// match labels (≥ 0.9 "Yuqori moslik", ≥ 0.75 "Oʻrtacha moslik", below "Past
+// moslik") — the thresholds of CONFIDENCE_LABELS in
+// src/core/match/confidence-labels.ts. A score ranks matches; it is not a
+// probability, so nothing here says "ishonch". Not imported: this runs in the
+// browser and that module pulls in the normaliser. The test holds them together.
 import type { SampleCatalogRow, SampleCode, SampleFindingType } from '@/lib/sample-report.generated';
 
 export type Filter = 'risky' | SampleFindingType | 'clean' | 'all';
@@ -60,10 +63,13 @@ export function countsFor(catalog: readonly SampleCatalogRow[]): Record<Filter, 
 
 export type Band = { key: 'high' | 'medium' | 'low'; label: string };
 
+/** Same cut-offs as CONFIDENCE_LABELS (sure, likely). */
+export const BAND_CUTOFFS = { high: 0.9, medium: 0.75 } as const;
+
 export function bandOf(confidence: number): Band {
-  if (confidence >= 0.9) return { key: 'high', label: 'Yuqori ishonch' };
-  if (confidence >= 0.6) return { key: 'medium', label: 'Tekshirish kerak' };
-  return { key: 'low', label: 'Past ishonch' };
+  if (confidence >= BAND_CUTOFFS.high) return { key: 'high', label: 'Yuqori moslik' };
+  if (confidence >= BAND_CUTOFFS.medium) return { key: 'medium', label: 'Oʻrtacha moslik' };
+  return { key: 'low', label: 'Past moslik' };
 }
 
 /**
@@ -108,7 +114,7 @@ export function readFinding(
       ? 'Taklifni koʻrib chiqib, tasdiqlang.'
       : band === 'medium'
         ? 'Taklifni tekshiring: tasdiqlang yoki muqobillardan boshqasini tanlang.'
-        : 'Ishonch past — kodni qoʻlda tanlang, taklifga tayanmang.';
+        : 'Moslik past — kodni qoʻlda tanlang, taklifga tayanmang.';
 
   switch (finding.type) {
     case 'MISSING':

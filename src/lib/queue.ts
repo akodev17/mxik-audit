@@ -3,6 +3,7 @@
 // fixed order (high first, then client, then row) with keyset pages.
 import { Prisma } from '@prisma/client';
 import type { MatchStage } from '../core/match/types';
+import { resolveUnit } from '../core/normalize/units';
 import { db } from './db';
 import { localDate } from './reminder-dates';
 import { FINDING_TYPES, type WsType } from './workspace';
@@ -45,6 +46,8 @@ export type QueueRow = {
   severity: 'high' | 'medium';
   existingMxik: string | null;
   suggestedMxik: string | null;
+  /** Unit findings only: the unit the code requires (the suggested code is the current one). */
+  unitFix: UnitFix | null;
   confidence: number | null;
   stage: MatchStage | null;
   askClient: boolean;
@@ -55,6 +58,16 @@ export type QueueRow = {
   clientId: string;
   clientName: string;
 };
+
+export type UnitFix = { current: string | null; expected: string };
+
+/** The unit a unit-conflict row should carry: the first of its code's units, in the official spelling. */
+export function unitFixOf(rowUnit: string | null, codeUnits: readonly string[] | null): UnitFix | null {
+  const first = codeUnits?.find((u) => u.trim() !== '');
+  if (!codeUnits || !first) return null;
+  const official = codeUnits.map(resolveUnit).find((u) => u !== null);
+  return { current: rowUnit?.trim() || null, expected: official ? official.latin : first.trim() };
+}
 
 export type QueueCursor = { s: number; n: string; c: string; r: number; i: string };
 
@@ -122,7 +135,7 @@ const SEV = Prisma.sql`(CASE WHEN f.severity = 'high'::severity THEN 0 ELSE 1 EN
 type Raw = {
   finding_id: string; row_index: number; raw_name: string; unit: string | null; type: string; severity: 'high' | 'medium';
   existing_mxik: string | null; suggested_mxik: string | null; confidence: number | null; stage: string | null; flag: string | null;
-  comments: number; catalog_id: string; catalog_name: string; audited_at: Date; client_id: string; client_name: string; sev: number;
+  code_units: string[] | null; comments: number; catalog_id: string; catalog_name: string; audited_at: Date; client_id: string; client_name: string; sev: number;
 };
 
 export type ClientCount = { clientId: string; name: string; findings: number; rows: number };
@@ -160,6 +173,7 @@ export async function queuePage(user: QueueViewer, f: QueueFilter, cursor: Queue
     WITH latest AS (${latest(user.orgId, ids)})
     SELECT f.id AS finding_id, i."rowIndex" AS row_index, i."rawName" AS raw_name, i.unit, f.type::text AS type, f.severity::text AS severity,
       i."existingMxik" AS existing_mxik, f."suggestedMxik" AS suggested_mxik, f.confidence, f.evidence->>'stage' AS stage, f.flag,
+      CASE WHEN f.type::text = 'UNIT_CONFLICT' THEN (SELECT m."unitCanonical" FROM mxik_code m WHERE m.code = i."existingMxik") END AS code_units,
       (SELECT count(*)::int FROM finding_comment fc WHERE fc."findingId" = f.id) AS comments,
       l.id AS catalog_id, l.filename AS catalog_name, l."createdAt" AS audited_at, cl.id AS client_id, cl.name AS client_name,
       ${SEV} AS sev
@@ -182,6 +196,7 @@ export async function queuePage(user: QueueViewer, f: QueueFilter, cursor: Queue
     rows: page.map((r) => ({
       findingId: r.finding_id, rowIndex: r.row_index, rawName: r.raw_name, unit: r.unit, type: r.type, severity: r.severity,
       existingMxik: r.existing_mxik, suggestedMxik: r.suggested_mxik, confidence: r.confidence, stage: readStage(r.stage),
+      unitFix: r.type === 'UNIT_CONFLICT' ? unitFixOf(r.unit, r.code_units) : null,
       askClient: r.flag === 'ask_client', comments: r.comments, catalogId: r.catalog_id, catalogName: r.catalog_name,
       auditedAt: r.audited_at, clientId: r.client_id, clientName: r.client_name,
     })),

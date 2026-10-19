@@ -36,12 +36,14 @@ export function ColumnsMenu({ hidden, compact, grouped, onHidden, onCompact, onG
           <p className="text-small font-medium text-fg">{x.view.density}</p>
           <Segmented label={x.view.density} value={compact ? 'c' : 'k'} onChange={(v) => onCompact(v === 'c')} options={[{ value: 'k', label: x.view.comfortable }, { value: 'c', label: x.view.compact }]} />
         </div>
-        <fieldset className="space-y-2">
+        <fieldset>
           <legend className="mb-1 text-small font-medium text-fg">{x.columns.title}</legend>
-          {OPTIONAL_COLUMNS.map((c) => (
-            <Checkbox key={c} label={x.col[c]} checked={!off.has(c)} onChange={(e) => toggle(c, e.target.checked)} />
-          ))}
-          <p className="pt-1 text-micro text-muted">{x.columns.hint}</p>
+          <div className="flex flex-col items-start gap-2">
+            {OPTIONAL_COLUMNS.map((c) => (
+              <Checkbox key={c} label={x.col[c]} checked={!off.has(c)} onChange={(e) => toggle(c, e.target.checked)} />
+            ))}
+          </div>
+          <p className="pt-2 text-micro text-muted">{x.columns.hint}</p>
         </fieldset>
       </div>
     </Popover>

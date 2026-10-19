@@ -19,7 +19,34 @@ export type Shaped = {
   /** Rows above the header (titles, notes) that were not read as data. */
   skippedAbove: number;
   emptyRowsSkipped: number;
+  /**
+   * Where data rows sit in the file: [data row (1-based), file line] for every
+   * row that does not follow the previous one directly (an empty row between).
+   * Empty when the data runs on from the header; null when too many to keep.
+   */
+  lineJumps: [number, number][] | null;
 };
+
+/** More gaps than this between data rows and the file lines are not kept. */
+const MAX_JUMPS = 2000;
+
+export type LineInfo = { headerRow: number; lineJumps?: readonly (readonly [number, number])[] | null };
+
+/**
+ * The file line (sheet row) of a data row, 1-based as the user sees it in
+ * Excel; null when the upload did not keep where its rows were.
+ */
+export function fileLine(info: LineInfo, dataRow: number): number | null {
+  if (!info.lineJumps) return null;
+  let base = info.headerRow;
+  let from = 0;
+  for (const [row, line] of info.lineJumps) {
+    if (row > dataRow) break;
+    base = line;
+    from = row;
+  }
+  return base + (dataRow - from);
+}
 
 const filled = (row: readonly string[]): number => row.reduce((n, c) => n + (c.trim() === '' ? 0 : 1), 0);
 
@@ -92,8 +119,24 @@ export function shapeGrid(grid: readonly (readonly string[] | undefined)[], extr
     return padded;
   });
   const totalSeen = data.length + extraRows;
+  const headerRow = lines[headerIndex] ?? 1;
   return {
     headers, rows, totalSeen, truncated: totalSeen > rows.length,
-    headerRow: lines[headerIndex] ?? 1, skippedAbove: headerIndex, emptyRowsSkipped,
+    headerRow, skippedAbove: headerIndex, emptyRowsSkipped,
+    lineJumps: jumps(lines.slice(headerIndex + 1, headerIndex + 1 + kept.length), headerRow),
   };
+}
+
+function jumps(dataLines: readonly number[], headerRow: number): [number, number][] | null {
+  const out: [number, number][] = [];
+  let previous = headerRow;
+  for (let i = 0; i < dataLines.length; i++) {
+    const line = dataLines[i] ?? previous + 1;
+    if (line !== previous + 1) {
+      if (out.length === MAX_JUMPS) return null;
+      out.push([i + 1, line]);
+    }
+    previous = line;
+  }
+  return out;
 }

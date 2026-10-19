@@ -4,6 +4,7 @@ import { fmtDateTime, fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { Badge, StatusChip, StatusIcon, type Tone } from '@/ui/badge';
 import { cx } from '@/ui/cx';
+import { Tooltip } from '@/ui/tooltip';
 import { CatalogRowActions } from './catalog-row-actions';
 
 const STATUS_TONE: Record<CatalogListItem['status'], Tone> = { ready: 'good', analyzing: 'info', failed: 'danger', uploaded: 'neutral' };
@@ -18,8 +19,8 @@ export async function CatalogList({ items, showClient, canDelete }: Props) {
   const { locale, t, ta } = await getI18n();
   const words = ta.firmX.catalogs;
   const cols = showClient
-    ? 'md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.6fr)_5rem_5rem_8.5rem_7.5rem]'
-    : 'md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.6fr)_5rem_5rem_8.5rem_7.5rem]';
+    ? 'md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.6fr)_4.5rem_5.5rem_minmax(9.5rem,auto)_7.5rem]'
+    : 'md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.6fr)_4.5rem_5.5rem_minmax(9.5rem,auto)_7.5rem]';
   const label = 'text-micro text-muted md:sr-only';
   return (
     <div className="relative rounded-ctl border border-line bg-raised">
@@ -39,7 +40,12 @@ export async function CatalogList({ items, showClient, canDelete }: Props) {
             <li key={c.id} className={cx('relative grid grid-cols-2 gap-x-3 gap-y-2 px-3 py-3 md:items-center md:py-2', cols)}>
               <div className="col-span-2 min-w-0 md:col-span-1">
                 <Link href={`/catalogs/${c.id}`} className="block truncate font-medium hover:text-brand-ink hover:underline" title={c.filename}>{c.filename}</Link>
-                {c.repeatedName ? <Badge tone="neutral" title={words.repeatedHint} className="mt-0.5">{words.repeated}</Badge> : null}
+                {/* Focusable, so touch and keyboard users can reach the explanation too. */}
+                {c.repeatedName ? (
+                  <Tooltip content={words.repeatedHint} align="start">
+                    <button type="button" className="mt-0.5 rounded-sm"><Badge tone="neutral">{words.repeated}</Badge></button>
+                  </Tooltip>
+                ) : null}
               </div>
               {showClient ? (
                 <div className="col-span-2 min-w-0 md:col-span-1">
@@ -66,7 +72,7 @@ export async function CatalogList({ items, showClient, canDelete }: Props) {
                   ? <span className="block text-muted"><span aria-hidden>{ta.firmX.dash}</span><span className="sr-only">{words.notAudited}</span></span>
                   : <span className={cx('block tabular-nums', c.riskyRows > 0 && 'font-medium text-danger-ink')}>{fmtNumber(locale, c.riskyRows)}</span>}
               </div>
-              <div>
+              <div className="min-w-0 md:pr-2">
                 <span className={label}>{t.catalogsStatus}</span>
                 <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{c.status === 'uploaded' ? words.statusUploaded : t.catalogStatus[c.status]}</StatusChip>
               </div>

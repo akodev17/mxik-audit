@@ -6,6 +6,7 @@ import { cx } from './cx';
 import { focusables } from './focus';
 import { IconChevronDown } from './icons';
 import { useEscape, useOutsidePress } from './overlay';
+import { panelPosition, usePlacement } from './use-placement';
 
 type Props = {
   /** Text of the trigger button. */
@@ -28,6 +29,7 @@ type Props = {
 /**
  * A button that opens a small non-modal panel (filters, share settings). Focus moves into the panel;
  * Escape, a click outside or tabbing away closes it; Escape and close() return focus to the button.
+ * `side` and `align` are preferences: the panel flips and shifts to stay inside the viewport.
  */
 export function Popover({ label, title, children, icon, variant = 'secondary', size = 'md', align = 'start', side = 'bottom', open: controlled, onOpenChange, panelClassName }: Props) {
   const [inner, setInner] = useState(false);
@@ -49,6 +51,7 @@ export function Popover({ label, title, children, icon, variant = 'secondary', s
 
   useEscape(open, () => close(true));
   useOutsidePress(open, [root], () => close(false));
+  const position = panelPosition(usePlacement(open, root, panel, side, align), side, align);
 
   useEffect(() => {
     if (!open || !panel.current) return;
@@ -83,11 +86,11 @@ export function Popover({ label, title, children, icon, variant = 'secondary', s
           aria-label={title}
           aria-labelledby={title ? undefined : triggerId}
           tabIndex={-1}
+          style={position.style}
           className={cx(
             'absolute z-dropdown w-max min-w-56 max-w-[min(24rem,calc(100vw-2rem))] rounded-md border border-line bg-raised p-3 text-data text-fg shadow-pop',
             'focus-visible:outline-none motion-safe:animate-pop-in',
-            align === 'end' ? 'right-0' : 'left-0',
-            side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+            position.className,
             panelClassName,
           )}
         >

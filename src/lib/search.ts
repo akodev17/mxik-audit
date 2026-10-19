@@ -167,15 +167,21 @@ async function findProducts(user: SearchUser, parsed: ParsedQuery): Promise<Prod
   });
 }
 
-/** Exact 17-digit code, or every code under a prefix of at least five digits. */
+type CodeRow = { code: string; nameUz: string; nameRu: string; retiredAt: Date | null };
+
+/**
+ * Exact 17-digit code, or every code under a prefix of at least five digits.
+ * Raw SQL because Prisma's startsWith casts the char(17) key to text, which no index serves.
+ * A plain LIKE uses mxik_code_code_prefix_idx (bpchar_pattern_ops), and ordering by that
+ * index's operator lets the scan stop at the limit; codes are digits only, so the order is the same.
+ */
 async function findCodes(digits: string | null, locale: Locale): Promise<CodeHit[]> {
   if (!digits) return [];
-  const rows = await db.mxikCode.findMany({
-    where: digits.length === 17 ? { code: digits } : { code: { startsWith: digits } },
-    orderBy: { code: 'asc' },
-    take: LIMITS.codes,
-    select: { code: true, nameUz: true, nameRu: true, retiredAt: true },
-  });
+  const rows = await db.$queryRaw<CodeRow[]>(Prisma.sql`
+    SELECT code, "nameUz", "nameRu", "retiredAt" FROM mxik_code
+    WHERE code LIKE ${`${escapeLike(digits)}%`}
+    ORDER BY code USING ~<~
+    LIMIT ${LIMITS.codes}`);
   return rows.map((r) => ({
     code: r.code.trim(),
     name: (locale === 'ru' ? r.nameRu || r.nameUz : r.nameUz || r.nameRu).trim(),

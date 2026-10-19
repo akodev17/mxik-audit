@@ -5,11 +5,14 @@ import { useState } from 'react';
 import { setAccountantsAction } from '@/app/actions/clients';
 import type { AssignableAccountant } from '@/lib/client-lifecycle';
 import { useI18n } from '@/lib/locale-client';
-import { Button } from '@/ui/button';
+import { Button, ButtonLink } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { Dialog } from '@/ui/dialog';
+import { EmptyState } from '@/ui/empty-state';
 import { IconError } from '@/ui/icons';
 import { useToast } from '@/ui/toast';
+
+const TEAM_HREF = '/settings?tab=team';
 
 /**
  * Admins tick which accountants work on this client. People whose reach would
@@ -58,16 +61,21 @@ export function AccountantsEditor({ clientId, people }: { clientId: string; peop
         open={open}
         onClose={() => setOpen(false)}
         title={words.accountantsDialog}
-        description={words.accountantsDialogHint}
+        description={people.length === 0 ? undefined : words.accountantsDialogHint}
         dismissible={!busy}
         footer={(
           <>
-            <Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>{ta.shellX.ui.cancel}</Button>
-            <Button variant="primary" loading={busy} onClick={() => { void save(); }} disabled={people.length === 0}>{words.accountantsSave}</Button>
+            <Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>{people.length === 0 ? words.close : ta.shellX.ui.cancel}</Button>
+            {people.length === 0 ? null : <Button variant="primary" loading={busy} onClick={() => { void save(); }}>{words.accountantsSave}</Button>}
           </>
         )}
       >
-        {people.length === 0 ? <p className="text-small text-muted">{words.accountantsEmpty}</p> : (
+        {people.length === 0 ? (
+          <EmptyState
+            size="compact" as="h3" title={words.accountantsEmpty} hint={words.accountantsEmptyHint}
+            action={<ButtonLink href={TEAM_HREF} variant="primary">{words.inviteColleague}</ButtonLink>}
+          />
+        ) : (
           <ul className="space-y-3">
             {people.map((p) => {
               const locked = p.unrestricted || p.onlyThis;

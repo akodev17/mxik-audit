@@ -11,6 +11,7 @@ import { IntegrationsTab } from './integrations-tab';
 import { LegacyHash } from './legacy-hash';
 import { PlanTab } from './plan-tab';
 import { SecurityTab } from './security-tab';
+import { TabStrip } from './tab-strip';
 import { chooseTab, tabHref, visibleTabs, type SettingsTab } from './tabs';
 import { TeamTab } from './team-tab';
 
@@ -38,9 +39,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   return (
     <Page title={t.settingsTitle}>
       <LegacyHash />
-      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 [&_a]:whitespace-nowrap" aria-label={s.tabs.label} role="region">
+      <TabStrip label={s.tabs.label}>
         <Tabs items={visible.map((id) => ({ href: tabHref(id), label: label(id), active: id === tab }))} />
-      </div>
+      </TabStrip>
       {refused ? <p role="status" className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-small text-muted">{s.adminOnly(label(refused))}</p> : null}
       {demo ? <p className="mt-4 text-small text-muted">{s.demoOnly}</p> : null}
       <div className="mt-6">

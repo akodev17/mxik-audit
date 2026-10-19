@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { SAMPLE_FILENAME as SCRIPT_FILENAME } from '../../../scripts/landing-sample/catalog.js';
+import { CONFIDENCE_LABELS, confidenceLabel } from '../../core/match/confidence-labels.js';
+import { dict } from '../../lib/i18n.js';
 import { SAMPLE_REPORT } from '../../lib/sample-report.generated.js';
-import { SAMPLE_FILENAME } from './data.js';
+import { SAMPLE_FILENAME, nf } from './data.js';
 import { firstDivergence, splitCode } from './mxik-code.js';
 import {
-  FILTERS, bandOf, countsFor, primaryFinding, readFinding, rowsFor, sentenceCase,
+  BAND_CUTOFFS, FILTERS, bandOf, countsFor, primaryFinding, readFinding, rowsFor, sentenceCase,
 } from './workspace-model.js';
 
 const { catalog, codes, byType, riskyRows, totalRows } = SAMPLE_REPORT;
@@ -63,11 +65,23 @@ describe('helpers', () => {
     assert.equal(SAMPLE_FILENAME, SCRIPT_FILENAME);
   });
 
-  it('bands confidence like the app', () => {
-    assert.equal(bandOf(0.95).key, 'high');
+  it('formats figures with fixed separators, so server and browser agree', () => {
+    assert.equal(nf.format(438925), '438 925');
+    assert.equal(nf.format(1234567), '1 234 567');
+    assert.equal(nf.format(42), '42');
+  });
+
+  it('bands and words a match score exactly like the app', () => {
+    assert.deepEqual(BAND_CUTOFFS, { high: CONFIDENCE_LABELS.sure, medium: CONFIDENCE_LABELS.likely });
+    const t = dict('uz');
+    for (const score of [1, 0.95, 0.9, 0.89, 0.8, 0.75, 0.74, 0.6, 0.3]) {
+      const app = confidenceLabel(score);
+      const words = { sure: t.confidenceSure, likely: t.confidenceLikely, check: t.confidenceCheck };
+      assert.equal(bandOf(score).label, words[app], String(score));
+    }
     assert.equal(bandOf(0.9).key, 'high');
-    assert.equal(bandOf(0.6).key, 'medium');
-    assert.equal(bandOf(0.59).key, 'low');
+    assert.equal(bandOf(0.75).key, 'medium');
+    assert.equal(bandOf(0.74).key, 'low');
   });
 
   it('splits a code into its six levels and finds where two codes part', () => {

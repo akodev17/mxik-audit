@@ -27,22 +27,33 @@ type Props = {
   icon?: ReactNode;
 };
 
-/** Small pill for counts and labels. */
+// When space is tight only the label shortens (ellipsis); the icon keeps its size and the full
+// label stays in the DOM for screen readers. A title repeats it on hover, as a supplement only.
+const LABEL = 'min-w-0 truncate';
+
+function textOf(node: ReactNode): string | undefined {
+  return typeof node === 'string' || typeof node === 'number' ? String(node) : undefined;
+}
+
+/**
+ * Small pill for counts and labels. The title is not automatic here: badges often sit inside a
+ * Tooltip trigger, where a native title would show a second tooltip.
+ */
 export function Badge({ tone = 'neutral', children, title, className, icon }: Props) {
   return (
-    <span title={title} className={cx('inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-full px-2 text-micro font-medium', TONE[tone], className)}>
-      {icon}
-      {children}
+    <span title={title} className={cx('inline-flex h-5 min-w-0 max-w-full items-center gap-1 whitespace-nowrap rounded-full px-2 text-micro font-medium', TONE[tone], className)}>
+      {icon ? <span className="inline-flex shrink-0">{icon}</span> : null}
+      <span className={LABEL}>{children}</span>
     </span>
   );
 }
 
-/** Status: a dot or icon plus a label, so the meaning never rests on colour alone. */
+/** Status: a dot or icon plus a label, so the meaning never rests on colour alone; a plain-text label is also the title. */
 export function StatusChip({ tone = 'neutral', children, title, className, icon }: Props) {
   return (
-    <span title={title} className={cx('inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-micro font-medium', TONE[tone], className)}>
-      {icon ?? <span aria-hidden className={cx('size-1.5 shrink-0 rounded-full', DOT[tone])} />}
-      {children}
+    <span title={title ?? textOf(children)} className={cx('inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-micro font-medium', TONE[tone], className)}>
+      {icon ? <span className="inline-flex shrink-0">{icon}</span> : <span aria-hidden className={cx('size-1.5 shrink-0 rounded-full', DOT[tone])} />}
+      <span className={LABEL}>{children}</span>
     </span>
   );
 }

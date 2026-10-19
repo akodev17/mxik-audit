@@ -50,7 +50,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   );
 
   return (
-    <Page title={n.title} hint={n.hint} actions={<MarkAllReadButton unread={unread} />}>
+    <Page title={n.title} hint={n.hint} wide actions={unread > 0 ? <MarkAllReadButton /> : null}>
       <nav aria-label={n.filter} className="mb-4 inline-flex rounded-ctl border border-line-strong bg-surface p-0.5">
         <Link href={pageHref(1, false)} aria-current={unreadOnly ? undefined : 'page'} className={tab(!unreadOnly)}>{n.all}</Link>
         <Link href={pageHref(1, true)} aria-current={unreadOnly ? 'page' : undefined} className={tab(unreadOnly)}>

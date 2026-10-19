@@ -12,7 +12,7 @@ export async function ActivityTable({ entries }: { entries: ActivityEntry[] }) {
   const { locale, ta } = await getI18n();
 
   const client = (r: ActivityRow): ReactNode => (r.clientName
-    ? r.clientId ? <Link href={`/clients/${r.clientId}`} className="hover:text-fg hover:underline">{r.clientName}</Link> : r.clientName
+    ? r.clientId ? <Link href={`/clients/${r.clientId}`} className="text-brand-ink hover:underline">{r.clientName}</Link> : r.clientName
     : null);
   const catalog = (r: ActivityRow): ReactNode => {
     const text = catalogText(r, ta);

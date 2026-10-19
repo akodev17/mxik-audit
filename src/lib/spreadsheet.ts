@@ -28,6 +28,8 @@ export type ParseMeta = {
   emptyRowsSkipped: number;
   totalSeen: number;
   truncated: boolean;
+  /** See Shaped.lineJumps (sheet-shape.ts); absent on uploads read before it was kept. */
+  lineJumps?: [number, number][] | null;
 };
 
 export type ParseResult = SheetData & { truncated: boolean; totalSeen: number; meta: ParseMeta };
@@ -148,7 +150,7 @@ export async function parseUpload(buffer: Buffer, _filename?: string): Promise<P
   const meta: ParseMeta = {
     format: kind === 'xlsx' ? 'xlsx' : 'csv', encoding, delimiter,
     headerRow: shaped.headerRow, skippedAbove: shaped.skippedAbove, emptyRowsSkipped: shaped.emptyRowsSkipped,
-    totalSeen: shaped.totalSeen, truncated: shaped.truncated,
+    totalSeen: shaped.totalSeen, truncated: shaped.truncated, lineJumps: shaped.lineJumps,
   };
   return { headers: shaped.headers, rows: shaped.rows, truncated: shaped.truncated, totalSeen: shaped.totalSeen, meta };
 }

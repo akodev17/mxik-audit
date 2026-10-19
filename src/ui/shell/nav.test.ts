@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { helpHref, isActive, navGroups, switchTarget } from './nav';
+import { helpHref, isActive, navGroups, switcherScope, switchTarget } from './nav';
 import { paletteCommands } from './palette-model';
 import { parseSidebar } from './prefs';
 
@@ -22,15 +22,35 @@ describe('shell navigation', () => {
     assert.equal(isActive('/clients', '/catalogs'), false);
   });
 
-  it('moves client-specific pages to the new client and keeps every other page', () => {
+  it('makes every client switch visible: the new client\'s page, catalogues or filtered list', () => {
     assert.equal(switchTarget('/clients/old', '', 'new'), '/clients/new');
     assert.equal(switchTarget('/clients/old/imports/x', '', 'new'), '/clients/new');
-    assert.equal(switchTarget('/catalogs/abc', '?q=un', 'new'), '/catalogs');
+    assert.equal(switchTarget('/catalogs/abc', '?q=un', 'new'), '/catalogs?client=new');
+    assert.equal(switchTarget('/catalogs', '?client=all&page=3', 'new'), '/catalogs?client=new');
+    assert.equal(switchTarget('/queue', '?type=MISSING&after=abc', 'n w'), '/queue?type=MISSING&client=n+w');
+    assert.equal(switchTarget('/activity', '?client=old&page=2', 'new'), '/activity?client=new');
     assert.equal(switchTarget('/upload', '?client=old', 'new'), '/upload');
     assert.equal(switchTarget('/upload', '', 'new'), null);
-    assert.equal(switchTarget('/catalogs', '', 'new'), null);
-    assert.equal(switchTarget('/clients', '', 'new'), null);
-    assert.equal(switchTarget('/dashboard', '', 'new'), null);
+    assert.equal(switchTarget('/clients', '', 'new'), '/clients/new');
+    assert.equal(switchTarget('/dashboard', '', 'new'), '/clients/new');
+    assert.equal(switchTarget('/settings', '?tab=team', 'a/b'), '/clients/a%2Fb');
+  });
+
+  it('says what the client control stands for on each page', () => {
+    assert.deepEqual(switcherScope('/clients/c1', ''), { kind: 'client', id: 'c1', fallback: 'record' });
+    assert.deepEqual(switcherScope('/clients/c1/purchases', ''), { kind: 'client', id: 'c1', fallback: 'record' });
+    assert.deepEqual(switcherScope('/catalogs/k1', '?type=MISSING'), { kind: 'record' });
+    assert.deepEqual(switcherScope('/catalogs', ''), { kind: 'active' });
+    assert.deepEqual(switcherScope('/catalogs', '?client=all'), { kind: 'all' });
+    assert.deepEqual(switcherScope('/catalogs', '?client=c2'), { kind: 'client', id: 'c2', fallback: 'all' });
+    assert.deepEqual(switcherScope('/queue', ''), { kind: 'all' });
+    assert.deepEqual(switcherScope('/queue', '?client=c3&type=MISSING'), { kind: 'client', id: 'c3', fallback: 'all' });
+    assert.deepEqual(switcherScope('/activity', '?client=c4'), { kind: 'client', id: 'c4', fallback: 'all' });
+    assert.deepEqual(switcherScope('/upload', ''), { kind: 'active' });
+    assert.deepEqual(switcherScope('/upload', '?client=c5'), { kind: 'client', id: 'c5', fallback: 'all' });
+    for (const firmWide of ['/dashboard', '/clients', '/dictionary', '/notifications', '/settings']) {
+      assert.deepEqual(switcherScope(firmWide, ''), { kind: 'all' }, firmWide);
+    }
   });
 
   it('reads the sidebar cookie, defaulting to automatic', () => {

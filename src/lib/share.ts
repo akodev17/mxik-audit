@@ -1,13 +1,17 @@
 // Read-only report links. The token is shown once; only its hash is stored.
 import { createHash, randomBytes } from 'node:crypto';
 import { absoluteUrl } from './app-url';
-import { catalogScope } from './access';
+import { canWrite, catalogScope } from './access';
+import type { Role } from './session';
 import { db } from './db';
 import { orgActive } from './security/org-active';
 
 const hash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
-type Actor = { userId: string; orgId: string; clientIds?: string[] | null };
+type Actor = { userId: string; orgId: string; clientIds?: string[] | null; role?: Role };
+
+/** Viewers may read links but never create or revoke them; callers without a role are trusted server code. */
+const mayChange = (actor: Actor): boolean => actor.role === undefined || canWrite({ role: actor.role });
 
 export type ShareLinkView = {
   id: string; createdAt: Date; expiresAt: Date; revokedAt: Date | null; views: number; lastViewedAt: Date | null; includePdf: boolean;
@@ -16,6 +20,7 @@ export type ShareLinkView = {
 export async function createShareLink(
   actor: Actor, catalogId: string, input: { days: 7 | 30; includePdf: boolean },
 ): Promise<{ url: string } | null> {
+  if (!mayChange(actor)) return null;
   const catalog = await db.catalog.findFirst({ where: { id: catalogId, status: 'ready', ...catalogScope(actor) }, select: { id: true } });
   if (!catalog) return null;
   const token = randomBytes(24).toString('base64url');
@@ -39,6 +44,7 @@ export async function listShareLinks(actor: Actor, catalogId: string): Promise<S
 }
 
 export async function revokeShareLink(actor: Actor, linkId: string): Promise<boolean> {
+  if (!mayChange(actor)) return false;
   const link = await db.shareLink.findFirst({ where: { id: linkId, orgId: actor.orgId, catalog: catalogScope(actor) }, select: { id: true } });
   if (!link) return false;
   await db.$transaction([

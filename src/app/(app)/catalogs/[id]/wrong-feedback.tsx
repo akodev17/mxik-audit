@@ -31,7 +31,14 @@ export function WrongFeedback({ findingId }: { findingId: string }) {
     }
   }
 
-  if (!open) return <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>{ta.wrong.button}</Button>;
+  if (!open) {
+    return (
+      <section className="border-t border-line pt-4">
+        <Button variant="secondary" size="sm" aria-describedby={`wrong-hint-${findingId}`} onClick={() => setOpen(true)}>{ta.wrong.button}</Button>
+        <p id={`wrong-hint-${findingId}`} className="mt-1 text-micro text-muted">{ta.wsX.drawer.wrongHint}</p>
+      </section>
+    );
+  }
   return (
     <form className="space-y-2 rounded-ctl border border-line p-3" onSubmit={(e) => { e.preventDefault(); void send(); }}>
       <fieldset className="space-y-1 text-small">
@@ -45,7 +52,7 @@ export function WrongFeedback({ findingId }: { findingId: string }) {
       </fieldset>
       <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} placeholder={ta.wrong.note} aria-label={ta.wrong.note} />
       <div className="flex gap-2">
-        <Button type="submit" size="sm" variant="primary" loading={busy}>{ta.wrong.send}</Button>
+        <Button type="submit" size="sm" variant="secondary" loading={busy}>{ta.wrong.send}</Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>{ta.wrong.cancel}</Button>
       </div>
     </form>

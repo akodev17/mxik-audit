@@ -42,8 +42,8 @@ describe('help center articles', () => {
   it('uses the honest suggestion labels, never the old certainty words', async () => {
     const uz = await source('uz', 'hisobotni-oqish');
     const ru = await source('ru', 'hisobotni-oqish');
-    for (const label of ['Yuqori moslik', 'Oʻrtacha moslik', 'Tekshirish kerak']) assert.ok(uz.includes(label), label);
-    for (const label of ['Высокое совпадение', 'Среднее совпадение', 'Нужно проверить']) assert.ok(ru.includes(label), label);
+    for (const label of ['Yuqori moslik', 'Oʻrtacha moslik', 'Past moslik']) assert.ok(uz.includes(label), label);
+    for (const label of ['Высокое совпадение', 'Среднее совпадение', 'Низкое совпадение']) assert.ok(ru.includes(label), label);
     assert.doesNotMatch(uz, /\*Aniq\*|\*Ehtimoliy\*/);
     assert.doesNotMatch(ru, /\*Точно\*|\*Вероятно\*/);
   });
@@ -57,7 +57,8 @@ describe('help center articles', () => {
     const saved = process.env['PLAN_FIRM_PRICE'];
     try {
       delete process.env['PLAN_FIRM_PRICE'];
-      assert.match(await render('uz', 'tariflar-va-limitlar'), /hali belgilanmagan/);
+      assert.match(await render('uz', 'tariflar-va-limitlar'), /kelishiladi/);
+      assert.match(await render('ru', 'tariflar-va-limitlar'), /по запросу/);
       process.env['PLAN_FIRM_PRICE'] = '450000';
       assert.match(await render('uz', 'tariflar-va-limitlar'), /450\s000 soʻm \/ oy/);
     } finally {

@@ -7,11 +7,13 @@ import { fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { withQuery } from '@/lib/query-string';
 import { currentUser } from '@/lib/session';
-import { Button, ButtonLink } from '@/ui/button';
+import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { Select } from '@/ui/select';
+import { FILTER_FIELD, FilterBar } from '../queue/filter-bar';
 import { CatalogList } from './catalog-list';
+import { DraftUploads } from './draft-uploads';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -36,9 +38,13 @@ export default async function CatalogsPage({ searchParams }: { searchParams: Pro
   const requested = sp.client === 'all' ? null : clients.find((c) => c.id === (sp.client ?? user.clientId))?.id ?? null;
   const clientId = clients.length > 1 ? requested : null;
   const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
-  const { items, total } = await catalogList(user, clientId, page - 1);
-  const pages = Math.max(1, Math.ceil(total / CATALOG_PAGE));
   const writer = canWrite(user) && !user.demo;
+  // Unconfirmed uploads are listed apart, on the first page, for those who can finish them.
+  const [{ items, total }, drafts] = await Promise.all([
+    catalogList(user, clientId, page - 1),
+    writer && page === 1 ? catalogList(user, clientId, 0, 'drafts') : Promise.resolve({ items: [] }),
+  ]);
+  const pages = Math.max(1, Math.ceil(total / CATALOG_PAGE));
   const params = { client: sp.client };
 
   return (
@@ -47,15 +53,15 @@ export default async function CatalogsPage({ searchParams }: { searchParams: Pro
       actions={writer ? <ButtonLink href={clientId ? `/upload?client=${clientId}` : '/upload'} variant="primary">{ta.catalogs.uploadCta}</ButtonLink> : null}
     >
       {clients.length > 1 ? (
-        <form action="/catalogs" className="mb-5 flex flex-wrap items-end gap-2">
-          <Select label={words.client} name="client" defaultValue={clientId ?? 'all'} wrapperClassName="w-full sm:w-80">
+        <FilterBar action="/catalogs" reset={clientId ? '/catalogs?client=all' : null} compact fieldsClassName="grid-cols-1 sm:w-80">
+          <Select label={words.client} name="client" defaultValue={clientId ?? 'all'} wrapperClassName={FILTER_FIELD}>
             <option value="all">{words.allClients}</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
-          <Button type="submit" variant="secondary">{words.show}</Button>
-        </form>
+        </FilterBar>
       ) : null}
       {canWrite(user) ? null : <p className="mb-4 text-small text-muted">{words.readOnly}</p>}
+      <DraftUploads drafts={drafts.items} showClient={clientId === null && clients.length > 1} />
 
       {items.length === 0 ? (
         <EmptyState

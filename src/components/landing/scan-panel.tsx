@@ -136,11 +136,10 @@ export function ScanPanel({
                   )}
                   {band && f.confidence !== null ? (
                     <div>
-                      <dt className="text-[15px] text-lp-muted">Ishonch</dt>
+                      <dt className="text-[15px] text-lp-muted">Moslik</dt>
                       <dd className="mt-1 flex items-center gap-2 text-[17px]">
                         <span aria-hidden="true" className={`h-3 w-3 ${BAND_MARK[band.key]}`} />
-                        <span className="num font-bold">{Math.round(f.confidence * 100)}%</span>
-                        <span className="text-lp-muted">{band.label.toLowerCase()}</span>
+                        <span className="font-bold">{band.label}</span>
                       </dd>
                     </div>
                   ) : null}

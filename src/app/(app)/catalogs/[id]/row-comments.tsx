@@ -6,6 +6,7 @@ import type { CommentView } from '@/lib/comments';
 import { fmtDateTime } from '@/lib/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
+import { IconCheck } from '@/ui/icons';
 import { Spinner } from '@/ui/spinner';
 import { Textarea } from '@/ui/textarea';
 import { useToast } from '@/ui/toast';
@@ -71,8 +72,15 @@ export function RowComments({ findingId, flag, readOnly, onChange }: Props) {
       <p className="mb-2 text-micro text-muted">{ta.comments.internal}</p>
       {readOnly ? null : (
         <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label={ta.wsX.filter.flag}>
-          <Button size="sm" aria-pressed={current === 'ask_client'} variant={current === 'ask_client' ? 'primary' : 'secondary'} disabled={busy !== null} onClick={() => { void toggle('ask_client'); }}>{ta.comments.askClient}</Button>
-          <Button size="sm" aria-pressed={current === 'resolved'} variant={current === 'resolved' ? 'primary' : 'secondary'} disabled={busy !== null} onClick={() => { void toggle('resolved'); }}>{ta.comments.resolved}</Button>
+          {(['ask_client', 'resolved'] as const).map((f) => (
+            <Button
+              key={f} size="sm" variant="secondary" aria-pressed={current === f} disabled={busy !== null}
+              onClick={() => { void toggle(f); }}
+            >
+              {current === f ? <IconCheck size={14} /> : null}
+              {f === 'ask_client' ? ta.comments.askClient : ta.comments.resolved}
+            </Button>
+          ))}
         </div>
       )}
       {items === null && !failed ? <Spinner label={ta.wsX.drawer.loading} size={14} /> : null}
@@ -91,7 +99,7 @@ export function RowComments({ findingId, flag, readOnly, onChange }: Props) {
       {readOnly ? null : (
         <form className="mt-3" onSubmit={(e) => { e.preventDefault(); if (text.trim()) void send(); }}>
           <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={2000} placeholder={ta.comments.placeholder} aria-label={ta.comments.title} />
-          <Button type="submit" size="sm" variant="primary" className="mt-1" loading={busy === 'send'} disabled={busy !== null || text.trim().length === 0}>{ta.comments.add}</Button>
+          <Button type="submit" size="sm" variant="secondary" className="mt-1" loading={busy === 'send'} disabled={busy !== null || text.trim().length === 0}>{ta.comments.add}</Button>
         </form>
       )}
     </section>

@@ -3,12 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import type { ListPreview } from '@/app/actions/purchases';
+import { canSeeClient } from '@/lib/access';
 import { MAX_UPLOAD_BYTES } from '@/lib/catalog-import';
 import { applyDocMap, deleteDocList, DocMapSchema, DOC_KINDS, restartDocCheck, storeDocList, type DocKind, type DocMap } from '@/lib/docs';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
 import { getI18n } from '@/lib/locale';
 import { uploadsOpen } from '@/lib/plan';
+import { clientArchived } from '@/lib/purchases';
 import { parseErrorCode, parseUpload } from '@/lib/spreadsheet';
 
 export type DocUploadResult = { ok: true; preview: ListPreview & { map: DocMap } } | { ok: false; error: string };
@@ -25,6 +27,7 @@ export async function uploadDoc(form: FormData): Promise<DocUploadResult> {
   const clientId = form.get('clientId');
   const kind = DOC_KINDS.find((k) => k === form.get('kind'));
   if (typeof clientId !== 'string' || !clientId || !kind) return { ok: false, error: e.client };
+  if (canSeeClient(user, clientId) && await clientArchived(user.orgId, clientId)) return { ok: false, error: e.archived };
   const file = form.get('file');
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: e.none };
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: e.tooBig };

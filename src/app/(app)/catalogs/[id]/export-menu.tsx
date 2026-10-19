@@ -3,8 +3,8 @@
 import { useState, type ReactNode } from 'react';
 import { filenameFromDisposition } from '@/lib/export-filename';
 import { useI18n } from '@/lib/locale-client';
-import { Button, ButtonLink } from '@/ui/button';
-import { IconDownload, IconPrint } from '@/ui/icons';
+import { Button } from '@/ui/button';
+import { IconDownload } from '@/ui/icons';
 import { Menu, type MenuItem } from '@/ui/menu';
 import { Popover } from '@/ui/popover';
 import { Spinner } from '@/ui/spinner';
@@ -78,7 +78,7 @@ export function ExportMenu({ catalogId, ready, locked, panel, share }: Props) {
     );
   }
 
-  const item = (kind: Kind): MenuItem => ({ label: x.items[kind], onSelect: () => { void download(kind); }, disabled: busy !== null });
+  const item = (kind: Kind): MenuItem => ({ label: x.items[kind], description: x.hints[kind], onSelect: () => { void download(kind); }, disabled: busy !== null });
   const items = locked ? [item('pdf'), item('pdfClient')] : [item('xlsx'), item('oneCXlsx'), item('oneCCsv'), item('pdf'), item('pdfClient')];
 
   return (
@@ -93,7 +93,6 @@ export function ExportMenu({ catalogId, ready, locked, panel, share }: Props) {
         items={items} variant={locked ? 'secondary' : 'primary'} align="end"
       />
       {share}
-      <ButtonLink href={`/api/report-pdf?catalog=${encodeURIComponent(catalogId)}`} target="_blank" variant="ghost"><IconPrint />{x.openPdf}</ButtonLink>
     </div>
   );
 }

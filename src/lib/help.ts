@@ -46,18 +46,21 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   },
 ];
 
-type Copy = { title: string; description: string; back: string; other: string; home: string; backToApp: string; onPage: string };
+type Copy = { title: string; description: string; back: string; language: string; home: string; onPage: string };
+
+/** Each language named in itself, for the help language switch. */
+export const HELP_LANG_NAMES: Record<HelpLang, string> = { uz: 'Oʻzbekcha', ru: 'Русский' };
 
 export const HELP_COPY: Record<HelpLang, Copy> = {
   uz: {
     title: 'Yordam markazi',
     description: 'MXIK Audit qanday ishlashi: kod tuzilishi, hisobot, muammo turlari, firma lugʻati, tariflar, xavfsizlik, API va savollar.',
-    back: 'Yordam markazi', other: 'Ruscha', home: 'Boshqa maqolalar', backToApp: 'Ilovaga qaytish', onPage: 'Shu maqolada',
+    back: 'Yordam markazi', language: 'Maqola tili', home: 'Boshqa maqolalar', onPage: 'Shu maqolada',
   },
   ru: {
     title: 'Центр помощи',
     description: 'Как работает MXIK Audit: структура кода, отчёт, типы проблем, словарь фирмы, тарифы, безопасность, API и вопросы.',
-    back: 'Центр помощи', other: 'Oʻzbekcha', home: 'Другие статьи', backToApp: 'Вернуться в приложение', onPage: 'В этой статье',
+    back: 'Центр помощи', language: 'Язык статьи', home: 'Другие статьи', onPage: 'В этой статье',
   },
 };
 

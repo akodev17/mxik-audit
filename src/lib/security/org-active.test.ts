@@ -20,7 +20,7 @@ describe('closed accounts stop everything that runs without a sign-in (database)
 
   before(async () => {
     a = await makeOrg();
-    token = (await createApiKey(a, 'test'))?.token ?? '';
+    token = (await createApiKey({ ...a, role: 'admin' }, 'test'))?.token ?? '';
     const { catalogId } = await makeCatalog(a.orgId, [{ rawName: 'Guruch', suggestedMxik: null, confidence: null }]);
     const share = await createShareLink(a, catalogId, { days: 7, includePdf: false });
     shareToken = share?.url.split('/r/')[1] ?? '';

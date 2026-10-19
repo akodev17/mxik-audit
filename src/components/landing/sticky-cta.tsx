@@ -7,14 +7,14 @@ export function StickyCta({ href, label }: { href: string; label: string }) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const targets = ['hero-actions', 'audit']
+    // Hidden while the hero buttons, the form or the footer (its last links) are on screen.
+    const targets = ['hero-actions', 'audit', 'site-footer']
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
     const visible = new Map<Element, boolean>();
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) visible.set(e.target, e.isIntersecting);
       const anyVisible = [...visible.values()].some(Boolean);
-      // Hidden near the top (hero buttons on screen) and at the form.
       setShow(!anyVisible && window.scrollY > 200);
     });
     targets.forEach((t) => io.observe(t));

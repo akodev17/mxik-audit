@@ -8,7 +8,14 @@ import { Table, Td, Th } from '@/ui/table';
 export async function Workload({ rows }: { rows: WorkloadRow[] }) {
   const { locale, ta } = await getI18n();
   const home = ta.firmX.home;
-  if (rows.length === 0) return <p className="text-small text-muted">{home.workloadNone}</p>;
+  if (rows.length === 0) {
+    return (
+      <p className="text-small text-muted">
+        {home.workloadNone}{' '}
+        <Link href="/settings?tab=team" className="font-medium text-brand-ink hover:underline">{ta.firmX.client.inviteColleague}</Link>
+      </p>
+    );
+  }
   const fmt = (n: number): string => fmtNumber(locale, n);
   return (
     <Table label={home.workloadTitle}>

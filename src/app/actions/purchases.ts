@@ -8,7 +8,7 @@ import { MAX_UPLOAD_BYTES } from '@/lib/catalog-import';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
 import { uploadsOpen } from '@/lib/plan';
-import { applyPurchaseMap, deletePurchaseList, PurchaseMapSchema, setClientActivity, storePurchaseList, type PurchaseMap } from '@/lib/purchases';
+import { applyPurchaseMap, clientArchived, deletePurchaseList, PurchaseMapSchema, setClientActivity, storePurchaseList, type PurchaseMap } from '@/lib/purchases';
 import { parseErrorCode, parseUpload } from '@/lib/spreadsheet';
 
 export type ListPreview = { listId: string; filename: string; headers: string[]; rows: string[][]; totalRows: number; totalSeen: number; truncated: boolean };
@@ -26,6 +26,7 @@ export async function uploadPurchases(form: FormData): Promise<PurchaseUploadRes
   const clientId = form.get('clientId');
   const file = form.get('file');
   if (typeof clientId !== 'string' || !clientId) return { ok: false, error: e.client };
+  if (canSeeClient(user, clientId) && await clientArchived(user.orgId, clientId)) return { ok: false, error: e.archived };
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: e.none };
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: e.tooBig };
 

@@ -1,5 +1,6 @@
 // Uzbek Latin copy for the signed-in app UI. Older screens keep theirs in i18n.ts.
 // Russian lives in i18n-app-ru.ts and must match this shape.
+import { fmtNumber } from './format';
 import { taRu } from './i18n-app-ru';
 import { partsUz } from './i18n-parts';
 import type { Locale } from './i18n';
@@ -36,7 +37,7 @@ const coreUz = {
     risky: 'Xavfli qator',
     reviewed: 'Koʻrib chiqilgan',
     allRows: 'Hammasi',
-    progress: (done: number, total: number) => `${done.toLocaleString('uz-UZ')} / ${total.toLocaleString('uz-UZ')} xavfli qator koʻrib chiqildi`,
+    progress: (done: number, total: number) => `${fmtNumber('uz', done)} / ${fmtNumber('uz', total)} xavfli qator koʻrib chiqildi`,
     marking: 'Markirovka',
     marking_title: 'Markirovka kodi talab qilinadigan tovarlar',
     colNo: '#',
@@ -44,7 +45,6 @@ const coreUz = {
     colStatus: 'Holat',
     colCurrent: 'Hozirgi kod',
     colSuggested: 'Taklif',
-    colConfidence: 'Ishonch',
     colDecision: 'Qaror',
     noCode: 'Kod yoʻq',
     noSuggestion: 'Mos taklif topilmadi',
@@ -59,7 +59,6 @@ const coreUz = {
     compact: 'Zich',
     grouped: 'Guruhlash',
     flat: 'Roʻyxat',
-    groupRows: (n: number) => `${n} qator`,
     groupAccept: 'Guruhni tasdiqlash',
     groupReject: 'Guruhni rad etish',
     onlyUnreviewed: 'Faqat koʻrib chiqilmaganlar',
@@ -75,7 +74,6 @@ const coreUz = {
     shortcutsTitle: 'Tezkor tugmalar',
     searchActive: (q: string) => `Qidiruv: “${q}”`,
     clearSearch: 'Qidiruvni tozalash',
-    acceptAll: 'Yuqori ishonchlilarni tasdiqlash',
     acceptedToast: 'Tasdiqlandi',
     rejectedToast: 'Rad etildi',
     undoneToast: 'Qaror bekor qilindi',
@@ -83,7 +81,6 @@ const coreUz = {
     bulkToast: (n: number) => `${n} ta qator tasdiqlandi`,
     notReady: 'Katalog hali tekshirilmagan',
     pickCode: 'Kod tanlash',
-    rowCount: (n: number) => `${n.toLocaleString('uz-UZ')} qator`,
   },
   hint: {
     step: (n: number, total: number) => `${n}/${total}`,
@@ -296,7 +293,7 @@ const coreUz = {
   },
   unitAdvice: {
     title: 'Birlik va qadoqlash maslahati',
-    unit: (current: string, suggested: string) => `Qatordagi birlik "${current}", kod esa "${suggested}" birligiga bogʻlangan. Birlikni shunga oʻzgartirish mumkin.`,
+    unit: (current: string, suggested: string) => `Qatordagi birlik «${current}», kod esa «${suggested}» birligiga bogʻlangan. Birlikni shunga oʻzgartirish mumkin.`,
     packaging: (values: string) => `Nomdan oʻqilgan qadoq: ${values}.`,
     container: (value: string) => `Tasniflagichda: ${value}.`,
     hint: 'Bu faqat maslahat: qator oʻzgarmaydi.',
@@ -337,7 +334,6 @@ const coreUz = {
   },
   bulk: {
     selected: (n: number) => `Tanlandi: ${n}`,
-    selectFiltered: (n: number) => `Filtrdagi barcha ${n} qatorni tanlash`,
     selectAll: 'Hammasini tanlash',
     selectRow: 'Qatorni tanlash',
     accept: 'Takliflarni tasdiqlash',
@@ -356,7 +352,7 @@ const coreUz = {
     hint: 'Havola faqat shu katalogning hisobotini koʻrsatadi: izohlarsiz, boshqa mijozlarsiz, tahrirlash tugmalarisiz.',
     valid: 'Amal qilish:',
     days: (n: number) => `${n} kun`,
-    withPdf: 'PDF ham',
+    withPdf: 'PDF ham qoʻshish',
     create: 'Havola yaratish',
     created: 'Havola yaratildi. Uni hozir nusxalang, keyin koʻrsatilmaydi:',
     views: (n: number, last: string | null) => (last ? `${n} marta koʻrilgan, oxirgisi ${last}` : `${n} marta koʻrilgan`),

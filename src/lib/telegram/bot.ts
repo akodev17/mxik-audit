@@ -6,7 +6,7 @@ import { startAudit } from '../audit-jobs.js';
 import { appDict } from '../i18n-app.js';
 import { gate } from '../plan.js';
 import { applyMapping, mappingFor, MAX_UPLOAD_BYTES, storeCatalog } from '../catalog-import.js';
-import { ownedClient } from '../clients.js';
+import { activeOwnedClient, defaultClient } from '../clients.js';
 import { db } from '../db.js';
 import { dict, type Dict } from '../i18n.js';
 import { orgLocale } from '../org-locale.js';
@@ -17,7 +17,7 @@ import { consumeLinkCode, linkForChat } from './linking.js';
 const ACCEPTED = /\.(xlsx|csv)$/i;
 const MAX_CLIENT_BUTTONS = 30;
 
-type Link = { orgId: string; linkedBy: string | null };
+type Link = { orgId: string; linkedBy: string };
 
 /** The chat's language: its org admin's choice when linked, else Telegram's own setting. */
 async function dictFor(ctx: Context): Promise<Dict> {
@@ -35,7 +35,8 @@ function chatIdOf(ctx: Context): string | null {
 async function importFile(ctx: Context, config: TelegramConfig, link: Link, pending: { fileId: string; filename: string }, clientId: string): Promise<void> {
   const t = await dictFor(ctx);
   const chatId = chatIdOf(ctx);
-  const client = await ownedClient(link.orgId, clientId);
+  // Never into another org's client, nor into an archived one.
+  const client = await activeOwnedClient(link.orgId, clientId);
   if (!chatId || !client || !config.token) {
     await ctx.reply(t.tgError);
     return;
@@ -77,7 +78,7 @@ async function importFile(ctx: Context, config: TelegramConfig, link: Link, pend
     await ctx.reply(t.tgNoNames);
     return;
   }
-  await startAudit(catalogId, link.linkedBy ? { orgId: link.orgId, userId: link.linkedBy } : null, { via: 'telegram' });
+  await startAudit(catalogId, { orgId: link.orgId, userId: link.linkedBy }, { via: 'telegram' });
   await ctx.reply(t.tgStarted(client.name, applied.rows));
 }
 
@@ -116,12 +117,14 @@ export function createBot(config: TelegramConfig): Bot {
       await ctx.reply(t.tgTooBig);
       return;
     }
-    const clients = await db.client.findMany({
-      where: { orgId: link.orgId },
+    // Archived clients are never offered; the default client (never archived) is the fallback.
+    const active = await db.client.findMany({
+      where: { orgId: link.orgId, archivedAt: null },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
       take: MAX_CLIENT_BUTTONS,
       select: { id: true, name: true },
     });
+    const clients = active.length > 0 ? active : [await defaultClient(link.orgId)];
     const only = clients.length === 1 ? clients[0] : undefined;
     if (only) {
       await importFile(ctx, config, link, { fileId: doc.file_id, filename }, only.id);

@@ -70,6 +70,13 @@ export const HEADERS = {
 
 export const IDEMPOTENCY = { maxLength: 255, ttlHours: 24 } as const;
 
+/** What a finding's fields promise: reason is prose for a person; integrations key on the others. */
+export const FINDING_FIELDS = {
+  reason: 'Human-readable explanation in Uzbek (Latin script), for a person to read. Its wording may change between releases: do not parse it. Use type, severity and suggestedMxik, the stable machine-readable fields.',
+  type: 'Stable machine-readable kind of problem.',
+  suggestedMxik: 'Suggested 17-digit code, or null. Stable and machine-readable.',
+} as const;
+
 /** Page sizes: a missing or unreadable limit uses the default, a larger one is cut to the maximum. */
 export const PAGE = {
   catalogs: { default: 50, max: 100 },

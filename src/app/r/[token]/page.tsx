@@ -1,20 +1,33 @@
-import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
-import { countView, resolveShare } from '@/lib/share';
+import { notFound } from 'next/navigation';
+import { cache } from 'react';
+import { fmtDate, fmtNumber } from '@/lib/format';
+import { getI18n } from '@/lib/locale';
 import { reportPdfData } from '@/lib/pdf/report-data';
+import { countView, resolveShare } from '@/lib/share';
 import { Badge } from '@/ui/badge';
+import { buttonClass } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
-import { EmptyState } from '@/ui/empty-state';
 import { typeLabels, typeTone } from '@/ui/labels';
 import { Table, Td, Th } from '@/ui/table';
 
-export async function generateMetadata(): Promise<Metadata> {
+type Params = { params: Promise<{ token: string }> };
+
+/** The link and its report, once per request (metadata and page both need it). */
+const shared = cache(async (token: string) => {
+  const share = await resolveShare(token);
+  const data = share ? await reportPdfData(share.orgId, share.catalogId) : null;
+  return share && data ? { share, data } : null;
+});
+
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { t, ta } = await getI18n();
-  return { title: `${ta.share.pageTitle} — ${t.appName}`, robots: { index: false, follow: false }, referrer: 'no-referrer' };
+  const found = await shared((await params).token);
+  const title = found ? ta.share.pageTitle : ta.share.invalid;
+  return { title: `${title} — ${t.appName}`, robots: { index: false, follow: false }, referrer: 'no-referrer' };
 }
 
 const SHOWN = 300;
-const fmt = (n: number): string => n.toLocaleString('uz-UZ');
 
 type Coded = { code: string; name: string | null } | null;
 function Code({ value }: { value: Coded }) {
@@ -23,14 +36,13 @@ function Code({ value }: { value: Coded }) {
 }
 
 /** Public, read-only report for one catalogue: no comments, no other clients, nothing to edit. */
-export default async function SharedReport({ params }: { params: Promise<{ token: string }> }) {
-  const { t, ta } = await getI18n();
+export default async function SharedReport({ params }: Params) {
+  const { t, ta, locale } = await getI18n();
   const { token } = await params;
-  const share = await resolveShare(token);
-  const data = share ? await reportPdfData(share.orgId, share.catalogId) : null;
-  if (!share || !data) {
-    return <main className="mx-auto max-w-lg px-4 py-24"><EmptyState tone="danger" title={ta.share.invalid} hint={ta.share.invalidHint} /></main>;
-  }
+  const found = await shared(token);
+  if (!found) notFound();
+  const { share, data } = found;
+  const fmt = (n: number): string => fmtNumber(locale, n);
   await countView(share.id);
   const logo = data.logo ? `data:${data.logo.mime};base64,${data.logo.data.toString('base64')}` : null;
   const rows = data.rows.slice(0, SHOWN);
@@ -45,13 +57,13 @@ export default async function SharedReport({ params }: { params: Promise<{ token
             <p className="text-sm text-muted">{ta.share.preparedFor(data.clientName)}</p>
           </div>
         </div>
-        {share.includePdf ? <a href={`/r/${token}/pdf`} className="inline-flex h-10 items-center rounded-ctl bg-brand px-4 text-[15px] font-medium text-white hover:bg-[#1c47d6]">{ta.share.downloadPdf}</a> : null}
+        {share.includePdf ? <a href={`/r/${token}/pdf`} className={buttonClass('primary')}>{ta.share.downloadPdf}</a> : null}
       </header>
 
       <h1 className="mt-6 text-2xl">{data.filename}</h1>
       <p className="mt-1 text-sm text-muted">
-        {data.generatedAt.toLocaleDateString('uz-UZ')}
-        {data.classifierDate ? `, ${ta.ws.classifier.toLowerCase()}: ${data.classifierDate.toLocaleDateString('uz-UZ')}` : ''}
+        {fmtDate(locale, data.generatedAt)}
+        {data.classifierDate ? `, ${ta.ws.classifier.toLowerCase()}: ${fmtDate(locale, data.classifierDate)}` : ''}
       </p>
 
       <dl className="mt-5 flex flex-wrap gap-8">

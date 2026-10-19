@@ -15,12 +15,15 @@ async function member(orgId: string, role: 'admin' | 'accountant' | 'viewer'): P
   return user.id;
 }
 
+type Admin = TestActor & { role: 'admin' };
+const asAdmin = (t: TestActor): Admin => ({ ...t, role: 'admin' });
+
 describe('team members (database)', { skip }, () => {
-  let a: TestActor;
-  let other: TestActor;
+  let a: Admin;
+  let other: Admin;
   before(async () => {
-    a = await makeOrg();
-    other = await makeOrg();
+    a = asAdmin(await makeOrg());
+    other = asAdmin(await makeOrg());
   });
   after(async () => {
     await dropOrgs([a.orgId, other.orgId]);
@@ -69,7 +72,8 @@ describe('team members (database)', { skip }, () => {
       const accountant = await member(solo.orgId, 'accountant');
       const sid = await createRecord(solo.userId, solo.orgId, 'test');
       const key = await db.apiKey.create({ data: { orgId: solo.orgId, name: 'k', prefix: 'mxk_test', tokenHash: `test-${tag()}`, createdBy: solo.userId } });
-      assert.deepEqual(await removeTeamMember({ orgId: solo.orgId, userId: accountant }, solo.userId), { ok: false, reason: 'last_admin' });
+      // A session that still says "admin" while its user was demoted meanwhile reaches the lock.
+      assert.deepEqual(await removeTeamMember({ orgId: solo.orgId, userId: accountant, role: 'admin' }, solo.userId), { ok: false, reason: 'last_admin' });
       assert.equal(await isLive(sid, solo.userId), true, 'the session survives a refused removal');
       assert.equal((await db.apiKey.findUniqueOrThrow({ where: { id: key.id } })).revokedAt, null);
     } finally {
@@ -123,6 +127,43 @@ describe('team members (database)', { skip }, () => {
     assert.ok(event);
     assert.equal((event.payload as { sessionsEnded: number }).sessionsEnded, 1);
     assert.equal((event.payload as { telegramUnlinked: number }).telegramUnlinked, 1);
+  });
+
+  it('a non-admin actor is refused and nothing changes', async () => {
+    const target = await member(a.orgId, 'viewer');
+    for (const role of ['accountant', 'viewer'] as const) {
+      const actor = { orgId: a.orgId, userId: a.userId, role };
+      assert.deepEqual(await changeMember(actor, { userId: target, role: 'admin', access: 'all', clientIds: [] }), { ok: false, reason: 'forbidden' });
+      assert.deepEqual(await removeTeamMember(actor, target), { ok: false, reason: 'forbidden' });
+    }
+    const invite = await db.invite.create({ data: { orgId: a.orgId, tokenHash: tag(), role: 'viewer', clientIds: [], expiresAt: new Date(Date.now() + 86_400_000) } });
+    assert.deepEqual(await revokeTeamInvite({ orgId: a.orgId, userId: a.userId, role: 'viewer' }, invite.id), { ok: false, reason: 'forbidden' });
+    assert.equal((await db.user.findUniqueOrThrow({ where: { id: target } })).role, 'viewer');
+    assert.equal(await db.invite.count({ where: { id: invite.id } }), 1);
+  });
+
+  it('demoting an admin revokes their API keys, unlinks their chats and drops their link codes', async () => {
+    const leaving = await member(a.orgId, 'admin');
+    const key = await db.apiKey.create({ data: { orgId: a.orgId, name: 'k', prefix: 'mxk_dddddd', tokenHash: `test-${tag()}`, createdBy: leaving } });
+    const mine = await db.apiKey.create({ data: { orgId: a.orgId, name: 'mine', prefix: 'mxk_eeeeee', tokenHash: `test-${tag()}`, createdBy: a.userId } });
+    const theirs = chatId();
+    await db.telegramLink.create({ data: { orgId: a.orgId, chatId: theirs, linkedBy: leaving } });
+    await db.telegramLinkCode.create({ data: { code: tag().toUpperCase().padEnd(8, 'Y'), orgId: a.orgId, userId: leaving, expiresAt: new Date(Date.now() + 60_000) } });
+    const own = await db.client.create({ data: { orgId: a.orgId, name: `test-${tag()}` } });
+
+    assert.deepEqual(await changeMember(a, { userId: leaving, role: 'accountant', access: 'selected', clientIds: [own.id] }), { ok: true, clients: 1 });
+    assert.ok((await db.apiKey.findUniqueOrThrow({ where: { id: key.id } })).revokedAt);
+    assert.equal((await db.apiKey.findUniqueOrThrow({ where: { id: mine.id } })).revokedAt, null, 'keys of other admins stay live');
+    assert.equal(await db.telegramLink.findUnique({ where: { chatId: theirs } }), null);
+    assert.equal(await db.telegramLinkCode.count({ where: { userId: leaving, usedAt: null } }), 0);
+    const event = await db.auditEvent.findFirstOrThrow({ where: { orgId: a.orgId, action: 'team.updated', targetId: leaving } });
+    assert.deepEqual(event.payload, { role: 'accountant', previousRole: 'admin', access: 'selected', clients: 1, apiKeysRevoked: 1, telegramUnlinked: 1, apiKeyIds: [key.id] });
+    const revoked = await db.auditEvent.findFirstOrThrow({ where: { orgId: a.orgId, action: 'apikey.revoked', targetId: key.id } });
+    assert.equal((revoked.payload as { reason: string }).reason, 'member_demoted');
+
+    // Promoting them back restores nothing: the revoked key stays revoked.
+    assert.deepEqual(await changeMember(a, { userId: leaving, role: 'admin', access: 'all', clientIds: [] }), { ok: true, clients: 0 });
+    assert.ok((await db.apiKey.findUniqueOrThrow({ where: { id: key.id } })).revokedAt);
   });
 
   it('revoking an invite deletes it and logs it; another org cannot', async () => {

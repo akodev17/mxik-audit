@@ -72,7 +72,7 @@ export function RowDrawer({ row, readOnly, canSplit, phone, touch, onClose, onAc
   const footer = row ? (
     readOnly ? <p className="text-small text-muted">{x.act.readOnly}</p> : (
       <div className="flex flex-wrap items-center gap-2">
-        <DecisionCell row={row} readOnly={false} size="sm" onAccept={onAccept} onReject={onReject} onPick={pick} onUndo={onUndo} />
+        <DecisionCell row={row} readOnly={false} size="sm" prominent onAccept={onAccept} onReject={onReject} onPick={pick} onUndo={onUndo} />
         {row.decision === 'pending' && !touch ? (
           <span className="ml-auto hidden items-center gap-1 text-micro text-muted lg:flex">
             {row.mode === 'pick' ? null : <><Kbd>Enter</Kbd><span aria-hidden>·</span></>}<Kbd>R</Kbd>

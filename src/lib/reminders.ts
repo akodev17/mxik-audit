@@ -7,10 +7,11 @@ import type { Result } from './decisions.js';
 import { appDict } from './i18n-app.js';
 import { orgLocale } from './org-locale.js';
 import { localDate, nextReminderDate, skipsThisMonth } from './reminder-dates.js';
+import { mayWrite, type RoleCarrier } from './write-access.js';
 
 export { localDate, nextReminderDate, skipsThisMonth };
 
-type Who = { userId: string; orgId: string; clientIds?: string[] | null };
+type Who = { userId: string; orgId: string; clientIds?: string[] | null } & RoleCarrier;
 
 export type OpenTask = { id: string; clientId: string; clientName: string; period: string; dueOn: Date; overdue: boolean };
 
@@ -34,6 +35,8 @@ export type ScheduleInput = { dayOfMonth: number; assigneeId: string | null; ena
 export type ScheduleError = 'bad day' | 'not found' | 'bad assignee' | 'assignee scope';
 
 export async function setSchedule(who: Who, clientId: string, input: ScheduleInput, now = new Date()): Promise<{ ok: true; nextDue: Date | null } | { ok: false; error: ScheduleError }> {
+  // A viewer is refused like a client out of reach, whatever the action guard did.
+  if (!mayWrite(who)) return { ok: false, error: 'not found' };
   if (!Number.isInteger(input.dayOfMonth) || input.dayOfMonth < 1 || input.dayOfMonth > 28) return { ok: false, error: 'bad day' };
   const client = await db.client.findFirst({ where: { id: clientId, orgId: who.orgId }, select: { id: true } });
   if (!client || !canSeeClient(who, client.id)) return { ok: false, error: 'not found' };
@@ -65,6 +68,7 @@ export async function setSchedule(who: Who, clientId: string, input: ScheduleInp
 
 /** Closes an open task by hand. Only for someone who may see the task's client; recorded in the audit log. */
 export async function markDone(who: Who, taskId: string): Promise<Result<{ clientId: string }>> {
+  if (!mayWrite(who)) return { ok: false, error: 'not found' };
   const task = await db.reminderTask.findFirst({ where: { id: taskId, orgId: who.orgId }, select: { id: true, clientId: true, period: true, doneAt: true } });
   if (!task || !canSeeClient(who, task.clientId)) return { ok: false, error: 'not found' };
   if (task.doneAt) return { ok: false, error: 'already done' };

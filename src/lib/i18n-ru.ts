@@ -1,8 +1,10 @@
 // Russian UI strings. Same exhaustive type as the Uzbek dictionary, so a missing
 // key does not compile. These texts need a native-speaker review before launch.
+import { fmtNumber } from './format';
 import type { Dict } from './i18n';
+import { pluralRu } from './plural';
 
-const n = (v: number): string => v.toLocaleString('ru-RU');
+const n = (v: number): string => fmtNumber('ru', v);
 
 export const ru: Dict = {
   appName: 'MXIK Audit',
@@ -51,7 +53,7 @@ export const ru: Dict = {
 
   settingsTitle: 'Настройки',
   tgSection: 'Telegram',
-  tgOff: 'Telegram-бот на этом сервере не настроен (нет TELEGRAM_BOT_TOKEN).',
+  tgOff: 'Telegram-бот пока недоступен.',
   tgIntro: (bot) => `Отправьте боту файл каталога — он будет проверен, а результат придёт в этот чат. Уведомления об обновлении классификатора тоже приходят сюда.${bot ? ` Бот: @${bot}.` : ''}`,
   tgGetCode: 'Получить код привязки',
   tgCodeShown: (code, minutes) => `Отправьте боту: /start ${code} — код действует ${minutes} мин. и используется один раз.`,
@@ -70,7 +72,7 @@ export const ru: Dict = {
   tgExpired: 'Запрос устарел. Отправьте файл ещё раз.',
   tgEmptyFile: 'В файле не найдены строки с данными.',
   tgNoNames: 'В файле не найден столбец с названиями товаров. Загрузите файл через веб-приложение и укажите столбцы.',
-  tgStarted: (client, rows) => `Принято: ${client}, ${n(rows)} строк. Результат придёт сюда после проверки.`,
+  tgStarted: (client, rows) => `Принято: ${client}, ${n(rows)} ${pluralRu(rows, 'строка', 'строки', 'строк')}. Результат придёт сюда после проверки.`,
   tgAuditDone: (client) => `Проверка завершена — ${client}`,
   tgAuditFailed: (file) => `Проверка файла «${file}» остановилась с ошибкой. Попробуйте ещё раз в веб-приложении.`,
   tgFile: 'Файл',
@@ -81,7 +83,7 @@ export const ru: Dict = {
   pdfStatus: 'Статус',
   pdfDate: 'Дата отчёта',
   pdfClassifier: 'Версия классификатора',
-  pdfTruncated: (count) => `Показаны первые ${n(count)} рискованных строк; полный список в приложении.`,
+  pdfTruncated: (count) => `Показаны только первые рискованные строки (${n(count)}); полный список в приложении.`,
   pdfDisclaimer: 'Коды предложены по результатам автоматического анализа; каждое решение принимает пользователь. Этот отчёт не является юридической консультацией.',
   pdfPage: (page, total) => `${page} / ${total}`,
   brandSection: 'Отчёты для клиентов (PDF)',
@@ -103,7 +105,6 @@ export const ru: Dict = {
   purchasesTemplate: 'Скачать шаблон',
   purchasesUpload: 'Выбрать файл закупок',
   purchasesApply: 'Начать сверку',
-  purchasesApplied: (codes) => `Получено кодов ИКПУ: ${n(codes)}. Последний каталог клиента перепроверен.`,
   purchasesLists: 'Загруженные списки',
   purchasesNone: 'Список закупок ещё не загружен — сверка с закупками не проводится.',
   purchasesCodes: 'Коды ИКПУ',
@@ -123,9 +124,8 @@ export const ru: Dict = {
   catalogsDelete: 'Удалить',
   catalogsDeleteConfirm: (filename) =>
     `Каталог «${filename}» будет удалён полностью: строки, предложения и история решений. Это нельзя отменить. Продолжить?`,
-  catalogsDeleted: (rows) => `Каталог удалён (${n(rows)} строк).`,
-  catalogStatus: { uploaded: 'Загружен', analyzing: 'Проверяется', ready: 'Готов', failed: 'Ошибка' },
-  catalogAnalyzing: (done, total) => `Идёт проверка: ${n(done)} / ${n(total)} строк`,
+  catalogStatus: { uploaded: 'Не проанализирован', analyzing: 'Проверяется', ready: 'Готов', failed: 'Ошибка' },
+  catalogAnalyzing: (done, total) => `Идёт проверка: ${n(done)} из ${n(total)} ${pluralRu(total, 'строки', 'строк', 'строк')}`,
   catalogAnalyzingHint: 'Страница обновляется сама. Большой каталог может занять несколько минут; проверка продолжится, даже если закрыть страницу.',
   catalogNotAudited: 'Этот каталог ещё не проверен: сопоставление столбцов не подтверждено.',
   catalogFailed: 'Проверка остановилась с ошибкой.',
@@ -190,8 +190,8 @@ export const ru: Dict = {
   uploadRowsFound: (count) => `Найдено строк: ${n(count)}`,
   uploadRemembered: 'Сопоставление из прошлой загрузки сохранено.',
 
-  reportHeadline: (risky, total) => `Из ${n(total)} позиций рискованных: ${n(risky)}`,
-  reportClean: (total) => `Все ${n(total)} позиций прошли проверку`,
+  reportHeadline: (risky, total) => `Из ${n(total)} ${pluralRu(total, 'позиции', 'позиций', 'позиций')} рискованных: ${n(risky)}`,
+  reportClean: (total) => `Проверку прошли все позиции: ${n(total)}`,
   reportFilterType: 'Тип',
 
   typeMissing: 'Нет кода',
@@ -203,7 +203,7 @@ export const ru: Dict = {
   reviewCurrentCode: 'Текущий код',
   reviewSuggested: 'Предложенный код',
   reviewNoCode: 'нет кода',
-  reviewPending: 'Ожидает',
+  reviewPending: 'Не рассмотрено',
   reviewAccepted: 'Принято',
   reviewRejected: 'Отклонено',
   markingBadge: 'Требуется маркировка',
@@ -225,11 +225,6 @@ export const ru: Dict = {
   subPrice: (price) => `${price} сум / мес.`,
   subUntil: (date) => `Активна до ${date}`,
   subNone: 'Подписка не активна.',
-  exportStatusColumn: 'audit_status',
-  exportStatusAccepted: 'qabul_qilindi',
-  exportStatusRejected: 'rad_etildi',
-  exportStatusPending: 'korib_chiqilmagan',
-  exportStatusOk: 'risk_yoq',
 
   loading: 'Загрузка…',
   errorGeneric: 'Произошла ошибка. Попробуйте ещё раз.',
@@ -238,7 +233,7 @@ export const ru: Dict = {
   code: 'Код',
   confidenceSure: 'Высокое совпадение',
   confidenceLikely: 'Среднее совпадение',
-  confidenceCheck: 'Нужно проверить',
+  confidenceCheck: 'Низкое совпадение',
 
   codeArchived: 'Исключён из классификатора',
   codeUnknown: 'Не найден в классификаторе',

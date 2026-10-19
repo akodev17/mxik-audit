@@ -8,6 +8,7 @@ import { catalogScope } from './access.js';
 import { db } from './db.js';
 import type { Actor, Result } from './decisions.js';
 import { RISKY_ITEM } from './risk.js';
+import { mayWrite } from './write-access.js';
 
 export type CatalogSummary = {
   id: string;
@@ -53,12 +54,14 @@ export const CATALOG_PAGE = 50;
 /**
  * Catalogues the user may see, newest first: one client's, or every client's
  * except archived ones. Each row says who uploaded it, so same-name uploads
- * can be told apart.
+ * can be told apart. Uploads whose columns were never confirmed are drafts,
+ * listed apart (kind 'drafts') so they do not read as catalogues.
  */
 export async function catalogList(
-  user: { orgId: string; clientIds?: string[] | null }, clientId: string | null, page = 0,
+  user: { orgId: string; clientIds?: string[] | null }, clientId: string | null, page = 0, kind: 'catalogs' | 'drafts' = 'catalogs',
 ): Promise<{ items: CatalogListItem[]; total: number }> {
-  const where = { AND: [catalogScope(user), clientId ? { clientId } : { client: { archivedAt: null } }] };
+  const status = kind === 'drafts' ? { status: 'uploaded' as const } : { status: { not: 'uploaded' as const } };
+  const where = { AND: [catalogScope(user), clientId ? { clientId } : { client: { archivedAt: null } }, status] };
   const [total, catalogs] = await Promise.all([
     db.catalog.count({ where }),
     db.catalog.findMany({
@@ -117,6 +120,7 @@ export async function resolveCatalog(orgId: string, requestedId?: string | null,
 export type DeleteOutcome = { rows: number; findings: number; cacheEntries: number; keptEvents: number };
 
 export async function deleteCatalog(actor: Actor, catalogId: string): Promise<Result<DeleteOutcome>> {
+  if (!mayWrite(actor)) return { ok: false, error: 'forbidden' };
   const catalog = await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(actor) }, select: { id: true, clientId: true, filename: true } });
   if (!catalog) return { ok: false, error: 'not found' };
 

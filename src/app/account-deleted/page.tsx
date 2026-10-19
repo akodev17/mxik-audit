@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { reopenAccount } from '@/app/actions/security';
 import { db } from '@/lib/db';
-import { formatTag, getI18n } from '@/lib/locale';
+import { fmtDate } from '@/lib/format';
+import { getI18n } from '@/lib/locale';
 import { purgeDate } from '@/lib/security/account';
 import { isLive } from '@/lib/security/session-store';
 import { getSession } from '@/lib/session';
@@ -19,7 +20,7 @@ export default async function ClosedAccountPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-4">
       <h1 className="text-lg">{ta.security.closedTitle}</h1>
-      <p className="text-sm">{ta.security.closedText(date.toLocaleDateString(formatTag(locale)))}</p>
+      <p className="text-sm">{ta.security.closedText(fmtDate(locale, date))}</p>
       {isAdmin ? (
         <form action={reopenAccount}><Button type="submit" variant="primary">{ta.security.restore}</Button></form>
       ) : <p className="text-sm text-muted">{ta.security.restoreOnlyAdmin}</p>}

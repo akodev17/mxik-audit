@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { setSidebar } from '@/app/actions/shell';
 import { useI18n } from '@/lib/locale-client';
 import type { ShellData } from '@/lib/shell-data';
@@ -14,6 +14,7 @@ import { MobileNav } from './mobile-nav';
 import { NotificationBell } from './notification-bell';
 import { PlanBanner } from './plan-banner';
 import type { SidebarPref } from './prefs';
+import { useSameRouteLinks } from './same-route-links';
 import { SearchButton } from './search-button';
 import { isPaletteShortcut, isTypingTarget } from './shortcuts';
 import { Sidebar } from './sidebar';
@@ -29,6 +30,7 @@ export function AppFrame({ shell, sidebar, children }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const wide = useMediaQuery('(min-width: 1024px)', true);
+  useSameRouteLinks();
   const expanded = pref === 'auto' ? wide : pref === 'expanded';
   const railId = useId();
   const menuId = useId();
@@ -81,7 +83,10 @@ export function AppFrame({ shell, sidebar, children }: Props) {
                 tooltipAlign="start"
               />
             </span>
-            <ClientSwitcher clients={shell.clients} active={shell.activeClient} canAdd={shell.canWrite && !shell.demo} />
+            {/* It reads the query (useSearchParams); the boundary keeps any static render of the frame valid. */}
+            <Suspense fallback={null}>
+              <ClientSwitcher clients={shell.clients} active={shell.activeClient} canAdd={shell.canWrite && !shell.demo} />
+            </Suspense>
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
               <SearchButton onOpen={() => setPaletteOpen(true)} expanded={paletteOpen} />
               {shell.demo ? <span className="hidden sm:inline-flex"><Badge tone="brand" title={ta.shell.demoTitle}>{ta.shell.demoPill}</Badge></span> : null}

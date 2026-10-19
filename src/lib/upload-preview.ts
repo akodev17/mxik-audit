@@ -1,7 +1,8 @@
 // The upload wizard's view of one catalogue: the preview to map (also when the
 // user comes back to /upload?catalog=…), and discarding it. Scoped to what the
 // user may see. Server-only.
-import { catalogScope } from './access.js';
+import { canWrite, catalogScope } from './access.js';
+import type { Role } from './session.js';
 import { StoredAttrs } from './catalog-import.js';
 import { COLUMN_FIELDS, ColumnMapSchema, type ColumnField, type ColumnMap } from './column-map.js';
 import { db } from './db.js';
@@ -78,7 +79,9 @@ export async function uploadPreview(actor: ScopedActor, catalogId: string): Prom
 }
 
 /** Deletes an upload that was never committed. Committed catalogues are not touched here. */
-export async function discardUpload(actor: ScopedActor & { userId: string }, catalogId: string): Promise<boolean> {
+export async function discardUpload(actor: ScopedActor & { userId: string; role?: Role }, catalogId: string): Promise<boolean> {
+  // Viewers never delete uploads; callers without a role are trusted server code (the daily sweep).
+  if (actor.role !== undefined && !canWrite({ role: actor.role })) return false;
   const catalog = await db.catalog.findFirst({
     where: { id: catalogId, ...catalogScope(actor), status: 'uploaded' },
     select: { id: true, clientId: true, filename: true, rowCount: true },

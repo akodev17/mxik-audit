@@ -10,8 +10,10 @@ import { MAX_UPLOAD_BYTES } from '@/lib/catalog-import';
 import { fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
+import { readTheme } from '@/ui/shell/server-prefs';
 import { Table, Td, Th } from '@/ui/table';
 import { CodeBlock } from './code-block';
+import { CodeText } from './code-text';
 import { DocsShell } from './docs-shell';
 import { docExamples } from './examples';
 
@@ -45,7 +47,7 @@ function Endpoint({ id, method, path, title, text, request, response, labels }: 
   return (
     <DocSection id={id} title={title}>
       <p className="font-mono text-mono"><span className="mr-2 rounded-sm bg-brand-tint px-1.5 py-0.5 font-semibold text-brand-ink">{method}</span>{path}</p>
-      <p className="text-body">{text}</p>
+      <p className="text-body"><CodeText>{text}</CodeText></p>
       <CodeBlock label={labels.request} code={request} />
       <CodeBlock label={labels.response} code={response} />
     </DocSection>
@@ -59,7 +61,7 @@ export default async function ApiDocsPage() {
   const user = await currentUser().catch(() => null);
   const config = apiConfig();
   const limits = planLimits();
-  const ex = docExamples(await baseUrl(), config.ratePerMinute);
+  const ex = docExamples(await baseUrl(), config.ratePerMinute, d.keyWhere);
   const n = (v: number): string => fmtNumber(locale, v);
   const cap = (v: number | null): string => (v === null ? d.unlimited : d.upTo(n(v)));
   const toc: [string, string][] = [
@@ -86,7 +88,7 @@ export default async function ApiDocsPage() {
   );
 
   return (
-    <DocsShell locale={locale} title={d.title} back={user ? { href: '/dashboard', label: d.backApp } : { href: '/', label: d.backSite }}>
+    <DocsShell locale={locale} theme={await readTheme()} title={d.title} back={user ? { href: '/dashboard', label: d.backApp } : { href: '/', label: d.backSite }}>
       <div className="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-12">
         <nav aria-label={d.onPage} className="hidden lg:block">
           <div className="sticky top-6">
@@ -107,46 +109,45 @@ export default async function ApiDocsPage() {
           </header>
 
           <DocSection id="start" title={d.sections.start}>
-            <p>{d.startText}</p>
+            <p><CodeText>{d.startText}</CodeText></p>
             <CodeBlock label="shell" code={ex.setup} />
           </DocSection>
 
           <DocSection id="auth" title={d.sections.auth}>
-            <p>{d.authText}</p>
+            <p><CodeText>{d.authText}</CodeText></p>
             <CodeBlock label="HTTP" code={ex.auth} />
           </DocSection>
 
           <DocSection id="limits" title={d.sections.limits}>
-            <p className="text-small text-muted">{d.limitsText}</p>
             <Table label={d.sections.limits}>
               <thead><tr><Th>{d.limit}</Th><Th>{d.value}</Th></tr></thead>
               <tbody>{limitRows.map(([label, value]) => <tr key={label}><Td>{label}</Td><Td>{value}</Td></tr>)}</tbody>
             </Table>
-            <p>{d.headersText}</p>
+            <p><CodeText>{d.headersText}</CodeText></p>
             <CodeBlock label="HTTP" code={ex.headers} />
-            <p>{d.usageText}</p>
+            <p><CodeText>{d.usageText}</CodeText></p>
           </DocSection>
 
           <DocSection id="paging" title={d.sections.paging}>
-            <p>{d.pagingText}</p>
+            <p><CodeText>{d.pagingText}</CodeText></p>
           </DocSection>
 
           <DocSection id="idempotency" title={d.sections.idempotency}>
-            <p>{d.idempotencyText}</p>
+            <p><CodeText>{d.idempotencyText}</CodeText></p>
             <ul className="list-disc space-y-1 pl-5">
-              {d.idempotencyRules(IDEMPOTENCY.ttlHours, IDEMPOTENCY.maxLength).map((rule) => <li key={rule}>{rule}</li>)}
+              {d.idempotencyRules(IDEMPOTENCY.ttlHours, IDEMPOTENCY.maxLength).map((rule) => <li key={rule}><CodeText>{rule}</CodeText></li>)}
             </ul>
           </DocSection>
 
           <Endpoint id="check" method="POST" path="/api/v1/check" title={d.sections.check} text={d.endpoint.check} request={ex.check} response={ex.checkResponse} labels={labels} />
-          <p className="text-small text-muted">{d.confidenceNote}</p>
+          <p className="text-small text-muted"><CodeText>{d.confidenceNote}</CodeText></p>
           <Endpoint id="list" method="GET" path="/api/v1/catalogs" title={d.sections.list} text={d.endpoint.list} request={ex.list} response={ex.listResponse} labels={labels} />
           <Endpoint id="upload" method="POST" path="/api/v1/catalogs" title={d.sections.upload} text={d.endpoint.upload} request={ex.upload} response={ex.uploadResponse} labels={labels} />
           <Endpoint id="report" method="GET" path="/api/v1/catalogs/{id}/report" title={d.sections.report} text={d.endpoint.report} request={ex.report} response={ex.reportResponse} labels={labels} />
           <p className="text-small text-muted">{d.sampleNote}</p>
 
           <DocSection id="errors" title={d.sections.errors}>
-            <p>{d.errorsText}</p>
+            <p><CodeText>{d.errorsText}</CodeText></p>
             <CodeBlock label="JSON" code={ex.error} />
             <Table label={d.sections.errors}>
               <thead><tr><Th>{d.code}</Th><Th numeric>{d.status}</Th><Th>{d.meaning}</Th></tr></thead>
@@ -155,7 +156,7 @@ export default async function ApiDocsPage() {
                   <tr key={code}>
                     <Td className="whitespace-nowrap font-mono text-mono">{code}</Td>
                     <Td numeric>{ERROR_STATUS[code]}</Td>
-                    <Td className="min-w-48">{d.errors[code]}</Td>
+                    <Td className="min-w-48"><CodeText>{d.errors[code] ?? ''}</CodeText></Td>
                   </tr>
                 ))}
               </tbody>

@@ -1,9 +1,11 @@
 // Russian copy for the signed-in app UI. Same shape as the Uzbek one, so a
 // missing key does not compile. Needs native-speaker review before launch.
 import type { AppDict, CoreAppDict } from './i18n-app';
+import { fmtNumber } from './format';
 import { partsRu } from './i18n-parts';
+import { pluralRu } from './plural';
 
-const n = (v: number): string => v.toLocaleString('ru-RU');
+const n = (v: number): string => fmtNumber('ru', v);
 
 const coreRu: CoreAppDict = {
   nav: { dashboard: 'Главная', clients: 'Клиенты', catalogs: 'Каталоги', upload: 'Загрузка', dictionary: 'Словарь', activity: 'Действия', settings: 'Настройки' },
@@ -45,14 +47,13 @@ const coreRu: CoreAppDict = {
     colStatus: 'Статус',
     colCurrent: 'Текущий код',
     colSuggested: 'Предложение',
-    colConfidence: 'Уверенность',
     colDecision: 'Решение',
     noCode: 'Нет кода',
     noSuggestion: 'Подходящего предложения нет',
     pending: 'Ожидает',
-    accepted: 'Подтверждено',
+    accepted: 'Принято',
     rejected: 'Отклонено',
-    accept: 'Подтвердить',
+    accept: 'Принять',
     reject: 'Отклонить',
     undo: 'Отменить',
     density: 'Плотность',
@@ -60,8 +61,7 @@ const coreRu: CoreAppDict = {
     compact: 'Плотно',
     grouped: 'Группировать',
     flat: 'Список',
-    groupRows: (count) => `${count} строк`,
-    groupAccept: 'Подтвердить группу',
+    groupAccept: 'Принять группу',
     groupReject: 'Отклонить группу',
     onlyUnreviewed: 'Только непроверенные',
     empty: 'По этому фильтру строк нет',
@@ -71,26 +71,24 @@ const coreRu: CoreAppDict = {
     loadError: 'Не удалось загрузить строки',
     loadErrorHint: 'Проверьте интернет и обновите страницу. Ваши решения сохранены.',
     retry: 'Повторить',
-    shortcuts: 'j/k — перемещение · Enter — подтвердить · r — отклонить · o — подробнее · / — поиск · u — отменить',
+    shortcuts: 'j/k — перемещение · Enter — принять · r — отклонить · o — подробнее · / — поиск · u — отменить',
     shortcutsGotIt: 'Понятно',
     shortcutsTitle: 'Горячие клавиши',
     searchActive: (q) => `Поиск: «${q}»`,
     clearSearch: 'Сбросить поиск',
-    acceptAll: 'Подтвердить все с высокой уверенностью',
-    acceptedToast: 'Подтверждено',
+    acceptedToast: 'Принято',
     rejectedToast: 'Отклонено',
     undoneToast: 'Решение отменено',
     failedToast: 'Не удалось сохранить. Попробуйте ещё раз.',
-    bulkToast: (count) => `Подтверждено строк: ${count}`,
+    bulkToast: (count) => `Принято строк: ${n(count)}`,
     notReady: 'Каталог ещё не проверен',
     pickCode: 'Выбрать код',
-    rowCount: (count) => `${n(count)} строк`,
   },
   hint: {
     step: (i, total) => `${i}/${total}`,
     one: 'Чипы сверху — это фильтры: выделите строки одного типа.',
     two: 'Нажмите на строку или клавишу o: справа откроется подробная панель.',
-    three: 'Если предложение верное — Подтвердить (Enter). Откроется следующая рискованная строка.',
+    three: 'Если предложение верное — Принять (Enter). Откроется следующая рискованная строка.',
     next: 'Далее',
     done: 'Начать',
     skip: 'Закрыть',
@@ -338,10 +336,9 @@ const coreRu: CoreAppDict = {
   },
   bulk: {
     selected: (count) => `Выбрано: ${count}`,
-    selectFiltered: (count) => `Выбрать все ${count} строк фильтра`,
     selectAll: 'Выбрать все',
     selectRow: 'Выбрать строку',
-    accept: 'Подтвердить предложения',
+    accept: 'Принять предложения',
     assign: 'Назначить один код',
     assignHint: (count) => `Этот код будет назначен всем выбранным строкам (${count}).`,
     reject: 'Отклонить',
@@ -357,7 +354,7 @@ const coreRu: CoreAppDict = {
     hint: 'Ссылка показывает только отчёт по этому каталогу: без комментариев, без других клиентов, без кнопок редактирования.',
     valid: 'Действует:',
     days: (count) => `${count} дн.`,
-    withPdf: 'и PDF',
+    withPdf: 'Добавить PDF',
     create: 'Создать ссылку',
     created: 'Ссылка создана. Скопируйте её сейчас — потом она не показывается:',
     views: (count, last) => (last ? `Просмотров: ${count}, последний ${last}` : `Просмотров: ${count}`),
@@ -370,11 +367,11 @@ const coreRu: CoreAppDict = {
     invalid: 'Ссылка недействительна',
     invalidHint: 'Ссылка отозвана или срок её действия истёк. Попросите у бухгалтера, приславшего отчёт, новую.',
     firstRows: (count) => `Показаны первые ${count} строк; полный список — в PDF-отчёте.`,
-    footer: 'Этот отчёт — результат автоматической сверки с классификатором MXIK; решение принимает бухгалтер.',
+    footer: 'Этот отчёт — результат автоматической сверки с классификатором ИКПУ; решение принимает бухгалтер.',
   },
   signup: {
     title: 'Создать аккаунт',
-    tagline: 'Проверьте рискованные коды MXIK в вашем каталоге — 14 дней бесплатно',
+    tagline: 'Проверьте рискованные коды ИКПУ в вашем каталоге — 14 дней бесплатно',
     firm: 'Название фирмы или компании',
     create: 'Создать аккаунт',
     have: 'Уже есть аккаунт?',
@@ -433,7 +430,7 @@ const coreRu: CoreAppDict = {
     },
     signals: {
       dictionaryLabel: 'Словарь',
-      dictionary: (count) => `Ваша фирма уже ${count} раз подтверждала этот код для этого товара.`,
+      dictionary: (count) => `Ваша фирма уже ${n(count)} ${pluralRu(count, 'раз', 'раза', 'раз')} подтверждала этот код для этого товара.`,
       barcodeLabel: 'Штрихкод',
       barcode: 'Штрихкод из строки привязан в классификаторе именно к этому коду.',
       nameLabel: 'Название',

@@ -18,6 +18,14 @@ type Props = {
 
 const FILL: Record<Tone, string> = { brand: 'bg-brand', good: 'bg-good', warn: 'bg-warn', danger: 'bg-danger' };
 
+/**
+ * Track: a sunken well with a 1px line-input edge. The edge is >= 3:1 against surface, raised and
+ * base in both themes (non-text contrast); a solid track that dark would hide the fill's end, while
+ * the brand, good and danger fills stay >= 3:1 on the well. Both are checked in progress.test.ts.
+ */
+export const TRACK = { well: 'sunken', edge: 'line-input' } as const;
+export const TRACK_CLASS = 'bg-sunken inset-ring inset-ring-line-input';
+
 /** Whole percent of value in 0..max, clamped to 0..100; 0 for an empty range. */
 export function progressPercent(value: number, max: number): number {
   if (!(max > 0) || !Number.isFinite(value)) return 0;
@@ -44,7 +52,7 @@ export function Progress({ label, value, max = 100, valueText, tone = 'brand', h
         aria-valuemax={max}
         aria-valuenow={known ? value : undefined}
         aria-valuetext={text}
-        className={cx('w-full overflow-hidden rounded-full bg-sunken', size === 'sm' ? 'h-1.5' : 'h-2')}
+        className={cx('w-full overflow-hidden rounded-full', TRACK_CLASS, size === 'sm' ? 'h-1.5' : 'h-2')}
       >
         <div
           className={cx('h-full rounded-full transition-[width] duration-(--duration-base) ease-standard', FILL[tone], known ? undefined : 'w-1/3 motion-safe:animate-pulse')}

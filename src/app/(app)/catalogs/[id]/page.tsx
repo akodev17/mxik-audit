@@ -10,7 +10,7 @@ import { isDemoOrg } from '@/lib/demo';
 import { currentUser } from '@/lib/session';
 import { defaultView } from '@/lib/views';
 import { readHidden, viewQuery } from '@/lib/view-params';
-import { decodeCursor, workspaceCount, workspacePageIds, workspaceSummary } from '@/lib/workspace';
+import { decodeCursor, workspaceChipCounts, workspaceCount, workspacePageIds, workspaceSummary } from '@/lib/workspace';
 import { filterKey, readFilter } from '@/lib/workspace-filter';
 import { gridRows } from '@/lib/workspace-rows';
 import { CatalogStatus } from '@/ui/catalog-status';
@@ -20,13 +20,13 @@ import { exportLocked, WorkspaceHeader } from './workspace-header';
 
 type Params = { params: Promise<{ id: string }> };
 
-/** The tab says which catalogue is open; an id the user may not see gets the generic title. */
+/** The tab says which catalogue is open; an id the user may not see reads like any missing page, never its name. */
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const { t } = await getI18n();
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   const { id } = await params;
   const catalog = user ? await db.catalog.findFirst({ where: { id, ...catalogScope(user) }, select: { filename: true } }) : null;
-  return { title: `${catalog?.filename ?? t.navCatalogs} — ${t.appName}` };
+  return { title: `${catalog?.filename ?? ta.shellX.notFound.title} — ${t.appName}` };
 }
 
 const FIRST_PAGE = 120;
@@ -69,8 +69,9 @@ export default async function CatalogWorkspacePage({ params, searchParams }: Par
   }
   const filter = readFilter(sp);
   const writer = canWrite(user);
-  const [summary, count, page, locked] = await Promise.all([
+  const [summary, chips, count, page, locked] = await Promise.all([
     workspaceSummary(catalog.id, catalog.rowCount),
+    workspaceChipCounts(catalog.id, filter),
     workspaceCount(catalog.id, filter),
     workspacePageIds(catalog.id, filter, decodeCursor(null), FIRST_PAGE),
     exportLocked(user.orgId, catalog.id),
@@ -92,6 +93,7 @@ export default async function CatalogWorkspacePage({ params, searchParams }: Par
         catalogId={catalog.id}
         clientId={client.id}
         summary={summary}
+        chips={chips}
         initialRows={rows}
         initialNext={page.next}
         count={count}
