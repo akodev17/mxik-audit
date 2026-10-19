@@ -1,4 +1,4 @@
-import { getI18n } from '@/lib/locale';
+import { formatTag, getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { billingConfig } from '@/lib/billing/config';
@@ -14,6 +14,8 @@ import { isAdminRole } from '@/lib/access';
 import { mailEnabled } from '@/lib/mailer';
 import { BrandForm } from './brand-form';
 import { planStatus } from '@/lib/plan';
+import { listApiKeys } from '@/lib/api/keys';
+import { ApiKeysPanel } from './api-keys-panel';
 import { DictionarySetting } from './dictionary-setting';
 import { PlanUsage } from './plan-usage';
 import { TeamPanel } from './team-panel';
@@ -25,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SettingsPage() {
-  const { t, ta } = await getI18n();
+  const { locale, t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const tg = telegramConfig();
@@ -57,6 +59,12 @@ export default async function SettingsPage() {
       {!demo && isAdminRole(user) ? (
         <Section title={ta.dict.autoTitle}>
           <DictionarySetting initial={org.dictAutoAccept} />
+        </Section>
+      ) : null}
+
+      {!demo && isAdminRole(user) ? (
+        <Section title={ta.apiKeys.title}>
+          <ApiKeysPanel keys={(await listApiKeys(user.orgId)).map((k) => ({ id: k.id, name: k.name, prefix: k.prefix, created: k.createdAt.toLocaleDateString(formatTag(locale)), lastUsed: k.lastUsedAt ? k.lastUsedAt.toLocaleDateString(formatTag(locale)) : null, revoked: k.revokedAt !== null, checks: k.checksThisMonth }))} />
         </Section>
       ) : null}
 

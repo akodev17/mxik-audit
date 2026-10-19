@@ -231,6 +231,11 @@ Once a day call the daily route (same `CRON_SECRET` as the classifier update):
 
 It creates the monthly-check tasks that are due (per client: Sozlamalar of the client page), tells the accountant responsible on Telegram when the bot is configured, and runs the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
 
+## 7f. Public API
+
+Admins create keys in Settings (shown once, only a hash is stored). Endpoints: `POST /api/v1/check`, `POST /api/v1/catalogs`, `GET /api/v1/catalogs/:id/report`; spec at `/api/v1/openapi.json`, docs at `/api-docs`.
+Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept in memory per process, so it resets on restart and is per instance), `API_CHECKS_PER_MONTH_TRIAL` / `_FIRM` and `API_CHECK_MAX_ITEMS`. Uploaded rows count against the plan's monthly row limit like uploads in the app. Set `APP_URL` so the OpenAPI document names the public origin.
+
 ## 8. Operating it
 
 | Task | Command |

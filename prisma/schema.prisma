@@ -201,6 +201,7 @@ model Organization {
   schedules ClientSchedule[]
   reminderTasks ReminderTask[]
   docLists  DocList[]
+  apiKeys   ApiKey[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -938,4 +939,39 @@ model Lead {
 
   @@index([createdAt])
   @@map("lead")
+}
+
+/// A key for the public API. The token is shown once; only its hash is stored.
+model ApiKey {
+  id         String    @id @default(cuid())
+  orgId      String
+  name       String
+  /// First characters of the token, so a key can be recognised in the list.
+  prefix     String
+  tokenHash  String    @unique
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  usage ApiUsage[]
+
+  @@index([orgId])
+  @@map("api_key")
+}
+
+/// Calls per key and calendar month (UTC "YYYY-MM"): checks count against the plan allowance.
+model ApiUsage {
+  keyId    String
+  orgId    String
+  month    String
+  checks   Int    @default(0)
+  requests Int    @default(0)
+
+  key ApiKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+
+  @@id([keyId, month])
+  @@index([orgId, month])
+  @@map("api_usage")
 }
