@@ -212,7 +212,8 @@ Use `127.0.0.1` rather than `localhost` in `DATABASE_URL` on Windows: each conne
    pages.
 
 ## 8. End-to-end results (final build)
-See the session summary for the final run: 24 tests covering sign-in, client creation,
-upload, mapping, audit, filters, drawer, decisions, attribution, activity log, export, version
-diff, tenant isolation, viewer restrictions, errors, the 3,000-row scale test, empty states
-and keyboard review.
+`npm run test:e2e` against `next start`: 24 of 24 pass. Covered: sign-in, client creation (two in a row), upload, column
+mapping correction, audit completion, type filters, drawer, accept/reject/pick, attribution in the database, activity log,
+export contents, re-upload with version diff, scoped accountant and other-org isolation, viewer restrictions, error on an
+invalid file, a 3,000-row catalogue (audit 796 s; first rows 4.5 s cold, then 2.5 s and 0.9 s; j/k median 9.4 ms, p95 15.5 ms),
+empty states, query-only navigation and keyboard-only review.
