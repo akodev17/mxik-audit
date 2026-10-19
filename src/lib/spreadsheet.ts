@@ -1,8 +1,14 @@
-// Reading uploaded catalogues and writing the corrected file back out.
-// Server-only (exceljs). Deliberately separate from scripts/lib/xlsx.ts, which
-// is a stripped-down streaming reader for the one 205 MB classifier layout.
-import { Readable } from 'node:stream';
+// Reading uploaded files (catalogues, purchase lists, cheque and sales lists)
+// and writing the corrected file back out. Server-only (exceljs). Deliberately
+// separate from scripts/lib/xlsx.ts, which is a stripped-down streaming reader
+// for the one 205 MB classifier layout.
 import ExcelJS from 'exceljs';
+import { formulaSafe } from './csv-safe.js';
+import { zipWithinLimits } from './security/zip-guard.js';
+import { MAX_ROWS, shapeGrid } from './sheet-shape.js';
+import { decodeText, looksBinary, parseDelimited, sniffDelimiter, type Delimiter, type TextEncodingName } from './spreadsheet-text.js';
+
+export { MAX_ROWS } from './sheet-shape.js';
 
 export type SheetData = {
   headers: string[];
@@ -10,20 +16,65 @@ export type SheetData = {
   rows: string[][];
 };
 
+export type FileKind = 'xlsx' | 'xls' | 'text';
+
+/** What the reader saw, kept with the upload so the import can be explained later. */
+export type ParseMeta = {
+  format: 'xlsx' | 'csv';
+  encoding: TextEncodingName | null;
+  delimiter: Delimiter | null;
+  headerRow: number;
+  skippedAbove: number;
+  emptyRowsSkipped: number;
+  totalSeen: number;
+  truncated: boolean;
+};
+
+export type ParseResult = SheetData & { truncated: boolean; totalSeen: number; meta: ParseMeta };
+
+/** Stable reasons a file cannot be read; the action turns them into the user's language. */
+export type ParseErrorCode = 'legacy_xls' | 'zip_limits' | 'unreadable' | 'no_sheet' | 'binary';
+
+export class ParseError extends Error {
+  constructor(readonly code: ParseErrorCode) {
+    super(code);
+    this.name = 'ParseError';
+  }
+}
+
+export const parseErrorCode = (error: unknown): ParseErrorCode => (error instanceof ParseError ? error.code : 'unreadable');
+
+const ZIP = [0x50, 0x4b];
+const OLE = [0xd0, 0xcf, 0x11, 0xe0];
+const starts = (buffer: Uint8Array, magic: readonly number[]): boolean => magic.every((b, i) => buffer[i] === b);
+
+/** By content, not by name: PK is an .xlsx (zip), D0 CF 11 E0 a legacy .xls, anything else is read as text. */
+export function sniffKind(buffer: Uint8Array): FileKind {
+  if (starts(buffer, ZIP)) return 'xlsx';
+  if (starts(buffer, OLE)) return 'xls';
+  return 'text';
+}
+
+/** Whole numbers without an exponent; a 1–3 digit number with exactly three decimals gets a fourth, so it never reads as thousands. */
+export function numberText(value: number): string {
+  if (Number.isInteger(value)) return Math.abs(value) >= 1e15 ? value.toFixed(0) : String(value);
+  const text = String(value);
+  return /^-?[1-9]\d{0,2}\.\d{3}$/.test(text) ? `${text}0` : text;
+}
+
 /** Cell to string, without ExcelJS's object wrappers leaking through. */
 function cellText(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'number') return numberText(value);
+  if (typeof value === 'boolean') return String(value);
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === 'object') {
+    if ('error' in value) return '';
     if ('text' in value && typeof value.text === 'string') return value.text.trim();
     if ('result' in value) return cellText(value.result);
     if ('richText' in value && Array.isArray(value.richText)) {
       return value.richText.map((r) => r.text).join('').trim();
-    }
-    if ('hyperlink' in value && 'text' in value && typeof value.text === 'string') {
-      return value.text.trim();
     }
   }
   // Anything else (an unexpected object shape) is not usable cell text; an
@@ -31,51 +82,75 @@ function cellText(value: ExcelJS.CellValue): string {
   return '';
 }
 
-const MAX_ROWS = 60_000;
+/** Rows the reader keeps before counting the rest: room for title rows above the header. */
+const KEEP = MAX_ROWS + 20;
 
-export type ParseResult = SheetData & { truncated: boolean };
-
-/** Parses .xlsx or .csv. The first non-empty row is treated as the header. */
-export async function parseUpload(buffer: Buffer, filename: string): Promise<ParseResult> {
+async function readXlsx(buffer: Buffer): Promise<{ grid: (string[] | undefined)[]; extra: number }> {
+  // An .xlsx is a zip: refuse one that would inflate past the limits before ExcelJS opens it.
+  if (!(await zipWithinLimits(buffer))) throw new ParseError('zip_limits');
   const workbook = new ExcelJS.Workbook();
-  const isCsv = /\.csv$/i.test(filename);
-
-  if (isCsv) {
-    // Static import: under Next's bundler a dynamic import('node:stream') has no Readable.
-    // Keep every cell as written: the default mapper turns 17-digit codes into
-    // floats, dropping the leading zero and digits beyond 2^53.
-    await workbook.csv.read(Readable.from(buffer.toString('utf8')), { map: (value: unknown) => value });
-  } else {
+  try {
     // exceljs declares its own Buffer type, which drifts from @types/node's
     // generic Buffer<ArrayBufferLike>. Same bytes either way.
     await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+  } catch {
+    throw new ParseError('unreadable');
+  }
+  const sheet = workbook.worksheets[0];
+  if (!sheet) throw new ParseError('no_sheet');
+
+  // Rows sit at their sheet row number, so the header can be named by the row the user sees.
+  const grid: (string[] | undefined)[] = [];
+  let kept = 0;
+  let extra = 0;
+  sheet.eachRow({ includeEmpty: false }, (row) => {
+    const values: string[] = [];
+    row.eachCell((cell, col) => {
+      // A merged title repeats its text in every merged cell; only the first one holds it.
+      if (cell.type === ExcelJS.ValueType.Merge) return;
+      values[col - 1] = cellText(cell.value);
+    });
+    const cells = Array.from(values, (v) => v ?? '');
+    if (!cells.some((v) => v !== '')) return;
+    if (kept < KEEP) { grid[row.number - 1] = cells; kept++; } else extra++;
+  });
+  return { grid, extra };
+}
+
+function readText(buffer: Buffer): { grid: string[][]; encoding: TextEncodingName; delimiter: Delimiter } {
+  if (looksBinary(buffer)) throw new ParseError('binary');
+  const { text, encoding } = decodeText(buffer);
+  const delimiter = sniffDelimiter(text);
+  return { grid: parseDelimited(text, delimiter), encoding, delimiter };
+}
+
+/**
+ * Parses an upload by its content: .xlsx (after the zip-bomb check) or text
+ * (UTF-8 or windows-1251, ';' ',' or tab). Title rows above the header are
+ * skipped, every data cell is kept, and rows past MAX_ROWS are counted, not read.
+ * Throws ParseError with a stable code.
+ */
+export async function parseUpload(buffer: Buffer, _filename?: string): Promise<ParseResult> {
+  const kind = sniffKind(buffer);
+  if (kind === 'xls') throw new ParseError('legacy_xls');
+
+  let grid: (string[] | undefined)[];
+  let extra = 0;
+  let encoding: TextEncodingName | null = null;
+  let delimiter: Delimiter | null = null;
+  if (kind === 'xlsx') {
+    ({ grid, extra } = await readXlsx(buffer));
+  } else {
+    ({ grid, encoding, delimiter } = readText(buffer));
   }
 
-  const sheet = workbook.worksheets[0];
-  if (!sheet) throw new Error('Faylda birorta ham varaq topilmadi.');
-
-  const collected: string[][] = [];
-  sheet.eachRow({ includeEmpty: false }, (row) => {
-    if (collected.length > MAX_ROWS) return;
-    const values: string[] = [];
-    // ExcelJS row.values is 1-based with a leading hole.
-    const raw = row.values;
-    if (Array.isArray(raw)) {
-      for (let i = 1; i < raw.length; i++) values.push(cellText(raw[i]));
-    }
-    if (values.some((v) => v !== '')) collected.push(values);
-  });
-
-  const headerRow = collected.shift() ?? [];
-  const headers = headerRow.map((h, i) => (h === '' ? `Ustun ${i + 1}` : h));
-  const width = headers.length;
-  const rows = collected.map((r) => {
-    const padded = r.slice(0, width);
-    while (padded.length < width) padded.push('');
-    return padded;
-  });
-
-  return { headers, rows, truncated: collected.length > MAX_ROWS };
+  const shaped = shapeGrid(grid, extra);
+  const meta: ParseMeta = {
+    format: kind === 'xlsx' ? 'xlsx' : 'csv', encoding, delimiter,
+    headerRow: shaped.headerRow, skippedAbove: shaped.skippedAbove, emptyRowsSkipped: shaped.emptyRowsSkipped,
+    totalSeen: shaped.totalSeen, truncated: shaped.truncated,
+  };
+  return { headers: shaped.headers, rows: shaped.rows, truncated: shaped.truncated, totalSeen: shaped.totalSeen, meta };
 }
 
 export type ExportRow = {
@@ -99,6 +174,7 @@ export type ExportOptions = {
     packaging: string;
     auditStatus: string;
   };
+  sheetName?: string;
 };
 
 /**
@@ -106,29 +182,24 @@ export type ExportOptions = {
  *
  * The original column order is preserved. If the upload already had an MXIK or
  * unit column, it is overwritten in place so the file still opens the way the
- * accountant expects; otherwise a column is appended. `audit_status` is always
- * appended, so nothing is silently changed without a trace.
+ * accountant expects; otherwise a column is appended. The status column is always
+ * appended, so nothing is silently changed without a trace. Every cell is
+ * written as text and guarded against formula injection.
  */
 export async function buildExport(options: ExportOptions): Promise<Buffer> {
   const { headers, rows, mxikColumn, unitColumn, labels } = options;
 
   const outHeaders = [...headers];
-  const appended: { key: 'mxik' | 'unit' | 'packaging' | 'auditStatus'; index: number }[] = [];
-
   const mxikIndex = mxikColumn ?? (outHeaders.push(labels.mxik) - 1);
-  if (mxikColumn === null) appended.push({ key: 'mxik', index: mxikIndex });
   const unitIndex = unitColumn ?? (outHeaders.push(labels.unit) - 1);
-  if (unitColumn === null) appended.push({ key: 'unit', index: unitIndex });
   const packagingIndex = outHeaders.push(labels.packaging) - 1;
-  appended.push({ key: 'packaging', index: packagingIndex });
   const statusIndex = outHeaders.push(labels.auditStatus) - 1;
-  appended.push({ key: 'auditStatus', index: statusIndex });
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'MXIK Audit';
-  const sheet = workbook.addWorksheet('Katalog');
+  const sheet = workbook.addWorksheet(options.sheetName ?? 'Katalog');
 
-  sheet.addRow(outHeaders);
+  sheet.addRow(outHeaders.map(formulaSafe));
   const header = sheet.getRow(1);
   header.font = { bold: true };
   header.eachCell((cell) => {
@@ -142,13 +213,13 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
     cells[unitIndex] = row.unit;
     cells[packagingIndex] = row.packaging;
     cells[statusIndex] = row.auditStatus;
-    sheet.addRow(cells);
+    sheet.addRow(cells.map(formulaSafe));
   }
 
   // MXIK codes are 17 digits: force text so Excel does not render 1.7E+16.
   sheet.getColumn(mxikIndex + 1).numFmt = '@';
   sheet.getColumn(mxikIndex + 1).width = 20;
-  sheet.getColumn(statusIndex + 1).width = 20;
+  sheet.getColumn(statusIndex + 1).width = 24;
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   const out = await workbook.xlsx.writeBuffer();

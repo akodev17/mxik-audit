@@ -1,8 +1,11 @@
 // Catalogue versions: carry a client's earlier decisions over to the new upload,
 // and describe what changed between the two.
-import { pairVersions, unchanged, type Pairing, type VersionItem } from '../core/match/version-pairs.js';
+import type { Prisma } from '@prisma/client';
+import { pairVersions, unchanged, type Pairing } from '../core/match/version-pairs.js';
 import { db } from './db.js';
 import { CARRIED_OVER_ACTION } from './decision-source.js';
+import { RISKY_FINDING } from './risk.js';
+import { diffParts, type DiffParts } from './version-diff.js';
 
 const CHUNK = 5000;
 const ITEM_SELECT = { id: true, rowIndex: true, rawName: true, unit: true, barcode: true, existingMxik: true } as const;
@@ -100,51 +103,70 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
   return carried.length;
 }
 
-export type DiffNote = 'name' | 'unit' | 'code' | 'classifier' | 'nowRisky' | 'nowSafe';
-export type DiffRow = { rowIndex: number; name: string; unit: string | null; code: string | null; notes?: DiffNote[] };
-export type VersionDiff = {
+export type { DiffNote, DiffRow } from './version-diff.js';
+
+/** A decision copied from the previous version, with who originally made it. */
+export type CarriedRow = {
+  rowIndex: number;
+  name: string;
+  type: string;
+  decision: 'accepted' | 'rejected';
+  code: string | null;
+  /** Email of the original decider; null for the system or a removed user. */
+  decidedBy: string | null;
+};
+
+export type VersionDiff = DiffParts & {
   previousId: string;
-  added: DiffRow[]; removed: DiffRow[]; changed: DiffRow[]; statusChanged: DiffRow[];
-  counts: { added: number; removed: number; changed: number; statusChanged: number };
+  previous: { filename: string; createdAt: Date };
+  carried: CarriedRow[];
+  counts: DiffParts['counts'] & { carried: number };
 };
 
 const LIMIT = 200;
-const toRow = (i: VersionItem, notes?: DiffNote[]): DiffRow => ({ rowIndex: i.rowIndex, name: i.rawName, unit: i.unit, code: i.existingMxik, ...(notes ? { notes } : {}) });
+
+const itemIds = async (where: Prisma.FindingWhereInput): Promise<Set<string>> =>
+  new Set((await db.finding.findMany({ where, select: { itemId: true } })).map((f) => f.itemId));
+
+async function carriedRows(orgId: string, catalogId: string): Promise<{ rows: CarriedRow[]; count: number }> {
+  const where: Prisma.FindingWhereInput = { item: { catalogId }, decisionSource: 'carry_over', decision: { not: 'pending' } };
+  const [count, found] = await Promise.all([
+    db.finding.count({ where }),
+    db.finding.findMany({
+      where, orderBy: [{ item: { rowIndex: 'asc' } }, { type: 'asc' }], take: LIMIT,
+      select: { type: true, decision: true, chosenMxik: true, decidedBy: true, item: { select: { rowIndex: true, rawName: true } } },
+    }),
+  ]);
+  const users = await db.user.findMany({
+    where: { orgId, id: { in: [...new Set(found.flatMap((f) => (f.decidedBy ? [f.decidedBy] : [])))] } },
+    select: { id: true, email: true },
+  });
+  const emails = new Map(users.map((u) => [u.id, u.email]));
+  return {
+    count,
+    rows: found.map((f) => ({
+      rowIndex: f.item.rowIndex, name: f.item.rawName, type: f.type,
+      decision: f.decision === 'accepted' ? 'accepted' : 'rejected',
+      code: f.chosenMxik,
+      decidedBy: f.decidedBy ? emails.get(f.decidedBy) ?? null : null,
+    })),
+  };
+}
 
 /** What changed between a catalogue and the version it replaces. Null without a previous version. */
 export async function versionDiff(orgId: string, catalogId: string): Promise<VersionDiff | null> {
   const loaded = await loadPairing(orgId, catalogId);
   if (!loaded) return null;
-  const { pairing } = loaded;
-
-  const risky = async (cid: string): Promise<Set<string>> => new Set((await db.finding.findMany({
-    where: { item: { catalogId: cid }, severity: { in: ['high', 'medium'] } }, select: { itemId: true },
-  })).map((f) => f.itemId));
-  const [prevRisky, nextRisky, viaUpdate] = await Promise.all([
-    risky(loaded.previousId), risky(catalogId),
-    db.finding.findMany({ where: { item: { catalogId }, snapshotId: { not: null } }, select: { itemId: true } }),
+  const { previousId } = loaded;
+  const [previous, prevRisky, nextRisky, updated, prevDecided, nextPending, carried] = await Promise.all([
+    db.catalog.findUniqueOrThrow({ where: { id: previousId }, select: { filename: true, createdAt: true } }),
+    itemIds({ item: { catalogId: previousId }, ...RISKY_FINDING }),
+    itemIds({ item: { catalogId }, ...RISKY_FINDING }),
+    itemIds({ item: { catalogId }, snapshotId: { not: null } }),
+    itemIds({ item: { catalogId: previousId }, decision: { in: ['accepted', 'rejected'] } }),
+    itemIds({ item: { catalogId }, ...RISKY_FINDING, decision: 'pending' }),
+    carriedRows(orgId, catalogId),
   ]);
-  const updated = new Set(viaUpdate.map((f) => f.itemId));
-
-  const changed: DiffRow[] = [];
-  const statusChanged: DiffRow[] = [];
-  for (const { prev, next } of pairing.pairs) {
-    if (!unchanged(prev, next)) {
-      const what: DiffNote[] = [];
-      if (prev.rawName !== next.rawName) what.push('name');
-      if (prev.unit !== next.unit) what.push('unit');
-      if (prev.existingMxik !== next.existingMxik) what.push('code');
-      changed.push(toRow(next, what));
-    } else if (prevRisky.has(prev.id) !== nextRisky.has(next.id)) {
-      statusChanged.push(toRow(next, [updated.has(next.id) ? 'classifier' : nextRisky.has(next.id) ? 'nowRisky' : 'nowSafe']));
-    }
-  }
-  return {
-    previousId: loaded.previousId,
-    added: pairing.added.slice(0, LIMIT).map((i) => toRow(i)),
-    removed: pairing.removed.slice(0, LIMIT).map((i) => toRow(i)),
-    changed: changed.slice(0, LIMIT),
-    statusChanged: statusChanged.slice(0, LIMIT),
-    counts: { added: pairing.added.length, removed: pairing.removed.length, changed: changed.length, statusChanged: statusChanged.length },
-  };
+  const parts = diffParts(loaded.pairing, { prevRisky, nextRisky, updated, prevDecided, nextPending }, LIMIT);
+  return { ...parts, previousId, previous, carried: carried.rows, counts: { ...parts.counts, carried: carried.count } };
 }

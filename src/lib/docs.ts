@@ -1,14 +1,18 @@
 // Cheque lists (the tax cabinet's wrong-MXIK list) and sales exports: stored
-// like a catalogue, mapped by the user, then grouped and checked in the background.
-// Every function is scoped by org; nothing here edits a catalogue.
+// like a catalogue, mapped by the user, then grouped and checked in the
+// background with a heartbeat, so a check whose worker died can be restarted.
+// Every function is scoped by org and client; nothing here edits a catalogue.
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { buildPurchaseIndex, checkPurchased } from '../core/audit/purchases.js';
 import { readCode } from '../core/audit/checks.js';
 import { normalizeName } from '../core/normalize/index.js';
 import { resolveUnit } from '../core/normalize/units.js';
+import { canSeeClient } from './access.js';
+import { readAmount } from './amount.js';
 import { auditContext, checkItem } from './audit-runner.js';
-import { parseAmount } from './catalog-import.js';
 import { db } from './db.js';
+import { listMeta, type ListActor } from './purchases.js';
 import type { ParseResult } from './spreadsheet.js';
 
 export type DocKind = 'cheques' | 'sales';
@@ -40,9 +44,26 @@ export function guessDocMap(headers: readonly string[]): DocMap {
   return { ...map, mxik: Math.max(0, map.mxik) };
 }
 
+/** DocList.meta: resume sample, reader limits, ambiguous amounts, group totals and the worker's heartbeat. */
+const DocMetaSchema = z.object({
+  sample: z.array(z.array(z.string())).optional(),
+  totalSeen: z.number().optional(),
+  truncated: z.boolean().optional(),
+  ambiguous: z.number().optional(),
+  groupsTotal: z.number().optional(),
+  groupsChecked: z.number().optional(),
+  heartbeatAt: z.string().optional(),
+});
+export type DocMeta = z.infer<typeof DocMetaSchema>;
+export const readDocMeta = (json: unknown): DocMeta => DocMetaSchema.safeParse(json).data ?? {};
+const asJson = (meta: DocMeta): Prisma.InputJsonValue => meta;
+
 const Original = z.object({ original: z.array(z.string()) });
 const cell = (row: readonly string[], i: number): string | null => (i < 0 ? null : row[i]?.trim() || null);
 const CHUNK = 1000;
+const UPDATE_CHUNK = 5000;
+/** Without a heartbeat for this long, an "analyzing" list is presumed orphaned. */
+export const DOC_STALE_MS = 120_000;
 
 /** dd.mm.yyyy, dd/mm/yyyy or yyyy-mm-dd; anything else is no date. */
 export function parseDate(raw: string | null): Date | null {
@@ -55,37 +76,97 @@ export function parseDate(raw: string | null): Date | null {
   return date.getUTCMonth() === Number(m) - 1 ? date : null;
 }
 
-export async function storeDocList(input: { orgId: string; clientId: string; kind: DocKind; filename: string; parsed: ParseResult }): Promise<{ listId: string; map: DocMap }> {
+/** True when an "analyzing" list has not reported progress for a while. */
+export function docCheckStale(list: { status: string; meta: unknown; createdAt: Date }, now = new Date()): boolean {
+  if (list.status !== 'analyzing') return false;
+  const beat = readDocMeta(list.meta).heartbeatAt;
+  const last = beat ? new Date(beat).getTime() : list.createdAt.getTime();
+  return now.getTime() - last > DOC_STALE_MS;
+}
+
+export async function storeDocList(actor: ListActor, input: { clientId: string; kind: DocKind; filename: string; parsed: ParseResult }): Promise<{ listId: string; map: DocMap } | null> {
+  const client = await db.client.findFirst({ where: { id: input.clientId, orgId: actor.orgId }, select: { id: true } });
+  if (!client || !canSeeClient(actor, client.id)) return null;
   const map = guessDocMap(input.parsed.headers);
-  const list = await db.docList.create({
-    data: { orgId: input.orgId, clientId: input.clientId, kind: input.kind, filename: input.filename, rowCount: input.parsed.rows.length, headers: input.parsed.headers, columnMap: map },
-  });
-  for (let i = 0; i < input.parsed.rows.length; i += CHUNK) {
-    await db.docItem.createMany({ data: input.parsed.rows.slice(i, i + CHUNK).map((row, j) => ({ listId: list.id, rowIndex: i + j, attrs: { original: [...row] } })) });
-  }
-  return { listId: list.id, map };
+  const listId = await db.$transaction(async (tx) => {
+    const list = await tx.docList.create({
+      data: {
+        orgId: actor.orgId, clientId: client.id, kind: input.kind, filename: input.filename, rowCount: input.parsed.rows.length,
+        headers: input.parsed.headers, columnMap: map, meta: asJson(listMeta(input.parsed)),
+      },
+    });
+    for (let i = 0; i < input.parsed.rows.length; i += CHUNK) {
+      await tx.docItem.createMany({ data: input.parsed.rows.slice(i, i + CHUNK).map((row, j) => ({ listId: list.id, rowIndex: i + j, attrs: { original: [...row] } })) });
+    }
+    await tx.auditEvent.create({
+      data: {
+        orgId: actor.orgId, actorId: actor.userId, action: `${input.kind}.uploaded`, targetId: list.id,
+        payload: { clientId: client.id, listId: list.id, filename: input.filename, rowCount: input.parsed.rows.length, truncated: input.parsed.truncated },
+      },
+    });
+    return list.id;
+  }, { timeout: 180_000 });
+  return { listId, map };
+}
+
+async function ownDocList(actor: ListActor, listId: string) {
+  const list = await db.docList.findFirst({ where: { id: listId, orgId: actor.orgId }, select: { id: true, clientId: true, kind: true, filename: true, status: true, meta: true, createdAt: true } });
+  return list && canSeeClient(actor, list.clientId) ? list : null;
 }
 
 const running = new Set<string>();
 
 /** Applies the confirmed mapping and starts the check in the background. */
-export async function applyDocMap(orgId: string, listId: string, map: DocMap): Promise<boolean> {
-  const list = await db.docList.findFirst({ where: { id: listId, orgId }, select: { id: true } });
-  if (!list) return false;
+export async function applyDocMap(actor: ListActor, listId: string, map: DocMap): Promise<boolean> {
+  const list = await ownDocList(actor, listId);
+  if (!list || list.status === 'analyzing') return false;
+  await writeDocMap(listId, map, list.meta);
+  launch(listId);
+  return true;
+}
+
+/** Derives every line under the mapping (one bulk update per chunk) and marks the list as being checked. */
+export async function writeDocMap(listId: string, map: DocMap, previousMeta: unknown): Promise<DocMeta> {
   const items = await db.docItem.findMany({ where: { listId }, select: { id: true, attrs: true } });
+  let ambiguous = 0;
+  const derived = items.map((item) => {
+    const row = Original.safeParse(item.attrs).data?.original ?? [];
+    const quantity = readAmount(cell(row, map.quantity));
+    const amount = readAmount(cell(row, map.amount));
+    if (quantity.ambiguous || amount.ambiguous) ambiguous++;
+    return {
+      id: item.id, name: cell(row, map.name), mxik: readCode(cell(row, map.mxik)), unit: cell(row, map.unit),
+      quantity: quantity.value, amount: amount.value, date: parseDate(cell(row, map.date))?.toISOString().slice(0, 10) ?? null,
+    };
+  });
+  const meta: DocMeta = { ...readDocMeta(previousMeta), ambiguous, heartbeatAt: new Date().toISOString() };
   await db.$transaction(async (tx) => {
-    for (const item of items) {
-      const row = Original.safeParse(item.attrs).data?.original ?? [];
-      const code = readCode(cell(row, map.mxik));
-      const quantity = parseAmount(cell(row, map.quantity));
-      const amount = parseAmount(cell(row, map.amount));
-      await tx.docItem.update({
-        where: { id: item.id },
-        data: { name: cell(row, map.name), mxik: code, unit: cell(row, map.unit), quantity, amount, occurredAt: parseDate(cell(row, map.date)) },
-      });
+    for (let i = 0; i < derived.length; i += UPDATE_CHUNK) {
+      const part = derived.slice(i, i + UPDATE_CHUNK);
+      // Numbers and dates travel as text and are cast per element: a numeric[] parameter is not sent reliably.
+      const text = (v: number | null): string | null => (v === null ? null : String(v));
+      await tx.$executeRaw`
+        UPDATE doc_item d SET name = v.name, mxik = v.mxik, unit = v.unit,
+          quantity = v.quantity::numeric, amount = v.amount::numeric, "occurredAt" = v.day::date
+        FROM unnest(${part.map((p) => p.id)}::text[], ${part.map((p) => p.name)}::text[], ${part.map((p) => p.mxik)}::text[],
+                    ${part.map((p) => p.unit)}::text[], ${part.map((p) => text(p.quantity))}::text[], ${part.map((p) => text(p.amount))}::text[],
+                    ${part.map((p) => p.date)}::text[]) AS v(id, name, mxik, unit, quantity, amount, day)
+        WHERE d.id = v.id`;
     }
-    await tx.docList.update({ where: { id: listId }, data: { columnMap: map, status: 'analyzing', progressDone: 0, error: null } });
+    await tx.docList.update({ where: { id: listId }, data: { columnMap: map, status: 'analyzing', progressDone: 0, progressTotal: 0, error: null, meta: asJson(meta) } });
   }, { timeout: 300_000 });
+  return meta;
+}
+
+/** Restarts a failed check, or one whose worker stopped reporting. */
+export async function restartDocCheck(actor: ListActor, listId: string): Promise<boolean> {
+  const list = await ownDocList(actor, listId);
+  if (!list) return false;
+  if (list.status !== 'failed' && !(docCheckStale(list) && !running.has(listId))) return false;
+  await db.docList.update({
+    where: { id: listId },
+    data: { status: 'analyzing', progressDone: 0, error: null, meta: asJson({ ...readDocMeta(list.meta), heartbeatAt: new Date().toISOString() }) },
+  });
   launch(listId);
   return true;
 }
@@ -95,7 +176,9 @@ export function launch(listId: string): void {
   running.add(listId);
   void runDocCheck(listId)
     .catch(async (error: unknown) => {
-      await db.docList.update({ where: { id: listId }, data: { status: 'failed', error: error instanceof Error ? error.message : String(error) } }).catch(() => undefined);
+      // The reason stays in the server log; the page shows a localized message.
+      console.warn(`[doc check ${listId}] failed: ${error instanceof Error ? error.message : String(error)}`);
+      await db.docList.update({ where: { id: listId }, data: { status: 'failed', error: null } }).catch(() => undefined);
     })
     .finally(() => running.delete(listId));
 }
@@ -107,7 +190,7 @@ export type GroupDetail = {
   catalogMatches: { rowIndex: number; name: string; catalogId: string }[];
 };
 
-const MAX_GROUPS = 5000;
+export const MAX_GROUPS = 5000;
 const PARALLEL = 4;
 
 function groupKey(kind: DocKind, item: { name: string | null; mxik: string | null; unit: string | null }): string {
@@ -121,6 +204,11 @@ export async function runDocCheck(listId: string): Promise<void> {
   const list = await db.docList.findUnique({ where: { id: listId }, include: { client: { select: { activity: true } } } });
   if (!list) return;
   const kind: DocKind = list.kind === 'sales' ? 'sales' : 'cheques';
+  const meta: DocMeta = readDocMeta(list.meta);
+  const beat = async (data: { progressDone?: number; progressTotal?: number } = {}): Promise<void> => {
+    meta.heartbeatAt = new Date().toISOString();
+    await db.docList.update({ where: { id: listId }, data: { ...data, meta: asJson(meta) } });
+  };
 
   const groups = new Map<string, Acc>();
   let cursor = 0;
@@ -140,14 +228,18 @@ export async function runDocCheck(listId: string): Promise<void> {
   }
 
   const ordered = [...groups.values()].sort((a, b) => b.amount - a.amount || b.lines - a.lines).slice(0, MAX_GROUPS);
-  await db.docList.update({ where: { id: listId }, data: { progressTotal: ordered.length, progressDone: 0 } });
+  meta.groupsTotal = groups.size;
+  meta.groupsChecked = ordered.length;
+  await beat({ progressTotal: ordered.length, progressDone: 0 });
   await db.docGroup.deleteMany({ where: { listId } });
 
   const ctx = await auditContext(list.orgId);
   const catalog = await db.catalog.findFirst({ where: { orgId: list.orgId, clientId: list.clientId, status: 'ready' }, orderBy: { createdAt: 'desc' }, select: { id: true } });
   const catalogCodes = catalog ? new Set((await db.catalogItem.findMany({ where: { catalogId: catalog.id, existingMxik: { not: null } }, select: { existingMxik: true } })).flatMap((i) => (i.existingMxik ? [i.existingMxik] : []))) : null;
-  const purchases = kind === 'sales' ? await db.purchaseItem.findMany({ where: { list: { clientId: list.clientId, status: 'ready' } }, select: { mxik: true, unit: true } }) : [];
-  const purchaseIndex = purchases.length > 0 ? buildPurchaseIndex(purchases) : null;
+  const purchases = kind === 'sales' ? await db.purchaseItem.findMany({ where: { list: { clientId: list.clientId, status: 'ready' }, mxik: { not: null } }, select: { mxik: true, unit: true } }) : [];
+  const built = buildPurchaseIndex(purchases);
+  // A purchase list without a single valid code says nothing about what was bought.
+  const purchaseIndex = built.size > 0 ? built : null;
 
   let done = 0;
   for (let i = 0; i < ordered.length; i += PARALLEL) {
@@ -197,13 +289,26 @@ export async function runDocCheck(listId: string): Promise<void> {
     }));
     await db.docGroup.createMany({ data: rows });
     done += batch.length;
-    await db.docList.update({ where: { id: listId }, data: { progressDone: done } });
+    await beat({ progressDone: done });
   }
-  await db.docList.update({ where: { id: listId }, data: { status: 'ready' } });
-  await db.auditEvent.create({ data: { orgId: list.orgId, actorId: null, action: `${kind}.checked`, targetId: listId, payload: { clientId: list.clientId, groups: ordered.length, truncated: groups.size > MAX_GROUPS } } });
+  await db.docList.update({ where: { id: listId }, data: { status: 'ready', meta: asJson(meta) } });
+  await db.auditEvent.create({
+    data: {
+      orgId: list.orgId, actorId: null, action: `${kind}.checked`, targetId: listId,
+      payload: { clientId: list.clientId, listId, groups: ordered.length, groupsTotal: groups.size, truncated: groups.size > MAX_GROUPS },
+    },
+  });
 }
 
-export async function deleteDocList(orgId: string, listId: string): Promise<boolean> {
-  const done = await db.docList.deleteMany({ where: { id: listId, orgId } });
+export async function deleteDocList(actor: ListActor, listId: string): Promise<boolean> {
+  const list = await ownDocList(actor, listId);
+  if (!list) return false;
+  const kind = list.kind === 'sales' ? 'sales' : 'cheques';
+  const [done] = await db.$transaction([
+    db.docList.deleteMany({ where: { id: listId, orgId: actor.orgId } }),
+    db.auditEvent.create({
+      data: { orgId: actor.orgId, actorId: actor.userId, action: `${kind}.deleted`, targetId: listId, payload: { clientId: list.clientId, listId, filename: list.filename } },
+    }),
+  ]);
   return done.count > 0;
 }

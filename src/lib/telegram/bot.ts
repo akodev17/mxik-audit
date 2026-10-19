@@ -51,7 +51,12 @@ async function importFile(ctx: Context, config: TelegramConfig, link: Link, pend
     return;
   }
   const buffer = Buffer.from(await response.arrayBuffer());
-  const parsed = await parseUpload(buffer, pending.filename);
+  // parseUpload refuses zip bombs, legacy .xls and binary files before any spreadsheet library runs.
+  const parsed = await parseUpload(buffer, pending.filename).catch(() => null);
+  if (!parsed) {
+    await ctx.reply(t.tgError);
+    return;
+  }
   if (parsed.rows.length === 0) {
     await ctx.reply(t.tgEmptyFile);
     return;

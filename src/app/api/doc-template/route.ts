@@ -2,6 +2,7 @@
 // upload flow maps whatever columns the user's file really has.
 import ExcelJS from 'exceljs';
 import { NextResponse } from 'next/server';
+import { contentDisposition } from '@/lib/export-filename';
 import { getLocale } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 
@@ -25,11 +26,14 @@ export async function GET(request: Request) {
   const sheet = workbook.addWorksheet(kind);
   sheet.addRow([...HEADERS[await getLocale()][kind]]).font = { bold: true };
   sheet.columns.forEach((c) => { c.width = 26; });
+  // Codes must stay text, or Excel shows 1.7E+16 and drops leading zeros.
+  sheet.getColumn(2).numFmt = '@';
   const buffer = await workbook.xlsx.writeBuffer();
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'content-disposition': `attachment; filename="${kind}-template.xlsx"`,
+      'content-disposition': contentDisposition('attachment', `${kind}-template.xlsx`),
+      'cache-control': 'no-store',
     },
   });
 }

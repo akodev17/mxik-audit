@@ -430,7 +430,7 @@ export const uz: Dict = {
   demoUploadDisabled: 'Demo rejimida fayl yuklash oʻchirilgan. Oʻz katalogingizni tekshirish uchun bosh sahifadagi forma orqali yuboring.',
 
   uploadTitle: 'Katalogni yuklash',
-  uploadHint: 'Excel (.xlsx) yoki CSV fayl. Birinchi qator — sarlavhalar.',
+  uploadHint: 'Excel (.xlsx) yoki CSV fayl. Sarlavha qatori avtomatik aniqlanadi; ustunlarni keyingi qadamda tasdiqlaysiz.',
   uploadMapTitle: 'Ustunlarni moslashtirish',
   uploadColumnName: 'Tovar nomi',
   uploadColumnBarcode: 'Shtrix kod',

@@ -4,69 +4,81 @@ import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { MAX_UPLOAD_BYTES } from '@/lib/catalog-import';
-import { ownedClient } from '@/lib/clients';
-import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
-import { applyPurchaseMap, deletePurchaseList, PurchaseMapSchema, recheckClientPurchases, storePurchaseList, type PurchaseMap } from '@/lib/purchases';
 import { writer } from '@/lib/guard';
-import { parseUpload } from '@/lib/spreadsheet';
+import { uploadsOpen } from '@/lib/plan';
+import { applyPurchaseMap, deletePurchaseList, PurchaseMapSchema, setClientActivity, storePurchaseList, type PurchaseMap } from '@/lib/purchases';
+import { parseErrorCode, parseUpload } from '@/lib/spreadsheet';
 
-export type PurchaseUploadState = {
-  error?: string;
-  preview?: { listId: string; filename: string; headers: string[]; rows: string[][]; totalRows: number; map: PurchaseMap };
-};
+export type ListPreview = { listId: string; filename: string; headers: string[]; rows: string[][]; totalRows: number; totalSeen: number; truncated: boolean };
+export type PurchaseUploadResult = { ok: true; preview: ListPreview & { map: PurchaseMap } } | { ok: false; error: string };
 
 /** Stores a purchase file under the client and returns a preview for mapping. */
-export async function uploadPurchases(_prev: PurchaseUploadState, form: FormData): Promise<PurchaseUploadState> {
+export async function uploadPurchases(form: FormData): Promise<PurchaseUploadResult> {
   const { t, ta } = await getI18n();
+  const e = ta.importX.errors;
   const user = await writer();
-  if (!user || await isDemoOrg(user.orgId)) return { error: t.demoUploadDisabled };
+  if (!user) return { ok: false, error: e.client };
+  if (await isDemoOrg(user.orgId)) return { ok: false, error: t.demoUploadDisabled };
+  const open = await uploadsOpen(user.orgId);
+  if (!open.ok) return { ok: false, error: ta.msg.gate.expired };
   const clientId = form.get('clientId');
-  const client = typeof clientId === 'string' ? await ownedClient(user.orgId, clientId) : null;
-  if (!client) return { error: t.errorGeneric };
   const file = form.get('file');
-  if (!(file instanceof File) || file.size === 0) return { error: ta.msg.fileNone };
-  if (file.size > MAX_UPLOAD_BYTES) return { error: ta.msg.fileTooBig };
+  if (typeof clientId !== 'string' || !clientId) return { ok: false, error: e.client };
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: e.none };
+  if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: e.tooBig };
 
+  let parsed;
   try {
-    const parsed = await parseUpload(Buffer.from(await file.arrayBuffer()), file.name);
-    if (parsed.rows.length === 0) return { error: ta.msg.fileEmpty };
-    const { listId, map } = await storePurchaseList({ orgId: user.orgId, clientId: client.id, filename: file.name, parsed });
-    await db.auditEvent.create({
-      data: {
-        orgId: user.orgId, actorId: user.userId, action: 'purchases.uploaded', targetId: listId,
-        payload: { clientId: client.id, filename: file.name, rowCount: parsed.rows.length },
-      },
-    });
-    return { preview: { listId, filename: file.name, headers: parsed.headers, rows: parsed.rows.slice(0, 5), totalRows: parsed.rows.length, map } };
+    parsed = await parseUpload(Buffer.from(await file.arrayBuffer()), file.name);
   } catch (error) {
-    return { error: ta.msg.fileReadFailed(error instanceof Error ? error.message : '') };
+    return { ok: false, error: e[parseErrorCode(error)] };
+  }
+  if (parsed.rows.length === 0) return { ok: false, error: e.empty };
+  try {
+    const stored = await storePurchaseList(user, { clientId, filename: file.name, parsed });
+    if (!stored.ok) return { ok: false, error: e.client };
+    return {
+      ok: true,
+      preview: {
+        listId: stored.listId, filename: file.name, headers: parsed.headers, rows: parsed.rows.slice(0, 8),
+        totalRows: parsed.rows.length, totalSeen: parsed.totalSeen, truncated: parsed.truncated, map: stored.map,
+      },
+    };
+  } catch {
+    return { ok: false, error: e.storeFailed };
   }
 }
 
 const ApplyInput = z.object({ listId: z.string().min(1), map: PurchaseMapSchema });
 
 export async function applyPurchases(payload: unknown): Promise<{ ok: true; codes: number } | { ok: false; error: string }> {
-  const { t } = await getI18n();
+  const { ta } = await getI18n();
   const user = await writer();
   const parsed = ApplyInput.safeParse(payload);
-  if (!user || !parsed.success) return { ok: false, error: t.errorGeneric };
-  const result = await applyPurchaseMap(user.orgId, parsed.data.listId, parsed.data.map);
-  if (!result) return { ok: false, error: t.errorGeneric };
-  revalidatePath('/clients');
-  revalidatePath('/report');
-  revalidatePath('/review');
-  return { ok: true, codes: result.codes };
+  if (!user) return { ok: false, error: ta.importX.errors.client };
+  if (!parsed.success) return { ok: false, error: ta.importX.errors.badMapping };
+  try {
+    const result = await applyPurchaseMap(user, parsed.data.listId, parsed.data.map);
+    if (!result.ok) return { ok: false, error: result.error === 'no_codes' ? ta.importX.purchases.zeroCodes : ta.importX.errors.notFound };
+    revalidatePath('/clients');
+    revalidatePath('/catalogs');
+    return { ok: true, codes: result.codes };
+  } catch {
+    return { ok: false, error: ta.importX.lists.saveFailed };
+  }
 }
 
-export async function removePurchases(listId: unknown): Promise<{ ok: boolean }> {
+export async function removePurchases(listId: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { ta } = await getI18n();
   const user = await writer();
   const id = z.string().min(1).safeParse(listId);
-  if (!user || !id.success) return { ok: false };
-  const ok = await deletePurchaseList(user.orgId, id.data);
+  if (!user || !id.success) return { ok: false, error: ta.importX.lists.deleteFailed };
+  const ok = await deletePurchaseList(user, id.data).catch(() => false);
+  if (!ok) return { ok: false, error: ta.importX.lists.deleteFailed };
   revalidatePath('/clients');
-  revalidatePath('/report');
-  return { ok };
+  revalidatePath('/catalogs');
+  return { ok: true };
 }
 
 const ActivityInput = z.object({ clientId: z.string().min(1), activity: z.enum(['savdo', 'ishlab_chiqarish', 'boshqa']) });
@@ -76,14 +88,9 @@ export async function setActivity(payload: unknown): Promise<{ ok: boolean }> {
   const user = await writer();
   const parsed = ActivityInput.safeParse(payload);
   if (!user || !parsed.success || await isDemoOrg(user.orgId)) return { ok: false };
-  const client = await ownedClient(user.orgId, parsed.data.clientId);
-  if (!client) return { ok: false };
-  await db.client.update({ where: { id: client.id }, data: { activity: parsed.data.activity } });
-  await db.auditEvent.create({
-    data: { orgId: user.orgId, actorId: user.userId, action: 'client.activity_set', targetId: client.id, payload: { clientId: client.id, activity: parsed.data.activity } },
-  });
-  await recheckClientPurchases(user.orgId, client.id);
-  revalidatePath(`/clients/${client.id}`);
-  revalidatePath('/report');
+  const ok = await setClientActivity(user, parsed.data.clientId, parsed.data.activity);
+  if (!ok) return { ok: false };
+  revalidatePath(`/clients/${parsed.data.clientId}`);
+  revalidatePath('/catalogs');
   return { ok: true };
 }
