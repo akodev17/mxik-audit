@@ -1,65 +1,81 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { startTransition, useActionState, useState, useTransition } from 'react';
-import { applyDoc, uploadDoc, type DocUploadState } from '@/app/actions/docs';
+import { useState, useTransition, type ReactNode } from 'react';
+import { applyDoc, uploadDoc } from '@/app/actions/docs';
+import type { ListPreview } from '@/app/actions/purchases';
+import { ListMapper, type MapperField } from '@/app/(app)/clients/[id]/purchases/list-mapper';
+import { Dropzone } from '@/app/(app)/upload/dropzone';
+import { Notice } from '@/app/(app)/upload/notice';
 import type { DocKind, DocMap } from '@/lib/docs';
 import { useI18n } from '@/lib/locale-client';
-import { Button } from '@/ui/button';
-import { ColumnSelect } from '@/ui/column-select';
-import { PreviewTable } from '@/ui/preview-table';
+import { useToast } from '@/ui/toast';
 
-/** Upload a list, confirm its columns, start the check. */
-export function DocForm({ clientId, kind }: { clientId: string; kind: DocKind }) {
-  const { t, ta } = useI18n();
+/** Confirm the columns of a stored cheque or sales list and start its check. */
+export function DocMapper({ clientId, kind, listId, filename, headers, rows, map, notes, onClose }: {
+  clientId: string; kind: DocKind; listId: string; filename: string; headers: string[]; rows: string[][]; map: DocMap; notes?: ReactNode; onClose?: () => void;
+}) {
+  const { ta } = useI18n();
   const router = useRouter();
-  const [state, action, uploading] = useActionState<DocUploadState, FormData>(uploadDoc, {});
-  const [map, setMap] = useState<DocMap | null>(null);
-  const [applying, startApply] = useTransition();
-  const preview = state.preview;
-  const active = map ?? preview?.map ?? null;
-  const fields: { key: keyof DocMap; label: string; required: boolean }[] = [
-    { key: 'name', label: t.uploadColumnName, required: false },
-    { key: 'mxik', label: t.uploadColumnMxik, required: true },
-    { key: 'unit', label: t.uploadColumnUnit, required: false },
+  const toast = useToast();
+  const f = ta.importX.fields;
+  const fields: MapperField<keyof DocMap>[] = [
+    { key: 'name', label: f.name, required: false },
+    { key: 'mxik', label: f.mxik, required: true },
+    { key: 'unit', label: f.unit, required: false },
     { key: 'quantity', label: ta.docs.colQuantity, required: false },
     { key: 'amount', label: ta.docs.colAmount, required: false },
     ...(kind === 'sales' ? [{ key: 'date' as const, label: ta.docs.colDate, required: false }] : []),
   ];
+  return (
+    <ListMapper
+      title={ta.importX.lists.resumeTitle(filename)} headers={headers} rows={rows} initial={map} notes={notes}
+      fields={fields} submitLabel={ta.docs.start} onClose={onClose}
+      onSubmit={async (chosen) => {
+        const outcome = await applyDoc({ listId, map: chosen });
+        if (!outcome.ok) return outcome;
+        toast(ta.importX.docs.started);
+        router.push(`/clients/${clientId}/imports/${listId}`);
+        return { ok: true };
+      }}
+    />
+  );
+}
 
-  function choose(file: File): void {
+/** Upload a list, confirm its columns, start the check. */
+export function DocForm({ clientId, kind }: { clientId: string; kind: DocKind }) {
+  const { ta } = useI18n();
+  const router = useRouter();
+  const [preview, setPreview] = useState<(ListPreview & { map: DocMap }) | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [reading, start] = useTransition();
+
+  const choose = (file: File): void => {
     const form = new FormData();
     form.set('file', file);
     form.set('clientId', clientId);
     form.set('kind', kind);
-    setMap(null);
-    startTransition(() => action(form));
-  }
+    setError(null);
+    setPreview(null);
+    start(async () => {
+      const result = await uploadDoc(form).catch(() => ({ ok: false as const, error: ta.importX.errors.network }));
+      if (!result.ok) { setError(result.error); return; }
+      setPreview(result.preview);
+      router.refresh();
+    });
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="inline-flex h-10 cursor-pointer items-center rounded-ctl border border-line-strong px-4 text-[15px] font-medium hover:bg-surface">
-          {ta.docs.upload}
-          <input type="file" accept=".xlsx,.csv" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) choose(f); }} />
-        </label>
-        <a href={`/api/doc-template?kind=${kind}`} className="text-sm font-medium text-brand hover:underline">{ta.docs.template}</a>
-      </div>
-      {uploading ? <p className="text-sm text-muted">{t.loading}</p> : null}
-      {state.error ? <p role="alert" className="text-sm text-danger">{state.error}</p> : null}
-      {preview && active ? (
-        <div className="space-y-3 rounded-ctl border border-line p-4">
-          <p className="text-sm text-muted">{preview.filename}, {t.uploadRowsFound(preview.totalRows)}</p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {fields.map((f) => (
-              <ColumnSelect key={f.key} label={f.label} required={f.required} headers={preview.headers} value={active[f.key]} onChange={(v) => setMap({ ...active, [f.key]: v })} />
-            ))}
-          </div>
-          <PreviewTable headers={preview.headers} rows={preview.rows} roles={fields.map((f) => [active[f.key], f.label])} />
-          <Button variant="primary" disabled={applying} onClick={() => startApply(async () => { await applyDoc({ listId: preview.listId, map: active }); router.refresh(); })}>
-            {applying ? t.loading : ta.docs.start}
-          </Button>
-        </div>
+      <p className="text-small"><a href={`/api/doc-template?kind=${kind}`} download className="font-medium text-brand-ink hover:underline">{ta.docs.template}</a></p>
+      {preview ? null : <Dropzone onFile={choose} busy={reading} compact />}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {preview ? (
+        <DocMapper
+          clientId={clientId} kind={kind} listId={preview.listId} filename={preview.filename} headers={preview.headers} rows={preview.rows} map={preview.map}
+          notes={preview.truncated ? <Notice tone="danger">{ta.importX.lists.truncated(preview.totalRows, preview.totalSeen)}</Notice> : undefined}
+          onClose={() => setPreview(null)}
+        />
       ) : null}
     </div>
   );

@@ -69,7 +69,7 @@ export async function wrongReasons(): Promise<WrongReason[]> {
 }
 
 const csvCell = (v: string | number | null): string => {
-  const s = v === null ? '' : String(v);
+  const s = v === null ? '' : String(v).replace(/^([=+\-@\t\r])/, "'$1");
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

@@ -1,18 +1,22 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { canSeeClient } from '@/lib/access';
+import { Notice } from '@/app/(app)/upload/notice';
+import { canSeeClient, canWrite } from '@/lib/access';
 import { codeDetails } from '@/lib/code-details';
 import { db } from '@/lib/db';
-import type { GroupDetail } from '@/lib/docs';
+import { docCheckStale, readDocMeta, type GroupDetail } from '@/lib/docs';
 import { formatTag, getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
+import { ButtonLink } from '@/ui/button';
 import { AutoRefresh } from '@/ui/catalog-status-client';
 import { CodeChip } from '@/ui/code-chip';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
+import { Progress } from '@/ui/progress';
 import { Table, Td, Th } from '@/ui/table';
+import { RestartDocButton } from '../restart-button';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
@@ -23,30 +27,61 @@ const ISSUES = ['INVALID_CODE', 'MISSING_CODE', 'MISMATCH', 'UNIT_CONFLICT', 'NO
 const SHOWN = 300;
 
 export default async function DocReportPage({ params, searchParams }: { params: Promise<{ id: string; listId: string }>; searchParams: Promise<{ issue?: string }> }) {
-  const { locale, ta } = await getI18n();
+  const { locale, t, ta } = await getI18n();
   const tag = formatTag(locale);
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { id, listId } = await params;
-  const list = await db.docList.findFirst({ where: { id: listId, orgId: user.orgId, clientId: id } });
+  const list = await db.docList.findFirst({ where: { id: listId, orgId: user.orgId, clientId: id }, include: { client: { select: { name: true } } } });
   if (!list || !canSeeClient(user, list.clientId)) notFound();
   const kind = list.kind === 'sales' ? 'sales' : 'cheques';
-  const back = <Link href={`/clients/${id}/imports?kind=${kind}`} className="text-sm text-brand hover:underline">← {ta.docs.title}</Link>;
+  const writable = canWrite(user) && !user.demo;
+  const crumbs = [
+    { label: t.clientsTitle, href: '/clients' },
+    { label: list.client.name, href: `/clients/${id}` },
+    { label: ta.docs.title, href: `/clients/${id}/imports?kind=${kind}` },
+  ];
+  const meta = readDocMeta(list.meta);
+  const d = ta.importX.docs;
 
-  if (list.status === 'analyzing' || list.status === 'uploaded') {
-    const pct = list.progressTotal === 0 ? 0 : Math.round((list.progressDone / list.progressTotal) * 100);
+  if (list.status === 'uploaded') {
     return (
-      <Page title={ta.docs.reportTitle[kind]}>
-        <div className="-mt-3 mb-5">{back}</div>
-        <p className="text-lg font-bold">{ta.docs.analyzing(list.progressDone, list.progressTotal)}</p>
-        <div className="mt-3 h-2 max-w-xl overflow-hidden rounded-full bg-surface"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${pct}%` }} /></div>
-        {list.status === 'analyzing' ? <AutoRefresh intervalMs={2000} /> : <p className="mt-3 text-sm text-muted">{ta.docs.notStarted}</p>}
+      <Page title={ta.docs.reportTitle[kind]} crumbs={crumbs}>
+        <EmptyState
+          title={ta.docs.notStarted}
+          action={writable ? <ButtonLink href={`/clients/${id}/imports?kind=${kind}&map=${list.id}`} variant="primary">{ta.importX.lists.resume}</ButtonLink> : undefined}
+        />
+      </Page>
+    );
+  }
+  if (list.status === 'analyzing') {
+    const stale = docCheckStale(list);
+    const heading = ta.docs.analyzing(list.progressDone, list.progressTotal);
+    return (
+      <Page title={ta.docs.reportTitle[kind]} crumbs={crumbs}>
+        <section aria-live="polite" className="max-w-xl space-y-3">
+          <p className="text-section">{heading}</p>
+          <Progress label={heading} hideLabel value={list.progressTotal > 0 ? list.progressDone : undefined} max={Math.max(list.progressTotal, 1)} />
+          {stale ? (
+            <Notice tone="warn" title={d.stalled} action={writable ? <RestartDocButton listId={list.id} /> : undefined} />
+          ) : <AutoRefresh intervalMs={2000} />}
+        </section>
       </Page>
     );
   }
   if (list.status === 'failed') {
-    return <Page title={ta.docs.reportTitle[kind]}><div className="-mt-3 mb-5">{back}</div><EmptyState tone="danger" title={ta.docs.failed} hint={list.error ?? undefined} /></Page>;
+    return (
+      <Page title={ta.docs.reportTitle[kind]} crumbs={crumbs}>
+        <EmptyState tone="danger" title={ta.docs.failed} hint={d.failedHint} action={writable ? <RestartDocButton listId={list.id} /> : undefined} />
+      </Page>
+    );
   }
+  const notes = [
+    ...(meta.truncated && meta.totalSeen ? [d.rowsCapped(list.rowCount, meta.totalSeen)] : []),
+    ...(meta.groupsTotal !== undefined && meta.groupsChecked !== undefined && meta.groupsTotal > meta.groupsChecked ? [d.groupsCapped(meta.groupsChecked, meta.groupsTotal)] : []),
+    ...(meta.ambiguous ? [ta.importX.lists.ambiguous(meta.ambiguous)] : []),
+  ];
+
 
   const groups = await db.docGroup.findMany({ where: { listId }, orderBy: [{ amount: { sort: 'desc', nulls: 'last' } }, { lines: 'desc' }] });
   const sp = await searchParams;
@@ -65,8 +100,8 @@ export default async function DocReportPage({ params, searchParams }: { params: 
   const named = (code: string | null) => (code ? <span className="flex min-w-0 flex-col items-start gap-0.5"><CodeChip code={code} /><span className="max-w-full truncate text-xs text-muted" title={details.get(code)?.name}>{details.get(code)?.name ?? ta.drawer.unknown}</span></span> : <span className="text-muted">—</span>);
 
   return (
-    <Page title={ta.docs.reportTitle[kind]} hint={ta.docs.reportHint[kind]} wide>
-      <div className="-mt-3 mb-5">{back}</div>
+    <Page title={ta.docs.reportTitle[kind]} hint={ta.docs.reportHint[kind]} wide crumbs={crumbs}>
+      {notes.length > 0 ? <Notice tone="warn" className="mb-5">{notes.map((note) => <p key={note}>{note}</p>)}</Notice> : null}
       <dl className="mb-5 flex flex-wrap gap-8">
         <div><dt className="text-xs text-muted">{ta.docs.lines}</dt><dd className="text-2xl font-bold">{totalLines.toLocaleString(tag)}</dd></div>
         <div><dt className="text-xs text-muted">{ta.docs.flaggedLines}</dt><dd className={`text-2xl font-bold ${flaggedLines > 0 ? 'text-danger' : 'text-good'}`}>{flaggedLines.toLocaleString(tag)}</dd></div>
