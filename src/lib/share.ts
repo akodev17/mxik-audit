@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { absoluteUrl } from './app-url';
 import { catalogScope } from './access';
 import { db } from './db';
+import { orgActive } from './security/org-active';
 
 const hash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
@@ -49,10 +50,10 @@ export async function revokeShareLink(actor: Actor, linkId: string): Promise<boo
 
 export type ResolvedShare = { id: string; orgId: string; catalogId: string; includePdf: boolean };
 
-/** The live link behind a token: not revoked, not expired. Anything else is null. */
-export async function resolveShare(token: string): Promise<ResolvedShare | null> {
+/** The live link behind a token: not revoked, not expired, its account not closed. Anything else is null. */
+export async function resolveShare(token: string, now = new Date()): Promise<ResolvedShare | null> {
   const link = await db.shareLink.findUnique({ where: { tokenHash: hash(token) } });
-  if (!link || link.revokedAt || link.expiresAt < new Date()) return null;
+  if (!link || link.revokedAt || link.expiresAt <= now || !(await orgActive(link.orgId))) return null;
   return { id: link.id, orgId: link.orgId, catalogId: link.catalogId, includePdf: link.includePdf };
 }
 

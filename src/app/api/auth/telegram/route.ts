@@ -1,39 +1,53 @@
-// Callback of the Telegram Login Widget: signs in the linked user, or opens a trial account.
+// Callback of the Telegram Login Widget on the sign-in page. Signs in the user who bound this
+// Telegram account in Settings → Security. A Telegram id that is only a notification chat of some
+// org is refused. A Telegram id never seen anywhere opens a trial account, as before bindings
+// existed (deliberate self-serve signup), and that account is bound to it.
 import { randomBytes } from 'node:crypto';
-import { NextResponse, type NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { createAccount } from '@/lib/signup';
+import { clientIp } from '@/lib/security/client-ip';
+import { hit, RULES } from '@/lib/security/rate-limit';
+import { redirectTo } from '@/lib/security/redirect';
+import { telegramEmail } from '@/lib/security/reserved-email';
+import { claimOnce } from '@/lib/security/replay';
 import { openSession } from '@/lib/security/sign-in';
+import { createAccount } from '@/lib/signup';
 import { telegramConfig } from '@/lib/telegram/config';
-import { verifyTelegramLogin } from '@/lib/telegram/login';
+import { loginTarget } from '@/lib/telegram/identity';
+import { verifyTelegramLogin, type TelegramLoginData } from '@/lib/telegram/login';
 
 export const dynamic = 'force-dynamic';
 
+type Who = { id: string; orgId: string; email: string };
+
+/** Opens a trial account for a Telegram id seen for the first time, bound to it, with its private chat linked for notifications. */
+async function openTelegramAccount(telegramId: string, data: TelegramLoginData): Promise<Who | null> {
+  const created = await createAccount({
+    email: telegramEmail(telegramId), password: randomBytes(18).toString('base64url'), verified: true, telegramUserId: telegramId,
+    firmName: [data['first_name'], data['last_name']].filter(Boolean).join(' ') || data['username'] || 'Telegram',
+  });
+  if (!created.ok) return null;
+  const { userId, orgId, email } = created.account;
+  await db.telegramLink.create({ data: { orgId, chatId: telegramId, username: data['username'] ?? null, linkedBy: userId } }).catch(() => undefined);
+  return { id: userId, orgId, email };
+}
+
 export async function GET(request: NextRequest) {
   const config = telegramConfig();
-  const origin = new URL(request.url).origin;
-  const back = (path: string) => NextResponse.redirect(`${origin}${path}`);
+  const back = (path: string) => redirectTo(path);
   if (!config.token || !config.username) return back('/sign-in');
 
   const data = Object.fromEntries(request.nextUrl.searchParams.entries());
-  if (!verifyTelegramLogin(data, config.token)) return back('/sign-in?error=telegram');
+  if (!verifyTelegramLogin(data, config.token)) return back('/sign-in?error=telegram_expired');
+  if (!(await claimOnce('tg_replay', data['hash'] ?? ''))) return back('/sign-in?error=telegram_expired');
   const telegramId = data['id'] ?? '';
 
-  // A private chat's id is the user's id, so a linked chat identifies the account.
-  const link = await db.telegramLink.findUnique({ where: { chatId: telegramId } });
-  let user = link
-    ? (link.linkedBy ? await db.user.findUnique({ where: { id: link.linkedBy } }) : null)
-      ?? await db.user.findFirst({ where: { orgId: link.orgId, role: 'admin' }, orderBy: { createdAt: 'asc' } })
-    : null;
-
-  if (!user) {
-    const created = await createAccount({
-      email: `tg-${telegramId}@telegram.invalid`, password: randomBytes(18).toString('base64url'),
-      firmName: [data['first_name'], data['last_name']].filter(Boolean).join(' ') || data['username'] || 'Telegram', verified: true,
-    });
-    if (!created.ok) return back('/sign-in?error=telegram');
-    await db.telegramLink.create({ data: { orgId: created.account.orgId, chatId: telegramId, username: data['username'] ?? null, linkedBy: created.account.userId } }).catch(() => undefined);
-    user = await db.user.findUnique({ where: { id: created.account.userId } });
+  const target = await loginTarget(telegramId);
+  if (target.kind === 'unbound') return back('/sign-in?error=telegram_unbound');
+  let user: Who | null = target.kind === 'user' ? target.user : null;
+  if (target.kind === 'new') {
+    if (!(await hit(RULES.signupIp, clientIp(request.headers))).allowed) return back('/sign-in?error=telegram_limit');
+    user = await openTelegramAccount(telegramId, data);
   }
   if (!user) return back('/sign-in?error=telegram');
 

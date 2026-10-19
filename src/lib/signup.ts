@@ -1,53 +1,77 @@
 // Self-serve accounts: an org on the 14-day trial plus its first admin, and
 // email confirmation when SMTP is configured.
-import { createHash, randomBytes } from 'node:crypto';
-import { absoluteUrl } from './app-url';
-import { appDict } from './i18n-app';
-import type { Locale } from './i18n';
-import { TRIAL_DAYS } from './billing/limits';
-import { db } from './db';
-import { mailEnabled, sendMail } from './mailer';
-import { hashPassword } from './password';
+import { absoluteUrl } from './app-url.js';
+import { appDict } from './i18n-app.js';
+import type { Locale } from './i18n.js';
+import { TRIAL_DAYS } from './billing/limits.js';
+import { db } from './db.js';
+import { mailEnabled, sendMail } from './mailer.js';
+import { hashPassword } from './password.js';
+import { MIN_PASSWORD } from './security/password-check.js';
+import { sendPendingAccountLink } from './security/password-reset.js';
+import { hit, RULES } from './security/rate-limit.js';
+import { EMAIL_PATTERN, emailAcceptable } from './security/reserved-email.js';
+import { confirmEmail, sendVerification } from './security/verification.js';
 
-const hash = (token: string): string => createHash('sha256').update(token).digest('hex');
-const TOKEN_HOURS = 48;
+export { confirmEmail };
 
 export type NewAccount = { userId: string; orgId: string; email: string; needsVerification: boolean };
 export type SignupError = 'emailBad' | 'passwordShort' | 'emailTaken';
-export type SignupResult = { ok: true; account: NewAccount } | { ok: false; error: SignupError };
+export type SignupResult =
+  | { ok: true; account: NewAccount }
+  | { ok: false; error: SignupError }
+  /** SMTP is on and the address was already registered: a mail went there and nothing was created. Answer as for a new account. */
+  | { ok: false; mailed: true };
 
-export async function createAccount(input: { email: string; password: string; firmName: string; verified?: boolean; locale?: Locale }): Promise<SignupResult> {
+type Input = {
+  email: string; password: string; firmName: string;
+  /** The address needs no confirmation (an account opened with Telegram). */
+  verified?: boolean;
+  locale?: Locale;
+  /** Binds the new user's Telegram sign-in. */
+  telegramUserId?: string;
+};
+
+type Existing = { id: string; email: string; emailVerifiedAt: Date | null };
+
+/** The address is taken. With SMTP on the owner gets a mail instead of the visitor getting an answer that reveals the account. */
+async function alreadyRegistered(user: Existing, input: Input): Promise<SignupResult> {
+  if (input.verified || !mailEnabled()) return { ok: false, error: 'emailTaken' };
+  const locale = input.locale ?? 'uz';
+  if (!(await hit(RULES.resendEmail, user.email)).allowed) return { ok: false, mailed: true };
+  if (user.emailVerifiedAt) {
+    const s = appDict(locale).secX.mail;
+    await sendMail({ to: user.email, subject: s.existsSubject, text: s.existsBody(absoluteUrl('/sign-in'), absoluteUrl('/sign-in/forgot')) });
+  } else {
+    // Not the stored password: whoever controls the mailbox sets one, so nobody can pre-register someone else's address.
+    await sendPendingAccountLink(user, locale);
+  }
+  return { ok: false, mailed: true };
+}
+
+export async function createAccount(input: Input): Promise<SignupResult> {
   const email = input.email.trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return { ok: false, error: 'emailBad' };
-  if (input.password.length < 8) return { ok: false, error: 'passwordShort' };
+  const viaTelegram = input.telegramUserId !== undefined;
+  // Telegram accounts get a placeholder in a reserved domain; everyone else needs an address a person can own.
+  if (viaTelegram ? !EMAIL_PATTERN.test(email) : !emailAcceptable(email)) return { ok: false, error: 'emailBad' };
+  if (input.password.length < MIN_PASSWORD) return { ok: false, error: 'passwordShort' };
   const name = input.firmName.replace(/\s+/g, ' ').trim().slice(0, 120) || email.split('@')[0] || 'Firma';
-  if (await db.user.findUnique({ where: { email }, select: { id: true } })) return { ok: false, error: 'emailTaken' };
-
+  // Hashing before the lookup keeps "new" and "already registered" equally slow.
   const passwordHash = await hashPassword(input.password);
+  const existing = await db.user.findUnique({ where: { email }, select: { id: true, email: true, emailVerifiedAt: true } });
+  if (existing) return alreadyRegistered(existing, input);
+
   const needsVerification = mailEnabled() && !input.verified;
   const user = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({ data: { name, kind: 'customer', trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000) } });
-    const created = await tx.user.create({ data: { orgId: org.id, email, passwordHash, role: 'admin', emailVerifiedAt: needsVerification ? null : new Date() } });
-    await tx.auditEvent.create({ data: { orgId: org.id, actorId: created.id, action: 'account.created', payload: { via: input.verified ? 'telegram' : 'signup' } } });
+    const created = await tx.user.create({
+      data: { orgId: org.id, email, passwordHash, role: 'admin', emailVerifiedAt: needsVerification ? null : new Date(), telegramUserId: input.telegramUserId ?? null },
+    });
+    await tx.auditEvent.create({ data: { orgId: org.id, actorId: created.id, action: 'account.created', payload: { via: viaTelegram ? 'telegram' : 'signup' } } });
     return created;
-  });
+  }).catch(() => null);
+  // A parallel request took the address (or the Telegram id) first.
+  if (!user) return { ok: false, error: 'emailTaken' };
   if (needsVerification) await sendVerification(user.id, email, input.locale ?? 'uz');
   return { ok: true, account: { userId: user.id, orgId: user.orgId, email, needsVerification } };
-}
-
-async function sendVerification(userId: string, email: string, locale: Locale): Promise<void> {
-  const ta = appDict(locale);
-  const token = randomBytes(24).toString('base64url');
-  await db.emailToken.create({ data: { userId, tokenHash: hash(token), expiresAt: new Date(Date.now() + TOKEN_HOURS * 3_600_000) } });
-  await sendMail({ to: email, subject: ta.msg.mail.verifySubject, text: ta.msg.mail.verifyBody(absoluteUrl(`/verify/${token}`), TOKEN_HOURS) });
-}
-
-/** Marks the address confirmed; returns the user to sign in, or null for a bad or used link. */
-export async function confirmEmail(token: string): Promise<{ userId: string; orgId: string; email: string } | null> {
-  const row = await db.emailToken.findUnique({ where: { tokenHash: hash(token) }, include: { user: { select: { id: true, orgId: true, email: true } } } });
-  if (!row || row.usedAt || row.expiresAt < new Date()) return null;
-  const claimed = await db.emailToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
-  if (claimed.count !== 1) return null;
-  await db.user.update({ where: { id: row.userId }, data: { emailVerifiedAt: new Date() } });
-  return { userId: row.user.id, orgId: row.user.orgId, email: row.user.email };
 }

@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { securityHeaders } from './src/lib/security/headers';
 
 const config: NextConfig = {
   // The dev overlay badge would appear in the landing page screenshots.
@@ -8,6 +9,10 @@ const config: NextConfig = {
   experimental: {
     // Catalogue uploads are the whole point; the 1 MB default is far too small.
     serverActions: { bodySizeLimit: '25mb' },
+  },
+  // CSP, nosniff, referrer and permissions policies on every route; HSTS in production only.
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders() }];
   },
   webpack: (webpackConfig) => {
     // src/core and src/lib are also run directly by tsx (scripts, eval, tests),

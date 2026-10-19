@@ -1,10 +1,14 @@
 // "Telegram orqali kirish": checks the signed data the Telegram Login Widget
-// returns. Pure apart from the clock, so callers pass `now`.
+// returns. Pure apart from the clock, so callers pass `now`. Replays are refused
+// separately (src/lib/security/replay.ts), keyed by the hash.
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export type TelegramLoginData = Record<string, string>;
 
-const MAX_AGE_SECONDS = 24 * 3600;
+/** Signed data older than this is refused. */
+export const MAX_AGE_SECONDS = 5 * 60;
+/** Tolerated clock difference for data dated slightly in the future. */
+const MAX_SKEW_SECONDS = 60;
 
 /** True when the data was signed by Telegram for this bot token and is recent. */
 export function verifyTelegramLogin(data: TelegramLoginData, botToken: string, now = Date.now()): boolean {
@@ -16,5 +20,6 @@ export function verifyTelegramLogin(data: TelegramLoginData, botToken: string, n
   const a = Buffer.from(hash, 'hex');
   const b = Buffer.from(expected, 'hex');
   if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
-  return now / 1000 - Number(rest['auth_date']) <= MAX_AGE_SECONDS;
+  const age = now / 1000 - Number(rest['auth_date']);
+  return Number.isFinite(age) && age <= MAX_AGE_SECONDS && age >= -MAX_SKEW_SECONDS;
 }

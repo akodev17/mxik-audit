@@ -1,6 +1,7 @@
 // Linking a Telegram chat to an org with a one-time code from the web app.
 import { randomInt } from 'node:crypto';
 import { db } from '../db.js';
+import { orgActive } from '../security/org-active.js';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 8;
@@ -31,8 +32,10 @@ export async function consumeLinkCode(rawCode: string, chatId: string, username:
     });
     if (claimed.count !== 1) return { ok: false, reason: 'invalid' } as const;
     const row = await tx.telegramLinkCode.findUniqueOrThrow({ where: { code } });
-    const org = await tx.organization.findUniqueOrThrow({ where: { id: row.orgId }, select: { name: true, kind: true } });
+    const org = await tx.organization.findUniqueOrThrow({ where: { id: row.orgId }, select: { name: true, kind: true, deletedAt: true } });
     if (org.kind === 'demo' || org.kind === 'demo_template') return { ok: false, reason: 'demo' } as const;
+    // A code issued before the account was closed links nothing.
+    if (org.deletedAt) return { ok: false, reason: 'invalid' } as const;
     await tx.telegramLink.upsert({
       where: { chatId },
       create: { orgId: row.orgId, chatId, username, linkedBy: row.userId },
@@ -45,8 +48,10 @@ export async function consumeLinkCode(rawCode: string, chatId: string, username:
   });
 }
 
-export async function linkForChat(chatId: string) {
-  return db.telegramLink.findUnique({ where: { chatId }, select: { orgId: true, linkedBy: true } });
+/** The chat's link, or null when there is none or its account is closed (the bot then treats the chat as unlinked). */
+export async function linkForChat(chatId: string): Promise<{ orgId: string; linkedBy: string | null } | null> {
+  const link = await db.telegramLink.findUnique({ where: { chatId }, select: { orgId: true, linkedBy: true } });
+  return link && (await orgActive(link.orgId)) ? link : null;
 }
 
 export async function listLinks(orgId: string) {

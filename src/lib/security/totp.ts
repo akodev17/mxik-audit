@@ -1,5 +1,6 @@
 // RFC 6238 time-based one-time passwords (SHA-1, 6 digits, 30 seconds) on node:crypto.
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { derivedKey } from './secret.js';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const STEP_SECONDS = 30;
@@ -58,9 +59,7 @@ export function otpauthUri(secret: string, account: string, issuer: string): str
 }
 
 // The secret is stored encrypted with a key derived from SESSION_SECRET (AES-256-GCM).
-function key(): Buffer {
-  return createHash('sha256').update(`totp:${process.env['SESSION_SECRET'] ?? ''}`).digest();
-}
+const key = (): Buffer => derivedKey('totp');
 
 export function sealSecret(secret: string): string {
   const iv = randomBytes(12);

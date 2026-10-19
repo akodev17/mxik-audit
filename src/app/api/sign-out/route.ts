@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { db } from '@/lib/db';
+import { redirectTo } from '@/lib/security/redirect';
+import { endRecord } from '@/lib/security/session-store';
 
-export async function POST(request: Request) {
+export async function POST() {
   const session = await getSession();
-  if (session.sid) await db.userSession.updateMany({ where: { id: session.sid, revokedAt: null }, data: { revokedAt: new Date() } });
+  if (session.sid) await endRecord(session.sid);
   session.destroy();
-  return NextResponse.redirect(new URL('/sign-in', request.url));
+  return redirectTo('/sign-in', 303);
 }

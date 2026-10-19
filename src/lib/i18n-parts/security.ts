@@ -2,17 +2,159 @@
 // Uzbek Latin first; the Russian object must have the same shape (the type enforces it).
 import { pluralRu } from '../plural';
 
+const minutesRu = (n: number): string => `${n} ${pluralRu(n, 'минуту', 'минуты', 'минут')}`;
+const charsRu = (n: number): string => `${n} ${pluralRu(n, 'символа', 'символов', 'символов')}`;
+
 export const uz = {
   secX: {
     _area: 'security',
+    tooMany: (minutes: number) => `Juda koʻp urinish. ${minutes} daqiqadan soʻng qayta urinib koʻring.`,
+    passwordCooldown: (minutes: number) => `Bu elektron pochta uchun parol koʻp marta notoʻgʻri kiritildi. ${minutes} daqiqadan soʻng qayta urinib koʻring yoki parolni tiklang.`,
+    forgotLink: 'Parolni unutdingizmi?',
+    resend: 'Tasdiqlash havolasini qayta yuborish',
+    resendSent: 'Agar elektron pochta va parol toʻgʻri boʻlsa va manzil hali tasdiqlanmagan boʻlsa, yangi havola yuborildi. Pochtani, jumladan “Spam” jildini tekshiring.',
+    backToSignIn: 'Kirish sahifasiga qaytish',
+    notices: {
+      '2fa_locked': 'Kod bir necha marta notoʻgʻri kiritildi. Xavfsizlik uchun qaytadan parol bilan kiring.',
+      '2fa_expired': 'Kirish muddati tugadi. Qaytadan parol bilan kiring.',
+      verify: 'Tasdiqlash havolasi yaroqsiz yoki muddati tugagan. Elektron pochta va parolni kiriting va “Tasdiqlash havolasini qayta yuborish” tugmasini bosing.',
+      telegram_unbound: 'Bu Telegram hisobi kirish uchun hech bir foydalanuvchiga ulanmagan. Elektron pochta va parol bilan kiring, soʻng Sozlamalar → Xavfsizlik boʻlimida Telegramni ulang.',
+      telegram_expired: 'Telegram maʼlumotlari eskirgan yoki allaqachon ishlatilgan. Telegram tugmasini qayta bosing.',
+      telegram_limit: 'Juda koʻp urinish. Birozdan soʻng qayta urinib koʻring.',
+    } as Record<string, string>,
+    info: {
+      reset_done: 'Parol yangilandi. Yangi parol bilan kiring.',
+    } as Record<string, string>,
+    forgot: {
+      title: 'Parolni tiklash',
+      intro: 'Hisobingiz elektron pochtasini kiriting. Parolni yangilash havolasini yuboramiz; u 1 soat amal qiladi.',
+      submit: 'Havolani yuborish',
+      sent: 'Agar bu manzil bilan hisob boʻlsa, unga parolni yangilash havolasi yuborildi. Havola 1 soat amal qiladi.',
+      noMail: 'Bu serverda elektron pochta sozlanmagan, shuning uchun havola yuborib boʻlmaydi. Yangi parol oʻrnatish uchun xizmat administratoriga murojaat qiling.',
+    },
+    reset: {
+      title: 'Yangi parol',
+      intro: (email: string) => `${email} hisobi uchun yangi parol oʻrnating. Saqlangach, barcha qurilmalardagi seanslar tugatiladi.`,
+      repeat: 'Yangi parolni takrorlang',
+      submit: 'Parolni saqlash',
+      bad: 'Havola yaroqsiz',
+      badHint: 'Havola muddati tugagan (1 soat) yoki allaqachon ishlatilgan. Yangi havola soʻrang.',
+      again: 'Yangi havola soʻrash',
+      mismatch: 'Parollar bir xil emas.',
+    },
+    password: {
+      title: 'Parol',
+      hint: 'Parol oʻzgargach, boshqa qurilmalardagi barcha seanslar tugatiladi.',
+      current: 'Joriy parol',
+      next: 'Yangi parol',
+      rule: (n: number) => `Kamida ${n} ta belgi.`,
+      submit: 'Parolni oʻzgartirish',
+      done: (ended: number) => (ended > 0 ? `Parol oʻzgartirildi. Boshqa ${ended} ta seans tugatildi.` : 'Parol oʻzgartirildi.'),
+      wrong: 'Joriy parol notoʻgʻri.',
+      short: (n: number) => `Yangi parol kamida ${n} ta belgidan iborat boʻlsin.`,
+    },
+    telegram: {
+      title: 'Telegram orqali kirish',
+      off: 'Telegram bot bu serverda sozlanmagan.',
+      unbound: 'Ulanmagan. Ulasangiz, kirish sahifasidagi “Telegram orqali kirish” tugmasi aynan shu hisobga kiritadi.',
+      bound: 'Ulangan. Kirish sahifasidagi “Telegram orqali kirish” tugmasi shu hisobga kiritadi.',
+      separate: 'Bu bildirishnoma chatlaridan alohida: chatni ulash hech kimga kirish huquqini bermaydi.',
+      connect: 'Telegramni ulash',
+      connectHint: 'Telegram tugmasini bosing va Telegramda tasdiqlang. Tugma 10 daqiqa amal qiladi.',
+      disconnect: 'Telegramni uzish',
+      result: {
+        bound: 'Telegram ulandi.',
+        taken: 'Bu Telegram hisobi boshqa foydalanuvchiga ulangan. Avval oʻsha hisobda uzing.',
+        error: 'Telegramni ulab boʻlmadi. Qayta urinib koʻring.',
+        unbound: 'Telegram uzildi.',
+      } as Record<string, string>,
+    },
+    qrAlt: 'Autentifikator ilovasi uchun QR kod',
+    qrHint: 'Ilovada QR kodni skanerlang yoki quyidagi kalitni qoʻlda kiriting.',
+    mail: {
+      resetSubject: 'MXIK Audit: parolni tiklash',
+      resetBody: (url: string, minutes: number) => `Parolni yangilash uchun havolani oching:\n${url}\nHavola ${minutes} daqiqa amal qiladi va bir marta ishlaydi.\nParolni tiklashni soʻramagan boʻlsangiz, xatni eʼtiborsiz qoldiring: parolingiz oʻzgarmaydi.`,
+      pendingSubject: 'MXIK Audit: elektron pochtani tasdiqlang',
+      pendingBody: (url: string, minutes: number) => `Shu manzil bilan MXIK Audit hisobi ochilgan, lekin hali tasdiqlanmagan. Tasdiqlash va parol oʻrnatish uchun havolani oching:\n${url}\nHavola ${minutes} daqiqa amal qiladi.\nBu siz boʻlmasangiz, xatni eʼtiborsiz qoldiring.`,
+      existsSubject: 'MXIK Audit: hisob yaratishga urinish',
+      existsBody: (signIn: string, forgot: string) => `Kimdir (ehtimol siz) shu elektron pochta bilan MXIK Audit hisobini yaratmoqchi boʻldi. Bu manzil bilan hisob allaqachon bor.\nKirish: ${signIn}\nParolni unutgan boʻlsangiz: ${forgot}\nBu siz boʻlmasangiz, xatni eʼtiborsiz qoldiring.`,
+    },
   },
 };
 
 export const ru: typeof uz = {
   secX: {
     _area: 'security',
+    tooMany: (minutes: number) => `Слишком много попыток. Повторите через ${minutesRu(minutes)}.`,
+    passwordCooldown: (minutes: number) => `Для этой почты слишком много раз введён неверный пароль. Повторите через ${minutesRu(minutes)} или восстановите пароль.`,
+    forgotLink: 'Забыли пароль?',
+    resend: 'Отправить ссылку подтверждения ещё раз',
+    resendSent: 'Если почта и пароль верны, а адрес ещё не подтверждён, мы отправили новую ссылку. Проверьте почту, в том числе папку «Спам».',
+    backToSignIn: 'Вернуться ко входу',
+    notices: {
+      '2fa_locked': 'Код несколько раз введён неверно. Для безопасности войдите заново с паролем.',
+      '2fa_expired': 'Время для входа истекло. Войдите заново с паролем.',
+      verify: 'Ссылка подтверждения недействительна или устарела. Введите почту и пароль и нажмите «Отправить ссылку подтверждения ещё раз».',
+      telegram_unbound: 'Этот аккаунт Telegram не привязан для входа ни к одному пользователю. Войдите по почте и паролю, затем привяжите Telegram в разделе Настройки → Безопасность.',
+      telegram_expired: 'Данные Telegram устарели или уже использованы. Нажмите кнопку Telegram ещё раз.',
+      telegram_limit: 'Слишком много попыток. Повторите немного позже.',
+    },
+    info: {
+      reset_done: 'Пароль обновлён. Войдите с новым паролем.',
+    },
+    forgot: {
+      title: 'Восстановление пароля',
+      intro: 'Введите почту вашего аккаунта. Мы отправим ссылку для смены пароля; она действует 1 час.',
+      submit: 'Отправить ссылку',
+      sent: 'Если аккаунт с этим адресом существует, мы отправили на него ссылку для смены пароля. Ссылка действует 1 час.',
+      noMail: 'На этом сервере не настроена электронная почта, поэтому ссылку отправить нельзя. Чтобы установить новый пароль, обратитесь к администратору сервиса.',
+    },
+    reset: {
+      title: 'Новый пароль',
+      intro: (email: string) => `Задайте новый пароль для ${email}. После сохранения все сеансы на всех устройствах будут завершены.`,
+      repeat: 'Повторите новый пароль',
+      submit: 'Сохранить пароль',
+      bad: 'Ссылка недействительна',
+      badHint: 'Срок действия ссылки истёк (1 час) или она уже использована. Запросите новую.',
+      again: 'Запросить новую ссылку',
+      mismatch: 'Пароли не совпадают.',
+    },
+    password: {
+      title: 'Пароль',
+      hint: 'После смены пароля все сеансы на других устройствах будут завершены.',
+      current: 'Текущий пароль',
+      next: 'Новый пароль',
+      rule: (n: number) => `Не менее ${charsRu(n)}.`,
+      submit: 'Сменить пароль',
+      done: (ended: number) => (ended > 0 ? `Пароль изменён. Завершено других сеансов: ${ended}.` : 'Пароль изменён.'),
+      wrong: 'Текущий пароль неверный.',
+      short: (n: number) => `Новый пароль должен содержать не менее ${charsRu(n)}.`,
+    },
+    telegram: {
+      title: 'Вход через Telegram',
+      off: 'Telegram-бот на этом сервере не настроен.',
+      unbound: 'Не привязан. После привязки кнопка «Войти через Telegram» на странице входа будет открывать именно этот аккаунт.',
+      bound: 'Привязан. Кнопка «Войти через Telegram» на странице входа открывает этот аккаунт.',
+      separate: 'Это отдельно от чатов для уведомлений: привязка чата никому не даёт права входа.',
+      connect: 'Привязать Telegram',
+      connectHint: 'Нажмите кнопку Telegram и подтвердите в Telegram. Кнопка действует 10 минут.',
+      disconnect: 'Отвязать Telegram',
+      result: {
+        bound: 'Telegram привязан.',
+        taken: 'Этот аккаунт Telegram привязан к другому пользователю. Сначала отвяжите его там.',
+        error: 'Не удалось привязать Telegram. Попробуйте ещё раз.',
+        unbound: 'Telegram отвязан.',
+      },
+    },
+    qrAlt: 'QR-код для приложения-аутентификатора',
+    qrHint: 'Отсканируйте QR-код в приложении или введите ключ ниже вручную.',
+    mail: {
+      resetSubject: 'MXIK Audit: восстановление пароля',
+      resetBody: (url: string, minutes: number) => `Чтобы задать новый пароль, откройте ссылку:\n${url}\nСсылка действует ${minutesRu(minutes)} и срабатывает один раз.\nЕсли вы не запрашивали восстановление, просто проигнорируйте письмо: пароль не изменится.`,
+      pendingSubject: 'MXIK Audit: подтвердите электронную почту',
+      pendingBody: (url: string, minutes: number) => `На этот адрес уже открыт аккаунт MXIK Audit, но он ещё не подтверждён. Чтобы подтвердить адрес и задать пароль, откройте ссылку:\n${url}\nСсылка действует ${minutesRu(minutes)}.\nЕсли это были не вы, проигнорируйте письмо.`,
+      existsSubject: 'MXIK Audit: попытка создать аккаунт',
+      existsBody: (signIn: string, forgot: string) => `Кто-то (возможно, вы) пытался создать аккаунт MXIK Audit с этим адресом. Аккаунт с этим адресом уже есть.\nВход: ${signIn}\nЕсли вы забыли пароль: ${forgot}\nЕсли это были не вы, проигнорируйте письмо.`,
+    },
   },
 };
-
-// Keeps the import used until the first Russian plural lands in this file.
-void pluralRu;

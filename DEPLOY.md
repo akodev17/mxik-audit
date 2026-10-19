@@ -215,11 +215,23 @@ transactions are in the `order` and `payment_transaction` tables.
 
 ## 7c. Team, email and roles (optional)
 
-Members join through invite links created in Sozlamalar. To also email the link set `SMTP_URL` and `MAIL_FROM`; without them the link is only shown on screen. `APP_URL` makes links absolute. Roles: admin (everything), accountant (works on assigned clients), viewer (read-only). An accountant or viewer with no assigned clients sees every client of the org.
+Members join through invite links created in Sozlamalar. To also email the link set `SMTP_URL` and `MAIL_FROM`; without them the link is only shown on screen. `APP_URL` makes links absolute (emailed confirmation and password-reset links need it). Roles: admin (everything), accountant (works on assigned clients), viewer (read-only). An accountant or viewer with no assigned clients sees every client of the org.
+
+Address confirmation and invites:
+
+- An invite created **with** an email address confirms that address when it is accepted (the admin chose it).
+- An invite created **without** one lets the person type any address. With SMTP on, a confirmation link is mailed on join; until it is opened the member cannot sign in again with the password. Without SMTP the address stays unconfirmed, and once you configure SMTP the member is asked to confirm it at the next sign-in ("Tasdiqlash havolasini qayta yuborish" on the sign-in page sends a new link; it needs the right email and password, and answers the same either way).
+- Members who joined through an emailed invite before this version were never marked confirmed. Before turning SMTP on, confirm them once:
+
+```bash
+docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" u SET \"emailVerifiedAt\" = now() FROM invite i WHERE u.\"emailVerifiedAt\" IS NULL AND i.\"usedAt\" IS NOT NULL AND i.\"orgId\" = u.\"orgId\" AND lower(i.email) = u.email;"
+```
+
+With SMTP on, signing up with an address that already has an account answers "check your email" exactly like a new signup; the owner gets either a "someone tried to sign up" note (confirmed account) or a link to confirm and choose a password (unconfirmed account), so the sign-up page never reveals which addresses are registered and nobody can pre-register someone else's address with a password they know.
 
 ## 7d. Signup, trial and plan limits
 
-/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan stays hidden until its price is set in src/lib/billing/plans.ts. "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot.
+/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan stays hidden until its price is set in src/lib/billing/plans.ts. "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
 
 ## 7e. Daily jobs (monthly reminders)
 
@@ -238,8 +250,29 @@ Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept in memory per proc
 
 ## 7g. Security and data control
 
-- **Two-factor sign-in** (authenticator app, 6-digit TOTP) and one-time recovery codes are per user, in Settings. The TOTP secret is stored encrypted with a key derived from `SESSION_SECRET`: if you rotate `SESSION_SECRET`, users with two-factor can only sign in with a recovery code and must set it up again.
-- **Active sessions** are recorded in the database; a user can end any of their sessions in Settings. Cookies issued before this version have no session record and stay valid until they expire (7 days).
+- **Two-factor sign-in** (authenticator app, 6-digit TOTP, set up by scanning a QR code) and one-time recovery codes are per user, in Settings. The TOTP secret is stored encrypted, and recovery codes (80 bits each) as an HMAC, both with keys derived from `SESSION_SECRET`: if you rotate `SESSION_SECRET`, two-factor secrets and recovery codes stop working and those users need an operator to turn two-factor off (`UPDATE "user" SET "totpSecret" = NULL, "totpEnabledAt" = NULL, "totpLastStep" = NULL WHERE email = '...'`) before they set it up again. Recovery codes issued before this version keep working until regenerated. Five wrong codes end a pending sign-in (the password is asked again); ten wrong codes per user per hour block further tries for that hour.
+- **Active sessions** are recorded in the database; a user can end any of their sessions in Settings. A session not seen for 7 days (the cookie lifetime) is dead. Cookies without a session record (issued before session records existed) are no longer accepted: those users sign in once more. Demo visitors are the only sessions without a record.
+- **Rate limits** live in the `auth_attempt` table, so they survive restarts and apply across instances: 5 password attempts per email per 15 minutes (then a cooldown message; the right password clears the count), 30 sign-in attempts per client address per 15 minutes, 3 password-reset and 3 confirmation-resend mails per address per hour (10 per client address), 8 signups per client address per hour. The client address is `X-Real-IP` (nginx sets it from `$remote_addr`, section 6), else the **rightmost** `X-Forwarded-For` hop, never the leftmost (the client writes that one). Keep the app port bound to 127.0.0.1 behind nginx; if another proxy sits in front of nginx, configure nginx's `real_ip` module so `$remote_addr` is the visitor. Stored keys are HMACs, not raw emails or addresses. The daily job (7e) deletes attempts older than a day.
+- **Passwords**: Settings → Xavfsizlik changes the password (the current one is required; every other session of the user ends; `security.password_changed` in the audit log). "Parolni unutdingizmi?" on the sign-in page mails a reset link (1 hour, single use, only the newest link works; using it sets the password, confirms the address and ends every session of the user; `security.password_reset`). The page answers the same whether or not the address has an account. **Without SMTP no link can be sent**; the page says an administrator has to set the password, and the operator does it on the server:
+
+```bash
+mx npm run password:set -- user@example.com                   # prints a new random password once
+echo 'new-password' | docker compose --profile app run --rm -T app npm run password:set -- user@example.com --stdin
+mx npm run password:set -- user@example.com --confirm-email   # also marks the address confirmed
+```
+
+  It ends every session of that user and writes `security.password_reset` (via operator). Ask the user to change the printed password in Settings.
+- **Telegram sign-in** ("Telegram orqali kirish") signs in only the user who bound that Telegram account in Settings → Xavfsizlik while signed in (the widget's callback carries a one-time state from that browser's session, so a link from someone else cannot bind their Telegram to your account). Notification chats linked with a code (7a) never sign anyone in: a Telegram account that is only such a chat is refused with a message to sign in by email and bind Telegram in Settings. Removing a member deletes their binding with the user. A Telegram account seen nowhere opens a new 14-day trial account bound to it (the self-serve behaviour that existed before; that account's placeholder address ends in `.invalid`, it cannot be used to sign up or join, and the binding of such an account cannot be removed because it has no other way in). Accounts opened with Telegram before this version are bound on their next Telegram sign-in. The widget's signed data is accepted for 5 minutes and only once (replays are refused).
+- **Platform admin** (`/admin`, cross-org numbers) needs all three: the `platformAdmin` flag on the user, the address listed in `ADMIN_EMAILS`, and the address confirmed. The flag is set only by hand:
+
+```bash
+docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" SET \"platformAdmin\" = true, \"emailVerifiedAt\" = COALESCE(\"emailVerifiedAt\", now()) WHERE email = 'owner@example.uz';"
+# revoke: UPDATE "user" SET "platformAdmin" = false WHERE email = 'owner@example.uz';
+```
+
+- **Closed accounts** stop everything that runs without a sign-in: API keys, share links, the Telegram bot (the chat is treated as unlinked; notifications and audit summaries are not sent; old link codes do nothing).
+- **HTTP headers** on every route (`src/lib/security/headers.ts`): Content-Security-Policy (`default-src 'self'`, `frame-ancestors 'none'`, scripts from the site and `https://telegram.org` for the login widget, its iframe from `https://oauth.telegram.org`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (no camera, microphone, geolocation), `X-Frame-Options: DENY`, and in production `Strict-Transport-Security: max-age=31536000`. `script-src` keeps `'unsafe-inline'` because Next.js bootstraps pages with inline scripts; per-request nonces would need middleware and a verified production build, which is future work. `'unsafe-eval'` and the hot-reload websocket are allowed only in development.
+- **Landing-page lead form** accepts files up to 5 MB, and an .xlsx that would inflate past 100 MB (or has more than 5,000 entries) is refused before it is parsed.
 - **Account data export** (admin, Settings): a zip with team, clients, dictionary, activity log and one Excel file per catalogue. Passwords, API keys and two-factor secrets are never included.
 - **Closing an account**: the admin confirms with the password; nobody can sign in except an admin, who may restore the account. After `ACCOUNT_DELETE_AFTER_DAYS` (default 30) the daily job (section 7e) erases the organisation and everything under it, including its log entries.
 - **Raw-file retention**: each org chooses 7, 30 (default) or 90 days, or "keep". The daily job blanks the uploaded cells that are not in a mapped column (names, codes, units, prices are kept, so reports and exports keep working). Existing orgs get the 30-day default when this version is deployed, so the first daily run after deploying cleans their older uploads.
@@ -253,7 +286,8 @@ Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept in memory per proc
 | Erase a lead's file on request | `mx npm run lead:delete -- --list`, then `mx npm run lead:delete -- <leadId>` (`--all` also removes the contact) |
 | Rebuild the demo | `mx npm run seed:demo` |
 | Which LLM/embedding setup is active | `mx npm run check:providers` |
-| Traction metrics | `https://your-domain/admin`, signed in as an `ADMIN_EMAILS` address |
+| Traction metrics | `https://your-domain/admin`, signed in as a platform admin (7g) |
+| Set a user's password (no SMTP) | `mx npm run password:set -- user@example.com` (7g) |
 
 ### Updating to a new version
 

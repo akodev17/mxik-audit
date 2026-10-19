@@ -1,6 +1,7 @@
 // Public API keys. The token is shown once; only its hash is stored.
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '../db';
+import { orgActive } from '../security/org-active';
 
 const hash = (token: string): string => createHash('sha256').update(token).digest('hex');
 const TOKEN_PREFIX = 'mxk_';
@@ -40,12 +41,12 @@ export async function revokeApiKey(actor: Actor, keyId: string): Promise<boolean
 
 export type ApiCaller = { keyId: string; orgId: string };
 
-/** Resolves "Authorization: Bearer <token>" to a live key; null for anything else. */
+/** Resolves "Authorization: Bearer <token>" to a live key of an open account; null for anything else. */
 export async function authenticate(header: string | null): Promise<ApiCaller | null> {
   const token = /^Bearer\s+(\S+)$/i.exec(header ?? '')?.[1];
   if (!token?.startsWith(TOKEN_PREFIX)) return null;
   const key = await db.apiKey.findUnique({ where: { tokenHash: hash(token) }, select: { id: true, orgId: true, revokedAt: true, lastUsedAt: true } });
-  if (!key || key.revokedAt) return null;
+  if (!key || key.revokedAt || !(await orgActive(key.orgId))) return null;
   if (!key.lastUsedAt || Date.now() - key.lastUsedAt.getTime() > TOUCH_EVERY_MS) {
     await db.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } });
   }

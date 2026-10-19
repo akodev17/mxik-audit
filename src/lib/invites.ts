@@ -5,7 +5,11 @@ import { appDict } from './i18n-app';
 import type { Locale } from './i18n';
 import { db } from './db';
 import { mailEnabled, sendMail } from './mailer';
+import { orgLocale } from './org-locale';
 import { hashPassword } from './password';
+import { MIN_PASSWORD } from './security/password-check';
+import { emailAcceptable } from './security/reserved-email';
+import { sendVerification } from './security/verification';
 import type { Role } from './session';
 
 export const INVITE_DAYS = 7;
@@ -49,9 +53,13 @@ export async function readInvite(token: string): Promise<InviteView | null> {
   return { orgName: invite.org.name, role: invite.role, email: invite.email };
 }
 
-export type InviteError = 'inviteBad' | 'inviteWrongEmail' | 'passwordShort' | 'emailTaken' | 'inviteUsed';
+export type InviteError = 'inviteBad' | 'inviteWrongEmail' | 'emailBad' | 'passwordShort' | 'emailTaken' | 'inviteUsed';
 export type AcceptResult = { ok: true; userId: string; orgId: string; email: string } | { ok: false; error: InviteError };
 
+/**
+ * An invite sent to an address confirms that address (the admin chose it); a link without one
+ * lets the person type any address, so it is confirmed by mail when SMTP is on.
+ */
 export async function acceptInvite(token: string, emailInput: string, password: string): Promise<AcceptResult> {
   const invite = await db.invite.findUnique({ where: { tokenHash: hash(token) } });
   if (!invite || invite.usedAt || invite.expiresAt < new Date()) return { ok: false, error: 'inviteBad' };
@@ -59,15 +67,17 @@ export async function acceptInvite(token: string, emailInput: string, password: 
   if (invite.email && emailInput.trim().toLowerCase() !== invite.email.toLowerCase()) {
     return { ok: false, error: 'inviteWrongEmail' };
   }
-  if (password.length < 8) return { ok: false, error: 'passwordShort' };
+  if (!emailAcceptable(email)) return { ok: false, error: 'emailBad' };
+  if (password.length < MIN_PASSWORD) return { ok: false, error: 'passwordShort' };
   if (await db.user.findUnique({ where: { email }, select: { id: true } })) return { ok: false, error: 'emailTaken' };
 
   const passwordHash = await hashPassword(password);
+  const emailBound = invite.email !== null;
   const user = await db.$transaction(async (tx) => {
     // The claim is atomic, so one link creates one account.
     const claimed = await tx.invite.updateMany({ where: { id: invite.id, usedAt: null }, data: { usedAt: new Date() } });
     if (claimed.count !== 1) throw new Error('used');
-    const created = await tx.user.create({ data: { orgId: invite.orgId, email, passwordHash, role: invite.role } });
+    const created = await tx.user.create({ data: { orgId: invite.orgId, email, passwordHash, role: invite.role, emailVerifiedAt: emailBound ? new Date() : null } });
     if (invite.role !== 'admin' && invite.clientIds.length > 0) {
       await tx.clientAssignment.createMany({ data: invite.clientIds.map((clientId) => ({ userId: created.id, clientId })), skipDuplicates: true });
     }
@@ -75,5 +85,6 @@ export async function acceptInvite(token: string, emailInput: string, password: 
     return created;
   }).catch(() => null);
   if (!user) return { ok: false, error: 'inviteUsed' };
+  if (!emailBound && mailEnabled()) await sendVerification(user.id, email, await orgLocale(user.orgId));
   return { ok: true, userId: user.id, orgId: user.orgId, email };
 }

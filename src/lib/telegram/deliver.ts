@@ -4,6 +4,7 @@ import { Api } from 'grammy';
 import { db } from '../db.js';
 import { dict } from '../i18n.js';
 import { orgLocale } from '../org-locale.js';
+import { orgActive } from '../security/org-active.js';
 import { appLink, telegramConfig } from './config.js';
 import { auditSummaryText } from './summary.js';
 
@@ -17,7 +18,7 @@ export async function deliverToTelegram(notificationId: string): Promise<void> {
   const bot = api();
   if (!bot) return;
   const n = await db.notification.findUnique({ where: { id: notificationId } });
-  if (!n || n.telegramSentAt) return;
+  if (!n || n.telegramSentAt || !(await orgActive(n.orgId))) return;
   const chats = await db.telegramLink.findMany({ where: { orgId: n.orgId }, select: { chatId: true } });
   if (chats.length === 0) return;
   const link = n.href ? appLink(bot.config, n.href) : null;
@@ -34,7 +35,7 @@ export async function sendAuditSummary(catalogId: string): Promise<void> {
   const bot = api();
   if (!bot) return;
   const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, telegramChatId: true } });
-  if (!catalog?.telegramChatId) return;
+  if (!catalog?.telegramChatId || !(await orgActive(catalog.orgId))) return;
   const text = await auditSummaryText(catalogId, appLink(bot.config, `/catalogs/${catalogId}`), dict(await orgLocale(catalog.orgId)));
   await bot.api.sendMessage(catalog.telegramChatId, text, { link_preview_options: { is_disabled: true } });
 }

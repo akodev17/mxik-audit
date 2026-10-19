@@ -1,7 +1,10 @@
 // Server-side record of every signed-in browser, so a session can be listed and ended.
-import { db } from '../db';
+import { db } from '../db.js';
 
 const TOUCH_EVERY_MS = 5 * 60_000;
+/** The cookie's lifetime; a record not seen for this long is dead too. */
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const MAX_IDLE_MS = SESSION_MAX_AGE_SECONDS * 1000;
 
 export type SessionRow = { id: string; userAgent: string | null; createdAt: Date; lastSeenAt: Date };
 
@@ -10,16 +13,26 @@ export async function createRecord(userId: string, orgId: string, userAgent: str
   return row.id;
 }
 
-/** True while the record exists, belongs to the user and is not revoked. Refreshes "last seen" now and then. */
-export async function isLive(sid: string, userId: string): Promise<boolean> {
+/** True while the record exists, belongs to the user, is not revoked and was seen within the cookie lifetime. Refreshes "last seen" now and then. */
+export async function isLive(sid: string, userId: string, now = Date.now()): Promise<boolean> {
   const row = await db.userSession.findUnique({ where: { id: sid }, select: { userId: true, revokedAt: true, lastSeenAt: true } });
   if (!row || row.userId !== userId || row.revokedAt) return false;
-  if (Date.now() - row.lastSeenAt.getTime() > TOUCH_EVERY_MS) await db.userSession.update({ where: { id: sid }, data: { lastSeenAt: new Date() } });
+  const idle = now - row.lastSeenAt.getTime();
+  if (idle > MAX_IDLE_MS) return false;
+  if (idle > TOUCH_EVERY_MS) await db.userSession.update({ where: { id: sid }, data: { lastSeenAt: new Date(now) } });
   return true;
 }
 
-export async function listSessions(userId: string): Promise<SessionRow[]> {
-  return db.userSession.findMany({ where: { userId, revokedAt: null }, orderBy: { lastSeenAt: 'desc' }, take: 50, select: { id: true, userAgent: true, createdAt: true, lastSeenAt: true } });
+/** A cookie is good when its record is live; only a demo may run without a record (older cookies must sign in again). */
+export async function recordAccepted(sid: string | undefined, userId: string, demoOrg: boolean, now = Date.now()): Promise<boolean> {
+  return sid ? isLive(sid, userId, now) : demoOrg;
+}
+
+export async function listSessions(userId: string, now = Date.now()): Promise<SessionRow[]> {
+  return db.userSession.findMany({
+    where: { userId, revokedAt: null, lastSeenAt: { gt: new Date(now - MAX_IDLE_MS) } },
+    orderBy: { lastSeenAt: 'desc' }, take: 50, select: { id: true, userAgent: true, createdAt: true, lastSeenAt: true },
+  });
 }
 
 export async function revokeSession(actor: { userId: string; orgId: string }, sid: string): Promise<boolean> {
@@ -32,6 +45,17 @@ export async function revokeSession(actor: { userId: string; orgId: string }, si
 export async function revokeOthers(actor: { userId: string; orgId: string }, keepSid: string | null): Promise<number> {
   const done = await db.userSession.updateMany({ where: { userId: actor.userId, revokedAt: null, ...(keepSid ? { id: { not: keepSid } } : {}) }, data: { revokedAt: new Date() } });
   if (done.count > 0) await db.auditEvent.create({ data: { orgId: actor.orgId, actorId: actor.userId, action: 'security.session_revoked', payload: { count: done.count } } });
+  return done.count;
+}
+
+/** Ends one record without an audit entry (sign-out, a demo replacing the session). */
+export async function endRecord(sid: string): Promise<void> {
+  await db.userSession.updateMany({ where: { id: sid, revokedAt: null }, data: { revokedAt: new Date() } });
+}
+
+/** Ends every session of a user except `keepSid`; the caller writes the audit entry that explains why. */
+export async function endUserSessions(userId: string, keepSid: string | null = null): Promise<number> {
+  const done = await db.userSession.updateMany({ where: { userId, revokedAt: null, ...(keepSid ? { id: { not: keepSid } } : {}) }, data: { revokedAt: new Date() } });
   return done.count;
 }
 
