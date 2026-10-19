@@ -17,3 +17,4 @@ backups/
 
 # TypeScript incremental cache
 tsconfig.tsbuildinfo
+.claude/worktrees/
