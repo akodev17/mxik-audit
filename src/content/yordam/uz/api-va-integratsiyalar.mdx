@@ -1,0 +1,24 @@
+MXIK Audit boshqa dasturlar bilan uch yoʻl bilan bogʻlanadi: ochiq API, Telegram bot va Google Sheets uchun qoʻshimchaning manba kodi.
+
+## API
+
+Administrator Sozlamalar → Integratsiyalar boʻlimida API kalitini yaratadi. Kalit faqat bir marta koʻrsatiladi; serverda faqat uning xeshi saqlanadi. Keraksiz kalitni istalgan vaqtda bekor qilish mumkin.
+
+API orqali:
+
+- mahsulot nomini tekshirish mumkin: muammo turi, taklif etilgan kod va muqobillar qaytadi;
+- tashkilot kataloglari roʻyxatini olish mumkin;
+- Excel yoki CSV katalogni yuklab, auditni boshlash mumkin;
+- katalog hisobotini sahifalab olish mumkin.
+
+Bitta kalit <ApiRate /> soʻrov yuborishi mumkin; bitta tekshiruvda <ApiItems /> tagacha mahsulot. Oylik tekshiruvlar soni tarifga bogʻliq: [Tariflar va limitlar](/yordam/tariflar-va-limitlar). Toʻliq hujjatlar va misollar: [API hujjatlari](/api-docs).
+
+API qaytaradigan moslik bahosi (confidence) nomzodlarni tartiblaydi; u kod toʻgʻri boʻlish ehtimolligi emas. Katalogdagi kod faqat inson taklifni ilovada qabul qilganda oʻzgaradi.
+
+## Telegram xabarnomalari
+
+Administrator Integratsiyalar boʻlimida bir martalik kod oladi va uni botga yuboradi. Shundan keyin chatga tahlil natijalari va tasniflagich yangilanishlari keladi; botga katalog faylini yuborib tahlil boshlash ham mumkin. Chatni istalgan vaqtda uzish mumkin. Bu imkoniyat faqat serverda Telegram bot sozlangan boʻlsa ishlaydi.
+
+## Google Sheets
+
+Google Sheets uchun qoʻshimcha faqat manba kodi sifatida mavjud: u Google Workspace Marketplace katalogida eʼlon qilinmagan va hamma uchun oʻrnatiladigan qoʻshimcha emas. Uni ishlatish uchun dasturchi manba kodni jadvalga Apps Script orqali oʻrnatadi va API kalitini kiritadi. Tekshirilgan har bir mahsulot API tekshiruvlari chegarasiga kiradi.

@@ -2,19 +2,22 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { createApiKey, revokeApiKey } from '@/lib/api/keys';
+import { createApiKey, MAX_ACTIVE_KEYS, revokeApiKey } from '@/lib/api/keys';
+import { db } from '@/lib/db';
 import { admin } from '@/lib/guard';
 import { isDemoOrg } from '@/lib/demo';
 
-export type KeyState = { token?: string; error?: boolean };
+export type KeyState = { token: string } | { error: 'name' | 'limit' | 'failed' };
 
 /** Admin only; the token is returned once and never stored in clear. */
 export async function addApiKey(name: unknown): Promise<KeyState> {
   const user = await admin();
-  const label = z.string().min(1).max(60).safeParse(name);
-  if (!user || !label.success || await isDemoOrg(user.orgId)) return { error: true };
+  if (!user || await isDemoOrg(user.orgId)) return { error: 'failed' };
+  const label = z.string().trim().min(1).max(60).safeParse(name);
+  if (!label.success) return { error: 'name' };
+  if (await db.apiKey.count({ where: { orgId: user.orgId, revokedAt: null } }) >= MAX_ACTIVE_KEYS) return { error: 'limit' };
   const created = await createApiKey(user, label.data);
-  if (!created) return { error: true };
+  if (!created) return { error: 'failed' };
   revalidatePath('/settings');
   return { token: created.token };
 }

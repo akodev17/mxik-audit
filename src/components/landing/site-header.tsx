@@ -18,12 +18,14 @@ export function SiteHeader() {
               <li><a href={DEMO_URL} className={`${NAV_LINK} font-medium text-lp-ink`}>Demo</a></li>
             ) : null}
             <li><a href="/#narxlar" className={NAV_LINK}>Narxlar</a></li>
+            <li><Link href="/yordam" className={NAV_LINK}>Yordam</Link></li>
             {TELEGRAM_URL ? (
               <li>
                 <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className={NAV_LINK}>Telegram</a>
               </li>
             ) : null}
             <li><Link href="/sign-in" className={NAV_LINK}>Kirish</Link></li>
+            <li><Link href="/sign-up" className="rounded-lp px-3 py-2 text-[16px] font-medium text-lp-brand underline-offset-4 transition-colors hover:bg-lp-surface hover:underline">Bepul sinab koʻrish</Link></li>
           </ul>
         </nav>
       </div>

@@ -1,18 +1,28 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { Children, isValidElement, type ComponentType, type ReactNode } from 'react';
+import { HtmlLang } from '@/components/html-lang';
 import { CONTAINER } from '@/components/landing/container';
 import { LandingShell } from '@/components/landing/shell';
-import { findArticle, HELP_ARTICLES, HELP_COPY, helpPath, type HelpLang } from '@/lib/help';
+import { findArticle, HELP_ARTICLES, HELP_COPY, HELP_LANG_PARAM, headingId, helpHeadings, helpPath, type HelpHeading, type HelpLang } from '@/lib/help';
 import { helpBody } from '@/lib/help-mdx';
+import { getLocale } from '@/lib/locale';
+import { currentUser } from '@/lib/session';
+import { liveComponents } from './live-config';
 
 type Route = { lang: HelpLang; slug: string | null };
+type Params = Promise<{ path?: string[] }>;
+type Search = Promise<Record<string, string | string[] | undefined>>;
 
 /** /yordam, /yordam/<slug>, /yordam/ru and /yordam/ru/<slug>. */
-function resolve(path: string[] | undefined): Route | null {
-  const parts = path ?? [];
-  const lang: HelpLang = parts[0] === 'ru' ? 'ru' : 'uz';
-  const rest = lang === 'ru' ? parts.slice(1) : parts;
+function resolve(parts: string[] | undefined): Route | null {
+  const all = parts ?? [];
+  const lang: HelpLang = all[0] === 'ru' ? 'ru' : 'uz';
+  const rest = lang === 'ru' ? all.slice(1) : all;
   if (rest.length > 1) return null;
   const slug = rest[0] ?? null;
   if (slug && !findArticle(slug)) return null;
@@ -21,60 +31,118 @@ function resolve(path: string[] | undefined): Route | null {
 
 export function generateStaticParams() {
   const slugs = HELP_ARTICLES.map((a) => a.slug);
-  return [[], ['ru'], ...slugs.map((s) => [s]), ...slugs.map((s) => ['ru', s])].map((path) => ({ path }));
+  return [[], ['ru'], ...slugs.map((s) => [s]), ...slugs.map((s) => ['ru', s])].map((p) => ({ path: p }));
 }
 
 export const dynamicParams = false;
 
-export async function generateMetadata({ params }: { params: Promise<{ path?: string[] }> }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const route = resolve((await params).path);
   if (!route) return {};
   const article = route.slug ? findArticle(route.slug) : null;
-  const other: HelpLang = route.lang === 'uz' ? 'ru' : 'uz';
+  const slug = route.slug ?? undefined;
   return {
     title: `${article ? article.title[route.lang] : HELP_COPY[route.lang].title} — MXIK Audit`,
     description: article ? article.description[route.lang] : HELP_COPY[route.lang].description,
-    alternates: {
-      canonical: helpPath(route.lang, route.slug ?? undefined),
-      languages: { uz: helpPath('uz', route.slug ?? undefined), ru: helpPath('ru', route.slug ?? undefined), [other]: helpPath(other, route.slug ?? undefined) },
-    },
+    alternates: { canonical: helpPath(route.lang, slug), languages: { uz: helpPath('uz', slug), ru: helpPath('ru', slug) } },
     openGraph: { title: article ? article.title[route.lang] : HELP_COPY[route.lang].title, type: 'article', locale: route.lang === 'ru' ? 'ru_RU' : 'uz_UZ' },
   };
 }
 
-const ARTICLE_STYLE = 'space-y-4 text-[17px] leading-relaxed [&_h2]:mt-8 [&_h2]:text-[24px] [&_li]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-lp-brand [&_a]:underline [&_code]:rounded [&_code]:bg-lp-surface [&_code]:px-1';
+/** The visible text of a heading's children, for its anchor. */
+function textOf(node: ReactNode): string {
+  return Children.toArray(node).map((child) => {
+    if (typeof child === 'string' || typeof child === 'number') return String(child);
+    return isValidElement<{ children?: ReactNode }>(child) ? textOf(child.props.children) : '';
+  }).join('');
+}
 
-export default async function HelpPage({ params }: { params: Promise<{ path?: string[] }> }) {
+function H2({ children }: { children?: ReactNode }) {
+  return <h2 id={headingId(textOf(children))} className="scroll-mt-6">{children}</h2>;
+}
+
+async function articleSource(lang: HelpLang, slug: string): Promise<string> {
+  return readFile(path.join(process.cwd(), 'src', 'content', 'yordam', lang, `${slug}.mdx`), 'utf8');
+}
+
+const ARTICLE_STYLE = 'space-y-4 text-[17px] leading-relaxed [&_h2]:mt-10 [&_h2]:text-[24px] [&_li]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-lp-brand [&_a]:underline [&_code]:rounded [&_code]:bg-lp-surface [&_code]:px-1';
+
+function Toc({ headings, title }: { headings: HelpHeading[]; title: string }) {
+  return (
+    <nav aria-label={title} className="text-[15px]">
+      <p className="mb-2 font-semibold">{title}</p>
+      <ol className="space-y-1.5 border-l border-lp-line pl-3">
+        {headings.map((h) => <li key={h.id}><a href={`#${h.id}`} className="text-lp-muted hover:text-lp-brand hover:underline">{h.text}</a></li>)}
+      </ol>
+    </nav>
+  );
+}
+
+export default async function HelpPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const route = resolve((await params).path);
   if (!route) notFound();
   const { lang, slug } = route;
+  // Signed-in readers get their app language and a way back to the app. cookies() first marks the page dynamic.
+  await cookies();
+  const user = await currentUser().catch(() => null);
+  const chose = (await searchParams)[HELP_LANG_PARAM];
+  if (user && lang === 'uz' && chose !== 'uz' && (await getLocale()) === 'ru') redirect(helpPath('ru', slug ?? undefined));
+
   const copy = HELP_COPY[lang];
   const article = slug ? findArticle(slug) : null;
-  const Body = article ? await helpBody(lang, article.slug) : null;
+  const Body = article ? (await helpBody(lang, article.slug)) as ComponentType<{ components: Record<string, ComponentType> }> : null;
+  const headings = article ? helpHeadings(await articleSource(lang, article.slug)) : [];
+  const other: HelpLang = lang === 'uz' ? 'ru' : 'uz';
+  const otherHref = `${helpPath(other, slug ?? undefined)}${other === 'uz' ? `?${HELP_LANG_PARAM}=uz` : ''}`;
 
   return (
     <LandingShell>
-      <div className={`${CONTAINER} py-12 sm:py-16`}>
-        <article className="max-w-[44rem]" lang={lang}>
-          <p className="text-[15px]">
-            {article ? <Link href={helpPath(lang)} className="text-lp-brand underline">{copy.back}</Link> : null}
-            <Link href={helpPath(lang === 'uz' ? 'ru' : 'uz', slug ?? undefined)} className="float-right text-lp-brand underline" hrefLang={lang === 'uz' ? 'ru' : 'uz'}>{copy.other}</Link>
-          </p>
-          <h1 className="mt-4 text-[34px] sm:text-[44px]">{article ? article.title[lang] : copy.title}</h1>
-          {Body ? <div className={`mt-8 ${ARTICLE_STYLE}`}><Body /></div> : (
-            <>
-              <p className="mt-3 text-[17px] text-lp-muted">{copy.description}</p>
-              <ul className="mt-8 space-y-5">
-                {HELP_ARTICLES.map((a) => (
-                  <li key={a.slug}>
-                    <Link href={helpPath(lang, a.slug)} className="text-[20px] text-lp-brand underline">{a.title[lang]}</Link>
-                    <p className="mt-1 text-[16px] text-lp-muted">{a.description[lang]}</p>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </article>
+      <HtmlLang lang={lang} />
+      {user ? (
+        <div className="border-b border-lp-line bg-lp-surface">
+          <div className={`${CONTAINER} flex justify-end py-2`}>
+            <Link href="/dashboard" className="text-[15px] font-medium text-lp-brand underline">← {copy.backToApp}</Link>
+          </div>
+        </div>
+      ) : null}
+      <div className={`${CONTAINER} py-10 sm:py-14`} lang={lang}>
+        <p className="flex flex-wrap items-center justify-between gap-3 text-[15px]">
+          {article ? <Link href={helpPath(lang)} className="text-lp-brand underline">{copy.back}</Link> : <span />}
+          <Link href={otherHref} className="text-lp-brand underline" hrefLang={other}>{copy.other}</Link>
+        </p>
+        {Body && article ? (
+          <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,46rem)_15rem] lg:gap-16">
+            <article className="min-w-0">
+              <h1 className="text-[34px] sm:text-[44px]">{article.title[lang]}</h1>
+              {headings.length > 1 ? (
+                <details className="mt-6 rounded-lp border border-lp-line p-3 lg:hidden">
+                  <summary className="cursor-pointer text-[15px] font-semibold">{copy.onPage}</summary>
+                  <div className="mt-3"><Toc headings={headings} title={copy.onPage} /></div>
+                </details>
+              ) : null}
+              <div className={`mt-8 ${ARTICLE_STYLE}`}><Body components={{ h2: H2, ...liveComponents(lang) }} /></div>
+              <p className="mt-12 text-[15px]"><Link href={helpPath(lang)} className="text-lp-brand underline">{copy.home}</Link></p>
+            </article>
+            {headings.length > 1 ? (
+              <aside className="hidden lg:block">
+                <div className="sticky top-8"><Toc headings={headings} title={copy.onPage} /></div>
+              </aside>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-4 max-w-5xl">
+            <h1 className="text-[34px] sm:text-[44px]">{copy.title}</h1>
+            <p className="mt-3 max-w-[44rem] text-[17px] text-lp-muted">{copy.description}</p>
+            <ul className="mt-10 grid gap-x-10 gap-y-7 md:grid-cols-2">
+              {HELP_ARTICLES.map((a) => (
+                <li key={a.slug}>
+                  <Link href={helpPath(lang, a.slug)} className="text-[20px] text-lp-brand underline">{a.title[lang]}</Link>
+                  <p className="mt-1 text-[16px] text-lp-muted">{a.description[lang]}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </LandingShell>
   );

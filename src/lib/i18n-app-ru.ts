@@ -512,6 +512,7 @@ const coreRu: CoreAppDict = {
       'team.joined': 'Новый участник присоединился',
       'team.updated': 'Права участника изменены',
       'team.removed': 'Участник удалён из команды',
+      'team.invite_revoked': 'Приглашение в команду отменено',
       'classifier.updated': 'Классификатор обновлён',
       'client.created': 'Клиент добавлен',
       'client.activity_set': 'Изменён вид деятельности клиента',

@@ -1,32 +1,63 @@
+import { WARN_AT } from '@/lib/billing/limits';
+import { fmtDate, fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import type { PlanStatus } from '@/lib/plan';
+import { StatusChip, StatusIcon, type Tone } from '@/ui/badge';
+import { Progress } from '@/ui/progress';
 
-const KEYS = ['clients', 'rowsPerMonth', 'seats'] as const;
+type Meter = { key: 'clients' | 'rowsPerMonth' | 'seats' | 'apiChecks'; used: number; cap: number | null };
 
-/** State of the plan and usage against each limit. */
-export async function PlanUsage({ status, until }: { status: PlanStatus; until: string | null }) {
-  const { ta } = await getI18n();
+const STATE_TONE: Record<PlanStatus['state'], Tone> = { unlimited: 'neutral', trial: 'info', firm: 'good', expired: 'danger' };
+
+function meterTone(used: number, cap: number): 'brand' | 'warn' | 'danger' {
+  if (used >= cap) return 'danger';
+  return used >= cap * WARN_AT ? 'warn' : 'brand';
+}
+
+/** The plan's state in one line (no repeated label), then usage against each limit. */
+export async function PlanUsage({ status, until, apiChecks }: { status: PlanStatus; until: Date | null; apiChecks: { used: number; cap: number | null } }) {
+  const { locale, ta } = await getI18n();
+  const s = ta.setX.plan;
+  const n = (v: number): string => fmtNumber(locale, v);
+  const detail = status.state === 'trial' && status.daysLeft !== null && status.trialEndsAt
+    ? s.trialLeft(status.daysLeft, fmtDate(locale, status.trialEndsAt))
+    : status.state === 'firm' && until ? s.firmUntil(fmtDate(locale, until))
+    : status.state === 'expired' ? s.expiredText
+    : status.state === 'unlimited' ? s.unlimitedText : null;
+  const meters: Meter[] = [
+    { key: 'clients', used: status.usage.clients, cap: status.limits.clients },
+    { key: 'rowsPerMonth', used: status.usage.rowsPerMonth, cap: status.limits.rowsPerMonth },
+    { key: 'seats', used: status.usage.seats, cap: status.limits.seats },
+    { key: 'apiChecks', used: apiChecks.used, cap: apiChecks.cap },
+  ];
+  const tone = STATE_TONE[status.state];
+
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium">
-        {ta.plan.stateLabel[status.state]}
-        {status.state === 'trial' && status.daysLeft !== null ? `: ${ta.plan.trial(status.daysLeft)}` : ''}
-        {status.state === 'firm' && until ? `: ${ta.plan.until(until)}` : ''}
-      </p>
-      <ul className="space-y-2">
-        {KEYS.map((k) => {
-          const cap = status.limits[k];
-          const used = status.usage[k];
-          const pct = cap === null || cap === 0 ? 0 : Math.min(100, Math.round((used / cap) * 100));
-          const bar = pct >= 100 ? 'bg-danger' : pct >= 80 ? 'bg-warn' : 'bg-good';
-          return (
-            <li key={k} className="text-sm">
-              <div className="flex justify-between"><span>{ta.plan.keys[k]}</span><span className="text-muted">{used.toLocaleString('uz-UZ')} / {cap === null ? ta.plan.unlimited : cap.toLocaleString('uz-UZ')}</span></div>
-              {cap === null ? null : <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface"><div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} /></div>}
-            </li>
-          );
-        })}
-      </ul>
+    <div className="space-y-5">
+      <div className="space-y-1">
+        <StatusChip tone={tone} icon={<StatusIcon tone={tone} />}>{s.states[status.state]}</StatusChip>
+        {detail ? <p className="max-w-xl text-small text-muted">{detail}</p> : null}
+      </div>
+      {status.state === 'unlimited' ? null : (
+        <div className="max-w-xl space-y-3">
+          <h3 className="text-small font-semibold">{s.usage}</h3>
+          <ul className="space-y-3">
+            {meters.map((m) => (
+              <li key={m.key}>
+                {m.cap === null ? (
+                  <div className="flex items-baseline justify-between gap-3 text-small">
+                    <span className="text-muted">{s.keys[m.key]}</span>
+                    <span className="font-medium tabular-nums">{s.noCap(n(m.used))}</span>
+                  </div>
+                ) : (
+                  <Progress label={s.keys[m.key]} value={Math.min(m.used, m.cap)} max={Math.max(m.cap, 1)} valueText={s.of(n(m.used), n(m.cap))} tone={meterTone(m.used, m.cap)} size="sm" />
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-micro text-muted">{s.usageHint}</p>
+        </div>
+      )}
     </div>
   );
 }
