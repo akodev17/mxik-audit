@@ -1,6 +1,7 @@
 // Draft text for requesting a new MXIK code on tasnif.soliq.uz, for rows where
 // no candidate fits. Only drafts: nothing is ever submitted from here.
 import { z } from 'zod';
+import { catalogScope } from './access.js';
 import { codeDetails } from './code-details.js';
 import { ColumnMapSchema } from './column-map.js';
 import { db } from './db.js';
@@ -17,9 +18,10 @@ function describe(headers: readonly string[], cells: readonly string[], mapped: 
     .join('; ');
 }
 
-export async function codeRequestText(orgId: string, findingId: string): Promise<string | null> {
+/** Scoped like every row read: the org, and for an accountant with assigned clients, only those clients. */
+export async function codeRequestText(scope: { orgId: string; clientIds?: string[] | null }, findingId: string): Promise<string | null> {
   const finding = await db.finding.findFirst({
-    where: { id: findingId, item: { catalog: { orgId } } },
+    where: { id: findingId, item: { catalog: catalogScope(scope) } },
     select: {
       suggestedMxik: true, alternatives: true, decision: true,
       item: { select: { rawName: true, unit: true, barcode: true, attrs: true, catalog: { select: { headers: true, columnMap: true } } } },

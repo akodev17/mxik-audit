@@ -8,30 +8,39 @@ import { canWrite, catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { defaultView } from '@/lib/views';
-import { viewQuery } from '@/lib/view-params';
-import { decodeCursor, readFilter, workspaceCount, workspacePageIds, workspaceSummary } from '@/lib/workspace';
+import { readHidden, viewQuery } from '@/lib/view-params';
+import { decodeCursor, workspaceCount, workspacePageIds, workspaceSummary } from '@/lib/workspace';
+import { filterKey, readFilter } from '@/lib/workspace-filter';
 import { gridRows } from '@/lib/workspace-rows';
 import { CatalogStatus } from '@/ui/catalog-status';
 import { MoneyAtRisk } from './money-at-risk';
 import { Workspace } from './workspace';
-import { WorkspaceHeader } from './workspace-header';
+import { exportLocked, WorkspaceHeader } from './workspace-header';
 
-export async function generateMetadata(): Promise<Metadata> {
+type Params = { params: Promise<{ id: string }> };
+
+/** The tab says which catalogue is open; an id the user may not see gets the generic title. */
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { t } = await getI18n();
-  return { title: `${t.navCatalogs} — ${t.appName}` };
+  const user = await currentUser();
+  const { id } = await params;
+  const catalog = user ? await db.catalog.findFirst({ where: { id, ...catalogScope(user) }, select: { filename: true } }) : null;
+  return { title: `${catalog?.filename ?? t.navCatalogs} — ${t.appName}` };
 }
 
 const FIRST_PAGE = 120;
 
-type SearchParams = { type?: string; q?: string; pending?: string; comments?: string; sort?: string; v?: string; density?: string; grouped?: string };
+type SearchParams = {
+  type?: string; q?: string; pending?: string; dec?: string; flag?: string; comments?: string; sort?: string;
+  v?: string; density?: string; grouped?: string; cols?: string;
+};
 
-export default async function CatalogWorkspacePage(
-  { params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> },
-) {
+export default async function CatalogWorkspacePage({ params, searchParams }: Params & { searchParams: Promise<SearchParams> }) {
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const { id } = await params;
   const sp = await searchParams;
+  const { ta, locale } = await getI18n();
 
   // An id that is not this org's is indistinguishable from one that does not exist.
   const catalog = await db.catalog.findFirst({ where: { id, ...catalogScope(user) } });
@@ -55,32 +64,37 @@ export default async function CatalogWorkspacePage(
     if (preferred) redirect(`/catalogs/${catalog.id}?${viewQuery(preferred.params)}`);
   }
   const filter = readFilter(sp);
-  const [summary, count, page] = await Promise.all([
+  const writer = canWrite(user);
+  const [summary, count, page, locked] = await Promise.all([
     workspaceSummary(catalog.id, catalog.rowCount),
     workspaceCount(catalog.id, filter),
     workspacePageIds(catalog.id, filter, decodeCursor(null), FIRST_PAGE),
+    exportLocked(user.orgId, catalog.id),
   ]);
-  const rows = await gridRows(user.orgId, catalog.id, page.ids);
+  const rows = await gridRows(user.orgId, catalog.id, page.ids, locale);
 
   return (
-    <div className="flex h-full flex-col">
-      <WorkspaceHeader orgId={user.orgId} catalog={catalog} client={client} canShare={canWrite(user) && catalog.status === 'ready'} />
+    <div className="flex min-h-full flex-col md:h-full">
+      <WorkspaceHeader orgId={user.orgId} catalog={catalog} client={client} canShare={writer} />
       <Suspense fallback={null}>
         <MoneyAtRisk catalogId={catalog.id} columnMap={catalog.columnMap} />
       </Suspense>
       <Workspace
-        key={`${catalog.id}|${filter.type}|${filter.q}|${filter.pendingOnly}|${filter.commented}|${filter.sort}`}
+        key={`${catalog.id}|${filterKey(filter)}`}
         catalogId={catalog.id}
+        clientId={client.id}
         summary={summary}
         initialRows={rows}
         initialNext={page.next}
         count={count}
         filter={filter}
         hintKey={user.demo ? `mxik.hint.${user.orgId}` : null}
-        readOnly={!canWrite(user)}
+        readOnly={!writer}
         initialDensity={sp.density === 'compact' ? 'compact' : sp.density === 'comfortable' ? 'comfortable' : null}
         initialGrouped={sp.grouped === '1'}
-        canSaveViews={!user.demo}
+        initialHidden={sp.cols !== undefined ? readHidden(sp.cols) : null}
+        saveBlocked={!writer ? ta.wsX.view.viewerSave : user.demo ? ta.wsX.view.demoSave : null}
+        exportLocked={locked}
       />
     </div>
   );

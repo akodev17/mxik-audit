@@ -1,49 +1,85 @@
-import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import { billingConfig } from '@/lib/billing/config';
 import { catalogPaid } from '@/lib/billing/orders';
 import { db } from '@/lib/db';
+import { fmtDate, fmtNumber } from '@/lib/format';
+import { getI18n } from '@/lib/locale';
+import { degradedNotes, readPipelineMeta } from '@/lib/pipeline-meta';
+import { Badge } from '@/ui/badge';
+import { IconInfo } from '@/ui/icons';
 import { BillingBox } from './billing-box';
 import { ExportActions } from './export-actions';
 import { ShareButton } from './share-button';
 
 type Props = {
   orgId: string;
-  catalog: { id: string; filename: string; createdAt: Date; rowCount: number; previousId?: string | null };
+  catalog: { id: string; filename: string; createdAt: Date; rowCount: number; previousId?: string | null; snapshotId?: number | null; pipelineMeta?: unknown };
   client: { id: string; name: string };
   /** Only writers may create share links. */
   canShare?: boolean;
 };
 
-/** Catalogue name, client, date and classifier version, with the export actions. */
+/** Whether the corrected file needs a payment first; shared with the page's completion state. */
+export async function exportLocked(orgId: string, catalogId: string): Promise<boolean> {
+  return billingConfig().requiredForExport ? !(await catalogPaid(orgId, catalogId)) : false;
+}
+
+/**
+ * Catalogue name, client, date and the classifier version the audit used
+ * (with a hint when a newer one exists), any degraded-run notes, and the
+ * export actions.
+ */
 export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Props) {
-  const { ta } = await getI18n();
-  const [snapshot, paid] = await Promise.all([
+  const { ta, locale } = await getI18n();
+  const h = ta.wsX.header;
+  const [used, latest, locked] = await Promise.all([
+    catalog.snapshotId ? db.catalogSnapshot.findUnique({ where: { id: catalog.snapshotId }, select: { id: true, takenAt: true } }) : null,
     db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true, takenAt: true } }),
-    billingConfig().requiredForExport ? catalogPaid(orgId, catalog.id) : Promise.resolve(true),
+    exportLocked(orgId, catalog.id),
   ]);
-  const meta: [string, React.ReactNode][] = [
-    [ta.ws.client, <Link key="c" href={`/clients/${client.id}`} className="text-brand hover:underline">{client.name}</Link>],
-    [ta.ws.date, catalog.createdAt.toLocaleDateString('uz-UZ')],
-    [ta.ws.classifier, snapshot ? `v${snapshot.id}, ${snapshot.takenAt.toLocaleDateString('uz-UZ')}` : '—'],
-    ...(catalog.previousId ? [[ta.diff.versions, <Link key="v" href={`/catalogs/${catalog.id}/diff`} className="text-brand hover:underline">{ta.diff.title}</Link>] as [string, React.ReactNode]] : []),
-  ];
+  const newer = used && latest && latest.id > used.id ? latest : null;
+  const meta = readPipelineMeta(catalog.pipelineMeta);
+  const notes = meta ? degradedNotes(meta, ta) : [];
+
+  const classifier = used
+    ? <span>{h.snapshot(fmtNumber(locale, used.id), fmtDate(locale, used.takenAt))}</span>
+    : <span title={h.snapshotUnknownHint}>{h.snapshotUnknown}</span>;
+
   return (
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-4">
-      <div className="min-w-0">
-        <h1 className="truncate text-xl" title={catalog.filename}>{catalog.filename}</h1>
-        <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-          {meta.map(([label, value]) => (
-            <div key={label} className="flex gap-1.5"><dt className="text-muted">{label}:</dt><dd>{value}</dd></div>
-          ))}
-        </dl>
+    <header className="border-b border-line px-4 py-3 md:px-5 md:py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 md:gap-4">
+        <div className="min-w-0 max-w-full">
+          <h1 className="truncate text-section text-fg md:text-title" title={catalog.filename}>{catalog.filename}</h1>
+          <dl className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-small">
+            <div className="flex min-w-0 gap-1.5"><dt className="text-muted">{ta.ws.client}:</dt><dd className="min-w-0 truncate"><Link href={`/clients/${client.id}`} className="text-brand-ink hover:underline">{client.name}</Link></dd></div>
+            <div className="flex gap-1.5"><dt className="text-muted">{ta.ws.date}:</dt><dd>{fmtDate(locale, catalog.createdAt)}</dd></div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <dt className="text-muted">{ta.ws.classifier}:</dt>
+              <dd className="flex flex-wrap items-center gap-1.5">
+                {classifier}
+                {newer ? <Badge tone="info" title={h.newerHint} icon={<IconInfo size={12} />}>{h.newer(fmtDate(locale, newer.takenAt))}</Badge> : null}
+              </dd>
+            </div>
+            {catalog.previousId ? (
+              <div className="flex gap-1.5"><dt className="text-muted">{ta.diff.versions}:</dt><dd><Link href={`/catalogs/${catalog.id}/diff`} className="text-brand-ink hover:underline">{ta.diff.title}</Link></dd></div>
+            ) : null}
+          </dl>
+          {newer ? <p className="mt-1 text-micro text-muted">{h.newerHint}</p> : null}
+        </div>
+        <ExportActions
+          catalogId={catalog.id}
+          locked={locked}
+          share={canShare ? <ShareButton catalogId={catalog.id} /> : null}
+          panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} />}
+        />
       </div>
-      <ExportActions
-        catalogId={catalog.id}
-        locked={!paid}
-        share={canShare ? <ShareButton catalogId={catalog.id} /> : null}
-        panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} />}
-      />
+      {notes.length > 0 ? (
+        <section className="mt-3 rounded-ctl border border-line bg-info-tint px-3 py-2 text-small text-info-ink" aria-label={ta.matchX.degraded.title}>
+          <p className="flex items-center gap-1.5 font-medium"><IconInfo size={14} />{ta.matchX.degraded.title}</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">{notes.map((n) => <li key={n}>{n}</li>)}</ul>
+          <p className="mt-1 text-micro">{h.degradedMore}</p>
+        </section>
+      ) : null}
     </header>
   );
 }

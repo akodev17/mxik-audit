@@ -2,8 +2,9 @@
 // nothing here reaches share links, PDFs or exports.
 import { catalogScope } from './access';
 import { db } from './db';
+import { mayWrite, type RoleCarrier } from './write-access';
 
-type Scope = { orgId: string; userId: string; clientIds?: string[] | null };
+type Scope = { orgId: string; userId: string; clientIds?: string[] | null } & RoleCarrier;
 
 export type CommentView = { id: string; author: string | null; body: string; at: string };
 
@@ -25,6 +26,7 @@ export async function listComments(scope: Pick<Scope, 'orgId' | 'clientIds'>, fi
 }
 
 export async function addComment(scope: Scope, findingId: string, body: string): Promise<boolean> {
+  if (!mayWrite(scope)) return false;
   const text = body.trim().slice(0, MAX_LENGTH);
   const finding = await visibleFinding(scope, findingId);
   if (!finding || text.length === 0) return false;
@@ -36,10 +38,18 @@ export async function addComment(scope: Scope, findingId: string, body: string):
 export type Flag = 'ask_client' | 'resolved' | null;
 
 export async function setFlag(scope: Scope, findingId: string, flag: Flag): Promise<boolean> {
+  if (!mayWrite(scope)) return false;
   const finding = await visibleFinding(scope, findingId);
   if (!finding) return false;
-  await db.finding.update({ where: { id: finding.id }, data: { flag } });
-  await db.auditEvent.create({ data: { orgId: scope.orgId, actorId: scope.userId, action: 'finding.flagged', targetId: findingId, payload: { catalogId: finding.item.catalogId, flag, count: 1 } } });
+  await db.$transaction([
+    db.finding.update({ where: { id: finding.id }, data: { flag } }),
+    db.auditEvent.create({
+      data: {
+        orgId: scope.orgId, actorId: scope.userId, action: 'finding.flagged', targetId: findingId,
+        payload: { catalogId: finding.item.catalogId, flag, count: 1, findings: [{ id: finding.id, previous: finding.flag }] },
+      },
+    }),
+  ]);
   return true;
 }
 

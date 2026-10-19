@@ -195,7 +195,7 @@ export const ru: Dict = {
   reportFilterType: 'Тип',
 
   typeMissing: 'Нет кода',
-  typeNotFound: 'Нет в базе',
+  typeNotFound: 'Нет в классификаторе',
   typeMismatch: 'Не соответствует названию',
   typeUnitConflict: 'Единица измерения',
 
@@ -240,6 +240,6 @@ export const ru: Dict = {
   confidenceLikely: 'Среднее совпадение',
   confidenceCheck: 'Нужно проверить',
 
-  codeArchived: 'Архивирован в классификаторе',
+  codeArchived: 'Исключён из классификатора',
   codeUnknown: 'Не найден в классификаторе',
 };

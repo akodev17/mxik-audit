@@ -1,13 +1,15 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { canWrite } from '@/lib/access';
-import { db } from '@/lib/db';
 import { codeDetails } from '@/lib/code-details';
+import { db } from '@/lib/db';
+import { fmtDate, fmtNumber } from '@/lib/format';
 import { currentUser } from '@/lib/session';
+import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
+import { DictionarySearch } from './dictionary-search';
 import { DictionaryTable, type DictRow } from './dictionary-table';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,12 +20,13 @@ export async function generateMetadata(): Promise<Metadata> {
 const PAGE = 100;
 
 export default async function DictionaryPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
-  const { ta } = await getI18n();
+  const { ta, locale } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
+  const x = ta.wsX.dict;
   const sp = await searchParams;
   const q = (sp.q ?? '').trim().slice(0, 80);
-  const page = Math.max(0, Number(sp.page) || 0);
+  const page = Math.max(0, Math.floor(Number(sp.page) || 0));
 
   const where = {
     orgId: user.orgId,
@@ -33,31 +36,29 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
     db.firmMapping.count({ where }),
     db.firmMapping.findMany({ where, orderBy: [{ uses: 'desc' }, { updatedAt: 'desc' }], skip: page * PAGE, take: PAGE }),
   ]);
-  const details = await codeDetails(entries.map((e) => e.code));
+  const details = await codeDetails(entries.map((e) => e.code), locale);
   const rows: DictRow[] = entries.map((e) => ({
     id: e.id, kind: e.kind, label: e.label, unit: e.unit, code: e.code, codeName: details.get(e.code)?.name ?? null,
-    uses: e.uses, stale: e.staleAt !== null, updated: e.updatedAt.toLocaleDateString('uz-UZ'),
+    uses: e.uses, confirmations: e.confirmations, source: e.source,
+    stale: e.staleAt !== null || details.get(e.code)?.live === false, updated: fmtDate(locale, e.updatedAt),
   }));
   const href = (p: number): string => `/dictionary?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
+  const editable = canWrite(user);
 
   return (
     <Page title={ta.dict.title} hint={ta.dict.hint} wide>
-      <form className="mb-4 max-w-md">
-        <input
-          name="q" defaultValue={q} placeholder={ta.dict.search} aria-label={ta.dict.search}
-          className="h-10 w-full rounded-ctl border border-line-strong bg-base px-3 text-[15px] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-        />
-      </form>
+      <DictionarySearch initial={q} />
       {rows.length === 0 ? (
-        <EmptyState title={ta.dict.empty} hint={ta.dict.emptyHint} />
+        q ? <EmptyState title={x.emptySearch} hint={x.emptySearchHint} /> : <EmptyState title={x.emptyTitle} hint={x.emptyHint} />
       ) : (
         <>
-          <DictionaryTable rows={rows} canEdit={canWrite(user)} />
-          <div className="mt-3 flex items-center gap-4 text-sm text-muted">
-            <span>{total.toLocaleString('uz-UZ')}</span>
-            {page > 0 ? <Link href={href(page - 1)} className="text-brand hover:underline">←</Link> : null}
-            {(page + 1) * PAGE < total ? <Link href={href(page + 1)} className="text-brand hover:underline">→</Link> : null}
-          </div>
+          {editable ? null : <p className="mb-2 text-small text-muted">{x.viewerHint}</p>}
+          <DictionaryTable rows={rows} canEdit={editable} />
+          <nav aria-label={x.pages} className="mt-3 flex flex-wrap items-center gap-3 text-small text-muted">
+            <span>{x.total(fmtNumber(locale, total), total)}</span>
+            {page > 0 ? <ButtonLink size="sm" href={href(page - 1)}>{x.prev}</ButtonLink> : null}
+            {(page + 1) * PAGE < total ? <ButtonLink size="sm" href={href(page + 1)}>{x.next}</ButtonLink> : null}
+          </nav>
         </>
       )}
     </Page>

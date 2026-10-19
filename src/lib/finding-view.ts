@@ -3,6 +3,7 @@
 import { evidenceFor, readEvidence, type MatchEvidence } from '../core/match/evidence.js';
 import { groupKeyOf } from '../core/match/group-key.js';
 import { codeDetails, toCodeInfo, type CodeDetail, type CodeInfo } from './code-details.js';
+import type { Locale } from './i18n.js';
 
 export type Alternative = {
   code: string;
@@ -82,12 +83,15 @@ function derivedEvidence(productName: string, unit: string | null, detail: CodeD
   return evidenceFor({ stage: 'none', productName, rowUnit: unit, candidate: { ...detail, nameUz: detail.name } });
 }
 
-export async function findingRows(findings: readonly FindingInput[]): Promise<{ rows: FindingRow[]; details: Map<string, CodeDetail> }> {
+/** Code names follow `locale`; matching evidence is always derived from the Uzbek names it was scored on. */
+export async function findingRows(findings: readonly FindingInput[], locale: Locale = 'uz'): Promise<{ rows: FindingRow[]; details: Map<string, CodeDetail> }> {
   const alternatives = new Map(findings.map((f) => [f.id, readAlternatives(f.alternatives)]));
-  const details = await codeDetails(findings.flatMap((f) => [
+  const codes = findings.flatMap((f) => [
     f.item.existingMxik, f.suggestedMxik, f.chosenMxik,
     ...(alternatives.get(f.id) ?? []).map((a) => a.code),
-  ]));
+  ]);
+  const [details, uzDetails] = await Promise.all([codeDetails(codes, locale), locale === 'uz' ? null : codeDetails(codes, 'uz')]);
+  const scored = uzDetails ?? details;
   const info = (code: string | null): CodeInfo | null => (code ? toCodeInfo(details.get(code)) : null);
 
   const rows = findings.map((f): FindingRow => ({
@@ -107,10 +111,10 @@ export async function findingRows(findings: readonly FindingInput[]): Promise<{ 
     confidence: f.confidence,
     // UNIT_CONFLICT "suggests" the row's own code; there is nothing to explain.
     evidence: f.type === 'UNIT_CONFLICT' ? null : readEvidence(f.evidence)
-      ?? derivedEvidence(f.item.rawName, f.item.unit, f.suggestedMxik ? details.get(f.suggestedMxik) : undefined),
+      ?? derivedEvidence(f.item.rawName, f.item.unit, f.suggestedMxik ? scored.get(f.suggestedMxik) : undefined),
     alternatives: (alternatives.get(f.id) ?? []).map((a) => ({
       code: a.code,
-      name: a.name,
+      name: details.get(a.code)?.name ?? a.name,
       confidence: a.confidence,
       isBase: a.isBase,
       info: info(a.code),

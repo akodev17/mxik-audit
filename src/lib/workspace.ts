@@ -1,20 +1,19 @@
 // Catalogue workspace data: summary counts and keyset-paged rows. The order is
-// fixed (severity, least confident first, row number), so deciding a row never
-// shifts the pages that have not loaded yet.
+// fixed (severity rank, least confident first, row number), so deciding a row
+// never shifts the pages that have not loaded yet.
 import { Prisma } from '@prisma/client';
 import { db } from './db';
 import { RISKY_FINDING, RISKY_ITEM } from './risk';
+import { sureBandSql } from './sure-band';
+import { pendingSubset, type WsFilter, type WsSort } from './workspace-filter';
 
-export const FINDING_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'] as const;
-export type WsType = (typeof FINDING_TYPES)[number];
-/** Chip filters: a finding type, markirovka, or null for all risky rows. */
-export type WsSort = 'risk' | 'row';
-export type WsFilter = { type: WsType | 'MARKING' | null; q: string; pendingOnly: boolean; commented: boolean; sort: WsSort };
+export { FINDING_TYPES, readFilter, type WsFilter, type WsSort, type WsType } from './workspace-filter';
 
 export type WsSummary = {
   total: number;
+  /** Catalogue rows with at least one risky finding ("qator"). */
   riskyRows: number;
-  /** Risky findings, and how many of those have a decision. */
+  /** Risky findings ("muammo"), and how many of those have a decision. */
   riskyFindings: number;
   reviewed: number;
   byType: Record<string, number>;
@@ -22,10 +21,12 @@ export type WsSummary = {
   markingRisky: number;
   /** Pending findings suggested from the firm dictionary. */
   dictionaryPending: number;
+  /** Pending high-match code suggestions: what "accept all high-match" would consider. */
+  surePending: number;
 };
 
 export async function workspaceSummary(catalogId: string, rowCount: number): Promise<WsSummary> {
-  const [byType, riskyRows, markingTotal, markingRisky, riskyFindings, reviewed, dictionaryPending] = await Promise.all([
+  const [byType, riskyRows, markingTotal, markingRisky, riskyFindings, reviewed, dictionaryPending, sure] = await Promise.all([
     db.finding.groupBy({ by: ['type'], where: { item: { catalogId } }, _count: { _all: true } }),
     db.catalogItem.count({ where: { catalogId, ...RISKY_ITEM } }),
     db.catalogItem.count({ where: { catalogId, markingRequired: true } }),
@@ -33,19 +34,19 @@ export async function workspaceSummary(catalogId: string, rowCount: number): Pro
     db.finding.count({ where: { item: { catalogId }, ...RISKY_FINDING } }),
     db.finding.count({ where: { item: { catalogId }, ...RISKY_FINDING, decision: { not: 'pending' } } }),
     db.finding.count({ where: { item: { catalogId }, decision: 'pending', suggestedMxik: { not: null }, type: { in: ['MISSING', 'NOT_FOUND', 'MISMATCH'] }, evidence: { path: ['stage'], equals: 'dictionary' } } }),
+    db.$queryRaw<{ n: bigint }[]>(Prisma.sql`
+      SELECT count(*) AS n FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
+      WHERE ci."catalogId" = ${catalogId} AND ${sureBandSql()}`),
   ]);
   return {
     total: rowCount, riskyRows, riskyFindings, reviewed, markingTotal, markingRisky, dictionaryPending,
+    surePending: Number(sure[0]?.n ?? 0),
     byType: Object.fromEntries(byType.map((r) => [r.type, r._count._all])),
   };
 }
 
-export function readFilter(params: { type?: string | null; q?: string | null; pending?: string | null; comments?: string | null; sort?: string | null }): WsFilter {
-  const type = params.type === 'MARKING' ? 'MARKING' : FINDING_TYPES.find((x) => x === params.type) ?? null;
-  return { type, q: (params.q ?? '').trim().slice(0, 100), pendingOnly: params.pending !== '0', commented: params.comments === '1', sort: params.sort === 'row' ? 'row' : 'risk' };
-}
-
-export type Cursor = { sev: string; conf: number; row: number; id: string };
+/** `sev` is the severity rank (0 high, 1 medium, 2 info), never the enum text, which sorts alphabetically. */
+export type Cursor = { sev: number; conf: number; row: number; id: string };
 
 export function encodeCursor(c: Cursor): string {
   return Buffer.from(JSON.stringify(c)).toString('base64url');
@@ -55,17 +56,29 @@ export function decodeCursor(raw: string | null): Cursor | null {
   if (!raw) return null;
   try {
     const c = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as Partial<Cursor>;
-    if (typeof c.sev === 'string' && typeof c.conf === 'number' && typeof c.row === 'number' && typeof c.id === 'string') return c as Cursor;
+    if (typeof c.sev === 'number' && typeof c.conf === 'number' && typeof c.row === 'number' && typeof c.id === 'string') return c as Cursor;
   } catch { /* malformed cursor: start over */ }
   return null;
 }
 
-function conditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
+const SEVERITY_RANK = Prisma.sql`(CASE f.severity WHEN 'high'::severity THEN 0 WHEN 'medium'::severity THEN 1 ELSE 2 END)`;
+
+/** WHERE parts for a filter; expects `finding f JOIN catalog_item ci`. */
+export function filterConditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
   const where: Prisma.Sql[] = [Prisma.sql`ci."catalogId" = ${catalogId}`];
   if (filter.type === 'MARKING') where.push(Prisma.sql`ci."markingRequired" = true`);
   else if (filter.type) where.push(Prisma.sql`f.type = ${filter.type}::finding_type`);
   else where.push(Prisma.sql`f.severity IN ('high'::severity, 'medium'::severity)`);
-  if (filter.pendingOnly) where.push(Prisma.sql`f.decision = 'pending'::decision`);
+
+  if (filter.decision === 'pending') where.push(Prisma.sql`f.decision = 'pending'::decision`);
+  else if (filter.decision === 'accepted') where.push(Prisma.sql`f.decision = 'accepted'::decision`);
+  else if (filter.decision === 'rejected') where.push(Prisma.sql`f.decision = 'rejected'::decision`);
+  else if (filter.decision === 'carried') where.push(Prisma.sql`f."decisionSource" = 'carry_over'`);
+  else if (filter.decision === 'auto') where.push(Prisma.sql`f."decisionSource" IN ('carry_over', 'dictionary_auto')`);
+
+  if (filter.flag === 'none') where.push(Prisma.sql`f.flag IS NULL`);
+  else if (filter.flag !== 'any') where.push(Prisma.sql`f.flag = ${filter.flag}`);
+
   if (filter.commented) where.push(Prisma.sql`EXISTS (SELECT 1 FROM finding_comment fc WHERE fc."findingId" = f.id)`);
   if (filter.q) {
     const like = `%${filter.q.replace(/[\\%_]/g, '\\$&')}%`;
@@ -77,50 +90,56 @@ function conditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
   return where;
 }
 
-type IdRow = { id: string; sev: string; conf: number; row: number };
+type IdRow = { id: string; sev: number; conf: number; row: number };
 
 /** ORDER BY clause: riskiest first, or in file order. */
 function orderBy(sort: WsSort): Prisma.Sql {
   return sort === 'row'
     ? Prisma.sql`ci."rowIndex", f.id`
-    : Prisma.sql`f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id`;
+    : Prisma.sql`${SEVERITY_RANK}, coalesce(f.confidence, -1), ci."rowIndex", f.id`;
 }
 
 /** One page of finding ids in workspace order, plus the cursor for the next page. */
 export async function workspacePageIds(
   catalogId: string, filter: WsFilter, cursor: Cursor | null, limit: number,
 ): Promise<{ ids: string[]; next: string | null }> {
-  const where = conditions(catalogId, filter);
+  const where = filterConditions(catalogId, filter);
   if (cursor) {
     where.push(filter.sort === 'row'
       ? Prisma.sql`(ci."rowIndex", f.id) > (${cursor.row}, ${cursor.id})`
-      : Prisma.sql`(f.severity::text, coalesce(f.confidence, -1), ci."rowIndex", f.id) > (${cursor.sev}, ${cursor.conf}, ${cursor.row}, ${cursor.id})`);
+      : Prisma.sql`(${SEVERITY_RANK}, coalesce(f.confidence, -1)::float8, ci."rowIndex", f.id) > (${cursor.sev}::int, ${cursor.conf}::float8, ${cursor.row}::int, ${cursor.id})`);
   }
   const rows = await db.$queryRaw<IdRow[]>(Prisma.sql`
-    SELECT f.id, f.severity::text AS sev, coalesce(f.confidence, -1)::float8 AS conf, ci."rowIndex" AS row
+    SELECT f.id, ${SEVERITY_RANK}::int AS sev, coalesce(f.confidence, -1)::float8 AS conf, ci."rowIndex" AS row
     FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
     WHERE ${Prisma.join(where, ' AND ')}
     ORDER BY ${orderBy(filter.sort)}
     LIMIT ${limit + 1}`);
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
-  const next = rows.length > limit && last ? encodeCursor({ sev: last.sev, conf: last.conf, row: last.row, id: last.id }) : null;
+  const next = rows.length > limit && last ? encodeCursor({ sev: Number(last.sev), conf: last.conf, row: last.row, id: last.id }) : null;
   return { ids: page.map((r) => r.id), next };
 }
 
-/** Count for the current filter, for the "n qator" label. */
+/** Count for the current filter, for the "n muammo" label. */
 export async function workspaceCount(catalogId: string, filter: WsFilter): Promise<number> {
   const rows = await db.$queryRaw<{ n: bigint }[]>(Prisma.sql`
     SELECT count(*) AS n FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
-    WHERE ${Prisma.join(conditions(catalogId, filter), ' AND ')}`);
+    WHERE ${Prisma.join(filterConditions(catalogId, filter), ' AND ')}`);
   return Number(rows[0]?.n ?? 0);
+}
+
+/** Pending findings of a filter: what a decision on the whole filter would touch. */
+export async function workspacePendingCount(catalogId: string, filter: WsFilter): Promise<number> {
+  const pending = pendingSubset(filter);
+  return pending ? workspaceCount(catalogId, pending) : 0;
 }
 
 /** Every finding id of a filter, in workspace order, for actions on a whole filter. */
 export async function workspaceAllIds(catalogId: string, filter: WsFilter, limit: number): Promise<string[]> {
   const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
     SELECT f.id FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
-    WHERE ${Prisma.join(conditions(catalogId, filter), ' AND ')}
+    WHERE ${Prisma.join(filterConditions(catalogId, filter), ' AND ')}
     ORDER BY ${orderBy(filter.sort)}
     LIMIT ${limit}`);
   return rows.map((r) => r.id);

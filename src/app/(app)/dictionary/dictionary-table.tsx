@@ -1,64 +1,117 @@
 'use client';
 
-import { useI18n } from '@/lib/locale-client';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { deleteMapping, updateMapping } from '@/app/actions/dictionary';
-import { Badge } from '@/ui/badge';
+import { fmtNumber } from '@/lib/format';
+import { useI18n } from '@/lib/locale-client';
+import { Badge, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
-import { Input } from '@/ui/input';
+import { ConfirmDialog } from '@/ui/confirm-dialog';
+import { Field, Input } from '@/ui/input';
 import { Table, Td, Th } from '@/ui/table';
+import { useToast } from '@/ui/toast';
 
 export type DictRow = {
   id: string; kind: string; label: string; unit: string | null; code: string; codeName: string | null;
-  uses: number; stale: boolean; updated: string;
+  uses: number; confirmations: number; source: string | null; stale: boolean; updated: string;
 };
 
+const CODE = /^\d{17}$/;
+
+/** How much people stood behind an entry: individual confirmations, or only bulk accepts. */
+function Trust({ row }: { row: DictRow }) {
+  const { ta, locale } = useI18n();
+  const x = ta.wsX.dict;
+  const source = row.source ? x.sourceLabel[row.source] : null;
+  return (
+    <span className="flex flex-col items-start gap-0.5">
+      {row.confirmations > 0
+        ? <Badge tone="good" icon={<StatusIcon tone="good" size={12} />}>{x.confirmed(fmtNumber(locale, row.confirmations), row.confirmations)}</Badge>
+        : <Badge tone="warn" icon={<StatusIcon tone="warn" size={12} />}>{x.bulkOnly}</Badge>}
+      {source ? <span className="text-micro text-muted">{source}</span> : null}
+    </span>
+  );
+}
+
 function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
-  const { ta } = useI18n();
+  const { ta, locale } = useI18n();
+  const x = ta.wsX.dict;
   const router = useRouter();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [code, setCode] = useState(row.code);
   const [error, setError] = useState<string | null>(null);
-  const [busy, start] = useTransition();
+  const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const save = (): void => start(async () => {
-    const result = await updateMapping({ id: row.id, code: code.trim() });
-    if (result.ok) { setEditing(false); setError(null); router.refresh(); } else setError(result.error ?? '');
-  });
+  async function save(): Promise<void> {
+    const value = code.replace(/\s+/g, '');
+    if (!CODE.test(value)) { setError(x.codeFormat); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await updateMapping({ id: row.id, code: value });
+      if (!result.ok) { setError(result.error ?? ta.wsX.toast.failed); return; }
+      setEditing(false);
+      toast(x.savedToast);
+      router.refresh();
+    } catch {
+      setError(ta.wsX.toast.network);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <tr className="hover:bg-surface/60">
+    <tr className="hover:bg-surface">
       <Td className="max-w-sm">
-        <span className="block truncate font-medium" title={row.label}>{row.label}</span>
-        {row.unit ? <span className="text-xs text-muted">{row.unit}</span> : null}
+        <span className="block truncate font-medium text-fg" title={row.label}>{row.label}</span>
+        {row.unit ? <span className="text-micro text-muted">{row.unit}</span> : null}
       </Td>
       <Td>{row.kind === 'barcode' ? ta.dict.kindBarcode : ta.dict.kindName}</Td>
-      <Td className="max-w-sm">
+      <Td className="min-w-56 max-w-sm">
         {editing ? (
-          <span className="flex items-center gap-2">
-            <Input value={code} onChange={(e) => setCode(e.target.value)} maxLength={17} className="h-8 w-48 font-mono text-xs" aria-label={ta.dict.edit} />
-            <Button size="sm" variant="primary" disabled={busy} onClick={save}>OK</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setCode(row.code); setError(null); }}>✕</Button>
-          </span>
+          <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+            <Field label={x.codeLabel} hint={x.editHint} error={error ?? undefined}>
+              <Input value={code} onChange={(e) => setCode(e.target.value)} maxLength={20} inputMode="numeric" size="compact" className="font-mono" autoFocus />
+            </Field>
+            <span className="flex gap-2">
+              <Button type="submit" size="sm" variant="primary" loading={busy}>{x.save}</Button>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEditing(false); setCode(row.code); setError(null); }}>{x.cancel}</Button>
+            </span>
+          </form>
         ) : (
           <span className="flex min-w-0 flex-col items-start gap-0.5">
             <CodeChip code={row.code} />
-            {row.stale ? <Badge tone="danger">{ta.dict.stale}</Badge> : <span className="max-w-full truncate text-xs text-muted" title={row.codeName ?? undefined}>{row.codeName}</span>}
+            {row.stale
+              ? <Badge tone="danger">{ta.wsX.codeState.archived}</Badge>
+              : <span className="max-w-full truncate text-micro text-muted" title={row.codeName ?? undefined}>{row.codeName ?? ta.wsX.codeState.unknown}</span>}
           </span>
         )}
-        {error ? <span role="alert" className="block text-xs text-danger">{error}</span> : null}
       </Td>
-      <Td className="text-right">{row.uses}</Td>
+      <Td><Trust row={row} /></Td>
+      <Td numeric>{fmtNumber(locale, row.uses)}</Td>
       <Td className="whitespace-nowrap text-muted">{row.updated}</Td>
       <Td>
-        {canEdit ? (
+        {canEdit && !editing ? (
           <span className="flex justify-end gap-2">
-            <Button size="sm" onClick={() => setEditing(true)} disabled={editing}>{ta.dict.edit}</Button>
-            <Button size="sm" variant="danger" disabled={busy} onClick={() => { if (window.confirm(ta.dict.deleteConfirm)) start(async () => { await deleteMapping(row.id); router.refresh(); }); }}>{ta.dict.delete}</Button>
+            <Button size="compact" onClick={() => setEditing(true)} aria-label={`${x.edit}: ${row.label}`}>{x.edit}</Button>
+            <Button size="compact" variant="danger-ghost" onClick={() => setConfirmDelete(true)} aria-label={`${x.delete}: ${row.label}`}>{x.delete}</Button>
           </span>
         ) : null}
+        <ConfirmDialog
+          open={confirmDelete} onClose={() => setConfirmDelete(false)}
+          title={x.deleteTitle} description={x.deleteBody} scope={row.label} tone="danger" confirmLabel={x.deleteConfirm}
+          onConfirm={async () => {
+            const result = await deleteMapping(row.id);
+            if (!result.ok) return { ok: false, error: result.error };
+            toast(x.deleted);
+            router.refresh();
+            return { ok: true };
+          }}
+        />
       </Td>
     </tr>
   );
@@ -67,11 +120,11 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
 export function DictionaryTable({ rows, canEdit }: { rows: DictRow[]; canEdit: boolean }) {
   const { ta } = useI18n();
   return (
-    <Table>
+    <Table label={ta.dict.title}>
       <thead>
         <tr>
-          <Th>{ta.dict.colName}</Th><Th>{ta.dict.colKind}</Th><Th>{ta.dict.colCode}</Th>
-          <Th className="text-right">{ta.dict.colUses}</Th><Th>{ta.dict.colUpdated}</Th><Th><span className="sr-only">—</span></Th>
+          <Th>{ta.dict.colName}</Th><Th>{ta.dict.colKind}</Th><Th>{ta.dict.colCode}</Th><Th>{ta.wsX.dict.colConfirmed}</Th>
+          <Th numeric>{ta.dict.colUses}</Th><Th>{ta.dict.colUpdated}</Th><Th><span className="sr-only">{ta.wsX.dict.actions}</span></Th>
         </tr>
       </thead>
       <tbody>{rows.map((r) => <Row key={r.id} row={r} canEdit={canEdit} />)}</tbody>

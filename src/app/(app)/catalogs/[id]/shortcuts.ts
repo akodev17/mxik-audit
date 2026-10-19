@@ -1,0 +1,46 @@
+// Workspace keyboard map. Pure, so the rules are testable. Keys are matched by
+// physical position (KeyboardEvent.code), so they work on a Cyrillic layout too.
+
+export type ShortcutAction = 'next' | 'prev' | 'nextPending' | 'accept' | 'reject' | 'edit' | 'open' | 'undo' | 'search' | 'help';
+
+type KeyInput = { code: string; key: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean; repeat: boolean };
+
+/** Decisions and undo never fire from a held-down key. */
+const NO_REPEAT: ReadonlySet<ShortcutAction> = new Set(['accept', 'reject', 'undo', 'edit', 'open', 'help', 'search']);
+
+export function shortcutFor(e: KeyInput): ShortcutAction | null {
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  const action = actionOf(e);
+  if (!action || (e.repeat && NO_REPEAT.has(action))) return null;
+  return action;
+}
+
+function actionOf(e: KeyInput): ShortcutAction | null {
+  if (e.key === '?' || (e.code === 'Slash' && e.shiftKey)) return 'help';
+  // Shift with a letter is never a shortcut: it is too easy to hit by accident while typing.
+  if (e.shiftKey && e.code !== 'ArrowDown' && e.code !== 'ArrowUp') return null;
+  switch (e.code) {
+    case 'KeyJ': case 'ArrowDown': return 'next';
+    case 'KeyK': case 'ArrowUp': return 'prev';
+    case 'KeyN': return 'nextPending';
+    case 'Enter': case 'NumpadEnter': return 'accept';
+    case 'KeyR': return 'reject';
+    case 'KeyE': return 'edit';
+    case 'KeyO': return 'open';
+    case 'KeyU': return 'undo';
+    case 'Slash': return 'search';
+    default: return null;
+  }
+}
+
+const INTERACTIVE_ROLES = new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'option', 'combobox', 'textbox', 'slider', 'spinbutton', 'separator', 'radio', 'checkbox', 'button', 'link']);
+
+/** Typing fields, buttons, links, menus and options keep their own keys. */
+export function ownsKeys(target: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY') return true;
+  if (target instanceof HTMLElement && target.isContentEditable) return true;
+  const role = target.getAttribute('role');
+  return role !== null && INTERACTIVE_ROLES.has(role);
+}
