@@ -2,7 +2,7 @@
 
 ## Last Updated
 
-2026-10-16 (product pass A–O, see "PRODUCT PASS A–O" near the end), on top
+2026-10-19 (21-feature product pass, see "PRODUCT PASS 2" at the end), 2026-10-16 (product pass A–O, see "PRODUCT PASS A–O" near the end), on top
 of 2026-10-15 (P0 demo-readiness block). Measurements under "Verified Data Facts"
 are dated 2026-08-20 (438,925 codes) unless marked; the export of 2026-10-15
 has 442,719 codes.
@@ -818,17 +818,26 @@ Then pick up the Recommended Next Steps.
 
 ---
 
-## PRODUCT PASS 2 (features 1–21) — progress
+## PRODUCT PASS 2 (features 1–21) — complete
 
-Done and committed (one commit each, on main, not pushed): 1 team and roles, 2 firm dictionary,
-3 incremental re-upload + version diff, 4 accuracy metrics and "Taklif notoʻgʻri", 5 bulk actions
-and inline edit, 6 client share links, 7 signup/trial/plan limits, 8 Russian UI, 9 firm dashboard,
-10 row comments, 11 saved views.
+All 21 features are done and committed, one commit each, on main (nothing pushed). `git log --oneline`
+from "Team and roles" to "Security and data control" lists them in order. Typecheck and `next build`
+passed for each commit; no new test suites were added.
 
-In progress / next: 12 activity log, 13 monthly reminders, 14 cheque-list import, 15 sales cheques
-check, 16 names from barcode, 17 unit/packaging advice, 18 public API, 19 Google Sheets add-on,
-20 help center, 21 security and data control.
+Done: 1 team and roles, 2 firm dictionary, 3 incremental re-upload + version diff, 4 accuracy metrics
+and "Taklif notoʻgʻri", 5 bulk actions and inline edit, 6 client share links, 7 signup/trial/plan limits,
+8 Russian UI, 9 firm dashboard, 10 row comments, 11 saved views, 12 activity log, 13 monthly reminders,
+14 cheque-list import, 15 sales check, 16 names from barcode, 17 unit and packaging advice, 18 public API,
+19 Google Sheets add-on (source only, not published), 20 help center /yordam, 21 security and data control.
+
+New migrations (prisma migrate deploy): 20261017… team_roles … doc_lists, 20261018100000_api_keys,
+20261019100000_security. New env vars are in .env.example and DEPLOY.md sections 7c–7g.
 
 Conventions used: every UI string goes in both src/lib/i18n(-app).ts and i18n(-app)-ru.ts (the
 types force it); server code gets the language from getI18n(), client code from useI18n();
-migrations are hand-authored under prisma/migrations and applied with `prisma migrate deploy`.
+migrations are hand-authored under prisma/migrations and applied with `prisma migrate deploy`;
+every sign-in goes through src/lib/security/sign-in.ts (openSession).
+
+Known limits: Telegram login, SMTP mail and the payment providers were not exercised against live
+services; Russian strings and the help-center texts need a native review; plan limits, API limits and
+plan prices are placeholders to be set by the owner; the API rate limit is in memory per process.
