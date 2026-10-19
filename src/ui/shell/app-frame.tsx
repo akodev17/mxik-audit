@@ -1,62 +1,105 @@
 'use client';
 
+import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
+import { setSidebar } from '@/app/actions/shell';
 import { useI18n } from '@/lib/locale-client';
-import Link from 'next/link';
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { ShellData } from '@/lib/shell-data';
 import { Badge } from '../badge';
-import { IconBell } from '../icons';
+import { IconButton } from '../icon-button';
+import { IconMenu } from '../icons';
 import { ToastProvider } from '../toast';
 import { ClientSwitcher } from './client-switcher';
-import { GlobalSearch } from './global-search';
+import { CommandPalette } from './command-palette';
+import { MobileNav } from './mobile-nav';
+import { NotificationBell } from './notification-bell';
 import { PlanBanner } from './plan-banner';
+import type { SidebarPref } from './prefs';
+import { SearchButton } from './search-button';
+import { isPaletteShortcut, isTypingTarget } from './shortcuts';
 import { Sidebar } from './sidebar';
+import { useMediaQuery } from './use-media-query';
 import { UserMenu } from './user-menu';
 
-const STORE_KEY = 'mxik.sidebar.collapsed';
+type Props = { shell: ShellData; sidebar: SidebarPref; children: ReactNode };
 
-export function AppFrame({ shell, children }: { shell: ShellData; children: ReactNode }) {
+/** Signed-in frame: skip link, navigation rail (or mobile menu), header, plan banner, main, palette. */
+export function AppFrame({ shell, sidebar, children }: Props) {
   const { ta } = useI18n();
-  const [collapsed, setCollapsed] = useState(false);
+  const [pref, setPref] = useState<SidebarPref>(sidebar);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const wide = useMediaQuery('(min-width: 1024px)', true);
+  const expanded = pref === 'auto' ? wide : pref === 'expanded';
+  const railId = useId();
+  const menuId = useId();
 
+  const toggleRail = (): void => {
+    const next = expanded ? 'collapsed' : 'expanded';
+    setPref(next);
+    // A preference only: the rail has already changed, and a lost cookie just means the default next time.
+    void setSidebar(next).catch(() => undefined);
+  };
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+
+  // Capture phase, so page-level shortcut handlers cannot swallow the palette keys first.
   useEffect(() => {
-    try { setCollapsed(localStorage.getItem(STORE_KEY) === '1'); } catch { /* storage blocked */ }
+    function onKey(e: KeyboardEvent): void {
+      if (!isPaletteShortcut(e, isTypingTarget(e.target))) return;
+      // Another modal (or the palette itself) owns the keyboard.
+      if (document.querySelector('.app [aria-modal="true"]')) return;
+      e.preventDefault();
+      setPaletteOpen(true);
+    }
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, []);
-
-  function toggle(): void {
-    setCollapsed((c) => {
-      try { localStorage.setItem(STORE_KEY, c ? '0' : '1'); } catch { /* storage blocked */ }
-      return !c;
-    });
-  }
 
   return (
     <ToastProvider>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar collapsed={collapsed} onToggle={toggle} canWrite={shell.canWrite} />
+      <div className="relative flex h-dvh overflow-hidden">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-toast focus:rounded-ctl focus:border focus:border-line-strong focus:bg-raised focus:px-3 focus:py-2 focus:text-data focus:font-medium focus:text-fg focus:shadow-pop"
+        >
+          {ta.shellX.skip}
+        </a>
+        <Sidebar id={railId} pref={pref} expanded={expanded} onToggle={toggleRail} canWrite={shell.canWrite} />
+        <MobileNav id={menuId} open={menuOpen} onClose={closeMenu} canWrite={shell.canWrite} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="no-print flex h-14 shrink-0 items-center gap-3 border-b border-line bg-base px-4">
-            <ClientSwitcher clients={shell.clients} active={shell.activeClient} />
-            <Suspense fallback={<div className="h-9 w-full max-w-md" />}>
-              <GlobalSearch latestCatalogId={shell.latestCatalogId} />
-            </Suspense>
-            <div className="ml-auto flex items-center gap-2">
-              {shell.demo ? <Badge tone="brand" title={ta.shell.demoTitle}>{ta.shell.demoPill}</Badge> : null}
-              <Link href="/notifications" aria-label={ta.shell.notifications} className="relative grid size-9 place-items-center rounded-ctl text-muted hover:bg-surface hover:text-fg">
-                <IconBell />
-                {shell.unread > 0 ? (
-                  <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
-                    {shell.unread > 99 ? '99+' : shell.unread}
-                  </span>
-                ) : null}
-              </Link>
+          <header className="no-print flex h-14 shrink-0 items-center gap-1.5 border-b border-line bg-base px-2 sm:gap-2 sm:px-4">
+            <span className="flex shrink-0 md:hidden">
+              <IconButton
+                label={ta.shellX.nav.open}
+                icon={<IconMenu />}
+                size="md"
+                onClick={() => setMenuOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
+                aria-controls={menuOpen ? menuId : undefined}
+                tooltipSide="bottom"
+                tooltipAlign="start"
+              />
+            </span>
+            <ClientSwitcher clients={shell.clients} active={shell.activeClient} canAdd={shell.canWrite && !shell.demo} />
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+              <SearchButton onOpen={() => setPaletteOpen(true)} expanded={paletteOpen} />
+              {shell.demo ? <span className="hidden sm:inline-flex"><Badge tone="brand" title={ta.shell.demoTitle}>{ta.shell.demoPill}</Badge></span> : null}
+              <NotificationBell initialUnread={shell.unread} />
               <UserMenu email={shell.email} />
             </div>
           </header>
           <PlanBanner plan={shell.plan} />
-          <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+          <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none">{children}</main>
         </div>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={closePalette}
+        canWrite={shell.canWrite}
+        clients={shell.clients}
+        activeClientId={shell.activeClient?.id ?? null}
+      />
     </ToastProvider>
   );
 }

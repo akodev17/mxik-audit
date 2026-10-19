@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Mono } from 'next/font/google';
 import { SITE_URL } from '@/components/landing/config';
-import { t } from '@/lib/i18n';
+import { getI18n, getLocale } from '@/lib/locale';
 import { onest } from '@/ui/onest';
 import './globals.css';
 
@@ -16,23 +16,25 @@ const plexMono = IBM_Plex_Mono({
   variable: '--font-plex-mono',
 });
 
-export const metadata: Metadata = {
-  // Absolute base for every route's Open Graph image (NEXT_PUBLIC_SITE_URL);
-  // without it Telegram shows no link preview in production.
-  ...(SITE_URL ? { metadataBase: SITE_URL } : {}),
-  title: `${t.appName} — ${t.tagline}`,
-  description: t.tagline,
-};
+// Pages set their own "<page> — MXIK Audit" titles, so there is no template here (it would repeat the name).
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale, t } = await getI18n();
+  return {
+    // Absolute base for every route's Open Graph image (NEXT_PUBLIC_SITE_URL);
+    // without it Telegram shows no link preview in production.
+    ...(SITE_URL ? { metadataBase: SITE_URL } : {}),
+    title: { default: `${t.appName} — ${t.tagline}`, template: '%s' },
+    description: t.tagline,
+    openGraph: { locale: locale === 'ru' ? 'ru_RU' : 'uz_UZ', siteName: t.appName },
+  };
+}
 
 // Most of this audience arrives from a Telegram in-app browser.
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="uz"
-      className={`${onest.variable} ${plexMono.variable}`}
-    >
+    <html lang={await getLocale()} className={`${onest.variable} ${plexMono.variable}`}>
       <body>{children}</body>
     </html>
   );

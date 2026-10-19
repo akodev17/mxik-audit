@@ -1,9 +1,9 @@
-// What the app frame needs on every page: clients, unread count, the latest catalogue.
-import { canWrite, clientScope } from './access';
+// What the app frame needs on every page: the user's visible clients, the active one, unread count, plan.
+import { canWrite } from './access';
+import { resolveVisibleClient, visibleClients, type VisibleClient } from './active-client';
 import type { LimitKey } from './billing/limits';
-import { db } from './db';
+import { defaultClient } from './clients';
 import { planStatus, type PlanState } from './plan';
-import { resolveClient } from './clients';
 import { unreadCount } from './notifications';
 import type { CurrentUser } from './session';
 
@@ -12,19 +12,27 @@ export type ShellData = {
   demo: boolean;
   canWrite: boolean;
   plan: { state: PlanState; daysLeft: number | null; warnings: LimitKey[]; full: LimitKey[] };
+  /** Clients this user may switch to; never another scope's. */
   clients: { id: string; name: string }[];
-  activeClient: { id: string; name: string };
-  unread: number;
-  /** The catalogue the search box and the demo land on. */
-  latestCatalogId: string | null;
+  /** Null when the user has no visible client (a scoped user whose clients are all archived). */
+  activeClient: { id: string; name: string } | null;
+  /** Null when the count could not be read: the bell then shows no number rather than a wrong one. */
+  unread: number | null;
 };
 
+/** The active client; an unscoped user in an org without clients gets the default one created, as before. */
+async function activeFor(user: CurrentUser): Promise<VisibleClient | null> {
+  const found = await resolveVisibleClient(user);
+  if (found || user.clientIds != null) return found;
+  await defaultClient(user.orgId);
+  return resolveVisibleClient(user);
+}
+
 export async function shellData(user: CurrentUser): Promise<ShellData> {
-  const active = await resolveClient(user.orgId, user.clientId);
-  const [clients, unread, latest, plan] = await Promise.all([
-    db.client.findMany({ where: { orgId: user.orgId, ...clientScope(user) }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    unreadCount(user.orgId).catch(() => 0),
-    db.catalog.findFirst({ where: { orgId: user.orgId, clientId: active.id }, orderBy: { createdAt: 'desc' }, select: { id: true } }),
+  const active = await activeFor(user);
+  const [clients, unread, plan] = await Promise.all([
+    visibleClients(user),
+    unreadCount(user).catch(() => null),
     planStatus(user.orgId),
   ]);
   return {
@@ -33,8 +41,7 @@ export async function shellData(user: CurrentUser): Promise<ShellData> {
     canWrite: canWrite(user),
     plan: { state: plan.state, daysLeft: plan.daysLeft, warnings: plan.warnings, full: plan.full },
     clients,
-    activeClient: { id: active.id, name: active.name },
+    activeClient: active ? { id: active.id, name: active.name } : null,
     unread,
-    latestCatalogId: latest?.id ?? null,
   };
 }
