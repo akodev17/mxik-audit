@@ -14,6 +14,7 @@ import { Skeleton } from '@/ui/skeleton';
 import { CodeCompare } from './code-compare';
 import { CodeSearch } from './code-search';
 import { NameFromBarcodeOffer } from './name-from-barcode';
+import { UnitAdviceBox } from './unit-advice';
 import { RequestText } from './request-text';
 import { RowComments } from './row-comments';
 import { WrongFeedback } from './wrong-feedback';
@@ -101,6 +102,8 @@ function Body({ row, detail, onChoose, onComments, readOnly }: { row: GridRow; d
       </section>
 
       {detail.nameOffer ? <NameFromBarcodeOffer findingId={detail.findingId} offer={detail.nameOffer} readOnly={readOnly} onFilled={setName} /> : null}
+
+      <UnitAdviceBox advice={detail.advice} />
 
       <section>
         <h3 className="mb-2 text-sm font-bold">{ta.drawer.search}</h3>

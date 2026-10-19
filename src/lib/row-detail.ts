@@ -7,6 +7,7 @@ import { db } from './db';
 import { findingRows } from './finding-view';
 import type { AppDict } from './i18n-app';
 import { rowSignals, type Signal } from './row-signals';
+import { unitAdvice, type UnitAdvice } from './unit-advice';
 
 export type CodeBlock = { digits: string; name: string | null };
 export type CodeView = { code: string; name: string; live: boolean; blocks: CodeBlock[] };
@@ -29,6 +30,7 @@ export type RowDetail = {
   privileges: string[];
   noSuggestion: boolean;
   nameOffer: NameFromBarcode | null;
+  advice: UnitAdvice;
   decision: 'pending' | 'accepted' | 'rejected';
   decisionEventId: string | null;
 };
@@ -65,7 +67,7 @@ export async function rowDetail(scope: { orgId: string; clientIds?: string[] | n
   const [levels, details] = await Promise.all([
     db.mxikCode.findMany({
       where: { code: { in: codes } },
-      select: { code: true, groupNameUz: true, classNameUz: true, positionNameUz: true, subPositionNameUz: true, nameUz: true, retiredAt: true },
+      select: { code: true, unitBinding: true, unitCanonical: true, unitContainer: true, groupNameUz: true, classNameUz: true, positionNameUz: true, subPositionNameUz: true, nameUz: true, retiredAt: true },
     }),
     codeDetails(codes),
   ]);
@@ -95,6 +97,7 @@ export async function rowDetail(scope: { orgId: string; clientIds?: string[] | n
     privileges,
     noSuggestion: !f.suggestedMxik || evidence?.rerankNone === true,
     nameOffer: await nameFromBarcode(f.item),
+    advice: unitAdvice({ rawName: f.item.rawName, rowUnit: f.item.unit, code: f.item.existingMxik ? names.get(f.item.existingMxik) ?? null : null }),
     decision: f.decision,
     decisionEventId: f.decisionEventId,
   };

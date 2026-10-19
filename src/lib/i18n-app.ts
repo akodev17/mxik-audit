@@ -220,6 +220,13 @@ export const taUz = {
     openPrevious: 'Oldingi versiyani ochish',
     firstOnly: (n: number) => `Dastlabki ${n} ta qator koʻrsatilgan.`,
   },
+  unitAdvice: {
+    title: 'Birlik va qadoqlash maslahati',
+    unit: (current: string, suggested: string) => `Qatordagi birlik "${current}", kod esa "${suggested}" birligiga bogʻlangan. Birlikni shunga oʻzgartirish mumkin.`,
+    packaging: (values: string) => `Nomdan oʻqilgan qadoq: ${values}.`,
+    container: (value: string) => `Tasniflagichda: ${value}.`,
+    hint: 'Bu faqat maslahat: qator oʻzgarmaydi.',
+  },
   barcodeName: {
     title: 'Nomni shtrix-koddan toʻldirish',
     hint: 'Qatorda nom yoʻq yoki juda qisqa. Tasniflagichda shu shtrix-kodli mahsulotning nomi bor; u faqat siz tasdiqlaganingizda yoziladi.',
