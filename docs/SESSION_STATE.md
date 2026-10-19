@@ -841,3 +841,13 @@ every sign-in goes through src/lib/security/sign-in.ts (openSession).
 Known limits: Telegram login, SMTP mail and the payment providers were not exercised against live
 services; Russian strings and the help-center texts need a native review; plan limits, API limits and
 plan prices are placeholders to be set by the owner; the API rate limit is in memory per process.
+
+## PRODUCT TRANSFORMATION (branch transform-2026, 20.10.2026)
+
+A full product pass on top of main (429ac94): audit of the codebase, design system with dark theme,
+responsive shell and command palette, rebuilt review workspace, firm dashboard and review queue,
+guided import with diagnostics, honest exports and PDF, tabbed settings, security hardening
+(Telegram binding, DB rate limits, password reset, closed-account cutoffs, CSP), matching fixes,
+backend authorization tests and an e2e suite (npm run test:e2e against a running server).
+Details, test results, known issues and next priorities: docs/TRANSFORMATION_REPORT.md.
+Design rules: docs/DESIGN_SYSTEM.md. Not merged into main and not pushed.

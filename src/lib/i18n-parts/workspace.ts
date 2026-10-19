@@ -101,7 +101,7 @@ export const uz = {
     match: {
       score: (value: string) => `Moslik bahosi ${value}`,
       /** Under the grid's "Moslik" header; the full label is the chip's title. */
-      short: { barcode: 'Shtrix-kod', dictionary: 'Lugʻatdan', sure: 'Yuqori', likely: 'Oʻrtacha', check: 'Tekshirish kerak' },
+      short: { barcode: 'Shtrix-kod', dictionary: 'Lugʻatdan', sure: 'Yuqori', likely: 'Oʻrtacha', check: 'Past' },
     },
     decided: {
       title: 'Qaror',
@@ -465,7 +465,7 @@ export const ru: typeof uz = {
     },
     match: {
       score: (value) => `Оценка совпадения ${value}`,
-      short: { barcode: 'Штрихкод', dictionary: 'Из словаря', sure: 'Высокое', likely: 'Среднее', check: 'Проверить' },
+      short: { barcode: 'Штрихкод', dictionary: 'Из словаря', sure: 'Высокое', likely: 'Среднее', check: 'Низкое' },
     },
     decided: {
       title: 'Решение',

@@ -87,7 +87,7 @@ export function SummaryStrip({ summary, chips, reviewedDelta, activeType }: Prop
             label={ta.ws.reviewed} value={reviewed} max={Math.max(1, summary.riskyFindings)} valueText={progressText}
           />
         </div>
-        <div className="relative min-w-0 max-w-full basis-full lg:basis-0 lg:grow">
+        <div className="relative min-w-0 max-w-full basis-full">
           <nav ref={chipRow} aria-label={x.kpi.chipsLabel} className="flex w-full min-w-0 gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible md:pb-0">
             {chip(null, x.kpi.all, chips.all)}
             {FINDING_TYPES.filter((type) => (summary.byType[type] ?? 0) > 0).map((type) => chip(type, typeLabels(t)[type] ?? type, chips.byType[type] ?? 0))}
