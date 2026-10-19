@@ -28,7 +28,7 @@ export default tseslint.config(
       // projectService must be off too: disableTypeChecked drops the rules but
       // the parser would still try to place the file in the TS project.
       parserOptions: { projectService: false, project: false },
-      globals: { process: 'readonly', console: 'readonly', URL: 'readonly', __dirname: 'readonly' },
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly', __dirname: 'readonly', fetch: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', setTimeout: 'readonly' },
     },
   },
   {

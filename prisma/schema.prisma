@@ -222,6 +222,8 @@ model Organization {
   deletedAt DateTime?
   /// Uploaded cells outside the mapped columns are blanked after this many days; null = keep.
   rawRetentionDays Int? @default(30)
+  /// Retention applies only to uploads created after this moment (no retroactive purge).
+  rawRetentionSince DateTime? @default(now())
 
   @@index([kind, expiresAt])
   @@map("organization")
@@ -271,6 +273,11 @@ model User {
   totpLastStep  Int?
   recoveryCodes RecoveryCode[]
   sessions      UserSession[]
+  notificationReads NotificationRead[]
+  /// Platform operator (cross-org admin pages). Set by hand in the database, never by email.
+  platformAdmin Boolean @default(false)
+  /// Telegram user id this person bound for signing in; separate from notification chats.
+  telegramUserId String? @unique
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   assignments ClientAssignment[]
@@ -338,6 +345,10 @@ model FirmMapping {
   updatedAt DateTime  @default(now())
   /// Set when the code left the classifier; the mapping is then ignored.
   staleAt   DateTime?
+  /// Individual (single-row) confirmations; bulk accepts do not count.
+  confirmations Int @default(0)
+  /// How the entry was last learned: manual, group, bulk, edit.
+  source    String?
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -398,6 +409,8 @@ model EmailToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+  /// verify = confirm the address; reset = set a new password.
+  purpose   String    @default("verify")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -492,6 +505,8 @@ model DocList {
   error         String?
   createdAt     DateTime @default(now())
   rawPurgedAt   DateTime?
+  /// Check metadata: group total, truncation, diagnostics.
+  meta          Json?
 
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -568,6 +583,8 @@ model Client {
   /// Decides how a sale without a matching purchase is rated (NOT_PURCHASED).
   activity  ClientActivity @default(boshqa)
   createdAt DateTime @default(now())
+  /// Archived clients are hidden from lists and the switcher; their data is kept.
+  archivedAt DateTime?
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   catalogs Catalog[]
@@ -607,6 +624,8 @@ model PurchaseList {
   status    String   @default("uploaded")
   createdAt DateTime @default(now())
   rawPurgedAt DateTime?
+  /// Import metadata: sample rows for resuming the mapping, truncation, diagnostics.
+  meta      Json?
 
   client Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items  PurchaseItem[]
@@ -660,6 +679,12 @@ model Catalog {
   previousId       String?
   /// When the unmapped original cells were blanked by the retention job.
   rawPurgedAt      DateTime?
+  /// The classifier snapshot the audit ran against (catalog_snapshot.id).
+  snapshotId       Int?
+  /// How the pipeline ran: embedder, reranker, degraded reasons, rows without AI.
+  pipelineMeta     Json?
+  /// What the import saw: rows seen, truncated, dropped rows, encoding, delimiter.
+  importMeta       Json?
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -765,6 +790,8 @@ model Finding {
   decisionEventId String?
   /// ask_client = waiting on the client; resolved = settled. Null = no flag.
   flag          String?
+  /// Where the current decision came from: manual, group, bulk, bulk_sure, dictionary, dictionary_auto, carry_over.
+  decisionSource String?
 
   item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   comments FindingComment[]
@@ -814,6 +841,7 @@ model Notification {
 
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reads  NotificationRead[]
 
   @@index([orgId, createdAt])
   @@index([clientId, createdAt])
@@ -971,6 +999,7 @@ model ApiKey {
 
   org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   usage ApiUsage[]
+  idempotency ApiIdempotency[]
 
   @@index([orgId])
   @@map("api_key")
@@ -1019,4 +1048,44 @@ model UserSession {
 
   @@index([userId])
   @@map("user_session")
+}
+
+/// Which user has read which notification.
+model NotificationRead {
+  userId         String
+  notificationId String
+  readAt         DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, notificationId])
+  @@index([notificationId])
+  @@map("notification_read")
+}
+
+/// One sign-in, two-factor or reset attempt, for rate limits that survive restarts.
+model AuthAttempt {
+  id        String   @id @default(cuid())
+  /// e.g. password, password_ip, two_factor, reset, signup
+  kind      String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([kind, key, createdAt])
+  @@map("auth_attempt")
+}
+
+/// First response to an API request with an Idempotency-Key header.
+model ApiIdempotency {
+  keyId     String
+  idemKey   String
+  status    Int
+  response  Json
+  createdAt DateTime @default(now())
+
+  key ApiKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+
+  @@id([keyId, idemKey])
+  @@map("api_idempotency")
 }

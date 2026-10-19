@@ -1,10 +1,11 @@
 // Russian copy for the signed-in app UI. Same shape as the Uzbek one, so a
 // missing key does not compile. Needs native-speaker review before launch.
-import type { AppDict } from './i18n-app';
+import type { AppDict, CoreAppDict } from './i18n-app';
+import { partsRu } from './i18n-parts';
 
 const n = (v: number): string => v.toLocaleString('ru-RU');
 
-export const taRu: AppDict = {
+const coreRu: CoreAppDict = {
   nav: { dashboard: 'Главная', clients: 'Клиенты', catalogs: 'Каталоги', upload: 'Загрузка', dictionary: 'Словарь', activity: 'Действия', settings: 'Настройки' },
   shell: {
     collapse: 'Свернуть боковую панель',
@@ -651,3 +652,5 @@ export const taRu: AppDict = {
     },
   },
 };
+
+export const taRu: AppDict = { ...coreRu, ...partsRu };

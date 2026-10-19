@@ -1,9 +1,10 @@
 // Uzbek Latin copy for the signed-in app UI. Older screens keep theirs in i18n.ts.
 // Russian lives in i18n-app-ru.ts and must match this shape.
 import { taRu } from './i18n-app-ru';
+import { partsUz } from './i18n-parts';
 import type { Locale } from './i18n';
 
-export const taUz = {
+const coreUz = {
   nav: { dashboard: 'Bosh sahifa', clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', dictionary: 'Lugʻat', activity: 'Harakatlar', settings: 'Sozlamalar' },
   shell: {
     collapse: 'Yon panelni yigʻish',
@@ -651,7 +652,10 @@ export const taUz = {
   },
 };
 
+export const taUz = { ...coreUz, ...partsUz };
+
 export type AppDict = typeof taUz;
+export type CoreAppDict = typeof coreUz;
 
 const APP_DICTS: Record<Locale, AppDict> = { uz: taUz, ru: taRu };
 
