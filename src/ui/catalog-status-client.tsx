@@ -22,10 +22,10 @@ export function RetryAuditButton({ catalogId }: { catalogId: string }) {
   const [busy, start] = useTransition();
   return (
     <Button
-      variant="primary" disabled={busy} className="mt-4"
+      variant="primary" loading={busy}
       onClick={() => start(async () => { await retryCatalogAudit(catalogId); router.refresh(); })}
     >
-      {busy ? t.loading : t.catalogRetry}
+      {t.catalogRetry}
     </Button>
   );
 }

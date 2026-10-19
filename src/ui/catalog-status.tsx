@@ -1,7 +1,8 @@
 import { getI18n } from '@/lib/locale';
-import Link from 'next/link';
+import { ButtonLink } from './button';
 import { AutoRefresh, RetryAuditButton } from './catalog-status-client';
 import { EmptyState } from './empty-state';
+import { Progress } from './progress';
 
 export type CatalogState = {
   id: string;
@@ -20,14 +21,18 @@ export async function CatalogStatus({ catalog }: { catalog: CatalogState }) {
   if (catalog.status === 'ready') return null;
 
   if (catalog.status === 'analyzing') {
-    const pct = catalog.rowCount === 0 ? 0 : Math.min(100, Math.round((catalog.progressDone / catalog.rowCount) * 100));
+    const heading = t.catalogAnalyzing(catalog.progressDone, catalog.rowCount);
     return (
       <section aria-live="polite" className="mx-auto max-w-xl px-6 py-16">
-        <h2 className="text-xl">{t.catalogAnalyzing(catalog.progressDone, catalog.rowCount)}</h2>
-        <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-surface" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-2 rounded-full bg-brand transition-[width]" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="mt-3 text-sm text-muted">{t.catalogAnalyzingHint}</p>
+        <h2 className="text-section">{heading}</h2>
+        <Progress
+          className="mt-4"
+          label={heading}
+          hideLabel
+          value={catalog.progressDone}
+          max={Math.max(catalog.rowCount, 1)}
+        />
+        <p className="mt-3 text-small text-muted">{t.catalogAnalyzingHint}</p>
         <AutoRefresh intervalMs={2000} />
       </section>
     );
@@ -45,7 +50,7 @@ export async function CatalogStatus({ catalog }: { catalog: CatalogState }) {
   return (
     <EmptyState
       title={t.catalogNotAudited}
-      action={<Link href="/upload" className="text-brand hover:underline">{t.navUpload}</Link>}
+      action={<ButtonLink href="/upload" variant="primary">{t.navUpload}</ButtonLink>}
     />
   );
 }

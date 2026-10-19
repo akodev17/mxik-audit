@@ -1,56 +1,249 @@
-/* App design tokens: the single source for the signed-in product UI. Names differ
-   from the landing tokens on purpose, so the two never collide. */
-@theme {
+/* App design tokens: the single source for the signed-in product UI. docs/DESIGN_SYSTEM.md lists
+   every token with its light and dark value and what it is for. Light values live in @theme, so
+   Tailwind generates the utilities (bg-raised, text-danger-ink, z-modal, h-control-md...); the dark
+   theme redefines the same variables on .app. Names differ from the landing's lp- tokens on purpose,
+   so the two never collide. "static" keeps every variable in the output even before a utility uses it. */
+@theme static {
+  /* Surfaces: page, panels and table heads, cards and popovers, wells, modal scrim */
   --color-base: #ffffff;
   --color-surface: #f3f6f9;
-  --color-line: #e2e8ee;
-  --color-line-strong: #cbd5df;
+  --color-raised: #ffffff;
+  --color-sunken: #edf1f5;
+  --color-overlay: rgb(16 24 32 / 0.45);
+
+  /* Text: primary, secondary, tertiary (all >= 4.5:1 on base, raised and surface), text on fg fills */
   --color-fg: #15202b;
   --color-muted: #5b6875;
+  --color-subtle: #63707d;
+  --color-inverse: #ffffff;
 
+  /* Lines: dividers, stronger dividers, borders of inputs and other controls (>= 3:1 on base) */
+  --color-line: #e2e8ee;
+  --color-line-strong: #cbd5df;
+  --color-line-input: #7a8896;
+
+  /* Brand, its pressed states, its tint and the text that sits on the tint */
   --color-brand: #2457f5;
+  --color-brand-hover: #1c47d6;
+  --color-brand-active: #173bb3;
   --color-brand-tint: #eaf0fe;
-  --color-danger: #d23a2a;
-  --color-danger-tint: #fcefed;
+  --color-brand-ink: #1a44cc;
+  /* Text and icons on a solid brand, good, danger or info fill (a warn fill takes fg) */
+  --color-on-fill: #ffffff;
+  --color-focus: #2457f5;
+
+  /* Status families: fill (dots, bars, solid marks), tint (chip and row backgrounds),
+     ink (text on the tint and on base, >= 4.5:1) */
+  --color-good: #1a7f4c;
+  --color-good-tint: #e7f4ec;
+  --color-good-ink: #14653c;
   --color-warn: #e39b12;
-  --color-warn-ink: #8a5a00;
   --color-warn-tint: #fdf4e1;
-  --color-good: #1f8a55;
-  --color-good-tint: #e8f5ee;
+  --color-warn-ink: #8a5a00;
+  --color-danger: #cc3324;
+  --color-danger-tint: #fcefed;
+  --color-danger-ink: #a52a1d;
+  --color-info: #0b6bbf;
+  --color-info-tint: #e8f1fb;
+  --color-info-ink: #0a5596;
 
+  /* rounded-ctl predates the radius scale; it equals rounded-md (the scale is set on .app below) */
   --radius-ctl: 8px;
-  --shadow-pop: 0 8px 28px rgb(21 32 43 / 0.16), 0 1px 3px rgb(21 32 43 / 0.1);
+
+  /* Elevation: the colour lives in --elevation-color so the dark theme can deepen it */
+  --shadow-sm: 0 1px 2px var(--elevation-color);
+  --shadow-pop: 0 6px 20px var(--elevation-color), 0 1px 3px var(--elevation-color);
+  --shadow-overlay: 0 18px 48px var(--elevation-color-strong), 0 2px 8px var(--elevation-color);
+
+  /* Type scale: text-title (page h1), text-section (h2), text-body, text-data (tables), text-small,
+     text-micro, text-mono (MXIK codes) */
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.01em;
+  --text-section: 1rem;
+  --text-section--line-height: 1.5rem;
+  --text-section--font-weight: 600;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.375rem;
+  --text-data: 0.875rem;
+  --text-data--line-height: 1.25rem;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.125rem;
+  --text-micro: 0.75rem;
+  --text-micro--line-height: 1rem;
+  --text-mono: 0.8125rem;
+  --text-mono--line-height: 1.125rem;
+
+  /* Control heights: h-control-compact / -md / -lg; -inline fits inside dense table and grid rows */
+  --spacing-control-inline: 1.75rem;
+  --spacing-control-compact: 2rem;
+  --spacing-control-md: 2.25rem;
+  --spacing-control-lg: 2.5rem;
+
+  /* Page containers: max-w-page (forms, settings, lists) and max-w-page-wide (tables, dashboards) */
+  --container-page: 64rem;
+  --container-page-wide: 80rem;
+
+  /* Stacking: z-sticky, z-dropdown, z-drawer, z-modal, z-toast */
+  --z-index-sticky: 10;
+  --z-index-dropdown: 20;
+  --z-index-drawer: 30;
+  --z-index-modal: 40;
+  --z-index-toast: 50;
+
+  /* Motion: one easing, two durations (--duration-fast, --duration-base) */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --animate-fade-in: ui-fade-in var(--duration-base) var(--ease-standard);
+  --animate-pop-in: ui-pop-in var(--duration-base) var(--ease-standard);
+  --animate-slide-in: ui-slide-in var(--duration-base) var(--ease-standard);
+
+  @keyframes ui-fade-in {
+    from { opacity: 0; }
+  }
+  @keyframes ui-pop-in {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  }
+  @keyframes ui-slide-in {
+    from { opacity: 0; transform: translateX(16px); }
+  }
 }
 
-/* Everything inside the signed-in app sits under .app */
-.app {
-  background: var(--color-base);
-  color: var(--color-fg);
-  font-family: var(--font-onest), "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
+@layer base {
+  :root {
+    --elevation-color: rgb(16 24 32 / 0.08);
+    --elevation-color-strong: rgb(16 24 32 / 0.18);
+    --duration-fast: 120ms;
+    --duration-base: 180ms;
+  }
+
+  /* Everything inside the signed-in app sits under .app; without data-theme it is light. */
+  .app {
+    color-scheme: light;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    background: var(--color-base);
+    color: var(--color-fg);
+    font-family: var(--font-onest), "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app :is(h1, h2, h3) {
+    font-family: inherit;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  /* One ring for every control; fields draw it over their own border instead of outside it. */
+  .app :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  .app :is(input:not([type="checkbox"], [type="radio"]), select, textarea):focus-visible {
+    outline-offset: -1px;
+  }
 }
 
-.app h1, .app h2, .app h3 {
-  font-family: inherit;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
+/* Dark theme. The two blocks must stay identical (src/styles/tokens.test.ts checks it); print
+   always uses the light values. */
+@layer base {
+  @media screen {
+    .app[data-theme="dark"] {
+      color-scheme: dark;
+      --color-base: #0f151b;
+      --color-surface: #151c23;
+      --color-raised: #1b232b;
+      --color-sunken: #0a0f14;
+      --color-overlay: rgb(0 0 0 / 0.6);
+      --color-fg: #e5eaef;
+      --color-muted: #9ba7b3;
+      --color-subtle: #8794a1;
+      --color-inverse: #0f151b;
+      --color-line: #263039;
+      --color-line-strong: #34404b;
+      --color-line-input: #687686;
+      --color-brand: #7aa0ff;
+      --color-brand-hover: #93b3ff;
+      --color-brand-active: #adc4ff;
+      --color-brand-tint: #18264a;
+      --color-brand-ink: #a9c1ff;
+      --color-on-fill: #0b1220;
+      --color-focus: #7aa0ff;
+      --color-good: #4dc28a;
+      --color-good-tint: #11291d;
+      --color-good-ink: #83d9ab;
+      --color-warn: #e2a63c;
+      --color-warn-tint: #2d2412;
+      --color-warn-ink: #f1c46e;
+      --color-danger: #f27b6f;
+      --color-danger-tint: #341b19;
+      --color-danger-ink: #ff9f94;
+      --color-info: #62b1f0;
+      --color-info-tint: #10253a;
+      --color-info-ink: #94caf6;
+      --elevation-color: rgb(0 0 0 / 0.36);
+      --elevation-color-strong: rgb(0 0 0 / 0.56);
+    }
+  }
+
+  @media screen and (prefers-color-scheme: dark) {
+    .app[data-theme="system"] {
+      color-scheme: dark;
+      --color-base: #0f151b;
+      --color-surface: #151c23;
+      --color-raised: #1b232b;
+      --color-sunken: #0a0f14;
+      --color-overlay: rgb(0 0 0 / 0.6);
+      --color-fg: #e5eaef;
+      --color-muted: #9ba7b3;
+      --color-subtle: #8794a1;
+      --color-inverse: #0f151b;
+      --color-line: #263039;
+      --color-line-strong: #34404b;
+      --color-line-input: #687686;
+      --color-brand: #7aa0ff;
+      --color-brand-hover: #93b3ff;
+      --color-brand-active: #adc4ff;
+      --color-brand-tint: #18264a;
+      --color-brand-ink: #a9c1ff;
+      --color-on-fill: #0b1220;
+      --color-focus: #7aa0ff;
+      --color-good: #4dc28a;
+      --color-good-tint: #11291d;
+      --color-good-ink: #83d9ab;
+      --color-warn: #e2a63c;
+      --color-warn-tint: #2d2412;
+      --color-warn-ink: #f1c46e;
+      --color-danger: #f27b6f;
+      --color-danger-tint: #341b19;
+      --color-danger-ink: #ff9f94;
+      --color-info: #62b1f0;
+      --color-info-tint: #10253a;
+      --color-info-ink: #94caf6;
+      --elevation-color: rgb(0 0 0 / 0.36);
+      --elevation-color-strong: rgb(0 0 0 / 0.56);
+    }
+  }
 }
 
-.app :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+@layer components {
+  /* Dense grid and table text */
+  .app .dense {
+    font-size: var(--text-data);
+    line-height: var(--text-data--line-height);
+  }
 
-/* Dense grid text */
-.app .dense { font-size: 15px; }
-
-.app .skeleton {
-  background: linear-gradient(90deg, var(--color-surface) 25%, #e9eef3 50%, var(--color-surface) 75%);
-  background-size: 200% 100%;
-  animation: skeleton 1.2s linear infinite;
+  .app .skeleton {
+    background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-line) 50%, var(--color-surface) 75%);
+    background-size: 200% 100%;
+    animation: ui-skeleton 1.2s linear infinite;
+  }
 }
-@keyframes skeleton { to { background-position: -200% 0; } }
 
-@media print {
-  .app .no-print { display: none !important; }
+@keyframes ui-skeleton {
+  to { background-position: -200% 0; }
 }

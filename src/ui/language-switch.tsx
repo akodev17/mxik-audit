@@ -15,12 +15,12 @@ export function LanguageSwitch({ className }: { className?: string }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   return (
-    <div role="group" aria-label={ta.shell.language} className={cx('inline-flex rounded-ctl border border-line-strong p-0.5', className)}>
+    <div role="group" aria-label={ta.shell.language} className={cx('inline-flex rounded-ctl border border-line-strong bg-raised p-0.5', className)}>
       {LOCALES.map((l) => (
         <button
           key={l} type="button" disabled={busy} aria-pressed={locale === l}
           onClick={() => start(async () => { await setLocale(l); router.refresh(); })}
-          className={cx('h-7 rounded-[6px] px-2.5 text-sm font-medium', locale === l ? 'bg-fg text-white' : 'text-muted hover:text-fg')}
+          className={cx('h-7 rounded-sm px-2.5 text-small font-medium', locale === l ? 'bg-fg text-inverse' : 'text-muted hover:text-fg')}
         >
           {NAMES[l]}
         </button>

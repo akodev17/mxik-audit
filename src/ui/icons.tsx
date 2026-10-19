@@ -1,22 +1,37 @@
-// Minimal stroke icons, 20px; decorative so they carry no label.
+// Minimal stroke icons, 20px by default; decorative (aria-hidden) so the text beside them carries the meaning.
 import type { SVGProps } from 'react';
 
-function Svg(props: SVGProps<SVGSVGElement>) {
-  return <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props} />;
+export type IconProps = { size?: number; className?: string };
+
+function Svg({ size = 20, ...props }: SVGProps<SVGSVGElement> & { size?: number }) {
+  return <svg viewBox="0 0 20 20" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden focusable="false" {...props} />;
 }
 
-export const IconUsers = () => <Svg><circle cx="7.5" cy="7" r="3" /><path d="M2 16c0-3 2.5-4.5 5.5-4.5S13 13 13 16" /><path d="M13.5 4.5a2.8 2.8 0 0 1 0 5.5M15 12c2 .4 3 1.7 3 4" /></Svg>;
-export const IconTable = () => <Svg><rect x="2.5" y="3.5" width="15" height="13" rx="1.5" /><path d="M2.5 8h15M2.5 12h15M8 3.5v13" /></Svg>;
-export const IconUpload = () => <Svg><path d="M10 13V3.5M6 7l4-4 4 4" /><path d="M3 13v3.5h14V13" /></Svg>;
-export const IconGear = () => <Svg><circle cx="10" cy="10" r="2.6" /><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4" /></Svg>;
-export const IconBell = () => <Svg><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5 1.5 5h-13S5 12 5 8Z" /><path d="M8.5 16a1.6 1.6 0 0 0 3 0" /></Svg>;
-export const IconSearch = () => <Svg><circle cx="9" cy="9" r="5.5" /><path d="m13.5 13.5 4 4" /></Svg>;
-export const IconChevron = () => <Svg><path d="m7 4 6 6-6 6" /></Svg>;
-export const IconMenu = () => <Svg><path d="M3 5.5h14M3 10h14M3 14.5h14" /></Svg>;
-export const IconDownload = () => <Svg><path d="M10 3.5V13M6 9l4 4 4-4" /><path d="M3 13v3.5h14V13" /></Svg>;
-export const IconPrint = () => <Svg><path d="M6 7V3h8v4M6 14H3.5V8.5h13V14H14" /><rect x="6" y="11" width="8" height="6" /></Svg>;
-export const IconCheck = () => <Svg><path d="m4 10.5 4 4 8-9" /></Svg>;
-export const IconBook = () => <Svg><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v13H5.5A1.5 1.5 0 0 0 4 17.5v-13Z" /><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H16v1.5H5.5" /></Svg>;
-export const IconHome = () => <Svg><path d="M3 9.5 10 3l7 6.5V17H3V9.5Z" /><path d="M8 17v-5h4v5" /></Svg>;
-export const IconComment = () => <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden><path d="M3 4.5h14v9H8l-4 3v-3H3v-9Z" /></svg>;
-export const IconList = () => <Svg><path d="M7 5.5h10M7 10h10M7 14.5h10" /><circle cx="3.8" cy="5.5" r="0.9" /><circle cx="3.8" cy="10" r="0.9" /><circle cx="3.8" cy="14.5" r="0.9" /></Svg>;
+export const IconUsers = (p: IconProps) => <Svg {...p}><circle cx="7.5" cy="7" r="3" /><path d="M2 16c0-3 2.5-4.5 5.5-4.5S13 13 13 16" /><path d="M13.5 4.5a2.8 2.8 0 0 1 0 5.5M15 12c2 .4 3 1.7 3 4" /></Svg>;
+export const IconTable = (p: IconProps) => <Svg {...p}><rect x="2.5" y="3.5" width="15" height="13" rx="1.5" /><path d="M2.5 8h15M2.5 12h15M8 3.5v13" /></Svg>;
+export const IconUpload = (p: IconProps) => <Svg {...p}><path d="M10 13V3.5M6 7l4-4 4 4" /><path d="M3 13v3.5h14V13" /></Svg>;
+export const IconGear = (p: IconProps) => <Svg {...p}><circle cx="10" cy="10" r="2.6" /><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4" /></Svg>;
+export const IconBell = (p: IconProps) => <Svg {...p}><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5 1.5 5h-13S5 12 5 8Z" /><path d="M8.5 16a1.6 1.6 0 0 0 3 0" /></Svg>;
+export const IconSearch = (p: IconProps) => <Svg {...p}><circle cx="9" cy="9" r="5.5" /><path d="m13.5 13.5 4 4" /></Svg>;
+export const IconChevron = (p: IconProps) => <Svg {...p}><path d="m7 4 6 6-6 6" /></Svg>;
+export const IconChevronDown = (p: IconProps) => <Svg {...p}><path d="m5 7.5 5 5 5-5" /></Svg>;
+export const IconMenu = (p: IconProps) => <Svg {...p}><path d="M3 5.5h14M3 10h14M3 14.5h14" /></Svg>;
+export const IconDownload = (p: IconProps) => <Svg {...p}><path d="M10 3.5V13M6 9l4 4 4-4" /><path d="M3 13v3.5h14V13" /></Svg>;
+export const IconPrint = (p: IconProps) => <Svg {...p}><path d="M6 7V3h8v4M6 14H3.5V8.5h13V14H14" /><rect x="6" y="11" width="8" height="6" /></Svg>;
+export const IconCheck = (p: IconProps) => <Svg {...p}><path d="m4 10.5 4 4 8-9" /></Svg>;
+export const IconBook = (p: IconProps) => <Svg {...p}><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v13H5.5A1.5 1.5 0 0 0 4 17.5v-13Z" /><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H16v1.5H5.5" /></Svg>;
+export const IconHome = (p: IconProps) => <Svg {...p}><path d="M3 9.5 10 3l7 6.5V17H3V9.5Z" /><path d="M8 17v-5h4v5" /></Svg>;
+export const IconComment = ({ size = 14, className }: IconProps) => <Svg size={size} className={className} strokeLinecap={undefined}><path d="M3 4.5h14v9H8l-4 3v-3H3v-9Z" /></Svg>;
+export const IconList = (p: IconProps) => <Svg {...p}><path d="M7 5.5h10M7 10h10M7 14.5h10" /><circle cx="3.8" cy="5.5" r="0.9" /><circle cx="3.8" cy="10" r="0.9" /><circle cx="3.8" cy="14.5" r="0.9" /></Svg>;
+export const IconX = (p: IconProps) => <Svg {...p}><path d="m5 5 10 10M15 5 5 15" /></Svg>;
+export const IconMore = (p: IconProps) => <Svg {...p}><circle cx="4.5" cy="10" r="1" /><circle cx="10" cy="10" r="1" /><circle cx="15.5" cy="10" r="1" /></Svg>;
+export const IconCopy = (p: IconProps) => <Svg {...p}><rect x="7" y="7" width="10" height="10" rx="1.5" /><path d="M13 7V4.5A1.5 1.5 0 0 0 11.5 3h-7A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13H7" /></Svg>;
+/** Warning: a triangle with an exclamation mark. */
+export const IconAlert = (p: IconProps) => <Svg {...p}><path d="M10 3 2.5 16.5h15L10 3Z" /><path d="M10 8.5v3.5M10 14.4v.1" /></Svg>;
+/** Error: a circle with a cross. */
+export const IconError = (p: IconProps) => <Svg {...p}><circle cx="10" cy="10" r="7.5" /><path d="m7.4 7.4 5.2 5.2M12.6 7.4l-5.2 5.2" /></Svg>;
+/** Success: a circle with a tick. */
+export const IconSuccess = (p: IconProps) => <Svg {...p}><circle cx="10" cy="10" r="7.5" /><path d="m6.8 10.3 2.2 2.2 4.2-4.6" /></Svg>;
+export const IconInfo = (p: IconProps) => <Svg {...p}><circle cx="10" cy="10" r="7.5" /><path d="M10 9v4.5M10 6.4v.1" /></Svg>;
+/** Nothing here yet: an empty tray. */
+export const IconEmpty = (p: IconProps) => <Svg {...p}><path d="M2.5 11.5 5 4.5h10l2.5 7v4h-15v-4Z" /><path d="M2.5 11.5h4.2l1 2h4.6l1-2h4.2" /></Svg>;
