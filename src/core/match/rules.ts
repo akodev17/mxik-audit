@@ -39,17 +39,27 @@ export type RuleContext = {
   preparedDish: boolean;
 };
 
+/** Stable names of the rules, stored in match evidence and translated in the UI. */
+export const RULE_KEYS = [
+  'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
+  'preparedDishBase', 'preparedDishSpecific', 'strictUnitConflict',
+] as const;
+
+export type RuleKey = (typeof RULE_KEYS)[number];
+
 export type RuleOutcome = {
   /** Additive adjustment to the calibrated confidence, before clamping. */
   adjustment: number;
   /** Human-readable notes, surfaced in the UI and the audit log. */
   notes: string[];
+  /** The rules that fired, in the order applied. */
+  keys: RuleKey[];
   /** True when the row's unit contradicts a strictly bound unit. */
   unitConflict: boolean;
 };
 
-const ADJUSTMENTS = {
-  /** Base codes are officially sanctioned as "not an error"; prefer them. */
+const ADJUSTMENTS: Record<RuleKey, number> = {
+  /** Base codes are accepted in practice when nothing fits exactly; prefer them. */
   baseCodePreferred: 0.05,
   /** An identifying code is only appropriate for a marked category. */
   identifyingUnmarked: -0.1,
@@ -62,35 +72,35 @@ const ADJUSTMENTS = {
   preparedDishSpecific: -0.1,
   /** Row unit contradicts a strictly bound unit: probably the wrong code. */
   strictUnitConflict: -0.15,
-} as const;
+};
 
 /** Evaluates every rule against one candidate. */
 export function applyRules(ctx: RuleContext): RuleOutcome {
   const { candidate, rowUnit, preparedDish } = ctx;
   const notes: string[] = [];
+  const keys: RuleKey[] = [];
   let adjustment = 0;
+  const fire = (key: RuleKey, note: string): void => {
+    adjustment += ADJUSTMENTS[key];
+    keys.push(key);
+    notes.push(note);
+  };
 
   if (candidate.isBase) {
-    adjustment += ADJUSTMENTS.baseCodePreferred;
-    notes.push('Base code (…000000), the sanctioned choice when no exact match exists.');
+    fire('baseCodePreferred', 'Base code (…000000), the usual choice in practice when no exact match exists.');
   } else if (candidate.isMarked === true) {
-    adjustment += ADJUSTMENTS.identifyingMarked;
-    notes.push('Identifying code for a digitally marked category.');
+    fire('identifyingMarked', 'Identifying code for a digitally marked category.');
   } else if (candidate.isMarked === false) {
-    adjustment += ADJUSTMENTS.identifyingUnmarked;
-    notes.push('Identifying code, but the category is not digitally marked — a base code is usually safer.');
+    fire('identifyingUnmarked', 'Identifying code, but the category is not digitally marked — a base code is usually safer.');
   } else {
-    adjustment += ADJUSTMENTS.identifyingUnknownMarking;
-    notes.push('Identifying code and the classifier does not state whether the category is marked.');
+    fire('identifyingUnknownMarking', 'Identifying code and the classifier does not state whether the category is marked.');
   }
 
   if (preparedDish) {
     if (candidate.isBase) {
-      adjustment += ADJUSTMENTS.preparedDishBase;
-      notes.push('Prepared dishes have no detailed MXIK; the general code is correct.');
+      fire('preparedDishBase', 'Prepared dishes have no detailed MXIK; the general code is correct.');
     } else {
-      adjustment += ADJUSTMENTS.preparedDishSpecific;
-      notes.push('Prepared dish matched to a detailed code, which the classifier does not provide for these.');
+      fire('preparedDishSpecific', 'Prepared dish matched to a detailed code, which the classifier does not provide for these.');
     }
   }
 
@@ -98,11 +108,10 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
   const unitConflict = candidate.unitBinding === 'strict'
     && !unitsCompatible(rowUnit, candidate.unitCanonical);
   if (unitConflict) {
-    adjustment += ADJUSTMENTS.strictUnitConflict;
-    notes.push(`Unit mismatch: row says "${rowUnit ?? ''}", code requires ${candidate.unitCanonical.join(' / ')}.`);
+    fire('strictUnitConflict', `Unit mismatch: row says "${rowUnit ?? ''}", code requires ${candidate.unitCanonical.join(' / ')}.`);
   }
 
-  return { adjustment, notes, unitConflict };
+  return { adjustment, notes, keys, unitConflict };
 }
 
 /** The hierarchy path, which is the reranker's strongest disambiguation signal. */

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   BANDS, LLM_WEIGHT, NO_RERANK_CEILING, bandOf, blendWithLlm,
-  calibrate, cosineToUnit, marginFactor, retrievalScore,
+  calibrate, calibratePool, cosineToUnit, marginFactor, retrievalScore,
 } from './score.js';
 
 describe('cosineToUnit', () => {
@@ -114,6 +114,58 @@ describe('calibrate', () => {
 
   it('returns 0 for no signal at all', () => {
     assert.equal(calibrate({ signals: {}, rerankAvailable: true }), 0);
+  });
+});
+
+describe('calibratePool', () => {
+  const close = [
+    { signals: { lexical: 0.8, rrf: 1, llm: 0.9 }, rerankAvailable: true, adjustment: 0.05 },
+    { signals: { lexical: 0.79, rrf: 0.98, llm: 0.88 }, rerankAvailable: true, adjustment: 0.05 },
+  ];
+
+  it('keeps the leader ahead in a close race and gives the runner-up no free bonus', () => {
+    // Regression: the runner-up used to be shaped as if it had no rival (margin 1)
+    // while the leader was penalised for the photo finish, so #2 overtook #1 and
+    // landed in the bulk-accept band.
+    const [leader, runnerUp] = calibratePool(close);
+    assert.ok(leader && runnerUp);
+    assert.ok(leader.adjusted > runnerUp.adjusted);
+    assert.ok(leader.confidence >= runnerUp.confidence, `${leader.confidence} < ${runnerUp.confidence}`);
+    assert.equal(runnerUp.confidence, calibrate({ ...close[1]!, margin: 0 }));
+    assert.ok(runnerUp.confidence < BANDS.high, `runner-up reached ${runnerUp.confidence}`);
+  });
+
+  it('ranks by adjusted score, so a rule can decide who leads', () => {
+    const [plain, preferred] = calibratePool([
+      { signals: { lexical: 0.8 }, rerankAvailable: true, adjustment: -0.1 },
+      { signals: { lexical: 0.78 }, rerankAvailable: true, adjustment: 0.05 },
+    ]);
+    assert.ok(plain && preferred);
+    assert.ok(preferred.adjusted > plain.adjusted);
+    assert.equal(plain.confidence, calibrate({ signals: { lexical: 0.8 }, rerankAvailable: true, adjustment: -0.1, margin: 0 }));
+  });
+
+  it('gives a lone candidate the full margin, as before', () => {
+    const [only] = calibratePool([{ signals: { lexical: 0.8 }, rerankAvailable: true }]);
+    assert.equal(only?.confidence, calibrate({ signals: { lexical: 0.8 }, rerankAvailable: true }));
+  });
+
+  it('rewards a decisive leader more than a contested one', () => {
+    const decisive = calibratePool([close[0]!, { signals: { lexical: 0.1 }, rerankAvailable: true }])[0];
+    const contested = calibratePool(close)[0];
+    assert.ok((decisive?.confidence ?? 0) > (contested?.confidence ?? 0));
+  });
+
+  it('keeps the no-reranker ceiling for every candidate', () => {
+    const scores = calibratePool([
+      { signals: { lexical: 1, rrf: 1 }, rerankAvailable: false, adjustment: 0.05 },
+      { signals: { lexical: 0.2 }, rerankAvailable: false },
+    ]);
+    for (const s of scores) assert.ok(s.confidence <= NO_RERANK_CEILING);
+  });
+
+  it('returns nothing for an empty pool', () => {
+    assert.deepEqual(calibratePool([]), []);
   });
 });
 

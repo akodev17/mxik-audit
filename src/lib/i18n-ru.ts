@@ -236,8 +236,8 @@ export const ru: Dict = {
   back: 'Назад',
   rows: 'строк',
   code: 'Код',
-  confidenceSure: 'Точно',
-  confidenceLikely: 'Вероятно',
+  confidenceSure: 'Высокое совпадение',
+  confidenceLikely: 'Среднее совпадение',
   confidenceCheck: 'Нужно проверить',
 
   codeArchived: 'Архивирован в классификаторе',

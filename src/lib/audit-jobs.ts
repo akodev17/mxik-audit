@@ -24,10 +24,11 @@ export const STARTUP_STALE_MS = 5 * HEARTBEAT_MS;
 
 const running = new Set<string>();
 
+/** The org's setting, not the uploader, accepts these: recorded as the system with source dictionary_auto. */
 async function autoAcceptDictionary(catalogId: string, actor: AuditActor): Promise<void> {
   const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, org: { select: { dictAutoAccept: true } } } });
   if (!catalog?.org.dictAutoAccept) return;
-  await acceptDictionaryMatches({ orgId: catalog.orgId, userId: actor?.userId ?? null }, catalogId);
+  await acceptDictionaryMatches({ orgId: catalog.orgId, userId: actor?.userId ?? null }, catalogId, 'auto');
 }
 
 export type AuditActor = { orgId: string; userId: string } | null;
@@ -80,6 +81,7 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
           findingsCreated: await db.finding.count({ where: { item: { catalogId } } }),
           degraded: outcome.degraded,
           degradedReasons: outcome.degradedReasons,
+          degradedCodes: outcome.pipelineMeta.degradedReasons,
           llm: outcome.llm,
           durationMs: Date.now() - started,
           resumedFromRow: fromRow,

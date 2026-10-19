@@ -3,6 +3,7 @@
 // catalogues audited before evidence existed.
 import { matchKeyOf, tokenize } from '../normalize/index.js';
 import { resolveUnit } from '../normalize/units.js';
+import { RULE_KEYS, type RuleKey } from './rules.js';
 import type { MatchStage } from './types.js';
 
 export type UnitEvidence = 'match' | 'conflict' | 'unknown' | 'none';
@@ -21,8 +22,14 @@ export type MatchEvidence = {
   rerankReason: string | null;
   /** The reranker judged that no candidate fits this row. */
   rerankNone: boolean;
-  /** The org confirmed this code for this product before; how many times. */
+  /** Legacy: how often the dictionary entry was learned, bulk accepts included. Not shown as confirmations. */
   dictionaryUses?: number;
+  /** Individual or group decisions behind the dictionary entry; 0 = learned from bulk accepts only. */
+  dictionaryConfirmations?: number;
+  /** The firm dictionary maps this product's name to this other code; the barcode identity was kept. */
+  dictionaryConflict?: string;
+  /** Rule adjustments applied to this code (rules.ts keys). */
+  rules?: RuleKey[];
 };
 
 export type EvidenceCandidate = {
@@ -63,6 +70,7 @@ export type EvidenceInput = {
   candidate: EvidenceCandidate;
   rerankReason?: string | null;
   rerankNone?: boolean;
+  rules?: readonly RuleKey[];
 };
 
 export function evidenceFor(input: EvidenceInput): MatchEvidence {
@@ -74,17 +82,30 @@ export function evidenceFor(input: EvidenceInput): MatchEvidence {
     unit: unitEvidence(input.rowUnit, input.candidate),
     rerankReason: input.rerankReason ?? null,
     rerankNone: input.rerankNone ?? false,
+    ...(input.rules && input.rules.length > 0 ? { rules: [...input.rules] } : {}),
+  };
+}
+
+/** Evidence for a row the reranker vetoed: no code is suggested, and the veto itself is the fact. */
+export function vetoEvidence(): MatchEvidence {
+  return {
+    stage: 'rerank', barcode: false, exactName: false, matchedWords: [], unit: 'none',
+    rerankReason: null, rerankNone: true,
   };
 }
 
 const STAGES = new Set<MatchStage>(['barcode', 'exact', 'lexical', 'vector', 'fusion', 'rerank', 'dictionary', 'none']);
 const UNITS = new Set<UnitEvidence>(['match', 'conflict', 'unknown', 'none']);
+const RULES = new Set<string>(RULE_KEYS);
+
+const isCount = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;
 
 /** Reads stored evidence back; anything malformed is treated as absent. */
 export function readEvidence(value: unknown): MatchEvidence | null {
   if (typeof value !== 'object' || value === null) return null;
   const v = value as Record<string, unknown>;
   if (!STAGES.has(v['stage'] as MatchStage) || !UNITS.has(v['unit'] as UnitEvidence)) return null;
+  const rules = Array.isArray(v['rules']) ? v['rules'].filter((r): r is RuleKey => typeof r === 'string' && RULES.has(r)) : [];
   return {
     stage: v['stage'] as MatchStage,
     barcode: v['barcode'] === true,
@@ -93,6 +114,9 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     unit: v['unit'] as UnitEvidence,
     rerankReason: typeof v['rerankReason'] === 'string' ? v['rerankReason'] : null,
     rerankNone: v['rerankNone'] === true,
-    ...(typeof v['dictionaryUses'] === 'number' ? { dictionaryUses: v['dictionaryUses'] } : {}),
+    ...(isCount(v['dictionaryUses']) ? { dictionaryUses: v['dictionaryUses'] } : {}),
+    ...(isCount(v['dictionaryConfirmations']) ? { dictionaryConfirmations: v['dictionaryConfirmations'] } : {}),
+    ...(typeof v['dictionaryConflict'] === 'string' && /^\d{17}$/.test(v['dictionaryConflict']) ? { dictionaryConflict: v['dictionaryConflict'] } : {}),
+    ...(rules.length > 0 ? { rules } : {}),
   };
 }

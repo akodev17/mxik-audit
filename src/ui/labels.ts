@@ -1,6 +1,8 @@
 // Display labels and tones for finding types and confidence, shared by every screen.
-import { confidenceLabel, type ConfidenceLabel } from '@/core/match/confidence-labels';
+import { confidenceLabel, labelKey, type ConfidenceLabel, type LabelKey } from '@/core/match/confidence-labels';
+import type { MatchStage } from '@/core/match/types';
 import type { Dict } from '@/lib/i18n';
+import type { AppDict } from '@/lib/i18n-app';
 import type { Tone } from './badge';
 
 /** Finding type names in the dictionary's language. */
@@ -22,11 +24,34 @@ export function typeTone(type: string, severity: string): Tone {
   return type === 'MISSING' || type === 'NOT_FOUND' ? 'danger' : 'warn';
 }
 
-const CONFIDENCE_TONE: Record<ConfidenceLabel, Tone> = { sure: 'good', likely: 'warn', check: 'danger' };
+const TONE: Record<LabelKey, Tone> = { barcode: 'good', dictionary: 'good', sure: 'good', likely: 'warn', check: 'danger' };
 
+function bandText(t: Dict, key: ConfidenceLabel): string {
+  const text: Record<ConfidenceLabel, string> = { sure: t.confidenceSure, likely: t.confidenceLikely, check: t.confidenceCheck };
+  return text[key];
+}
+
+/**
+ * The score band in words ("Yuqori moslik"…). `percent` is the raw match
+ * score for detail views; show it as a score, never as a probability.
+ * Prefer suggestionLabel, which also names barcode and dictionary sources.
+ */
 export function confidenceView(t: Dict, confidence: number | null, barcode: boolean): { label: string; tone: Tone; percent: number } | null {
   if (confidence === null) return null;
   const key = confidenceLabel(confidence, { barcode });
-  const text: Record<ConfidenceLabel, string> = { sure: t.confidenceSure, likely: t.confidenceLikely, check: t.confidenceCheck };
-  return { label: text[key], tone: CONFIDENCE_TONE[key], percent: Math.round(confidence * 100) };
+  return { label: bandText(t, key), tone: TONE[key], percent: Math.round(confidence * 100) };
+}
+
+export type SuggestionLabel = { key: LabelKey; label: string; tone: Tone; percent: number | null };
+
+/**
+ * The label a suggestion carries: "Shtrix-kod boʻyicha" or "Firma lugʻatidan"
+ * when the code came from an identity, otherwise the score band. Decided by
+ * labelKey() in core/match/confidence-labels, like every other surface.
+ */
+export function suggestionLabel(t: Dict, ta: AppDict, input: { confidence: number | null; stage?: MatchStage | null }): SuggestionLabel | null {
+  const key = labelKey(input.confidence, input.stage);
+  if (!key) return null;
+  const label = key === 'barcode' ? ta.matchX.label.barcode : key === 'dictionary' ? ta.matchX.label.dictionary : bandText(t, key);
+  return { key, label, tone: TONE[key], percent: input.confidence === null ? null : Math.round(input.confidence * 100) };
 }

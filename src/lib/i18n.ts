@@ -499,8 +499,8 @@ export const uz: Dict = {
   back: 'Orqaga',
   rows: 'qator',
   code: 'Kod',
-  confidenceSure: 'Aniq',
-  confidenceLikely: 'Ehtimoliy',
+  confidenceSure: 'Yuqori moslik',
+  confidenceLikely: 'Oʻrtacha moslik',
   confidenceCheck: 'Tekshirish kerak',
 
   codeArchived: 'Tasniflagichda arxivlangan',

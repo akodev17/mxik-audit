@@ -3,14 +3,18 @@
 // deleted with that customer's data.
 import type { Pool } from 'pg';
 import { z } from 'zod';
-import type { RerankCache } from './rerank-cache.js';
-import type { RerankVerdict } from './types.js';
+import type { CachedRerank, RerankCache } from './rerank-cache.js';
 
-const Stored = z.array(z.object({
-  code: z.string().regex(/^\d{17}$/),
-  confidence: z.number().min(0).max(1),
-  reason: z.string(),
-}));
+// Entries written before the candidate fingerprint existed are plain arrays;
+// they fail this schema and are treated as misses, then overwritten.
+const Stored = z.object({
+  pool: z.string().min(1),
+  verdicts: z.array(z.object({
+    code: z.string().regex(/^\d{17}$/),
+    confidence: z.number().min(0).max(1),
+    reason: z.string(),
+  })),
+});
 
 export class PostgresRerankCache implements RerankCache {
   constructor(
@@ -19,7 +23,7 @@ export class PostgresRerankCache implements RerankCache {
     private readonly model: string,
   ) {}
 
-  async get(key: string): Promise<RerankVerdict[] | null> {
+  async get(key: string): Promise<CachedRerank | null> {
     const res = await this.pool.query<{ verdicts: unknown }>(
       'SELECT verdicts FROM rerank_cache WHERE scope = $1 AND key = $2',
       [this.scope, key],
@@ -28,11 +32,11 @@ export class PostgresRerankCache implements RerankCache {
     return parsed.success ? parsed.data : null;
   }
 
-  async set(key: string, verdicts: readonly RerankVerdict[]): Promise<void> {
+  async set(key: string, entry: CachedRerank): Promise<void> {
     await this.pool.query(
       `INSERT INTO rerank_cache (scope, key, model, verdicts) VALUES ($1, $2, $3, $4::jsonb)
        ON CONFLICT (scope, key) DO UPDATE SET verdicts = EXCLUDED.verdicts, model = EXCLUDED.model, "createdAt" = now()`,
-      [this.scope, key, this.model, JSON.stringify(verdicts)],
+      [this.scope, key, this.model, JSON.stringify({ pool: entry.pool, verdicts: entry.verdicts })],
     );
   }
 }

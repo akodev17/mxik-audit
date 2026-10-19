@@ -153,6 +153,41 @@ describe('MISMATCH', () => {
   });
 });
 
+describe('reranker veto', () => {
+  it('never raises MISMATCH on a veto alone when the row\'s code is valid', () => {
+    // Regression: the veto emptied the suggestions, the self-score read 0, and a
+    // valid code was flagged with nothing better to offer.
+    assert.deepEqual(runChecks(row({ suggestions: [], vetoed: true })), []);
+  });
+
+  it('still checks the unit of a vetoed row', () => {
+    const f = runChecks(row({
+      unit: 'litr', suggestions: [], vetoed: true,
+      existing: { found: true, retired: false, candidate: candidate(VALID, { unitBinding: 'strict', unitCanonical: ['kilogramm'] }) },
+    }));
+    assert.deepEqual(f.map((x) => x.type), ['UNIT_CONFLICT']);
+  });
+
+  it('stores the veto as evidence when a row without a code gets no suggestion', () => {
+    const f = runChecks(row({ existingMxik: null, suggestions: [], vetoed: true }));
+    assert.equal(f[0]?.type, 'MISSING');
+    assert.equal(f[0]?.suggestedMxik, null);
+    assert.equal(f[0]?.evidence?.stage, 'rerank');
+    assert.equal(f[0]?.evidence?.rerankNone, true);
+  });
+
+  it('stores the veto on NOT_FOUND too', () => {
+    const f = runChecks(row({ existingMxik: '99999999999999999', existing: { found: false, retired: false, candidate: null }, suggestions: [], vetoed: true }));
+    assert.equal(f[0]?.type, 'NOT_FOUND');
+    assert.equal(f[0]?.evidence?.rerankNone, true);
+  });
+
+  it('keeps evidence empty when nothing was retrieved and nothing vetoed', () => {
+    const f = runChecks(row({ existingMxik: null, suggestions: [] }));
+    assert.equal(f[0]?.evidence, null);
+  });
+});
+
 describe('UNIT_CONFLICT', () => {
   const strict = (units: string[]): Partial<MxikCandidate> =>
     ({ unitBinding: 'strict', unitCanonical: units });

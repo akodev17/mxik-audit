@@ -5,18 +5,22 @@ import { startHeartbeat } from './audit-heartbeat.js';
 import { db } from './db.js';
 import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
-import { matchProduct, timed, type StageTimer } from '../core/match/pipeline.js';
+import { matchProduct, timed, type DisableableStage, type StageTimer } from '../core/match/pipeline.js';
 import { rerankFromEnv } from '../core/match/rerank.js';
 import type { DictionaryLookup } from '../core/match/dictionary.js';
 import { loadDictionary } from './dictionary.js';
+import { buildPipelineMeta, countMatch, emptyCounters, type PipelineMeta, type PipelineSetup } from './pipeline-meta.js';
 import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
 import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
+import { PROMPT_VERSION } from '../core/match/rerank-prompt.js';
 import { PostgresCandidateStore } from '../core/match/store.js';
-import { checkVectorReadiness } from '../core/match/vector-readiness.js';
+import { checkVectorReadiness, type VectorReadiness } from '../core/match/vector-readiness.js';
 import { normalizeName } from '../core/normalize/index.js';
 import { readCode, runChecks, type Finding, type ResolvedRow } from '../core/audit/checks.js';
 import type { RerankGate } from '../core/match/rerank-config.js';
-import type { EmbeddingProvider, RerankProvider, RerankUsage, ScoredCandidate } from '../core/match/types.js';
+import type {
+  EmbeddingProvider, RerankOutcome, RerankProvider, RerankUsage, ScoredCandidate, VectorOutcome,
+} from '../core/match/types.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 
@@ -47,9 +51,12 @@ export type AuditOutcome = {
   findingsCreated: number;
   /** True when stage 4 or 6 ran degraded, so the UI can say so. */
   degraded: boolean;
+  /** Operator-facing text, for logs and scripts. The stable codes are in pipelineMeta. */
   degradedReasons: string[];
   /** Null when the reranker was off for this run. */
   llm: RerankUsage | null;
+  /** What was stored on Catalog.pipelineMeta for this run. */
+  pipelineMeta: PipelineMeta;
 };
 
 /**
@@ -85,29 +92,44 @@ export type AuditContext = {
   /** The org's firm dictionary, checked before the cascade. */
   dictionary?: DictionaryLookup | undefined;
   timer?: StageTimer | undefined;
+  /** Stage 4 is switched off when the stored vectors are unusable, so no query is embedded. */
+  disabledStages?: ReadonlySet<DisableableStage> | undefined;
+  /** Providers as configured for this run, for Catalog.pipelineMeta. */
+  setup?: PipelineSetup | undefined;
   degradedReasons: string[];
 };
 
+/** The vector stage's state for the configured provider, on the shared pool. */
+export async function vectorReadiness(): Promise<VectorReadiness> {
+  return checkVectorReadiness(pool, embeddingProviderFromEnv());
+}
+
 /** Builds the matching setup for one org; cached LLM verdicts never cross orgs. */
-export async function auditContext(orgId: string, timer?: StageTimer): Promise<AuditContext> {
-  const configured = embeddingProviderFromEnv();
-  const cache = new PostgresRerankCache(pool, orgId, rerankConfigFromEnv(process.env).model);
+export async function auditContext(orgId: string, timer?: StageTimer): Promise<AuditContext & { setup: PipelineSetup }> {
+  const config = rerankConfigFromEnv(process.env);
+  const cache = new PostgresRerankCache(pool, orgId, config.model);
   const { reranker, gate } = rerankFromEnv(process.env, cache);
-  const readiness = await checkVectorReadiness(pool, configured);
+  const readiness = await vectorReadiness();
   const embedder = readiness.embedder;
   const store = new PostgresCandidateStore(pool, {
     exactVectorScan: !embedder.semantic,
     vectorEnabled: readiness.usable,
   });
+  const setup: PipelineSetup = {
+    embedder: { name: embedder.name, semantic: embedder.semantic },
+    vectorUsable: readiness.usable,
+    reranker: { enabled: reranker.available, model: reranker.available ? config.model : null, promptVersion: PROMPT_VERSION },
+  };
   const degradedReasons: string[] = [];
   if (!reranker.available) {
     degradedReasons.push('LLM qayta tartiblash oʻchirilgan');
-    console.warn(`[audit] reranker off: ${rerankConfigFromEnv(process.env).disabledReason ?? 'unavailable'}`);
+    console.warn(`[audit] reranker off: ${config.disabledReason ?? 'unavailable'}`);
   }
   if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
   const dictionary = await loadDictionary(orgId).catch(() => undefined);
-  return { store, embedder, reranker, gate, dictionary, timer, degradedReasons };
+  const disabledStages = readiness.usable ? undefined : new Set<DisableableStage>(['vector']);
+  return { store, embedder, reranker, gate, dictionary, timer, disabledStages, setup, degradedReasons };
 }
 
 export type AuditableItem = {
@@ -117,14 +139,19 @@ export type AuditableItem = {
   unit: string | null;
 };
 
-export type ItemCheck = { findings: Finding[]; markingRequired: boolean };
+export type ItemCheck = {
+  findings: Finding[];
+  markingRequired: boolean;
+  /** What stages 4 and 6 did for this row, for the run's pipeline metadata. */
+  match: { rerank: RerankOutcome; vector: VectorOutcome };
+};
 
 const SUGGESTIONS = 5;
 const SELF_MATCH_DEPTH = 20;
 
 /** Matches one row and runs every check on it. Writes nothing. */
 export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise<ItemCheck> {
-  const { store, embedder, reranker, gate, dictionary, timer } = ctx;
+  const { store, embedder, reranker, gate, dictionary, timer, disabledStages } = ctx;
   // Ranked deeper than the suggestions so the row's own code is usually
   // scorable from this one retrieval, without a second pass.
   const match = await matchProduct({
@@ -132,7 +159,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     barcode: item.barcode,
     unit: item.unit,
     existingMxik: item.existingMxik,
-  }, { store, embedder, reranker, dictionary, rerankGate: gate, timer, topK: SELF_MATCH_DEPTH });
+  }, { store, embedder, reranker, dictionary, rerankGate: gate, timer, disabledStages, topK: SELF_MATCH_DEPTH });
 
   // Resolve the row's own code so NOT_FOUND and retirement can be judged.
   const code = readCode(item.existingMxik);
@@ -158,7 +185,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
       const selfMatch = await timed(timer, 'self-match', () => matchProduct(
         { rawName: item.rawName, unit: item.unit },
         // Same name + unit, so a reranked row is a cache hit here, not a second call.
-        { store, embedder, reranker, rerankGate: gate, topK: SELF_MATCH_DEPTH },
+        { store, embedder, reranker, rerankGate: gate, disabledStages, topK: SELF_MATCH_DEPTH },
       ));
       found = selfMatch.candidates.find((s) => s.candidate.code === code);
     }
@@ -170,12 +197,17 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     unit: item.unit,
     existing,
     suggestions,
+    vetoed: match.veto !== null,
   });
 
   // Marking follows the classifier's own flag on the row's code or on a code we suggest.
   const suggestedMarked = findings.some((f) =>
     suggestions.find((s) => s.candidate.code === f.suggestedMxik)?.candidate.isMarked === true);
-  return { findings, markingRequired: existing.candidate?.isMarked === true || suggestedMarked };
+  return {
+    findings,
+    markingRequired: existing.candidate?.isMarked === true || suggestedMarked,
+    match: { rerank: match.rerank, vector: match.vector },
+  };
 }
 
 /** Finding rows ready for createMany. */
@@ -194,12 +226,21 @@ export function findingData(itemId: string, findings: readonly Finding[], snapsh
   }));
 }
 
+/** The classifier snapshot an audit runs against: set when it starts, kept when it resumes. */
+async function recordSnapshot(catalogId: string, current: number | null, fromRow: number): Promise<void> {
+  if (fromRow > 0 && current !== null) return;
+  const latest = await db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
+  if (latest && latest.id !== current) await db.catalog.update({ where: { id: catalogId }, data: { snapshotId: latest.id } });
+}
+
 async function auditRows(catalogId: string, options: AuditOptions): Promise<AuditOutcome> {
   const { fromRow = 0, onProgress, timer } = options;
-  const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });
+  const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, snapshotId: true } });
   if (!catalogOrg) throw new Error(`no catalogue ${catalogId}`);
+  await recordSnapshot(catalogId, catalogOrg.snapshotId, fromRow);
   const ctx = await auditContext(catalogOrg.orgId, timer);
   const { degradedReasons, reranker } = ctx;
+  const counters = emptyCounters();
   // Operator-facing only: never shown on customer screens (see /admin).
   if (degradedReasons.length > 0) console.warn(`[audit ${catalogId}] degraded: ${degradedReasons.join('; ')}`);
 
@@ -223,7 +264,8 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
 
   // A failed row stops the run cleanly, so a resume never races leftover workers.
   await runPool(items, CONCURRENCY, async (item, index) => {
-    const { findings, markingRequired } = await checkItem(item, ctx);
+    const { findings, markingRequired, match } = await checkItem(item, ctx);
+    countMatch(counters, match);
     if (markingRequired) {
       await db.catalogItem.update({ where: { id: item.id }, data: { markingRequired: true } });
     }
@@ -238,12 +280,15 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
     onProgress?.({ done, total, watermark: watermark() });
   });
 
+  const pipelineMeta = buildPipelineMeta(ctx.setup, counters, fromRow, new Date());
+  await db.catalog.update({ where: { id: catalogId }, data: { pipelineMeta } });
   return {
     itemsAudited: items.length,
     findingsCreated,
-    degraded: degradedReasons.length > 0,
+    degraded: degradedReasons.length > 0 || pipelineMeta.degradedReasons.length > 0,
     degradedReasons,
     llm: reranker.usage?.() ?? null,
+    pipelineMeta,
   };
 }
 
