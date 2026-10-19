@@ -11,36 +11,35 @@ export const CheckItemSchema = z.object({
 
 export type CheckItemInput = z.infer<typeof CheckItemSchema>;
 
-export type CheckResult = {
-  name: string;
-  markingRequired: boolean;
-  findings: {
-    type: string;
-    severity: string;
-    suggestedMxik: string | null;
-    confidence: number | null;
-    reason: string;
-    alternatives: { code: string; name: string; confidence: number }[];
-  }[];
+type FindingIn = {
+  type: string; severity: string; suggestedMxik: string | null; confidence: number | null; reason: string;
+  alternatives: readonly { code: string; name: string; confidence: number }[];
 };
+
+/** One product's answer; `confidence` is a match score from 0 to 1, not a probability. */
+export function checkResultOut(name: string, result: { markingRequired: boolean; findings: readonly FindingIn[] }) {
+  return {
+    name,
+    markingRequired: result.markingRequired,
+    findings: result.findings.map((f) => ({
+      type: f.type,
+      severity: f.severity,
+      suggestedMxik: f.suggestedMxik,
+      confidence: f.confidence,
+      reason: f.reason,
+      alternatives: f.alternatives.map((a) => ({ code: a.code, name: a.name, confidence: a.confidence })),
+    })),
+  };
+}
+
+export type CheckResult = ReturnType<typeof checkResultOut>;
 
 export async function checkProducts(orgId: string, items: readonly CheckItemInput[]): Promise<CheckResult[]> {
   const ctx = await auditContext(orgId);
   const out: CheckResult[] = [];
   for (const item of items) {
     const result = await checkItem({ rawName: item.name, barcode: item.barcode ?? null, existingMxik: item.mxik ?? null, unit: item.unit ?? null }, ctx);
-    out.push({
-      name: item.name,
-      markingRequired: result.markingRequired,
-      findings: result.findings.map((f) => ({
-        type: f.type,
-        severity: f.severity,
-        suggestedMxik: f.suggestedMxik,
-        confidence: f.confidence,
-        reason: f.reason,
-        alternatives: f.alternatives.map((a) => ({ code: a.code, name: a.name, confidence: a.confidence })),
-      })),
-    });
+    out.push(checkResultOut(item.name, result));
   }
   return out;
 }

@@ -5,7 +5,7 @@ import { orgActive } from '../security/org-active';
 
 const hash = (token: string): string => createHash('sha256').update(token).digest('hex');
 const TOKEN_PREFIX = 'mxk_';
-const MAX_ACTIVE_KEYS = 10;
+export const MAX_ACTIVE_KEYS = 10;
 const TOUCH_EVERY_MS = 60_000;
 
 type Actor = { userId: string; orgId: string };

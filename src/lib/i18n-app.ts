@@ -510,6 +510,7 @@ const coreUz = {
       'team.joined': 'Yangi aʼzo qoʻshildi',
       'team.updated': 'Aʼzo huquqlari oʻzgartirildi',
       'team.removed': 'Aʼzo jamoadan chiqarildi',
+      'team.invite_revoked': 'Jamoaga taklif bekor qilindi',
       'classifier.updated': 'Tasniflagich yangilandi',
       'client.created': 'Mijoz qoʻshildi',
       'client.activity_set': 'Mijoz faoliyat turi oʻzgartirildi',

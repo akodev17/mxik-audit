@@ -1,134 +1,56 @@
-import { formatTag, getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { billingConfig } from '@/lib/billing/config';
-import { firmPlan } from '@/lib/billing/plans';
-import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
+import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
-import { telegramConfig } from '@/lib/telegram/config';
-import { listLinks } from '@/lib/telegram/linking';
-import { Page, Section } from '@/ui/page';
-import { PayButtons } from '@/ui/pay-buttons';
-import { isAdminRole } from '@/lib/access';
-import { mailEnabled } from '@/lib/mailer';
-import { BrandForm } from './brand-form';
-import { planStatus } from '@/lib/plan';
-import { listApiKeys } from '@/lib/api/keys';
-import { ApiKeysPanel } from './api-keys-panel';
-import { deleteAfterDays, RETENTION_CHOICES } from '@/lib/security/account';
-import { deviceLabel } from '@/lib/security/device';
-import { listSessions } from '@/lib/security/session-store';
-import { twoFactorState } from '@/lib/security/two-factor';
-import { getSession } from '@/lib/session';
-import { DataPanel } from './data-panel';
-import { SecurityPanel } from './security-panel';
-import { DictionarySetting } from './dictionary-setting';
-import { PlanUsage } from './plan-usage';
-import { TeamPanel } from './team-panel';
-import { TelegramPanel } from './telegram-panel';
+import { Page } from '@/ui/page';
+import { Tabs } from '@/ui/tabs';
+import { AccountTab } from './account-tab';
+import { DataTab } from './data-tab';
+import { IntegrationsTab } from './integrations-tab';
+import { LegacyHash } from './legacy-hash';
+import { PlanTab } from './plan-tab';
+import { SecurityTab } from './security-tab';
+import { chooseTab, tabHref, visibleTabs, type SettingsTab } from './tabs';
+import { TeamTab } from './team-tab';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return { title: `${t.settingsTitle} — ${t.appName}` };
 }
 
-export default async function SettingsPage() {
-  const { locale, t, ta } = await getI18n();
+type Search = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function SettingsPage({ searchParams }: { searchParams: Search }) {
+  const { t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
-  const tg = telegramConfig();
-  const status = await planStatus(user.orgId);
-  const sid = (await getSession()).sid;
-  const [demo, links, org, team, clients, invites] = await Promise.all([
-    isDemoOrg(user.orgId),
-    listLinks(user.orgId),
-    db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, subscriptionUntil: true, dictAutoAccept: true, rawRetentionDays: true } }),
-    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } } }),
-    db.client.findMany({ where: { orgId: user.orgId }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    db.invite.findMany({ where: { orgId: user.orgId, usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, expiresAt: true } }),
-  ]);
-  // The firm plan shows only once its price is set and a provider is configured.
-  const billing = billingConfig();
-  const plan = firmPlan();
-  const providers = [billing.click ? 'click' as const : null, billing.payme ? 'payme' as const : null]
-    .filter((x): x is 'click' | 'payme' => x !== null);
-  const active = org.subscriptionUntil && org.subscriptionUntil > new Date() ? org.subscriptionUntil : null;
-  const logoUrl = org.logoData && org.logoMime ? `data:${org.logoMime};base64,${Buffer.from(org.logoData).toString('base64')}` : null;
+  const params = await searchParams;
+  // The Telegram sign-in binding comes back to /settings?tg=…: keep the result, open the tab it belongs to.
+  if (typeof params['tg'] === 'string' && params['tab'] === undefined) redirect(`/settings?tab=security&tg=${encodeURIComponent(params['tg'])}`);
+
+  const demo = await isDemoOrg(user.orgId);
+  const visible = visibleTabs(user.role, demo);
+  const { tab, refused } = chooseTab({ tab: params['tab'], tg: params['tg'] }, visible);
+  const s = ta.setX;
+  const label = (id: SettingsTab): string => s.tabs[id];
 
   return (
     <Page title={t.settingsTitle}>
-      {!demo && isAdminRole(user) ? (
-        <Section title={t.brandSection} hint={t.brandHint}>
-          <BrandForm brandName={org.brandName ?? ''} orgName={org.name} logoUrl={logoUrl} />
-        </Section>
-      ) : null}
-
-      {!demo && isAdminRole(user) ? (
-        <Section title={ta.dict.autoTitle}>
-          <DictionarySetting initial={org.dictAutoAccept} />
-        </Section>
-      ) : null}
-
-      {!demo && isAdminRole(user) ? (
-        <Section title={ta.apiKeys.title}>
-          <ApiKeysPanel keys={(await listApiKeys(user.orgId)).map((k) => ({ id: k.id, name: k.name, prefix: k.prefix, created: k.createdAt.toLocaleDateString(formatTag(locale)), lastUsed: k.lastUsedAt ? k.lastUsedAt.toLocaleDateString(formatTag(locale)) : null, revoked: k.revokedAt !== null, checks: k.checksThisMonth }))} />
-        </Section>
-      ) : null}
-
-      {!demo ? (
-        <Section title={ta.security.title}>
-          <SecurityPanel
-            {...await twoFactorState(user.userId)}
-            sessions={(await listSessions(user.userId)).map((s) => ({
-              id: s.id, device: deviceLabel(s.userAgent), current: s.id === sid,
-              created: s.createdAt.toLocaleDateString(formatTag(locale)), seen: s.lastSeenAt.toLocaleString(formatTag(locale)),
-            }))}
-          />
-        </Section>
-      ) : null}
-
-      {!demo && isAdminRole(user) ? (
-        <Section title={ta.security.data}>
-          <DataPanel retention={org.rawRetentionDays} choices={RETENTION_CHOICES} deleteAfterDays={deleteAfterDays()} />
-        </Section>
-      ) : null}
-
-      <Section title={t.tgSection}>
-        {!tg.enabled ? (
-          <p className="text-sm text-muted">{t.tgOff}</p>
-        ) : demo ? (
-          <p className="text-sm text-muted">{t.tgDemoOff}</p>
-        ) : (
-          <>
-            <p className="mb-4 text-sm text-muted">{t.tgIntro(tg.username)}</p>
-            <TelegramPanel chats={links.map((l) => ({ id: l.id, username: l.username, linkedAt: l.createdAt.toLocaleDateString('uz-UZ') }))} />
-          </>
-        )}
-      </Section>
-
-      <Section title={ta.settings.plan}>
-        <div id="plan" className="mb-4"><PlanUsage status={status} until={active ? active.toLocaleDateString('uz-UZ') : null} /></div>
-        {plan && providers.length > 0 && !demo && isAdminRole(user) ? (
-          <>
-            <p className="text-sm text-muted">{t.subPrice(plan.price.toLocaleString('uz-UZ'))}</p>
-            <p className="mb-3 text-sm font-medium">{active ? t.subUntil(active.toLocaleDateString('uz-UZ')) : t.subNone}</p>
-            <PayButtons planId={plan.id} catalogId={null} providers={providers} />
-          </>
-        ) : (
-          <p className="text-sm text-muted">{ta.settings.planNone}</p>
-        )}
-      </Section>
-
-      {isAdminRole(user) && !demo ? (
-        <Section title={ta.settings.team} hint={ta.settings.teamHint}>
-          <TeamPanel
-            members={team.map((m) => ({ id: m.id, email: m.email, role: m.role, clientIds: m.assignments.map((a) => a.clientId), you: m.id === user.userId }))}
-            invites={invites.map((i) => ({ id: i.id, email: i.email, role: i.role, expires: i.expiresAt.toLocaleDateString('uz-UZ') }))}
-            clients={clients} mailOn={mailEnabled()}
-          />
-        </Section>
-      ) : null}
+      <LegacyHash />
+      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 [&_a]:whitespace-nowrap" aria-label={s.tabs.label} role="region">
+        <Tabs items={visible.map((id) => ({ href: tabHref(id), label: label(id), active: id === tab }))} />
+      </div>
+      {refused ? <p role="status" className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-small text-muted">{s.adminOnly(label(refused))}</p> : null}
+      {demo ? <p className="mt-4 text-small text-muted">{s.demoOnly}</p> : null}
+      <div className="mt-6">
+        {tab === 'account' ? <AccountTab user={user} demo={demo} /> : null}
+        {tab === 'security' ? <SecurityTab user={user} /> : null}
+        {tab === 'team' ? <TeamTab user={user} /> : null}
+        {tab === 'plan' ? <PlanTab user={user} demo={demo} /> : null}
+        {tab === 'integrations' ? <IntegrationsTab user={user} /> : null}
+        {tab === 'data' ? <DataTab user={user} /> : null}
+      </div>
     </Page>
   );
 }

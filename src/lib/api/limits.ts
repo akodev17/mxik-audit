@@ -1,7 +1,7 @@
 // Per-key rate limit and the monthly check allowance of the org plan.
 // The numbers are config: API_RATE_PER_MINUTE and API_CHECKS_PER_MONTH_TRIAL / _FIRM.
 import { db } from '../db';
-import { planStatus } from '../plan';
+import { planStatus, type PlanState } from '../plan';
 import { monthKey } from './keys';
 
 type Env = Record<string, string | undefined>;
@@ -20,6 +20,16 @@ export function apiConfig(env: Env = process.env) {
     checksPerMonth: { trial: whole(env['API_CHECKS_PER_MONTH_TRIAL'], 500), firm: whole(env['API_CHECKS_PER_MONTH_FIRM'], null) },
     maxCheckItems: whole(env['API_CHECK_MAX_ITEMS'], 20) ?? 20,
   };
+}
+
+export type ApiConfig = ReturnType<typeof apiConfig>;
+
+/** Checks a month allowed in a plan state; null = no cap. An expired trial allows none. */
+export function monthlyCheckCap(state: PlanState, config: ApiConfig = apiConfig()): number | null {
+  if (state === 'expired') return 0;
+  if (state === 'trial') return config.checksPerMonth.trial;
+  if (state === 'firm') return config.checksPerMonth.firm;
+  return null;
 }
 
 const WINDOW_MS = 60_000;
@@ -45,11 +55,16 @@ export type Allowance = { ok: true } | { ok: false; reason: 'expired' | 'checks'
 export async function checkAllowance(orgId: string, adding: number): Promise<Allowance> {
   const status = await planStatus(orgId);
   if (status.state === 'expired') return { ok: false, reason: 'expired' };
-  const config = apiConfig().checksPerMonth;
-  const cap = status.state === 'trial' ? config.trial : status.state === 'firm' ? config.firm : null;
+  const cap = monthlyCheckCap(status.state);
   if (cap === null) return { ok: true };
   const used = await db.apiUsage.aggregate({ where: { orgId, month: monthKey() }, _sum: { checks: true } });
   return (used._sum.checks ?? 0) + adding > cap ? { ok: false, reason: 'checks' } : { ok: true };
+}
+
+/** The org's API use this calendar month (UTC), over all its keys. */
+export async function usageThisMonth(orgId: string): Promise<{ checks: number; requests: number }> {
+  const used = await db.apiUsage.aggregate({ where: { orgId, month: monthKey() }, _sum: { checks: true, requests: true } });
+  return { checks: used._sum.checks ?? 0, requests: used._sum.requests ?? 0 };
 }
 
 export async function recordUsage(keyId: string, orgId: string, checks: number): Promise<void> {

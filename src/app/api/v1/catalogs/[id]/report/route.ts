@@ -1,47 +1,54 @@
-import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { PAGE, pageLimit } from '@/lib/api/contract';
 import { recordUsage } from '@/lib/api/limits';
-import { apiError, enter } from '@/lib/api/respond';
+import { crashed, enter, failure } from '@/lib/api/respond';
+import { findingOut, reportOut } from '@/lib/api/serialize';
 
 export const dynamic = 'force-dynamic';
 
-const DEFAULT_LIMIT = 200;
-const MAX_LIMIT = 1000;
+const OP = 'report';
 
-/** Status, summary and one page of findings (cursor = the last finding id of the previous page). */
+/** Status, summary and one page of findings (cursor = nextCursor of the previous page). */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const entered = await enter(request);
+  const entered = await enter(OP, request);
   if ('response' in entered) return entered.response;
-  const { caller } = entered;
+  const { caller, reply } = entered;
+  try {
+    const { id } = await params;
+    const catalog = await db.catalog.findFirst({
+      where: { id, orgId: caller.orgId },
+      select: { id: true, filename: true, clientId: true, createdAt: true, status: true, rowCount: true, progressDone: true },
+    });
+    if (!catalog) return reply(failure(OP, 'not_found', 'Catalogue not found.'));
+    await recordUsage(caller.keyId, caller.orgId, 0);
+    if (catalog.status !== 'ready') return reply({ status: 200, body: reportOut({ catalog, summary: null, findings: [], nextCursor: null }) });
 
-  const { id } = await params;
-  const catalog = await db.catalog.findFirst({ where: { id, orgId: caller.orgId }, select: { id: true, status: true, rowCount: true, progressDone: true, filename: true, createdAt: true, auditError: true } });
-  if (!catalog) return apiError('not_found', 'Catalogue not found.');
-  await recordUsage(caller.keyId, caller.orgId, 0);
-
-  const base = { id: catalog.id, filename: catalog.filename, createdAt: catalog.createdAt, status: catalog.status, rows: catalog.rowCount, progress: { done: catalog.progressDone, total: catalog.rowCount } };
-  if (catalog.status !== 'ready') return NextResponse.json({ ...base, ...(catalog.auditError ? { error: catalog.auditError } : {}) });
-
-  const url = new URL(request.url);
-  const limit = Math.min(MAX_LIMIT, Math.max(1, Number(url.searchParams.get('limit')) || DEFAULT_LIMIT));
-  const cursor = url.searchParams.get('cursor');
-  const where = { item: { catalogId: catalog.id } };
-  const [byType, rows] = await Promise.all([
-    db.finding.groupBy({ by: ['type'], where, _count: { _all: true } }),
-    db.finding.findMany({
-      where, take: limit + 1, orderBy: [{ item: { rowIndex: 'asc' } }, { id: 'asc' }],
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      include: { item: { select: { rowIndex: true, rawName: true, barcode: true, unit: true, existingMxik: true } } },
-    }),
-  ]);
-  const page = rows.slice(0, limit);
-  return NextResponse.json({
-    ...base,
-    summary: Object.fromEntries(byType.map((g) => [g.type, g._count._all])),
-    findings: page.map((f) => ({
-      id: f.id, row: f.item.rowIndex + 1, name: f.item.rawName, barcode: f.item.barcode, unit: f.item.unit, currentMxik: f.item.existingMxik,
-      type: f.type, severity: f.severity, suggestedMxik: f.suggestedMxik, confidence: f.confidence, reason: f.reason, decision: f.decision, chosenMxik: f.chosenMxik,
-    })),
-    nextCursor: rows.length > limit ? page[page.length - 1]?.id ?? null : null,
-  });
+    const url = new URL(request.url);
+    const limit = pageLimit(url.searchParams.get('limit'), PAGE.findings);
+    const cursor = url.searchParams.get('cursor');
+    const where = { item: { catalogId: catalog.id } };
+    if (cursor && !(await db.finding.findFirst({ where: { ...where, id: cursor }, select: { id: true } }))) {
+      return reply(failure(OP, 'invalid_request', 'Unknown cursor: pass nextCursor from the previous page.'));
+    }
+    const [byType, rows] = await Promise.all([
+      db.finding.groupBy({ by: ['type'], where, _count: { _all: true } }),
+      db.finding.findMany({
+        where, take: limit + 1, orderBy: [{ item: { rowIndex: 'asc' } }, { id: 'asc' }],
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        include: { item: { select: { rowIndex: true, rawName: true, barcode: true, unit: true, existingMxik: true } } },
+      }),
+    ]);
+    const page = rows.slice(0, limit);
+    return reply({
+      status: 200,
+      body: reportOut({
+        catalog,
+        summary: Object.fromEntries(byType.map((g) => [g.type, g._count._all])),
+        findings: page.map(findingOut),
+        nextCursor: rows.length > limit ? page[page.length - 1]?.id ?? null : null,
+      }),
+    });
+  } catch (error) {
+    return crashed(OP, error, reply);
+  }
 }

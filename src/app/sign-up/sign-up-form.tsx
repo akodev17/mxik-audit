@@ -1,6 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/locale-client';
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { signUp, type SignUpState } from '@/app/actions/signup';
 import { Button } from '@/ui/button';
@@ -20,6 +21,13 @@ export function SignUpForm() {
       <Field label={t.password} hint={ta.team.passwordHint}><Input name="password" type="password" required minLength={8} autoComplete="new-password" /></Field>
       {state.error ? <p role="alert" className="rounded-ctl bg-danger-tint px-3 py-2 text-sm text-danger">{state.error}</p> : null}
       <Button type="submit" variant="primary" disabled={pending} className="w-full">{pending ? t.loading : ta.signup.create}</Button>
+      <p className="text-xs text-muted">
+        {ta.setX.signup.consentBefore}
+        <Link href="/oferta" className="text-brand-ink underline">{ta.setX.signup.offer}</Link>
+        {ta.setX.signup.and}
+        <Link href="/maxfiylik" className="text-brand-ink underline">{ta.setX.signup.privacy}</Link>
+        {ta.setX.signup.consentAfter}
+      </p>
       <p className="text-xs text-muted">{ta.signup.trialNote}</p>
     </form>
   );

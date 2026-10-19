@@ -26,6 +26,8 @@ export function SiteFooter() {
         </div>
         <nav aria-label="Huquqiy va aloqa">
           <ul className="space-y-2 text-[16px]">
+            <li><Link href="/sign-up" className={LINK}>Bepul sinab koʻrish</Link></li>
+            <li><Link href="/yordam" className={LINK}>Yordam</Link></li>
             <li><Link href="/maxfiylik" className={LINK}>Maxfiylik siyosati</Link></li>
             <li><Link href="/oferta" className={LINK}>Ommaviy oferta</Link></li>
             <li>

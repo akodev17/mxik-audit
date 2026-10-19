@@ -196,8 +196,11 @@ from the bot run in that process).
 ## 7b. Payments (optional)
 
 Click and Payme stay off until their keys are in `.env` (see `.env.example`);
-without them no payment button appears. Prices: `src/lib/billing/plans.ts`
-(the firm monthly plan is hidden until its price is set there).
+without them no payment button appears and Settings → Tarif says that no
+payment provider is configured. Catalogue prices: `src/lib/billing/plans.ts`.
+The firm monthly price is `PLAN_FIRM_PRICE` (whole soʻm); while it is unset
+the plan is not for sale and Settings says the price is not set. Only admins
+see pay buttons; other roles are told that an administrator pays.
 
 - **Click** (SHOP API): in the merchant cabinet set both Prepare URL and
   Complete URL to `https://your-domain/api/payments/click`; put
@@ -231,7 +234,7 @@ With SMTP on, signing up with an address that already has an account answers "ch
 
 ## 7d. Signup, trial and plan limits
 
-/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan stays hidden until its price is set in src/lib/billing/plans.ts. "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
+/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan is not for sale until `PLAN_FIRM_PRICE` is set. "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
 
 ## 7e. Daily jobs (monthly reminders)
 
@@ -245,7 +248,7 @@ It creates the monthly-check tasks that are due (per client: Sozlamalar of the c
 
 ## 7f. Public API
 
-Admins create keys in Settings (shown once, only a hash is stored). Endpoints: `POST /api/v1/check`, `POST /api/v1/catalogs`, `GET /api/v1/catalogs/:id/report`; spec at `/api/v1/openapi.json`, docs at `/api-docs`.
+Admins create keys in Settings → Integratsiyalar (shown once, only a hash is stored). Endpoints: `POST /api/v1/check`, `GET /api/v1/catalogs` (paged with `limit` and `cursor`), `POST /api/v1/catalogs`, `GET /api/v1/catalogs/:id/report`; spec at `/api/v1/openapi.json`, docs at `/api-docs`. Every response to a valid key carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`. Both POST endpoints accept `Idempotency-Key`: a repeat with the same key under the same API key within 24 hours returns the first successful response (`Idempotent-Replayed: true`); rows live in `api_idempotency` and the daily job (7e) prunes them.
 Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept in memory per process, so it resets on restart and is per instance), `API_CHECKS_PER_MONTH_TRIAL` / `_FIRM` and `API_CHECK_MAX_ITEMS`. Uploaded rows count against the plan's monthly row limit like uploads in the app. Set `APP_URL` so the OpenAPI document names the public origin.
 
 ## 7g. Security and data control
