@@ -1,55 +1,73 @@
 // Monthly check reminders: a per-client day of month, an in-app task, and a
 // Telegram message to the accountant responsible. Run from the daily cron.
+import { canSeeClient } from './access.js';
 import { appLink, telegramConfig } from './telegram/config.js';
 import { db } from './db.js';
+import type { Result } from './decisions.js';
 import { appDict } from './i18n-app.js';
 import { orgLocale } from './org-locale.js';
+import { localDate, nextReminderDate, skipsThisMonth } from './reminder-dates.js';
 
-type Who = { userId: string; orgId: string };
+export { localDate, nextReminderDate, skipsThisMonth };
 
-/** Uzbekistan has no daylight saving: local time is UTC+5 all year. */
-const LOCAL_OFFSET_MS = 5 * 3_600_000;
+type Who = { userId: string; orgId: string; clientIds?: string[] | null };
 
-export function localDate(now: Date): { period: string; day: number; date: Date } {
-  const local = new Date(now.getTime() + LOCAL_OFFSET_MS);
-  const y = local.getUTCFullYear();
-  const m = String(local.getUTCMonth() + 1).padStart(2, '0');
-  return { period: `${y}-${m}`, day: local.getUTCDate(), date: new Date(Date.UTC(y, local.getUTCMonth(), local.getUTCDate())) };
-}
+export type OpenTask = { id: string; clientId: string; clientName: string; period: string; dueOn: Date; overdue: boolean };
 
-export async function overdueClientIds(orgId: string, now = new Date()): Promise<Set<string>> {
-  const rows = await db.reminderTask.findMany({ where: { orgId, doneAt: null, dueOn: { lt: localDate(now).date } }, select: { clientId: true } });
-  return new Set(rows.map((r) => r.clientId));
-}
-
-export type OpenTask = { id: string; clientId: string; clientName: string; dueOn: Date; overdue: boolean };
-
+/** Open monthly checks of clients the user may see (archived clients left out), earliest first. */
 export async function openTasks(orgId: string, clientIds: string[] | null | undefined, now = new Date()): Promise<OpenTask[]> {
   const today = localDate(now).date;
   const rows = await db.reminderTask.findMany({
-    where: { orgId, doneAt: null, ...(clientIds ? { clientId: { in: clientIds } } : {}) },
-    orderBy: { dueOn: 'asc' }, take: 50, include: { client: { select: { name: true } } },
+    where: { orgId, doneAt: null, client: { archivedAt: null }, ...(clientIds ? { clientId: { in: clientIds } } : {}) },
+    orderBy: [{ dueOn: 'asc' }, { id: 'asc' }], take: 50, include: { client: { select: { name: true } } },
   });
-  return rows.map((r) => ({ id: r.id, clientId: r.clientId, clientName: r.client.name, dueOn: r.dueOn, overdue: r.dueOn < today }));
+  return rows.map((r) => ({ id: r.id, clientId: r.clientId, clientName: r.client.name, period: r.period, dueOn: r.dueOn, overdue: r.dueOn < today }));
 }
 
 export async function getSchedule(orgId: string, clientId: string) {
   return db.clientSchedule.findFirst({ where: { orgId, clientId } });
 }
 
-export async function setSchedule(who: Who, clientId: string, input: { dayOfMonth: number; assigneeId: string | null; enabled: boolean }): Promise<boolean> {
+export type ScheduleInput = { dayOfMonth: number; assigneeId: string | null; enabled: boolean };
+
+export async function setSchedule(who: Who, clientId: string, input: ScheduleInput, now = new Date()): Promise<Result<{ nextDue: Date | null }>> {
+  if (!Number.isInteger(input.dayOfMonth) || input.dayOfMonth < 1 || input.dayOfMonth > 28) return { ok: false, error: 'bad day' };
   const client = await db.client.findFirst({ where: { id: clientId, orgId: who.orgId }, select: { id: true } });
-  if (!client || input.dayOfMonth < 1 || input.dayOfMonth > 28) return false;
-  const assignee = input.assigneeId ? await db.user.findFirst({ where: { id: input.assigneeId, orgId: who.orgId }, select: { id: true } }) : null;
-  const data = { dayOfMonth: input.dayOfMonth, assigneeId: assignee?.id ?? null, enabled: input.enabled };
-  await db.clientSchedule.upsert({ where: { clientId }, create: { clientId, orgId: who.orgId, ...data }, update: { ...data, updatedAt: new Date() } });
-  await db.auditEvent.create({ data: { orgId: who.orgId, actorId: who.userId, action: 'schedule.set', targetId: clientId, payload: { clientId, ...data } } });
-  return true;
+  if (!client || !canSeeClient(who, client.id)) return { ok: false, error: 'not found' };
+  const assignee = input.assigneeId
+    ? await db.user.findFirst({ where: { id: input.assigneeId, orgId: who.orgId, role: { not: 'viewer' } }, select: { id: true } })
+    : null;
+  if (input.assigneeId && !assignee) return { ok: false, error: 'bad assignee' };
+
+  const existing = await db.clientSchedule.findUnique({ where: { clientId }, select: { lastPeriod: true } });
+  const lastPeriod = skipsThisMonth(input, existing?.lastPeriod ?? null, now) ? localDate(now).period : existing?.lastPeriod ?? null;
+  const data = { dayOfMonth: input.dayOfMonth, assigneeId: assignee?.id ?? null, enabled: input.enabled, lastPeriod };
+  await db.$transaction([
+    db.clientSchedule.upsert({ where: { clientId }, create: { clientId, orgId: who.orgId, ...data }, update: { ...data, updatedAt: now } }),
+    db.auditEvent.create({
+      data: {
+        orgId: who.orgId, actorId: who.userId, action: 'schedule.set', targetId: clientId,
+        payload: { clientId, dayOfMonth: data.dayOfMonth, assigneeId: data.assigneeId, enabled: data.enabled },
+      },
+    }),
+  ]);
+  return { ok: true, nextDue: nextReminderDate(data, now) };
 }
 
-export async function markDone(who: Who, taskId: string): Promise<boolean> {
-  const done = await db.reminderTask.updateMany({ where: { id: taskId, orgId: who.orgId, doneAt: null }, data: { doneAt: new Date() } });
-  return done.count > 0;
+/** Closes an open task by hand. Only for someone who may see the task's client; recorded in the audit log. */
+export async function markDone(who: Who, taskId: string): Promise<Result<{ clientId: string }>> {
+  const task = await db.reminderTask.findFirst({ where: { id: taskId, orgId: who.orgId }, select: { id: true, clientId: true, period: true, doneAt: true } });
+  if (!task || !canSeeClient(who, task.clientId)) return { ok: false, error: 'not found' };
+  if (task.doneAt) return { ok: false, error: 'already done' };
+  const closed = await db.$transaction(async (tx) => {
+    const done = await tx.reminderTask.updateMany({ where: { id: task.id, doneAt: null }, data: { doneAt: new Date() } });
+    if (done.count === 0) return false;
+    await tx.auditEvent.create({
+      data: { orgId: who.orgId, actorId: who.userId, action: 'reminder.done', targetId: task.id, payload: { clientId: task.clientId, period: task.period } },
+    });
+    return true;
+  });
+  return closed ? { ok: true, clientId: task.clientId } : { ok: false, error: 'already done' };
 }
 
 /** A catalogue was audited for this client: its open monthly checks are done. */
@@ -62,7 +80,20 @@ async function recipients(orgId: string, clientId: string, assigneeId: string | 
   if (assigneeId) return [assigneeId];
   const assigned = await db.clientAssignment.findMany({ where: { clientId, user: { orgId, role: { not: 'viewer' } } }, select: { userId: true } });
   if (assigned.length > 0) return assigned.map((a) => a.userId);
+  return adminIds(orgId);
+}
+
+async function adminIds(orgId: string): Promise<string[]> {
   return (await db.user.findMany({ where: { orgId, role: 'admin' }, select: { id: true } })).map((u) => u.id);
+}
+
+/** The recipients' own chats; without any, only chats an admin linked (never a colleague's private chat). */
+export async function reminderChats(orgId: string, userIds: string[]): Promise<string[]> {
+  const own = await db.telegramLink.findMany({ where: { orgId, linkedBy: { in: userIds } }, select: { chatId: true } });
+  if (own.length > 0) return own.map((c) => c.chatId);
+  const admins = await adminIds(orgId);
+  const fallback = await db.telegramLink.findMany({ where: { orgId, linkedBy: { in: admins } }, select: { chatId: true } });
+  return fallback.map((c) => c.chatId);
 }
 
 async function telegram(orgId: string, userIds: string[], text: string): Promise<number> {
@@ -70,12 +101,9 @@ async function telegram(orgId: string, userIds: string[], text: string): Promise
   if (!config.token) return 0;
   const { Api } = await import('grammy');
   const api = new Api(config.token, { apiRoot: config.apiRoot });
-  const own = await db.telegramLink.findMany({ where: { orgId, linkedBy: { in: userIds } }, select: { chatId: true } });
-  // No chat of their own: fall back to the org's linked chats.
-  const chats = own.length > 0 ? own : await db.telegramLink.findMany({ where: { orgId }, select: { chatId: true } });
   let sent = 0;
-  for (const chat of chats) {
-    try { await api.sendMessage(chat.chatId, text, { link_preview_options: { is_disabled: true } }); sent += 1; } catch (error) {
+  for (const chatId of await reminderChats(orgId, userIds)) {
+    try { await api.sendMessage(chatId, text, { link_preview_options: { is_disabled: true } }); sent += 1; } catch (error) {
       console.warn(`[reminders] telegram failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -86,7 +114,7 @@ async function telegram(orgId: string, userIds: string[], text: string): Promise
 export async function runReminders(now = new Date()): Promise<{ created: number; messaged: number }> {
   const { period, day, date } = localDate(now);
   const schedules = await db.clientSchedule.findMany({
-    where: { enabled: true, dayOfMonth: { lte: day }, OR: [{ lastPeriod: null }, { lastPeriod: { not: period } }] },
+    where: { enabled: true, dayOfMonth: { lte: day }, client: { archivedAt: null }, OR: [{ lastPeriod: null }, { lastPeriod: { not: period } }] },
     include: { client: { select: { name: true } }, org: { select: { kind: true, deletedAt: true } } },
   });
   let created = 0;

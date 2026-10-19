@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { rerankCacheKey } from '../core/match/rerank-cache.js';
 import { normalizeName } from '../core/normalize/index.js';
-import { deleteCatalog, listCatalogs, resolveCatalog } from './catalogs.js';
+import { catalogList, deleteCatalog, listCatalogs, resolveCatalog } from './catalogs.js';
 import { db } from './db.js';
 import { recordDecision } from './decisions.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from './test-fixtures.js';
@@ -39,9 +39,11 @@ describe('catalogue history and deletion (database)', { skip }, () => {
     assert.equal(await resolveCatalog(a.orgId, foreign.catalogId), null);
   });
 
-  it('deletes the catalogue, its rows, findings, log entries and cached verdicts, leaving a tombstone', async () => {
+  it('deletes the catalogue, its rows, findings and cached verdicts, keeps its audit events and adds a tombstone', async () => {
     const { catalogId, findingIds } = await makeCatalog(a.orgId, [{ rawName: 'Shakar 1 kg', unit: 'kg', suggestedMxik: code, confidence: 0.95 }]);
-    assert.ok((await recordDecision(a, { findingId: findingIds[0] ?? '', decision: 'accepted' })).ok);
+    const decided = await recordDecision(a, { findingId: findingIds[0] ?? '', decision: 'accepted' });
+    assert.ok(decided.ok);
+    const before = await db.auditEvent.findUnique({ where: { id: decided.eventId } });
     const key = rerankCacheKey('claude-test', normalizeName('Shakar 1 kg').matchKey, 'kg');
     await db.$executeRaw`INSERT INTO rerank_cache (scope, key, model, verdicts) VALUES (${a.orgId}, ${key}, 'claude-test', '[]'::jsonb)`;
 
@@ -50,18 +52,46 @@ describe('catalogue history and deletion (database)', { skip }, () => {
     assert.equal(r.rows, 1);
     assert.equal(r.findings, 1);
     assert.equal(r.cacheEntries, 1);
-    assert.ok(r.logEntries >= 1);
+    assert.ok(r.keptEvents >= 1);
 
     assert.equal(await db.catalog.count({ where: { id: catalogId } }), 0);
     assert.equal(await db.catalogItem.count({ where: { catalogId } }), 0);
     assert.equal(await db.finding.count({ where: { id: { in: findingIds } } }), 0);
-    assert.equal(await db.auditEvent.count({ where: { orgId: a.orgId, payload: { path: ['catalogId'], equals: catalogId } } }), 0);
+    // The log is append-only: the decision event is still there, unchanged.
+    assert.deepEqual(await db.auditEvent.findUnique({ where: { id: decided.eventId } }), before);
     const left = await db.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM rerank_cache WHERE scope = ${a.orgId} AND key = ${key}`;
     assert.equal(Number(left[0]?.n), 0);
 
     const tombstone = await db.auditEvent.findFirst({ where: { orgId: a.orgId, action: 'catalog.deleted', targetId: catalogId } });
     assert.ok(tombstone);
-    assert.ok(!JSON.stringify(tombstone.payload).includes('Shakar'), 'tombstone must not carry product names');
+    const payload = tombstone.payload as Record<string, unknown>;
+    assert.equal(payload['filename'], 'test.xlsx');
+    assert.equal(payload['rows'], 1);
+    assert.equal(payload['findings'], 1);
+    assert.equal(payload['catalogId'], catalogId);
+    assert.ok(!JSON.stringify(payload).includes('Shakar'), 'tombstone must not carry product names');
+  });
+
+  it('lists catalogues with the uploader, hides unaudited risk counts and archived clients, and keeps to the scope', async () => {
+    const hidden = await db.client.create({ data: { orgId: a.orgId, name: 'Arxiv', archivedAt: new Date() }, select: { id: true } });
+    const archivedCatalog = await makeCatalog(a.orgId, [{ rawName: 'Yashirin', suggestedMxik: code, confidence: 0.8 }]);
+    await db.catalog.update({ where: { id: archivedCatalog.catalogId }, data: { clientId: hidden.id } });
+    const pending = await makeCatalog(a.orgId, [{ rawName: 'Kutilmoqda', suggestedMxik: code, confidence: 0.8 }]);
+    await db.catalog.update({ where: { id: pending.catalogId }, data: { status: 'uploaded' } });
+    await db.auditEvent.create({ data: { orgId: a.orgId, actorId: a.userId, action: 'catalog.uploaded', targetId: pending.catalogId, payload: { via: 'telegram' } } });
+
+    const { items } = await catalogList({ orgId: a.orgId, clientIds: null }, null);
+    assert.ok(!items.some((c) => c.id === archivedCatalog.catalogId), 'archived clients are left out of "all clients"');
+    const row = items.find((c) => c.id === pending.catalogId);
+    assert.equal(row?.riskyRows, null);
+    assert.equal(row?.viaTelegram, true);
+    assert.ok(row?.uploader?.startsWith('test-'));
+    assert.ok(items.filter((c) => c.filename === 'test.xlsx').every((c) => c.repeatedName));
+
+    const direct = await catalogList({ orgId: a.orgId, clientIds: null }, hidden.id);
+    assert.deepEqual(direct.items.map((c) => c.id), [archivedCatalog.catalogId]);
+    const scoped = await catalogList({ orgId: a.orgId, clientIds: ['nobody'] }, hidden.id);
+    assert.deepEqual(scoped.items, []);
   });
 
   it('refuses to delete another org’s catalogue', async () => {

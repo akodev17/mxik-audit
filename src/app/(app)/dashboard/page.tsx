@@ -1,131 +1,149 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { dashboard, recentActivity, type ClientCard } from '@/lib/dashboard';
-import { formatTag, getI18n } from '@/lib/locale';
+import { canWrite, isAdminRole } from '@/lib/access';
+import { activityPage } from '@/lib/activity';
+import { groupDecisions } from '@/lib/activity-groups';
+import { attentionReasons, rowProgress } from '@/lib/client-stats';
+import { dashboard } from '@/lib/dashboard';
+import { fmtNumber } from '@/lib/format';
+import { getI18n } from '@/lib/locale';
+import { onboardingSteps } from '@/lib/onboarding';
+import { openTasks } from '@/lib/reminders';
 import { currentUser } from '@/lib/session';
-import { isAdminRole } from '@/lib/access';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
 import { Page, Section } from '@/ui/page';
-import { Table, Td, Th } from '@/ui/table';
-import { canWrite } from '@/lib/access';
-import { openTasks } from '@/lib/reminders';
+import { Stat } from '@/ui/stat';
+import { ActivityFeed } from '../activity/activity-feed';
+import { AccountantFilter } from './accountant-filter';
+import { AttentionList } from './attention-list';
+import { Changes } from './changes';
+import { NextStep } from './next-step';
+import { Onboarding } from './onboarding';
+import { TopRisk } from './top-risk';
+import { TopTypes } from './top-types';
 import { Tasks } from './tasks';
+import { Workload } from './workload';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
   return { title: `${ta.dash.title} — ${t.appName}` };
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="rounded-ctl border border-line px-4 py-3">
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className={`mt-1 text-2xl font-bold ${tone ?? ''}`}>{value}</dd>
-    </div>
-  );
-}
-
-function Progress({ done, total }: { done: number; total: number }) {
-  const pct = total === 0 ? 100 : Math.round((done / total) * 100);
-  return (
-    <span className="flex items-center gap-2">
-      <span className="h-1.5 w-24 overflow-hidden rounded-full bg-surface"><span className="block h-full rounded-full bg-good" style={{ width: `${pct}%` }} /></span>
-      <span className="text-xs text-muted">{pct}%</span>
-    </span>
-  );
-}
+const RECENT = 8;
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string }> }) {
-  const { locale, t, ta } = await getI18n();
+  const { locale, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const admin = isAdminRole(user);
-  const [data, activity, tasks] = await Promise.all([dashboard(user, admin ? sp.accountant ?? null : null), recentActivity(user.orgId), openTasks(user.orgId, user.clientIds)]);
-  const fmt = (n: number): string => n.toLocaleString(formatTag(locale));
-  const reasonText = (r: ClientCard['reasons'][number]): string => {
-    const d = ta.dash.reasons;
-    return r.kind === 'update' ? d.update(r.count) : r.kind === 'unreviewed' ? d.unreviewed(r.count) : r.kind === 'overdue' ? d.overdue : d.empty;
+  const home = ta.firmX.home;
+
+  const [data, allTasks, steps, recent] = await Promise.all([
+    dashboard(user, admin ? sp.accountant ?? null : null),
+    openTasks(user.orgId, user.clientIds),
+    onboardingSteps(user),
+    activityPage(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: 40 }),
+  ]);
+  const shown = new Set(data.clients.map((c) => c.id));
+  const tasks = allTasks.filter((x) => shown.has(x.clientId));
+  const { totals } = data;
+  const fmt = (n: number): string => fmtNumber(locale, n);
+  const accountantQuery = data.selected ? `accountant=${encodeURIComponent(data.selected.id)}` : '';
+  const queueHref = (extra = ''): string => {
+    const q = [accountantQuery, extra].filter(Boolean).join('&');
+    return q ? `/queue?${q}` : '/queue';
   };
-  const needing = data.cards.filter((c) => c.reasons.length > 0);
-  const pct = data.totals.riskyFindings === 0 ? 100 : Math.round((data.totals.reviewed / data.totals.riskyFindings) * 100);
+  const reviewed = rowProgress(totals);
+  const openSteps = steps.some((s) => !s.done);
+  const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
+  const attention = data.clients.filter((c) => attentionReasons(c).length > 0);
 
   return (
-    <Page title={ta.dash.title} hint={ta.dash.hint} wide>
-      {admin && data.accountants.length > 1 ? (
-        <form className="mb-5 flex items-center gap-2 text-sm">
-          <label htmlFor="acc" className="font-medium">{ta.dash.filterAccountant}:</label>
-          <select id="acc" name="accountant" defaultValue={sp.accountant ?? ''} className="h-9 rounded-ctl border border-line-strong bg-base px-2">
-            <option value="">{ta.dash.allAccountants}</option>
-            {data.accountants.map((a) => <option key={a.id} value={a.id}>{a.email}</option>)}
-          </select>
-          <button type="submit" className="h-9 rounded-ctl border border-line-strong px-3 font-medium hover:bg-surface">OK</button>
-        </form>
+    <Page title={ta.dash.title} hint={home.hint} wide>
+      {user.demo ? (
+        <p className="mb-5 flex flex-wrap items-center gap-2 text-small text-muted">
+          <Badge tone="info">{ta.firmX.sample.badge}</Badge>
+          {ta.firmX.sample.hint}
+        </p>
       ) : null}
 
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label={ta.dash.clients} value={fmt(data.totals.clients)} />
-        <Stat label={ta.dash.riskyRows} value={fmt(data.totals.riskyRows)} tone={data.totals.riskyRows > 0 ? 'text-danger' : 'text-good'} />
-        <Stat label={ta.dash.progress} value={`${pct}%`} />
-        <Stat label={ta.dash.attention} value={fmt(data.totals.attention)} tone={data.totals.attention > 0 ? 'text-warn-ink' : 'text-good'} />
-      </dl>
+      {admin && data.accountants.length > 0 ? <AccountantFilter accountants={data.accountants} selected={data.selected} /> : null}
 
-      <Section title={ta.reminders.tasks}>
-        <Tasks items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn.toISOString(), overdue: x.overdue }))} canWrite={canWrite(user)} />
+      {firstRun ? <div className="mb-6"><Onboarding steps={steps} primary /></div> : null}
+
+      {data.clients.length === 0 && !firstRun ? (
+        <EmptyState title={home.clientsNone} hint={home.clientsNoneHint} />
+      ) : null}
+
+      {data.clients.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat
+              label={home.openRows} value={fmt(totals.openRows)} href={queueHref()}
+              tone={totals.openRows > 0 ? 'danger' : 'good'}
+              hint={home.openRowsHint(fmt(totals.pendingFindings), totals.pendingFindings)}
+            />
+            <Stat
+              label={ta.firmX.progress.label} href="/clients?sort=progress"
+              value={reviewed ? `${fmt(reviewed.done)} / ${fmt(reviewed.total)}` : ta.firmX.dash}
+              hint={reviewed ? ta.firmX.progress.of(fmt(reviewed.done), fmt(reviewed.total), reviewed.total) : ta.firmX.progress.none}
+            />
+            <Stat
+              label={home.attention} value={fmt(totals.attention)} href="/clients?filter=attention"
+              tone={totals.attention > 0 ? 'warn' : 'good'}
+              hint={home.attentionHint(fmt(totals.clients), totals.clients)}
+            />
+            <Stat
+              label={home.overdue} value={fmt(totals.overdueTasks)} href="/clients?filter=overdue"
+              tone={totals.overdueTasks > 0 ? 'danger' : 'neutral'} hint={home.overdueHint}
+            />
+          </div>
+
+          {firstRun ? null : <NextStep clients={data.clients} tasks={tasks} canUpload={canWrite(user) && !user.demo} queueHref={queueHref} />}
+
+          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 [&>section]:mt-0">
+            <Section title={home.attentionTitle} actions={attention.length > 0 ? <Link href="/clients?filter=attention" className="text-small font-medium text-brand-ink hover:underline">{home.attentionAll}</Link> : null}>
+              <AttentionList clients={attention} />
+            </Section>
+            <Section title={ta.reminders.tasks}>
+              <Tasks
+                canWrite={canWrite(user)}
+                items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn.toISOString(), overdue: x.overdue }))}
+              />
+            </Section>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 [&>section]:mt-0">
+            <Section title={home.topTitle} hint={home.topHint}>
+              <TopRisk clients={data.clients} accountantQuery={accountantQuery} />
+            </Section>
+            <Section title={home.typesTitle} hint={home.typesHint}>
+              <TopTypes types={data.byType} accountantQuery={accountantQuery} />
+            </Section>
+          </div>
+
+          <Section title={home.changesTitle} hint={home.changesHint}>
+            <Changes changes={data.changes} />
+          </Section>
+        </>
+      ) : null}
+
+      {data.workload ? (
+        <Section title={home.workloadTitle} hint={home.workloadHint}>
+          <Workload rows={data.workload} />
+        </Section>
+      ) : null}
+
+      <Section title={ta.dash.recent} actions={<Link href="/activity" className="text-small font-medium text-brand-ink hover:underline">{home.recentAll}</Link>}>
+        {recent.rows.length === 0
+          ? <p className="text-small text-muted">{ta.dash.recentEmpty}</p>
+          : <ActivityFeed entries={groupDecisions(recent.rows).slice(0, RECENT)} />}
       </Section>
 
-      <Section title={ta.dash.attentionTitle}>
-        {needing.length === 0 ? <p className="text-sm text-muted">{ta.dash.nothing}</p> : (
-          <ul className="divide-y divide-line rounded-ctl border border-line">
-            {needing.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                <span className="min-w-0">
-                  <Link href={c.catalogId ? `/catalogs/${c.catalogId}` : `/clients/${c.id}`} className="font-medium hover:text-brand">{c.name}</Link>
-                  <span className="mt-1 flex flex-wrap gap-1.5">{c.reasons.map((r) => <Badge key={r.kind} tone={r.kind === 'update' || r.kind === 'overdue' ? 'danger' : 'warn'}>{reasonText(r)}</Badge>)}</span>
-                </span>
-                <Link href={c.catalogId ? `/catalogs/${c.catalogId}` : `/clients/${c.id}`} className="text-brand hover:underline">{ta.dash.open}</Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title={ta.dash.allClients}>
-        {data.cards.length === 0 ? <EmptyState title={ta.clients.emptyTitle} hint={ta.clients.emptyHint} /> : (
-          <Table>
-            <thead>
-              <tr><Th>{ta.dash.colClient}</Th><Th>{ta.dash.colCatalog}</Th><Th className="text-right">{ta.dash.colRisky}</Th><Th>{ta.dash.colProgress}</Th><Th>{ta.dash.colAccountant}</Th></tr>
-            </thead>
-            <tbody>
-              {data.cards.map((c) => (
-                <tr key={c.id} className="hover:bg-surface/60">
-                  <Td className="font-medium"><Link href={`/clients/${c.id}`} className="hover:text-brand">{c.name}</Link></Td>
-                  <Td className="text-muted">{c.catalogId ? <Link href={`/catalogs/${c.catalogId}`} className="hover:text-brand">{c.catalogDate?.toLocaleDateString(formatTag(locale))}</Link> : ta.dash.noCatalog}</Td>
-                  <Td className={`text-right font-medium ${c.riskyRows > 0 ? 'text-danger' : ''}`}>{fmt(c.riskyRows)}</Td>
-                  <Td><Progress done={c.reviewed} total={c.riskyFindings} /></Td>
-                  <Td className="max-w-[220px] truncate text-muted" title={c.accountants.join(', ')}>{c.accountants.join(', ')}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </Section>
-
-      <Section title={ta.dash.recent}>
-        {activity.length === 0 ? <p className="text-sm text-muted">{ta.dash.recentEmpty}</p> : (
-          <ul className="divide-y divide-line rounded-ctl border border-line text-sm">
-            {activity.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2">
-                <span>{ta.activity.actions[e.action] ?? e.action}<span className="ml-2 text-muted">{e.actor ?? ta.activity.system}</span></span>
-                <span className="text-xs text-muted">{e.at.toLocaleString(formatTag(locale))}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-      <span className="sr-only">{t.appName}</span>
+      {openSteps && !firstRun ? <div className="mt-8"><Onboarding steps={steps} primary={false} /></div> : null}
     </Page>
   );
 }

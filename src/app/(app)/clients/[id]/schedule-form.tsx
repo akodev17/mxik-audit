@@ -1,47 +1,81 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { saveSchedule } from '@/app/actions/reminders';
+import { fmtDate } from '@/lib/format';
 import { useI18n } from '@/lib/locale-client';
+import { nextReminderDate, skipsThisMonth } from '@/lib/reminder-dates';
 import { Button } from '@/ui/button';
+import { Checkbox } from '@/ui/checkbox';
+import { Select } from '@/ui/select';
+import { useToast } from '@/ui/toast';
 
 type Props = {
   clientId: string;
-  initial: { dayOfMonth: number; assigneeId: string | null; enabled: boolean } | null;
+  initial: { dayOfMonth: number; assigneeId: string | null; enabled: boolean; lastPeriod: string | null } | null;
   people: { id: string; email: string }[];
 };
 
 const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 
-/** The client's monthly check day and who gets reminded. */
+/** The client's monthly check day and who gets reminded; the day and person wait until reminders are on. */
 export function ScheduleForm({ clientId, initial, people }: Props) {
-  const { ta } = useI18n();
+  const { locale, ta } = useI18n();
+  const words = ta.firmX.reminders;
   const router = useRouter();
+  const toast = useToast();
   const [day, setDay] = useState(initial?.dayOfMonth ?? 5);
   const [assignee, setAssignee] = useState(initial?.assigneeId ?? '');
   const [enabled, setEnabled] = useState(initial?.enabled ?? false);
-  const [saved, setSaved] = useState(false);
-  const [busy, start] = useTransition();
-  const select = 'h-9 rounded-ctl border border-line-strong bg-base px-2 text-sm';
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const lastPeriod = initial?.lastPeriod ?? null;
+  const dirty = !initial
+    ? enabled
+    : day !== initial.dayOfMonth || (assignee || null) !== initial.assigneeId || enabled !== initial.enabled;
+  const skip = skipsThisMonth({ dayOfMonth: day, enabled }, lastPeriod);
+  const nextDue = nextReminderDate({ dayOfMonth: day, enabled, lastPeriod });
+
+  async function save(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await saveSchedule({ clientId, dayOfMonth: day, assigneeId: assignee || null, enabled });
+      if (!result.ok) { setError(result.error); return; }
+      toast(result.nextDue ? `${words.saved} ${words.next(fmtDate(locale, result.nextDue))}` : words.saved);
+      router.refresh();
+    } catch {
+      setError(ta.shellX.ui.confirmFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="space-y-3 text-sm">
-      <label className="flex items-center gap-2"><input type="checkbox" checked={enabled} onChange={(e) => { setEnabled(e.target.checked); setSaved(false); }} className="size-4 accent-[var(--color-brand)]" />{ta.reminders.enable}</label>
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="flex items-center gap-2">{ta.reminders.day}
-          <select value={day} onChange={(e) => { setDay(Number(e.target.value)); setSaved(false); }} className={select}>{DAYS.map((d) => <option key={d} value={d}>{d}</option>)}</select>
-        </label>
-        <label className="flex items-center gap-2">{ta.reminders.assignee}
-          <select value={assignee} onChange={(e) => { setAssignee(e.target.value); setSaved(false); }} className={select}>
-            <option value="">{ta.reminders.assigned}</option>
-            {people.map((p) => <option key={p.id} value={p.id}>{p.email}</option>)}
-          </select>
-        </label>
-        <Button size="sm" variant="primary" disabled={busy} onClick={() => start(async () => { setSaved(await saveSchedule({ clientId, dayOfMonth: day, assigneeId: assignee || null, enabled })); router.refresh(); })}>{ta.reminders.save}</Button>
-        {saved ? <span className="text-good">{ta.dict.saved}</span> : null}
+    <div className="max-w-xl space-y-3">
+      <Checkbox label={ta.reminders.enable} checked={enabled} onChange={(e) => { setEnabled(e.target.checked); setError(null); }} disabled={busy} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Select label={ta.reminders.day.replace(/:$/, '')} value={day} disabled={!enabled || busy} onChange={(e) => setDay(Number(e.target.value))}>
+          {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+        </Select>
+        <Select label={ta.reminders.assignee.replace(/:$/, '')} value={assignee} disabled={!enabled || busy} onChange={(e) => setAssignee(e.target.value)}>
+          <option value="">{ta.reminders.assigned}</option>
+          {people.map((p) => <option key={p.id} value={p.id}>{p.email}</option>)}
+        </Select>
       </div>
-      <p className="text-xs text-muted">{ta.reminders.hint}</p>
+      {enabled ? (
+        <p className="text-small text-muted">
+          {skip ? `${words.skip(day)} ` : ''}
+          {nextDue ? words.next(fmtDate(locale, nextDue)) : null}
+        </p>
+      ) : (
+        <p className="text-small text-muted">{words.offNote}</p>
+      )}
+      <p className="text-small text-muted">{ta.reminders.hint}</p>
+      {error ? <p role="alert" className="text-small font-medium text-danger-ink">{error}</p> : null}
+      <Button variant="secondary" size="sm" loading={busy} disabled={!dirty && !busy} onClick={() => { void save(); }}>{words.save}</Button>
     </div>
   );
 }

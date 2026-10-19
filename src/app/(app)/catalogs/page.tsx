@@ -1,46 +1,81 @@
-import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { listCatalogs } from '@/lib/catalogs';
-import { clientScope } from '@/lib/access';
+import { canWrite, clientScope } from '@/lib/access';
+import { CATALOG_PAGE, catalogList } from '@/lib/catalogs';
 import { db } from '@/lib/db';
+import { fmtNumber } from '@/lib/format';
+import { getI18n } from '@/lib/locale';
+import { withQuery } from '@/lib/query-string';
 import { currentUser } from '@/lib/session';
-import { ButtonLink } from '@/ui/button';
-import { CatalogTable } from '@/ui/catalog-table';
+import { Button, ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
-import { DeleteCatalogButton } from './delete-button';
+import { Select } from '@/ui/select';
+import { CatalogList } from './catalog-list';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return { title: `${t.catalogsTitle} — ${t.appName}` };
 }
 
-export default async function CatalogsPage() {
-  const { t, ta } = await getI18n();
+type Params = { client?: string; page?: string };
+
+export default async function CatalogsPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const { locale, t, ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
-  const [catalogs, clients] = await Promise.all([
-    listCatalogs(user.orgId, null, user.clientIds),
-    db.client.findMany({ where: { orgId: user.orgId, ...clientScope(user) }, select: { id: true, name: true } }),
-  ]);
-  const names = clients.length > 1 ? new Map(clients.map((c) => [c.id, c.name])) : undefined;
+  const sp = await searchParams;
+  const words = ta.firmX.catalogs;
+
+  const clients = await db.client.findMany({
+    where: { orgId: user.orgId, archivedAt: null, ...clientScope(user) },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  });
+  // No choice made: the client being worked on; "all" or a single client shows everything.
+  const requested = sp.client === 'all' ? null : clients.find((c) => c.id === (sp.client ?? user.clientId))?.id ?? null;
+  const clientId = clients.length > 1 ? requested : null;
+  const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
+  const { items, total } = await catalogList(user, clientId, page - 1);
+  const pages = Math.max(1, Math.ceil(total / CATALOG_PAGE));
+  const writer = canWrite(user) && !user.demo;
+  const params = { client: sp.client };
 
   return (
     <Page
-      title={t.catalogsTitle} hint={t.catalogsHint} wide
-      actions={user.demo ? null : <ButtonLink href="/upload" variant="primary">{ta.catalogs.uploadCta}</ButtonLink>}
+      title={t.catalogsTitle} hint={words.hint} wide
+      actions={writer ? <ButtonLink href={clientId ? `/upload?client=${clientId}` : '/upload'} variant="primary">{ta.catalogs.uploadCta}</ButtonLink> : null}
     >
-      {catalogs.length === 0 ? (
+      {clients.length > 1 ? (
+        <form action="/catalogs" className="mb-5 flex flex-wrap items-end gap-2">
+          <Select label={words.client} name="client" defaultValue={clientId ?? 'all'} wrapperClassName="w-full sm:w-80">
+            <option value="all">{words.allClients}</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <Button type="submit" variant="secondary">{words.show}</Button>
+        </form>
+      ) : null}
+      {canWrite(user) ? null : <p className="mb-4 text-small text-muted">{words.readOnly}</p>}
+
+      {items.length === 0 ? (
         <EmptyState
           title={ta.catalogs.emptyTitle} hint={ta.catalogs.emptyHint}
-          action={<ButtonLink href="/upload" variant="primary">{ta.catalogs.uploadCta}</ButtonLink>}
+          action={writer ? <ButtonLink href={clientId ? `/upload?client=${clientId}` : '/upload'} variant="secondary">{ta.catalogs.uploadCta}</ButtonLink> : null}
         />
       ) : (
-        <CatalogTable
-          catalogs={catalogs} clientNames={names}
-          rowAction={user.demo ? undefined : (c) => <DeleteCatalogButton catalogId={c.id} filename={c.filename} />}
-        />
+        <>
+          <p className="mb-2 text-small text-muted">{words.total(fmtNumber(locale, total), total)}</p>
+          <CatalogList items={items} showClient={clientId === null && clients.length > 1} canDelete={writer} />
+          {pages > 1 ? (
+            <nav aria-label={t.catalogsTitle} className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-small text-muted">{ta.firmX.clients.page(page, pages)}</span>
+              <span className="flex gap-2">
+                {page > 1 ? <ButtonLink href={withQuery('/catalogs', params, { page: page - 1 > 1 ? String(page - 1) : null })} size="sm" variant="secondary">{ta.firmX.clients.prev}</ButtonLink> : null}
+                {page < pages ? <ButtonLink href={withQuery('/catalogs', params, { page: String(page + 1) })} size="sm" variant="secondary">{ta.firmX.clients.next}</ButtonLink> : null}
+              </span>
+            </nav>
+          ) : null}
+        </>
       )}
     </Page>
   );

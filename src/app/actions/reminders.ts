@@ -3,23 +3,44 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { canSeeClient } from '@/lib/access';
+import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
+import { getI18n } from '@/lib/locale';
 import { markDone, setSchedule } from '@/lib/reminders';
 
-export async function saveSchedule(payload: unknown): Promise<boolean> {
+export type ReminderResult = { ok: true; nextDue?: string | null } | { ok: false; error: string };
+
+const ScheduleInput = z.object({
+  clientId: z.string().min(1),
+  dayOfMonth: z.number().int().min(1).max(28),
+  assigneeId: z.string().min(1).nullable(),
+  enabled: z.boolean(),
+});
+
+export async function saveSchedule(payload: unknown): Promise<ReminderResult> {
+  const { ta } = await getI18n();
   const user = await writer();
-  const parsed = z.object({ clientId: z.string().min(1), dayOfMonth: z.number().int().min(1).max(28), assigneeId: z.string().min(1).nullable(), enabled: z.boolean() }).safeParse(payload);
-  if (!user || !parsed.success || !canSeeClient(user, parsed.data.clientId)) return false;
-  const ok = await setSchedule(user, parsed.data.clientId, parsed.data);
+  if (!user || await isDemoOrg(user.orgId)) return { ok: false, error: ta.firmX.errors.forbidden };
+  const parsed = ScheduleInput.safeParse(payload);
+  if (!parsed.success) return { ok: false, error: ta.firmX.reminders.badDay };
+  if (!canSeeClient(user, parsed.data.clientId)) return { ok: false, error: ta.firmX.errors['not found'] };
+  const result = await setSchedule(user, parsed.data.clientId, parsed.data);
+  if (!result.ok) return { ok: false, error: result.error === 'bad day' ? ta.firmX.reminders.badDay : ta.firmX.errors['not found'] };
   revalidatePath(`/clients/${parsed.data.clientId}`);
-  return ok;
+  revalidatePath('/dashboard');
+  return { ok: true, nextDue: result.nextDue ? result.nextDue.toISOString() : null };
 }
 
-export async function finishTask(taskId: unknown): Promise<boolean> {
+/** Marks a monthly check done by hand; only for a client the user may see. */
+export async function finishTask(taskId: unknown): Promise<ReminderResult> {
+  const { ta } = await getI18n();
   const user = await writer();
-  const id = z.string().min(1).safeParse(taskId);
-  if (!user || !id.success) return false;
-  const ok = await markDone(user, id.data);
+  if (!user) return { ok: false, error: ta.firmX.errors.forbidden };
+  const id = z.string().min(1).max(64).safeParse(taskId);
+  if (!id.success) return { ok: false, error: ta.firmX.errors['not found'] };
+  const result = await markDone(user, id.data);
+  if (!result.ok) return { ok: false, error: result.error === 'already done' ? ta.firmX.reminders.alreadyDone : ta.firmX.errors['not found'] };
   revalidatePath('/dashboard');
-  return ok;
+  revalidatePath(`/clients/${result.clientId}`);
+  return { ok: true };
 }
