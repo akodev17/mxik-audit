@@ -10,7 +10,11 @@ const TOUCH_EVERY_MS = 60_000;
 
 type Actor = { userId: string; orgId: string };
 
-export type ApiKeyView = { id: string; name: string; prefix: string; createdAt: Date; lastUsedAt: Date | null; revokedAt: Date | null; checksThisMonth: number };
+export type ApiKeyView = {
+  id: string; name: string; prefix: string; createdAt: Date; lastUsedAt: Date | null; revokedAt: Date | null; checksThisMonth: number;
+  /** User id of the member who made the key (the user may since have been removed). */
+  createdBy: string | null;
+};
 
 export const monthKey = (now = new Date()): string => now.toISOString().slice(0, 7);
 
@@ -29,7 +33,10 @@ export async function listApiKeys(orgId: string): Promise<ApiKeyView[]> {
   const keys = await db.apiKey.findMany({ where: { orgId }, orderBy: { createdAt: 'desc' }, take: 50 });
   const usage = await db.apiUsage.findMany({ where: { orgId, month: monthKey() }, select: { keyId: true, checks: true } });
   const checks = new Map(usage.map((u) => [u.keyId, u.checks]));
-  return keys.map((k) => ({ id: k.id, name: k.name, prefix: k.prefix, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt, revokedAt: k.revokedAt, checksThisMonth: checks.get(k.id) ?? 0 }));
+  return keys.map((k) => ({
+    id: k.id, name: k.name, prefix: k.prefix, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt, revokedAt: k.revokedAt,
+    checksThisMonth: checks.get(k.id) ?? 0, createdBy: k.createdBy,
+  }));
 }
 
 export async function revokeApiKey(actor: Actor, keyId: string): Promise<boolean> {

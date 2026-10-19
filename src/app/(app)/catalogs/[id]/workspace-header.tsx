@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { billingConfig } from '@/lib/billing/config';
 import { catalogPaid } from '@/lib/billing/orders';
 import { db } from '@/lib/db';
-import { fmtDate, fmtNumber } from '@/lib/format';
+import { fmtDate } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { degradedNotes, readPipelineMeta } from '@/lib/pipeline-meta';
 import { Badge } from '@/ui/badge';
@@ -13,10 +13,14 @@ import { ShareButton } from './share-button';
 
 type Props = {
   orgId: string;
-  catalog: { id: string; filename: string; createdAt: Date; rowCount: number; previousId?: string | null; snapshotId?: number | null; pipelineMeta?: unknown };
+  catalog: { id: string; filename: string; createdAt: Date; rowCount: number; status: string; previousId?: string | null; snapshotId?: number | null; pipelineMeta?: unknown };
   client: { id: string; name: string };
   /** Only writers may create share links. */
   canShare?: boolean;
+  /** Only an admin pays for the corrected file. */
+  canPay: boolean;
+  /** A demo org never pays. */
+  demo: boolean;
 };
 
 /** Whether the corrected file needs a payment first; shared with the page's completion state. */
@@ -26,10 +30,10 @@ export async function exportLocked(orgId: string, catalogId: string): Promise<bo
 
 /**
  * Catalogue name, client, date and the classifier version the audit used
- * (with a hint when a newer one exists), any degraded-run notes, and the
- * export actions.
+ * (named by its date, with a hint when a newer one exists), any degraded-run
+ * notes, and the export actions.
  */
-export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Props) {
+export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay, demo }: Props) {
   const { ta, locale } = await getI18n();
   const h = ta.wsX.header;
   const [used, latest, locked] = await Promise.all([
@@ -42,7 +46,7 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Prop
   const notes = meta ? degradedNotes(meta, ta) : [];
 
   const classifier = used
-    ? <span>{h.snapshot(fmtNumber(locale, used.id), fmtDate(locale, used.takenAt))}</span>
+    ? <span>{h.snapshot(fmtDate(locale, used.takenAt))}</span>
     : <span title={h.snapshotUnknownHint}>{h.snapshotUnknown}</span>;
 
   return (
@@ -57,7 +61,7 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Prop
               <dt className="text-muted">{ta.ws.classifier}:</dt>
               <dd className="flex flex-wrap items-center gap-1.5">
                 {classifier}
-                {newer ? <Badge tone="info" title={h.newerHint} icon={<IconInfo size={12} />}>{h.newer(fmtDate(locale, newer.takenAt))}</Badge> : null}
+                {newer ? <Badge tone="info" icon={<IconInfo size={12} />}>{h.newer(fmtDate(locale, newer.takenAt))}</Badge> : null}
               </dd>
             </div>
             {catalog.previousId ? (
@@ -68,9 +72,10 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare }: Prop
         </div>
         <ExportActions
           catalogId={catalog.id}
+          status={catalog.status}
           locked={locked}
           share={canShare ? <ShareButton catalogId={catalog.id} /> : null}
-          panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} />}
+          panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} canPay={canPay} demo={demo} />}
         />
       </div>
       {notes.length > 0 ? (

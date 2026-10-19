@@ -5,7 +5,7 @@ import { canSeeClient, canWrite, isAdminRole } from '@/lib/access';
 import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
 import { catalogList } from '@/lib/catalogs';
-import { assignableAccountants } from '@/lib/client-lifecycle';
+import { assignableAccountants, clientDependants } from '@/lib/client-lifecycle';
 import { clientStats, rowProgress } from '@/lib/client-stats';
 import { db } from '@/lib/db';
 import { fmtDateTime, fmtNumber } from '@/lib/format';
@@ -61,14 +61,22 @@ export default async function ClientPage({ params }: Props) {
   const writer = canWrite(user) && !user.demo;
   const archived = client.archivedAt !== null;
 
-  const [statsPage, catalogs, history, schedule, people, accountants] = await Promise.all([
+  const [statsPage, catalogs, history, schedule, staff, accountants, dependants] = await Promise.all([
     clientStats({ orgId: user.orgId, clientIds: [client.id], filter: archived ? 'archived' : 'all', limit: 1 }),
     catalogList(user, client.id),
     activityPage(user, { clientId: client.id, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: 40 }),
     getSchedule(user.orgId, client.id),
-    db.user.findMany({ where: { orgId: user.orgId, role: { not: 'viewer' } }, orderBy: { email: 'asc' }, select: { id: true, email: true } }),
+    db.user.findMany({
+      where: { orgId: user.orgId, role: { not: 'viewer' } }, orderBy: { email: 'asc' },
+      select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } },
+    }),
     admin ? assignableAccountants(user.orgId, client.id) : Promise.resolve(null),
+    admin && !user.demo ? clientDependants(user.orgId, client.id) : Promise.resolve(null),
   ]);
+  // Only someone who can open the client can be reminded about it; the current choice stays listed so a lost access shows.
+  const people = staff
+    .filter((p) => p.id === schedule?.assigneeId || p.role === 'admin' || p.assignments.length === 0 || p.assignments.some((a) => a.clientId === client.id))
+    .map((p) => ({ id: p.id, email: p.email }));
   const stats = statsPage.rows[0];
   const progress = stats ? rowProgress(stats) : null;
   const fmt = (n: number): string => fmtNumber(locale, n);
@@ -83,7 +91,10 @@ export default async function ClientPage({ params }: Props) {
         <>
           {writer && !archived ? <ButtonLink href={`/upload?client=${client.id}`} variant="primary">{t.clientUpload}</ButtonLink> : null}
           {admin && !user.demo ? (
-            <ClientMenu clientId={client.id} name={client.name} isDefault={client.isDefault} archived={archived} catalogs={stats?.catalogs ?? catalogs.total} />
+            <ClientMenu
+              clientId={client.id} name={client.name} isDefault={client.isDefault} archived={archived} catalogs={stats?.catalogs ?? catalogs.total}
+              blockers={dependants?.deleteBlockers ?? []} stranded={dependants?.archiveStranded ?? []}
+            />
           ) : null}
         </>
       )}
@@ -116,7 +127,7 @@ export default async function ClientPage({ params }: Props) {
         <Stat
           label={ta.firmX.progress.label}
           value={progress ? `${fmt(progress.done)} / ${fmt(progress.total)}` : ta.firmX.dash}
-          hint={progress ? ta.firmX.progress.of(fmt(progress.done), fmt(progress.total), progress.total) : ta.firmX.progress.none}
+          hint={progress ? ta.firmX.progress.of(fmt(progress.done), fmt(progress.total), progress.total) : stats?.catalogId ? ta.firmX.progress.none : words.noAudit}
         />
       </div>
 

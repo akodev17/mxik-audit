@@ -23,6 +23,7 @@ export function skippedText(skipped: Skipped, ta: AppDict, locale: Locale): stri
     skipped.archived > 0 ? count(locale, x.skippedArchived, skipped.archived) : null,
     skipped.conflict > 0 ? count(locale, x.skippedConflict, skipped.conflict) : null,
     skipped.noCode > 0 ? count(locale, x.skippedNoCode, skipped.noCode) : null,
+    skipped.confirmOnly > 0 ? count(locale, x.skippedConfirmOnly, skipped.confirmOnly) : null,
   ].filter((p): p is string => p !== null);
   return parts.length > 0 ? x.skipped(parts.join('; ')) : null;
 }

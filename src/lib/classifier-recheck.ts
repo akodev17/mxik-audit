@@ -133,7 +133,7 @@ export async function recheckAfterUpdate(snapshotId: number, log: (line: string)
         kind: 'classifier.updated',
         title,
         body: updateBody(result, target.filename, snapshot.takenAt, locale),
-        href: `/report?catalog=${target.catalogId}`,
+        href: `/catalogs/${target.catalogId}`,
       });
     }
   }

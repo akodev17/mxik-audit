@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { deleteMapping, updateMapping } from '@/app/actions/dictionary';
 import { fmtNumber } from '@/lib/format';
 import { useI18n } from '@/lib/locale-client';
@@ -20,16 +20,21 @@ export type DictRow = {
 
 const CODE = /^\d{17}$/;
 
-/** How much people stood behind an entry: individual confirmations, or only bulk accepts. */
+/**
+ * How much people stood behind an entry: individual confirmations, or only bulk accepts.
+ * Entries learned before provenance was recorded have no source and no count: unknown, not "bulk only".
+ */
 function Trust({ row }: { row: DictRow }) {
   const { ta, locale } = useI18n();
   const x = ta.wsX.dict;
   const source = row.source ? x.sourceLabel[row.source] : null;
+  let badge: ReactNode;
+  if (row.confirmations > 0) badge = <Badge tone="good" icon={<StatusIcon tone="good" size={12} />}>{x.confirmed(fmtNumber(locale, row.confirmations), row.confirmations)}</Badge>;
+  else if (row.source === null) badge = <Badge tone="neutral" icon={<StatusIcon tone="neutral" size={12} />} title={x.noHistoryHint}>{x.noHistory}</Badge>;
+  else badge = <Badge tone="warn" icon={<StatusIcon tone="warn" size={12} />}>{x.bulkOnly}</Badge>;
   return (
     <span className="flex flex-col items-start gap-0.5">
-      {row.confirmations > 0
-        ? <Badge tone="good" icon={<StatusIcon tone="good" size={12} />}>{x.confirmed(fmtNumber(locale, row.confirmations), row.confirmations)}</Badge>
-        : <Badge tone="warn" icon={<StatusIcon tone="warn" size={12} />}>{x.bulkOnly}</Badge>}
+      {badge}
       {source ? <span className="text-micro text-muted">{source}</span> : null}
     </span>
   );

@@ -12,7 +12,11 @@ describe('workspace shortcuts', () => {
     assert.equal(shortcutFor(key('KeyR', 'к')), 'reject');
     assert.equal(shortcutFor(key('KeyU', 'г')), 'undo');
     assert.equal(shortcutFor(key('KeyN', 'т')), 'nextPending');
-    assert.equal(shortcutFor(key('Slash', '.')), 'search');
+  });
+
+  it('leaves / to the command palette', () => {
+    assert.equal(shortcutFor(key('Slash', '/')), null);
+    assert.equal(shortcutFor(key('Slash', '.')), null);
   });
 
   it('opens help with ? on any layout', () => {

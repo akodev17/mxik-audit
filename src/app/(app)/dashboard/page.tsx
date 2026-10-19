@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { canWrite, isAdminRole } from '@/lib/access';
 import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
+import { pendingAudits } from '@/lib/client-attention';
 import { attentionReasons, rowProgress } from '@/lib/client-stats';
 import { dashboard } from '@/lib/dashboard';
 import { fmtNumber } from '@/lib/format';
@@ -57,9 +58,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return q ? `/queue?${q}` : '/queue';
   };
   const reviewed = rowProgress(totals);
+  const audited = data.clients.some((c) => c.catalogId !== null);
   const openSteps = steps.some((s) => !s.done);
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
   const attention = data.clients.filter((c) => attentionReasons(c).length > 0);
+  const pending = await pendingAudits(user.orgId, data.clients.filter((c) => !c.isDefault));
 
   return (
     <Page title={ta.dash.title} hint={home.hint} wide>
@@ -89,7 +92,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <Stat
               label={ta.firmX.progress.label} href="/clients?sort=progress"
               value={reviewed ? `${fmt(reviewed.done)} / ${fmt(reviewed.total)}` : ta.firmX.dash}
-              hint={reviewed ? ta.firmX.progress.of(fmt(reviewed.done), fmt(reviewed.total), reviewed.total) : ta.firmX.progress.none}
+              hint={reviewed ? ta.firmX.progress.of(fmt(reviewed.done), fmt(reviewed.total), reviewed.total) : audited ? ta.firmX.progress.none : ta.firmX.progress.notAudited}
             />
             <Stat
               label={home.attention} value={fmt(totals.attention)} href="/clients?filter=attention"
@@ -102,15 +105,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             />
           </div>
 
-          {firstRun ? null : <NextStep clients={data.clients} tasks={tasks} canUpload={canWrite(user) && !user.demo} queueHref={queueHref} />}
+          {firstRun ? null : <NextStep clients={data.clients} pending={pending} tasks={tasks} canUpload={canWrite(user) && !user.demo} queueHref={queueHref} />}
 
           <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 [&>section]:mt-0">
             <Section title={home.attentionTitle} actions={attention.length > 0 ? <Link href="/clients?filter=attention" className="text-small font-medium text-brand-ink hover:underline">{home.attentionAll}</Link> : null}>
-              <AttentionList clients={attention} />
+              <AttentionList clients={attention} pending={pending} />
             </Section>
             <Section title={ta.reminders.tasks}>
               <Tasks
-                canWrite={canWrite(user)}
+                canWrite={canWrite(user) && !user.demo}
                 items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn.toISOString(), overdue: x.overdue }))}
               />
             </Section>

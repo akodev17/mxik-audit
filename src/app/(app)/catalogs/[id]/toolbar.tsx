@@ -1,5 +1,6 @@
 'use client';
 
+import { decisionSourceLabel } from '@/lib/decision-source';
 import { useI18n } from '@/lib/locale-client';
 import type { OptionalColumn, ViewParams } from '@/lib/view-params';
 import type { WsFilter } from '@/lib/workspace-filter';
@@ -46,6 +47,7 @@ export function Toolbar(p: Props) {
   const current: ViewParams = {
     type: filter.type, q: filter.q, pending: filter.decision === 'pending', decision: filter.decision, flag: filter.flag,
     comments: filter.commented, sort: filter.sort, density: p.compact ? 'compact' : 'comfortable', grouped: p.grouped, hidden: p.hidden,
+    ...(filter.source ? { source: filter.source } : {}),
   };
   const n = activeFilters(filter);
   const dictLabel = count(locale, x.dictButton, p.dictionaryPending);
@@ -59,6 +61,12 @@ export function Toolbar(p: Props) {
           <span className="inline-flex h-7 max-w-full items-center gap-1 rounded-full bg-brand-tint pl-3 pr-1 text-small text-brand-ink">
             <span className="truncate">{x.filter.search(filter.q)}</span>
             <IconButton size="compact" label={x.filter.clearSearch} icon={<IconX size={14} />} onClick={() => go((q) => q.delete('q'))} />
+          </span>
+        ) : null}
+        {filter.source ? (
+          <span className="inline-flex h-7 max-w-full items-center gap-1 rounded-full bg-brand-tint pl-3 pr-1 text-small text-brand-ink">
+            <span className="truncate">{x.filter.source(decisionSourceLabel(filter.source, ta))}</span>
+            <IconButton size="compact" label={x.filter.clearSource} icon={<IconX size={14} />} onClick={() => go((q) => q.delete('source'))} />
           </span>
         ) : null}
         {p.phone ? (

@@ -112,6 +112,7 @@ export const uz = {
       status: {
         attention: 'Koʻrib chiqish kerak',
         decided: 'Qaror qabul qilingan',
+        auto: 'Avtomatik qaror',
         info: 'Maʼlumot uchun',
         clean: 'Muammo aniqlanmagan',
       },
@@ -120,6 +121,7 @@ export const uz = {
       copied: (code: string) => `${code} kodi nusxalandi`,
       copyFailed: 'Kodni nusxalab boʻlmadi.',
       row: (n: string) => `${n}-qator`,
+      cleanRow: (n: string) => `Muammo aniqlanmagan · ${n}-qator`,
       keys: { move: 'tanlash', open: 'ochish', close: 'yopish', back: 'orqaga' },
       cmd: {
         dashboard: 'Bosh sahifani ochish',
@@ -264,6 +266,7 @@ export const ru: typeof uz = {
       status: {
         attention: 'Требует проверки',
         decided: 'Решение принято',
+        auto: 'Автоматическое решение',
         info: 'Для сведения',
         clean: 'Проблем не найдено',
       },
@@ -272,6 +275,7 @@ export const ru: typeof uz = {
       copied: (code: string) => `Код ${code} скопирован`,
       copyFailed: 'Не удалось скопировать код.',
       row: (n: string) => `Строка ${n}`,
+      cleanRow: (n: string) => `Проблем не найдено · строка ${n}`,
       keys: { move: 'выбор', open: 'открыть', close: 'закрыть', back: 'назад' },
       cmd: {
         dashboard: 'Открыть главную',

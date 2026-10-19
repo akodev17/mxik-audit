@@ -1,22 +1,33 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { archiveClientAction, deleteClientAction, renameClientAction } from '@/app/actions/clients';
+import type { Dependant } from '@/lib/client-lifecycle';
 import { fmtNumber } from '@/lib/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Dialog } from '@/ui/dialog';
+import { IconAlert } from '@/ui/icons';
 import { Field, Input } from '@/ui/input';
 import { Menu, type MenuItem } from '@/ui/menu';
 import { useToast } from '@/ui/toast';
 
-type Props = { clientId: string; name: string; isDefault: boolean; archived: boolean; catalogs: number };
+type Props = {
+  clientId: string; name: string; isDefault: boolean; archived: boolean; catalogs: number;
+  /** Members and open invites whose only client this is: deleting would widen them to every client. */
+  blockers: Dependant[];
+  /** Members left with no active client if this one is archived. */
+  stranded: string[];
+};
 type Open = 'rename' | 'archive' | 'delete' | null;
 
+const TEAM_HREF = '/settings?tab=team';
+
 /** Admin lifecycle of a client: rename, archive, delete (typed name). The default client can only be renamed. */
-export function ClientMenu({ clientId, name, isDefault, archived, catalogs }: Props) {
+export function ClientMenu({ clientId, name, isDefault, archived, catalogs, blockers: initialBlockers, stranded }: Props) {
   const { locale, ta } = useI18n();
   const words = ta.firmX.client;
   const router = useRouter();
@@ -26,18 +37,26 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs }: Pr
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The server re-checks on delete; a refusal it returns replaces what the page was rendered with.
+  const [blockers, setBlockers] = useState<Dependant[]>(initialBlockers);
+  const blocked = blockers.length > 0;
 
-  const show = (which: Open): void => { setError(null); setDraft(name); setTyped(''); setOpen(which); };
+  const show = (which: Open): void => { setError(null); setDraft(name); setTyped(''); setBlockers(initialBlockers); setOpen(which); };
+  const who = (d: Dependant): string => (d.kind === 'invite' ? words.blockerInvite(d.email) : d.email ?? '');
   const items: MenuItem[] = [{ label: words.rename, onSelect: () => show('rename') }];
   if (!isDefault && !archived) items.push({ label: words.archive, onSelect: () => show('archive') });
   if (!isDefault) items.push({ label: words.delete, tone: 'danger', onSelect: () => show('delete') });
 
-  async function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string, after: () => void): Promise<void> {
+  async function run(action: () => Promise<{ ok: true } | { ok: false; error: string; blockers?: Dependant[] }>, done: string, after: () => void): Promise<void> {
     setBusy(true);
     setError(null);
     try {
       const result = await action();
-      if (!result.ok) { setError(result.error); return; }
+      if (!result.ok) {
+        if (result.blockers) setBlockers(result.blockers);
+        setError(result.error);
+        return;
+      }
       setOpen(null);
       toast(done);
       after();
@@ -71,12 +90,19 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs }: Pr
 
       <ConfirmDialog
         open={open === 'archive'} onClose={() => setOpen(null)}
-        title={words.archiveTitle} description={words.archiveHint} scope={name}
+        title={words.archiveTitle}
+        description={(
+          <>
+            {words.archiveHint}
+            {stranded.length > 0 ? <PeopleWarning text={words.archiveStranded} people={stranded} teamLabel={words.teamLink} /> : null}
+          </>
+        )}
+        scope={name}
         confirmLabel={words.archiveConfirm}
         onConfirm={async () => {
           const result = await archiveClientAction(clientId);
           if (!result.ok) return result;
-          toast(words.archivedDone);
+          toast(result.stranded.length > 0 ? words.archivedStranded(result.stranded.join(', ')) : words.archivedDone);
           router.refresh();
           return { ok: true };
         }}
@@ -90,27 +116,41 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs }: Pr
             <Button variant="secondary" onClick={() => setOpen(null)} disabled={busy}>{ta.shellX.ui.cancel}</Button>
             <Button
               type="submit" form="delete-client" variant="danger" loading={busy}
-              disabled={typed.replace(/\s+/g, ' ').trim() !== name}
+              disabled={blocked || typed.replace(/\s+/g, ' ').trim() !== name}
             >
               {words.deleteConfirm}
             </Button>
           </>
         )}
       >
+        {blocked ? <PeopleWarning text={words.deleteBlocked} people={blockers.map(who)} teamLabel={words.teamLink} alert /> : null}
         <form
           id="delete-client"
           onSubmit={(e) => {
             e.preventDefault();
-            if (typed.replace(/\s+/g, ' ').trim() !== name) return;
+            if (blocked || typed.replace(/\s+/g, ' ').trim() !== name) return;
             void run(() => deleteClientAction({ clientId, confirmName: typed }), words.deleted, () => router.push('/clients'));
           }}
         >
           <Field label={words.deleteType(name)}>
-            <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" spellCheck={false} />
+            <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" spellCheck={false} disabled={blocked} />
           </Field>
-          {errorLine}
+          {blocked ? null : errorLine}
         </form>
       </Dialog>
     </>
+  );
+}
+
+/** Whose access a client change affects, with the way to fix it in Settings → Team. */
+function PeopleWarning({ text, people, teamLabel, alert = false }: { text: string; people: string[]; teamLabel: string; alert?: boolean }) {
+  return (
+    <div role={alert ? 'alert' : undefined} className="mt-3 rounded-md bg-warn-tint px-3 py-2 text-small text-warn-ink">
+      <p className="flex items-start gap-2 font-medium"><IconAlert size={16} className="mt-0.5 shrink-0" />{text}</p>
+      <ul className="mt-1.5 list-disc space-y-0.5 pl-9 [overflow-wrap:anywhere]">
+        {people.map((p, i) => <li key={`${i}-${p}`}>{p}</li>)}
+      </ul>
+      <Link href={TEAM_HREF} className="mt-1.5 inline-block pl-6 font-medium underline">{teamLabel}</Link>
+    </div>
   );
 }

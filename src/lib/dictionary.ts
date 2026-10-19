@@ -90,9 +90,11 @@ export async function snapshotMappings(client: DictClient, orgId: string, items:
 
 /**
  * Takes back what one decision taught the dictionary. An entry a later
- * decision or edit pointed at another code is left alone; otherwise the use
- * (and the confirmation, when the decision confirmed) is subtracted, or the
- * replaced code comes back. Returns how many entries changed.
+ * decision or edit pointed at another code is left alone. When nothing else
+ * taught the entry since, a created entry is removed and a replaced code
+ * comes back; otherwise only this decision's use (and confirmation, when it
+ * confirmed) is subtracted, so a later decision's code stays. Returns how many
+ * entries changed.
  */
 export async function restoreMappings(client: DictClient, orgId: string, before: readonly MappingBefore[], confirmed: boolean): Promise<number> {
   let changed = 0;
@@ -100,12 +102,15 @@ export async function restoreMappings(client: DictClient, orgId: string, before:
     const where = { orgId_kind_key: { orgId, kind: b.kind, key: b.key } };
     const cur = await client.firmMapping.findUnique({ where, select: { code: true, uses: true, confirmations: true } });
     if (!cur || cur.code !== b.learned) continue;
-    const less = { uses: Math.max(1, cur.uses - 1), confirmations: Math.max(0, cur.confirmations - (confirmed ? 1 : 0)), source: b.source, updatedAt: new Date() };
+    const fewer = { uses: Math.max(1, cur.uses - 1), confirmations: Math.max(0, cur.confirmations - (confirmed ? 1 : 0)), updatedAt: new Date() };
     if (!b.existed) {
       if (cur.uses <= 1) await client.firmMapping.delete({ where });
-      else await client.firmMapping.update({ where, data: less });
+      else await client.firmMapping.update({ where, data: fewer });
     } else if (b.code === b.learned) {
-      await client.firmMapping.update({ where, data: less });
+      await client.firmMapping.update({ where, data: { ...fewer, source: b.source } });
+    } else if (cur.uses > 1) {
+      // A later decision taught the replacing code again: it stays, with that decision's source.
+      await client.firmMapping.update({ where, data: fewer });
     } else {
       await client.firmMapping.update({
         where,

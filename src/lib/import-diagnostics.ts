@@ -1,7 +1,10 @@
 // What an upload will turn into under a given mapping, before anything is
-// audited: rows that will be dropped, duplicates, malformed codes, amounts that
-// could be read two ways, and what the reader skipped. Pure; computed on the
-// server and stored on Catalog.importMeta with the final mapping.
+// audited: rows that will be dropped, duplicates, placeholder and malformed
+// codes, amounts that could be read two ways, and what the reader skipped.
+// Code cells are read like the audit reads them (readCode): no digits at all
+// is no code (MISSING), digits of the wrong length a code the classifier will
+// not have (NOT_FOUND). Pure; computed on the server and stored on
+// Catalog.importMeta with the final mapping.
 import { normalizeName } from '../core/normalize/index.js';
 import { identifyingBarcode } from '../core/normalize/barcode.js';
 import { readAmount } from './amount.js';
@@ -22,7 +25,9 @@ export type ImportDiagnostics = {
   noName: Counted;
   /** Rows repeating an earlier row's name, unit and barcode. */
   duplicates: Counted & { groups: number };
-  /** Non-empty code cells that are not 17 digits. */
+  /** Non-empty code cells without a single digit ("-", "yoʻq", "нет"): audited as having no code (MISSING). */
+  noCode: Counted;
+  /** Code cells with digits, but not 17 of them: audited as not in the classifier (NOT_FOUND). */
   badCodes: Counted;
   /** Of those, 16-digit codes: most likely a leading zero lost in Excel. */
   lostZero: Counted;
@@ -51,6 +56,7 @@ const cell = (row: readonly string[], index: number): string => (index < 0 ? '' 
 export function importDiagnostics(rows: readonly (readonly string[])[], mapping: ColumnMap): ImportDiagnostics {
   const noName = counted();
   const duplicates = { ...counted(), groups: 0 };
+  const noCode = counted();
   const badCodes = counted();
   const lostZero = counted();
   const ambiguousAmounts = counted();
@@ -75,7 +81,8 @@ export function importDiagnostics(rows: readonly (readonly string[])[], mapping:
     const code = cell(row, mapping.mxik);
     if (code !== '') {
       const digits = code.replace(/\D/g, '');
-      if (digits.length !== 17) note(badCodes, n);
+      if (digits.length === 0) note(noCode, n);
+      else if (digits.length !== 17) note(badCodes, n);
       if (digits.length === 16) note(lostZero, n);
     }
 
@@ -86,22 +93,28 @@ export function importDiagnostics(rows: readonly (readonly string[])[], mapping:
   return {
     rows: rows.length,
     importable: rows.length - noName.count,
-    noName, duplicates, badCodes, lostZero, ambiguousAmounts,
+    noName, duplicates, noCode, badCodes, lostZero, ambiguousAmounts,
   };
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Catalog.importMeta as written by this module, or null for older catalogues and other shapes. */
+/**
+ * Catalog.importMeta as written by this module, or null for older catalogues
+ * and other shapes. Meta stored before placeholders were counted apart reads
+ * with no placeholder rows (they were then counted among badCodes).
+ */
 export function readImportMeta(json: unknown): ImportMeta | null {
   if (!isObject(json) || !isObject(json['parse']) || !isObject(json['diagnostics'])) return null;
   const d = json['diagnostics'];
   const p = json['parse'];
   if (typeof d['rows'] !== 'number' || !isObject(d['noName']) || typeof p['totalSeen'] !== 'number') return null;
-  return json as unknown as ImportMeta;
+  const meta = json as unknown as ImportMeta;
+  return isObject(d['noCode']) ? meta : { ...meta, diagnostics: { ...meta.diagnostics, noCode: counted() } };
 }
 
 /** True when nothing in the diagnostics needs the user's attention. */
 export function diagnosticsClean(d: ImportDiagnostics, parse: Pick<ParseMeta, 'truncated'>): boolean {
-  return !parse.truncated && d.noName.count === 0 && d.duplicates.count === 0 && d.badCodes.count === 0 && d.ambiguousAmounts.count === 0;
+  return !parse.truncated && d.noName.count === 0 && d.duplicates.count === 0 && d.noCode.count === 0
+    && d.badCodes.count === 0 && d.ambiguousAmounts.count === 0;
 }

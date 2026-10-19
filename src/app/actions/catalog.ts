@@ -4,27 +4,47 @@ import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { canSeeClient, catalogScope } from '@/lib/access';
+import { resolveVisibleClient } from '@/lib/active-client';
 import { retryAudit, startAudit } from '@/lib/audit-jobs';
 import { applyMapping, MAX_UPLOAD_BYTES, storedRows, storeCatalog } from '@/lib/catalog-import';
 import { deleteCatalog } from '@/lib/catalogs';
-import { ownedClient } from '@/lib/clients';
 import { ColumnMapSchema, mappingIssues, type MappingIssue } from '@/lib/column-map';
 import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
 import { importDiagnostics, type ImportDiagnostics } from '@/lib/import-diagnostics';
 import { suggestMapping } from '@/lib/mapping-memory';
-import { gate } from '@/lib/plan';
-import { getSession } from '@/lib/session';
+import { gate, previewGate } from '@/lib/plan';
+import { discardEarlierPreviews } from '@/lib/preview-sweep';
+import { getSession, type CurrentUser } from '@/lib/session';
 import { parseErrorCode, parseUpload } from '@/lib/spreadsheet';
 import { uploadPreview, discardUpload as discardStored, type UploadPreview } from '@/lib/upload-preview';
 
 export type PreviewResult = { ok: true; preview: UploadPreview } | { ok: false; error: string };
 
+type Target = { ok: true; id: string } | { ok: false; reason: 'client' | 'archived' };
+
+/**
+ * The client an upload goes to: the org's, one the user may work on, and not
+ * archived. Without a name, the client the user is working on.
+ */
+async function uploadTarget(user: CurrentUser, clientId: string | null): Promise<Target> {
+  if (!clientId) {
+    const active = await resolveVisibleClient(user);
+    return active ? { ok: true, id: active.id } : { ok: false, reason: 'client' };
+  }
+  if (!canSeeClient(user, clientId)) return { ok: false, reason: 'client' };
+  const client = await db.client.findFirst({ where: { id: clientId, orgId: user.orgId }, select: { id: true, archivedAt: true } });
+  if (!client) return { ok: false, reason: 'client' };
+  return client.archivedAt ? { ok: false, reason: 'archived' } : { ok: true, id: client.id };
+}
+
 /**
  * Reads the file once, stores every row as an uncommitted preview and returns
- * what the wizard shows. Changing the mapping later never means re-uploading;
- * the preview does not count against the monthly allowance until committed.
+ * what the wizard shows. Changing the mapping later never means re-uploading.
+ * The preview does not count against the monthly allowance until committed;
+ * it replaces the user's earlier open preview, open previews have their own
+ * 24-hour cap, and the daily job deletes any left for 48 hours.
  */
 export async function previewUpload(form: FormData): Promise<PreviewResult> {
   const { t, ta } = await getI18n();
@@ -38,10 +58,9 @@ export async function previewUpload(form: FormData): Promise<PreviewResult> {
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: e.none };
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: e.tooBig };
 
-  // A named client must be the org's and one the user may work on.
   const requested = form.get('clientId');
-  const client = typeof requested === 'string' && requested ? await ownedClient(user.orgId, requested) : null;
-  if (!client || !canSeeClient(user, client.id)) return { ok: false, error: e.client };
+  const target = await uploadTarget(user, typeof requested === 'string' && requested ? requested : null);
+  if (!target.ok) return { ok: false, error: e[target.reason] };
 
   let parsed;
   try {
@@ -54,10 +73,19 @@ export async function previewUpload(form: FormData): Promise<PreviewResult> {
   const allowed = await gate(user.orgId, 'rowsPerMonth', parsed.rows.length);
   if (!allowed.ok) return { ok: false, error: ta.msg.gate[allowed.reason] };
 
+  // One open preview per person: the new file replaces the earlier one, then the org's open rows are capped.
   try {
-    const suggestion = await suggestMapping(user.orgId, client.id, parsed.headers);
+    await discardEarlierPreviews(user);
+  } catch {
+    return { ok: false, error: e.storeFailed };
+  }
+  const room = await previewGate(user.orgId, parsed.rows.length);
+  if (!room.ok) return { ok: false, error: e.previewCap(room.cap) };
+
+  try {
+    const suggestion = await suggestMapping(user.orgId, target.id, parsed.headers);
     const { catalogId } = await storeCatalog({
-      orgId: user.orgId, userId: user.userId, clientId: client.id, filename: file.name, parsed,
+      orgId: user.orgId, userId: user.userId, clientId: target.id, filename: file.name, parsed,
       mapping: suggestion.mapping, suggestion: { remembered: suggestion.remembered, fields: suggestion.fields },
     });
     const preview = await uploadPreview(user, catalogId);
@@ -119,6 +147,10 @@ export async function commitUpload(payload: unknown): Promise<CommitResult> {
   if (!catalog) return { ok: false, error: e.notFound };
   if (catalog.status !== 'uploaded') return { ok: false, error: e.alreadyCommitted, committed: true };
   if (mappingIssues(mapping, catalog.headers.length).length > 0) return { ok: false, error: e.badMapping };
+  // The client may have been archived (or taken from the user) since the preview was made.
+  if (!catalog.clientId) return { ok: false, error: e.client };
+  const target = await uploadTarget(user, catalog.clientId);
+  if (!target.ok) return { ok: false, error: e[target.reason] };
 
   const allowed = await gate(user.orgId, 'rowsPerMonth', catalog.rowCount);
   if (!allowed.ok) return { ok: false, error: ta.msg.gate[allowed.reason] };

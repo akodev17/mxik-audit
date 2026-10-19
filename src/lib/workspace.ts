@@ -75,6 +75,7 @@ export function filterConditions(catalogId: string, filter: WsFilter): Prisma.Sq
   else if (filter.decision === 'rejected') where.push(Prisma.sql`f.decision = 'rejected'::decision`);
   else if (filter.decision === 'carried') where.push(Prisma.sql`f."decisionSource" = 'carry_over'`);
   else if (filter.decision === 'auto') where.push(Prisma.sql`f."decisionSource" IN ('carry_over', 'dictionary_auto')`);
+  if (filter.source) where.push(Prisma.sql`f."decisionSource" = ${filter.source}`);
 
   if (filter.flag === 'none') where.push(Prisma.sql`f.flag IS NULL`);
   else if (filter.flag !== 'any') where.push(Prisma.sql`f.flag = ${filter.flag}`);
@@ -133,6 +134,18 @@ export async function workspaceCount(catalogId: string, filter: WsFilter): Promi
 export async function workspacePendingCount(catalogId: string, filter: WsFilter): Promise<number> {
   const pending = pendingSubset(filter);
   return pending ? workspaceCount(catalogId, pending) : 0;
+}
+
+/** How many of the first `limit` findings of a filter (workspace order) have one of these types. */
+export async function workspaceTypeCount(catalogId: string, filter: WsFilter, types: readonly string[], limit: number): Promise<number> {
+  if (types.length === 0) return 0;
+  const rows = await db.$queryRaw<{ n: bigint }[]>(Prisma.sql`
+    SELECT count(*) FILTER (WHERE s.type = ANY(${[...types]})) AS n FROM (
+      SELECT f.type::text AS type FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
+      WHERE ${Prisma.join(filterConditions(catalogId, filter), ' AND ')}
+      ORDER BY ${orderBy(filter.sort)}
+      LIMIT ${limit}) s`);
+  return Number(rows[0]?.n ?? 0);
 }
 
 /** Every finding id of a filter, in workspace order, for actions on a whole filter. */

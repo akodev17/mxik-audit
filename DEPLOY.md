@@ -147,6 +147,13 @@ so sign-in only works over HTTPS.
 
 ## 7. Scheduled jobs
 
+The times below are Uzbekistan time (UTC+5, no daylight saving). Host cron runs
+on the server's clock, which is usually UTC: set the zone once with
+`sudo timedatectl set-timezone Asia/Tashkent`, or subtract 5 hours from every
+time. The app itself always shows and groups dates in `Asia/Tashkent`, whatever
+the server's zone, and the compose scheduler and backup (section 9) keep UTC+5
+on their own, so no `TZ` variable is needed in `.env`.
+
 `crontab -e` and add:
 
 ```cron
@@ -220,6 +227,8 @@ transactions are in the `order` and `payment_transaction` tables.
 
 Members join through invite links created in Sozlamalar. To also email the link set `SMTP_URL` and `MAIL_FROM`; without them the link is only shown on screen. `APP_URL` makes links absolute (emailed confirmation and password-reset links need it). Roles: admin (everything), accountant (works on assigned clients), viewer (read-only). An accountant or viewer with no assigned clients sees every client of the org.
 
+Removing a member (Sozlamalar → Jamoa) is one transaction, checked first so the last admin can never be removed: their sessions end, the API keys they created are revoked (an `apikey.revoked` event per key; programs using those keys get 401), the Telegram chats they linked are unlinked and their pending invites are deleted; `team.removed` records the counts. The API key list shows who created each key.
+
 Address confirmation and invites:
 
 - An invite created **with** an email address confirms that address when it is accepted (the admin chose it).
@@ -234,7 +243,11 @@ With SMTP on, signing up with an address that already has an account answers "ch
 
 ## 7d. Signup, trial and plan limits
 
-/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan is not for sale until `PLAN_FIRM_PRICE` is set. "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
+/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan is not for sale until `PLAN_FIRM_PRICE` is set.
+
+An upload waits at the column-mapping step as an uncommitted preview, and its rows count against the monthly allowance only once the mapping is confirmed. Previews are limited on their own: a user's new upload deletes their earlier open preview, an upload is refused (with a message) when the org's open preview rows from the last 24 hours would exceed the plan's monthly row limit (200,000 when the plan has none; `PREVIEW_ROWS_UNCAPPED` in `src/lib/plan.ts`), and the daily job (7e) deletes previews left for 48 hours. Each deletion writes `catalog.upload_discarded` with `reason` `replaced` or `expired` (the latter without an actor). These numbers are not `.env` settings.
+
+"Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
 
 ## 7e. Daily jobs (monthly reminders)
 
@@ -244,7 +257,7 @@ Once a day call the daily route (same `CRON_SECRET` as the classifier update):
 15 6 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/daily
 ```
 
-It creates the monthly-check tasks that are due (per client: Sozlamalar of the client page), tells the accountant responsible on Telegram when the bot is configured, and runs the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
+It creates the monthly-check tasks that are due (per client: Sozlamalar of the client page), tells the accountant responsible on Telegram when the bot is configured, deletes upload previews left uncommitted for 48 hours (7d) and runs the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
 
 ## 7f. Public API
 
@@ -274,11 +287,11 @@ docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" SET \"platfo
 ```
 
 - **Closed accounts** stop everything that runs without a sign-in: API keys, share links, the Telegram bot (the chat is treated as unlinked; notifications and audit summaries are not sent; old link codes do nothing).
-- **HTTP headers** on every route (`src/lib/security/headers.ts`): Content-Security-Policy (`default-src 'self'`, `frame-ancestors 'none'`, scripts from the site and `https://telegram.org` for the login widget, its iframe from `https://oauth.telegram.org`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (no camera, microphone, geolocation), `X-Frame-Options: DENY`, and in production `Strict-Transport-Security: max-age=31536000`. `script-src` keeps `'unsafe-inline'` because Next.js bootstraps pages with inline scripts; per-request nonces would need middleware and a verified production build, which is future work. `'unsafe-eval'` and the hot-reload websocket are allowed only in development.
+- **HTTP headers** on every route (`src/lib/security/headers.ts`): Content-Security-Policy (`default-src 'self'`, `frame-ancestors 'none'`, scripts from the site and `https://telegram.org` for the login widget, its iframe from `https://oauth.telegram.org`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (no camera, microphone, geolocation), `X-Frame-Options: DENY`, and in production `Strict-Transport-Security: max-age=31536000`. `script-src` keeps `'unsafe-inline'` because Next.js bootstraps pages with inline scripts; per-request nonces would need middleware and a verified production build, which is future work. `'unsafe-eval'` and the hot-reload websocket are allowed only in development. The app sends these itself: do not add them again in nginx (with two `Content-Security-Policy` headers the browser enforces both, so everything must pass each one and pages can break).
 - **Landing-page lead form** accepts files up to 5 MB, and an .xlsx that would inflate past 100 MB (or has more than 5,000 entries) is refused before it is parsed.
 - **Account data export** (admin, Settings): a zip with team, clients, dictionary, activity log and one Excel file per catalogue. Passwords, API keys and two-factor secrets are never included.
 - **Closing an account**: the admin confirms with the password; nobody can sign in except an admin, who may restore the account. After `ACCOUNT_DELETE_AFTER_DAYS` (default 30) the daily job (section 7e) erases the organisation and everything under it, including its log entries.
-- **Raw-file retention**: each org chooses 7, 30 (default) or 90 days, or "keep". The daily job blanks the uploaded cells that are not in a mapped column (names, codes, units, prices are kept, so reports and exports keep working). Existing orgs get the 30-day default when this version is deployed, so the first daily run after deploying cleans their older uploads.
+- **Raw-file retention**: each org chooses 7, 30 (default) or 90 days, or "keep". The daily job blanks the uploaded cells that are not in a mapped column (names, codes, units, prices are kept, so reports and exports keep working). It is never retroactive: only uploads created at or after the org's `organization."rawRetentionSince"` are blanked, once older than the window. That date is when the org was created, and for orgs that existed before retention shipped, the moment its migration ran; uploads from before it are never touched, and an org whose `rawRetentionSince` is NULL is skipped entirely. Settings → Maʼlumotlar shows the date. Changing the window does not move it; to apply retention to an org's older uploads (only on that org's written request) set it earlier by hand, e.g. `UPDATE organization SET "rawRetentionSince" = '2026-01-01' WHERE id = '...';`.
 
 ## 8. Operating it
 
@@ -339,8 +352,8 @@ docker compose --profile app start app
 
 `docker compose --profile app up -d --build` runs the whole stack as containers:
 `db`, `app` (applies pending migrations, then serves on 127.0.0.1:3000),
-`scheduler` (purge at 03:15, classifier update on Mondays 04:00, daily reminders
-at 06:15, all UTC+5; replaces the crontab in section 7 and the daily route call
+`scheduler` (purge at 03:15, classifier update on Mondays 04:00, the daily jobs
+of 7e at 06:15, all UTC+5; replaces the crontab in section 7 and the daily route call
 in 7e, which needs `CRON_SECRET`) and `backup` (nightly `pg_dump` at 03:45 into
 `./backups`, 14 kept). Add `--profile bot` for the Telegram long-polling bot.
 Copy `./backups` off the server as well.

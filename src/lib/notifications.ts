@@ -54,9 +54,15 @@ export function unreadWhere(user: NoticeUser): Prisma.NotificationWhereInput {
  * redirects; they now open the catalogue directly. Anything not site-relative is dropped.
  */
 export function noticeHref(href: string | null): string | null {
-  if (!href || !href.startsWith('/') || href.startsWith('//') || href.startsWith('/\\')) return null;
-  const url = new URL(href, 'http://local');
-  if (url.pathname !== '/report') return href;
+  if (!href) return null;
+  // Browsers drop tabs and newlines inside a URL and read "\" as "/", so "/\t/x" would leave the site.
+  // eslint-disable-next-line no-control-regex
+  const clean = href.replace(/[\u0000- \u007f]/g, '').replace(/\\/g, '/');
+  if (!clean.startsWith('/') || clean.startsWith('//')) return null;
+  const url = new URL(clean, 'http://local');
+  // Dot segments can still collapse into "//host" ("/.//evil"); only a same-site path survives.
+  if (url.origin !== 'http://local' || url.pathname.startsWith('//')) return null;
+  if (url.pathname !== '/report') return `${url.pathname}${url.search}${url.hash}`;
   const catalog = url.searchParams.get('catalog');
   if (!catalog || !/^[\w-]+$/.test(catalog)) return '/catalogs';
   const type = url.searchParams.get('marking') === '1' ? 'MARKING' : url.searchParams.get('type');

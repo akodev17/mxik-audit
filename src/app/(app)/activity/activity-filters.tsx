@@ -29,7 +29,7 @@ export async function ActivityFilters({ clients, users, value, active }: Props) 
         {users.map((u) => <option key={u.id} value={u.id}>{u.email}</option>)}
       </Select>
       <Select label={ta.log.type} name="type" defaultValue={value.category}>
-        {CATEGORIES.map((c) => <option key={c} value={c}>{ta.log.types[c]}</option>)}
+        {CATEGORIES.map((c) => <option key={c} value={c}>{c === 'clients' ? ta.firmX.log.clientsType : ta.log.types[c]}</option>)}
       </Select>
       <Field label={ta.log.from}>
         <Input type="date" name="from" defaultValue={value.from} max={today} />

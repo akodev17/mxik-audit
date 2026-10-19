@@ -1,6 +1,7 @@
 // One decision for many findings (group, bulk, high-match): one audit event,
-// one undo. Archived codes and rows that already hold another code are
-// skipped and reported, never silently accepted. The event records the ids the
+// one undo. Archived codes, rows that already hold another code and rows that
+// only ask to confirm the current code are skipped and reported, never
+// silently accepted. The event records the ids the
 // UPDATE actually changed (RETURNING) and the dictionary entries as they were
 // before learning, so undo can take both back.
 import { randomUUID } from 'node:crypto';
@@ -9,8 +10,13 @@ import { db } from './db.js';
 import { learnQuietly, snapshotMappings, type Learnable } from './dictionary.js';
 import { batchConflicts } from './effective-code.js';
 
-export type ManyTarget = { id: string; itemId: string; code: string | null; rawName: string; unit: string | null; barcode: string | null };
-export type Skipped = { archived: number; conflict: number; noCode: number };
+export type ManyTarget = {
+  id: string; itemId: string; code: string | null; rawName: string; unit: string | null; barcode: string | null;
+  /** Accepting would only say "the current code is right", which a person confirms row by row; never accepted in bulk. */
+  confirmOnly?: boolean;
+};
+/** confirmOnly: rows whose check only asks to confirm the current code. */
+export type Skipped = { archived: number; conflict: number; noCode: number; confirmOnly: number };
 export type ManyDone = { count: number; eventId: string | null; ids: string[]; skipped: Skipped };
 
 export type ManyOptions = {
@@ -46,10 +52,12 @@ async function acceptedByItem(itemIds: readonly string[]): Promise<Map<string, s
 
 /** Splits targets into those that may be decided and the counts of each reason to skip. */
 export async function screenTargets(decision: 'accepted' | 'rejected', targets: readonly ManyTarget[]): Promise<{ ready: ManyTarget[]; skipped: Skipped }> {
-  const skipped: Skipped = { archived: 0, conflict: 0, noCode: 0 };
+  const skipped: Skipped = { archived: 0, conflict: 0, noCode: 0, confirmOnly: 0 };
   if (decision === 'rejected') return { ready: [...targets], skipped };
-  const withCode = targets.filter((t): t is ManyTarget & { code: string } => t.code !== null);
-  skipped.noCode = targets.length - withCode.length;
+  const asked = targets.filter((t) => t.confirmOnly !== true);
+  skipped.confirmOnly = targets.length - asked.length;
+  const withCode = asked.filter((t): t is ManyTarget & { code: string } => t.code !== null);
+  skipped.noCode = asked.length - withCode.length;
   const live = await liveCodeSet(withCode.map((t) => t.code));
   const alive = withCode.filter((t) => live.has(t.code));
   skipped.archived = withCode.length - alive.length;
@@ -71,7 +79,12 @@ export async function decideMany(o: ManyOptions, targets: readonly ManyTarget[])
   const teaches = accept && o.source !== 'dictionary';
   const ids = ready.map((t) => t.id);
   const done = await db.$transaction(async (tx) => {
-    // The sibling check repeats inside the statement, so a decision made meanwhile is respected.
+    // Same queue as recordDecision: lock the rows (in id order, so two batches cannot deadlock),
+    // then the sibling check inside the statement sees every decision committed before us.
+    if (accept) {
+      const itemIds = [...new Set(ready.map((t) => t.itemId))];
+      await tx.$queryRaw`SELECT id FROM catalog_item WHERE id = ANY(${itemIds}) ORDER BY id FOR UPDATE`;
+    }
     const updated = accept
       ? await tx.$queryRaw<{ id: string }[]>`
           UPDATE finding f SET decision = 'accepted'::decision, "chosenMxik" = t.code, "decidedBy" = ${o.userId}, "decidedAt" = ${now},

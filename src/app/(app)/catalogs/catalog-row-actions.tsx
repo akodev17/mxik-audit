@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { IconMore } from '@/ui/icons';
 import { Menu } from '@/ui/menu';
 import { useToast } from '@/ui/toast';
+import { VisuallyHidden } from '@/ui/visually-hidden';
 
 type Props = { catalogId: string; filename: string; clientName: string | null; rowCount: number; canDelete: boolean };
 
@@ -31,7 +32,9 @@ export function CatalogRowActions({ catalogId, filename, clientName, rowCount, c
 
   return (
     <span className="flex items-center justify-end gap-1">
-      <ButtonLink href={`/catalogs/${catalogId}`} size="sm" variant="secondary">{ta.catalogs.open}</ButtonLink>
+      <ButtonLink href={`/catalogs/${catalogId}`} size="sm" variant="secondary" className="relative">
+        {ta.catalogs.open}<VisuallyHidden>: {clientName ? `${clientName} — ${filename}` : filename}</VisuallyHidden>
+      </ButtonLink>
       {canDelete ? (
         <>
           <Menu

@@ -51,6 +51,9 @@ export async function IntegrationsTab({ user }: { user: CurrentUser }) {
           keys={keys.map((k) => ({
             id: k.id, name: k.name, prefix: k.prefix, created: fmtDate(locale, k.createdAt),
             lastUsed: k.lastUsedAt ? fmtDate(locale, k.lastUsedAt) : null, revoked: k.revokedAt !== null, checks: n(k.checksThisMonth),
+            // Admins see whose keys exist; a creator who left the team no longer resolves to an email.
+            creator: k.createdBy ? emailOf.get(k.createdBy) ?? null : null,
+            creatorRemoved: k.createdBy !== null && !emailOf.has(k.createdBy),
           }))}
         />
       </Section>

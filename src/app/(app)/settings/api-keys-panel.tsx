@@ -12,7 +12,11 @@ import { CopyField } from '@/ui/copy-field';
 import { Field, Input } from '@/ui/input';
 import { useToast } from '@/ui/toast';
 
-export type ApiKeyRow = { id: string; name: string; prefix: string; created: string; lastUsed: string | null; revoked: boolean; checks: string };
+/** `creator`: the email of the member who made the key, null when not recorded or `creatorRemoved`. */
+export type ApiKeyRow = {
+  id: string; name: string; prefix: string; created: string; lastUsed: string | null; revoked: boolean; checks: string;
+  creator: string | null; creatorRemoved: boolean;
+};
 type Usage = { checks: string; requests: string; cap: string | null };
 
 function KeyRow({ apiKey }: { apiKey: ApiKeyRow }) {
@@ -39,6 +43,8 @@ function KeyRow({ apiKey }: { apiKey: ApiKeyRow }) {
           {apiKey.revoked ? <Badge>{s.revoked}</Badge> : null}
         </p>
         <p className="text-small text-muted">{s.keyMeta(apiKey.created, apiKey.lastUsed, apiKey.checks)}</p>
+        {apiKey.creator ? <p className="text-small text-muted">{s.createdBy(apiKey.creator)}</p> : null}
+        {apiKey.creatorRemoved ? <p className="text-small text-muted">{s.creatorRemoved}</p> : null}
       </div>
       {apiKey.revoked ? null : <Button size="sm" variant="danger-ghost" onClick={() => setOpen(true)}>{s.revoke}</Button>}
       <ConfirmDialog

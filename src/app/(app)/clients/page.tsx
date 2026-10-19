@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { canWrite } from '@/lib/access';
-import { attentionReasons, clientStats, CLIENT_FILTERS, CLIENT_SORTS, rowProgress, STALE_DAYS, type ClientStats } from '@/lib/client-stats';
+import { clientAttention, pendingAudits } from '@/lib/client-attention';
+import { clientStats, CLIENT_FILTERS, CLIENT_SORTS, rowProgress, STALE_DAYS, type ClientStats } from '@/lib/client-stats';
 import { isDemoOrg } from '@/lib/demo';
 import { fmtDate, fmtNumber } from '@/lib/format';
 import type { Locale } from '@/lib/i18n';
@@ -69,6 +70,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     clientStats({ orgId: user.orgId, clientIds: user.clientIds, search, filter, staleDays, sort, limit: PAGE, offset: (page - 1) * PAGE }),
     isDemoOrg(user.orgId),
   ]);
+  const pending = await pendingAudits(user.orgId, data.rows.filter((c) => !c.archivedAt));
+  const reasonsOf = (c: ClientStats) => (c.archivedAt ? [] : clientAttention(c, pending));
   const pages = Math.max(1, Math.ceil(data.total / PAGE));
   const fmt = (n: number): string => fmtNumber(locale, n);
   const writer = canWrite(user) && !demo;
@@ -114,7 +117,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                         {c.archivedAt ? <Badge tone="neutral">{words.archived}</Badge> : null}
                       </span>
                     </Td>
-                    <Td><AttentionBadges reasons={c.archivedAt ? [] : attentionReasons(c)} ta={ta} locale={locale} okLabel={c.archivedAt ? undefined : words.ok} /></Td>
+                    <Td><AttentionBadges reasons={reasonsOf(c)} ta={ta} locale={locale} okLabel={c.archivedAt ? undefined : words.ok} /></Td>
                     <Td numeric className={c.openRows > 0 ? 'font-medium text-danger-ink' : undefined}>{c.catalogId ? fmt(c.openRows) : ta.firmX.dash}</Td>
                     <Td><ReviewProgress c={c} ta={ta} locale={locale} /></Td>
                     <Td><Freshness c={c} ta={ta} locale={locale} /></Td>
@@ -131,7 +134,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
 
           <ul className="space-y-3 md:hidden">
             {data.rows.map((c) => {
-              const reasons = c.archivedAt ? [] : attentionReasons(c);
+              const reasons = reasonsOf(c);
               return (
                 <li key={c.id}>
                   <Link href={`/clients/${c.id}`} className="block rounded-ctl border border-line bg-raised p-3 transition-colors duration-(--duration-fast) hover:border-line-strong hover:bg-surface">

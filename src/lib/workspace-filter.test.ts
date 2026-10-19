@@ -5,7 +5,7 @@ import { filterQuery, pendingSubset, readFilter } from './workspace-filter.js';
 
 describe('workspace filter', () => {
   it('reads the defaults, the older pending=0 spelling and rejects unknown values', () => {
-    assert.deepEqual(readFilter({}), { type: null, q: '', decision: 'pending', flag: 'any', commented: false, sort: 'risk' });
+    assert.deepEqual(readFilter({}), { type: null, q: '', decision: 'pending', flag: 'any', commented: false, sort: 'risk', source: null });
     assert.equal(readFilter({ pending: '0' }).decision, 'all');
     assert.equal(readFilter({ pending: '0', dec: 'carried' }).decision, 'carried');
     assert.equal(readFilter({ dec: 'everything', flag: 'maybe', type: 'DROP TABLE' }).decision, 'pending');
@@ -17,6 +17,17 @@ describe('workspace filter', () => {
     const f = readFilter({ type: 'MISMATCH', q: 'guruch', dec: 'auto', flag: 'none', comments: '1', sort: 'row' });
     assert.deepEqual(readFilter(filterQuery(f)), f);
     assert.deepEqual(filterQuery(readFilter({})), {});
+  });
+
+  it('reads a decision source; without dec it shows every decision state, since a pending row has no source', () => {
+    const carried = readFilter({ pending: '0', source: 'carry_over' });
+    assert.equal(carried.source, 'carry_over');
+    assert.equal(carried.decision, 'all');
+    assert.equal(readFilter({ source: 'bulk' }).decision, 'all');
+    assert.equal(readFilter({ source: 'bulk', dec: 'rejected' }).decision, 'rejected');
+    assert.equal(readFilter({ source: 'somebody' }).source, null);
+    assert.deepEqual(readFilter(filterQuery(carried)), carried);
+    assert.equal(pendingSubset(carried)?.source, 'carry_over', 'a decision on it finds nothing pending');
   });
 
   it('decisions on a filter touch only its pending rows, and nothing when it shows decided rows only', () => {
@@ -38,5 +49,12 @@ describe('saved view params', () => {
     assert.equal(q.get('flag'), 'ask_client');
     assert.deepEqual(readHidden(q.get('cols')), ['status', 'match']);
     assert.deepEqual(readHidden('decision,product,match'), ['match']);
+  });
+
+  it('keeps a decision source filter', () => {
+    const view = ViewParams.parse({ type: null, q: '', pending: false, decision: 'all', comments: false, sort: 'risk', density: 'comfortable', grouped: false, source: 'carry_over' });
+    const q = new URLSearchParams(viewQuery(view));
+    assert.equal(q.get('source'), 'carry_over');
+    assert.equal(ViewParams.safeParse({ ...view, source: 'nobody' }).success, false);
   });
 });

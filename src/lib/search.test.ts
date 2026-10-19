@@ -22,18 +22,34 @@ describe('palette query parsing', () => {
 });
 
 describe('product status and link', () => {
-  const f = (severity: 'high' | 'medium' | 'info', decision: 'pending' | 'accepted' | 'rejected', type: 'MISSING' | 'NOT_PURCHASED' = 'MISSING') => ({ severity, decision, type });
+  type Source = 'manual' | 'bulk' | 'dictionary_auto' | 'carry_over' | null;
+  const f = (severity: 'high' | 'medium' | 'info', decision: 'pending' | 'accepted' | 'rejected', type: 'MISSING' | 'NOT_PURCHASED' = 'MISSING', decisionSource: Source = null) =>
+    ({ severity, decision, type, decisionSource });
 
   it('separates system findings that need a look from decided and informational rows', () => {
     assert.equal(productStatus([f('high', 'pending')]), 'attention');
-    assert.equal(productStatus([f('medium', 'accepted'), f('info', 'pending', 'NOT_PURCHASED')]), 'decided');
+    assert.equal(productStatus([f('medium', 'accepted', 'MISSING', 'manual'), f('info', 'pending', 'NOT_PURCHASED')]), 'decided');
     assert.equal(productStatus([f('info', 'pending', 'NOT_PURCHASED')]), 'info');
     assert.equal(productStatus([]), 'clean');
   });
 
+  it('says when nobody decided: dictionary auto-accept and carried-over decisions are not a person’s', () => {
+    assert.equal(productStatus([f('high', 'accepted', 'MISSING', 'dictionary_auto')]), 'auto');
+    assert.equal(productStatus([f('high', 'rejected', 'MISSING', 'carry_over')]), 'auto');
+    assert.equal(productStatus([f('high', 'accepted', 'MISSING', 'bulk'), f('medium', 'accepted', 'MISSING', 'carry_over')]), 'auto');
+    assert.equal(productStatus([f('high', 'accepted', 'MISSING', 'dictionary_auto'), f('medium', 'pending')]), 'attention');
+    // An automatic informational finding does not make the row "decided".
+    assert.equal(productStatus([f('info', 'accepted', 'NOT_PURCHASED', 'carry_over')]), 'info');
+  });
+
   it('links to the workspace with every decision shown, and the type for informational rows', () => {
     assert.equal(productHref('c1', 'Guruch 1 kg', [f('high', 'accepted')]), '/catalogs/c1?q=Guruch+1+kg&pending=0&v=0');
+    assert.equal(productHref('c1', 'Guruch', [f('high', 'accepted', 'MISSING', 'dictionary_auto')]), '/catalogs/c1?q=Guruch&pending=0&v=0');
     assert.equal(productHref('c1', 'Un', [f('info', 'pending', 'NOT_PURCHASED')]), '/catalogs/c1?q=Un&pending=0&v=0&type=NOT_PURCHASED');
+  });
+
+  it('opens the catalogue itself for a clean row, which the workspace grid never lists', () => {
+    assert.equal(productHref('c1', 'Toza suv', []), '/catalogs/c1');
   });
 });
 
@@ -44,7 +60,7 @@ describe('palette search scoping (database)', { skip }, () => {
   const tag = randomBytes(4).toString('hex');
   let a: TestActor;
   let b: TestActor;
-  const ids = { a1: '', a2: '', a3: '', b1: '' };
+  const ids = { a1: '', a2: '', a3: '', b1: '', alfaCatalog: '' };
   let scoped: SearchUser;
   let admin: SearchUser;
 
@@ -79,13 +95,17 @@ describe('palette search scoping (database)', { skip }, () => {
     ids.a3 = await client(a.orgId, `Arxiv ${tag}`, true);
     ids.b1 = await client(b.orgId, `Alfa ${tag}`);
     await catalog(a.orgId, ids.a1, `eski-${tag}.xlsx`, [{ name: `Eski ${tag} guruch`, finding: 'risky' }], new Date(Date.now() - 86_400_000));
-    await catalog(a.orgId, ids.a1, `alfa-${tag}.xlsx`, [
+    ids.alfaCatalog = await catalog(a.orgId, ids.a1, `alfa-${tag}.xlsx`, [
       { name: `Guruch ${tag} alfa`, finding: 'risky' },
       { name: `Toza ${tag} alfa` },
       { name: `Un ${tag} alfa`, finding: 'info' },
       { name: `Kodli ${tag} alfa`, mxik: code },
     ]);
-    await catalog(a.orgId, ids.a2, `beta-${tag}.xlsx`, [{ name: `Guruch ${tag} beta`, finding: 'risky' }]);
+    await catalog(a.orgId, ids.a2, `beta-${tag}.xlsx`, [
+      { name: `Oq guruch ${tag} beta` },
+      { name: `Guruch ${tag} beta`, finding: 'risky' },
+      { name: `guruch ${tag}` },
+    ]);
     await catalog(a.orgId, ids.a3, `arxiv-${tag}.xlsx`, [{ name: `Guruch ${tag} arxiv`, finding: 'risky' }]);
     await catalog(b.orgId, ids.b1, `alfa-${tag}.xlsx`, [{ name: `Guruch ${tag} begona`, finding: 'risky' }]);
     admin = { orgId: a.orgId, clientIds: null };
@@ -105,6 +125,12 @@ describe('palette search scoping (database)', { skip }, () => {
     assert.equal(byName.get(`Toza ${tag} alfa`)?.status, 'clean');
     assert.equal(byName.get(`Un ${tag} alfa`)?.status, 'info');
     assert.equal(byName.get(`Guruch ${tag} alfa`)?.clientName, `Alfa ${tag}`);
+    assert.equal(byName.get(`Toza ${tag} alfa`)?.href, `/catalogs/${ids.alfaCatalog}`, 'a clean row opens its catalogue, not an empty filtered grid');
+  });
+
+  it('puts exact and prefix matches first, then orders by client name and row', async () => {
+    const r = await search(admin, `Guruch ${tag}`, 'uz');
+    assert.deepEqual(r.products.map((p) => p.name), [`guruch ${tag}`, `Guruch ${tag} alfa`, `Guruch ${tag} beta`, `Oq guruch ${tag} beta`]);
   });
 
   it('ignores older catalogues and archived clients', async () => {
@@ -118,7 +144,7 @@ describe('palette search scoping (database)', { skip }, () => {
 
   it('a scoped accountant never gets another client of the same org', async () => {
     const r = await search(scoped, `Guruch ${tag}`, 'uz');
-    assert.deepEqual(r.products.map((p) => p.name), [`Guruch ${tag} beta`]);
+    assert.deepEqual(r.products.map((p) => p.name), [`guruch ${tag}`, `Guruch ${tag} beta`, `Oq guruch ${tag} beta`]);
     const clients = await search(scoped, tag, 'uz');
     assert.deepEqual(clients.clients.map((c) => c.id), [ids.a2]);
     assert.deepEqual(clients.catalogs.map((c) => c.filename), [`beta-${tag}.xlsx`]);

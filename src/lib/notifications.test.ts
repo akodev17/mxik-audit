@@ -21,6 +21,18 @@ describe('notification links', () => {
     assert.equal(noticeHref('https://evil.example'), null);
     assert.equal(noticeHref(null), null);
   });
+
+  it('judges the link the way a browser reads it: control characters and backslashes do not hide a host', () => {
+    assert.equal(noticeHref('/\t/evil.example'), null);
+    assert.equal(noticeHref('/\n/evil.example/x'), null);
+    assert.equal(noticeHref(' //evil.example'), null);
+    assert.equal(noticeHref('\u0000/\\evil.example'), null);
+    assert.equal(noticeHref('/.//evil.example'), null);
+    assert.equal(noticeHref('javascript:alert(1)'), null);
+    assert.equal(noticeHref('\tjavascript:alert(1)'), null);
+    assert.equal(noticeHref('/%2F%2Fevil'), '/%2F%2Fevil', 'an encoded slash stays part of a same-site path');
+    assert.equal(noticeHref('/catalogs/ck1\t?type=MISSING#row'), '/catalogs/ck1?type=MISSING#row');
+  });
 });
 
 const skip = await dbSkipReason();

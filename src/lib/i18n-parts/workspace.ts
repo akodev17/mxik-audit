@@ -114,6 +114,7 @@ export const uz = {
       skippedArchived: (n: string, _k: number) => `${n} ta kod tasniflagichdan chiqarilgan`,
       skippedConflict: (n: string, _k: number) => `${n} ta qatorda boshqa kod tasdiqlangan`,
       skippedNoCode: (n: string, _k: number) => `${n} ta qatorda qabul qilinadigan kod yoʻq`,
+      skippedConfirmOnly: (n: string, _k: number) => `${n} ta qatorda taklif yoʻq — hozirgi kod har bir qatorda alohida tasdiqlanadi`,
       split: 'Qator guruhdan ajratildi',
     },
     undo: {
@@ -167,6 +168,7 @@ export const uz = {
       },
       dryRun: (n: string, _k: number) => `${n} ta koʻrib chiqilmagan muammo oʻzgaradi`,
       dryRunFlag: (n: string, _k: number) => `${n} ta muammo belgilanadi`,
+      dryRunConfirmOnly: (n: string, _k: number) => `${n} ta qator oʻtkazib yuboriladi: ularda taklif yoʻq, hozirgi kod har bir qatorda alohida tasdiqlanadi.`,
       capped: (limit: string, matching: string) => `Filtrda ${matching} ta muammo bor; bir martada faqat birinchi ${limit} tasi oʻzgaradi. Qolganlari uchun amalni takrorlang.`,
       scopeFilter: 'Joriy filtrdagi barcha muammolar',
       nothing: 'Bu filtrda oʻzgaradigan muammo yoʻq.',
@@ -208,6 +210,8 @@ export const uz = {
       commented: 'Izohli qatorlar',
       search: (q: string) => `Qidiruv: “${q}”`,
       clearSearch: 'Qidiruvni tozalash',
+      source: (label: string) => `Qaror usuli: ${label}`,
+      clearSource: 'Qaror usuli boʻyicha filtrni olib tashlash',
       reset: 'Filtrlarni tozalash',
     },
     view: {
@@ -258,7 +262,7 @@ export const uz = {
       requestReadOnly: 'Matnni nusxa olib, mijoz yoki rahbar bilan ulashishingiz mumkin.',
     },
     header: {
-      snapshot: (id: string, date: string) => `${id}-versiya, ${date}`,
+      snapshot: (date: string) => `${date} holatidagi versiya`,
       snapshotUnknown: 'qayd etilmagan',
       snapshotUnknownHint: 'Bu tahlil tasniflagich versiyasi yozib boriladigan davrdan oldin bajarilgan.',
       newer: (date: string) => `Yangiroq tasniflagich bor (${date})`,
@@ -297,6 +301,8 @@ export const uz = {
       colConfirmed: 'Tasdiqlash',
       confirmed: (n: string, _k: number) => `${n} marta alohida tasdiqlangan`,
       bulkOnly: 'Faqat ommaviy tasdiq',
+      noHistory: 'Tasdiqlash tarixi qayd etilmagan',
+      noHistoryHint: 'Yozuv tasdiqlashlar hisoblanadigan davrdan oldin yaratilgan.',
       edited: 'Qoʻlda oʻzgartirilgan',
       sourceLabel: {
         manual: 'Oxirgisi: qoʻlda',
@@ -439,6 +445,7 @@ export const ru: typeof uz = {
       skippedArchived: (n, k) => `${n} ${pluralRu(k, 'код исключён', 'кода исключены', 'кодов исключены')} из классификатора`,
       skippedConflict: (n, k) => `в ${n} ${pluralRu(k, 'строке', 'строках', 'строках')} уже принят другой код`,
       skippedNoCode: (n, k) => `в ${n} ${pluralRu(k, 'строке', 'строках', 'строках')} нет кода для принятия`,
+      skippedConfirmOnly: (n, k) => `в ${n} ${pluralRu(k, 'строке', 'строках', 'строках')} нет предложения — текущий код подтверждается в каждой строке отдельно`,
       split: 'Строка выделена из группы',
     },
     undo: {
@@ -492,6 +499,7 @@ export const ru: typeof uz = {
       },
       dryRun: (n, k) => `Изменится ${n} ${pluralRu(k, 'непроверенная проблема', 'непроверенные проблемы', 'непроверенных проблем')}`,
       dryRunFlag: (n, k) => `Будет отмечено: ${n} ${pluralRu(k, 'проблема', 'проблемы', 'проблем')}`,
+      dryRunConfirmOnly: (n, k) => `Будет пропущено: ${n} ${pluralRu(k, 'строка', 'строки', 'строк')} — в них нет предложения, текущий код подтверждается в каждой строке отдельно.`,
       capped: (limit, matching) => `В фильтре ${matching} проблем; за один раз изменятся только первые ${limit}. Для остальных повторите действие.`,
       scopeFilter: 'Все проблемы текущего фильтра',
       nothing: 'В этом фильтре нечего менять.',
@@ -533,6 +541,8 @@ export const ru: typeof uz = {
       commented: 'Строки с комментариями',
       search: (q) => `Поиск: «${q}»`,
       clearSearch: 'Очистить поиск',
+      source: (label) => `Способ решения: ${label}`,
+      clearSource: 'Убрать фильтр по способу решения',
       reset: 'Сбросить фильтры',
     },
     view: {
@@ -583,7 +593,7 @@ export const ru: typeof uz = {
       requestReadOnly: 'Текст можно скопировать и передать клиенту или руководителю.',
     },
     header: {
-      snapshot: (id, date) => `версия ${id}, ${date}`,
+      snapshot: (date) => `версия на ${date}`,
       snapshotUnknown: 'не записана',
       snapshotUnknownHint: 'Этот анализ выполнен до того, как начали записывать версию классификатора.',
       newer: (date) => `Есть более новый классификатор (${date})`,
@@ -622,6 +632,8 @@ export const ru: typeof uz = {
       colConfirmed: 'Подтверждения',
       confirmed: (n, k) => `Отдельно подтверждено ${n} ${pluralRu(k, 'раз', 'раза', 'раз')}`,
       bulkOnly: 'Только массовое принятие',
+      noHistory: 'История подтверждений не записана',
+      noHistoryHint: 'Запись создана до того, как начали считать подтверждения.',
       edited: 'Изменено вручную',
       sourceLabel: {
         manual: 'Последнее: вручную',

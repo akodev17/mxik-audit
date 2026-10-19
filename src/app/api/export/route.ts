@@ -57,6 +57,28 @@ export async function GET(request: Request) {
     auditStatus: x.status[item.effective.review],
   }));
 
+  const base = baseName(catalog.filename);
+  const build = async (): Promise<{ body: Uint8Array<ArrayBuffer>; type: string; filename: string }> => {
+    if (format === '1c' || format === '1c-xlsx') {
+      const oneC: OneCRow[] = items.map((item, i) => ({
+        name: item.rawName, mxik: rows[i]?.mxik ?? '', unit: rows[i]?.unit ?? '', barcode: item.barcode ?? '', auditStatus: rows[i]?.auditStatus ?? '',
+      }));
+      if (format === '1c') return { body: new Uint8Array(build1cCsv(oneC, x.oneC)), type: 'text/csv; charset=utf-8', filename: `${base}-${x.suffix.oneC}.csv` };
+      return { body: new Uint8Array(await build1cXlsx(oneC, x.oneC)), type: XLSX, filename: `${base}-${x.suffix.oneC}.xlsx` };
+    }
+    const buffer = await buildExport({
+      headers: catalog.headers,
+      rows,
+      mxikColumn: mapping.data.mxik >= 0 ? mapping.data.mxik : null,
+      unitColumn: mapping.data.unit >= 0 ? mapping.data.unit : null,
+      labels: { mxik: x.columns.mxik, unit: x.columns.unit, packaging: x.columns.packaging, auditStatus: x.columns.status },
+      sheetName: x.sheet,
+    });
+    return { body: new Uint8Array(buffer), type: XLSX, filename: `${base}-${x.suffix.xlsx}.xlsx` };
+  };
+  const file = await build();
+
+  // Logged only once the file exists: a failed build is not an export.
   const count = (review: string): number => items.filter((i) => i.effective.review === review).length;
   await db.auditEvent.create({
     data: {
@@ -68,30 +90,11 @@ export async function GET(request: Request) {
     },
   });
 
-  const base = baseName(catalog.filename);
-  const headers = (type: string, filename: string): HeadersInit => ({
-    'content-type': type,
-    'content-disposition': contentDisposition('attachment', filename),
-    'cache-control': 'no-store',
+  return new NextResponse(file.body, {
+    headers: {
+      'content-type': file.type,
+      'content-disposition': contentDisposition('attachment', file.filename),
+      'cache-control': 'no-store',
+    },
   });
-
-  if (format === '1c' || format === '1c-xlsx') {
-    const oneC: OneCRow[] = items.map((item, i) => ({
-      name: item.rawName, mxik: rows[i]?.mxik ?? '', unit: rows[i]?.unit ?? '', barcode: item.barcode ?? '', auditStatus: rows[i]?.auditStatus ?? '',
-    }));
-    if (format === '1c') {
-      return new NextResponse(new Uint8Array(build1cCsv(oneC, x.oneC)), { headers: headers('text/csv; charset=utf-8', `${base}-${x.suffix.oneC}.csv`) });
-    }
-    return new NextResponse(new Uint8Array(await build1cXlsx(oneC, x.oneC)), { headers: headers(XLSX, `${base}-${x.suffix.oneC}.xlsx`) });
-  }
-
-  const buffer = await buildExport({
-    headers: catalog.headers,
-    rows,
-    mxikColumn: mapping.data.mxik >= 0 ? mapping.data.mxik : null,
-    unitColumn: mapping.data.unit >= 0 ? mapping.data.unit : null,
-    labels: { mxik: x.columns.mxik, unit: x.columns.unit, packaging: x.columns.packaging, auditStatus: x.columns.status },
-    sheetName: x.sheet,
-  });
-  return new NextResponse(new Uint8Array(buffer), { headers: headers(XLSX, `${base}-${x.suffix.xlsx}.xlsx`) });
 }

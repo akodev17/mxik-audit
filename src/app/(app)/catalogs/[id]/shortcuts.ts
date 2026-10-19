@@ -1,12 +1,13 @@
 // Workspace keyboard map. Pure, so the rules are testable. Keys are matched by
 // physical position (KeyboardEvent.code), so they work on a Cyrillic layout too.
+// "/" is not here: the shell's command palette owns it (and Ctrl+K).
 
-export type ShortcutAction = 'next' | 'prev' | 'nextPending' | 'accept' | 'reject' | 'edit' | 'open' | 'undo' | 'search' | 'help';
+export type ShortcutAction = 'next' | 'prev' | 'nextPending' | 'accept' | 'reject' | 'edit' | 'open' | 'undo' | 'help';
 
 type KeyInput = { code: string; key: string; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean; repeat: boolean };
 
 /** Decisions and undo never fire from a held-down key. */
-const NO_REPEAT: ReadonlySet<ShortcutAction> = new Set(['accept', 'reject', 'undo', 'edit', 'open', 'help', 'search']);
+const NO_REPEAT: ReadonlySet<ShortcutAction> = new Set(['accept', 'reject', 'undo', 'edit', 'open', 'help']);
 
 export function shortcutFor(e: KeyInput): ShortcutAction | null {
   if (e.ctrlKey || e.metaKey || e.altKey) return null;
@@ -28,7 +29,6 @@ function actionOf(e: KeyInput): ShortcutAction | null {
     case 'KeyE': return 'edit';
     case 'KeyO': return 'open';
     case 'KeyU': return 'undo';
-    case 'Slash': return 'search';
     default: return null;
   }
 }

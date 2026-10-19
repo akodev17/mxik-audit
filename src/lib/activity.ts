@@ -4,22 +4,32 @@
 import { Prisma } from '@prisma/client';
 import { db } from './db';
 
-export const CATEGORIES = ['all', 'decisions', 'uploads', 'exports', 'share', 'team', 'classifier', 'dictionary', 'other'] as const;
+export const CATEGORIES = ['all', 'decisions', 'uploads', 'exports', 'share', 'clients', 'team', 'classifier', 'dictionary', 'other'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
-const GROUPS: Record<Exclude<Category, 'all' | 'other'>, string[]> = {
+/** Every action the app writes belongs to one group; 'other' only catches what a future change forgets. */
+export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[]> = {
   decisions: ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.undone', 'finding.carried_over', 'finding.auto_accepted', 'finding.flagged', 'finding.flag_undone', 'finding.commented', 'finding.split_from_group', 'item.name_filled', 'suggestion.reported_wrong'],
-  uploads: ['catalog.uploaded', 'catalog.audited', 'catalog.deleted', 'purchases.uploaded', 'sales.uploaded', 'cheques.uploaded', 'sales.checked', 'cheques.checked'],
+  uploads: [
+    'catalog.uploaded', 'catalog.audited', 'catalog.deleted', 'catalog.upload_discarded',
+    'purchases.uploaded', 'purchases.mapped', 'purchases.deleted',
+    'sales.uploaded', 'sales.checked', 'sales.deleted', 'cheques.uploaded', 'cheques.checked', 'cheques.deleted',
+  ],
   exports: ['catalog.exported', 'catalog.pdf_exported', 'account.exported'],
   share: ['share.created', 'share.revoked'],
-  team: ['team.invited', 'team.joined', 'team.updated', 'team.removed', 'account.created', 'apikey.created', 'apikey.revoked', 'security.2fa_enabled', 'security.2fa_disabled', 'security.session_revoked', 'security.password_changed', 'security.password_reset', 'security.telegram_bound', 'security.telegram_unbound', 'account.deletion_requested', 'account.restored'],
+  clients: ['client.created', 'client.renamed', 'client.archived', 'client.restored', 'client.deleted', 'client.accountants_set', 'client.activity_set', 'schedule.set', 'reminder.sent', 'reminder.done'],
+  team: [
+    'team.invited', 'team.invite_revoked', 'team.joined', 'team.updated', 'team.removed', 'account.created', 'demo.started', 'apikey.created', 'apikey.revoked',
+    'security.2fa_enabled', 'security.2fa_disabled', 'security.session_revoked', 'security.password_changed', 'security.password_reset', 'security.telegram_bound', 'security.telegram_unbound',
+    'telegram.linked', 'telegram.unlinked', 'account.deletion_requested', 'account.restored', 'retention.changed', 'retention.purged', 'billing.order_created', 'billing.paid',
+  ],
   classifier: ['classifier.updated'],
   dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept'],
 };
 const KNOWN = Object.values(GROUPS).flat();
 
 /** Events about the org itself rather than a client; only admins read other people's. */
-const ORG_LEVEL = [...GROUPS.team, 'billing.paid', 'billing.order_created', 'dictionary.auto_accept', 'account.exported', 'retention.changed', 'retention.purged'];
+const ORG_LEVEL = [...GROUPS.team, 'team.invite_revoked', 'billing.paid', 'billing.order_created', 'dictionary.auto_accept', 'account.exported', 'retention.changed', 'retention.purged'];
 
 
 export type ActivityFilter = { clientId: string | null; userId: string | null; category: Category; from: string | null; to: string | null; page: number };

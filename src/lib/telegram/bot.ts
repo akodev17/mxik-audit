@@ -66,8 +66,8 @@ async function importFile(ctx: Context, config: TelegramConfig, link: Link, pend
     await ctx.reply(appDict(await orgLocale(link.orgId)).msg.gate[allowed.reason]);
     return;
   }
-  // No mapping screen in a chat: the org's remembered mapping, else the header guess.
-  const mapping = await mappingFor(link.orgId, parsed.headers);
+  // No mapping screen in a chat: the client's remembered mapping, then the org's, else the header guess.
+  const mapping = await mappingFor(link.orgId, parsed.headers, client.id);
   const { catalogId } = await storeCatalog({
     orgId: link.orgId, userId: link.linkedBy, clientId: client.id,
     filename: pending.filename, parsed, mapping, telegramChatId: chatId,

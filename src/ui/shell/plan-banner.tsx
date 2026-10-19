@@ -18,7 +18,7 @@ export function PlanBanner({ plan }: { plan: ShellData['plan'] }) {
   return (
     <div role="status" className={`no-print flex items-center justify-between gap-3 px-4 py-1.5 text-sm ${tone}`}>
       <span>{text}</span>
-      <Link href="/settings#plan" className="shrink-0 font-medium underline">{ta.plan.upgrade}</Link>
+      <Link href="/settings?tab=plan" className="shrink-0 font-medium underline">{ta.plan.upgrade}</Link>
     </div>
   );
 }

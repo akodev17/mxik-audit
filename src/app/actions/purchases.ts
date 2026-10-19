@@ -3,6 +3,7 @@
 import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { canSeeClient } from '@/lib/access';
 import { MAX_UPLOAD_BYTES } from '@/lib/catalog-import';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
@@ -88,6 +89,8 @@ export async function setActivity(payload: unknown): Promise<{ ok: boolean }> {
   const user = await writer();
   const parsed = ActivityInput.safeParse(payload);
   if (!user || !parsed.success || await isDemoOrg(user.orgId)) return { ok: false };
+  // A scoped accountant may only change clients assigned to them (setClientActivity checks the org and this again).
+  if (!canSeeClient(user, parsed.data.clientId)) return { ok: false };
   const ok = await setClientActivity(user, parsed.data.clientId, parsed.data.activity);
   if (!ok) return { ok: false };
   revalidatePath(`/clients/${parsed.data.clientId}`);

@@ -1,6 +1,8 @@
 // How good the suggestions are, from what reviewers did with them. Cross-org,
 // so only the platform admin page reads it. Demo and test orgs are left out.
 import { Prisma } from '@prisma/client';
+import { CONFIDENCE_LABELS, type LabelKey } from '../core/match/confidence-labels';
+import { formulaSafe } from './csv-safe';
 import { db } from './db';
 
 export type Dimension = 'stage' | 'label' | 'org' | 'week';
@@ -8,12 +10,27 @@ export const DIMENSIONS: Dimension[] = ['stage', 'label', 'org', 'week'];
 
 export type AccuracyRow = { key: string; unchanged: number; replaced: number; rejected: number; open: number; decided: number; rate: number | null };
 
-/** The confidence label the app shows, derived the same way as confidenceLabel(). */
+/** The words the app shows for each labelKey() key: a match band, never a certainty. */
+export const LABEL_WORDING: Record<LabelKey, string> = {
+  barcode: 'Shtrix-kod boʻyicha',
+  dictionary: 'Firma lugʻatidan',
+  sure: 'Yuqori moslik',
+  likely: 'Oʻrtacha moslik',
+  check: 'Tekshirish kerak',
+};
+
+/** A constant of this module as an SQL literal (no bind parameters, so GROUP BY 1 stays one expression). */
+const literal = (value: string | number): Prisma.Sql =>
+  Prisma.raw(typeof value === 'number' ? String(value) : `'${value.replace(/'/g, "''")}'`);
+
+/** The label of a stored finding, decided in the same order and with the same thresholds as labelKey(). */
 const LABEL_SQL = Prisma.sql`CASE
-  WHEN f.evidence->>'stage' IN ('barcode', 'dictionary') OR f.confidence >= 0.9 THEN 'Aniq'
-  WHEN f.confidence >= 0.75 THEN 'Ehtimoliy'
+  WHEN f.evidence->>'stage' = 'barcode' THEN ${literal(LABEL_WORDING.barcode)}
+  WHEN f.evidence->>'stage' = 'dictionary' THEN ${literal(LABEL_WORDING.dictionary)}
   WHEN f.confidence IS NULL THEN 'nomaʼlum'
-  ELSE 'Tekshirish kerak' END`;
+  WHEN f.confidence >= ${literal(CONFIDENCE_LABELS.sure)} THEN ${literal(LABEL_WORDING.sure)}
+  WHEN f.confidence >= ${literal(CONFIDENCE_LABELS.likely)} THEN ${literal(LABEL_WORDING.likely)}
+  ELSE ${literal(LABEL_WORDING.check)} END`;
 
 const KEY_SQL: Record<Dimension, Prisma.Sql> = {
   stage: Prisma.sql`coalesce(f.evidence->>'stage', 'nomaʼlum')`,
@@ -68,9 +85,10 @@ export async function wrongReasons(): Promise<WrongReason[]> {
   })));
 }
 
-const csvCell = (v: string | number | null): string => {
-  const s = v === null ? '' : String(v).replace(/^([=+\-@\t\r])/, "'$1");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+/** One CSV cell: text that Excel would run as a formula (= + - @ tab CR) gets a leading apostrophe. */
+export const csvCell = (v: string | number | null): string => {
+  const s = v === null ? '' : typeof v === 'number' ? String(v) : formulaSafe(v);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
 export async function accuracyCsv(dim: Dimension): Promise<string> {

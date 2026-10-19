@@ -45,6 +45,8 @@ export type WorkspaceProps = {
   initialNext: string | null;
   count: number;
   filter: WsFilter;
+  /** A finding a link asked for (?row=): its drawer opens once and the grid scrolls to it. Always among initialRows. */
+  focusRow: string | null;
   /** Storage key for the one-time demo tips; null when they do not apply. */
   hintKey: string | null;
   /** Viewers see everything and change nothing. */
@@ -128,6 +130,24 @@ export function Workspace(props: WorkspaceProps) {
     const el = document.activeElement;
     if (!el || el === document.body || gridRef.current?.contains(el)) gridRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // A link to one finding opens it once; the grid scrolls to the active row. The URL forgets it,
+  // so a later filter change does not open it again.
+  const focused = useRef<string | null>(null);
+  useEffect(() => {
+    const id = props.focusRow;
+    if (!id || focused.current === id) return;
+    focused.current = id;
+    const row = rows.find((r) => r.findingId === id);
+    if (!row) return;
+    const group = row.groupKey;
+    if (grouped && group) setExpanded((cur) => new Set(cur).add(group));
+    setActiveKey(id);
+    setOpenId(id);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('row');
+    window.history.replaceState(null, '', url);
+  }, [props.focusRow, rows, grouped]);
 
   // The active row, announced politely for screen readers.
   useEffect(() => {
@@ -354,7 +374,6 @@ export function Workspace(props: WorkspaceProps) {
         case 'edit': if (single) { e.preventDefault(); pick(single); } break;
         case 'open': if (row && entry?.kind === 'row') { e.preventDefault(); setOpenId(row.findingId); } break;
         case 'undo': e.preventDefault(); void undoLast(); break;
-        case 'search': e.preventDefault(); document.getElementById('app-search')?.focus(); break;
         case 'help': e.preventDefault(); setHelpOpen(true); break;
         default: break;
       }
@@ -377,7 +396,7 @@ export function Workspace(props: WorkspaceProps) {
     setHidden(OPTIONAL_COLUMNS.filter((c) => p.hidden?.includes(c)));
   };
 
-  const narrowed = filter.type !== null || filter.q !== '' || filter.flag !== 'any' || filter.commented;
+  const narrowed = filter.type !== null || filter.q !== '' || filter.flag !== 'any' || filter.commented || filter.source !== null;
   const showCompletion = allDone && filter.decision === 'pending';
   const drawerOpen = openRow !== null;
   const style = { '--drawer-width': `${drawerWidth}px` } as CSSProperties;
@@ -387,7 +406,7 @@ export function Workspace(props: WorkspaceProps) {
     body = showCompletion ? null
       : summary.riskyRows === 0 && !filter.type && !filter.q
         ? <EmptyState title={x.empty.clean} hint={x.empty.cleanHint} />
-        : <EmptyState title={x.empty.title} hint={x.empty.hint} action={<Button size="sm" onClick={() => go((p) => { for (const k of ['type', 'q', 'dec', 'flag', 'comments', 'sort']) p.delete(k); })}>{x.filter.reset}</Button>} />;
+        : <EmptyState title={x.empty.title} hint={x.empty.hint} action={<Button size="sm" onClick={() => go((p) => { for (const k of ['type', 'q', 'dec', 'flag', 'comments', 'sort', 'source']) p.delete(k); })}>{x.filter.reset}</Button>} />;
   } else if (phone) {
     body = (
       <CardList

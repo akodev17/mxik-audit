@@ -46,7 +46,10 @@ export function Tasks({ items, canWrite }: { items: TaskItem[]; canWrite: boolea
             </span>
           </span>
           {canWrite ? (
-            <Button size="sm" variant="secondary" loading={busy === t.id} disabled={busy !== null && busy !== t.id} onClick={() => { void close(t.id); }}>
+            <Button
+              size="sm" variant="secondary" loading={busy === t.id} disabled={busy !== null && busy !== t.id} onClick={() => { void close(t.id); }}
+              aria-label={`${ta.firmX.home.taskDone}: ${t.clientName}, ${ta.firmX.home.taskDue(fmtDate(locale, t.dueOn))}`}
+            >
               {ta.firmX.home.taskDone}
             </Button>
           ) : null}

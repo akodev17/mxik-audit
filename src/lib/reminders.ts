@@ -30,14 +30,23 @@ export async function getSchedule(orgId: string, clientId: string) {
 
 export type ScheduleInput = { dayOfMonth: number; assigneeId: string | null; enabled: boolean };
 
-export async function setSchedule(who: Who, clientId: string, input: ScheduleInput, now = new Date()): Promise<Result<{ nextDue: Date | null }>> {
+/** 'assignee scope': the chosen person is limited to other clients and could not open this one. */
+export type ScheduleError = 'bad day' | 'not found' | 'bad assignee' | 'assignee scope';
+
+export async function setSchedule(who: Who, clientId: string, input: ScheduleInput, now = new Date()): Promise<{ ok: true; nextDue: Date | null } | { ok: false; error: ScheduleError }> {
   if (!Number.isInteger(input.dayOfMonth) || input.dayOfMonth < 1 || input.dayOfMonth > 28) return { ok: false, error: 'bad day' };
   const client = await db.client.findFirst({ where: { id: clientId, orgId: who.orgId }, select: { id: true } });
   if (!client || !canSeeClient(who, client.id)) return { ok: false, error: 'not found' };
   const assignee = input.assigneeId
-    ? await db.user.findFirst({ where: { id: input.assigneeId, orgId: who.orgId, role: { not: 'viewer' } }, select: { id: true } })
+    ? await db.user.findFirst({
+      where: { id: input.assigneeId, orgId: who.orgId, role: { not: 'viewer' } },
+      select: { id: true, role: true, assignments: { select: { clientId: true } } },
+    })
     : null;
   if (input.assigneeId && !assignee) return { ok: false, error: 'bad assignee' };
+  // Same rule as session.ts: admins and members with no assignments see every client.
+  const assigneeScope = assignee && assignee.role !== 'admin' && assignee.assignments.length > 0 ? assignee.assignments.map((a) => a.clientId) : null;
+  if (assignee && !canSeeClient({ clientIds: assigneeScope }, client.id)) return { ok: false, error: 'assignee scope' };
 
   const existing = await db.clientSchedule.findUnique({ where: { clientId }, select: { lastPeriod: true } });
   const lastPeriod = skipsThisMonth(input, existing?.lastPeriod ?? null, now) ? localDate(now).period : existing?.lastPeriod ?? null;

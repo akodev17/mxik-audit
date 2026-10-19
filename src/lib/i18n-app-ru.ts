@@ -526,6 +526,7 @@ const coreRu: CoreAppDict = {
       'telegram.unlinked': 'Telegram отключён',
       'user.signed_in': 'Вход в систему',
       'account.created': 'Аккаунт создан',
+      'demo.started': 'Демо запущено',
       'billing.order_created': 'Создан заказ на оплату',
       'billing.paid': 'Оплата получена',
       'sales.uploaded': 'Файл продаж загружен',

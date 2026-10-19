@@ -2,6 +2,7 @@
 // client menu and the server share it. Fields added later are optional, so
 // views saved before them still load.
 import { z } from 'zod';
+import { DECISION_SOURCES } from './decision-source';
 import { DECISION_FILTERS, FLAG_FILTERS } from './workspace-filter';
 
 /** Grid columns a user may hide; product, row number and decision always show. */
@@ -20,6 +21,8 @@ export const ViewParams = z.object({
   decision: z.enum(DECISION_FILTERS).optional(),
   flag: z.enum(FLAG_FILTERS).optional(),
   hidden: z.array(z.enum(OPTIONAL_COLUMNS)).max(OPTIONAL_COLUMNS.length).optional(),
+  /** Only decisions made this way (carry-over, bulk, …). */
+  source: z.enum(DECISION_SOURCES).optional(),
 });
 export type ViewParams = z.infer<typeof ViewParams>;
 
@@ -38,6 +41,7 @@ export function viewQuery(p: ViewParams): string {
   if (p.q) q.set('q', p.q);
   if (decision !== 'pending') q.set('dec', decision);
   if (p.flag && p.flag !== 'any') q.set('flag', p.flag);
+  if (p.source) q.set('source', p.source);
   if (p.comments) q.set('comments', '1');
   if (p.sort !== 'risk') q.set('sort', p.sort);
   if (p.density === 'compact') q.set('density', 'compact');

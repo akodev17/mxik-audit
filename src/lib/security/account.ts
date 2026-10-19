@@ -81,13 +81,22 @@ async function blank(table: Table, id: string, keep: number[]): Promise<void> {
   await db.$executeRawUnsafe(`UPDATE "${table}" SET "rawPurgedAt" = now() WHERE id = $1`, id);
 }
 
-/** Blanks the unmapped original cells of finished uploads older than each org's retention window. */
+/**
+ * Blanks the unmapped original cells of finished uploads older than each org's
+ * retention window. Never retroactive: only uploads made at or after the org's
+ * rawRetentionSince are touched, and an org without that date is skipped.
+ */
 export async function purgeRawFiles(now = new Date()): Promise<{ catalogs: number; purchaseLists: number; docLists: number }> {
-  const orgs = await db.organization.findMany({ where: { rawRetentionDays: { not: null }, kind: 'customer' }, select: { id: true, rawRetentionDays: true } });
+  const orgs = await db.organization.findMany({
+    where: { rawRetentionDays: { not: null }, rawRetentionSince: { not: null }, kind: 'customer' },
+    select: { id: true, rawRetentionDays: true, rawRetentionSince: true },
+  });
   const done = { catalogs: 0, purchaseLists: 0, docLists: 0 };
   for (const org of orgs) {
-    const cutoff = new Date(now.getTime() - (org.rawRetentionDays ?? 0) * DAY);
-    const where = { orgId: org.id, createdAt: { lt: cutoff }, rawPurgedAt: null };
+    if (org.rawRetentionDays === null || org.rawRetentionSince === null) continue;
+    const cutoff = new Date(now.getTime() - org.rawRetentionDays * DAY);
+    if (cutoff <= org.rawRetentionSince) continue;
+    const where = { orgId: org.id, createdAt: { gte: org.rawRetentionSince, lt: cutoff }, rawPurgedAt: null };
     let purged = 0;
     for (const c of await db.catalog.findMany({ where: { ...where, status: { in: ['ready', 'failed'] } }, select: { id: true, columnMap: true } })) {
       await blank('catalog', c.id, mappedColumns(c.columnMap));

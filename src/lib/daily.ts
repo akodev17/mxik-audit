@@ -1,5 +1,6 @@
 // What the daily cron runs. Each job is independent: one failing never stops the others.
 import { pruneIdempotency } from './api/idempotency';
+import { sweepExpiredPreviews } from './preview-sweep';
 import { runReminders } from './reminders';
 import { purgeDeletedAccounts, purgeRawFiles } from './security/account';
 import { pruneAttempts } from './security/rate-limit';
@@ -18,6 +19,7 @@ export async function runDailyJobs(now = new Date()): Promise<DailyResult> {
   return {
     reminders: await attempt(() => runReminders(now)),
     rawFiles: await attempt(() => purgeRawFiles(now)),
+    expiredPreviews: await attempt(() => sweepExpiredPreviews(now)),
     deletedAccounts: await attempt(() => purgeDeletedAccounts(now)),
     authAttempts: await attempt(() => pruneAttempts(now)),
     apiIdempotency: await attempt(() => pruneIdempotency(now)),

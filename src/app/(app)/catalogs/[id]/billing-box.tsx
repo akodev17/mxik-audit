@@ -12,12 +12,13 @@ type Props = {
   orgId: string;
   catalogId: string;
   rowCount: number;
-  /** Only an admin pays; others are told so. Defaults to true for callers that predate roles. */
-  canPay?: boolean;
-  demo?: boolean;
+  /** Only an admin pays; others are told so. */
+  canPay: boolean;
+  /** A demo org never pays; it is told so instead of seeing buttons that would fail. */
+  demo: boolean;
 };
 
-export async function BillingBox({ orgId, catalogId, rowCount, canPay = true, demo = false }: Props) {
+export async function BillingBox({ orgId, catalogId, rowCount, canPay, demo }: Props) {
   const { locale, t, ta } = await getI18n();
   const plan = catalogPlan(rowCount);
   const purchase = catalogPurchase({ plan, config: billingConfig(), admin: canPay, demo, paid: await catalogPaid(orgId, catalogId) });

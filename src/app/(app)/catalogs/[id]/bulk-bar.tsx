@@ -51,11 +51,13 @@ export function BulkBar(p: Props) {
   const preview = pending?.preview ?? null;
   const ready = preview?.ok ? preview : null;
   const touch = ready?.willTouch ?? 0;
+  const confirmOnly = ready && ready.confirmOnly > 0 ? count(locale, b.dryRunConfirmOnly, ready.confirmOnly) : null;
   const description = !preview ? b.checking
     : !preview.ok ? preview.error
-      : touch === 0 ? b.nothing
+      : touch === 0 ? [b.nothing, confirmOnly].filter(Boolean).join(' ')
         : [
           count(locale, kind === 'flag' ? b.dryRunFlag : b.dryRun, touch),
+          confirmOnly,
           ready?.capped ? b.capped(fmtNumber(locale, ready.limit), fmtNumber(locale, ready.matching)) : null,
         ].filter(Boolean).join(' ');
 

@@ -32,7 +32,7 @@ type Group = { key: GroupKey; label: string; options: Option[] };
 type Status = { kind: 'idle' } | { kind: 'loading'; previous: SearchResults | null } | { kind: 'failed' } | { kind: 'done'; results: SearchResults };
 
 const DEBOUNCE_MS = 250;
-const STATUS_TONE: Record<ProductStatus, Tone> = { attention: 'warn', decided: 'good', info: 'info', clean: 'neutral' };
+const STATUS_TONE: Record<ProductStatus, Tone> = { attention: 'warn', decided: 'good', auto: 'brand', info: 'info', clean: 'neutral' };
 
 /**
  * Ctrl+K palette: page commands, client switching, and search over clients, catalogues, products and
@@ -129,10 +129,11 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
     });
     list.push({
       key: 'products', label: s.groups.products,
+      // A clean row is not in the workspace grid: its outcome is said here, and Enter opens the catalogue.
       options: results.products.map((p) => ({
         key: `product-${p.id}`, label: p.name, icon: <IconBox />,
-        detail: <>{[p.clientName, s.row(String(p.row))].filter(Boolean).join(' · ')}{p.code ? <> · <span className="font-mono">{p.code}</span></> : null}</>,
-        meta: <Badge tone={STATUS_TONE[p.status]}>{s.status[p.status]}</Badge>,
+        detail: <>{[p.clientName, p.status === 'clean' ? s.cleanRow(String(p.row)) : s.row(String(p.row))].filter(Boolean).join(' · ')}{p.code ? <> · <span className="font-mono">{p.code}</span></> : null}</>,
+        meta: p.status === 'clean' ? undefined : <Badge tone={STATUS_TONE[p.status]}>{s.status[p.status]}</Badge>,
         action: { kind: 'go', href: p.href },
       })),
     });

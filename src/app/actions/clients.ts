@@ -4,12 +4,12 @@ import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { archiveClient, deleteClient, renameClient, restoreClient, setClientAccountants, type LifecycleError } from '@/lib/client-lifecycle';
-import { createClient, ownedClient } from '@/lib/clients';
+import { switchableClient } from '@/lib/active-client';
+import { archiveClient, deleteClient, renameClient, restoreClient, setClientAccountants, type Dependant, type LifecycleError } from '@/lib/client-lifecycle';
+import { createClient } from '@/lib/clients';
 import { isDemoOrg } from '@/lib/demo';
 import { gate } from '@/lib/plan';
 import { currentUser, getSession } from '@/lib/session';
-import { canSeeClient } from '@/lib/access';
 import { admin, writer } from '@/lib/guard';
 
 export type AddClientState = { error?: string };
@@ -35,15 +35,14 @@ export async function addClient(_prev: AddClientState, form: FormData): Promise<
   redirect(`/clients/${result.clientId}`);
 }
 
-/** Remembers which client is being worked on, after checking it is the org's. */
+/** Remembers which client is being worked on: the org's, visible to the user and not archived. */
 export async function rememberClient(clientId: unknown): Promise<{ ok: boolean }> {
   const user = await currentUser();
   if (!user) return { ok: false };
-  const id = z.string().min(1).safeParse(clientId);
+  const id = z.string().min(1).max(64).safeParse(clientId);
   if (!id.success) return { ok: false };
-  const client = await ownedClient(user.orgId, id.data);
+  const client = await switchableClient(user, id.data);
   if (!client) return { ok: false };
-  if (!canSeeClient(user, client.id)) return { ok: false };
   if (user.clientId === client.id) return { ok: true };
   const session = await getSession();
   session.clientId = client.id;
@@ -52,6 +51,9 @@ export async function rememberClient(clientId: unknown): Promise<{ ok: boolean }
 }
 
 export type ClientActionResult = { ok: true } | { ok: false; error: string };
+/** Archiving tells who is left without an active client; a refused delete lists whose only client it is. */
+export type ArchiveActionResult = { ok: true; stranded: string[] } | { ok: false; error: string };
+export type DeleteActionResult = { ok: true } | { ok: false; error: string; blockers?: Dependant[] };
 
 async function lifecycleUser() {
   const user = await admin();
@@ -59,7 +61,7 @@ async function lifecycleUser() {
   return user;
 }
 
-async function failure(error: LifecycleError): Promise<ClientActionResult> {
+async function failure(error: LifecycleError): Promise<{ ok: false; error: string }> {
   const { ta } = await getI18n();
   return { ok: false, error: ta.firmX.errors[error] };
 }
@@ -84,7 +86,7 @@ export async function renameClientAction(payload: unknown): Promise<ClientAction
   return { ok: true };
 }
 
-export async function archiveClientAction(clientId: unknown): Promise<ClientActionResult> {
+export async function archiveClientAction(clientId: unknown): Promise<ArchiveActionResult> {
   const user = await lifecycleUser();
   const id = Id.safeParse(clientId);
   if (!user) return failure('forbidden');
@@ -98,7 +100,7 @@ export async function archiveClientAction(clientId: unknown): Promise<ClientActi
     await session.save();
   }
   refresh(id.data);
-  return { ok: true };
+  return { ok: true, stranded: result.stranded };
 }
 
 export async function restoreClientAction(clientId: unknown): Promise<ClientActionResult> {
@@ -113,12 +115,16 @@ export async function restoreClientAction(clientId: unknown): Promise<ClientActi
 }
 
 /** Deletes a client after its exact name was typed. The caller navigates away on success. */
-export async function deleteClientAction(payload: unknown): Promise<ClientActionResult> {
+export async function deleteClientAction(payload: unknown): Promise<DeleteActionResult> {
   const user = await lifecycleUser();
   const parsed = z.object({ clientId: Id, confirmName: z.string().max(400) }).safeParse(payload);
   if (!user) return failure('forbidden');
   if (!parsed.success) return failure('name mismatch');
   const result = await deleteClient(user, parsed.data.clientId, parsed.data.confirmName);
+  if (!result.ok && 'blockers' in result) {
+    const { ta } = await getI18n();
+    return { ok: false, error: ta.firmX.client.deleteBlocked, blockers: result.blockers };
+  }
   if (!result.ok) return failure(result.error);
   if (user.clientId === parsed.data.clientId) {
     const session = await getSession();

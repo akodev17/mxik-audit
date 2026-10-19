@@ -1,12 +1,26 @@
 // Words for one activity log entry, shared by the log, the dashboard and the client page.
 import type { ActivityRow } from '@/lib/activity';
 import type { ActivityEntry } from '@/lib/activity-groups';
+import { SYSTEM_DECISION_ACTIONS } from '@/lib/decision-source';
 import { fmtNumber } from '@/lib/format';
 import type { Locale } from '@/lib/i18n';
 import type { AppDict } from '@/lib/i18n-app';
 
-export function actorText(row: Pick<ActivityRow, 'actor' | 'actorId'>, ta: AppDict): string {
+const SYSTEM: readonly string[] = SYSTEM_DECISION_ACTIONS;
+
+/** A decision nobody made: dictionary auto-accept or carried over from the previous version, with no actor. */
+export function isAutomaticRow(row: Pick<ActivityRow, 'action' | 'actorId'>): boolean {
+  return row.actorId === null && SYSTEM.includes(row.action);
+}
+
+/** A run made only of automatic decisions gets its own title instead of a person's. */
+export function isAutomaticEntry(entry: ActivityEntry): boolean {
+  return entry.kind === 'event' ? isAutomaticRow(entry.row) : entry.rows.every(isAutomaticRow);
+}
+
+export function actorText(row: Pick<ActivityRow, 'actor' | 'actorId' | 'action'>, ta: AppDict): string {
   if (row.actor) return row.actor;
+  if (isAutomaticRow(row)) return ta.firmX.log.automatic;
   return row.actorId ? ta.firmX.log.deletedUser : ta.activity.system;
 }
 
@@ -20,12 +34,13 @@ export function catalogText(row: Pick<ActivityRow, 'catalogName' | 'catalogDelet
   return row.catalogDeleted ? ta.firmX.log.deletedCatalog : null;
 }
 
-/** The one-line title: an action, or "12 decisions — Baraka.xlsx" for a folded run. */
+/** The one-line title: an action, "12 decisions — Baraka.xlsx" for a folded run, "Automatic: 12 decisions — …" for the system's. */
 export function entryTitle(entry: ActivityEntry, ta: AppDict, locale: Locale): string {
   if (entry.kind === 'event') return actionText(entry.row, ta, locale);
   const head = entry.rows[0];
   const catalog = head ? catalogText(head, ta) ?? '' : '';
-  return ta.firmX.log.group(fmtNumber(locale, entry.decisions), catalog, entry.decisions);
+  const n = fmtNumber(locale, entry.decisions);
+  return isAutomaticEntry(entry) ? ta.firmX.log.autoGroup(n, catalog, entry.decisions) : ta.firmX.log.group(n, catalog, entry.decisions);
 }
 
 /** The row an entry is shown with: the event itself, or the newest event of a group. */

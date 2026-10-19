@@ -25,6 +25,7 @@ const monthStart = (now: Date): Date => new Date(Date.UTC(now.getUTCFullYear(), 
 /**
  * Rows count once a catalogue is committed (its mapping confirmed): a preview
  * left at "uploaded", then abandoned or discarded, never uses the allowance.
+ * Previews have their own cap instead (previewGate) and are swept after 48 hours.
  */
 export async function usageOf(orgId: string, now = new Date()): Promise<Usage> {
   const [clients, rows, users, invites] = await Promise.all([
@@ -75,6 +76,34 @@ export function allows(status: PlanStatus, key: LimitKey, adding = 1): Gate {
 /** Checks a resource for an org straight from the database. */
 export async function gate(orgId: string, key: LimitKey, adding = 1): Promise<Gate> {
   return allows(await planStatus(orgId), key, adding);
+}
+
+/** Cap on uncommitted preview rows when the plan sets no monthly row limit. */
+export const PREVIEW_ROWS_UNCAPPED = 200_000;
+const PREVIEW_WINDOW_MS = 24 * 3_600_000;
+
+/** Preview rows an org may hold from the last 24 hours: the plan's monthly rows when capped. */
+export function previewCap(limits: Pick<Limits, 'rowsPerMonth'>): number {
+  return limits.rowsPerMonth ?? PREVIEW_ROWS_UNCAPPED;
+}
+
+export type PreviewGate = { ok: true } | { ok: false; cap: number };
+
+/**
+ * Whether `adding` more uncommitted rows still fit. Previews do not use the
+ * monthly allowance, so without this cap uploading and never committing
+ * would store rows without limit.
+ */
+export async function previewGate(orgId: string, adding: number, now = new Date()): Promise<PreviewGate> {
+  const [status, open] = await Promise.all([
+    planStatus(orgId, now),
+    db.catalog.aggregate({
+      where: { orgId, status: 'uploaded', createdAt: { gte: new Date(now.getTime() - PREVIEW_WINDOW_MS) } },
+      _sum: { rowCount: true },
+    }),
+  ]);
+  const cap = previewCap(status.limits);
+  return (open._sum.rowCount ?? 0) + adding > cap ? { ok: false, cap } : { ok: true };
 }
 
 /**

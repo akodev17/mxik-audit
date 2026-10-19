@@ -1,11 +1,16 @@
 // One-time use of a signed value (a Telegram login hash): the first request wins, a replay is refused.
+import { randomBytes } from 'node:crypto';
 import { db } from '../db.js';
 import { attemptKey } from './rate-limit.js';
 
-/** True only for the first claim of `value`. Every claim writes a row; the earliest row wins, so two racing claims cannot both pass. */
-export async function claimOnce(kind: string, value: string): Promise<boolean> {
-  const key = attemptKey(value);
-  const mine = await db.authAttempt.create({ data: { kind, key }, select: { id: true } });
-  const first = await db.authAttempt.findFirst({ where: { kind, key }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true } });
-  return first?.id === mine.id;
+/** Kinds backed by the partial unique index auth_attempt_once_key. */
+export type OnceKind = 'tg_replay';
+
+/** True only for the first claim of `value`; the unique index makes racing claims fail atomically. */
+export async function claimOnce(kind: OnceKind, value: string): Promise<boolean> {
+  const id = `once_${randomBytes(12).toString('hex')}`;
+  const inserted = await db.$executeRaw`
+    INSERT INTO auth_attempt (id, kind, key) VALUES (${id}, ${kind}, ${attemptKey(value)})
+    ON CONFLICT (kind, key) WHERE kind = 'tg_replay' DO NOTHING`;
+  return inserted === 1;
 }

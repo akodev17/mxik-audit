@@ -1,15 +1,17 @@
 // Bulk actions on selected findings or on a whole filter: accept suggestions
-// (or confirm current codes), assign one code, reject, or flag. One audit event
-// per action, so a single undo reverts it; flag changes keep each row's
-// previous flag for the same reason.
+// (and unit fixes), assign one code, reject, or flag. One audit event per
+// action, so a single undo reverts it; flag changes keep each row's previous
+// flag for the same reason. Checks that only ask "is the current code right?"
+// are never accepted in bulk: a person confirms those row by row.
 import { randomUUID } from 'node:crypto';
+import type { FindingType } from '@prisma/client';
 import { readEvidence } from '../core/match/evidence.js';
 import { catalogScope } from './access.js';
-import { decideMany, liveCodeSet, type ManyDone, type ManyTarget } from './decide-many.js';
+import { decideMany, liveCodeSet, type ManyDone, type ManyTarget, type Skipped } from './decide-many.js';
 import { db } from './db.js';
 import type { Actor, Result } from './decisions.js';
-import { acceptCode } from './finding-kinds.js';
-import { workspaceAllIds, workspaceCount } from './workspace.js';
+import { acceptCode, CONFIRMING_TYPES } from './finding-kinds.js';
+import { workspaceAllIds, workspaceCount, workspaceTypeCount } from './workspace.js';
 import { pendingSubset, type WsFilter } from './workspace-filter.js';
 import { mayWrite } from './write-access.js';
 
@@ -38,21 +40,39 @@ function effectiveFilter(target: { filter: WsFilter }, action: BulkAction): WsFi
   return action.kind === 'flag' ? target.filter : pendingSubset(target.filter);
 }
 
-export type BulkPreview = { willTouch: number; matching: number; capped: boolean; limit: number };
+/** Confirming checks other than the unit fix: accepting them only says "the current code is right". */
+export const BULK_CONFIRM_ONLY = [...CONFIRMING_TYPES].filter((t) => t !== 'UNIT_CONFLICT') as FindingType[];
+const isConfirmOnly = (type: string): boolean => (BULK_CONFIRM_ONLY as string[]).includes(type);
 
-/** Dry run: how many rows the action would touch, and whether the cap cuts it short. */
+/** willTouch leaves out what the action skips; confirmOnly counts the rows a bulk accept leaves for a person. */
+export type BulkPreview = { willTouch: number; matching: number; capped: boolean; limit: number; confirmOnly: number };
+
+/** Confirm-only rows among the ones a bulk accept would take; zero for every other action. */
+async function confirmOnlyCount(catalogId: string, target: BulkTarget, action: BulkAction): Promise<number> {
+  if (action.kind !== 'accept') return 0;
+  if ('ids' in target) {
+    return db.finding.count({
+      where: { id: { in: target.ids.slice(0, BULK_LIMIT) }, item: { catalogId }, decision: 'pending', type: { in: BULK_CONFIRM_ONLY } },
+    });
+  }
+  const filter = effectiveFilter(target, action);
+  return filter ? workspaceTypeCount(catalogId, filter, BULK_CONFIRM_ONLY, BULK_LIMIT) : 0;
+}
+
+/** Dry run: how many rows the action would touch, what it skips, and whether the cap cuts it short. */
 export async function bulkPreview(actor: Actor, catalogId: string, target: BulkTarget, action: BulkAction): Promise<Result<BulkPreview>> {
   const id = await scopedCatalog(actor, catalogId);
   if (!id) return fail('not found');
+  const confirmOnly = await confirmOnlyCount(id, target, action);
   if ('ids' in target) {
     const matching = await db.finding.count({
       where: { id: { in: target.ids.slice(0, BULK_LIMIT) }, item: { catalogId: id }, ...(action.kind === 'flag' ? {} : { decision: 'pending' }) },
     });
-    return { ok: true, willTouch: matching, matching, capped: target.ids.length > BULK_LIMIT, limit: BULK_LIMIT };
+    return { ok: true, willTouch: matching - confirmOnly, matching, capped: target.ids.length > BULK_LIMIT, limit: BULK_LIMIT, confirmOnly };
   }
   const filter = effectiveFilter(target, action);
   const matching = filter ? await workspaceCount(id, filter) : 0;
-  return { ok: true, willTouch: Math.min(matching, BULK_LIMIT), matching, capped: matching > BULK_LIMIT, limit: BULK_LIMIT };
+  return { ok: true, willTouch: Math.min(matching, BULK_LIMIT) - confirmOnly, matching, capped: matching > BULK_LIMIT, limit: BULK_LIMIT, confirmOnly };
 }
 
 async function targetIds(catalogId: string, target: BulkTarget, action: BulkAction): Promise<string[]> {
@@ -61,7 +81,16 @@ async function targetIds(catalogId: string, target: BulkTarget, action: BulkActi
   return filter ? workspaceAllIds(catalogId, filter, BULK_LIMIT) : [];
 }
 
-const none = { archived: 0, conflict: 0, noCode: 0 };
+const none: Skipped = { archived: 0, conflict: 0, noCode: 0, confirmOnly: 0 };
+
+type Pending = { type: string; suggestedMxik: string | null; evidence: unknown; item: { existingMxik: string | null } };
+
+/** The code an action records on one row; null for a reject or when a bulk accept must leave the row to a person. */
+function codeFor(action: BulkAction, r: Pending): string | null {
+  if (action.kind === 'assign') return action.code;
+  if (action.kind !== 'accept' || isConfirmOnly(r.type)) return null;
+  return acceptCode({ type: r.type, suggestedMxik: r.suggestedMxik, existingMxik: r.item.existingMxik, rerankNone: readEvidence(r.evidence)?.rerankNone === true });
+}
 
 export async function bulkApply(actor: Actor, catalogId: string, target: BulkTarget, action: BulkAction): Promise<Result<BulkDone>> {
   if (!mayWrite(actor)) return fail('forbidden');
@@ -78,9 +107,8 @@ export async function bulkApply(actor: Actor, catalogId: string, target: BulkTar
   });
   const targets: ManyTarget[] = rows.map((r) => ({
     id: r.id, itemId: r.item.id, rawName: r.item.rawName, unit: r.item.unit, barcode: r.item.barcode,
-    code: action.kind === 'assign' ? action.code
-      : action.kind === 'reject' ? null
-        : acceptCode({ type: r.type, suggestedMxik: r.suggestedMxik, existingMxik: r.item.existingMxik, rerankNone: readEvidence(r.evidence)?.rerankNone === true }),
+    code: codeFor(action, r),
+    confirmOnly: action.kind === 'accept' && isConfirmOnly(r.type),
   }));
   const done = await decideMany({
     orgId: actor.orgId, userId: actor.userId, catalogId: id,

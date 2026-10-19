@@ -1,3 +1,4 @@
+import type { PendingAudit } from '@/lib/client-attention';
 import type { ClientStats } from '@/lib/client-stats';
 import { fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
@@ -5,15 +6,24 @@ import type { OpenTask } from '@/lib/reminders';
 import { ButtonLink } from '@/ui/button';
 import { IconInfo, IconSuccess } from '@/ui/icons';
 
-type Props = { clients: ClientStats[]; tasks: OpenTask[]; canUpload: boolean; queueHref: (extra?: string) => string };
+type Props = {
+  clients: ClientStats[]; pending: ReadonlyMap<string, PendingAudit>; tasks: OpenTask[];
+  canUpload: boolean; queueHref: (extra?: string) => string;
+};
 
-/** One suggestion for what to do now: an overdue check, else the most open risk, else a client without a catalogue. */
-export async function NextStep({ clients, tasks, canUpload, queueHref }: Props) {
+/**
+ * One suggestion for what to do now: an overdue check, else the most open risk, else a client without
+ * an audited catalogue (nothing uploaded, or an audit that failed, runs or never started).
+ */
+export async function NextStep({ clients, pending, tasks, canUpload, queueHref }: Props) {
   const { locale, ta } = await getI18n();
   const home = ta.firmX.home;
   const overdue = tasks.find((x) => x.overdue);
   const top = clients.reduce<ClientStats | null>((best, c) => (c.openRows > (best?.openRows ?? 0) ? c : best), null);
-  const empty = clients.find((c) => !c.catalogId && !c.isDefault);
+  const unaudited = clients.filter((c) => !c.catalogId && !c.isDefault);
+  // A client with nothing uploaded comes first: an upload is the one thing to do there.
+  const empty = unaudited.find((c) => !pending.has(c.id)) ?? unaudited[0];
+  const status = empty ? pending.get(empty.id) : undefined;
 
   let text: string;
   let action: { href: string; label: string } | null = null;
@@ -23,6 +33,9 @@ export async function NextStep({ clients, tasks, canUpload, queueHref }: Props) 
   } else if (top) {
     text = home.nextOpen(top.name, fmtNumber(locale, top.openRows), top.openRows);
     action = { href: queueHref(`client=${encodeURIComponent(top.id)}`), label: home.nextOpenCta };
+  } else if (empty && status) {
+    text = home.nextPending(empty.name, home.reasons[status]);
+    action = { href: `/clients/${empty.id}`, label: home.nextOverdueCta };
   } else if (empty) {
     text = home.nextEmpty(empty.name);
     action = canUpload ? { href: `/upload?client=${encodeURIComponent(empty.id)}`, label: home.nextEmptyCta } : null;

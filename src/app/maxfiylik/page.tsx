@@ -16,8 +16,12 @@ import { LegalPage, Todo } from '@/components/landing/legal-page';
    - deletion: lead files after LEAD_FILE_RETENTION_DAYS (default 30) by
      `npm run purge:expired`, at once on request by `npm run lead:delete`
      (src/lib/retention.ts); catalogues by their owner at /catalogs, with
-     findings, cached AI verdicts and log entries (src/lib/catalogs.ts);
-     demo copies after DEMO_TTL_HOURS (src/lib/demo-config.ts).
+     their rows, findings and cached AI verdicts (deleteCatalog in
+     src/lib/catalogs.ts); the activity log (AuditEvent, payloads may hold
+     product names) is append-only and kept, and goes only with the
+     organisation when a closed account is purged (purge in
+     src/lib/security/account.ts, cascade in prisma/schema.prisma), re-checked
+     19.10.2026; demo copies after DEMO_TTL_HOURS (src/lib/demo-config.ts).
    Company details are TODOs. Never fill them with guesses. */
 export const metadata: Metadata = {
   title: 'Maxfiylik siyosati — MXIK Audit',
@@ -28,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Maxfiylik siyosati" updated={<>15.10.2026 — <Todo>yurist koʻrib chiqqan sana</Todo></>}>
+    <LegalPage title="Maxfiylik siyosati" updated={<>19.10.2026 — <Todo>yurist koʻrib chiqqan sana</Todo></>}>
       <section>
         <h2>Kim</h2>
         <p className="mt-2">
@@ -106,8 +110,10 @@ export default function PrivacyPage() {
           </li>
           <li>
             Ilovadagi katalogni «Kataloglar» sahifasida istalgan payt oʻzingiz
-            oʻchirasiz: qatorlari, topilmalari, AI takliflari va tovar nomlari bor
-            tarix yozuvlari birga oʻchadi.
+            oʻchirasiz: uning qatorlari, topilmalari va saqlab qoʻyilgan AI
+            takliflari birga oʻchadi. Harakatlar jurnalidagi yozuvlar (ularda tovar
+            nomlari boʻlishi mumkin) saqlanib qoladi va faqat hisob oʻchirilganda
+            oʻchadi.
           </li>
           <li>Demo nusxasi oʻz muddati tugagach oʻchiriladi.</li>
           <li>

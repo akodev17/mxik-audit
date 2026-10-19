@@ -525,6 +525,7 @@ const coreUz = {
       'telegram.unlinked': 'Telegram uzildi',
       'user.signed_in': 'Tizimga kirildi',
       'account.created': 'Hisob yaratildi',
+      'demo.started': 'Demo ishga tushirildi',
       'billing.order_created': 'Toʻlov buyurtmasi yaratildi',
       'billing.paid': 'Toʻlov qabul qilindi',
       'sales.uploaded': 'Sotuv fayli yuklandi',

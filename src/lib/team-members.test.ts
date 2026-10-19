@@ -63,6 +63,40 @@ describe('team members (database)', { skip }, () => {
     assert.deepEqual(await removeTeamMember(a, a.userId), { ok: false, reason: 'self' });
   });
 
+  it('refusing to remove the last admin signs nobody out', async () => {
+    const solo = await makeOrg();
+    try {
+      const accountant = await member(solo.orgId, 'accountant');
+      const sid = await createRecord(solo.userId, solo.orgId, 'test');
+      const key = await db.apiKey.create({ data: { orgId: solo.orgId, name: 'k', prefix: 'mxk_test', tokenHash: `test-${tag()}`, createdBy: solo.userId } });
+      assert.deepEqual(await removeTeamMember({ orgId: solo.orgId, userId: accountant }, solo.userId), { ok: false, reason: 'last_admin' });
+      assert.equal(await isLive(sid, solo.userId), true, 'the session survives a refused removal');
+      assert.equal((await db.apiKey.findUniqueOrThrow({ where: { id: key.id } })).revokedAt, null);
+    } finally {
+      await dropOrgs([solo.orgId]);
+    }
+  });
+
+  it('removing a member revokes the API keys they created, and only theirs', async () => {
+    const leaving = await member(a.orgId, 'accountant');
+    const theirs = await db.apiKey.create({ data: { orgId: a.orgId, name: 'their key', prefix: 'mxk_aaaaaa', tokenHash: `test-${tag()}`, createdBy: leaving } });
+    const old = await db.apiKey.create({ data: { orgId: a.orgId, name: 'old', prefix: 'mxk_bbbbbb', tokenHash: `test-${tag()}`, createdBy: leaving, revokedAt: new Date('2026-01-01') } });
+    const mine = await db.apiKey.create({ data: { orgId: a.orgId, name: 'my key', prefix: 'mxk_cccccc', tokenHash: `test-${tag()}`, createdBy: a.userId } });
+
+    const result = await removeTeamMember(a, leaving);
+    assert.ok(result.ok);
+    assert.equal(result.apiKeysRevoked, 1);
+    assert.ok((await db.apiKey.findUniqueOrThrow({ where: { id: theirs.id } })).revokedAt);
+    assert.deepEqual((await db.apiKey.findUniqueOrThrow({ where: { id: old.id } })).revokedAt, new Date('2026-01-01'), 'an already revoked key keeps its date');
+    assert.equal((await db.apiKey.findUniqueOrThrow({ where: { id: mine.id } })).revokedAt, null, 'keys of other members stay live');
+    const revoked = await db.auditEvent.findMany({ where: { orgId: a.orgId, action: 'apikey.revoked', targetId: { in: [theirs.id, old.id, mine.id] } } });
+    assert.deepEqual(revoked.map((e) => e.targetId), [theirs.id]);
+    const removed = await db.auditEvent.findFirstOrThrow({ where: { orgId: a.orgId, action: 'team.removed', targetId: leaving } });
+    const payload = removed.payload as { apiKeysRevoked: number; apiKeyIds: string[] };
+    assert.equal(payload.apiKeysRevoked, 1);
+    assert.deepEqual(payload.apiKeyIds, [theirs.id]);
+  });
+
   it('removing a member ends their sessions, unlinks the Telegram chats they linked and revokes their invites', async () => {
     const leaving = await member(a.orgId, 'admin');
     const sid = await createRecord(leaving, a.orgId, 'test');
@@ -78,6 +112,7 @@ describe('team members (database)', { skip }, () => {
     assert.equal(result.sessionsEnded, 1);
     assert.equal(result.telegramUnlinked, 1);
     assert.equal(result.invitesRevoked, 1);
+    assert.equal(result.apiKeysRevoked, 0);
     assert.equal(await isLive(sid, leaving), false);
     assert.equal(await db.user.findUnique({ where: { id: leaving } }), null);
     assert.equal(await db.telegramLink.findUnique({ where: { chatId: theirs } }), null);

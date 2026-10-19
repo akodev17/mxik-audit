@@ -1,9 +1,9 @@
 // Changing and removing team members. The last admin can never be demoted, client access is an
 // explicit choice (all clients, or a non-empty selection), and a removed member is cut off at
-// once: sessions end, the Telegram chats they linked are unlinked, their pending invites die.
+// once: sessions end, the API keys they created are revoked, the Telegram chats they linked are
+// unlinked, their pending invites die.
 import type { Prisma } from '@prisma/client';
 import { db } from './db';
-import { endUserSessions } from './security/session-store';
 import type { Role } from './session';
 
 type Actor = { userId: string; orgId: string };
@@ -52,30 +52,48 @@ export async function changeMember(actor: Actor, input: MemberChange): Promise<C
 }
 
 export type RemoveResult =
-  | { ok: true; email: string; sessionsEnded: number; telegramUnlinked: number; invitesRevoked: number }
+  | { ok: true; email: string; sessionsEnded: number; apiKeysRevoked: number; telegramUnlinked: number; invitesRevoked: number }
   | { ok: false; reason: 'self' | 'not_found' | 'last_admin' };
+
+/** Revokes the member's live API keys: a key outliving its creator would keep their access. */
+async function revokeKeysOf(tx: Tx, actor: Actor, userId: string, now: Date): Promise<string[]> {
+  const keys = await tx.apiKey.findMany({ where: { orgId: actor.orgId, createdBy: userId, revokedAt: null }, select: { id: true, name: true } });
+  if (keys.length === 0) return [];
+  const ids = keys.map((k) => k.id);
+  await tx.apiKey.updateMany({ where: { id: { in: ids }, revokedAt: null }, data: { revokedAt: now } });
+  await tx.auditEvent.createMany({
+    data: keys.map((k) => ({
+      orgId: actor.orgId, actorId: actor.userId, action: 'apikey.revoked', targetId: k.id,
+      payload: { name: k.name, reason: 'member_removed', memberId: userId },
+    })),
+  });
+  return ids;
+}
 
 export async function removeTeamMember(actor: Actor, userId: string): Promise<RemoveResult> {
   if (userId === actor.userId) return { ok: false, reason: 'self' };
   const target = await db.user.findFirst({ where: { id: userId, orgId: actor.orgId }, select: { id: true, email: true, role: true } });
   if (!target) return { ok: false, reason: 'not_found' };
-  if (target.role === 'admin' && (await db.user.count({ where: { orgId: actor.orgId, role: 'admin' } })) <= 1) return { ok: false, reason: 'last_admin' };
 
-  // Sessions end first: if anything below fails, the member is at least signed out everywhere.
-  const sessionsEnded = await endUserSessions(target.id);
+  // One transaction: the last-admin check runs under lock before anything is cut off, so a
+  // refused removal signs nobody out, and a failure halfway leaves the member as they were.
   return db.$transaction(async (tx): Promise<RemoveResult> => {
     if (target.role === 'admin' && (await lockedAdminCount(tx, actor.orgId)) <= 1) return { ok: false, reason: 'last_admin' };
+    const now = new Date();
+    const sessions = await tx.userSession.updateMany({ where: { userId: target.id, revokedAt: null }, data: { revokedAt: now } });
+    const keyIds = await revokeKeysOf(tx, actor, target.id, now);
     const chats = await tx.telegramLink.deleteMany({ where: { orgId: actor.orgId, linkedBy: target.id } });
     await tx.telegramLinkCode.deleteMany({ where: { orgId: actor.orgId, userId: target.id, usedAt: null } });
     const invites = await tx.invite.deleteMany({ where: { orgId: actor.orgId, createdBy: target.id, usedAt: null } });
     await tx.user.delete({ where: { id: target.id } });
+    const counts = { sessionsEnded: sessions.count, apiKeysRevoked: keyIds.length, telegramUnlinked: chats.count, invitesRevoked: invites.count };
     await tx.auditEvent.create({
       data: {
         orgId: actor.orgId, actorId: actor.userId, action: 'team.removed', targetId: target.id,
-        payload: { email: target.email, role: target.role, sessionsEnded, telegramUnlinked: chats.count, invitesRevoked: invites.count },
+        payload: { email: target.email, role: target.role, ...counts, apiKeyIds: keyIds },
       },
     });
-    return { ok: true, email: target.email, sessionsEnded, telegramUnlinked: chats.count, invitesRevoked: invites.count };
+    return { ok: true, email: target.email, ...counts };
   });
 }
 
