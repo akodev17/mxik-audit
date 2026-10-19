@@ -2,6 +2,7 @@
 import { readEvidence } from '../core/match/evidence.js';
 import { codeDetails, readableLevel } from './code-details';
 import { catalogScope } from './access';
+import { nameFromBarcode, type NameFromBarcode } from './barcode-name';
 import { db } from './db';
 import { findingRows } from './finding-view';
 import type { AppDict } from './i18n-app';
@@ -27,6 +28,7 @@ export type RowDetail = {
   markingSuggested: boolean;
   privileges: string[];
   noSuggestion: boolean;
+  nameOffer: NameFromBarcode | null;
   decision: 'pending' | 'accepted' | 'rejected';
   decisionEventId: string | null;
 };
@@ -92,6 +94,7 @@ export async function rowDetail(scope: { orgId: string; clientIds?: string[] | n
     markingSuggested: row.suggestedInfo?.isMarked === true,
     privileges,
     noSuggestion: !f.suggestedMxik || evidence?.rerankNone === true,
+    nameOffer: await nameFromBarcode(f.item),
     decision: f.decision,
     decisionEventId: f.decisionEventId,
   };

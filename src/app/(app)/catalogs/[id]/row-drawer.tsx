@@ -13,6 +13,7 @@ import { confidenceView, typeLabels, typeTone } from '@/ui/labels';
 import { Skeleton } from '@/ui/skeleton';
 import { CodeCompare } from './code-compare';
 import { CodeSearch } from './code-search';
+import { NameFromBarcodeOffer } from './name-from-barcode';
 import { RequestText } from './request-text';
 import { RowComments } from './row-comments';
 import { WrongFeedback } from './wrong-feedback';
@@ -42,13 +43,14 @@ function Meta({ label, value }: { label: string; value: string | null }) {
 
 function Body({ row, detail, onChoose, onComments, readOnly }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose']; onComments: Props['onComments']; readOnly: boolean }) {
   const { t, ta } = useI18n();
+  const [name, setName] = useState(detail.productName);
   const pending = row.decision === 'pending' && !readOnly;
   const conf = confidenceView(t, detail.confidence, row.barcode || row.dictionary);
   const showRequest = detail.noSuggestion || row.decision === 'rejected';
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-lg leading-snug">{detail.productName}</h3>
+        <h3 className="text-lg leading-snug">{name || ta.drawer.none}</h3>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusChip tone={typeTone(detail.type, row.severity)}>{typeLabels(t)[detail.type] ?? detail.type}</StatusChip>
           {conf && !detail.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : null}
@@ -97,6 +99,8 @@ function Body({ row, detail, onChoose, onComments, readOnly }: { row: GridRow; d
           </ul>
         )}
       </section>
+
+      {detail.nameOffer ? <NameFromBarcodeOffer findingId={detail.findingId} offer={detail.nameOffer} readOnly={readOnly} onFilled={setName} /> : null}
 
       <section>
         <h3 className="mb-2 text-sm font-bold">{ta.drawer.search}</h3>

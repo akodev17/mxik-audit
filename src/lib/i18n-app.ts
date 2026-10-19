@@ -220,6 +220,12 @@ export const taUz = {
     openPrevious: 'Oldingi versiyani ochish',
     firstOnly: (n: number) => `Dastlabki ${n} ta qator koʻrsatilgan.`,
   },
+  barcodeName: {
+    title: 'Nomni shtrix-koddan toʻldirish',
+    hint: 'Qatorda nom yoʻq yoki juda qisqa. Tasniflagichda shu shtrix-kodli mahsulotning nomi bor; u faqat siz tasdiqlaganingizda yoziladi.',
+    apply: 'Nomni qatorga yozish',
+    done: 'Nom qatorga yozildi',
+  },
   wrong: {
     button: 'Taklif notoʻgʻri',
     title: 'Taklif nega notoʻgʻri?',
@@ -410,6 +416,7 @@ export const taUz = {
       'finding.carried_over': 'Oldingi versiyadagi qarorlar koʻchirildi',
       'finding.flagged': 'Qatorlar belgilandi',
       'finding.commented': 'Izoh qoldirildi',
+      'item.name_filled': 'Nom shtrix-koddan toʻldirildi',
       'finding.split_from_group': 'Qator guruhdan ajratildi',
       'suggestion.reported_wrong': 'Taklif notoʻgʻri deb belgilandi',
       'dictionary.edited': 'Lugʻat yozuvi oʻzgartirildi',

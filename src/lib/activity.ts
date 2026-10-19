@@ -7,7 +7,7 @@ export const CATEGORIES = ['all', 'decisions', 'uploads', 'exports', 'share', 't
 export type Category = (typeof CATEGORIES)[number];
 
 const GROUPS: Record<Exclude<Category, 'all' | 'other'>, string[]> = {
-  decisions: ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.undone', 'finding.carried_over', 'finding.flagged', 'finding.commented', 'finding.split_from_group', 'suggestion.reported_wrong'],
+  decisions: ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.undone', 'finding.carried_over', 'finding.flagged', 'finding.commented', 'finding.split_from_group', 'item.name_filled', 'suggestion.reported_wrong'],
   uploads: ['catalog.uploaded', 'catalog.audited', 'catalog.deleted', 'purchases.uploaded', 'sales.uploaded', 'cheques.uploaded', 'sales.checked', 'cheques.checked'],
   exports: ['catalog.exported', 'catalog.pdf_exported', 'account.exported'],
   share: ['share.created', 'share.revoked'],
