@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { canSeeClient, canWrite } from '@/lib/access';
 import { ownedClient } from '@/lib/clients';
 import { db } from '@/lib/db';
-import type { DocKind } from '@/lib/docs';
+import { DOC_KINDS as KINDS, type DocKind } from '@/lib/docs';
 import { formatTag, getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 import { StatusChip } from '@/ui/badge';
@@ -19,8 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${ta.docs.title} — ${t.appName}` };
 }
 
-// The sales tab is switched on by the sales-check feature.
-const KINDS: DocKind[] = ['cheques'];
+
 const TONE = { uploaded: 'neutral', analyzing: 'brand', ready: 'good', failed: 'danger' } as const;
 
 export default async function ImportsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ kind?: string }> }) {
