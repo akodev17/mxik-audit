@@ -4,6 +4,7 @@ import { getIronSession, type SessionOptions } from 'iron-session';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { db } from './db';
+import { isLive } from './security/session-store';
 
 export type SessionData = {
   userId?: string;
@@ -13,6 +14,13 @@ export type SessionData = {
   demo?: boolean;
   /** The client being worked on. Always re-checked against the org before use. */
   clientId?: string;
+  /** The server-side session record (src/lib/security/session-store.ts); absent on demo and older cookies. */
+  sid?: string;
+  /** Password accepted, two-factor code still to enter. */
+  pendingUserId?: string;
+  pendingVia?: string;
+  pendingLanding?: string;
+  pendingAt?: number;
 };
 
 const PASSWORD = process.env['SESSION_SECRET'] ?? '';
@@ -57,7 +65,7 @@ export type CurrentUser = {
 /** Role and client scope come from the database, so a change applies at once. */
 const loadAccess = cache(async (userId: string, orgId: string): Promise<{ role: Role; clientIds: string[] | null } | null> => {
   const user = await db.user.findFirst({
-    where: { id: userId, orgId },
+    where: { id: userId, orgId, org: { deletedAt: null } },
     select: { role: true, assignments: { select: { clientId: true } } },
   });
   if (!user) return null;
@@ -72,5 +80,6 @@ export async function currentUser(): Promise<CurrentUser | null> {
   if (!userId || !orgId || !email) return null;
   const access = await loadAccess(userId, orgId);
   if (!access) return null;
+  if (session.sid && !(await isLive(session.sid, userId))) return null;
   return { userId, orgId, email, demo: session.demo === true, clientId: session.clientId ?? null, ...access };
 }

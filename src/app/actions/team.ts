@@ -10,7 +10,7 @@ import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { gate } from '@/lib/plan';
 import { acceptInvite, createInvite } from '@/lib/invites';
-import { getSession } from '@/lib/session';
+import { openSession } from '@/lib/security/sign-in';
 
 const RoleSchema = z.enum(['admin', 'accountant', 'viewer']);
 
@@ -85,12 +85,6 @@ export async function joinWithInvite(token: string, _prev: JoinState, form: Form
   const { ta } = await getI18n();
   const result = await acceptInvite(token, formText(form, 'email'), formText(form, 'password'));
   if (!result.ok) return { error: ta.msg.account[result.error] };
-  const session = await getSession();
-  session.userId = result.userId;
-  session.orgId = result.orgId;
-  session.email = result.email;
-  session.demo = false;
-  session.clientId = undefined;
-  await session.save();
-  redirect('/catalogs');
+  const next = await openSession({ id: result.userId, orgId: result.orgId, email: result.email }, { via: 'invite', landing: '/catalogs' });
+  redirect(next ?? '/sign-in');
 }

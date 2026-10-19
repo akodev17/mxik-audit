@@ -16,6 +16,13 @@ import { BrandForm } from './brand-form';
 import { planStatus } from '@/lib/plan';
 import { listApiKeys } from '@/lib/api/keys';
 import { ApiKeysPanel } from './api-keys-panel';
+import { deleteAfterDays, RETENTION_CHOICES } from '@/lib/security/account';
+import { deviceLabel } from '@/lib/security/device';
+import { listSessions } from '@/lib/security/session-store';
+import { twoFactorState } from '@/lib/security/two-factor';
+import { getSession } from '@/lib/session';
+import { DataPanel } from './data-panel';
+import { SecurityPanel } from './security-panel';
 import { DictionarySetting } from './dictionary-setting';
 import { PlanUsage } from './plan-usage';
 import { TeamPanel } from './team-panel';
@@ -32,10 +39,11 @@ export default async function SettingsPage() {
   if (!user) redirect('/sign-in');
   const tg = telegramConfig();
   const status = await planStatus(user.orgId);
+  const sid = (await getSession()).sid;
   const [demo, links, org, team, clients, invites] = await Promise.all([
     isDemoOrg(user.orgId),
     listLinks(user.orgId),
-    db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, subscriptionUntil: true, dictAutoAccept: true } }),
+    db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, subscriptionUntil: true, dictAutoAccept: true, rawRetentionDays: true } }),
     db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } } }),
     db.client.findMany({ where: { orgId: user.orgId }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     db.invite.findMany({ where: { orgId: user.orgId, usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, expiresAt: true } }),
@@ -65,6 +73,24 @@ export default async function SettingsPage() {
       {!demo && isAdminRole(user) ? (
         <Section title={ta.apiKeys.title}>
           <ApiKeysPanel keys={(await listApiKeys(user.orgId)).map((k) => ({ id: k.id, name: k.name, prefix: k.prefix, created: k.createdAt.toLocaleDateString(formatTag(locale)), lastUsed: k.lastUsedAt ? k.lastUsedAt.toLocaleDateString(formatTag(locale)) : null, revoked: k.revokedAt !== null, checks: k.checksThisMonth }))} />
+        </Section>
+      ) : null}
+
+      {!demo ? (
+        <Section title={ta.security.title}>
+          <SecurityPanel
+            {...await twoFactorState(user.userId)}
+            sessions={(await listSessions(user.userId)).map((s) => ({
+              id: s.id, device: deviceLabel(s.userAgent), current: s.id === sid,
+              created: s.createdAt.toLocaleDateString(formatTag(locale)), seen: s.lastSeenAt.toLocaleString(formatTag(locale)),
+            }))}
+          />
+        </Section>
+      ) : null}
+
+      {!demo && isAdminRole(user) ? (
+        <Section title={ta.security.data}>
+          <DataPanel retention={org.rawRetentionDays} choices={RETENTION_CHOICES} deleteAfterDays={deleteAfterDays()} />
         </Section>
       ) : null}
 

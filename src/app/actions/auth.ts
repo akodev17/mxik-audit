@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { mailEnabled } from '@/lib/mailer';
 import { verifyPassword } from '@/lib/password';
-import { getSession } from '@/lib/session';
+import { openSession } from '@/lib/security/sign-in';
 
 const Credentials = z.object({
   email: z.string().email().max(200),
@@ -41,18 +41,7 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
   if (mailEnabled() && !user.emailVerifiedAt) return { error: ta.msg.verifyNeeded };
 
   if (user.locale) (await cookies()).set(LOCALE_COOKIE, user.locale, { maxAge: 60 * 60 * 24 * 365, path: '/', sameSite: 'lax' });
-  const session = await getSession();
-  session.userId = user.id;
-  session.orgId = user.orgId;
-  session.email = user.email;
-  // Nothing from an earlier session (a demo, another org's client) carries over.
-  session.demo = false;
-  session.clientId = undefined;
-  await session.save();
-
-  await db.auditEvent.create({
-    data: { orgId: user.orgId, actorId: user.id, action: 'user.signed_in', payload: {} },
-  });
-
-  redirect('/dashboard');
+  const next = await openSession(user, { via: 'password', landing: '/dashboard' });
+  if (!next) return { error: t.signInError };
+  redirect(next);
 }

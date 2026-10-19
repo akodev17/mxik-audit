@@ -236,6 +236,14 @@ It creates the monthly-check tasks that are due (per client: Sozlamalar of the c
 Admins create keys in Settings (shown once, only a hash is stored). Endpoints: `POST /api/v1/check`, `POST /api/v1/catalogs`, `GET /api/v1/catalogs/:id/report`; spec at `/api/v1/openapi.json`, docs at `/api-docs`.
 Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept in memory per process, so it resets on restart and is per instance), `API_CHECKS_PER_MONTH_TRIAL` / `_FIRM` and `API_CHECK_MAX_ITEMS`. Uploaded rows count against the plan's monthly row limit like uploads in the app. Set `APP_URL` so the OpenAPI document names the public origin.
 
+## 7g. Security and data control
+
+- **Two-factor sign-in** (authenticator app, 6-digit TOTP) and one-time recovery codes are per user, in Settings. The TOTP secret is stored encrypted with a key derived from `SESSION_SECRET`: if you rotate `SESSION_SECRET`, users with two-factor can only sign in with a recovery code and must set it up again.
+- **Active sessions** are recorded in the database; a user can end any of their sessions in Settings. Cookies issued before this version have no session record and stay valid until they expire (7 days).
+- **Account data export** (admin, Settings): a zip with team, clients, dictionary, activity log and one Excel file per catalogue. Passwords, API keys and two-factor secrets are never included.
+- **Closing an account**: the admin confirms with the password; nobody can sign in except an admin, who may restore the account. After `ACCOUNT_DELETE_AFTER_DAYS` (default 30) the daily job (section 7e) erases the organisation and everything under it, including its log entries.
+- **Raw-file retention**: each org chooses 7, 30 (default) or 90 days, or "keep". The daily job blanks the uploaded cells that are not in a mapped column (names, codes, units, prices are kept, so reports and exports keep working). Existing orgs get the 30-day default when this version is deployed, so the first daily run after deploying cleans their older uploads.
+
 ## 8. Operating it
 
 | Task | Command |

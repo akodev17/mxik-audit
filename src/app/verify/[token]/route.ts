@@ -1,6 +1,6 @@
 // The link in the confirmation email: confirms the address and signs the user in.
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { openSession } from '@/lib/security/sign-in';
 import { confirmEmail } from '@/lib/signup';
 
 export const dynamic = 'force-dynamic';
@@ -10,12 +10,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const origin = new URL(request.url).origin;
   const user = await confirmEmail(token);
   if (!user) return NextResponse.redirect(`${origin}/sign-in?error=verify`);
-  const session = await getSession();
-  session.userId = user.userId;
-  session.orgId = user.orgId;
-  session.email = user.email;
-  session.demo = false;
-  session.clientId = undefined;
-  await session.save();
-  return NextResponse.redirect(`${origin}/dashboard`);
+  const next = await openSession({ id: user.userId, orgId: user.orgId, email: user.email }, { via: 'email', landing: '/dashboard' });
+  return NextResponse.redirect(`${origin}${next ?? '/sign-in'}`);
 }

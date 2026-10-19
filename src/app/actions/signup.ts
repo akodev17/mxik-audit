@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { formText } from '@/lib/form';
 import { getI18n } from '@/lib/locale';
 import { clientKey, createRateLimiter } from '@/lib/lead-guard';
-import { getSession } from '@/lib/session';
+import { openSession } from '@/lib/security/sign-in';
 import { createAccount } from '@/lib/signup';
 
 export type SignUpState = { error?: string; checkEmail?: boolean };
@@ -21,12 +21,6 @@ export async function signUp(_prev: SignUpState, form: FormData): Promise<SignUp
   if (!result.ok) return { error: ta.msg.account[result.error] };
   if (result.account.needsVerification) return { checkEmail: true };
 
-  const session = await getSession();
-  session.userId = result.account.userId;
-  session.orgId = result.account.orgId;
-  session.email = result.account.email;
-  session.demo = false;
-  session.clientId = undefined;
-  await session.save();
-  redirect('/dashboard');
+  const next = await openSession({ id: result.account.userId, orgId: result.account.orgId, email: result.account.email }, { via: 'signup', landing: '/dashboard' });
+  redirect(next ?? '/sign-in');
 }

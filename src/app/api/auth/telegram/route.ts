@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { createAccount } from '@/lib/signup';
-import { getSession } from '@/lib/session';
+import { openSession } from '@/lib/security/sign-in';
 import { telegramConfig } from '@/lib/telegram/config';
 import { verifyTelegramLogin } from '@/lib/telegram/login';
 
@@ -37,13 +37,6 @@ export async function GET(request: NextRequest) {
   }
   if (!user) return back('/sign-in?error=telegram');
 
-  const session = await getSession();
-  session.userId = user.id;
-  session.orgId = user.orgId;
-  session.email = user.email;
-  session.demo = false;
-  session.clientId = undefined;
-  await session.save();
-  await db.auditEvent.create({ data: { orgId: user.orgId, actorId: user.id, action: 'user.signed_in', payload: { via: 'telegram' } } });
-  return back('/dashboard');
+  const next = await openSession(user, { via: 'telegram', landing: '/dashboard' });
+  return back(next ?? '/sign-in?error=telegram');
 }
