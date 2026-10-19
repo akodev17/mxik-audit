@@ -68,6 +68,19 @@ export type MatchInput = {
   existingMxik?: string | null;
 };
 
+/**
+ * What stage 6 did for a row: not needed (settled before retrieval), off for
+ * this run, skipped by the gate, failed or gave nothing usable, ranked, or
+ * vetoed every candidate ("none").
+ */
+export type RerankOutcome = 'not_needed' | 'off' | 'skipped' | 'failed' | 'ranked' | 'none';
+
+/** What stage 4 did for a row: not needed, switched off, failed, or used. */
+export type VectorOutcome = 'not_needed' | 'off' | 'failed' | 'used';
+
+/** The reranker judged that none of the offered codes fits the row. */
+export type RerankVeto = { offered: string[] };
+
 export type MatchResult = {
   input: MatchInput;
   normalized: NormalizedName;
@@ -77,6 +90,10 @@ export type MatchResult = {
   decidedBy: MatchStage;
   /** Anything the operator should know: degraded providers, rule firings. */
   notes: string[];
+  rerank: RerankOutcome;
+  vector: VectorOutcome;
+  /** Set when stage 6 vetoed every candidate; `candidates` is then empty. */
+  veto: RerankVeto | null;
   /**
    * Codes in the fused pool handed to the reranker, best-first. Wider than
    * `candidates`, which is truncated to topK. Exposed so the eval can measure

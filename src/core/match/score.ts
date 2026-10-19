@@ -27,6 +27,18 @@ const MARGIN_WEIGHT = 0.15;
 
 export const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 
+/**
+ * Half-saturation constant for full-text ranks. "searchVector" carries no
+ * weights, so every lexeme has ts_rank_cd's default D weight of 0.1 and each
+ * matched word occurrence adds 0.1: the score reads n/(n+1) for n matches.
+ */
+export const FULLTEXT_K = 0.1;
+
+/** ts_rank_cd (unbounded) mapped onto 0..1 absolutely, not against the best hit of the query. */
+export function fullTextToUnit(rank: number): number {
+  return rank <= 0 ? 0 : rank / (rank + FULLTEXT_K);
+}
+
 /** Cosine similarity in -1..1 mapped onto 0..1. */
 export function cosineToUnit(cosine: number): number {
   return clamp01((cosine + 1) / 2);
@@ -68,6 +80,8 @@ export type CalibrationInput = {
   signals: Signals;
   /** Blended score of the next-best candidate, for the margin bonus. */
   runnerUp?: number | undefined;
+  /** Margin factor (0..1) already known to the caller; wins over `runnerUp`. */
+  margin?: number | undefined;
   /** False when the reranker did not run, which caps the result. */
   rerankAvailable: boolean;
   /** Additive rule adjustments, applied before clamping. */
@@ -78,11 +92,45 @@ export type CalibrationInput = {
 export function calibrate(input: CalibrationInput): number {
   const retrieval = retrievalScore(input.signals);
   const blended = blendWithLlm(retrieval, input.signals.llm);
-  const margin = marginFactor(blended, input.runnerUp);
+  const margin = input.margin === undefined ? marginFactor(blended, input.runnerUp) : clamp01(input.margin);
   const shaped = blended * (1 - MARGIN_WEIGHT + MARGIN_WEIGHT * margin);
   const adjusted = shaped + (input.adjustment ?? 0);
   const capped = input.rerankAvailable ? adjusted : Math.min(adjusted, NO_RERANK_CEILING);
   return clamp01(capped);
+}
+
+export type PoolInput = Omit<CalibrationInput, 'runnerUp' | 'margin'>;
+
+/** A candidate's score with rules and the ceiling applied but no margin shaping; what a pool is ranked by. */
+export function adjustedScore(input: PoolInput): number {
+  return calibrate({ ...input, margin: 1 });
+}
+
+export type PoolScore = {
+  /** Ranking score: rules and ceiling applied, no margin shaping. */
+  adjusted: number;
+  /** Final calibrated confidence. */
+  confidence: number;
+};
+
+/**
+ * Calibrates a candidate pool, returned in input order. The leader by adjusted
+ * score is shaped with its real gap to #2; every other candidate is shaped as a
+ * dead heat (margin 0), so a runner-up can never collect the bonus the leader
+ * was denied for being in a close race.
+ */
+export function calibratePool(inputs: readonly PoolInput[]): PoolScore[] {
+  const adjusted = inputs.map(adjustedScore);
+  const order = adjusted.map((_, i) => i).sort((a, b) => (adjusted[b] ?? 0) - (adjusted[a] ?? 0) || a - b);
+  const leader = order[0];
+  const second = order[1];
+  const leaderMargin = leader === undefined
+    ? 0
+    : marginFactor(adjusted[leader] ?? 0, second === undefined ? undefined : adjusted[second]);
+  return inputs.map((input, i) => ({
+    adjusted: adjusted[i] ?? 0,
+    confidence: calibrate({ ...input, margin: i === leader ? leaderMargin : 0 }),
+  }));
 }
 
 export function bandOf(confidence: number): ConfidenceBand {

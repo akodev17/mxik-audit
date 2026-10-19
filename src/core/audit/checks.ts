@@ -5,7 +5,7 @@
 // retired code reports as NOT_FOUND with `wasRetired` set. Once snapshot history
 // accumulates, flipping it into its own type is an enum addition and one branch.
 import { unitsCompatible } from '../normalize/units.js';
-import type { MatchEvidence } from '../match/evidence.js';
+import { vetoEvidence, type MatchEvidence } from '../match/evidence.js';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 
 export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED'
@@ -38,6 +38,8 @@ export type ResolvedRow = {
   };
   /** Ranked suggestions from the matching pipeline, best first. */
   suggestions: readonly ScoredCandidate[];
+  /** The reranker judged that none of the retrieved codes fits the row (so there are no suggestions). */
+  vetoed?: boolean;
 };
 
 export type Finding = {
@@ -87,6 +89,9 @@ export function runChecks(row: ResolvedRow): Finding[] {
   const findings: Finding[] = [];
   const best = row.suggestions[0];
   const code = readCode(row.existingMxik);
+  // With no suggestion, a veto is itself the evidence worth storing.
+  const vetoOnly = row.vetoed === true && best === undefined;
+  const bestEvidence = best?.evidence ?? (vetoOnly ? vetoEvidence() : null);
 
   // ---------------------------------------------------------------- MISSING
   if (code === null) {
@@ -100,7 +105,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `Qatorda MXIK kodi yoʻq. Taklif: ${best.candidate.code}.`
         : 'Qatorda MXIK kodi yoʻq va mos kod topilmadi.',
       wasRetired: false,
-      evidence: best?.evidence ?? null,
+      evidence: bestEvidence,
     });
     return findings;
   }
@@ -117,7 +122,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
         ? `${code} kodi klassifikatorning joriy versiyasida yoʻq (avvalgi versiyada mavjud edi).`
         : `${code} kodi klassifikatorda topilmadi.`,
       wasRetired: row.existing.retired,
-      evidence: best?.evidence ?? null,
+      evidence: bestEvidence,
     });
     return findings;
   }
@@ -133,7 +138,8 @@ export function runChecks(row: ResolvedRow): Finding[] {
   // lies in a different position of the classifier than the row's own code.
   const samePosition = best !== undefined
     && best.candidate.code.slice(0, POSITION_DIGITS) === code.slice(0, POSITION_DIGITS);
-  if (selfScore < MISMATCH_THRESHOLD && !samePosition) {
+  // A veto with nothing better to offer says nothing against a valid code.
+  if (selfScore < MISMATCH_THRESHOLD && !samePosition && !vetoOnly) {
     findings.push({
       type: 'MISMATCH',
       severity: 'medium',

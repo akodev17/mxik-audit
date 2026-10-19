@@ -6,6 +6,7 @@ import { detectScript, latinToCyrillic, scriptAlternates, toLatin, type ScriptKi
 import { collapseRepeats, foldCase, foldDiacritics, repairHomoglyphs, squeezeWhitespace, stripPunctuation, tokenize } from './text.js';
 
 export * from './apostrophe.js';
+export * from './barcode.js';
 export * from './noise.js';
 export * from './script.js';
 export * from './text.js';
@@ -79,13 +80,4 @@ export function indexKeys(input: string): string[] {
   }
   keys.delete('');
   return [...keys];
-}
-
-/** Normalizes a GTIN to 14 digits, or null when the input cannot be one. */
-export function normalizeBarcode(input: string | null | undefined): string | null {
-  if (!input) return null;
-  const digits = input.replace(/\D/g, '');
-  // Gate 0 found 39 catalogue barcodes at 10-11 digits: not valid GTIN lengths.
-  if (![8, 12, 13, 14].includes(digits.length)) return null;
-  return digits.padStart(14, '0');
 }

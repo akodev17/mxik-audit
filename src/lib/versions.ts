@@ -2,6 +2,7 @@
 // and describe what changed between the two.
 import { pairVersions, unchanged, type Pairing, type VersionItem } from '../core/match/version-pairs.js';
 import { db } from './db.js';
+import { CARRIED_OVER_ACTION } from './decision-source.js';
 
 const CHUNK = 5000;
 const ITEM_SELECT = { id: true, rowIndex: true, rawName: true, unit: true, barcode: true, existingMxik: true } as const;
@@ -39,6 +40,8 @@ async function loadPairing(orgId: string, catalogId: string): Promise<{ pairing:
  * Applies the previous version's decisions to rows that did not change: same
  * product, unit and code, same kind of finding, and an accepted code that is
  * still live. Everything else stays pending for review. Returns rows carried.
+ * The carried decision keeps its original decider and is marked carry_over;
+ * the uploader is recorded only as the one who triggered it.
  */
 export async function carryOver(catalogId: string, actorId: string | null): Promise<number> {
   const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true } });
@@ -51,7 +54,7 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
   const prevByNext = new Map(same.map((p) => [p.next.id, p.prev.id]));
   const decided = await chunked(same.map((p) => p.prev.id), (part) => db.finding.findMany({
     where: { itemId: { in: part }, decision: { in: ['accepted', 'rejected'] } },
-    select: { itemId: true, type: true, decision: true, chosenMxik: true, suggestedMxik: true },
+    select: { id: true, itemId: true, type: true, decision: true, chosenMxik: true, suggestedMxik: true, decidedBy: true },
   }));
   const decidedKey = new Map(decided.map((f) => [`${f.itemId}|${f.type}`, f]));
   const pending = await chunked([...prevByNext.keys()], (part) => db.finding.findMany({
@@ -63,34 +66,38 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
   const live = accepted.length === 0 ? new Set<string>() : new Set((await db.$queryRaw<{ code: string }[]>`
     SELECT code FROM mxik_code WHERE code = ANY(${[...new Set(accepted)]}) AND "retiredAt" IS NULL`).map((r) => r.code.trim()));
 
-  const ids: string[] = [];
-  const decisions: string[] = [];
-  const codes: (string | null)[] = [];
+  type Carried = { findingId: string; sourceFindingId: string; decision: 'accepted' | 'rejected'; chosenMxik: string | null; decidedBy: string | null };
+  const carried: Carried[] = [];
   for (const f of pending) {
     const before = decidedKey.get(`${prevByNext.get(f.itemId) ?? ''}|${f.type}`);
     if (!before) continue;
+    const from = { findingId: f.id, sourceFindingId: before.id, decidedBy: before.decidedBy };
     if (before.decision === 'accepted' && before.chosenMxik && live.has(before.chosenMxik)) {
-      ids.push(f.id); decisions.push('accepted'); codes.push(before.chosenMxik);
+      carried.push({ ...from, decision: 'accepted', chosenMxik: before.chosenMxik });
     } else if (before.decision === 'rejected' && before.suggestedMxik === f.suggestedMxik) {
-      ids.push(f.id); decisions.push('rejected'); codes.push(null);
+      carried.push({ ...from, decision: 'rejected', chosenMxik: null });
     }
   }
-  if (ids.length === 0) return 0;
+  if (carried.length === 0) return 0;
 
   await db.$transaction(async (tx) => {
     const event = await tx.auditEvent.create({
       data: {
-        orgId: catalog.orgId, actorId, action: 'finding.carried_over', targetId: catalogId,
-        payload: { catalogId, previousId: loaded.previousId, count: ids.length, accepted: decisions.filter((d) => d === 'accepted').length },
+        orgId: catalog.orgId, actorId: null, action: CARRIED_OVER_ACTION, targetId: catalogId,
+        payload: {
+          catalogId, previousId: loaded.previousId, count: carried.length, accepted: carried.filter((c) => c.decision === 'accepted').length,
+          source: 'carry_over', triggeredBy: actorId, findings: carried,
+        },
       },
     });
     await tx.$executeRaw`
       UPDATE finding f SET decision = v.dec::decision, "chosenMxik" = v.code,
-        "decidedBy" = ${actorId}, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}
-      FROM unnest(${ids}::text[], ${decisions}::text[], ${codes}::text[]) AS v(id, dec, code)
+        "decidedBy" = v.by, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}, "decisionSource" = 'carry_over'
+      FROM unnest(${carried.map((c) => c.findingId)}::text[], ${carried.map((c) => c.decision)}::text[],
+                  ${carried.map((c) => c.chosenMxik)}::text[], ${carried.map((c) => c.decidedBy)}::text[]) AS v(id, dec, code, by)
       WHERE f.id = v.id AND f.decision = 'pending'::decision`;
   }, { timeout: 120_000 });
-  return ids.length;
+  return carried.length;
 }
 
 export type DiffNote = 'name' | 'unit' | 'code' | 'classifier' | 'nowRisky' | 'nowSafe';

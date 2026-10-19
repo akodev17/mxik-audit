@@ -1,7 +1,7 @@
 // The production reranker: cache first, then concurrent rows are grouped into
 // one API call. Every failure rejects only the rows it touched, and the
 // pipeline turns a rejection into the capped non-LLM ranking.
-import { rerankCacheKey, type RerankCache } from './rerank-cache.js';
+import { candidatePoolHash, rerankCacheKey, type CachedRerank, type RerankCache } from './rerank-cache.js';
 import type { RerankClient } from './rerank-claude.js';
 import type { RerankConfig } from './rerank-config.js';
 import { rowVerdicts } from './rerank-parse.js';
@@ -35,8 +35,9 @@ export class BatchedReranker implements RerankProvider {
     if (request.candidates.length === 0) return [];
     this.counters.rowsRequested++;
     const key = rerankCacheKey(this.options.model, request.normalizedKey, request.unit);
+    const pool = candidatePoolHash(request.candidates.map((c) => c.code));
 
-    const cached = await this.readCache(key, request);
+    const cached = await this.readCache(key, pool, request);
     if (cached) {
       this.counters.cacheHits++;
       return cached;
@@ -44,7 +45,7 @@ export class BatchedReranker implements RerankProvider {
 
     try {
       const verdicts = await this.enqueue(request);
-      await this.writeCache(key, verdicts);
+      await this.writeCache(key, { pool, verdicts });
       return verdicts;
     } catch (error) {
       this.counters.rowsFailed++;
@@ -64,24 +65,28 @@ export class BatchedReranker implements RerankProvider {
     };
   }
 
-  /** A cache problem must never fail a row; it only costs a fresh call. */
-  private async readCache(key: string, request: RerankRequest): Promise<RerankVerdict[] | null> {
+  /**
+   * Reuses an entry only when it judged exactly these candidates, so a
+   * classifier update is never hidden behind a stale "none". A cache problem
+   * must never fail a row; it only costs a fresh call.
+   */
+  private async readCache(key: string, pool: string, request: RerankRequest): Promise<RerankVerdict[] | null> {
     if (!this.options.cache) return null;
     try {
       const hit = await this.options.cache.get(key);
-      if (!hit) return null;
+      if (!hit || hit.pool !== pool) return null;
       const offered = new Set(request.candidates.map((c) => c.code));
-      const usable = hit.filter((v) => offered.has(v.code));
+      const usable = hit.verdicts.filter((v) => offered.has(v.code));
       return usable.length > 0 ? usable : null;
     } catch {
       return null;
     }
   }
 
-  private async writeCache(key: string, verdicts: readonly RerankVerdict[]): Promise<void> {
+  private async writeCache(key: string, entry: CachedRerank): Promise<void> {
     if (!this.options.cache) return;
     try {
-      await this.options.cache.set(key, verdicts);
+      await this.options.cache.set(key, entry);
     } catch {
       // Best effort.
     }

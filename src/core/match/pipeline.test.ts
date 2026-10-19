@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HashingEmbeddingProvider } from '../embed/index.js';
+import type { DictionaryEntry, DictionaryLookup } from './dictionary.js';
 import { matchProduct } from './pipeline.js';
 import { NoopRerankProvider } from './rerank.js';
+import { NONE_REASON } from './rerank-parse.js';
 import { BANDS, NO_RERANK_CEILING } from './score.js';
 import type {
   CandidateStore, EmbeddingProvider, MxikCandidate, RerankProvider, RerankRequest, RerankVerdict,
@@ -289,6 +291,160 @@ describe('reranker safety', () => {
     assert.ok(sent);
     assert.deepEqual(Object.keys(sent).sort(), ['candidates', 'normalizedKey', 'productName', 'unit']);
     assert.equal(sent.unit, 'kg');
+  });
+});
+
+/** Two base codes in a photo finish: lexical 0.80 vs 0.79, nothing else retrieved. */
+class RaceStore extends FakeStore {
+  constructor(private readonly race: MxikCandidate[]) { super(race); }
+  override byLexical(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+    return Promise.resolve(this.race.map((candidate, i) => ({ candidate, score: 0.8 - i * 0.01 })));
+  }
+  override byFullText(): Promise<{ candidate: MxikCandidate; score: number }[]> { return Promise.resolve([]); }
+  override byVector(): Promise<{ candidate: MxikCandidate; score: number }[]> { return Promise.resolve([]); }
+}
+
+describe('margin shaping', () => {
+  const LEADER = '01901001003000000';
+  const RUNNER_UP = '01901001004000000';
+  const race = [candidate(LEADER, 'guruch oq'), candidate(RUNNER_UP, 'guruch qizil')];
+
+  it('never lets the runner-up of a close race overtake the leader into the high band', async () => {
+    // Regression: the leader was shaped with its tiny margin while #2 was shaped
+    // as if unopposed, so #2 came out on top at ~0.92 (bulk-acceptable).
+    const reranker = new StubReranker([
+      { code: LEADER, confidence: 0.9, reason: 'fits' },
+      { code: RUNNER_UP, confidence: 0.88, reason: 'also fits' },
+    ]);
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new RaceStore(race), embedder, reranker });
+    assert.equal(r.candidates[0]?.candidate.code, LEADER);
+    assert.ok((r.candidates[0]?.confidence ?? 0) >= (r.candidates[1]?.confidence ?? 1));
+    for (const c of r.candidates) assert.notEqual(c.band, 'high', `${c.candidate.code} at ${c.confidence}`);
+    assert.equal(r.candidates[0]?.ranks.fusion, 1);
+  });
+
+  it('keeps the leader first without a reranker too', async () => {
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new RaceStore(race), embedder, reranker: noop });
+    assert.equal(r.candidates[0]?.candidate.code, LEADER);
+    assert.deepEqual(r.pool, [LEADER, RUNNER_UP]);
+  });
+});
+
+/** Rejects every candidate it is shown, as the model's "none" answer does. */
+class NoneReranker implements RerankProvider {
+  readonly name = 'none';
+  readonly available = true;
+  rerank(request: RerankRequest): Promise<RerankVerdict[]> {
+    return Promise.resolve(request.candidates.map((c) => ({ code: c.code, confidence: 0, reason: NONE_REASON })));
+  }
+}
+
+class CountingEmbedder extends HashingEmbeddingProvider {
+  calls = 0;
+  override embed(texts: readonly string[]): Promise<number[][]> {
+    this.calls++;
+    return super.embed(texts);
+  }
+}
+
+describe('stage outcomes and the veto', () => {
+  it('returns the veto on the result instead of silently emptying it', async () => {
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: new NoneReranker() });
+    assert.equal(r.rerank, 'none');
+    assert.deepEqual(r.candidates, []);
+    assert.equal(r.decidedBy, 'none');
+    assert.ok(r.veto && r.veto.offered.length > 0);
+    assert.ok(r.notes.some((n) => n.includes('no candidate fits')));
+    assert.ok(!r.notes.some((n) => n.includes('unrelated')), 'a veto is not an unrelated-candidate filter');
+  });
+
+  it('reports what stage 6 did for each kind of row', async () => {
+    const store = new FakeStore(ROWS);
+    assert.equal((await matchProduct({ rawName: 'Kartoshka' }, { store, embedder, reranker: noop })).rerank, 'not_needed');
+    assert.equal((await matchProduct({ rawName: 'guruch' }, { store, embedder, reranker: noop })).rerank, 'off');
+    assert.equal((await matchProduct({ rawName: 'guruch' }, { store, embedder, reranker: new ThrowingReranker() })).rerank, 'failed');
+    const skipped = await matchProduct({ rawName: 'guruch' }, { store, embedder, reranker: new RecordingReranker(), rerankGate: { minConfidence: 0, minMargin: 0 } });
+    assert.equal(skipped.rerank, 'skipped');
+    const ranked = await matchProduct({ rawName: 'guruch' }, {
+      store, embedder, reranker: new StubReranker([{ code: '01901001003000000', confidence: 0.9, reason: 'fits' }]),
+    });
+    assert.equal(ranked.rerank, 'ranked');
+    assert.equal(ranked.veto, null);
+  });
+
+  it('computes no query embedding when the vector stage is switched off', async () => {
+    const counting = new CountingEmbedder();
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder: counting, reranker: noop, disabledStages: new Set(['vector']) });
+    assert.equal(counting.calls, 0);
+    assert.equal(r.vector, 'off');
+    assert.ok(r.candidates.length > 0);
+    assert.ok(!r.notes.some((n) => n.includes('not semantic')), 'an unused embedder is not worth a warning');
+  });
+
+  it('marks a failed vector stage on the result', async () => {
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder: new FailingEmbedder(), reranker: noop });
+    assert.equal(r.vector, 'failed');
+  });
+
+  it('stores the rule keys that shaped a candidate in its evidence', async () => {
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop });
+    const base = r.candidates.find((c) => c.candidate.code === '01901001003000000');
+    assert.deepEqual(base?.evidence.rules, ['baseCodePreferred']);
+    const unmarked = r.candidates.find((c) => c.candidate.code === '01901001003002001');
+    assert.deepEqual(unmarked?.evidence.rules, ['identifyingUnmarked']);
+  });
+});
+
+describe('barcode identity', () => {
+  const restricted = candidate('04501001001000000', 'tarozi mahsuloti', { barcode: '02000000000015' });
+
+  it('treats an in-store (restricted-circulation) barcode as no identity and matches by name', async () => {
+    const store = new FakeStore([...ROWS, restricted]);
+    const r = await matchProduct({ rawName: 'Kartoshka', barcode: '2000000000015' }, { store, embedder, reranker: noop });
+    assert.notEqual(r.decidedBy, 'barcode');
+    assert.ok(!store.calls.includes('byBarcode'));
+    assert.ok(r.notes.some((n) => n.includes('restricted-circulation')));
+    assert.equal(r.candidates[0]?.candidate.code, '00701001001000000');
+  });
+
+  it('ignores a barcode whose check digit is wrong', async () => {
+    const store = new FakeStore(ROWS);
+    const r = await matchProduct({ rawName: 'Kartoshka', barcode: '4601501483582' }, { store, embedder, reranker: noop });
+    assert.notEqual(r.decidedBy, 'barcode');
+    assert.ok(!store.calls.includes('byBarcode'));
+    assert.ok(r.notes.some((n) => n.includes('check digit')));
+  });
+});
+
+describe('firm dictionary against the barcode', () => {
+  const GURUCH = '01901001003000000';
+  const PIVO = '02202004002001001';
+  const lookup = (entry: DictionaryEntry): DictionaryLookup => ({ find: () => entry });
+
+  it('keeps the barcode identity first when a name-keyed entry disagrees, and flags it', async () => {
+    const dictionary = lookup({ id: 'm1', code: GURUCH, uses: 4, kind: 'name', confirmations: 2 });
+    const r = await matchProduct({ rawName: 'pivo', barcode: '4601501483581' }, { store: new FakeStore(ROWS), embedder, reranker: noop, dictionary });
+    assert.equal(r.decidedBy, 'barcode');
+    assert.equal(r.candidates[0]?.candidate.code, PIVO);
+    assert.equal(r.candidates[0]?.evidence.dictionaryConflict, GURUCH);
+    assert.equal(r.candidates[1]?.candidate.code, GURUCH);
+    assert.equal(r.candidates[1]?.stage, 'dictionary');
+  });
+
+  it('still puts a barcode-keyed entry first: the firm decided for this very barcode', async () => {
+    const dictionary = lookup({ id: 'm2', code: GURUCH, uses: 1, kind: 'barcode', confirmations: 1 });
+    const r = await matchProduct({ rawName: 'pivo', barcode: '4601501483581' }, { store: new FakeStore(ROWS), embedder, reranker: noop, dictionary });
+    assert.equal(r.decidedBy, 'dictionary');
+    assert.equal(r.candidates[0]?.candidate.code, GURUCH);
+  });
+
+  it('carries confirmations, not uses, into the dictionary evidence', async () => {
+    const dictionary = lookup({ id: 'm3', code: GURUCH, uses: 9, kind: 'name', confirmations: 0 });
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop, dictionary });
+    assert.equal(r.decidedBy, 'dictionary');
+    assert.equal(r.rerank, 'not_needed');
+    assert.equal(r.candidates[0]?.evidence.dictionaryConfirmations, 0);
+    assert.equal(r.candidates[0]?.evidence.dictionaryUses, 9);
   });
 });
 

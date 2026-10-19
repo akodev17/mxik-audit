@@ -5,20 +5,19 @@
 //   2 folded name exact  confidence 0.95
 //   3 lexical (trigram)  |
 //   4 vector (pgvector)  |-> 5 reciprocal rank fusion -> 6 LLM rerank
-import { normalizeBarcode, normalizeName } from '../normalize/index.js';
-import { dictionaryKeys, type DictionaryLookup } from './dictionary.js';
+import { barcodeIdentity, normalizeName, type BarcodeIdentity } from '../normalize/index.js';
+import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
 import { reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
-import { rerankGate } from './rerank-gate.js';
+import { rerankStep } from './rerank-step.js';
 import { evidenceFor } from './evidence.js';
-import { NONE_REASON } from './rerank-parse.js';
 import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
-import { bandOf, calibrate } from './score.js';
+import { adjustedScore, bandOf, calibratePool, fullTextToUnit } from './score.js';
 import type {
-  CandidateStore, EmbeddingProvider, MatchInput, MatchResult,
-  MxikCandidate, RerankProvider, RerankVerdict, ScoredCandidate,
+  CandidateStore, EmbeddingProvider, MatchInput, MatchResult, MxikCandidate,
+  RerankProvider, ScoredCandidate, VectorOutcome,
 } from './types.js';
 
 export type PipelineOptions = {
@@ -29,7 +28,7 @@ export type PipelineOptions = {
   dictionary?: DictionaryLookup | undefined;
   /** Only rows this gate calls uncertain go to the reranker. Absent = all fused rows. */
   rerankGate?: RerankGate | undefined;
-  /** Stages to switch off, for ablation in the eval. Production leaves this empty. */
+  /** Stages to switch off: for ablation in the eval, and stage 4 when the stored vectors are unusable. */
   disabledStages?: ReadonlySet<DisableableStage> | undefined;
   /** Receives the time spent in each stage, for performance runs. */
   timer?: StageTimer | undefined;
@@ -80,12 +79,38 @@ function certain(
     reason,
     stage,
     adjustments: rules.notes,
-    evidence: evidenceFor({ stage, productName, rowUnit, candidate }),
+    evidence: evidenceFor({ stage, productName, rowUnit, candidate, rules: rules.keys }),
   };
+}
+
+/** Why a row's barcode was not used as an identity, for the operator notes. */
+function barcodeNote(raw: string, identity: BarcodeIdentity): string | null {
+  if (identity.status === 'bad_length') return `Barcode "${raw}" is not a valid GTIN length; ignored.`;
+  if (identity.status === 'bad_check_digit') return `Barcode "${raw}" fails the GTIN check digit; ignored.`;
+  if (identity.status === 'restricted') return `Barcode "${raw}" is a restricted-circulation (in-store) number, not a product identity; matching by name.`;
+  return null;
 }
 
 /** Confidence of a code the org itself confirmed: in the high band, never above a barcode identity. */
 export const DICTIONARY_CONFIDENCE = 0.96;
+
+function dictionaryCandidate(input: MatchInput, candidate: MxikCandidate, hit: DictionaryEntry): ScoredCandidate {
+  return {
+    candidate,
+    signals: {},
+    ranks: {},
+    confidence: DICTIONARY_CONFIDENCE,
+    band: bandOf(DICTIONARY_CONFIDENCE),
+    reason: 'Firma lugʻatida bu mahsulot uchun shu kod saqlangan.',
+    stage: 'dictionary',
+    adjustments: [],
+    evidence: {
+      ...evidenceFor({ stage: 'dictionary', productName: input.rawName, rowUnit: input.unit ?? null, candidate }),
+      dictionaryUses: hit.uses,
+      dictionaryConfirmations: hit.confirmations ?? 0,
+    },
+  };
+}
 
 /** Stage 0: the firm dictionary, then the normal cascade for the alternatives. */
 export async function matchProduct(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
@@ -96,19 +121,23 @@ export async function matchProduct(input: MatchInput, opts: PipelineOptions): Pr
 
   // The org already decided, so the cascade runs only for alternatives: no LLM call.
   const base = await matchCore(input, { ...opts, reranker: new NoopRerankProvider('dictionary') });
-  const top: ScoredCandidate = {
-    candidate,
-    signals: {},
-    ranks: {},
-    confidence: DICTIONARY_CONFIDENCE,
-    band: bandOf(DICTIONARY_CONFIDENCE),
-    reason: 'Firma bu mahsulotni avval shu kodga tasdiqlagan.',
-    stage: 'dictionary',
-    adjustments: [],
-    evidence: { ...evidenceFor({ stage: 'dictionary', productName: input.rawName, rowUnit: input.unit ?? null, candidate }), dictionaryUses: hit.uses },
-  };
+  const limit = opts.topK ?? DEFAULTS.topK;
+  const top = dictionaryCandidate(input, candidate, hit);
+
+  // A name-keyed entry never outranks the row's own barcode identity; the disagreement is shown, not resolved.
+  const barcodeTop = base.decidedBy === 'barcode' ? base.candidates[0] : undefined;
+  if (barcodeTop && hit.kind === 'name' && barcodeTop.candidate.code !== hit.code) {
+    const flagged: ScoredCandidate = { ...barcodeTop, evidence: { ...barcodeTop.evidence, dictionaryConflict: hit.code } };
+    return {
+      ...base,
+      rerank: 'not_needed',
+      notes: [...base.notes, `Firm dictionary maps this name to ${hit.code}, but the barcode identifies ${barcodeTop.candidate.code}; barcode kept.`],
+      candidates: [flagged, top].slice(0, limit),
+    };
+  }
+
   const rest = base.candidates.filter((c) => c.candidate.code !== hit.code);
-  return { ...base, decidedBy: 'dictionary', candidates: [top, ...rest].slice(0, opts.topK ?? DEFAULTS.topK) };
+  return { ...base, decidedBy: 'dictionary', rerank: 'not_needed', candidates: [top, ...rest].slice(0, limit) };
 }
 
 async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
@@ -119,26 +148,28 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const preparedDish = isPreparedDish(input.rawName);
   const rowUnit = input.unit ?? null;
   const off = (stage: DisableableStage): boolean => opts.disabledStages?.has(stage) ?? false;
+  const settled = { rerank: 'not_needed', vector: 'not_needed', veto: null } as const;
 
   if (preparedDish) notes.push('Detected as a prepared dish; general codes preferred.');
-  if (!embedder.semantic) notes.push(`Vector stage is using "${embedder.name}" — surface-form only, not semantic.`);
+  if (!off('vector') && !embedder.semantic) notes.push(`Vector stage is using "${embedder.name}" — surface-form only, not semantic.`);
   if (!reranker.available) notes.push(`Reranker unavailable (${reranker.name}); confidence is capped.`);
 
   // ---------------------------------------------------------------- 1. barcode
-  const barcode = off('barcode') ? null : normalizeBarcode(input.barcode);
-  if (barcode) {
-    const hits = await timed(opts.timer, 'barcode', () => store.byBarcode(barcode));
-    if (hits.length === 1 && hits[0]) {
-      return {
-        input, normalized, decidedBy: 'barcode', notes, pool: [hits[0].code],
-        candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, preparedDish, input.rawName)],
-      };
+  if (!off('barcode') && input.barcode) {
+    const identity = barcodeIdentity(input.barcode);
+    const barcode = identity.gtin;
+    if (barcode) {
+      const hits = await timed(opts.timer, 'barcode', () => store.byBarcode(barcode));
+      if (hits.length === 1 && hits[0]) {
+        return {
+          input, normalized, decidedBy: 'barcode', notes, pool: [hits[0].code], ...settled,
+          candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, preparedDish, input.rawName)],
+        };
+      }
+      if (hits.length > 1) notes.push(`Barcode ${barcode} maps to ${hits.length} codes; falling through to name matching.`);
     }
-    if (hits.length > 1) {
-      notes.push(`Barcode ${barcode} maps to ${hits.length} codes; falling through to name matching.`);
-    }
-  } else if (input.barcode && !off('barcode')) {
-    notes.push(`Barcode "${input.barcode}" is not a valid GTIN length; ignored.`);
+    const note = barcodeNote(input.barcode, identity);
+    if (note) notes.push(note);
   }
 
   // ---------------------------------------------------------- 2. folded exact
@@ -146,7 +177,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     const exact = await timed(opts.timer, 'exact', () => store.byMatchKey([normalized.matchKey, normalized.sortedKey]));
     if (exact.length === 1 && exact[0]) {
       return {
-        input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code],
+        input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code], ...settled,
         candidates: [certain(exact[0], 0.95, 'exact', 'Product name matches this classifier entry exactly after normalization.', rowUnit, preparedDish, input.rawName)],
       };
     }
@@ -157,10 +188,13 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const query = normalized.queryKey || normalized.matchKey || normalized.core;
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
+  // A disabled stage computes no query embedding at all.
   type Hit = { candidate: MxikCandidate; score: number };
+  let vectorOutcome: VectorOutcome = off('vector') ? 'off' : 'used';
   const vectorStage: Promise<Hit[]> = off('vector') ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([query]))
     .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => store.byVector(vec, limits.retrievalLimit)) : []))
     .catch((error: unknown) => {
+      vectorOutcome = 'failed';
       notes.push(`Vector stage unavailable (${error instanceof Error ? error.message : String(error)}); using lexical retrieval only.`);
       return [] as Hit[];
     });
@@ -172,16 +206,16 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   ]);
 
   if (lexical.length === 0 && fullText.length === 0 && vector.length === 0) {
-    return { input, normalized, decidedBy: 'none', notes: [...notes, 'No candidate retrieved.'], candidates: [], pool: [] };
+    return {
+      input, normalized, decidedBy: 'none', notes: [...notes, 'No candidate retrieved.'], candidates: [], pool: [],
+      rerank: 'not_needed', vector: vectorOutcome, veto: null,
+    };
   }
 
   const lexicalScore = new Map(lexical.map((r) => [r.candidate.code, r.score]));
   const vectorScore = new Map(vector.map((r) => [r.candidate.code, r.score]));
-  // ts_rank_cd is unbounded, so normalize against the best hit in this result set.
-  const bestFullText = Math.max(...fullText.map((r) => r.score), 0);
-  const fullTextScore = new Map(
-    fullText.map((r) => [r.candidate.code, bestFullText > 0 ? r.score / bestFullText : 0]),
-  );
+  // ts_rank_cd is unbounded; map it absolutely so a weak query's best hit is not 1.0.
+  const fullTextScore = new Map(fullText.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
 
   // ------------------------------------------------------------- 5. fusion
   const fused = reciprocalRankFusion(
@@ -204,66 +238,38 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       rrf: f.normalized,
     };
   };
+  const rulesOf = (f: (typeof fused)[number]) => applyRules({ candidate: f.item, rowUnit, preparedDish });
 
   // ------------------------------------------------------------- 6. rerank
-  const llmScore = new Map<string, { confidence: number; reason: string }>();
-  let decidedBy: MatchResult['decidedBy'] = 'fusion';
-  let rerankNone = false;
-  if (reranker.available && fused.length > 0) {
-    // The gate reads uncapped retrieval confidence; skipping never lifts the cap.
-    const gate = rerankGate(
-      fused.map((f) => calibrate({
-        signals: retrievalSignals(f),
-        rerankAvailable: true,
-        adjustment: applyRules({ candidate: f.item, rowUnit, preparedDish }).adjustment,
-      })),
-      opts.rerankGate,
-    );
-    if (!gate.rerank) {
-      notes.push(`Reranker skipped (${gate.reason}); confidence is capped.`);
-    } else {
-      try {
-        const verdicts = await timed(opts.timer, 'rerank', () => reranker.rerank({
-          productName: normalized.display,
-          normalizedKey: normalized.matchKey,
-          unit: rowUnit,
-          candidates: fused.map((f) => f.item),
-        }));
-        const valid = await keepKnownCodes(verdicts, fused.map((f) => f.item.code), store);
-        if (valid.length < verdicts.length) {
-          notes.push(`Reranker returned ${verdicts.length - valid.length} code(s) outside the candidates or the classifier; discarded.`);
-        }
-        for (const v of valid) llmScore.set(v.code, { confidence: v.confidence, reason: v.reason });
-        if (valid.length > 0) decidedBy = 'rerank';
-        rerankNone = valid.length > 0 && valid.every((v) => v.confidence === 0 && v.reason === NONE_REASON);
-      } catch (error) {
-        notes.push(`Reranker failed (${error instanceof Error ? error.message : String(error)}); falling back to fusion order.`);
-      }
-    }
-  }
+  const step = await rerankStep({
+    reranker,
+    store,
+    gate: opts.rerankGate,
+    gateScores: fused.map((f) => adjustedScore({ signals: retrievalSignals(f), rerankAvailable: true, adjustment: rulesOf(f).adjustment })),
+    request: { productName: normalized.display, normalizedKey: normalized.matchKey, unit: rowUnit, candidates: fused.map((f) => f.item) },
+    run: (fn) => timed(opts.timer, 'rerank', fn),
+  });
+  notes.push(...step.notes);
+  const llmScore = step.scores;
+  const rerankNone = step.outcome === 'none';
 
   // ------------------------------------------------------------ calibration
-  // Two passes: score everything, then re-score with the runner-up known so the
-  // margin bonus reflects the real gap. The no-reranker cap is lifted only for
-  // candidates the reranker actually scored, so a failed or skipped call can
-  // never push a retrieval-only guess into the bulk-accept band.
-  const provisional = fused.map((f) => {
-    const signals = { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence };
-    const rules = applyRules({ candidate: f.item, rowUnit, preparedDish });
-    return { fused: f, signals, rules, bare: calibrate({ signals, rerankAvailable: signals.llm !== undefined }) };
-  }).sort((a, b) => b.bare - a.bare);
+  // Every candidate is ranked by its adjusted score; only the leader earns the
+  // margin bonus, everyone else is shaped as a dead heat (score.ts). The
+  // no-reranker cap is lifted only for candidates the reranker actually scored,
+  // so a failed or skipped call can never push a retrieval-only guess into the
+  // bulk-accept band.
+  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence }, rules: rulesOf(f) }));
+  const poolScores = calibratePool(pool.map((p) => ({
+    signals: p.signals, rerankAvailable: p.signals.llm !== undefined, adjustment: p.rules.adjustment,
+  })));
+  const ranked = pool
+    .map((p, i) => ({ ...p, score: poolScores[i] ?? { adjusted: 0, confidence: 0 } }))
+    .sort((a, b) => b.score.adjusted - a.score.adjusted);
 
-  const runnerUp = provisional[1]?.bare;
-
-  const scored: ScoredCandidate[] = provisional.map((p, index): ScoredCandidate => {
-    const code = p.fused.item.code;
-    const confidence = calibrate({
-      signals: p.signals,
-      runnerUp: index === 0 ? runnerUp : undefined,
-      rerankAvailable: p.signals.llm !== undefined,
-      adjustment: p.rules.adjustment,
-    });
-    const llm = llmScore.get(code);
+  const scored: ScoredCandidate[] = ranked.map((p, index): ScoredCandidate => {
+    const llm = llmScore.get(p.fused.item.code);
+    const stage = llm ? 'rerank' : 'fusion';
     return {
       candidate: p.fused.item,
       signals: p.signals,
@@ -272,44 +278,36 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
         vector: p.fused.ranks['vector'],
         fusion: index + 1,
       },
-      confidence,
-      band: bandOf(confidence),
+      confidence: p.score.confidence,
+      band: bandOf(p.score.confidence),
       reason: llm?.reason ?? describeMatch(p.fused.item, p.signals.lexical),
-      stage: llm ? 'rerank' : 'fusion',
+      stage,
       adjustments: p.rules.notes,
       evidence: evidenceFor({
-        stage: llm ? 'rerank' : 'fusion',
+        stage,
         productName: input.rawName,
         rowUnit,
         candidate: p.fused.item,
         rerankReason: llm && !rerankNone ? llm.reason : null,
         rerankNone,
+        rules: p.rules.keys,
       }),
     };
   }).sort((a, b) => b.confidence - a.confidence);
 
   // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
   const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence));
-  if (kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
+  if (!rerankNone && kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
 
   return {
-    input, normalized, decidedBy: kept.length === 0 ? 'none' : decidedBy, notes,
-    pool: provisional.map((x) => x.fused.item.code),
+    input, normalized, notes,
+    decidedBy: kept.length === 0 ? 'none' : step.outcome === 'ranked' ? 'rerank' : 'fusion',
+    pool: ranked.map((x) => x.fused.item.code),
     candidates: kept.slice(0, limits.topK),
+    rerank: step.outcome,
+    vector: vectorOutcome,
+    veto: rerankNone ? { offered: fused.map((f) => f.item.code) } : null,
   };
-}
-
-/** Drops any verdict whose code was not offered or is not a live classifier code. */
-async function keepKnownCodes(
-  verdicts: readonly RerankVerdict[],
-  offered: readonly string[],
-  store: CandidateStore,
-): Promise<RerankVerdict[]> {
-  const allowed = new Set(offered);
-  const inPool = verdicts.filter((v) => allowed.has(v.code));
-  if (inPool.length === 0) return [];
-  const live = await store.liveCodes(inPool.map((v) => v.code));
-  return inPool.filter((v) => live.has(v.code));
 }
 
 /** Fallback explanation when no reranker supplied one. */
