@@ -1,6 +1,7 @@
 // What the daily cron runs. Each job is independent: one failing never stops the others.
 import { runReminders } from './reminders';
 import { purgeDeletedAccounts, purgeRawFiles } from './security/account';
+import { pruneAttempts } from './security/rate-limit';
 
 export type DailyResult = Record<string, unknown>;
 
@@ -17,5 +18,6 @@ export async function runDailyJobs(now = new Date()): Promise<DailyResult> {
     reminders: await attempt(() => runReminders(now)),
     rawFiles: await attempt(() => purgeRawFiles(now)),
     deletedAccounts: await attempt(() => purgeDeletedAccounts(now)),
+    authAttempts: await attempt(() => pruneAttempts(now)),
   };
 }

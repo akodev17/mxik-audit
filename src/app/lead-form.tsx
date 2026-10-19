@@ -83,7 +83,7 @@ export function LeadForm() {
       <label htmlFor="lead-file" className="block rounded-lp has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-lp-brand has-[input:focus-visible]:outline-solid">
         <span className="block text-[16px] font-bold">
           Excel yoki CSV katalog{' '}
-          <span className="font-normal text-lp-muted">(.xlsx, .csv — 20 MB gacha)</span>
+          <span className="font-normal text-lp-muted">(.xlsx, .csv — 5 MB gacha)</span>
         </span>
         <span
           className={

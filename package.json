@@ -40,6 +40,7 @@
     "demo:quality": "tsx scripts/demo-quality.ts",
     "purge:expired": "tsx scripts/purge-expired.ts",
     "lead:delete": "tsx scripts/lead-delete.ts",
+    "password:set": "tsx scripts/set-password.ts",
     "capture": "tsx scripts/capture-screenshots.ts",
     "make:sample": "tsx scripts/make-sample-file.ts",
     "make:sample-report": "tsx scripts/make-sample-report.ts"
@@ -82,6 +83,7 @@
     "pg": "^8.23.0",
     "pg-copy-streams": "^7.0.0",
     "prisma": "^6.19.3",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "sax": "^1.4.1",

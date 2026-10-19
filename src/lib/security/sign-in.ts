@@ -2,9 +2,9 @@
 // A user with two-factor on is held in a pending state until the code is entered.
 import { headers } from 'next/headers';
 import { db } from '../db';
-import { getSession } from '../session';
-import { createRecord } from './session-store';
-import { verifyLogin } from './two-factor';
+import { getSession, type SessionData } from '../session';
+import { createRecord, endRecord } from './session-store';
+import { checkPendingCode } from './two-factor-attempts';
 
 const PENDING_MS = 10 * 60_000;
 
@@ -14,9 +14,21 @@ type Options = { via: string; landing: string };
 export const TWO_FACTOR_PATH = '/sign-in/2fa';
 export const DELETED_PATH = '/account-deleted';
 
+/** Drops the pending two-factor state and a pending Telegram binding. */
+export function clearPending(session: SessionData): void {
+  session.pendingUserId = undefined;
+  session.pendingVia = undefined;
+  session.pendingLanding = undefined;
+  session.pendingAt = undefined;
+  session.tgBind = undefined;
+  session.tgBindAt = undefined;
+}
+
 async function finish(who: Who, via: string): Promise<void> {
   const session = await getSession();
   const agent = (await headers()).get('user-agent');
+  // A browser that was signed in as someone else (or a demo) loses that record first.
+  if (session.sid) await endRecord(session.sid);
   session.sid = await createRecord(who.id, who.orgId, agent);
   session.userId = who.id;
   session.orgId = who.orgId;
@@ -24,10 +36,7 @@ async function finish(who: Who, via: string): Promise<void> {
   // Nothing from an earlier session (a demo, another org's client) carries over.
   session.demo = false;
   session.clientId = undefined;
-  session.pendingUserId = undefined;
-  session.pendingVia = undefined;
-  session.pendingLanding = undefined;
-  session.pendingAt = undefined;
+  clearPending(session);
   await session.save();
   await db.auditEvent.create({ data: { orgId: who.orgId, actorId: who.id, action: 'user.signed_in', payload: { via } } });
 }
@@ -53,16 +62,24 @@ export async function openSession(who: Who, { via, landing }: Options): Promise<
   return org.deletedAt ? DELETED_PATH : landing;
 }
 
-/** Finishes a pending sign-in with an authenticator or recovery code; the landing path, or null. */
-export async function completePending(input: string): Promise<string | null> {
+export type PendingResult = { ok: true; next: string } | { ok: false; reason: 'wrong' | 'locked' | 'expired' };
+
+/** Finishes a pending sign-in with an authenticator or recovery code. After too many wrong codes the password is asked again. */
+export async function completePending(input: string): Promise<PendingResult> {
   const session = await getSession();
   const { pendingUserId, pendingAt, pendingVia, pendingLanding } = session;
-  if (!pendingUserId || !pendingAt || Date.now() - pendingAt > PENDING_MS) return null;
-  if (!(await verifyLogin(pendingUserId, input))) return null;
+  if (!pendingUserId || !pendingAt || Date.now() - pendingAt > PENDING_MS) return { ok: false, reason: 'expired' };
+  const check = await checkPendingCode(pendingUserId, pendingAt, input);
+  if (check === 'locked') {
+    clearPending(session);
+    await session.save();
+    return { ok: false, reason: 'locked' };
+  }
+  if (check === 'wrong') return { ok: false, reason: 'wrong' };
   const user = await db.user.findUnique({ where: { id: pendingUserId }, select: { id: true, orgId: true, email: true, org: { select: { deletedAt: true } } } });
-  if (!user) return null;
+  if (!user) return { ok: false, reason: 'expired' };
   await finish(user, pendingVia ?? 'password');
-  return user.org.deletedAt ? DELETED_PATH : pendingLanding ?? '/dashboard';
+  return { ok: true, next: user.org.deletedAt ? DELETED_PATH : pendingLanding ?? '/dashboard' };
 }
 
 export async function hasPending(): Promise<boolean> {

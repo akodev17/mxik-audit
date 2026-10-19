@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Page, Section } from '@/ui/page';
 import { typeLabels } from '@/ui/labels';
-import { isAdmin } from '@/lib/admin';
+import { isPlatformAdmin } from '@/lib/admin';
 import { currentUser } from '@/lib/session';
 import { pipelineStatus } from '@/lib/pipeline-status';
 import { tractionMetrics } from '@/lib/traction';
@@ -39,11 +39,11 @@ function Rows({ rows }: { rows: [string, number][] }) {
   );
 }
 
-/** Cross-org traction numbers. Only ADMIN_EMAILS may see it; everyone else gets a 404. */
+/** Cross-org traction numbers. Platform admins only (src/lib/admin.ts); everyone else gets a 404. */
 export default async function AdminPage() {
   const { t, ta } = await getI18n();
   const user = await currentUser();
-  if (!user || !isAdmin(user.email)) notFound();
+  if (!user || !(await isPlatformAdmin(user.userId))) notFound();
   const [m, pipeline] = await Promise.all([tractionMetrics(), pipelineStatus()]);
 
   return (

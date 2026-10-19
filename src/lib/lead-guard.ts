@@ -1,6 +1,7 @@
 // Input checks for the public lead form, kept pure so they can be tested
 // without a server: contact parsing, the honeypot, and a small rate limiter.
 // The 'use server' action in src/app/actions/lead.ts only wires them up.
+import { clientIp } from './security/client-ip.js';
 
 export type ContactResult =
   | { ok: true; kind: 'phone' | 'telegram'; value: string }
@@ -96,8 +97,7 @@ export function createRateLimiter(options: {
   };
 }
 
-/** First address in X-Forwarded-For, else X-Real-IP, else a shared bucket. */
+/** X-Real-IP, else the rightmost X-Forwarded-For hop (the leftmost is client-controlled), else a shared bucket. */
 export function clientKey(headers: { get(name: string): string | null }): string {
-  const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return forwarded || headers.get('x-real-ip')?.trim() || 'unknown';
+  return clientIp(headers);
 }

@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { startDemoSession } from '@/lib/demo';
 import { clientKey, createRateLimiter } from '@/lib/lead-guard';
+import { endRecord } from '@/lib/security/session-store';
+import { clearPending } from '@/lib/security/sign-in';
 import { getSession } from '@/lib/session';
 
 export type DemoState = { error?: string };
@@ -26,6 +28,10 @@ export async function startDemo(_prev: DemoState): Promise<DemoState> {
   if (!demo) return { error: t.demoUnavailable };
 
   const session = await getSession();
+  // A demo replaces whoever was signed in here: their session record ends and nothing of it stays in the cookie.
+  if (session.sid) await endRecord(session.sid);
+  session.sid = undefined;
+  clearPending(session);
   session.userId = demo.userId;
   session.orgId = demo.orgId;
   session.email = demo.email;

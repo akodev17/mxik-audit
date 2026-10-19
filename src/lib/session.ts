@@ -4,7 +4,7 @@ import { getIronSession, type SessionOptions } from 'iron-session';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { db } from './db';
-import { isLive } from './security/session-store';
+import { recordAccepted, SESSION_MAX_AGE_SECONDS } from './security/session-store';
 
 export type SessionData = {
   userId?: string;
@@ -14,13 +14,16 @@ export type SessionData = {
   demo?: boolean;
   /** The client being worked on. Always re-checked against the org before use. */
   clientId?: string;
-  /** The server-side session record (src/lib/security/session-store.ts); absent on demo and older cookies. */
+  /** The server-side session record (src/lib/security/session-store.ts). Required for every org except a demo. */
   sid?: string;
   /** Password accepted, two-factor code still to enter. */
   pendingUserId?: string;
   pendingVia?: string;
   pendingLanding?: string;
   pendingAt?: number;
+  /** One-time state for binding Telegram from Settings, and when it was issued. */
+  tgBind?: string;
+  tgBindAt?: number;
 };
 
 const PASSWORD = process.env['SESSION_SECRET'] ?? '';
@@ -32,7 +35,7 @@ export const sessionOptions: SessionOptions = {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
 };
 
@@ -63,14 +66,14 @@ export type CurrentUser = {
 };
 
 /** Role and client scope come from the database, so a change applies at once. */
-const loadAccess = cache(async (userId: string, orgId: string): Promise<{ role: Role; clientIds: string[] | null } | null> => {
+const loadAccess = cache(async (userId: string, orgId: string): Promise<{ role: Role; clientIds: string[] | null; demoOrg: boolean } | null> => {
   const user = await db.user.findFirst({
     where: { id: userId, orgId, org: { deletedAt: null } },
-    select: { role: true, assignments: { select: { clientId: true } } },
+    select: { role: true, assignments: { select: { clientId: true } }, org: { select: { kind: true } } },
   });
   if (!user) return null;
   const assigned = user.assignments.map((a) => a.clientId);
-  return { role: user.role, clientIds: user.role === 'admin' || assigned.length === 0 ? null : assigned };
+  return { role: user.role, clientIds: user.role === 'admin' || assigned.length === 0 ? null : assigned, demoOrg: user.org.kind === 'demo' };
 });
 
 /** Null when not signed in; callers redirect. */
@@ -80,6 +83,6 @@ export async function currentUser(): Promise<CurrentUser | null> {
   if (!userId || !orgId || !email) return null;
   const access = await loadAccess(userId, orgId);
   if (!access) return null;
-  if (session.sid && !(await isLive(session.sid, userId))) return null;
-  return { userId, orgId, email, demo: session.demo === true, clientId: session.clientId ?? null, ...access };
+  if (!(await recordAccepted(session.sid, userId, access.demoOrg))) return null;
+  return { userId, orgId, email, demo: session.demo === true, clientId: session.clientId ?? null, role: access.role, clientIds: access.clientIds };
 }

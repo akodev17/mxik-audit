@@ -3,6 +3,7 @@
 // every request is verified, and every answer is idempotent for retries.
 import { createHash } from 'node:crypto';
 import { db } from '../db.js';
+import { safeEqualText } from '../security/safe-equal.js';
 import type { ClickConfig } from './config.js';
 import { cancelOrder, markPaid } from './orders.js';
 
@@ -46,7 +47,7 @@ export async function handleClick(f: Fields, config: ClickConfig): Promise<Reply
   const required = ['click_trans_id', 'service_id', 'merchant_trans_id', 'amount', 'action', 'sign_time', 'sign_string'];
   if (required.some((k) => !f[k])) return { ...base, ...CLICK_ERRORS.request };
   if (f['service_id'] !== config.serviceId) return { ...base, ...CLICK_ERRORS.request };
-  if (clickSign(f, config.secretKey) !== f['sign_string']?.toLowerCase()) return { ...base, ...CLICK_ERRORS.sign };
+  if (!safeEqualText(clickSign(f, config.secretKey), f['sign_string']?.toLowerCase() ?? '')) return { ...base, ...CLICK_ERRORS.sign };
   if (f['action'] !== '0' && f['action'] !== '1') return { ...base, ...CLICK_ERRORS.action };
 
   const order = await db.order.findUnique({ where: { id: f['merchant_trans_id'] ?? '' } });

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { accuracyBy, DIMENSIONS, overall, wrongReasons, type AccuracyRow, type Dimension } from '@/lib/accuracy';
-import { isAdmin } from '@/lib/admin';
+import { isPlatformAdmin } from '@/lib/admin';
 import { currentUser } from '@/lib/session';
 import { Page, Section } from '@/ui/page';
 import { Table, Td, Th } from '@/ui/table';
@@ -46,7 +46,7 @@ async function AccuracyTable({ dim, rows }: { dim: Dimension; rows: AccuracyRow[
 export default async function MetricsPage() {
   const { t, ta } = await getI18n();
   const user = await currentUser();
-  if (!user || !isAdmin(user.email)) notFound();
+  if (!user || !(await isPlatformAdmin(user.userId))) notFound();
   const [tables, reasons] = await Promise.all([Promise.all(DIMENSIONS.map(async (d) => [d, await accuracyBy(d)] as const)), wrongReasons()]);
   const total = overall(tables[0]?.[1] ?? []);
 

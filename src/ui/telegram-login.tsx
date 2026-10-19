@@ -2,8 +2,11 @@
 
 import { useEffect, useRef } from 'react';
 
-/** Telegram's own login button; it redirects to /api/auth/telegram with signed data. */
-export function TelegramLogin({ bot }: { bot: string }) {
+/**
+ * Telegram's own login button; it redirects to `authUrl` (default /api/auth/telegram) with signed data.
+ * Redirect mode on purpose: the widget's data-onauth mode needs eval, which the CSP does not allow.
+ */
+export function TelegramLogin({ bot, authUrl = '/api/auth/telegram' }: { bot: string; authUrl?: string }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = box.current;
@@ -13,10 +16,10 @@ export function TelegramLogin({ bot }: { bot: string }) {
     script.async = true;
     script.setAttribute('data-telegram-login', bot);
     script.setAttribute('data-size', 'large');
-    script.setAttribute('data-auth-url', '/api/auth/telegram');
+    script.setAttribute('data-auth-url', authUrl);
     script.setAttribute('data-request-access', 'write');
     el.appendChild(script);
     return () => { el.innerHTML = ''; };
-  }, [bot]);
+  }, [bot, authUrl]);
   return <div ref={box} className="flex justify-center" />;
 }

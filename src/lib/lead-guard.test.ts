@@ -104,12 +104,12 @@ describe('createRateLimiter', () => {
 describe('clientKey', () => {
   const headers = (h: Record<string, string>) => ({ get: (n: string) => h[n] ?? null });
 
-  it('uses the first X-Forwarded-For address', () => {
-    assert.equal(clientKey(headers({ 'x-forwarded-for': '203.0.113.5, 10.0.0.1' })), '203.0.113.5');
+  it('uses the rightmost X-Forwarded-For hop, never the client-supplied leftmost one', () => {
+    assert.equal(clientKey(headers({ 'x-forwarded-for': '6.6.6.6, 203.0.113.5' })), '203.0.113.5');
   });
 
-  it('falls back to X-Real-IP, then to a shared bucket', () => {
-    assert.equal(clientKey(headers({ 'x-real-ip': '203.0.113.9' })), '203.0.113.9');
+  it('prefers X-Real-IP, then falls back to a shared bucket', () => {
+    assert.equal(clientKey(headers({ 'x-real-ip': '203.0.113.9', 'x-forwarded-for': '6.6.6.6, 203.0.113.9' })), '203.0.113.9');
     assert.equal(clientKey(headers({})), 'unknown');
   });
 });
