@@ -2,8 +2,10 @@
 // decisions, loaded whole at the start of an audit, and re-validated against
 // the live classifier so an archived code is never suggested.
 import { randomUUID } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryKeys, type DictionaryLookup } from '../core/match/dictionary.js';
 import { db } from './db.js';
+import { mayWrite, type RoleCarrier } from './write-access.js';
 
 export type Learnable = { rawName: string; unit: string | null; barcode: string | null; code: string };
 
@@ -53,6 +55,90 @@ export async function learn(orgId: string, userId: string | null, items: readonl
       "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = now(), "staleAt" = NULL`;
 }
 
+type DictClient = Pick<Prisma.TransactionClient, 'firmMapping'>;
+
+/** The entry keys ("kind:key") learning these items would touch. */
+export function learnKeys(items: readonly Learnable[]): string[] {
+  return rowsFor(items).map((r) => `${r.kind}:${r.key}`);
+}
+
+/** One dictionary entry as it was before a decision taught it `learned`; stored in the decision's audit event. */
+export type MappingBefore = {
+  kind: string; key: string; learned: string; existed: boolean;
+  code: string | null; uses: number; confirmations: number; source: string | null;
+  label: string | null; unit: string | null; staleAt: string | null;
+};
+
+/** The entries a learn() of these items would touch, read before it runs. */
+export async function snapshotMappings(client: DictClient, orgId: string, items: readonly Learnable[]): Promise<MappingBefore[]> {
+  const rows = rowsFor(items);
+  if (rows.length === 0) return [];
+  const current = await client.firmMapping.findMany({
+    where: { orgId, OR: rows.map((r) => ({ kind: r.kind, key: r.key })) },
+    select: { kind: true, key: true, code: true, uses: true, confirmations: true, source: true, label: true, unit: true, staleAt: true },
+  });
+  const byKey = new Map(current.map((c) => [`${c.kind}:${c.key}`, c]));
+  return rows.map((r) => {
+    const c = byKey.get(`${r.kind}:${r.key}`);
+    return {
+      kind: r.kind, key: r.key, learned: r.code, existed: c !== undefined,
+      code: c?.code ?? null, uses: c?.uses ?? 0, confirmations: c?.confirmations ?? 0, source: c?.source ?? null,
+      label: c?.label ?? null, unit: c?.unit ?? null, staleAt: c?.staleAt?.toISOString() ?? null,
+    };
+  });
+}
+
+/**
+ * Takes back what one decision taught the dictionary. An entry a later
+ * decision or edit pointed at another code is left alone; otherwise the use
+ * (and the confirmation, when the decision confirmed) is subtracted, or the
+ * replaced code comes back. Returns how many entries changed.
+ */
+export async function restoreMappings(client: DictClient, orgId: string, before: readonly MappingBefore[], confirmed: boolean): Promise<number> {
+  let changed = 0;
+  for (const b of before) {
+    const where = { orgId_kind_key: { orgId, kind: b.kind, key: b.key } };
+    const cur = await client.firmMapping.findUnique({ where, select: { code: true, uses: true, confirmations: true } });
+    if (!cur || cur.code !== b.learned) continue;
+    const less = { uses: Math.max(1, cur.uses - 1), confirmations: Math.max(0, cur.confirmations - (confirmed ? 1 : 0)), source: b.source, updatedAt: new Date() };
+    if (!b.existed) {
+      if (cur.uses <= 1) await client.firmMapping.delete({ where });
+      else await client.firmMapping.update({ where, data: less });
+    } else if (b.code === b.learned) {
+      await client.firmMapping.update({ where, data: less });
+    } else {
+      await client.firmMapping.update({
+        where,
+        data: {
+          code: b.code ?? cur.code, uses: b.uses, confirmations: b.confirmations, source: b.source,
+          label: b.label ?? undefined, unit: b.unit, staleAt: b.staleAt ? new Date(b.staleAt) : null, updatedAt: new Date(),
+        },
+      });
+    }
+    changed++;
+  }
+  return changed;
+}
+
+/** Reads MappingBefore entries back from an audit event payload; anything malformed is dropped. */
+export function readMappingsBefore(value: unknown): MappingBefore[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): MappingBefore[] => {
+    if (typeof raw !== 'object' || raw === null) return [];
+    const r = raw as Record<string, unknown>;
+    const str = (k: string): string | null => { const v = r[k]; return typeof v === 'string' ? v : null; };
+    const num = (k: string): number => { const v = r[k]; return typeof v === 'number' ? v : 0; };
+    const kind = str('kind');
+    const key = str('key');
+    const learned = str('learned');
+    if (!kind || !key || !learned) return [];
+    return [{
+      kind, key, learned, existed: r['existed'] === true, code: str('code'), uses: num('uses'), confirmations: num('confirmations'),
+      source: str('source'), label: str('label'), unit: str('unit'), staleAt: str('staleAt'),
+    }];
+  });
+}
+
 /** Same as learn, but a failure never blocks the decision it follows. */
 export async function learnQuietly(orgId: string, userId: string | null, items: readonly Learnable[], source?: LearnSource): Promise<void> {
   try {
@@ -84,4 +170,45 @@ export async function loadDictionary(orgId: string): Promise<DictionaryLookup & 
       return (keys.barcode ? map.get(`barcode:${keys.barcode}`) : undefined) ?? (keys.name ? map.get(`name:${keys.name}`) : undefined) ?? null;
     },
   };
+}
+
+type Editor = { orgId: string; userId: string } & RoleCarrier;
+
+export type MappingEdit = { ok: true } | { ok: false; code: 'forbidden' | 'not_found' | 'not_in_classifier' };
+
+/**
+ * A person points an entry at another code by hand: one deliberate
+ * confirmation, so confirmations restart at 1 and the source becomes "edit".
+ */
+export async function editMapping(editor: Editor, id: string, code: string): Promise<MappingEdit> {
+  if (!mayWrite(editor)) return { ok: false, code: 'forbidden' };
+  const before = await db.firmMapping.findFirst({ where: { id, orgId: editor.orgId }, select: { code: true, confirmations: true, source: true } });
+  if (!before) return { ok: false, code: 'not_found' };
+  const live = await db.mxikCode.findFirst({ where: { code, retiredAt: null }, select: { code: true } });
+  if (!live) return { ok: false, code: 'not_in_classifier' };
+  await db.$transaction([
+    db.firmMapping.update({
+      where: { id },
+      data: { code, confirmations: 1, source: 'edit', staleAt: null, updatedBy: editor.userId, updatedAt: new Date() },
+    }),
+    db.auditEvent.create({
+      data: {
+        orgId: editor.orgId, actorId: editor.userId, action: 'dictionary.edited', targetId: id,
+        payload: { code, previousCode: before.code, previousConfirmations: before.confirmations, previousSource: before.source },
+      },
+    }),
+  ]);
+  return { ok: true };
+}
+
+/** Deletes an entry; its audit event keeps what it held. */
+export async function removeMapping(editor: Editor, id: string): Promise<MappingEdit> {
+  if (!mayWrite(editor)) return { ok: false, code: 'forbidden' };
+  const before = await db.firmMapping.findFirst({ where: { id, orgId: editor.orgId }, select: { kind: true, label: true, code: true, uses: true, confirmations: true } });
+  if (!before) return { ok: false, code: 'not_found' };
+  await db.$transaction([
+    db.firmMapping.deleteMany({ where: { id, orgId: editor.orgId } }),
+    db.auditEvent.create({ data: { orgId: editor.orgId, actorId: editor.userId, action: 'dictionary.deleted', targetId: id, payload: { ...before } } }),
+  ]);
+  return { ok: true };
 }

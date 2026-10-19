@@ -1,96 +1,148 @@
 'use client';
 
-import { useI18n } from '@/lib/locale-client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { acceptDictionary } from '@/app/actions/dictionary';
 import { bulkAction, type BulkActionInput } from '@/app/actions/bulk';
-import { acceptAllAbove } from '@/app/actions/review';
+import { splitRow, type ManyOutcome } from '@/app/actions/review';
+import { loadRows } from '@/app/actions/workspace';
+import { useI18n } from '@/lib/locale-client';
+import { OPTIONAL_COLUMNS, readHidden, type OptionalColumn, type ViewParams } from '@/lib/view-params';
 import type { WsSummary } from '@/lib/workspace';
+import { filterQuery, type WsFilter } from '@/lib/workspace-filter';
 import type { GridRow } from '@/lib/workspace-rows';
 import { Button } from '@/ui/button';
+import type { ConfirmResult } from '@/ui/confirm-dialog';
+import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/empty-state';
 import { useToast } from '@/ui/toast';
 import { BulkBar } from './bulk-bar';
-import { buildEntries, entryId, entryRow } from './entries';
+import { CardList } from './card-list';
+import { layoutFor } from './columns';
+import { Completion } from './completion';
+import { DrawerResize } from './drawer-resize';
+import { buildEntries, entryId, entryRow, nextPendingIndex } from './entries';
+import { useFilterNav } from './filter-controls';
 import { Grid, type GridHandlers } from './grid';
 import { OnboardingHint } from './onboarding-hint';
 import { RowDrawer } from './row-drawer';
+import { ShortcutHelp } from './shortcut-help';
 import { ShortcutHint } from './shortcut-hint';
+import { ownsKeys, shortcutFor } from './shortcuts';
 import { SummaryStrip } from './summary-strip';
+import { SureAcceptDialog } from './sure-accept-dialog';
 import { Toolbar } from './toolbar';
 import { useDecisions } from './use-decisions';
+import { useDrawerWidth } from './use-drawer-width';
+import { PHONE_QUERY, TOUCH_QUERY, useMedia } from './use-media';
+import { decisionText, shortName } from './ws-text';
 
 export type WorkspaceProps = {
   catalogId: string;
+  clientId: string;
   summary: WsSummary;
   initialRows: GridRow[];
   initialNext: string | null;
   count: number;
-  filter: { type: string | null; q: string; pendingOnly: boolean; commented: boolean; sort: 'risk' | 'row' };
+  filter: WsFilter;
   /** Storage key for the one-time demo tips; null when they do not apply. */
   hintKey: string | null;
   /** Viewers see everything and change nothing. */
   readOnly: boolean;
-  /** Set by a saved view; otherwise the density the user last chose is used. */
+  /** Set by a saved view (URL); otherwise what the user last chose in this browser. */
   initialDensity: 'compact' | 'comfortable' | null;
   initialGrouped: boolean;
-  canSaveViews: boolean;
+  initialHidden: OptionalColumn[] | null;
+  /** Why views cannot be saved (viewer, demo); null when they can. */
+  saveBlocked: string | null;
+  exportLocked: boolean;
 };
 
-const isTyping = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
-
 const DENSITY_KEY = 'mxik.density';
+const COLUMNS_KEY = 'mxik.columns.hidden';
 
-export function Workspace({ catalogId, summary, initialRows, initialNext, count, filter, hintKey, readOnly, initialDensity, initialGrouped, canSaveViews }: WorkspaceProps) {
+export function Workspace(props: WorkspaceProps) {
+  const { catalogId, summary, filter, readOnly } = props;
   const { ta } = useI18n();
+  const x = ta.wsX;
   const toast = useToast();
-  const [delta, setDelta] = useState(0);
-  const onReviewed = useCallback((d: number) => setDelta((x) => x + d), []);
-  const { rows, apply, applyGroup, revert, append, markSure, markDictionary, applyMany, flagMany, setCommentMeta } = useDecisions(initialRows, onReviewed);
+  const router = useRouter();
+  const go = useFilterNav();
+  const phone = useMedia(PHONE_QUERY);
+  const touch = useMedia(TOUCH_QUERY);
+  const [drawerWidth, setDrawerWidth] = useDrawerWidth();
 
-  const [next, setNext] = useState(initialNext);
+  const [delta, setDelta] = useState(0);
+  const [message, setMessage] = useState('');
+  const onReviewed = useCallback((d: number) => setDelta((v) => v + d), []);
+  const refresh = useCallback(() => router.refresh(), [router]);
+  // A fresh server summary already counts what the local delta tracked.
+  useEffect(() => { setDelta(0); }, [summary]);
+  const { rows, apply, applyGroup, applyMany, reportMany, revert, append, flagMany, setCommentMeta, ungroup } = useDecisions(props.initialRows, onReviewed, setMessage, refresh);
+
+  const [next, setNext] = useState(props.initialNext);
   const [loadFailed, setLoadFailed] = useState(false);
   const loading = useRef(false);
   const [compact, setCompact] = useState(false);
-  const [grouped, setGrouped] = useState(initialGrouped);
+  const [grouped, setGrouped] = useState(props.initialGrouped);
+  const [hidden, setHidden] = useState<OptionalColumn[]>(props.initialHidden ?? []);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [tips, setTips] = useState(hintKey !== null);
+  const [tips, setTips] = useState(props.hintKey !== null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allFiltered, setAllFiltered] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [sureOpen, setSureOpen] = useState(false);
   const anchor = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
+  // A saved view (through the URL) wins; otherwise this browser's last choice.
   useEffect(() => {
-    if (initialDensity) { setCompact(initialDensity === 'compact'); return; }
+    if (props.initialDensity) { setCompact(props.initialDensity === 'compact'); return; }
     try { setCompact(localStorage.getItem(DENSITY_KEY) === 'compact'); } catch { /* storage blocked */ }
-  }, []);
+  }, [props.initialDensity]);
+  useEffect(() => { setGrouped(props.initialGrouped); }, [props.initialGrouped]);
+  const hiddenKey = props.initialHidden?.join(',') ?? null;
+  useEffect(() => {
+    if (hiddenKey !== null) { setHidden(readHidden(hiddenKey)); return; }
+    try { setHidden(readHidden(localStorage.getItem(COLUMNS_KEY))); } catch { /* storage blocked */ }
+  }, [hiddenKey]);
 
+  const layout = useMemo(() => layoutFor(hidden, !readOnly), [hidden, readOnly]);
   const entries = useMemo(() => buildEntries(rows, grouped, expanded), [rows, grouped, expanded]);
   const found = entries.findIndex((e) => entryId(e) === activeKey);
   const activeIndex = entries.length === 0 ? -1 : found >= 0 ? found : 0;
+  const activeEntry = entries[activeIndex];
   const selectable = useMemo(() => rows.filter((r) => r.decision === 'pending').map((r) => r.findingId), [rows]);
   const allChecked = selectable.length > 0 && selectable.every((id) => selected.has(id));
   const openRow = openId ? rows.find((r) => r.findingId === openId) ?? null : null;
+  const reviewed = Math.min(summary.riskyFindings, summary.reviewed + delta);
+  const allDone = summary.riskyFindings > 0 && reviewed >= summary.riskyFindings;
+
+  const focusGrid = useCallback(() => {
+    const el = document.activeElement;
+    if (!el || el === document.body || gridRef.current?.contains(el)) gridRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // The active row, announced politely for screen readers.
+  useEffect(() => {
+    const row = entryRow(activeEntry);
+    if (!activeKey || !row) return;
+    setMessage(x.a11y.row(String(row.rowIndex + 1), shortName(row.productName), decisionText(row, ta)));
+  }, [activeKey, activeEntry, ta, x]);
 
   const loadMore = useCallback(async () => {
     if (!next || loading.current) return;
     loading.current = true;
     setLoadFailed(false);
     try {
-      const qs = new URLSearchParams({ cursor: next, pending: filter.pendingOnly ? '1' : '0' });
-      if (filter.commented) qs.set('comments', '1');
-      if (filter.sort === 'row') qs.set('sort', 'row');
-      if (filter.type) qs.set('type', filter.type);
-      if (filter.q) qs.set('q', filter.q);
-      const res = await fetch(`/api/catalogs/${catalogId}/rows?${qs}`);
-      if (!res.ok) throw new Error(String(res.status));
-      const data = (await res.json()) as { rows: GridRow[]; next: string | null };
+      const data = await loadRows({ catalogId, cursor: next, filter: filterQuery(filter) });
+      if (!data) throw new Error('no data');
       append(data.rows);
       setNext(data.next);
     } catch {
@@ -108,47 +160,67 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     if (entry.kind === 'row' && row) setOpenId(row.findingId);
   }, [entries]);
 
-  /** Moves to the next row still waiting for a decision (the next risky row). */
-  const advance = useCallback((from: number) => {
-    for (let i = from + 1; i < entries.length; i++) {
-      const row = entryRow(entries[i]);
-      if (row?.decision === 'pending') {
-        setActiveKey(entryId(entries[i] as (typeof entries)[number]));
-        setOpenId((cur) => (cur && row ? row.findingId : cur));
-        return;
-      }
-    }
-  }, [entries]);
-
-  const move = useCallback((step: number) => {
-    const i = Math.max(0, Math.min(entries.length - 1, activeIndex + step));
-    const entry = entries[i];
+  const goTo = useCallback((index: number) => {
+    const entry = entries[index];
     if (!entry) return;
     setActiveKey(entryId(entry));
     const row = entryRow(entry);
+    // The drawer follows the active row only while it is open.
     setOpenId((cur) => (cur && row && entry.kind === 'row' ? row.findingId : cur));
-  }, [entries, activeIndex]);
+  }, [entries]);
 
-  const accept = useCallback((row: GridRow, chosen?: { code: string; name: string | null }) => {
-    if (readOnly) return;
-    const index = entries.findIndex((e) => e.kind === 'row' && e.row.findingId === row.findingId);
+  const move = useCallback((step: number) => goTo(Math.max(0, Math.min(entries.length - 1, activeIndex + step))), [goTo, entries.length, activeIndex]);
+
+  const nextPending = useCallback(() => {
+    const i = nextPendingIndex(entries, activeIndex);
+    if (i >= 0) goTo(i);
+    else if (next) void loadMore();
+  }, [entries, activeIndex, goTo, next, loadMore]);
+
+  /** After a decision, on to the next row still waiting. */
+  const advanceFrom = useCallback((findingId: string) => {
+    const index = entries.findIndex((e) => e.kind === 'row' && e.row.findingId === findingId);
+    const i = nextPendingIndex(entries, index);
+    if (i >= 0) goTo(i);
+  }, [entries, goTo]);
+
+  const pick = useCallback((row: GridRow) => {
+    if (readOnly || row.decision !== 'pending') return;
+    if (!phone && layout.keys.includes('suggested')) { setEditingId(row.findingId); return; }
+    setActiveKey(row.findingId);
+    setOpenId(row.findingId);
+  }, [readOnly, phone, layout.keys]);
+
+  const accept = useCallback((row: GridRow, chosen?: { code: string; name: string }) => {
+    if (readOnly || row.decision !== 'pending') return;
+    if (row.mode === 'pick' && !chosen) { pick(row); return; }
     void apply(row.findingId, 'accepted', chosen);
-    if (index >= 0) advance(index);
-  }, [apply, advance, entries, readOnly]);
+    advanceFrom(row.findingId);
+    focusGrid();
+  }, [readOnly, pick, apply, advanceFrom, focusGrid]);
 
   const reject = useCallback((row: GridRow) => {
-    if (readOnly) return;
-    const index = entries.findIndex((e) => e.kind === 'row' && e.row.findingId === row.findingId);
+    if (readOnly || row.decision !== 'pending') return;
     void apply(row.findingId, 'rejected');
-    if (index >= 0) advance(index);
-  }, [apply, advance, entries, readOnly]);
+    advanceFrom(row.findingId);
+    focusGrid();
+  }, [readOnly, apply, advanceFrom, focusGrid]);
+
+  const undoRow = useCallback((row: GridRow) => {
+    if (readOnly || !row.decisionEventId) return;
+    void revert({ eventId: row.decisionEventId, findingId: row.findingId });
+  }, [readOnly, revert]);
+
+  const undoLast = useCallback(async () => {
+    if (readOnly) return;
+    const id = await revert({ lastInCatalog: catalogId });
+    if (id && rows.some((r) => r.findingId === id)) setActiveKey(id);
+  }, [readOnly, revert, catalogId, rows]);
 
   const decideGroup = useCallback((group: GridRow[], decision: 'accepted' | 'rejected') => {
     if (readOnly) return;
     void applyGroup(group, decision);
-    const index = entries.findIndex((e) => e.kind === 'group' && e.rows === group);
-    if (index >= 0) advance(index);
-  }, [applyGroup, advance, entries, readOnly]);
+  }, [applyGroup, readOnly]);
 
   const onCheck = useCallback((index: number, shift: boolean) => {
     const entry = entries[index];
@@ -156,16 +228,16 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     const id = entry.row.findingId;
     setAllFiltered(false);
     setSelected((cur) => {
-      const next = new Set(cur);
+      const nextSet = new Set(cur);
       const from = shift && anchor.current ? entries.findIndex((e) => e.kind === 'row' && e.row.findingId === anchor.current) : -1;
       if (from >= 0) {
         const [lo, hi] = from < index ? [from, index] : [index, from];
         for (let i = lo; i <= hi; i++) {
           const e = entries[i];
-          if (e?.kind === 'row' && e.row.decision === 'pending') next.add(e.row.findingId);
+          if (e?.kind === 'row' && e.row.decision === 'pending') nextSet.add(e.row.findingId);
         }
-      } else if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+      } else if (nextSet.has(id)) nextSet.delete(id); else nextSet.add(id);
+      return nextSet;
     });
     anchor.current = id;
   }, [entries]);
@@ -175,23 +247,64 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     setSelected(checked ? new Set(selectable) : new Set());
   }, [selectable]);
 
-  const runBulk = useCallback(async (action: BulkActionInput, picked?: { code: string; name: string }) => {
+  const runBulk = useCallback(async (action: BulkActionInput, picked?: { code: string; name: string }): Promise<ConfirmResult> => {
+    if (readOnly) return { ok: false };
+    setBulkBusy(true);
+    try {
+      const target = allFiltered ? { filter: filterQuery(filter) } : { ids: [...selected] };
+      const result = await bulkAction({ catalogId, target, action });
+      if (!result.ok) {
+        if (!allFiltered) toast(result.error, { tone: 'error' });
+        return { ok: false, error: result.error };
+      }
+      if (action.kind === 'flag') flagMany(result.ids, action.flag, result.eventId);
+      else {
+        applyMany({
+          ids: result.ids, eventId: result.eventId, decision: action.kind === 'reject' ? 'rejected' : 'accepted',
+          code: action.kind === 'assign' ? action.code : null, name: picked?.name ?? null, source: 'bulk',
+        });
+        reportMany(result);
+      }
+      setSelected(new Set());
+      setAllFiltered(false);
+      return { ok: true };
+    } catch {
+      if (!allFiltered) toast(x.toast.network, { tone: 'error' });
+      return { ok: false, error: x.toast.network };
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [readOnly, allFiltered, filter, selected, catalogId, toast, flagMany, applyMany, reportMany, x]);
+
+  const manyDone = useCallback((result: Extract<ManyOutcome, { ok: true }>, source: GridRow['decisionSource']) => {
+    applyMany({ ids: result.ids, eventId: result.eventId, decision: 'accepted', source });
+    reportMany(result);
+  }, [applyMany, reportMany]);
+
+  const acceptDict = useCallback(async () => {
     if (readOnly) return;
     setBulkBusy(true);
-    const target = allFiltered
-      ? { filter: { type: filter.type, q: filter.q, pendingOnly: filter.pendingOnly, commented: filter.commented, sort: filter.sort } }
-      : { ids: [...selected] };
-    const result = await bulkAction({ catalogId, target, action });
-    setBulkBusy(false);
-    if (!result.ok) { toast(ta.ws.failedToast, { tone: 'error' }); return; }
-    const kind = action.kind;
-    if (kind === 'flag') flagMany(result.ids, 'ask_client');
-    else onReviewed(applyMany(result.ids, kind === 'reject' ? 'rejected' : 'accepted', picked?.code ?? null, picked?.name ?? null, result.eventId));
-    const eventId = result.eventId;
-    toast(ta.bulk.done(result.count), eventId ? { action: { label: ta.ws.undo, run: () => { void revert({ eventId }); } } } : undefined);
-    setSelected(new Set());
-    setAllFiltered(false);
-  }, [readOnly, allFiltered, filter, selected, catalogId, toast, flagMany, onReviewed, applyMany, revert]);
+    try {
+      const result = await acceptDictionary(catalogId);
+      if (!result.ok) { toast(result.error, { tone: 'error' }); return; }
+      manyDone(result, 'dictionary');
+    } catch {
+      toast(x.toast.network, { tone: 'error' });
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [readOnly, catalogId, toast, manyDone, x]);
+
+  const split = useCallback(async (row: GridRow) => {
+    try {
+      const result = await splitRow(row.findingId);
+      if (!result.ok) { toast(x.toast.failed, { tone: 'error' }); return; }
+      ungroup(row.findingId);
+      toast(x.toast.split);
+    } catch {
+      toast(x.toast.network, { tone: 'error' });
+    }
+  }, [toast, ungroup, x]);
 
   const toggleGroup = useCallback((key: string) => {
     setExpanded((cur) => {
@@ -205,126 +318,156 @@ export function Workspace({ catalogId, summary, initialRows, initialNext, count,
     onSelect: select,
     onAccept: (row) => accept(row),
     onReject: reject,
-    onUndo: (row) => { if (!readOnly && row.decisionEventId) void revert({ eventId: row.decisionEventId, findingId: row.findingId }); },
+    onPick: pick,
+    onUndo: undoRow,
     onToggleGroup: toggleGroup,
     onGroup: decideGroup,
     onNeedMore: () => { void loadMore(); },
     onCheck,
     onCheckAll,
-    onEdit: setEditingId,
-    onPick: (row, code, name) => { setEditingId(null); accept(row, { code, name }); },
-  }), [select, accept, reject, revert, toggleGroup, decideGroup, loadMore, readOnly, onCheck, onCheckAll]);
+    onCancelEdit: () => setEditingId(null),
+    onChoose: (row, code, name) => { setEditingId(null); accept(row, { code, name }); },
+  }), [select, accept, reject, pick, undoRow, toggleGroup, decideGroup, loadMore, onCheck, onCheckAll]);
 
-  const acceptSure = useCallback(async () => {
-    if (readOnly) return;
-    setBulkBusy(true);
-    const result = await acceptAllAbove({ catalogId, minConfidence: 0.9 });
-    setBulkBusy(false);
-    if (!result.ok) { toast(ta.ws.failedToast, { tone: 'error' }); return; }
-    toast(ta.ws.bulkToast(result.count));
-    onReviewed(markSure(0.9));
-  }, [catalogId, toast, markSure, onReviewed, readOnly]);
-
-  const acceptDict = useCallback(async () => {
-    if (readOnly) return;
-    setBulkBusy(true);
-    const result = await acceptDictionary(catalogId);
-    setBulkBusy(false);
-    if (!result.ok) { toast(ta.ws.failedToast, { tone: 'error' }); return; }
-    toast(ta.ws.bulkToast(result.count));
-    onReviewed(markDictionary());
-  }, [catalogId, toast, markDictionary, onReviewed, readOnly]);
-
-  // Keys apply to the workspace, never while typing and never to the browser's own shortcuts.
+  // Keys act on the workspace only: never while typing or on a control that owns its keys, never with modifiers.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
-      const target = e.target as HTMLElement | null;
+      const action = shortcutFor(e);
+      if (!action || ownsKeys(e.target) || helpOpen || sureOpen) return;
+      const target = e.target instanceof Node ? e.target : null;
       if (target && target !== document.body && !rootRef.current?.contains(target)) return;
       const entry = entries[activeIndex];
       const row = entryRow(entry);
-      switch (e.key) {
-        case 'j': case 'ArrowDown': e.preventDefault(); move(1); break;
-        case 'k': case 'ArrowUp': e.preventDefault(); move(-1); break;
-        case 'Enter':
-          if (target?.tagName === 'BUTTON' || target?.tagName === 'A' || !entry) return;
-          e.preventDefault();
-          if (entry.kind === 'group') decideGroup(entry.rows, 'accepted');
-          else if (row && row.decision === 'pending' && row.suggestedMxik && !row.noSuggestion) accept(row);
-          break;
-        case 'r':
+      const single = entry?.kind === 'row' ? entry.row : null;
+      switch (action) {
+        case 'next': e.preventDefault(); move(1); break;
+        case 'prev': e.preventDefault(); move(-1); break;
+        case 'nextPending': e.preventDefault(); nextPending(); break;
+        case 'accept':
           if (!entry) return;
           e.preventDefault();
-          if (entry.kind === 'group') decideGroup(entry.rows, 'rejected');
-          else if (row) reject(row);
+          // On a group header Enter only opens it; deciding a whole group takes a deliberate click.
+          if (entry.kind === 'group') toggleGroup(entry.key);
+          else if (single && single.decision === 'pending' && single.mode !== 'pick') accept(single);
           break;
-        case 'e': if (row && entry?.kind === 'row' && row.decision === 'pending' && !readOnly) { e.preventDefault(); setEditingId(row.findingId); } break;
-        case 'o': if (row && entry?.kind === 'row') { e.preventDefault(); setOpenId(row.findingId); } break;
-        case 'u': e.preventDefault(); if (!readOnly) void revert({ lastInCatalog: catalogId }); break;
-        case '/': e.preventDefault(); document.getElementById('app-search')?.focus(); break;
+        case 'reject': if (single && single.decision === 'pending') { e.preventDefault(); reject(single); } break;
+        case 'edit': if (single) { e.preventDefault(); pick(single); } break;
+        case 'open': if (row && entry?.kind === 'row') { e.preventDefault(); setOpenId(row.findingId); } break;
+        case 'undo': e.preventDefault(); void undoLast(); break;
+        case 'search': e.preventDefault(); document.getElementById('app-search')?.focus(); break;
+        case 'help': e.preventDefault(); setHelpOpen(true); break;
         default: break;
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [entries, activeIndex, move, accept, reject, decideGroup, revert, catalogId, readOnly]);
+  }, [entries, activeIndex, move, nextPending, accept, reject, pick, toggleGroup, undoLast, helpOpen, sureOpen]);
 
   const setDensity = (v: boolean): void => {
     setCompact(v);
     try { localStorage.setItem(DENSITY_KEY, v ? 'compact' : 'comfortable'); } catch { /* storage blocked */ }
   };
+  const setColumns = (v: OptionalColumn[]): void => {
+    setHidden(v);
+    try { localStorage.setItem(COLUMNS_KEY, v.join(',')); } catch { /* storage blocked */ }
+  };
+  const applyView = (p: ViewParams): void => {
+    setCompact(p.density === 'compact');
+    setGrouped(p.grouped);
+    setHidden(OPTIONAL_COLUMNS.filter((c) => p.hidden?.includes(c)));
+  };
 
-  const drawerOffset = openRow ? 'lg:mr-[460px]' : '';
-  return (
-    <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
-      <SummaryStrip summary={summary} reviewedDelta={delta} activeType={filter.type} />
-      <Toolbar
-        count={count} commented={filter.commented} sort={filter.sort} canSaveViews={canSaveViews} compact={compact} grouped={grouped} pendingOnly={filter.pendingOnly} query={filter.q} busy={bulkBusy} readOnly={readOnly}
-        onCompact={setDensity} onGrouped={setGrouped} onAcceptSure={() => { void acceptSure(); }}
-        dictionaryPending={summary.dictionaryPending} onAcceptDictionary={() => { void acceptDict(); }}
+  const narrowed = filter.type !== null || filter.q !== '' || filter.flag !== 'any' || filter.commented;
+  const showCompletion = allDone && filter.decision === 'pending';
+  const drawerOpen = openRow !== null;
+  const style = { '--drawer-width': `${drawerWidth}px` } as CSSProperties;
+
+  let body: React.ReactNode;
+  if (entries.length === 0) {
+    body = showCompletion ? null
+      : summary.riskyRows === 0 && !filter.type && !filter.q
+        ? <EmptyState title={x.empty.clean} hint={x.empty.cleanHint} />
+        : <EmptyState title={x.empty.title} hint={x.empty.hint} action={<Button size="sm" onClick={() => go((p) => { for (const k of ['type', 'q', 'dec', 'flag', 'comments', 'sort']) p.delete(k); })}>{x.filter.reset}</Button>} />;
+  } else if (phone) {
+    body = (
+      <CardList
+        rows={entries.flatMap((e) => (e.kind === 'row' ? [e.row] : e.rows))} activeId={openId} hasMore={next !== null && !loadFailed}
+        readOnly={readOnly} scrollRef={scrollRef}
+        onOpen={(row) => { setActiveKey(row.findingId); setOpenId(row.findingId); }}
+        onAccept={(row) => accept(row)} onReject={reject} onUndo={undoRow} onNeedMore={() => { void loadMore(); }}
       />
-      {selected.size > 0 || allFiltered ? (
-        <BulkBar
-          count={allFiltered ? count : selected.size}
-          filterTotal={allChecked && count > selected.size ? count : null} allFiltered={allFiltered} busy={bulkBusy}
-          onSelectFiltered={() => setAllFiltered(true)}
-          onClear={() => { setSelected(new Set()); setAllFiltered(false); }}
-          onAccept={() => { void runBulk({ kind: 'accept' }); }}
-          onReject={() => { void runBulk({ kind: 'reject' }); }}
-          onAssign={(code, name) => { void runBulk({ kind: 'assign', code }, { code, name }); }}
-          onAsk={() => { void runBulk({ kind: 'flag', flag: 'ask_client' }); }}
+    );
+  } else {
+    body = (
+      <Grid
+        entries={entries} total={grouped ? null : props.count} activeIndex={activeIndex} compact={compact} expanded={expanded}
+        hasMore={next !== null && !loadFailed} scrollRef={scrollRef} gridRef={gridRef} handlers={handlers} readOnly={readOnly}
+        selected={selected} allChecked={allChecked} editingId={editingId} layout={layout}
+      />
+    );
+  }
+
+  return (
+    <div ref={rootRef} style={style} className="relative flex min-h-0 flex-1 flex-col">
+      <div aria-live="polite" className="sr-only">{message}</div>
+      <SummaryStrip summary={summary} reviewedDelta={delta} activeType={filter.type} />
+      {showCompletion ? (
+        <Completion
+          catalogId={catalogId} clientId={props.clientId} findings={summary.riskyFindings} exportLocked={props.exportLocked}
+          onShowDecided={() => go((p) => p.set('dec', 'all'))}
         />
       ) : null}
-      <div ref={scrollRef} className={`min-h-0 flex-1 overflow-auto ${drawerOffset}`}>
-        {entries.length === 0 ? (
-          summary.riskyRows === 0 && !filter.type && !filter.q
-            ? <EmptyState title={ta.ws.clean} hint={ta.ws.cleanHint} />
-            : <EmptyState title={ta.ws.empty} hint={ta.ws.emptyHint} />
-        ) : (
-          <Grid
-            entries={entries} activeIndex={activeIndex} compact={compact} expanded={expanded}
-            hasMore={next !== null && !loadFailed} scrollRef={scrollRef} handlers={handlers} readOnly={readOnly}
-            selected={selected} allChecked={allChecked} editingId={editingId}
-          />
-        )}
+      <Toolbar
+        filter={filter} count={props.count} compact={compact} grouped={grouped} hidden={hidden} phone={phone} touch={touch}
+        readOnly={readOnly} busy={bulkBusy} saveBlocked={props.saveBlocked}
+        surePending={summary.surePending} dictionaryPending={summary.dictionaryPending} partialGroups={next !== null}
+        onCompact={setDensity} onGrouped={setGrouped} onHidden={setColumns} onApplyView={applyView}
+        onAcceptSure={() => setSureOpen(true)} onAcceptDictionary={() => { void acceptDict(); }} onHelp={() => setHelpOpen(true)}
+      />
+      {!phone && !readOnly && (selected.size > 0 || allFiltered) ? (
+        <BulkBar
+          catalogId={catalogId} filter={filter}
+          count={allFiltered ? props.count : selected.size}
+          filterTotal={allChecked && props.count > selected.size ? props.count : null} allFiltered={allFiltered} busy={bulkBusy}
+          onSelectFiltered={() => setAllFiltered(true)}
+          onClear={() => { setSelected(new Set()); setAllFiltered(false); }}
+          onRun={runBulk}
+        />
+      ) : null}
+      <div
+        ref={scrollRef}
+        className={cx('relative min-h-0 flex-1 overflow-auto max-md:h-[calc(100dvh-3.5rem)] max-md:flex-none', drawerOpen && 'lg:mr-(--drawer-width)')}
+      >
+        {body}
+        {next !== null && !loadFailed && entries.length > 0 ? <p className="sr-only">{x.load.more}</p> : null}
         {loadFailed ? (
-          <div role="alert" className="flex items-center justify-center gap-3 border-t border-line p-4 text-sm">
-            <span className="text-danger">{ta.ws.loadError}. {ta.ws.loadErrorHint}</span>
-            <Button size="sm" onClick={() => { void loadMore(); }}>{ta.ws.retry}</Button>
+          <div role="alert" className="flex flex-wrap items-center justify-center gap-3 border-t border-line p-4 text-small">
+            <span className="text-danger-ink">{x.load.failed} {x.load.failedHint}</span>
+            <Button size="sm" onClick={() => { void loadMore(); }}>{x.load.retry}</Button>
           </div>
         ) : null}
       </div>
-      <ShortcutHint suppressed={tips} />
-      {hintKey ? <OnboardingHint storageKey={hintKey} onDone={() => setTips(false)} /> : null}
+      <ShortcutHint suppressed={tips} touch={touch || phone} onHelp={() => setHelpOpen(true)} />
+      {props.hintKey ? <OnboardingHint storageKey={props.hintKey} onDone={() => setTips(false)} /> : null}
+      {drawerOpen && !phone ? <DrawerResize width={drawerWidth} onWidth={setDrawerWidth} /> : null}
       <RowDrawer
-        row={openRow} readOnly={readOnly}
-        onClose={() => setOpenId(null)}
+        row={openRow} readOnly={readOnly} phone={phone} touch={touch}
+        canSplit={grouped && Boolean(openRow?.groupKey)}
+        onClose={() => { setOpenId(null); focusGrid(); }}
         onAccept={() => { if (openRow) accept(openRow); }}
         onReject={() => { if (openRow) reject(openRow); }}
-        onUndo={() => { if (openRow?.decisionEventId) void revert({ eventId: openRow.decisionEventId, findingId: openRow.findingId }); }}
+        onUndo={() => { if (openRow) undoRow(openRow); }}
         onChoose={(code, name) => { if (openRow) accept(openRow, { code, name }); }}
-        onComments={(count, flag) => { if (openRow) setCommentMeta(openRow.findingId, count, flag); }}
+        onComments={(n, flag) => { if (openRow) setCommentMeta(openRow.findingId, n, flag); }}
+        onSplit={() => { if (openRow) void split(openRow); }}
       />
+      <ShortcutHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {readOnly ? null : (
+        <SureAcceptDialog
+          open={sureOpen} catalogId={catalogId} filter={filter} filterNarrows={narrowed}
+          onClose={() => setSureOpen(false)} onDone={(result) => manyDone(result, 'bulk_sure')}
+        />
+      )}
     </div>
   );
 }

@@ -458,7 +458,7 @@ export const uz: Dict = {
   reportFilterType: 'Turi',
 
   typeMissing: 'Kod yoʻq',
-  typeNotFound: 'Bazada topilmadi',
+  typeNotFound: 'Tasniflagichda yoʻq',
   typeMismatch: 'Nomga mos emas',
   typeUnitConflict: 'Oʻlchov birligi',
 
@@ -503,7 +503,7 @@ export const uz: Dict = {
   confidenceLikely: 'Oʻrtacha moslik',
   confidenceCheck: 'Tekshirish kerak',
 
-  codeArchived: 'Tasniflagichda arxivlangan',
+  codeArchived: 'Tasniflagichdan chiqarilgan',
   codeUnknown: 'Tasniflagichda topilmadi',
 };
 

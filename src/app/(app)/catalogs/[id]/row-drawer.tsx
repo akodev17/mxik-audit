@@ -1,166 +1,116 @@
 'use client';
 
-import { useI18n } from '@/lib/locale-client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadRowDetail } from '@/app/actions/workspace';
+import { useI18n } from '@/lib/locale-client';
 import type { RowDetail } from '@/lib/row-detail';
 import type { GridRow } from '@/lib/workspace-rows';
-import { Badge, StatusChip } from '@/ui/badge';
 import { Button } from '@/ui/button';
-import { CodeChip } from '@/ui/code-chip';
+import { cx } from '@/ui/cx';
 import { Drawer } from '@/ui/drawer';
-import { confidenceView, typeLabels, typeTone } from '@/ui/labels';
+import { EmptyState } from '@/ui/empty-state';
+import { Kbd } from '@/ui/kbd';
 import { Skeleton } from '@/ui/skeleton';
-import { CodeCompare } from './code-compare';
-import { CodeSearch } from './code-search';
-import { NameFromBarcodeOffer } from './name-from-barcode';
-import { UnitAdviceBox } from './unit-advice';
-import { RequestText } from './request-text';
-import { RowComments } from './row-comments';
-import { WrongFeedback } from './wrong-feedback';
+import { Spinner } from '@/ui/spinner';
+import { DecisionCell } from './decision-cell';
+import { DrawerBody } from './drawer-body';
 
 type Props = {
   row: GridRow | null;
+  readOnly: boolean;
+  canSplit: boolean;
+  /** Phone: the drawer becomes a full-screen sheet. */
+  phone: boolean;
+  touch: boolean;
   onClose: () => void;
   onAccept: () => void;
   onReject: () => void;
   onUndo: () => void;
   onChoose: (code: string, name: string) => void;
   onComments: (count: number, flag: string | null) => void;
-  readOnly: boolean;
+  onSplit: () => void;
 };
 
-const SIGNAL_DOT = { good: 'bg-good', warn: 'bg-warn', bad: 'bg-danger', neutral: 'bg-line-strong' } as const;
+type Shown = { row: GridRow; detail: RowDetail };
 
-function Meta({ label, value }: { label: string; value: string | null }) {
+/**
+ * Detail panel for the active row; the grid stays usable behind it. While the
+ * next row loads (j/k), the previous row's content stays, dimmed, instead of
+ * a skeleton flashing on every keystroke.
+ */
+export function RowDrawer({ row, readOnly, canSplit, phone, touch, onClose, onAccept, onReject, onUndo, onChoose, onComments, onSplit }: Props) {
   const { ta } = useI18n();
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="truncate text-sm font-medium">{value || ta.drawer.none}</dd>
-    </div>
-  );
-}
-
-function Body({ row, detail, onChoose, onComments, readOnly }: { row: GridRow; detail: RowDetail; onChoose: Props['onChoose']; onComments: Props['onComments']; readOnly: boolean }) {
-  const { t, ta } = useI18n();
-  const [name, setName] = useState(detail.productName);
-  const pending = row.decision === 'pending' && !readOnly;
-  const conf = confidenceView(t, detail.confidence, row.barcode || row.dictionary);
-  const showRequest = detail.noSuggestion || row.decision === 'rejected';
-  return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="text-lg leading-snug">{name || ta.drawer.none}</h3>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <StatusChip tone={typeTone(detail.type, row.severity)}>{typeLabels(t)[detail.type] ?? detail.type}</StatusChip>
-          {conf && !detail.noSuggestion ? <StatusChip tone={conf.tone} title={`${conf.percent}%`}>{conf.label}</StatusChip> : null}
-          {row.dictionary ? <Badge tone="good">{ta.dict.badge}</Badge> : null}
-          {detail.markingCurrent || detail.markingSuggested ? <Badge tone="warn">{ta.drawer.markirovka}</Badge> : null}
-          {detail.privileges.length > 0 ? <Badge tone="good" title={detail.privileges.join('; ')}>{ta.drawer.privilege}</Badge> : null}
-        </div>
-        <dl className="mt-3 grid grid-cols-2 gap-3">
-          <Meta label={ta.drawer.unit} value={detail.unit} />
-          <Meta label={ta.drawer.barcode} value={detail.barcode} />
-        </dl>
-      </div>
-
-      <CodeCompare title={ta.drawer.current} view={detail.current} other={detail.suggested} empty={ta.ws.noCode} />
-      {detail.noSuggestion
-        ? <p className="rounded-ctl bg-surface p-3 text-sm text-muted">{ta.ws.noSuggestion}. {ta.drawer.whyNone}</p>
-        : <CodeCompare title={ta.drawer.suggested} view={detail.suggested} other={detail.current} empty="—" />}
-
-      {detail.signals.length > 0 ? (
-        <section>
-          <h3 className="mb-2 text-sm font-bold">{ta.drawer.why}</h3>
-          <ul className="space-y-1.5">
-            {detail.signals.map((s) => (
-              <li key={`${s.label}:${s.text}`} className="flex items-start gap-2 text-sm">
-                <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${SIGNAL_DOT[s.tone]}`} />
-                <span><span className="font-medium">{s.label}.</span> <span className="text-muted">{s.text}</span></span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <section>
-        <h3 className="mb-2 text-sm font-bold">{ta.drawer.alternatives}</h3>
-        {detail.alternatives.length === 0 ? <p className="text-sm text-muted">{ta.drawer.noAlternatives}</p> : (
-          <ul className="divide-y divide-line rounded-ctl border border-line">
-            {detail.alternatives.map((a) => (
-              <li key={a.code} className="flex items-center gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1">
-                  <CodeChip code={a.code} />
-                  <span className="mt-0.5 block truncate text-sm" title={a.name}>{a.name}</span>
-                </span>
-                <Button size="sm" disabled={!pending} onClick={() => onChoose(a.code, a.name)}>{ta.drawer.choose}</Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {detail.nameOffer ? <NameFromBarcodeOffer findingId={detail.findingId} offer={detail.nameOffer} readOnly={readOnly} onFilled={setName} /> : null}
-
-      <UnitAdviceBox advice={detail.advice} />
-
-      <section>
-        <h3 className="mb-2 text-sm font-bold">{ta.drawer.search}</h3>
-        <CodeSearch disabled={!pending} onPick={onChoose} />
-      </section>
-
-      <RowComments findingId={detail.findingId} flag={row.flag} readOnly={readOnly} onChange={onComments} />
-      {showRequest ? <RequestText findingId={detail.findingId} /> : null}
-      {!readOnly && !detail.noSuggestion && detail.suggested ? <WrongFeedback findingId={detail.findingId} /> : null}
-    </div>
-  );
-}
-
-/** Right-hand detail panel for the active row; the grid stays usable behind it. */
-export function RowDrawer({ row, onClose, onAccept, onReject, onUndo, onChoose, onComments, readOnly }: Props) {
-  const { ta } = useI18n();
-  const [detail, setDetail] = useState<RowDetail | null>(null);
+  const x = ta.wsX;
+  const [shown, setShown] = useState<Shown | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const rowRef = useRef(row);
+  rowRef.current = row;
   const id = row?.findingId ?? null;
+  // A decision (or its undo) changes who/when, so the detail reloads.
+  const version = row?.decisionEventId ?? 'none';
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) { setShown(null); return; }
     let live = true;
-    setDetail(null);
     setFailed(false);
-    loadRowDetail(id).then((d) => { if (!live) return; if (d) setDetail(d); else setFailed(true); }).catch(() => { if (live) setFailed(true); });
+    loadRowDetail(id)
+      .then((d) => {
+        if (!live) return;
+        const current = rowRef.current;
+        if (d && current) setShown({ row: current, detail: d }); else setFailed(true);
+      })
+      .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [id]);
+  }, [id, version, attempt]);
 
-  const pending = row?.decision === 'pending';
-  const canAccept = pending && Boolean(row?.suggestedMxik) && !row?.noSuggestion;
+  const pick = useCallback(() => { searchRef.current?.focus(); }, []);
+  const current = shown && row && shown.detail.findingId === row.findingId;
+  const loading = row !== null && !current && !failed;
+
+  const footer = row ? (
+    readOnly ? <p className="text-small text-muted">{x.act.readOnly}</p> : (
+      <div className="flex flex-wrap items-center gap-2">
+        <DecisionCell row={row} readOnly={false} size="sm" onAccept={onAccept} onReject={onReject} onPick={pick} onUndo={onUndo} />
+        {row.decision === 'pending' && !touch ? (
+          <span className="ml-auto hidden items-center gap-1 text-micro text-muted lg:flex">
+            {row.mode === 'pick' ? null : <><Kbd>Enter</Kbd><span aria-hidden>·</span></>}<Kbd>R</Kbd>
+          </span>
+        ) : null}
+      </div>
+    )
+  ) : null;
+
   return (
     <Drawer
       open={row !== null}
-      title={row ? `${ta.ws.colNo}${row.rowIndex + 1}` : ''}
+      title={row ? x.drawer.title(String(row.rowIndex + 1)) : ''}
       onClose={onClose}
-      footer={row && !readOnly ? (
-        <div className="flex items-center gap-2">
-          {pending ? (
-            <>
-              <Button variant="primary" disabled={!canAccept} onClick={onAccept}>{ta.ws.accept}</Button>
-              <Button variant="secondary" onClick={onReject}>{ta.ws.reject}</Button>
-            </>
-          ) : (
-            <>
-              <StatusChip tone={row.decision === 'accepted' ? 'good' : 'neutral'}>{row.decision === 'accepted' ? ta.ws.accepted : ta.ws.rejected}</StatusChip>
-              <Button variant="secondary" onClick={onUndo}>{ta.ws.undo}</Button>
-            </>
-          )}
+      width={phone ? '100vw' : undefined}
+      footer={footer}
+    >
+      {loading ? (
+        <span className="absolute right-5 top-2 z-sticky"><Spinner label={x.drawer.loading} size={14} /></span>
+      ) : null}
+      {failed ? (
+        <EmptyState
+          tone="danger" size="compact" title={x.drawer.failed}
+          action={<Button size="sm" onClick={() => setAttempt((a) => a + 1)}>{x.drawer.retry}</Button>}
+        />
+      ) : null}
+      {!failed && shown && row ? (
+        <div aria-busy={loading || undefined} inert={loading || undefined} className={cx('transition-opacity duration-(--duration-fast)', loading && 'opacity-60')}>
+          <DrawerBody
+            key={shown.detail.findingId}
+            row={current ? row : shown.row} detail={shown.detail} readOnly={readOnly} canSplit={canSplit && Boolean(current)}
+            searchRef={searchRef} onChoose={onChoose} onComments={onComments} onSplit={onSplit}
+          />
         </div>
       ) : null}
-    >
-      {row && detail ? <Body row={row} detail={detail} onChoose={onChoose} onComments={onComments} readOnly={readOnly} /> : null}
-      {row && !detail && !failed ? (
+      {!failed && !shown && row ? (
         <div className="space-y-3" aria-busy="true"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-40 w-full" /><Skeleton className="h-40 w-full" /></div>
       ) : null}
-      {failed ? <p role="alert" className="text-sm text-danger">{ta.drawer.loadFailed}</p> : null}
     </Drawer>
   );
 }

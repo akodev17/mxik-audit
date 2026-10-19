@@ -1,63 +1,77 @@
 'use client';
 
-import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { fmtNumber } from '@/lib/format';
+import { useI18n } from '@/lib/locale-client';
 import type { WsSummary } from '@/lib/workspace';
+import { FINDING_TYPES } from '@/lib/workspace-filter';
 import { Badge } from '@/ui/badge';
+import { cx } from '@/ui/cx';
 import { typeLabels } from '@/ui/labels';
-
-const CHIP_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'] as const;
+import { Progress } from '@/ui/progress';
+import { count } from './ws-text';
 
 type Props = { summary: WsSummary; reviewedDelta: number; activeType: string | null };
 
-const fmt = (n: number): string => n.toLocaleString('uz-UZ');
-
-/** Counts, one chip per finding type (chips are the filters) and review progress. */
+/**
+ * Rows ("qator") and findings ("muammo") are different counts and are labelled
+ * so: a row can carry several findings. Chips filter by finding type.
+ */
 export function SummaryStrip({ summary, reviewedDelta, activeType }: Props) {
-  const { t, ta } = useI18n();
+  const { t, ta, locale } = useI18n();
+  const x = ta.wsX;
   const pathname = usePathname();
   const params = useSearchParams();
   const href = (type: string | null): string => {
     const next = new URLSearchParams(params.toString());
     if (type) next.set('type', type); else next.delete('type');
     next.set('v', '0');
-    const qs = next.toString();
-    return qs ? `${pathname}?${qs}` : pathname;
+    return `${pathname}?${next.toString()}`;
   };
   const reviewed = Math.max(0, Math.min(summary.riskyFindings, summary.reviewed + reviewedDelta));
-  const pct = summary.riskyFindings === 0 ? 100 : Math.round((reviewed / summary.riskyFindings) * 100);
+  const num = (n: number): string => fmtNumber(locale, n);
+  const progressText = x.count.progress(num(reviewed), num(summary.riskyFindings), summary.riskyFindings);
 
-  const chip = (key: string | null, label: string, count: number) => (
+  const chip = (key: string | null, label: string, n: number, unit: typeof x.count.findings = x.count.findings) => (
     <Link
       key={key ?? 'all'} href={href(key)} scroll={false} replace
-      aria-pressed={activeType === key}
-      className={`inline-flex h-8 items-center gap-2 rounded-ctl border px-3 text-sm font-medium transition-colors ${activeType === key ? 'border-brand bg-brand-tint text-brand' : 'border-line-strong bg-base hover:bg-surface'}`}
+      aria-current={activeType === key ? 'true' : undefined}
+      aria-label={`${label}: ${count(locale, unit, n)}`}
+      className={cx(
+        'inline-flex h-8 shrink-0 items-center gap-2 rounded-ctl border px-3 text-small font-medium transition-colors duration-(--duration-fast)',
+        activeType === key ? 'border-brand bg-brand-tint text-brand-ink' : 'border-line-strong bg-raised text-fg hover:bg-surface',
+      )}
     >
       {label}
-      <Badge tone={activeType === key ? 'brand' : 'neutral'}>{fmt(count)}</Badge>
+      <Badge tone={activeType === key ? 'brand' : 'neutral'}>{num(n)}</Badge>
     </Link>
   );
 
   return (
-    <section className="no-print border-b border-line px-5 py-3" aria-label={ta.shell.summary}>
+    <section className="no-print border-b border-line px-4 py-3 md:px-5" aria-label={ta.shell.summary}>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <dl className="flex items-baseline gap-5">
-          <div><dt className="text-xs text-muted">{ta.ws.rows}</dt><dd className="text-xl font-bold">{fmt(summary.total)}</dd></div>
-          <div><dt className="text-xs text-muted">{ta.ws.risky}</dt><dd className={`text-xl font-bold ${summary.riskyRows > 0 ? 'text-danger' : 'text-good'}`}>{fmt(summary.riskyRows)}</dd></div>
+        <dl className="flex items-baseline gap-4 md:gap-5">
+          <div><dt className="text-micro text-muted">{x.kpi.total}</dt><dd className="text-section tabular-nums text-fg">{num(summary.total)}</dd></div>
+          <div title={x.kpi.riskyRowsHint}>
+            <dt className="text-micro text-muted">{x.kpi.riskyRows}</dt>
+            <dd className={cx('text-section tabular-nums', summary.riskyRows > 0 ? 'text-danger-ink' : 'text-good-ink')}>{num(summary.riskyRows)}</dd>
+          </div>
+          <div><dt className="text-micro text-muted">{x.kpi.findings}</dt><dd className="text-section tabular-nums text-fg">{num(summary.riskyFindings)}</dd></div>
         </dl>
-        <div className="flex flex-wrap items-center gap-2">
-          {chip(null, ta.ws.allRows, summary.riskyFindings)}
-          {CHIP_TYPES.filter((type) => (summary.byType[type] ?? 0) > 0).map((type) => chip(type, typeLabels(t)[type] ?? type, summary.byType[type] ?? 0))}
-          {summary.markingTotal > 0 ? chip('MARKING', ta.ws.marking, summary.markingTotal) : null}
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-small text-fg" aria-hidden>{progressText}</span>
+          <Progress
+            className="w-56 max-w-full" size="sm" tone="good" hideLabel
+            label={ta.ws.reviewed} value={reviewed} max={Math.max(1, summary.riskyFindings)} valueText={progressText}
+          />
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-3">
-        <div className="h-2 w-full max-w-md overflow-hidden rounded-full bg-surface" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={ta.ws.reviewed}>
-          <div className="h-full rounded-full bg-good transition-[width]" style={{ width: `${pct}%` }} />
-        </div>
-        <span className="text-sm text-muted">{ta.ws.progress(reviewed, summary.riskyFindings)}</span>
-      </div>
+      <nav aria-label={x.kpi.chipsLabel} className="mt-3 flex w-full min-w-0 gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible md:pb-0">
+        {chip(null, x.kpi.all, summary.riskyFindings)}
+        {FINDING_TYPES.filter((type) => (summary.byType[type] ?? 0) > 0).map((type) => chip(type, typeLabels(t)[type] ?? type, summary.byType[type] ?? 0))}
+        {summary.markingTotal > 0 ? chip('MARKING', ta.ws.marking, summary.markingTotal, x.count.rows) : null}
+      </nav>
     </section>
   );
 }

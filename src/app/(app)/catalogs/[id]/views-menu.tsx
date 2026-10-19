@@ -1,63 +1,102 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
-import { viewsDefault, viewsList, viewsRemove, viewsSave } from '@/app/actions/views';
+import { viewsDefault, viewsList, viewsRemove, viewsSave, type ViewsResult } from '@/app/actions/views';
 import { useI18n } from '@/lib/locale-client';
 import { viewQuery, type ViewParams } from '@/lib/view-params';
 import type { ViewRow } from '@/lib/views';
 import { Button } from '@/ui/button';
+import { Checkbox } from '@/ui/checkbox';
+import { IconButton } from '@/ui/icon-button';
+import { IconX } from '@/ui/icons';
 import { Input } from '@/ui/input';
+import { Popover } from '@/ui/popover';
+import { Spinner } from '@/ui/spinner';
+import { useToast } from '@/ui/toast';
 
-type Props = { current: ViewParams; canSave: boolean };
+type Props = {
+  current: ViewParams;
+  /** Null when the user may save; otherwise why not (viewer, demo). */
+  saveBlocked: string | null;
+  /** Applies density, grouping and columns at once; the filters follow through the URL. */
+  onApply: (params: ViewParams) => void;
+};
 
-/** Quick access to saved views, and saving the current filters, sort, density and grouping. */
-export function ViewsMenu({ current, canSave }: Props) {
+/** Saved views: open one, or save the current filters, sort, density, grouping and columns. */
+export function ViewsMenu({ current, saveBlocked, onApply }: Props) {
   const { ta } = useI18n();
+  const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [views, setViews] = useState<ViewRow[]>([]);
+  const [views, setViews] = useState<ViewRow[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [name, setName] = useState('');
   const [makeDefault, setMakeDefault] = useState(false);
   const [busy, start] = useTransition();
 
-  useEffect(() => { if (open) void viewsList().then(setViews); }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    setFailed(false);
+    viewsList().then((v) => { if (live) setViews(v); }).catch(() => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [open]);
 
-  const apply = (v: ViewRow): void => { setOpen(false); router.replace(`${pathname}?${viewQuery(v.params)}`, { scroll: false }); };
-  const save = (): void => start(async () => { setViews(await viewsSave({ name, params: current, makeDefault })); setName(''); setMakeDefault(false); });
+  const run = (call: () => Promise<ViewsResult>, done?: string): void => start(async () => {
+    try {
+      const result = await call();
+      setViews(result.views);
+      if (!result.ok) { toast(ta.wsX.view.saveFailed, { tone: 'error' }); return; }
+      if (done) toast(done);
+      setName('');
+      setMakeDefault(false);
+    } catch {
+      toast(ta.wsX.toast.network, { tone: 'error' });
+    }
+  });
+
+  const apply = (v: ViewRow): void => {
+    setOpen(false);
+    onApply(v.params);
+    router.replace(`${pathname}?${viewQuery(v.params)}`, { scroll: false });
+  };
 
   return (
-    <div className="relative">
-      <Button size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{ta.views.title}</Button>
-      {open ? (
-        <div className="absolute left-0 top-10 z-40 w-[340px] rounded-ctl border border-line bg-base p-3 shadow-pop">
-          {views.length === 0 ? <p className="text-sm text-muted">{ta.views.none}</p> : (
-            <ul className="divide-y divide-line">
-              {views.map((v) => (
-                <li key={v.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
-                  <button type="button" onClick={() => apply(v)} className="min-w-0 truncate text-left font-medium hover:text-brand">
-                    {v.name}{v.isDefault ? <span className="ml-2 text-xs font-normal text-muted">{ta.views.default}</span> : null}
-                  </button>
-                  <span className="flex shrink-0 gap-1">
-                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => start(async () => setViews(await viewsDefault(v.isDefault ? null : v.id)))}>
-                      {v.isDefault ? ta.views.unsetDefault : ta.views.setDefault}
-                    </Button>
-                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => start(async () => setViews(await viewsRemove(v.id)))} aria-label={ta.views.remove}>✕</Button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {canSave ? (
-            <div className="mt-3 space-y-2 border-t border-line pt-3">
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={ta.views.namePlaceholder} maxLength={60} aria-label={ta.views.namePlaceholder} />
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={makeDefault} onChange={(e) => setMakeDefault(e.target.checked)} className="size-4 accent-[var(--color-brand)]" />{ta.views.makeDefault}</label>
-              <Button size="sm" variant="primary" disabled={busy || name.trim().length === 0} onClick={save}>{ta.views.save}</Button>
-            </div>
-          ) : null}
-        </div>
+    <Popover label={ta.views.title} size="sm" open={open} onOpenChange={setOpen} panelClassName="w-[min(22rem,calc(100vw-2rem))]">
+      {views === null && !failed ? <Spinner label={ta.wsX.drawer.loading} /> : null}
+      {failed ? <p role="alert" className="text-small text-danger-ink">{ta.wsX.toast.network}</p> : null}
+      {views !== null && views.length === 0 ? <p className="text-small text-muted">{ta.views.none}</p> : null}
+      {views !== null && views.length > 0 ? (
+        <ul className="divide-y divide-line">
+          {views.map((v) => (
+            <li key={v.id} className="flex items-center justify-between gap-2 py-1.5 text-small">
+              <button type="button" onClick={() => apply(v)} className="min-w-0 truncate text-left font-medium text-fg hover:text-brand-ink">
+                {v.name}{v.isDefault ? <span className="ml-2 text-micro font-normal text-muted">{ta.views.default}</span> : null}
+              </button>
+              {saveBlocked ? null : (
+                <span className="flex shrink-0 items-center gap-1">
+                  <Button size="compact" variant="ghost" disabled={busy} onClick={() => run(() => viewsDefault(v.isDefault ? null : v.id))}>
+                    {v.isDefault ? ta.views.unsetDefault : ta.views.setDefault}
+                  </Button>
+                  <IconButton size="compact" variant="danger-ghost" label={`${ta.views.remove}: ${v.name}`} icon={<IconX size={14} />} disabled={busy} onClick={() => run(() => viewsRemove(v.id))} />
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
       ) : null}
-    </div>
+      {saveBlocked ? <p className="mt-3 border-t border-line pt-3 text-micro text-muted">{saveBlocked}</p> : (
+        <form
+          className="mt-3 space-y-2 border-t border-line pt-3"
+          onSubmit={(e) => { e.preventDefault(); if (name.trim()) run(() => viewsSave({ name, params: current, makeDefault }), ta.wsX.view.saved); }}
+        >
+          <Input size="compact" value={name} onChange={(e) => setName(e.target.value)} placeholder={ta.views.namePlaceholder} maxLength={60} aria-label={ta.views.namePlaceholder} />
+          <Checkbox label={ta.views.makeDefault} checked={makeDefault} onChange={(e) => setMakeDefault(e.target.checked)} />
+          <Button type="submit" size="sm" variant="primary" loading={busy} disabled={name.trim().length === 0}>{ta.views.save}</Button>
+        </form>
+      )}
+    </Popover>
   );
 }

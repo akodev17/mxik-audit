@@ -1,6 +1,7 @@
 // What a 17-digit code means, for every screen that shows one: classifier name,
 // a short and a full hierarchy path, bound unit and flags. One query per page.
 import { db } from './db.js';
+import type { Locale } from './i18n.js';
 
 export type CodeDetail = {
   code: string;
@@ -45,8 +46,16 @@ export function shortPathOf(levels: readonly (string | null)[]): string {
   return [present[0], present[present.length - 1]].join(' → ');
 }
 
-/** Details for every valid code given; unknown or malformed codes are simply absent. */
-export async function codeDetails(codes: Iterable<string | null | undefined>): Promise<Map<string, CodeDetail>> {
+/** The Russian name when the viewer reads Russian and the classifier has one, else the Uzbek name. */
+export function localName(locale: Locale, uz: string | null, ru: string | null): string | null {
+  return locale === 'ru' && ru?.trim() ? ru : uz;
+}
+
+/**
+ * Details for every valid code given; unknown or malformed codes are simply
+ * absent. `name` and the paths are in the viewer's language (Uzbek fallback).
+ */
+export async function codeDetails(codes: Iterable<string | null | undefined>, locale: Locale = 'uz'): Promise<Map<string, CodeDetail>> {
   const wanted = [...new Set([...codes].filter((c): c is string => typeof c === 'string' && CODE.test(c)))];
   if (wanted.length === 0) return new Map();
   const rows = await db.mxikCode.findMany({
@@ -54,16 +63,20 @@ export async function codeDetails(codes: Iterable<string | null | undefined>): P
     select: {
       code: true, nameUz: true, nameRu: true, groupCode: true, subPositionCode: true,
       groupNameUz: true, classNameUz: true, positionNameUz: true, subPositionNameUz: true,
+      groupNameRu: true, classNameRu: true, positionNameRu: true, subPositionNameRu: true,
       unitBinding: true, unitCanonical: true, isBase: true, isMarked: true,
       taxPrivilegeIds: true, retiredAt: true,
     },
   });
   return new Map(rows.map((r) => {
-    const levels = [r.groupNameUz, r.classNameUz, r.positionNameUz, r.subPositionNameUz];
+    const levels = [
+      localName(locale, r.groupNameUz, r.groupNameRu), localName(locale, r.classNameUz, r.classNameRu),
+      localName(locale, r.positionNameUz, r.positionNameRu), localName(locale, r.subPositionNameUz, r.subPositionNameRu),
+    ];
     const strict = r.unitBinding === 'strict' && r.unitCanonical.length > 0;
     const detail: CodeDetail = {
       code: r.code.trim(),
-      name: r.nameUz,
+      name: localName(locale, r.nameUz, r.nameRu) ?? r.nameUz,
       nameRu: r.nameRu,
       shortPath: shortPathOf(levels),
       fullPath: levels.filter((s): s is string => Boolean(s)).map(readableLevel).join(' → '),

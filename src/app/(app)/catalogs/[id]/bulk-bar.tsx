@@ -1,11 +1,20 @@
 'use client';
 
-import { useI18n } from '@/lib/locale-client';
 import { useState } from 'react';
+import { bulkDryRun, type BulkActionInput, type DryRunResult } from '@/app/actions/bulk';
+import { fmtNumber } from '@/lib/format';
+import { useI18n } from '@/lib/locale-client';
+import { filterQuery, type WsFilter } from '@/lib/workspace-filter';
 import { Button } from '@/ui/button';
+import { ConfirmDialog, type ConfirmResult } from '@/ui/confirm-dialog';
 import { CodeSearch } from './code-search';
+import { count } from './ws-text';
+
+type Picked = { code: string; name: string };
 
 type Props = {
+  catalogId: string;
+  filter: WsFilter;
   count: number;
   /** Rows of the whole filter, when more than the loaded ones can be selected. */
   filterTotal: number | null;
@@ -13,37 +22,79 @@ type Props = {
   busy: boolean;
   onSelectFiltered: () => void;
   onClear: () => void;
-  onAccept: () => void;
-  onReject: () => void;
-  onAssign: (code: string, name: string) => void;
-  onAsk: () => void;
+  /** Runs the action on the selection or the whole filter; resolves to a ConfirmDialog result. */
+  onRun: (action: BulkActionInput, picked?: Picked) => Promise<ConfirmResult>;
 };
 
-/** Actions for the selected rows; appears only while something is selected. */
-export function BulkBar({ count, filterTotal, allFiltered, busy, onSelectFiltered, onClear, onAccept, onReject, onAssign, onAsk }: Props) {
-  const { ta } = useI18n();
+type Pending = { action: BulkActionInput; picked?: Picked; preview: DryRunResult | null };
+
+/**
+ * Actions for the selected rows. On the whole filter every action first
+ * shows how many pending rows it will touch (a server dry run) and whether the
+ * per-action cap cuts it short.
+ */
+export function BulkBar(p: Props) {
+  const { ta, locale } = useI18n();
+  const b = ta.wsX.bulk;
   const [assigning, setAssigning] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
+
+  const start = (action: BulkActionInput, picked?: Picked): void => {
+    if (!p.allFiltered) { void p.onRun(action, picked); return; }
+    setPending({ action, picked, preview: null });
+    bulkDryRun({ catalogId: p.catalogId, target: { filter: filterQuery(p.filter) }, action })
+      .then((preview) => setPending((cur) => (cur && cur.action === action ? { ...cur, preview } : cur)))
+      .catch(() => setPending((cur) => (cur && cur.action === action ? { ...cur, preview: { ok: false, error: ta.wsX.toast.network } } : cur)));
+  };
+
+  const kind = pending?.action.kind === 'flag' ? 'flag' : pending?.action.kind ?? 'accept';
+  const preview = pending?.preview ?? null;
+  const ready = preview?.ok ? preview : null;
+  const touch = ready?.willTouch ?? 0;
+  const description = !preview ? b.checking
+    : !preview.ok ? preview.error
+      : touch === 0 ? b.nothing
+        : [
+          count(locale, kind === 'flag' ? b.dryRunFlag : b.dryRun, touch),
+          ready?.capped ? b.capped(fmtNumber(locale, ready.limit), fmtNumber(locale, ready.matching)) : null,
+        ].filter(Boolean).join(' ');
+
   return (
-    <div className="no-print border-b border-brand/30 bg-brand-tint px-5 py-2">
+    <div className="no-print border-b border-line bg-brand-tint px-4 py-2 md:px-5">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-bold">{ta.bulk.selected(count)}</span>
-        {filterTotal !== null && !allFiltered ? (
-          <button type="button" onClick={onSelectFiltered} className="text-sm text-brand hover:underline">{ta.bulk.selectFiltered(filterTotal)}</button>
+        <span className="text-small font-semibold text-fg" aria-live="polite">
+          {p.allFiltered ? count(locale, b.allFiltered, p.count) : count(locale, b.selected, p.count)}
+        </span>
+        {p.filterTotal !== null && !p.allFiltered ? (
+          <Button size="compact" variant="ghost" onClick={p.onSelectFiltered}>{count(locale, b.selectFiltered, p.filterTotal)}</Button>
         ) : null}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="primary" disabled={busy} onClick={onAccept}>{ta.bulk.accept}</Button>
-          <Button size="sm" disabled={busy} onClick={() => setAssigning((a) => !a)}>{ta.bulk.assign}</Button>
-          <Button size="sm" disabled={busy} onClick={onReject}>{ta.bulk.reject}</Button>
-          <Button size="sm" disabled={busy} onClick={onAsk}>{ta.bulk.ask}</Button>
-          <Button size="sm" variant="ghost" onClick={onClear}>{ta.bulk.clear}</Button>
+          <Button size="sm" variant="primary" disabled={p.busy} onClick={() => start({ kind: 'accept' })}>{b.accept}</Button>
+          <Button size="sm" disabled={p.busy} aria-expanded={assigning} onClick={() => setAssigning((a) => !a)}>{b.assign}</Button>
+          <Button size="sm" disabled={p.busy} onClick={() => start({ kind: 'reject' })}>{b.reject}</Button>
+          <Button size="sm" disabled={p.busy} onClick={() => start({ kind: 'flag', flag: 'ask_client' })}>{b.ask}</Button>
+          <Button size="sm" variant="ghost" onClick={p.onClear}>{b.clear}</Button>
         </div>
       </div>
       {assigning ? (
         <div className="mt-2 max-w-xl">
-          <p className="mb-1 text-xs text-muted">{ta.bulk.assignHint(count)}</p>
-          <CodeSearch disabled={busy} onPick={(code, name) => { setAssigning(false); onAssign(code, name); }} />
+          <p className="mb-1 text-micro text-muted">{count(locale, b.assignHint, p.count)}</p>
+          <CodeSearch disabled={p.busy} onPick={(code, name) => { setAssigning(false); start({ kind: 'assign', code }, { code, name }); }} />
         </div>
       ) : null}
+      <ConfirmDialog
+        open={pending !== null}
+        onClose={() => setPending(null)}
+        title={b.confirmTitle[kind]}
+        description={description}
+        scope={b.scopeFilter}
+        tone={kind === 'reject' ? 'danger' : 'default'}
+        confirmLabel={count(locale, b.confirmLabel[kind], touch)}
+        onConfirm={async () => {
+          if (!pending || !ready || touch === 0) return { ok: false, error: !preview ? b.checking : b.nothing };
+          return p.onRun(pending.action, pending.picked);
+        }}
+      />
     </div>
   );
 }

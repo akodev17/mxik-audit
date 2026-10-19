@@ -27,11 +27,11 @@ export function OnboardingHint({ storageKey, onDone }: Props) {
   if (step === null) return null;
   const last = step === STEPS.length - 1;
   return (
-    <div role="dialog" aria-label={ta.shell.tip} className="no-print fixed bottom-6 left-1/2 z-40 w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 rounded-ctl bg-fg p-4 text-white shadow-pop">
-      <p className="text-xs font-bold uppercase tracking-wide text-[#9db8ff]">{ta.hint.step(step + 1, STEPS.length)}</p>
-      <p className="mt-1 text-[15px]">{STEPS[step]}</p>
+    <div role="dialog" aria-label={ta.shell.tip} className="no-print fixed bottom-6 left-1/2 z-modal w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg bg-fg p-4 text-inverse shadow-pop">
+      <p className="text-micro font-semibold text-inverse opacity-80">{ta.hint.step(step + 1, STEPS.length)}</p>
+      <p className="mt-1 text-body">{STEPS[step]}</p>
       <div className="mt-3 flex items-center justify-end gap-2">
-        <button type="button" onClick={close} className="px-2 text-sm text-[#b8c3cf] hover:text-white">{ta.hint.skip}</button>
+        <button type="button" onClick={close} className="rounded-sm px-2 text-small text-inverse opacity-80 hover:opacity-100">{ta.hint.skip}</button>
         <Button size="sm" variant="primary" onClick={() => (last ? close() : setStep(step + 1))}>{last ? ta.hint.done : ta.hint.next}</Button>
       </div>
     </div>
