@@ -1,66 +1,154 @@
 'use client';
 
-import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { rememberClient } from '@/app/actions/clients';
-import { IconChevron } from '../icons';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useI18n } from '@/lib/locale-client';
+import { cx } from '../cx';
+import { IconCheck, IconChevronDown } from '../icons';
+import { Input } from '../input';
+import { nextIndex } from '../keys';
+import { Spinner } from '../spinner';
+import { HoverTip } from './hover-tip';
+import { matchesQuery } from './palette-model';
+import { useDropdown } from './use-dropdown';
+import { useSwitchClient } from './use-switch-client';
 
-type Props = { clients: { id: string; name: string }[]; active: { id: string; name: string } };
+type ClientRef = { id: string; name: string };
+type Props = { clients: ClientRef[]; active: ClientRef | null; canAdd: boolean };
 
-/** Switches which client the app works on; opens as a small popover. */
-export function ClientSwitcher({ clients, active }: Props) {
+/** More clients than this get a search field. */
+const SEARCH_FROM = 9;
+
+/** Which client the app works on. Lists only the clients this user may see. */
+export function ClientSwitcher({ clients, active, canAdd }: Props) {
   const { ta } = useI18n();
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [, start] = useTransition();
-  const box = useRef<HTMLDivElement>(null);
+  const dd = useDropdown();
+  const { switching, switchTo } = useSwitchClient();
+  const [current, setCurrent] = useState(active);
+  const [query, setQuery] = useState('');
+  const search = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const listId = useId();
+  const withSearch = clients.length >= SEARCH_FROM;
+
+  // A server render (refresh after a switch, another tab) is the truth.
+  useEffect(() => setCurrent(active), [active]);
+
+  const shown = useMemo(() => clients.filter((c) => matchesQuery(c.name, [], query)), [clients, query]);
 
   useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent): void => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
+    if (!dd.open) { setQuery(''); return; }
+    const target = search.current
+      ?? list.current?.querySelector<HTMLButtonElement>('button[aria-current="true"]')
+      ?? list.current?.querySelector<HTMLButtonElement>('button')
+      ?? dd.panel.current;
+    target?.focus({ preventScroll: true });
+  }, [dd.open, dd.panel]);
 
-  function pick(id: string): void {
-    setOpen(false);
-    if (id === active.id) return;
-    start(async () => {
-      await rememberClient(id);
-      router.push('/catalogs');
-      router.refresh();
-    });
-  }
+  const pick = async (id: string): Promise<void> => {
+    if (switching) return;
+    if (id === current?.id) { dd.close(true); return; }
+    const switched = await switchTo(id);
+    if (!switched) return;
+    setCurrent(switched);
+    dd.close(true);
+  };
 
+  const options = (): HTMLButtonElement[] => Array.from(list.current?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+  const onListKey = (e: KeyboardEvent<HTMLUListElement>): void => {
+    const items = options();
+    const at = items.findIndex((el) => el === document.activeElement);
+    if (e.key === 'ArrowUp' && at === 0 && search.current) { e.preventDefault(); search.current.focus(); return; }
+    const next = nextIndex(e.key, at, items.length);
+    if (next === null) return;
+    e.preventDefault();
+    items[next]?.focus();
+  };
+  const onSearchKey = (e: KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    options()[0]?.focus();
+  };
+
+  const name = current?.name ?? ta.shellX.client.none;
   return (
-    <div ref={box} className="relative">
-      <button
-        type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="listbox"
-        className="flex h-9 max-w-[220px] items-center gap-2 rounded-ctl border border-line-strong bg-base px-3 text-sm font-medium hover:bg-surface"
-      >
-        <span className="text-muted">{ta.shell.client}</span>
-        <span className="truncate">{active.name}</span>
-        <span className="rotate-90 text-muted"><IconChevron /></span>
-      </button>
-      {open ? (
-        <div className="absolute left-0 top-11 z-40 w-64 rounded-ctl border border-line bg-base py-1 shadow-pop">
-          <ul role="listbox" className="max-h-72 overflow-y-auto">
-            {clients.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button" role="option" aria-selected={c.id === active.id} onClick={() => pick(c.id)}
-                  className={`block w-full truncate px-3 py-2 text-left text-sm hover:bg-surface ${c.id === active.id ? 'font-bold text-brand' : ''}`}
-                >
-                  {c.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <Link href="/clients" onClick={() => setOpen(false)} className="block border-t border-line px-3 py-2 text-sm text-brand hover:bg-surface">
-            {ta.shell.addClient}
-          </Link>
+    <div ref={dd.root} className="relative flex min-w-0 md:max-w-[22rem] lg:max-w-[28rem]" onBlur={dd.onBlur}>
+      <HoverTip content={name} className="min-w-0">
+        <button
+          ref={dd.trigger}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={dd.open}
+          aria-controls={dd.open ? dd.panelId : undefined}
+          aria-label={current ? ta.shellX.client.trigger(current.name) : ta.shellX.client.none}
+          aria-busy={switching ? true : undefined}
+          onClick={() => dd.setOpen(!dd.open)}
+          className="flex h-control-md min-w-0 max-w-full items-center gap-2 rounded-ctl border border-line-strong bg-raised px-2.5 text-data font-medium text-fg transition-colors duration-(--duration-fast) hover:bg-surface"
+        >
+          <span className="hidden shrink-0 text-muted sm:inline">{ta.shellX.client.label}</span>
+          <span className={cx('min-w-0 truncate', !current && 'text-muted')}>{name}</span>
+          {switching ? <Spinner size={14} /> : <IconChevronDown size={14} className={cx('shrink-0 text-muted transition-transform duration-(--duration-fast)', dd.open && 'rotate-180')} />}
+        </button>
+      </HoverTip>
+      {dd.open ? (
+        <div
+          ref={dd.panel}
+          id={dd.panelId}
+          role="dialog"
+          aria-label={ta.shellX.client.listTitle}
+          tabIndex={-1}
+          className="absolute left-0 top-full z-dropdown mt-1 w-[min(20rem,calc(100vw-4rem))] rounded-md border border-line bg-raised p-1 text-fg shadow-pop focus-visible:outline-none motion-safe:animate-pop-in"
+        >
+          {withSearch ? (
+            <div className="p-1">
+              <Input
+                ref={search} type="search" size="compact" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onSearchKey}
+                placeholder={ta.shellX.client.search} aria-label={ta.shellX.client.search} aria-controls={listId} autoComplete="off"
+              />
+            </div>
+          ) : null}
+          {clients.length === 0 ? (
+            <p className="px-2.5 py-2 text-small text-muted">{ta.shellX.client.noneHint}</p>
+          ) : (
+            <ul id={listId} ref={list} aria-label={ta.shellX.client.listTitle} onKeyDown={onListKey} className="relative max-h-72 overflow-y-auto">
+              {shown.map((c) => {
+                const isCurrent = c.id === current?.id;
+                const busy = switching === c.id;
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      aria-current={isCurrent ? 'true' : undefined}
+                      aria-disabled={switching ? true : undefined}
+                      onClick={() => { void pick(c.id); }}
+                      className={cx(
+                        'flex w-full items-start gap-2 rounded-sm px-2.5 py-1.5 text-left text-data hover:bg-surface focus:bg-surface focus-visible:outline-offset-[-2px]',
+                        isCurrent ? 'font-semibold text-brand-ink' : 'text-fg',
+                        switching && !busy && 'cursor-progress opacity-60',
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 break-words">{c.name}</span>
+                      {busy ? <Spinner size={14} label={ta.shellX.client.switching} className="mt-0.5" /> : null}
+                      {isCurrent && !busy ? (
+                        <span className="relative mt-0.5 shrink-0">
+                          <IconCheck size={16} />
+                          <span className="sr-only">{ta.shellX.client.current}</span>
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+              {shown.length === 0 ? <li className="px-2.5 py-2 text-small text-muted">{ta.shellX.client.noMatch}</li> : null}
+            </ul>
+          )}
+          {canAdd ? (
+            <div className="mt-1 border-t border-line pt-1">
+              <Link href="/clients" onClick={() => dd.close(false)} className="flex w-full items-center rounded-sm px-2.5 py-1.5 text-data font-medium text-brand-ink hover:bg-surface focus-visible:outline-offset-[-2px]">
+                {ta.shellX.client.add}
+              </Link>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
