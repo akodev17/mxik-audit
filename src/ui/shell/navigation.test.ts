@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { internalTarget, routeBoundaryKey, type LinkClick } from './navigation';
+import { internalTarget, isServerResponse, routeBoundaryKey, settleNudge, type LinkClick, type Timer } from './navigation';
 
 describe('routeBoundaryKey', () => {
   it('changes with the query on ordinary pages, so each address gets a fresh boundary', () => {
@@ -71,5 +71,81 @@ describe('internalTarget', () => {
     assert.equal(internalTarget(click('/clients/abc', { modified: true }), at), null);
     assert.equal(internalTarget(click('/clients/abc', { button: 1 }), at), null);
     assert.equal(internalTarget(click('mailto:a@b.uz'), at), null);
+  });
+});
+
+describe('isServerResponse', () => {
+  const origin = 'http://localhost:3000';
+  const fetched = (name: string) => ({ initiatorType: 'fetch', name });
+
+  it('counts router fetches and server actions', () => {
+    assert.equal(isServerResponse(fetched('http://localhost:3000/dashboard?_rsc=1x2y'), origin), true);
+    assert.equal(isServerResponse(fetched('http://localhost:3000/clients/abc'), origin), true, 'a server action posts to the page');
+  });
+
+  it('ignores api calls, assets, other origins and non-fetch resources', () => {
+    assert.equal(isServerResponse(fetched('http://localhost:3000/api/account/export'), origin), false);
+    assert.equal(isServerResponse(fetched('http://localhost:3000/_next/static/chunks/a.js'), origin), false);
+    assert.equal(isServerResponse(fetched('https://example.com/dashboard'), origin), false);
+    assert.equal(isServerResponse({ initiatorType: 'script', name: 'http://localhost:3000/dashboard' }, origin), false);
+    assert.equal(isServerResponse({ initiatorType: 'img', name: 'http://localhost:3000/logo' }, origin), false);
+  });
+});
+
+describe('settleNudge', () => {
+  /** Timers on a fake clock; advance() runs what falls due, in order. */
+  function clock() {
+    let now = 0;
+    let seq = 0;
+    let due: { id: number; at: number; run: () => void }[] = [];
+    const timer: Timer = {
+      set: (run, ms) => { seq += 1; due.push({ id: seq, at: now + ms, run }); return seq; },
+      clear: (handle) => { due = due.filter((d) => d.id !== handle); },
+    };
+    const advance = (ms: number): void => {
+      const until = now + ms;
+      for (;;) {
+        const next = due.sort((a, b) => a.at - b.at)[0];
+        if (!next || next.at > until) break;
+        due = due.filter((d) => d !== next);
+        now = next.at;
+        next.run();
+      }
+      now = until;
+    };
+    return { timer, advance, now: () => now };
+  }
+
+  it('nudges once, the delay after a response', () => {
+    const c = clock();
+    const at: number[] = [];
+    const n = settleNudge(() => at.push(c.now()), 50, c.timer);
+    n.responded();
+    c.advance(49);
+    assert.deepEqual(at, []);
+    c.advance(500);
+    assert.deepEqual(at, [50]);
+  });
+
+  it('coalesces a burst, and still nudges at least the delay after its last response', () => {
+    const c = clock();
+    const at: number[] = [];
+    const n = settleNudge(() => at.push(c.now()), 50, c.timer);
+    for (let i = 0; i < 4; i++) { n.responded(); c.advance(10); }
+    c.advance(500);
+    assert.deepEqual(at, [50, 100], 'the last response came at 30 ms');
+    n.responded();
+    c.advance(500);
+    assert.deepEqual(at, [50, 100, 590]);
+  });
+
+  it('stops', () => {
+    const c = clock();
+    let nudged = 0;
+    const n = settleNudge(() => { nudged += 1; }, 50, c.timer);
+    n.responded();
+    n.stop();
+    c.advance(500);
+    assert.equal(nudged, 0);
   });
 });

@@ -14,6 +14,7 @@ import { MobileNav } from './mobile-nav';
 import { NotificationBell } from './notification-bell';
 import { PlanBanner } from './plan-banner';
 import type { SidebarPref } from './prefs';
+import { ResponseNudge } from './response-nudge';
 import { RouteBoundary } from './route-boundary';
 import { NavigationWatchdog } from './same-route-links';
 import { SearchButton } from './search-button';
@@ -101,6 +102,7 @@ export function AppFrame({ shell, sidebar, children }: Props) {
       <Suspense fallback={null}>
         <NavigationWatchdog />
       </Suspense>
+      <ResponseNudge />
       <CommandPalette
         open={paletteOpen}
         onClose={closePalette}

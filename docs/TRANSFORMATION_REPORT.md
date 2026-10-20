@@ -192,10 +192,14 @@ Main problems found:
     `window.__mxikNavigationFallback = false` turns this last step off; the e2e fixture
     sets it under `E2E_NO_NAV_FALLBACK=1` and fails any test that logs the warning.
 
+  Refreshes and server actions keep the address and could stall the same way. They are
+  covered by a separate nudge after each server response: see §4, "Held transitions outside
+  navigation".
+
 ## 3. Tests and checks actually run (final state)
 - `npx tsc --noEmit`: clean.
 - `npm run lint`: 0 errors, 1 pre-existing warning (`scripts/lib/xlsx.ts:131`).
-- `npm test`: 943 tests, 942 pass. The one failure is the known classifier data drift
+- `npm test`: 948 tests, 947 pass. The one failure is the known classifier data drift
   (`src/lib/sample-report.test.ts`: code 02201001001401003 is absent from the local
   classifier). It includes 45 backend authorization tests (`src/lib/backend.authz.test.ts`)
   for viewer, scoped-accountant and other-org access across every library.
@@ -226,12 +230,43 @@ Main problems found:
   `loading.tsx`, so these pages return 200 with the not-found UI and `noindex`. No
   out-of-scope data is rendered (checked by e2e).
 - **Sessions** store no IP or location.
-- **Held transitions outside navigation:** the same React behaviour can hold any transition
-  that renders streamed server data under a boundary already showing content, without
-  changing the address: `router.refresh()` after a mutation, or a server action that
-  revalidates the page. RouteBoundary does not cover these, and neither does the watchdog
-  (it watches navigations only). None was seen in e2e. Mutations are usually followed by a
-  toast or another state update, which would retry the transition.
+- **Held transitions outside navigation (reproduced and fixed; the residual risk is listed
+  last):** the same React behaviour holds a transition that renders streamed server data under
+  a boundary already showing content without changing the address: `router.refresh()` after
+  a mutation, or a server action that revalidates the page. RouteBoundary does not cover
+  these, and the watchdog watches navigations only.
+
+  Measured against `next start`, with React DOM instrumented as for the navigations and
+  nothing touching the page between the change and the check:
+  - Bare refresh (a client renamed in the database, then `router.refresh()`): uncommitted
+    after 6 s in 16 of 16 tries on `/dashboard`, 12 of 16 on a client page and 0 of 16 on
+    `/clients`. Every held one had a dropped ping, and its response had finished 20–40 ms after
+    the call. Opening the command palette committed each one 9–53 ms later.
+  - Closing a dashboard task (the action revalidates the dashboard, then a toast and
+    `router.refresh()`): the row stayed for 6.03–6.05 s in 16 of 16 tries. That is the toast's
+    lifetime: its removal is the state update that committed the page. A toast shown before
+    the refresh does not help, because the refresh is held after it.
+  - The settings brand form (`useActionState`, the action revalidates, no refresh) never
+    held (0 of 16), and `/settings` never dropped a ping. Whether a page holds depends on how
+    its data streams.
+
+  The fix: `src/ui/shell/response-nudge.ts` (in the signed-in shell) watches Resource Timing
+  for finished same-origin fetches outside `/api/` and `/_next/` (router fetches and server
+  actions). 50 ms after each one, and again 1 s after, coalesced over bursts such as link
+  prefetches, it makes an unrelated state update in an empty component. Once a response has
+  fully arrived, none of its chunks can resolve mid-render any more, so the retried transition
+  commits. When nothing is held, a nudge only re-renders that empty component. No call site
+  had to change, and the fix covers future ones.
+
+  After the fix, with the same instrumentation: 0 of 48 refreshes held. React still dropped
+  the ping in 34 of them; all 48 committed 19–102 ms after the call. Closing a task removed
+  the row in 91–338 ms (0 of 16 held). `e2e/refresh.e2e.ts` covers both, and all three of its
+  tests failed before the fix. The instrumentation was removed afterwards.
+
+  Not covered, and not seen: pages outside the signed-in shell (sign-in, invite, public pages)
+  do not mount the nudge. React could in theory also hold a transition on a client
+  component's code chunk that loads mid-render; such a transition is retried only when some
+  server response ends after it.
 - **Google Sheets add-on** is source only and not published.
 - **Review needed:** the Russian copy, the help-center texts and the legal pages (which are
   Uzbek only) need native and legal review.
@@ -269,8 +304,14 @@ Use `127.0.0.1` rather than `localhost` in `DATABASE_URL` on Windows: each conne
    pages.
 
 ## 8. End-to-end results (final build)
-`E2E_NO_NAV_FALLBACK=1 npm run test:e2e` against `next start`: 25 of 25 pass, with no navigation watchdog warning. Covered: sign-in, client creation (two in a row), upload, column
+`E2E_NO_NAV_FALLBACK=1 npm run test:e2e` against `next start`: 28 of 28 pass, with no navigation watchdog warning. Covered: sign-in, client creation (two in a row), upload, column
 mapping correction, audit completion, type filters, drawer, accept/reject/pick, attribution in the database, activity log,
 export contents, re-upload with version diff, scoped accountant and other-org isolation, viewer restrictions, error on an
-invalid file, a 3,000-row catalogue (audit 863 s; first rows 2.4 s cold, then 0.9 s and 0.9 s; j/k median 8.6 ms, p95 14.9 ms),
-empty states, query-only navigation, list-to-record-and-back navigation and keyboard-only review.
+invalid file, a 3,000-row catalogue (audit 884 s; first rows 4.5 s cold, then 2.4 s and 0.4 s; j/k median 9.8 ms, p95 15.6 ms),
+empty states, query-only navigation, list-to-record-and-back navigation, keyboard-only review, and refreshes after a
+change (a bare `router.refresh()` on the dashboard and a client page, and closing a dashboard task).
+
+The cold first-rows time varies between runs; the previous run measured 2.4 s cold, then 0.9 s
+and 0.9 s. To rule out the response nudge, the same 3,000-row workspace (made directly in the
+database) was timed six times with and without it. Document loads had a median of 880 ms with
+the nudge and 914 ms without; in-app navigations 846 ms and 847 ms.

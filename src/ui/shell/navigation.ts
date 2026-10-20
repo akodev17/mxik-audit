@@ -42,6 +42,53 @@ function parse(href: string, base: string | URL): URL | null {
   }
 }
 
+// Held transitions outside navigation. router.refresh() and server actions keep the address, so the
+// page boundary stays and RouteBoundary cannot help: their transition renders streamed chunks under
+// content already on screen, and React drops the same ping. Measured in production: a bare refresh
+// stayed uncommitted in 16 of 16 tries on the dashboard and 12 of 16 on a client page, and a closed
+// dashboard task stayed listed until its toast went away 6 s later. Once a response has fully
+// arrived, no chunk of it can resolve mid-render any more, so one unrelated state update after it
+// makes React retry and commit (./response-nudge).
+
+/** A finished fetch the router may be rendering: same origin, outside /api/ and /_next/ (router fetches carry ?_rsc=, server actions post to the page). */
+export function isServerResponse(entry: { initiatorType: string; name: string }, origin: string): boolean {
+  if (entry.initiatorType !== 'fetch') return false;
+  const url = parse(entry.name, origin);
+  return url !== null && url.origin === origin && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/_next/');
+}
+
+export type Timer = { set: (run: () => void, ms: number) => unknown; clear: (handle: unknown) => void };
+
+/**
+ * Calls `nudge` at least `delayMs` after every `responded()`, and at most once per `delayMs`: a burst
+ * of responses (the link prefetches after a page load) costs one or two nudges, not one each.
+ */
+export function settleNudge(nudge: () => void, delayMs: number, timer: Timer): { responded: () => void; stop: () => void } {
+  let handle: unknown = null;
+  let armed = false;
+  let again = false;
+  const arm = (): void => {
+    armed = true;
+    again = false;
+    handle = timer.set(() => {
+      armed = false;
+      nudge();
+      if (again) arm();
+    }, delayMs);
+  };
+  return {
+    responded: () => {
+      if (armed) again = true;
+      else arm();
+    },
+    stop: () => {
+      if (armed) timer.clear(handle);
+      armed = false;
+      again = false;
+    },
+  };
+}
+
 export type LinkClick = {
   href: string | null;
   target: string | null;
