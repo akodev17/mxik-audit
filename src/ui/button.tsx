@@ -67,11 +67,16 @@ export function Button({ variant, size, className, type = 'button', loading = fa
   );
 }
 
-type LinkProps = { href: string; variant?: ButtonVariant; size?: ButtonSize; className?: string; children: ReactNode; download?: boolean; target?: string };
+type LinkProps = {
+  href: string; variant?: ButtonVariant; size?: ButtonSize; className?: string; children: ReactNode; download?: boolean; target?: string;
+  /** Load the target as a new document: for a page that must start over even at the address it already has. */
+  reload?: boolean;
+};
 
-export function ButtonLink({ href, variant, size, className, children, download, target }: LinkProps) {
+export function ButtonLink({ href, variant, size, className, children, download, target, reload }: LinkProps) {
   const cls = buttonClass(variant, size, className);
-  // Plain anchors for downloads and new tabs; router links otherwise.
+  // Plain anchors for downloads, new tabs and document loads; router links otherwise.
+  if (reload) return <a href={href} className={cls}>{children}</a>;
   if (download || target) return <a href={href} download={download} target={target} rel="noopener" className={cls}>{children}</a>;
   return <Link href={href} className={cls}>{children}</Link>;
 }

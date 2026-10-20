@@ -59,7 +59,7 @@ export function ConfirmStep({ preview, mapping, diagnostics, busy, error, commit
         <li className="text-muted">{c.quota}</li>
       </ul>
       {error ? (
-        <Notice tone="danger" action={committedId ? <ButtonLink href={`/upload?catalog=${committedId}`} size="sm">{c.openCatalog}</ButtonLink> : undefined}>
+        <Notice tone="danger" action={committedId ? <ButtonLink href={`/upload?catalog=${committedId}`} size="sm" reload>{c.openCatalog}</ButtonLink> : undefined}>
           {error}
         </Notice>
       ) : null}

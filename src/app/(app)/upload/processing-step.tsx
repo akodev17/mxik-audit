@@ -78,9 +78,10 @@ export function ProcessingStep({ catalogId, onDone }: { catalogId: string; onDon
   }
 
   if (state?.status === 'uploaded') {
-    // The commit did not go through (its claim was released): the mapping is still open.
+    // The commit did not go through (its claim was released): the mapping is still open. The wizard
+    // keeps its step in state and the address is already this one, so start it over as a document.
     return (
-      <Notice tone="warn" action={<ButtonLink href={`/upload?catalog=${catalogId}`} variant="primary" size="sm">{ta.importX.check.next}</ButtonLink>}>
+      <Notice tone="warn" action={<ButtonLink href={`/upload?catalog=${catalogId}`} variant="primary" size="sm" reload>{ta.importX.check.next}</ButtonLink>}>
         {ta.importX.errors.commitFailed}
       </Notice>
     );

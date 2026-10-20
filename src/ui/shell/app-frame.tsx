@@ -14,7 +14,8 @@ import { MobileNav } from './mobile-nav';
 import { NotificationBell } from './notification-bell';
 import { PlanBanner } from './plan-banner';
 import type { SidebarPref } from './prefs';
-import { useSameRouteLinks } from './same-route-links';
+import { RouteBoundary } from './route-boundary';
+import { NavigationWatchdog } from './same-route-links';
 import { SearchButton } from './search-button';
 import { isPaletteShortcut, isTypingTarget } from './shortcuts';
 import { Sidebar } from './sidebar';
@@ -30,7 +31,6 @@ export function AppFrame({ shell, sidebar, children }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const wide = useMediaQuery('(min-width: 1024px)', true);
-  useSameRouteLinks();
   const expanded = pref === 'auto' ? wide : pref === 'expanded';
   const railId = useId();
   const menuId = useId();
@@ -95,9 +95,12 @@ export function AppFrame({ shell, sidebar, children }: Props) {
             </div>
           </header>
           <PlanBanner plan={shell.plan} />
-          <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none">{children}</main>
+          <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none"><RouteBoundary>{children}</RouteBoundary></main>
         </div>
       </div>
+      <Suspense fallback={null}>
+        <NavigationWatchdog />
+      </Suspense>
       <CommandPalette
         open={paletteOpen}
         onClose={closePalette}

@@ -1,70 +1,92 @@
 'use client';
 
-import { useEffect } from 'react';
-import { documentHref, documentLinkTarget, internalTarget } from './navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useReducer } from 'react';
+import { internalTarget } from './navigation';
 
-/** How long a router navigation may take before the page is loaded as a document instead. */
-export const NAVIGATION_WATCHDOG_MS = 5000;
+/** How long a router navigation may take before the safety net steps in. */
+export const NAVIGATION_WATCHDOG_MS = 8000;
+/** After the nudge, how long the router gets before the page is loaded as a document. */
+const NUDGE_GRACE_MS = 1500;
 
-let pending: { target: string; timer: number } | null = null;
+declare global {
+  interface Window {
+    /** false = the watchdog only logs and nudges (end-to-end runs prove navigations commit without it). */
+    __mxikNavigationFallback?: boolean;
+  }
+}
+
+/** The navigation being watched: the address it started from, and its timer. */
+let pending: { from: string; timer: number } | null = null;
+/** A state update in the shell, set while the watchdog is mounted. */
+let nudge: (() => void) | null = null;
 
 const here = (): string => `${window.location.pathname}${window.location.search}`;
 
-/**
- * Safety net for router navigations that never commit (seen intermittently in the production
- * build: the request succeeds but the address and the page stay). If the address has not
- * reached `target` in time, the page is loaded as a document. Only the latest navigation counts.
- */
-export function watchNavigation(target: string): void {
+function stopWatching(): void {
   if (pending) window.clearTimeout(pending.timer);
-  const timer = window.setTimeout(() => {
-    if (pending?.timer !== timer) return;
-    pending = null;
-    if (here() !== target) window.location.assign(target);
-  }, NAVIGATION_WATCHDOG_MS);
-  pending = { target, timer };
+  pending = null;
 }
 
 /**
- * Same-route link clicks (filter tabs, pagers, "clear filters", sibling records) load a new
- * document instead of a router navigation that can stay suspended (see ./navigation). Other
- * internal links keep the router but are watched. Runs in the capture phase, before React.
+ * Safety net for a router navigation that never commits. RouteBoundary fixes the cause found in
+ * production (see ./navigation); this is a last resort. The navigation counts as committed once
+ * the address changes, wherever it went (a redirect, a later navigation, Back). If it has not after
+ * NAVIGATION_WATCHDOG_MS, the watchdog logs, nudges React with an unrelated update (which retries
+ * a transition React stopped waiting on), and, unless switched off, loads the target as a document.
  */
-export function useSameRouteLinks(): void {
+export function watchNavigation(target: string): void {
+  stopWatching();
+  const from = here();
+  const timer = window.setTimeout(() => {
+    pending = null;
+    if (here() !== from) return;
+    console.warn(`[navigation] ${target} did not commit within ${NAVIGATION_WATCHDOG_MS} ms`);
+    nudge?.();
+    if (window.__mxikNavigationFallback === false) return;
+    window.setTimeout(() => { if (here() === from) window.location.assign(target); }, NUDGE_GRACE_MS);
+  }, NAVIGATION_WATCHDOG_MS);
+  pending = { from, timer };
+}
+
+/** Watches in-app link clicks (capture phase, before React); the router does the navigation. */
+export function NavigationWatchdog(): null {
+  const address = `${usePathname()}?${useSearchParams().toString()}`;
+  const [, tick] = useReducer((n: number) => n + 1, 0);
+
+  // A committed address change (or Back/Forward) ends the watch.
+  useEffect(() => stopWatching(), [address]);
+
   useEffect(() => {
+    nudge = tick;
     function onClick(e: MouseEvent): void {
       if (e.defaultPrevented) return;
       const link = e.target instanceof Element ? e.target.closest('a[href]') : null;
       if (!(link instanceof HTMLAnchorElement)) return;
-      const click = {
+      const target = internalTarget({
         href: link.getAttribute('href'),
         target: link.getAttribute('target'),
         download: link.hasAttribute('download'),
         button: e.button,
         modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey,
-      };
-      const to = documentLinkTarget(click, window.location.href);
-      if (to) {
-        e.preventDefault();
-        window.location.assign(to);
-        return;
-      }
-      const watched = internalTarget(click, window.location.href);
-      if (watched) watchNavigation(watched);
+      }, window.location.href);
+      if (target) watchNavigation(target);
     }
     window.addEventListener('click', onClick, true);
-    return () => window.removeEventListener('click', onClick, true);
+    window.addEventListener('popstate', stopWatching);
+    return () => {
+      nudge = null;
+      stopWatching();
+      window.removeEventListener('click', onClick, true);
+      window.removeEventListener('popstate', stopWatching);
+    };
   }, []);
+  return null;
 }
 
-/** For code that navigates itself: same-route targets load as a document, others use `push` under the watchdog. */
+/** For code that navigates itself: the router navigates, the watchdog watches. */
 export function goTo(href: string, push: (href: string) => void): void {
-  const to = documentHref(href, window.location.href);
-  if (to) {
-    window.location.assign(to);
-    return;
-  }
-  const watched = internalTarget({ href, target: null, download: false, button: 0, modified: false }, window.location.href);
+  const target = internalTarget({ href, target: null, download: false, button: 0, modified: false }, window.location.href);
+  if (target) watchNavigation(target);
   push(href);
-  if (watched) watchNavigation(watched);
 }

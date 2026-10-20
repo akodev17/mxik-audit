@@ -1,11 +1,13 @@
-// Links that change only the query string must navigate. In production the app router could
-// leave such a navigation suspended for good on the firm pages: the request succeeded but the
-// address and the content stayed as they were. The shell now loads same-route link targets as a
-// new document (src/ui/shell/navigation.ts).
+// Navigations inside one section must commit: query-only links (filter tabs, resets, pagers) and
+// list <-> record moves. In production they could stay suspended for good: the transition rendered
+// under the already visible (app) loading boundary, and React dropped the ping of a server
+// component chunk that resolved mid-render (see src/ui/shell/navigation.ts). The shell now gives
+// every address a fresh Suspense boundary (src/ui/shell/route-boundary.tsx). Run with
+// E2E_NO_NAV_FALLBACK=1 to prove it without the watchdog: any navigation it has to rescue fails.
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Locator, Page } from 'playwright';
-import { COMMIT, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
+import { COMMIT, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
 
 const main = (page: Page) => page.locator('main');
 const NAV_TIMEOUT = 15_000;
@@ -56,6 +58,24 @@ describe('query-only navigation', () => {
 
     await open(page, '/clients?filter=archived');
     await follow(page, page.getByRole('link', { name: TA.nav.clients, exact: true }).first(), '/clients');
+  });
+
+  test('19 a client row opens the client, the breadcrumb returns to the list, and the content follows', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    await open(page, '/clients');
+    const name = fx.clientA.name;
+    const row = main(page).getByRole('link', { name, exact: true }).first();
+    await follow(page, row, `/clients/${fx.clientA.id}`);
+    await main(page).getByRole('heading', { level: 1, name }).waitFor({ timeout: NAV_TIMEOUT });
+
+    await page.waitForLoadState('networkidle');
+    await follow(page, page.getByRole('navigation', { name: TA.shellX.ui.breadcrumbs }).getByRole('link', { name: TA.nav.clients, exact: true }).first(), '/clients');
+    await main(page).getByRole('heading', { level: 1, name: T.clientsTitle }).waitFor({ timeout: NAV_TIMEOUT });
+
+    await page.waitForLoadState('networkidle');
+    const other = main(page).getByRole('link', { name: fx.clientB.name, exact: true }).first();
+    await follow(page, other, `/clients/${fx.clientB.id}`);
+    await main(page).getByRole('heading', { level: 1, name: fx.clientB.name }).waitFor({ timeout: NAV_TIMEOUT });
   });
 
   test('19 empty-state resets on the queue and the activity log clear the filters', { timeout: 90_000 }, async () => {

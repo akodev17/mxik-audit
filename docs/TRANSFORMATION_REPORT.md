@@ -136,9 +136,61 @@ Main problems found:
 - Eval before and after is recorded in `docs/scoring.md`.
 
 ### Reliability
-- **Navigation watchdog:** a router transition that never commits (seen intermittently in
-  the production build) falls back to a full page load after 5 s, and same-route links load
-  as documents. Root cause not found; see §7.
+- **Stuck navigations, root cause and fix:** in the production build, navigations inside one
+  section (`/clients` → `/clients?filter=…`, `/clients` ↔ `/clients/<id>`, filter and pager
+  links on the queue and activity log) could leave the address and page unchanged forever.
+  Measured before the fix: 5–6 of 6 such navigations hung right after a page load, and 4–5 of
+  40 random navigations.
+
+  How the hang happened (Next.js 15.5.23 with its bundled React 19.2 canary):
+  1. In production, `<Link>` prefetches dynamic pages only down to `(app)/loading.tsx`. A
+     navigation inside one section keeps that boundary's state key (the query is not part of
+     it, and the section segment does not change). React therefore renders the new page as a
+     transition under a Suspense boundary that is already showing content.
+  2. The page arrives as streamed server component (Flight) chunks. React reads one that is
+     still loading, suspends, and yields to the browser. If the chunk arrives during that
+     yield, React finds it resolved but not yet unpacked, and gives up on the render.
+  3. Under a boundary that already shows content, React first decides to hold the transition,
+     and only then subscribes to the chunk (`throwException`: `renderDidSuspendDelayIfPossible`,
+     then `attachPingListener`). The chunk is already there, so it calls back immediately,
+     inside the render. In that state `pingSuspendedRoot` ignores the call. The render ends
+     with the transition marked suspended, and nothing is left to wake it. The address and
+     page stay put until some unrelated state update makes React retry.
+  4. Cross-section navigations never hung: they mount a new loading boundary, and React
+     commits its fallback and retries instead of holding the transition.
+
+  Evidence: React DOM was instrumented to record a ping that arrives inside the render in
+  that state, and the fix was switched off. 5 of 16 in-section navigations hung, and every
+  one of them had a dropped ping; of the 11 that committed, 10 had none. Each hung
+  navigation committed about 26 ms after an unrelated update (opening the command palette).
+  With the fix and the same instrumentation: 0 of 24 hung. React still dropped a ping in 2
+  of them, and both committed in 26 ms anyway, because the render no longer ends in the held
+  state that only that ping could undo. The instrumentation was removed afterwards.
+
+  The fix: `src/ui/shell/route-boundary.tsx` wraps the page in a Suspense boundary keyed by
+  its address, so every navigation takes the cross-section path. The key leaves out what a
+  page rewrites in its own address with `history.replaceState`: `/upload` is keyed by path
+  only (the wizard's `?catalog=`), and `?row=` (workspace) and `?tg=` (settings) are
+  ignored. A unit test lists every such call site, so a new one has to be added to the key
+  rules first.
+
+  The trade-off: an in-section navigation now shows the skeleton briefly and remounts the
+  page, so its local state (open menus, typed text) starts over, as it did with the old
+  document loads. Focus moves to `#main` when the focused link went away with the page. The
+  two "start over" links in the upload wizard point at the address the wizard already has,
+  so they now load as documents.
+
+  After the fix: 0 hangs in all repro runs; navigations commit in about 26 ms; the e2e suite
+  passes with the watchdog's fallback switched off (`E2E_NO_NAV_FALLBACK=1`).
+
+  The same-route document loads were removed. The watchdog remains only as a safety net:
+  - It records the address a navigation starts from. Any change of address (the target, a
+    redirect, a later navigation, Back) counts as committed.
+  - If the address has not changed after 8 s, it logs `[navigation] … did not commit`, then
+    makes an unrelated state update, which retries a held transition.
+  - If the address still has not changed 1.5 s later, it loads the target as a document.
+    `window.__mxikNavigationFallback = false` turns this last step off; the e2e fixture
+    sets it under `E2E_NO_NAV_FALLBACK=1` and fails any test that logs the warning.
 
 ## 3. Tests and checks actually run (final state)
 - `npx tsc --noEmit`: clean.
@@ -173,9 +225,13 @@ Main problems found:
 - **Private pages answer HTTP 200 when not found:** the (app) segment streams behind
   `loading.tsx`, so these pages return 200 with the not-found UI and `noindex`. No
   out-of-scope data is rendered (checked by e2e).
-- **Navigation hang:** the intermittent stuck transition is contained by the watchdog. Its
-  root cause in the production build is not identified.
 - **Sessions** store no IP or location.
+- **Held transitions outside navigation:** the same React behaviour can hold any transition
+  that renders streamed server data under a boundary already showing content, without
+  changing the address: `router.refresh()` after a mutation, or a server action that
+  revalidates the page. RouteBoundary does not cover these, and neither does the watchdog
+  (it watches navigations only). None was seen in e2e. Mutations are usually followed by a
+  toast or another state update, which would retry the transition.
 - **Google Sheets add-on** is source only and not published.
 - **Review needed:** the Russian copy, the help-center texts and the legal pages (which are
   Uzbek only) need native and legal review.
@@ -203,8 +259,9 @@ Use `127.0.0.1` rather than `localhost` in `DATABASE_URL` on Windows: each conne
 ## 7. Recommended next priorities
 1. Configure and test SMTP, Telegram and one payment provider end to end on staging; set
    `PLAN_FIRM_PRICE`.
-2. Find the root cause of the intermittent stuck router transition in the production build
-   (React and Next.js versions, Suspense boundaries in the shell), then remove the watchdog.
+2. When upgrading Next.js or React, re-run `E2E_NO_NAV_FALLBACK=1 npm run test:e2e`. If the
+   bundled React no longer drops a ping that arrives during the render (`pingSuspendedRoot`),
+   `RouteBoundary` and the watchdog can go.
 3. Audit throughput: batch the per-row queries, measure with a real embedder and reranker.
 4. Store finding reasons as code plus parameters, so the API and exports can localize them.
 5. CSP nonces through middleware; per-session IP and approximate location.
@@ -212,8 +269,8 @@ Use `127.0.0.1` rather than `localhost` in `DATABASE_URL` on Windows: each conne
    pages.
 
 ## 8. End-to-end results (final build)
-`npm run test:e2e` against `next start`: 24 of 24 pass. Covered: sign-in, client creation (two in a row), upload, column
+`E2E_NO_NAV_FALLBACK=1 npm run test:e2e` against `next start`: 25 of 25 pass, with no navigation watchdog warning. Covered: sign-in, client creation (two in a row), upload, column
 mapping correction, audit completion, type filters, drawer, accept/reject/pick, attribution in the database, activity log,
 export contents, re-upload with version diff, scoped accountant and other-org isolation, viewer restrictions, error on an
-invalid file, a 3,000-row catalogue (audit 796 s; first rows 4.5 s cold, then 2.5 s and 0.9 s; j/k median 9.4 ms, p95 15.5 ms),
-empty states, query-only navigation and keyboard-only review.
+invalid file, a 3,000-row catalogue (audit 863 s; first rows 2.4 s cold, then 0.9 s and 0.9 s; j/k median 8.6 ms, p95 14.9 ms),
+empty states, query-only navigation, list-to-record-and-back navigation and keyboard-only review.

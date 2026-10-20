@@ -6,6 +6,7 @@
 //
 // Runs against E2E_BASE_URL (default http://localhost:3000). Nothing here
 // starts, stops or builds a server.
+import assert from 'node:assert/strict';
 import '../src/lib/load-env';
 import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
@@ -165,6 +166,14 @@ export async function launch(): Promise<Browser> {
   return chromium.launch({ headless: process.env['E2E_HEADED'] !== '1' });
 }
 
+/**
+ * Navigation watchdog warnings seen in this file's browser pages; any of them fails the test. With
+ * E2E_NO_NAV_FALLBACK=1 the watchdog (src/ui/shell/same-route-links.ts) also skips its document
+ * load, so a navigation that never commits cannot be rescued that way either.
+ */
+export const navigationWarnings: string[] = [];
+const noNavigationFallback = process.env['E2E_NO_NAV_FALLBACK'] === '1';
+
 /** A fresh browser profile: Uzbek, light theme, desktop width, this run's client address. */
 export async function newPage(browser: Browser, viewport = { width: 1440, height: 900 }): Promise<{ context: BrowserContext; page: Page }> {
   const context = await browser.newContext({
@@ -179,6 +188,10 @@ export async function newPage(browser: Browser, viewport = { width: 1440, height
     { name: 'mxik_locale', value: 'uz', url: BASE_URL },
     { name: 'mxik_theme', value: 'light', url: BASE_URL },
   ]);
+  if (noNavigationFallback) await context.addInitScript(() => { (window as unknown as { __mxikNavigationFallback?: boolean }).__mxikNavigationFallback = false; });
+  context.on('console', (message) => {
+    if (message.type() === 'warning' && message.text().startsWith('[navigation]')) navigationWarnings.push(message.text());
+  });
   const page = await context.newPage();
   page.setDefaultTimeout(30_000);
   page.setDefaultNavigationTimeout(60_000);
@@ -272,8 +285,11 @@ export const ARTIFACTS = process.env['E2E_ARTIFACTS'] ?? join(tmpdir(), 'mxik-e2
  */
 export function traced(getPage: () => Page | undefined, body: (t: TestContext) => Promise<void>): (t: TestContext) => Promise<void> {
   return async (t) => {
+    const seen = navigationWarnings.length;
     try {
       await body(t);
+      const fired = navigationWarnings.slice(seen);
+      assert.deepEqual(fired, [], 'every in-app navigation commits without the watchdog');
     } catch (error) {
       const page = getPage();
       if (page && !page.isClosed() && error instanceof Error) {

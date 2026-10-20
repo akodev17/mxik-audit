@@ -1,25 +1,36 @@
-// Which in-app navigations must load a new document instead of going through the app router.
-// Pure, so the rules can be tested.
+// In-app navigation rules for the shell. Pure, so they can be tested.
 //
-// In the production build a router navigation that stays on the same route (only the query
-// changes, or one record to its sibling: /clients/A -> /clients/B) renders as a transition with
-// no fresh loading fallback, and on the heavier pages that transition can stay suspended for
-// good: the request succeeds but the address and the page never change. QA saw it on the
-// filter tabs, pagers and resets of /clients, /queue, /activity and /dashboard. Those
-// navigations go by document; cross-section ones keep the router and the skeleton.
+// Why a boundary per address. In the production build <Link> prefetches dynamic pages only down to
+// the (app) loading.tsx, and a navigation that stays inside one section (/clients -> /clients?filter=x,
+// /clients -> /clients/<id>) keeps that boundary's state key. So React renders the new page as a
+// transition under a boundary that already shows content, and the page arrives as streamed server
+// component chunks. When React suspends on a chunk that resolves while it yields, it first decides
+// to hold the transition and only then subscribes; the chunk answers at once, inside the render,
+// and React drops that ping (Next 15.5's React 19.2 canary: throwException, pingSuspendedRoot).
+// Nothing else wakes the root, so the address and page stayed put until an unrelated update.
+// A boundary that is new for each address takes React's other path: it commits the skeleton and
+// retries, as cross-section navigations always did.
 
-/** The workspace keeps its own query state (type chips, views) in the router, which works there. */
-const WORKSPACE = /^\/catalogs\/[^/]+$/;
+// The boundary key follows useSearchParams, which history.replaceState and pushState also update.
+// A page that rewrites its own address that way must be listed below (whole page, or the param it
+// removes), or each rewrite remounts it; navigation.test.ts checks the call sites.
 
-const segments = (pathname: string): string[] => pathname.split('/').filter(Boolean);
+/** Pages that rewrite their own query while staying mounted (the upload wizard's resume id): a change must not remount them. */
+const KEEP_QUERY_STATE = /^\/upload$/;
+/**
+ * Query params a page reads once and then removes from the address itself: the Telegram bind
+ * result in settings, and the row to open in the workspace. Removing them must not remount the page.
+ * Every other query change is a new page (the workspace grid already remounts on each filter).
+ */
+const CLIENT_ONLY_PARAMS = ['tg', 'row'];
 
-/** Same path with another query, or a sibling record (only the second segment differs). */
-export function isSameRoute(current: URL, next: URL): boolean {
-  if (next.origin !== current.origin) return false;
-  if (next.pathname === current.pathname) return next.search !== current.search && !WORKSPACE.test(current.pathname);
-  const a = segments(current.pathname);
-  const b = segments(next.pathname);
-  return a.length >= 2 && a.length === b.length && a[0] === b[0] && a[1] !== b[1] && a.slice(2).join('/') === b.slice(2).join('/');
+/** Key of the page boundary: the path, plus the query except where the page keeps state in it. */
+export function routeBoundaryKey(pathname: string, search: string): string {
+  if (KEEP_QUERY_STATE.test(pathname)) return pathname;
+  const params = new URLSearchParams(search);
+  for (const name of CLIENT_ONLY_PARAMS) params.delete(name);
+  const query = params.toString();
+  return query === '' ? pathname : `${pathname}?${query}`;
 }
 
 /** A URL, or null when it cannot be parsed against `base`. */
@@ -31,13 +42,6 @@ function parse(href: string, base: string | URL): URL | null {
   }
 }
 
-/** Where to send the browser instead of the router, for a programmatic navigation to `href`. */
-export function documentHref(href: string, current: string): string | null {
-  const here = parse(current, 'http://localhost');
-  const next = here ? parse(href, here) : null;
-  return here && next && isSameRoute(here, next) ? `${next.pathname}${next.search}${next.hash}` : null;
-}
-
 export type LinkClick = {
   href: string | null;
   target: string | null;
@@ -47,13 +51,6 @@ export type LinkClick = {
   /** Ctrl, Meta, Shift or Alt held: the browser opens a tab or window instead. */
   modified: boolean;
 };
-
-/** The address a link click should load as a document, or null to leave the click alone. */
-export function documentLinkTarget(click: LinkClick, current: string): string | null {
-  if (click.button !== 0 || click.modified || click.download || !click.href) return null;
-  if (click.target && click.target !== '_self') return null;
-  return documentHref(click.href, current);
-}
 
 /** The in-app address (path and query) a click or push will reach, for the navigation watchdog; null for hash-only, external or browser-handled targets. */
 export function internalTarget(click: LinkClick, current: string): string | null {
