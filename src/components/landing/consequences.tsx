@@ -1,5 +1,6 @@
 import { SHOW_LEGAL_223 } from './config';
 import { CONTAINER } from './container';
+import { tight } from './tight';
 import { consequences, type Consequence } from './data';
 
 function Sources({ item }: { item: Consequence }) {
@@ -24,9 +25,9 @@ export function Consequences() {
   const practice = items.filter((c) => c.sources.length === 0);
 
   return (
-    <section aria-labelledby="consequences-title" className="bg-lp-surface py-16 sm:py-24">
+    <section aria-labelledby="consequences-title" className="py-20 sm:py-28">
       <div className={CONTAINER}>
-        <h2 id="consequences-title" className="max-w-[40rem] text-[30px] sm:text-[42px]">Notoʻgʻri kod nimaga olib keladi</h2>
+        <h2 id="consequences-title" className="lp-serif max-w-[22ch] text-[clamp(2.25rem,5vw,3.75rem)]">{tight('Notoʻgʻri kod nimaga olib keladi')}</h2>
 
         <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
           <div className="space-y-6">

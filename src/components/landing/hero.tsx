@@ -1,26 +1,29 @@
-import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
 import { ButtonLink, TextLink } from './button';
 import { DEMO_URL } from './config';
 import { CONTAINER } from './container';
 import { CATALOG_CODES, SAMPLE_FILENAME, nf } from './data';
-import { LiveScan } from './live-scan';
+import { HeroSheet } from './hero-sheet';
 
-// What it is, for whom, the two ways in, and the product auditing a real file.
+// What it is, for whom, why it matters, what to do next: said once each, beside the product itself.
 export function Hero() {
   return (
-    <section aria-labelledby="hero-title" className="border-b border-lp-line">
-      <div className={`${CONTAINER} grid grid-cols-1 gap-x-12 gap-y-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,4.4fr)_minmax(0,7.6fr)] lg:items-center lg:py-20`}>
-        <div>
-          <p className="text-[16px] font-medium text-lp-muted">Buxgalterlar va autsorsing firmalari uchun</p>
-          <h1 id="hero-title" className="mt-3 text-[36px] sm:text-[48px] lg:text-[44px] xl:text-[50px]">
-            Katalogdagi xato MXIK kodlarini bir yuklashda toping
-          </h1>
-          <p className="mt-5 max-w-[34rem] text-[18px] leading-relaxed text-lp-muted">
-            Excel yoki CSV katalogni yuklang: har bir qator{' '}
-            <span className="num">{nf.format(CATALOG_CODES)}</span> ta kodli rasmiy tasniflagich
-            bilan solishtiriladi, xatolar belgilanadi va oʻrniga toʻgʻri kod taklif qilinadi.
+    <section aria-labelledby="hero-title" className="lp-ruled relative overflow-hidden border-b border-lp-line">
+      <div className={`${CONTAINER} grid grid-cols-1 gap-x-14 gap-y-14 pb-20 pt-12 sm:pt-16 lg:grid-cols-12 lg:items-center lg:pb-28 lg:pt-20`}>
+        <div className="lp-rise lg:col-span-6">
+          <p className="inline-flex items-center gap-2 rounded-full border border-lp-line-strong bg-lp-paper px-3 py-1 text-[14px] text-lp-muted">
+            <span aria-hidden="true" className="size-2 bg-lp-brand" />
+            Buxgalterlar va autsorsing firmalari uchun
           </p>
-          <div id="hero-actions" className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+          <h1 id="hero-title" className="lp-serif mt-6 text-[clamp(2.75rem,7.2vw,5.25rem)]">
+            Katalogdagi har bir kod <em>tekshirilgan</em>, har bir qaror izli.
+          </h1>
+          <p className="mt-6 max-w-[34rem] text-[18px] leading-relaxed text-lp-muted">
+            Excel yoki CSV katalogni yuklang. Tasnivo har bir qatorni{' '}
+            <span className="num text-lp-ink">{nf.format(CATALOG_CODES)}</span> ta kodli rasmiy MXIK
+            tasniflagichi bilan solishtiradi, shubhali qatorni ajratadi va nega aynan shu kod
+            taklif qilinganini yonida koʻrsatadi. Qarorni siz qabul qilasiz.
+          </p>
+          <div id="hero-actions" className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
             {DEMO_URL ? (
               <>
                 <ButtonLink href={DEMO_URL}>Demoni ochish</ButtonLink>
@@ -33,21 +36,14 @@ export function Hero() {
               </>
             )}
           </div>
-          <p className="mt-6 text-[16px] text-lp-muted">Roʻyxatdan oʻtish shart emas. Risk auditi bepul.</p>
+          <p className="mt-5 text-[15px] text-lp-muted">Roʻyxatdan oʻtish shart emas. Risk auditi bepul.</p>
         </div>
 
-        <div className="min-w-0">
-          <LiveScan
-            catalog={SAMPLE_REPORT.catalog}
-            codes={SAMPLE_REPORT.codes}
-            filename={SAMPLE_FILENAME}
-            demoUrl={DEMO_URL}
-          />
-          <p className="mt-3 max-w-[68ch] text-[15px] leading-relaxed text-lp-muted">
-            Namuna: oʻylab topilgan doʻkon katalogi, demodagining aynan oʻzi. Nomlar va narxlar
-            oʻylab topilgan, shtrix kodlar va toʻgʻri kodlar tasniflagichdan, xato kodlar ataylab
-            qoʻyilgan. Natijalar tizim chiqargani: ayrim takliflar xato boʻlishi mumkin, shuning
-            uchun qarorni odam qabul qiladi.
+        <div className="lp-rise min-w-0 lg:col-span-6 xl:-mr-10" style={{ ['--d' as string]: '.15s' }}>
+          <HeroSheet />
+          <p className="mt-6 max-w-[48ch] text-[13px] leading-relaxed text-lp-muted">
+            Oʻylab topilgan doʻkon katalogi: nomlar oʻylab topilgan, kodlar tasniflagichdan, xatolar
+            ataylab qoʻyilgan. Natijani tizim chiqargan va xato boʻlishi mumkin.
           </p>
         </div>
       </div>

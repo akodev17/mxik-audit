@@ -1,8 +1,8 @@
 const BASE =
-  'inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-lp px-6 py-3 text-[17px] font-medium transition-colors';
+  'inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-full px-7 py-3 text-[17px] font-medium transition-colors';
 
 const VARIANT = {
-  primary: 'bg-lp-brand text-white hover:bg-lp-brand-ink',
+  primary: 'bg-lp-ink text-lp-base hover:bg-lp-brand',
   secondary: 'border border-lp-line-strong bg-lp-base text-lp-ink hover:border-lp-ink',
 } as const;
 

@@ -4,7 +4,7 @@ import { PRICING } from './config';
 export function Pricing() {
   return (
     <div>
-      <h2 id="narxlar" className="scroll-mt-6 text-[30px] sm:text-[42px]">Narxlar</h2>
+      <h2 id="narxlar" className="lp-serif scroll-mt-6 text-[clamp(2rem,4.2vw,3rem)]">Narxlar</h2>
       <p className="mt-4 max-w-[36rem] text-[18px] text-lp-muted">
         Avval nechta pozitsiya riskli ekanini bepul koʻrasiz. Toʻgʻrilash kerakmi, shundan keyin
         oʻzingiz hal qilasiz.

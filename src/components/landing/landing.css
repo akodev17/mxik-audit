@@ -1,27 +1,31 @@
 /* Landing-only tokens. Prefixed lp- and scoped to .landing so app routes keep their own look. */
 @theme {
-  --color-lp-base: #ffffff;
-  --color-lp-surface: #f3f6f9;
-  --color-lp-ink: #15202b;
-  --color-lp-muted: #5b6875;
-  --color-lp-line: #dbe2ea;
-  --color-lp-line-strong: #b9c4d0;
-  --color-lp-risk: #d23a2a;
+  --color-lp-base: #f6f4ee;
+  --color-lp-surface: #ece9df;
+  --color-lp-ink: #0e1620;
+  --color-lp-muted: #4f5b66;
+  --color-lp-line: #d8d3c5;
+  --color-lp-line-strong: #a9a392;
+  --color-lp-risk: #c4301e;
   --color-lp-warn: #e39b12;
   --color-lp-ok: #1f8a55;
   --color-lp-brand: #2457f5;
   --color-lp-brand-ink: #1a44cc;
 
   /* Conditional-formatting fills: meaning only, text on them stays ink. */
-  --color-lp-risk-fill: #fbe3e0;
-  --color-lp-warn-fill: #fcefd3;
-  --color-lp-ok-fill: #e3f2ea;
-  --color-lp-brand-fill: #e8eefe;
+  --color-lp-risk-fill: #f7dcd4;
+  --color-lp-warn-fill: #f7e8c4;
+  --color-lp-ok-fill: #dceddf;
+  --color-lp-brand-fill: #e2e9fd;
   /* Stronger fill for the one cell a finding is about. */
   --color-lp-risk-cell: #f6c9c3;
   --color-lp-warn-cell: #f8dfa6;
 
-  --radius-lp: 10px;
+  --radius-lp: 6px;
+  --color-lp-night: #0b1220;
+  --color-lp-night-line: #243044;
+  --color-lp-night-muted: #a3b0c4;
+  --color-lp-paper: #fffdf8;
 }
 
 .landing {
@@ -99,3 +103,39 @@
     --color-lp-warn-cell: #3d3115;
   }
 }
+
+/* ---- Tasnivo landing: art direction ------------------------------------------------------ */
+.landing .lp-serif {
+  font-family: var(--font-display), "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+.landing .lp-serif em { font-style: italic; color: var(--color-lp-brand-ink); }
+.landing .lp-mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+/* Ledger ruling: a faint column grid behind the hero, one line per 12 columns of the container. */
+.landing .lp-ruled {
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--color-lp-line) 55%, transparent) 1px, transparent 1px);
+  background-size: calc(100% / 6) 100%;
+}
+
+/* The hero scan: a line sweeps the sheet once, then each verdict settles in. */
+@keyframes lp-sweep { from { transform: translateY(0); opacity: 1; } 85% { opacity: 1; } to { transform: translateY(var(--lp-sweep, 340px)); opacity: 0; } }
+@keyframes lp-settle { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes lp-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.landing .lp-sweep { animation: lp-sweep 1.6s cubic-bezier(.4,.1,.2,1) .35s both; }
+.landing .lp-settle { animation: lp-settle .45s ease-out both; animation-delay: calc(.45s + var(--i, 0) * .18s); }
+.landing .lp-rise { animation: lp-rise .7s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d, 0s); }
+
+/* Anchored sections clear the header. */
+.landing [id] { scroll-margin-top: 1.5rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing .lp-sweep { display: none; }
+  .landing .lp-settle, .landing .lp-rise { animation: none; }
+}
+
+/* Display-size modifier letters (see tight.tsx). */
+.landing .lp-apos { letter-spacing: -0.1em; margin-left: -0.05em; }
+@media (min-width: 1024px) { .landing .lp-ruled { background-size: calc(100% / 12) 100%; } }
