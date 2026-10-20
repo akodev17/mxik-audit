@@ -7,7 +7,7 @@ import { pluralRu } from './plural';
 const n = (v: number): string => fmtNumber('ru', v);
 
 export const ru: Dict = {
-  appName: 'MXIK Audit',
+  appName: 'Tasnivo',
   tagline: 'Найдите рискованные позиции в вашем каталоге',
   signIn: 'Вход',
   signOut: 'Выйти',
@@ -61,7 +61,7 @@ export const ru: Dict = {
   tgNoChats: 'Ни один чат ещё не подключён.',
   tgUnlink: 'Отключить',
   tgDemoOff: 'В демо-режиме Telegram не подключается.',
-  tgHelp: 'Здравствуйте! Это бот MXIK Audit. Чтобы подключить чат, получите код в веб-приложении (Настройки → Telegram) и отправьте сюда «/start КОД».',
+  tgHelp: 'Здравствуйте! Это бот Tasnivo. Чтобы подключить чат, получите код в веб-приложении (Настройки → Telegram) и отправьте сюда «/start КОД».',
   tgHelpLinked: 'Отправьте в этот чат файл каталога (.xlsx или .csv) — я проверю его и пришлю результат.',
   tgLinked: (org) => `Подключено: ${org}. Теперь можно отправлять файл каталога (.xlsx или .csv).`,
   tgBadCode: 'Код неверный или просрочен. Получите новый код в веб-приложении.',

@@ -198,7 +198,7 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
   const statusIndex = outHeaders.push(labels.auditStatus) - 1;
 
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'MXIK Audit';
+  workbook.creator = 'Tasnivo';
   const sheet = workbook.addWorksheet(options.sheetName ?? 'Katalog');
 
   sheet.addRow(outHeaders.map(formulaSafe));

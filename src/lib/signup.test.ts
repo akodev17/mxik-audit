@@ -12,7 +12,7 @@ const email = (): string => `test-${randomBytes(5).toString('hex')}@example.uz`;
 function withMail<T>(job: () => Promise<T>): Promise<T> {
   const saved = { url: process.env['SMTP_URL'], from: process.env['MAIL_FROM'] };
   process.env['SMTP_URL'] = 'smtp://127.0.0.1:9';
-  process.env['MAIL_FROM'] = 'MXIK Audit <test@example.uz>';
+  process.env['MAIL_FROM'] = 'Tasnivo <test@example.uz>';
   return job().finally(() => {
     if (saved.url === undefined) delete process.env['SMTP_URL']; else process.env['SMTP_URL'] = saved.url;
     if (saved.from === undefined) delete process.env['MAIL_FROM']; else process.env['MAIL_FROM'] = saved.from;

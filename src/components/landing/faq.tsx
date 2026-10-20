@@ -8,7 +8,7 @@ const FAQ = [
     a: (
       <>
         Yoʻq. Rasmiy tasniflagich tasnif.soliq.uz yagona manba, biz ham uning rasmiy eksportidan
-        foydalanamiz. Portal bitta kodni topish uchun qulay. MXIK Audit esa butun katalogni bir
+        foydalanamiz. Portal bitta kodni topish uchun qulay. Tasnivo esa butun katalogni bir
         martada tekshirib, qaysi qatorlarga eʼtibor kerakligini koʻrsatadi.
       </>
     ),

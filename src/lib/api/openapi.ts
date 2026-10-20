@@ -131,7 +131,7 @@ export function openApiSpec(origin: string, config: ApiConfig = apiConfig()) {
   return {
     openapi: '3.0.3',
     info: {
-      title: 'MXIK Audit API',
+      title: 'Tasnivo API',
       version: '1.1.0',
       description: [
         'Check product names against the MXIK classifier and audit whole catalogues.',

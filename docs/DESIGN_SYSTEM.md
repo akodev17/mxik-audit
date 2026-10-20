@@ -1,4 +1,4 @@
-# MXIK Audit design system
+# Tasnivo design system
 
 The signed-in product (everything under `.app`) is a dense, precise working tool for chief
 accountants: one accent colour, hairline structure, status said in colour **and** icon **and**
@@ -238,7 +238,7 @@ One word per idea, in both languages. Labels, PDF, Excel and Telegram use the sa
 | How well a suggestion matched (never a probability) | Yuqori / Oʻrtacha / Past moslik | Высокое / Среднее / Низкое совпадение | ishonch, Tekshirish kerak, уверенность |
 | Decision states | Tasdiqlandi · Rad etildi · Koʻrib chiqilmagan | Принято · Отклонено · Не рассмотрено | Qabul qilindi, Подтверждено, Ожидает |
 | Decision verbs | Tasdiqlash · Rad etish | Принять · Отклонить | Подтвердить (for a suggestion) |
-| The classifier code | MXIK kodi | код ИКПУ | код MXIK (only the product name keeps MXIK: "MXIK Audit") |
+| The classifier code | MXIK kodi | код ИКПУ | код MXIK (the product name no longer carries MXIK) |
 | A catalogue not yet audited | Tahlil qilinmagan | Не проанализирован | Yuklangan, Загружен |
 
 The low match band uses the neutral tone (a dot), never the danger tone of problem chips: lower

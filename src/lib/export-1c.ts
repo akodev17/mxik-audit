@@ -38,7 +38,7 @@ export function build1cCsv(rows: readonly OneCRow[], headers: OneCHeaders = ONE_
 /** The same rows as an .xlsx; code and barcode columns are text so leading zeros and all 17 digits survive. */
 export async function build1cXlsx(rows: readonly OneCRow[], headers: OneCHeaders = ONE_C_HEADERS_RU): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'MXIK Audit';
+  workbook.creator = 'Tasnivo';
   const sheet = workbook.addWorksheet('1C');
   sheet.columns = [
     { width: 48 }, { width: 22, style: { numFmt: '@' } }, { width: 18 }, { width: 18, style: { numFmt: '@' } }, { width: 26 },

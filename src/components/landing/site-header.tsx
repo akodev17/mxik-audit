@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { helpPath } from '@/lib/help';
+import { TasnivoLogo } from '@/ui/logo';
 import { DEMO_URL, TELEGRAM_URL } from './config';
 import { CONTAINER } from './container';
 import { SHELL_COPY, type SiteLang } from './shell-copy';
@@ -33,7 +34,7 @@ export function SiteHeader({ lang = 'uz', signedIn = false }: { lang?: SiteLang;
     <header className="border-b border-lp-line bg-lp-base">
       <div className={`${CONTAINER} flex min-h-16 items-center justify-between gap-x-4 py-2`}>
         <Link href="/" className="shrink-0 rounded-lp text-[18px] font-bold tracking-[-0.02em] text-lp-ink sm:text-[20px]">
-          MXIK Audit
+          <TasnivoLogo markClassName="size-6 sm:size-7" accent="var(--color-lp-brand)" />
         </Link>
         <nav aria-label={c.nav} className="hidden md:block">
           <ul className="-mr-1 flex items-center gap-x-1">

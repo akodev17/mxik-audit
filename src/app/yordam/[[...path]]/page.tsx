@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const article = route.slug ? findArticle(route.slug) : null;
   const slug = route.slug ?? undefined;
   return {
-    title: `${article ? article.title[route.lang] : HELP_COPY[route.lang].title} — MXIK Audit`,
+    title: `${article ? article.title[route.lang] : HELP_COPY[route.lang].title} — Tasnivo`,
     description: article ? article.description[route.lang] : HELP_COPY[route.lang].description,
     alternates: { canonical: helpPath(route.lang, slug), languages: { uz: helpPath('uz', slug), ru: helpPath('ru', slug) } },
     openGraph: { title: article ? article.title[route.lang] : HELP_COPY[route.lang].title, type: 'article', locale: route.lang === 'ru' ? 'ru_RU' : 'uz_UZ' },

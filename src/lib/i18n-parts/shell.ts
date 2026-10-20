@@ -21,7 +21,7 @@ export const uz = {
     skip: 'Asosiy mazmunga oʻtish',
     nav: {
       label: 'Asosiy menyu',
-      home: 'MXIK Audit: bosh sahifa',
+      home: 'Tasnivo: bosh sahifa',
       work: 'Ish',
       clients: 'Mijozlar va kataloglar',
       knowledge: 'Maʼlumotnoma',
@@ -178,7 +178,7 @@ export const ru: typeof uz = {
     skip: 'Перейти к основному содержимому',
     nav: {
       label: 'Главное меню',
-      home: 'MXIK Audit: главная',
+      home: 'Tasnivo: главная',
       work: 'Работа',
       clients: 'Клиенты и каталоги',
       knowledge: 'Справочник',

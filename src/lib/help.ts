@@ -54,12 +54,12 @@ export const HELP_LANG_NAMES: Record<HelpLang, string> = { uz: 'Oʻzbekcha', ru:
 export const HELP_COPY: Record<HelpLang, Copy> = {
   uz: {
     title: 'Yordam markazi',
-    description: 'MXIK Audit qanday ishlashi: kod tuzilishi, hisobot, muammo turlari, firma lugʻati, tariflar, xavfsizlik, API va savollar.',
+    description: 'Tasnivo qanday ishlashi: kod tuzilishi, hisobot, muammo turlari, firma lugʻati, tariflar, xavfsizlik, API va savollar.',
     back: 'Yordam markazi', language: 'Maqola tili', home: 'Boshqa maqolalar', onPage: 'Shu maqolada',
   },
   ru: {
     title: 'Центр помощи',
-    description: 'Как работает MXIK Audit: структура кода, отчёт, типы проблем, словарь фирмы, тарифы, безопасность, API и вопросы.',
+    description: 'Как работает Tasnivo: структура кода, отчёт, типы проблем, словарь фирмы, тарифы, безопасность, API и вопросы.',
     back: 'Центр помощи', language: 'Язык статьи', home: 'Другие статьи', onPage: 'В этой статье',
   },
 };

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" role="img" aria-label="Tasnivo">
+  <g fill="#14161c">
+    <rect x="0" y="0" width="8" height="8" rx="2"/><rect x="10" y="0" width="8" height="8" rx="2"/><rect x="20" y="0" width="8" height="8" rx="2"/>
+    <rect x="10" y="10" width="8" height="8" rx="2"/><rect x="10" y="20" width="8" height="8" rx="2"/>
+  </g>
+  <rect x="20" y="10" width="8" height="8" rx="2" fill="#14161c"/>
+</svg>

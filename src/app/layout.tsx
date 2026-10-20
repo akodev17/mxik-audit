@@ -16,7 +16,7 @@ const plexMono = IBM_Plex_Mono({
   variable: '--font-plex-mono',
 });
 
-// Pages set their own "<page> — MXIK Audit" titles, so there is no template here (it would repeat the name).
+// Pages set their own "<page> — Tasnivo" titles, so there is no template here (it would repeat the name).
 export async function generateMetadata(): Promise<Metadata> {
   const { locale, t } = await getI18n();
   return {

@@ -8,8 +8,8 @@ import { LegalPage, Todo } from '@/components/landing/legal-page';
    two cannot disagree; everything that needs a lawyer or company details is a
    TODO. Never fill those with guesses. */
 export const metadata: Metadata = {
-  title: 'Ommaviy oferta — MXIK Audit',
-  description: 'MXIK Audit xizmatlari shartlari.',
+  title: 'Ommaviy oferta — Tasnivo',
+  description: 'Tasnivo xizmatlari shartlari.',
   // Not indexed while it still carries TODO blanks.
   robots: { index: false, follow: true },
 };

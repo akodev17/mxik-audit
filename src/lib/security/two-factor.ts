@@ -7,7 +7,7 @@ import { matchStep, newSecret, openSecret, otpauthUri, sealSecret } from './totp
 const RECOVERY_COUNT = 8;
 /** 10 random bytes = 80 bits per recovery code. */
 const RECOVERY_BYTES = 10;
-const ISSUER = 'MXIK Audit';
+const ISSUER = 'Tasnivo';
 
 const normalize = (code: string): string => code.replace(/[\s-]/g, '').toLowerCase();
 

@@ -249,7 +249,7 @@ export const uz = {
       closeConfirm: 'Hisobni yopish',
       closeNoPassword: 'Parolni kiriting.',
       file: {
-        readme: 'MXIK Audit hisobi maʼlumotlari.\n\norganization.json, team.json, clients.json, dictionary.json, activity.json — hisob maʼlumotlari.\ncatalogs.json — barcha kataloglar roʻyxati; catalogs/*.xlsx — har bir katalog muammolari va qarorlari bilan.\nParol xeshlari, API kalitlari, ikki bosqichli himoya sirlari va zaxira kodlar hech qachon eksport qilinmaydi.\n',
+        readme: 'Tasnivo hisobi maʼlumotlari.\n\norganization.json, team.json, clients.json, dictionary.json, activity.json — hisob maʼlumotlari.\ncatalogs.json — barcha kataloglar roʻyxati; catalogs/*.xlsx — har bir katalog muammolari va qarorlari bilan.\nParol xeshlari, API kalitlari, ikki bosqichli himoya sirlari va zaxira kodlar hech qachon eksport qilinmaydi.\n',
         sheet: 'Katalog',
         columns: ['Qator', 'Nomi', 'Shtrix-kod', 'Birlik', 'Joriy MXIK', 'Muammo', 'Xavf', 'Taklif etilgan MXIK', 'Moslik', 'Qaror', 'Tanlangan MXIK', 'Izoh'] as readonly string[],
       },
@@ -346,7 +346,7 @@ export const uz = {
       consentAfter: ' shartlariga rozilik bildirasiz.',
     },
     pub: {
-      toSite: 'MXIK Audit saytiga oʻtish',
+      toSite: 'Tasnivo saytiga oʻtish',
     },
   },
 };
@@ -595,7 +595,7 @@ export const ru: typeof uz = {
       closeConfirm: 'Закрыть аккаунт',
       closeNoPassword: 'Введите пароль.',
       file: {
-        readme: 'Выгрузка данных аккаунта MXIK Audit.\n\norganization.json, team.json, clients.json, dictionary.json, activity.json — данные аккаунта.\ncatalogs.json — список всех каталогов; catalogs/*.xlsx — каждый каталог с проблемами и решениями.\nХеши паролей, ключи API, секреты двухэтапной защиты и резервные коды никогда не выгружаются.\n',
+        readme: 'Выгрузка данных аккаунта Tasnivo.\n\norganization.json, team.json, clients.json, dictionary.json, activity.json — данные аккаунта.\ncatalogs.json — список всех каталогов; catalogs/*.xlsx — каждый каталог с проблемами и решениями.\nХеши паролей, ключи API, секреты двухэтапной защиты и резервные коды никогда не выгружаются.\n',
         sheet: 'Каталог',
         columns: ['Строка', 'Название', 'Штрихкод', 'Единица', 'Текущий ИКПУ', 'Проблема', 'Риск', 'Предложенный ИКПУ', 'Совпадение', 'Решение', 'Выбранный ИКПУ', 'Пояснение'],
       },
@@ -692,7 +692,7 @@ export const ru: typeof uz = {
       consentAfter: '.',
     },
     pub: {
-      toSite: 'Перейти на сайт MXIK Audit',
+      toSite: 'Перейти на сайт Tasnivo',
     },
   },
 };

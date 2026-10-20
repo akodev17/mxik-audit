@@ -280,7 +280,7 @@ const coreUz = {
     meta: (created: string, lastUsed: string | null, checks: number) => `Yaratilgan ${created}; ${lastUsed ? `oxirgi chaqiruv ${lastUsed}` : 'hali ishlatilmagan'}; bu oy tekshiruvlar: ${checks}.`,
   },
   apiDocs: {
-    title: 'MXIK Audit API',
+    title: 'Tasnivo API',
     intro: 'Mahsulot nomini tekshirish, katalogni yuklash va hisobotni olish uchun ochiq API.',
     auth: 'Kirish',
     authText: 'Har bir soʻrovda kalit yuboriladi. Kalitni Sozlamalar sahifasida administrator yaratadi.',
@@ -423,7 +423,7 @@ const coreUz = {
     mail: {
       inviteSubject: (org: string) => `${org}: taklifnoma`,
       inviteBody: (org: string, url: string, days: number) => `Sizni ${org} jamoasiga taklif qilishdi.\nQabul qilish: ${url}\nHavola ${days} kun amal qiladi.`,
-      verifySubject: 'MXIK Audit: elektron pochtani tasdiqlang',
+      verifySubject: 'Tasnivo: elektron pochtani tasdiqlang',
       verifyBody: (url: string, hours: number) => `Hisobni faollashtirish uchun havolani oching:\n${url}\nHavola ${hours} soat amal qiladi.`,
     },
     signals: {

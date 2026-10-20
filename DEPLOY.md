@@ -1,4 +1,4 @@
-# Deploying MXIK Audit on a Linux VPS
+# Deploying Tasnivo on a Linux VPS
 
 Docker runs the app and Postgres (with pgvector); nginx on the host terminates
 HTTPS and proxies to the app. Nothing here depends on a particular provider.

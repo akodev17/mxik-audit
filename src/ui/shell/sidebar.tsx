@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useId } from 'react';
 import { cx } from '../cx';
+import { TasnivoMark } from '../logo';
 import { IconButton } from '../icon-button';
 import { IconPanel } from './icons';
 import { isActive } from './nav';
@@ -104,6 +105,6 @@ export function NavGroups({ groups, labelClass, headingClass, dividerClass, onNa
 /** Small brand mark beside the product name. */
 export function LogoMark() {
   return (
-    <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-md bg-brand text-small font-bold text-on-fill">M</span>
+    <TasnivoMark />
   );
 }

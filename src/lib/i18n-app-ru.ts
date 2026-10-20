@@ -282,7 +282,7 @@ const coreRu: CoreAppDict = {
     meta: (created: string, lastUsed: string | null, checks: number) => `Создан ${created}; ${lastUsed ? `последний вызов ${lastUsed}` : 'ещё не использовался'}; проверок в этом месяце: ${checks}.`,
   },
   apiDocs: {
-    title: 'API MXIK Audit',
+    title: 'API Tasnivo',
     intro: 'Открытый API для проверки названия товара, загрузки каталога и получения отчёта.',
     auth: 'Доступ',
     authText: 'Ключ передаётся в каждом запросе. Ключ создаёт администратор на странице «Настройки».',
@@ -425,7 +425,7 @@ const coreRu: CoreAppDict = {
     mail: {
       inviteSubject: (org) => `${org}: приглашение`,
       inviteBody: (org, url, days) => `Вас приглашают в команду ${org}.\nПринять приглашение: ${url}\nСсылка действует ${days} дн.`,
-      verifySubject: 'MXIK Audit: подтвердите электронную почту',
+      verifySubject: 'Tasnivo: подтвердите электронную почту',
       verifyBody: (url, hours) => `Чтобы активировать аккаунт, откройте ссылку:\n${url}\nСсылка действует ${hours} ч.`,
     },
     signals: {

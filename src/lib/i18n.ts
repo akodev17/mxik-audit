@@ -261,7 +261,7 @@ export type Dict = {
 };
 
 export const uz: Dict = {
-  appName: 'MXIK Audit',
+  appName: 'Tasnivo',
   tagline: 'Katalogingizdagi xavfli pozitsiyalarni aniqlang',
   signIn: 'Kirish',
   signOut: 'Chiqish',
@@ -315,7 +315,7 @@ export const uz: Dict = {
   tgNoChats: 'Hali hech qanday chat ulanmagan.',
   tgUnlink: 'Uzish',
   tgDemoOff: 'Demo rejimida Telegram ulanmaydi.',
-  tgHelp: 'Salom! Bu MXIK Audit boti. Ulash uchun veb-ilovada Sozlamalar → Telegram boʻlimidan kod oling va shu yerga “/start KOD” deb yuboring.',
+  tgHelp: 'Salom! Bu Tasnivo boti. Ulash uchun veb-ilovada Sozlamalar → Telegram boʻlimidan kod oling va shu yerga “/start KOD” deb yuboring.',
   tgHelpLinked: 'Katalog faylini (.xlsx yoki .csv) shu chatga yuboring — tahlil qilib, natijani yuboraman.',
   tgLinked: (org) => `Ulandi: ${org}. Endi katalog faylini (.xlsx yoki .csv) yuborishingiz mumkin.`,
   tgBadCode: 'Kod notoʻgʻri yoki muddati oʻtgan. Veb-ilovada yangi kod oling.',

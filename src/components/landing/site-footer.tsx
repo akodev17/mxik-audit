@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fmtNumber } from '@/lib/format';
 import { helpPath } from '@/lib/help';
+import { TasnivoLogo } from '@/ui/logo';
 import { pluralRu } from '@/lib/plural';
 import { TELEGRAM_URL } from './config';
 import { CONTAINER } from './container';
@@ -45,7 +46,7 @@ export function SiteFooter({ lang = 'uz' }: { lang?: SiteLang }) {
     <footer id="site-footer" className="border-t border-lp-line bg-lp-surface">
       <div className={`${CONTAINER} grid grid-cols-1 gap-8 py-12 md:grid-cols-[1fr_auto]`}>
         <div className="max-w-[68ch] space-y-3 text-[15px] text-lp-muted">
-          <p className="text-[17px] font-bold text-lp-ink">MXIK Audit</p>
+          <p className="text-[17px] text-lp-ink"><TasnivoLogo markClassName="size-6" accent="var(--color-lp-brand)" /></p>
           <Source lang={lang} />
           <p>{c.legalNote}</p>
         </div>

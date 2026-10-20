@@ -24,8 +24,8 @@ import { LegalPage, Todo } from '@/components/landing/legal-page';
      19.10.2026; demo copies after DEMO_TTL_HOURS (src/lib/demo-config.ts).
    Company details are TODOs. Never fill them with guesses. */
 export const metadata: Metadata = {
-  title: 'Maxfiylik siyosati — MXIK Audit',
-  description: 'MXIK Audit qanday maʼlumot yigʻadi, qayerda saqlaydi va kimga yuboradi.',
+  title: 'Maxfiylik siyosati — Tasnivo',
+  description: 'Tasnivo qanday maʼlumot yigʻadi, qayerda saqlaydi va kimga yuboradi.',
   // Not indexed while it still carries TODO blanks.
   robots: { index: false, follow: true },
 };

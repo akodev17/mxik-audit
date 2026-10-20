@@ -9,7 +9,7 @@ import { LandingShell } from '@/components/landing/shell';
 import { StickyCta } from '@/components/landing/sticky-cta';
 import { WhyCodes } from '@/components/landing/why-codes';
 
-const TITLE = 'MXIK Audit — katalogingizdagi xavfli MXIK kodlarini toping';
+const TITLE = 'Tasnivo — katalogingizdagi xavfli MXIK kodlarini toping';
 const DESCRIPTION =
   'Excel yoki CSV katalogni yuklang: har bir qator rasmiy MXIK tasniflagichi bilan '
   + 'solishtiriladi, xato kodlar ajratiladi va mos kod taklif qilinadi. Risk auditi bepul.';
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'uz_UZ',
-    siteName: 'MXIK Audit',
+    siteName: 'Tasnivo',
     title: TITLE,
     description: DESCRIPTION,
   },

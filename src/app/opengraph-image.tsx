@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
 //
 // The bundled font has Latin only and no U+02BB, so the copy avoids oʻ / gʻ
 // rather than render a wrong apostrophe on a page that makes a point of them.
-export const alt = 'MXIK Audit — katalogingizdagi xavfli MXIK kodlarini toping';
+export const alt = 'Tasnivo — katalogingizdagi xavfli MXIK kodlarini toping';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -42,11 +42,12 @@ export default function OpengraphImage() {
           flexDirection: 'column',
           background: '#fbfbfc',
           padding: '64px 72px',
-          borderTop: '14px solid #a32b22',
+          borderTop: '14px solid #2457f5',
         }}
       >
-        <div style={{ display: 'flex', fontSize: 28, color: '#4e5564', letterSpacing: 4 }}>
-          MXIK AUDIT
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 34, fontWeight: 700, color: '#14161c' }}>
+          <svg width="44" height="44" viewBox="0 0 28 28"><rect x="0" y="0" width="8" height="8" rx="2" fill="#14161c"/><rect x="10" y="0" width="8" height="8" rx="2" fill="#14161c"/><rect x="20" y="0" width="8" height="8" rx="2" fill="#14161c"/><rect x="10" y="10" width="8" height="8" rx="2" fill="#14161c"/><rect x="10" y="20" width="8" height="8" rx="2" fill="#14161c"/><rect x="20" y="10" width="8" height="8" rx="2" fill="#2457f5"/></svg>
+          Tasnivo
         </div>
         <div style={{ display: 'flex', marginTop: 22, fontSize: 64, lineHeight: 1.08, color: '#14161c', maxWidth: 980 }}>
           Katalogingizdagi xavfli MXIK kodlarini toping

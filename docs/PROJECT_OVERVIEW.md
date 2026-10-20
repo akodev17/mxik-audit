@@ -1,4 +1,4 @@
-# MXIK Audit: why it exists and what it does today
+# Tasnivo: why it exists and what it does today
 
 ## Why we need it
 
@@ -6,7 +6,7 @@ Every product on an Uzbek electronic invoice (EHF) must carry a 17-digit MXIK co
 
 The official portal `tasnif.soliq.uz` checks codes one at a time against about 440,000 codes. An accountant with 3,000 products has no practical way to check a whole catalogue. Accounting firms with many clients have the same problem multiplied.
 
-MXIK Audit turns the question "are any of my codes wrong?" into a reviewable list, and keeps a record of each decision.
+Tasnivo turns the question "are any of my codes wrong?" into a reviewable list, and keeps a record of each decision.
 
 ## What it does
 

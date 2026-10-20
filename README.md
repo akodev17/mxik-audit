@@ -1,4 +1,4 @@
-# MXIK Audit
+# Tasnivo
 
 Audits a company's product catalogue against Uzbekistan's national goods and
 services classifier (MXIK / IKPU / SPIC). Upload a catalogue, get a risk report,
