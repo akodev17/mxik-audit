@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { stripNoise } from './noise.js';
+import { attrsKey, stripNoise } from './noise.js';
 
 describe('stripNoise', () => {
   it('handles the brief\'s canonical example', () => {
@@ -99,5 +99,50 @@ describe('stripNoise', () => {
     const r = stripNoise('oliy navli, vakuumli qadoqda 500 gr');
     assert.equal(r.attrs.weightG, 500);
     assert.equal(r.core, 'oliy navli, vakuumli qadoqda');
+  });
+});
+
+describe('stripNoise on metal price lists', () => {
+  it('reads a Cyrillic х between numbers as a dimension sign', () => {
+    const r = stripNoise('Труба ВГП 15х2,5');
+    assert.equal(r.attrs.dimensions, '15х2,5');
+    assert.deepEqual(r.attrs.vendorCodes, []);
+    assert.equal(r.core, 'Труба ВГП');
+  });
+
+  it('keeps slash-separated alternative wall thicknesses inside the dimension', () => {
+    const r = stripNoise('Трубы эл/св 76х2,8/3,0/3,5');
+    assert.equal(r.attrs.dimensions, '76х2,8/3,0/3,5');
+    assert.equal(r.core, 'Трубы эл/св');
+  });
+
+  it('takes three-part sheet sizes whole', () => {
+    const r = stripNoise('Лист г/к 5,00х1500х6000');
+    assert.equal(r.attrs.dimensions, '5,00х1500х6000');
+    assert.equal(r.core, 'Лист г/к');
+  });
+
+  it('does not strip the х of an abbreviation as a stranded multiplier', () => {
+    assert.equal(stripNoise('Лист х/к 0,8х1250х2500').core, 'Лист х/к');
+    assert.equal(stripNoise('List x/k').core, 'List x/k');
+  });
+});
+
+describe('attrsKey', () => {
+  const key = (name: string): string => attrsKey(stripNoise(name).attrs);
+
+  it('is the same for the same pack written two ways', () => {
+    assert.equal(key('Coca-Cola 1.5L'), key('Coca Cola 1,5 l'));
+    assert.equal(key('Лист г/к 5,00х1500х6000'), key('Лист г/к 5x1500x6000'));
+  });
+
+  it('differs when a size differs', () => {
+    assert.notEqual(key('Труба ВГП 15х2,5'), key('Труба ВГП 20х2,5'));
+    assert.notEqual(key('Coca-Cola 1.5L'), key('Coca-Cola 0.5L'));
+    assert.notEqual(key('Shakar 1 kg'), key('Shakar 1 kg x 6'));
+  });
+
+  it('is empty when nothing was extracted', () => {
+    assert.equal(key('Kartoshka'), '');
   });
 });

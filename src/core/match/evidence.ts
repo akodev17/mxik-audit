@@ -1,8 +1,9 @@
 // Why a code was suggested, as facts a reviewer can check. Pure: computed in
 // the pipeline, stored on the finding, and re-derivable from stored rows for
 // catalogues audited before evidence existed.
-import { matchKeyOf, tokenize } from '../normalize/index.js';
+import { matchKeyOf, normalizeName, tokenize } from '../normalize/index.js';
 import { resolveUnit } from '../normalize/units.js';
+import { MIN_QUERY_WORD } from './query.js';
 import { RULE_KEYS, type RuleKey } from './rules.js';
 import type { MatchStage } from './types.js';
 
@@ -49,15 +50,19 @@ export function unitEvidence(rowUnit: string | null, candidate: EvidenceCandidat
   return bound.some((u) => u.id === row.id) ? 'match' : 'conflict';
 }
 
-/** Distinct row words (two letters or more, not bare numbers) present in the code's names. */
+/**
+ * Distinct row words (three letters or more, not bare numbers) present in the
+ * code's names. A fragment like "sh" from "б/ш" is no justification on its own;
+ * the expansion it stands for ("besshovniye") is, so expanded words count too.
+ */
 export function matchedWords(productName: string, candidate: EvidenceCandidate): string[] {
   const codeWords = new Set([
     ...tokenize(matchKeyOf(candidate.nameUz)),
     ...tokenize(matchKeyOf(candidate.nameRu)),
   ]);
   const seen = new Set<string>();
-  for (const word of tokenize(matchKeyOf(productName))) {
-    if (word.length < 2 || /^\d+$/.test(word) || seen.has(word)) continue;
+  for (const word of [...tokenize(matchKeyOf(productName)), ...normalizeName(productName).tokens]) {
+    if (word.length < MIN_QUERY_WORD || /^\d+$/.test(word) || seen.has(word)) continue;
     if (codeWords.has(word)) seen.add(word);
   }
   return [...seen].slice(0, 8);

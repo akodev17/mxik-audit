@@ -5,7 +5,7 @@
 // is no code (MISSING), digits of the wrong length a code the classifier will
 // not have (NOT_FOUND). Pure; computed on the server and stored on
 // Catalog.importMeta with the final mapping.
-import { normalizeName } from '../core/normalize/index.js';
+import { attrsKey, normalizeName } from '../core/normalize/index.js';
 import { identifyingBarcode } from '../core/normalize/barcode.js';
 import { readAmount } from './amount.js';
 import type { ColumnField, ColumnMap } from './column-map.js';
@@ -23,7 +23,7 @@ export type ImportDiagnostics = {
   importable: number;
   /** Rows without a name in the name column; they are not imported. */
   noName: Counted;
-  /** Rows repeating an earlier row's name, unit and barcode. */
+  /** Rows repeating an earlier row's name, sizes, unit and barcode. */
   duplicates: Counted & { groups: number };
   /** Non-empty code cells without a single digit ("-", "yoʻq", "нет"): audited as having no code (MISSING). */
   noCode: Counted;
@@ -70,7 +70,10 @@ export function importDiagnostics(rows: readonly (readonly string[])[], mapping:
     const unit = cell(row, mapping.unit).toLowerCase();
     const rawBarcode = cell(row, mapping.barcode);
     const barcode = identifyingBarcode(rawBarcode) ?? rawBarcode.replace(/\D/g, '');
-    const key = `${normalizeName(name).matchKey}|${unit}|${barcode}`;
+    // The match key drops sizes, so they come back from the attributes: "Труба ВГП 15х2,5"
+    // and "Труба ВГП 20х2,5" are two products, "Coca-Cola 1.5L" and "Coca Cola 1,5 l" one.
+    const normalized = normalizeName(name);
+    const key = `${normalized.matchKey}|${attrsKey(normalized.attrs)}|${unit}|${barcode}`;
     const times = seen.get(key) ?? 0;
     if (times > 0) {
       note(duplicates, n);

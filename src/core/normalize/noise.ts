@@ -37,8 +37,10 @@ const RE_COUNT = measure(COUNT_UNITS);
 // "x 6", "6 x", "*6" — a multiplier with no unit attached.
 const RE_MULTIPLIER = new RegExp(`${LEFT}[x×*]\\s*${NUM}${RIGHT}|${LEFT}${NUM}\\s*[x×*](?=\\s|$)`, 'giu');
 const RE_PERCENT = new RegExp(`${LEFT}${NUM}\\s*%`, 'gu');
-// 200x300, 10*20*30
-const RE_DIMENSIONS = new RegExp(`${LEFT}(\\d+(?:[.,]\\d+)?(?:\\s*[x×*]\\s*\\d+(?:[.,]\\d+)?){1,2})${RIGHT}`, 'giu');
+// 200x300, 10*20*30. Metal price lists write the sign as a Cyrillic х and list
+// alternative wall thicknesses after a slash: "Трубы эл/св 76х2,8/3,0/3,5".
+const SIZE = String.raw`\d+(?:[.,]\d+)?(?:/\d+(?:[.,]\d+)?)*`;
+const RE_DIMENSIONS = new RegExp(`${LEFT}(${SIZE}(?:\\s*[xх×*]\\s*${SIZE}){1,2})${RIGHT}`, 'giu');
 // Vendor/model codes: letters glued to digits, e.g. KT2049G, SI1003, ЦЕМ II.
 const RE_VENDOR = /(?<![\p{L}\d])(?=[\p{L}]*\d)(?=\d*[\p{L}])[\p{L}\d]*[\p{L}][\p{L}\d]*\d[\p{L}\d]*(?![\p{L}\d])/gu;
 
@@ -114,8 +116,30 @@ export function stripNoise(input: string): NoiseStripResult {
   });
   take(RE_VENDOR, (_g, whole) => { attrs.vendorCodes.push(whole); });
 
-  // "1.5L x 6 sht" loses both quantities above and strands the bare "x".
-  work = work.replace(/(?<![\p{L}\d])[x×*](?![\p{L}\d])/giu, ' ');
+  // "1.5L x 6 sht" loses both quantities above and strands the bare "x". An "х"
+  // beside a slash is a letter of an abbreviation ("х/к", cold-rolled), not a sign.
+  work = work.replace(/(?<![\p{L}\d/])[xх×*](?![\p{L}\d/])/giu, ' ');
 
   return { core: squeezeWhitespace(work), attrs, removed };
+}
+
+/**
+ * One string per distinct set of attributes, so rows with the same core name
+ * are the same product only when their sizes agree too: "Coca-Cola 1.5L" and
+ * "Coca Cola 1,5 l" share it, "Труба ВГП 15х2,5" and "Труба ВГП 20х2,5" do not.
+ */
+export function attrsKey(attrs: ExtractedAttrs): string {
+  const parts: string[] = [];
+  if (attrs.dimensions !== null) {
+    // "5,00х1500" and "5x1500" are one size.
+    const dims = attrs.dimensions.toLowerCase().replace(/[х×*]/g, 'x').replace(/\d+(?:[.,]\d+)?/g, (n) => String(num(n)));
+    parts.push(`d${dims}`);
+  }
+  if (attrs.volumeMl !== null) parts.push(`v${attrs.volumeMl}`);
+  if (attrs.weightG !== null) parts.push(`w${attrs.weightG}`);
+  if (attrs.lengthMm !== null) parts.push(`l${attrs.lengthMm}`);
+  if (attrs.packCount !== null) parts.push(`n${attrs.packCount}`);
+  if (attrs.percent !== null) parts.push(`p${attrs.percent}`);
+  if (attrs.vendorCodes.length > 0) parts.push(`c${attrs.vendorCodes.map((c) => c.toLowerCase()).sort().join(',')}`);
+  return parts.join(';');
 }

@@ -1,11 +1,12 @@
-// Matching evaluation. Reads eval/golden.csv (real) and eval/synthetic.csv
+// Matching evaluation. Reads eval/golden.csv and eval/real-*.csv (real: hand-written
+// cases and customer files) and eval/synthetic.csv
 // (derived from classifier names), runs the full pipeline plus one ablation per
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
 // Run: npm run eval [-- --label "after key" --no-ablate --fulltext-common-docs N]
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
 import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
 import { matchProduct, type DisableableStage } from '../src/core/match/pipeline.js';
@@ -16,11 +17,13 @@ import { PostgresCandidateStore, storeRetryCount } from '../src/core/match/store
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
 import { BANDS } from '../src/core/match/score.js';
 import type { RerankProvider, RerankVerdict } from '../src/core/match/types.js';
-import { parseCases, type EvalCase } from './cases.js';
+import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
 import { MemoStore } from './memo-store.js';
-import { bySource, type GroupMetrics, type Outcome } from './metrics.js';
+import { bySet, bySource, setOf, type GroupMetrics, type Outcome } from './metrics.js';
 
-const FILES = ['eval/golden.csv', 'eval/synthetic.csv'];
+// Customer-file sets are picked up by name, so adding one is adding a file.
+const REAL_SETS = readdirSync('eval').filter((f) => /^real-.+\.csv$/.test(f)).sort().map((f) => `eval/${f}`);
+const FILES = ['eval/golden.csv', ...REAL_SETS, 'eval/synthetic.csv'];
 const RESULTS = 'docs/eval-results.json';
 const CONCURRENCY = 6;
 
@@ -57,8 +60,13 @@ const baseStore = new PostgresCandidateStore(pool, {
 });
 const store = new MemoStore(baseStore);
 
-// Never score against a label that is not a live classifier code.
-const live = await baseStore.liveCodes([...new Set(loaded.flatMap((c) => c.correct))]);
+// Never score against a label that is not a live classifier code, or a prefix no live code has.
+const labels = [...new Set(loaded.flatMap((c) => c.correct))];
+const live = await baseStore.liveCodes(labels.filter((l) => !isPrefix(l)));
+for (const prefix of labels.filter(isPrefix)) {
+  const hit = await pool.query('SELECT 1 FROM mxik_code WHERE code LIKE $1 AND "retiredAt" IS NULL LIMIT 1', [`${prefix.slice(0, -1)}%`]);
+  if (hit.rowCount) live.add(prefix);
+}
 const excluded: string[] = [];
 const cases = loaded.flatMap((c) => {
   const correct = c.correct.filter((code) => live.has(code));
@@ -106,8 +114,8 @@ if (readiness.reason) console.log(`  vector stage    ${readiness.usable ? 'SUBST
 console.log(`reranker        ${realReranker.name}${realReranker.available ? '' : '   <-- DISABLED (gate measured in dry run)'}`);
 console.log(`rerank gate     top-1 < ${gate.minConfidence} or margin < ${gate.minMargin}`);
 console.log('');
-console.log('  NOTE: "real" here means hand-written cases, not customer files, until real');
-console.log('  catalogue rows are added to eval/golden.csv.');
+console.log('  NOTE: "real" mixes hand-written cases (golden) with customer-file sets');
+console.log('  (real-*.csv); each real set is also reported on its own below.');
 console.log('  WARNING: synthetic cases are derived from classifier names. They measure');
 console.log('  robustness to noise and OVERESTIMATE accuracy on real catalogues.');
 if (!embedder.semantic || !realReranker.available || !readiness.usable) {
@@ -137,8 +145,7 @@ async function runConfig(config: Config): Promise<Outcome[]> {
         { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit },
         { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled) },
       );
-      const accept = new Set(testCase.correct);
-      const rankIndex = result.candidates.findIndex((c) => accept.has(c.candidate.code));
+      const rankIndex = result.candidates.findIndex((c) => accepts(testCase.correct, c.candidate.code));
       const top = result.candidates[0];
       outcomes[index] = {
         id: testCase.id,
@@ -149,7 +156,7 @@ async function runConfig(config: Config): Promise<Outcome[]> {
         confidence: top?.confidence ?? 0,
         band: top?.band ?? 'none',
         rank: rankIndex === -1 ? null : rankIndex + 1,
-        inPool: result.pool.some((c) => accept.has(c)),
+        inPool: result.pool.some((c) => accepts(testCase.correct, c)),
         decidedBy: result.decidedBy,
         sentToLlm: sent,
         ms: Date.now() - t0,
@@ -171,11 +178,13 @@ const configs: Config[] = [
 ];
 
 const results: Record<string, ReturnType<typeof bySource>> = {};
+const resultsBySet: Record<string, Record<string, GroupMetrics>> = {};
 let fullOutcomes: Outcome[] = [];
 for (const config of configs) {
   const t0 = Date.now();
   const outcomes = await runConfig(config);
   results[config.key] = bySource(outcomes);
+  resultsBySet[config.key] = bySet(outcomes);
   if (config.key === 'full') fullOutcomes = outcomes;
   console.log(`ran ${config.label.padEnd(36)} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }
@@ -193,7 +202,18 @@ function table(title: string, pick: (m: ReturnType<typeof bySource>) => GroupMet
     console.log(`  ${config.label.padEnd(34)} ${String(m.n).padStart(4)}  ${f(m.top1Pct)}  ${f(m.top5Pct)}  ${f(m.highCoveragePct).padStart(9)}  ${f(m.highPrecisionPct).padStart(10)}  ${f(m.ceilingPct)} ${f(m.llmSharePct)}`);
   }
 }
-table('REAL (hand-written) cases', (m) => m.real);
+table('REAL cases (hand-written and customer files together)', (m) => m.real);
+const realSets = [...new Set(cases.filter((c) => c.source === 'real').map((c) => setOf(c.id)))];
+for (const set of realSets) {
+  console.log('');
+  console.log(`real set ${set}`);
+  console.log('  config                               n   top1%  top5%  high-cov%  high-prec%  pool%  llm%');
+  for (const config of configs) {
+    const m = resultsBySet[config.key]?.[set];
+    if (!m) continue;
+    console.log(`  ${config.label.padEnd(34)} ${String(m.n).padStart(4)}  ${f(m.top1Pct)}  ${f(m.top5Pct)}  ${f(m.highCoveragePct).padStart(9)}  ${f(m.highPrecisionPct).padStart(10)}  ${f(m.ceilingPct)} ${f(m.llmSharePct)}`);
+  }
+}
 table('SYNTHETIC cases (derived from classifier names — optimistic)', (m) => m.synthetic);
 console.log('');
 console.log(`  high band = confidence >= ${BANDS.high}, the only band bulk accept may touch.`);
@@ -250,6 +270,7 @@ history.runs.push({
   },
   cases: { real: real.length, synthetic: synthetic.length, excluded },
   metrics: results,
+  metricsBySet: resultsBySet,
   llm: usage ? { ...usage, costPer1000Rows: costPer1000Rows(usage, cases.length) } : null,
   readRetries: storeRetryCount(),
   outcomes: fullOutcomes.map((o) => ({

@@ -12,6 +12,7 @@ import { reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankStep } from './rerank-step.js';
 import { evidenceFor } from './evidence.js';
+import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
 import { adjustedScore, bandOf, calibratePool, fullTextToUnit } from './score.js';
@@ -174,7 +175,8 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
 
   // ---------------------------------------------------------- 2. folded exact
   if (normalized.matchKey && !off('exact')) {
-    const exact = await timed(opts.timer, 'exact', () => store.byMatchKey([normalized.matchKey, normalized.sortedKey]));
+    const keys = [normalized.matchKey, normalized.sortedKey, ...normalized.literalKeys];
+    const exact = await timed(opts.timer, 'exact', () => store.byMatchKey(keys));
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code], ...settled,
@@ -186,6 +188,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
 
   // -------------------------------------------------- 3+4. lexical and vector
   const query = normalized.queryKey || normalized.matchKey || normalized.core;
+  const lexicalText = lexicalQuery(query);
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
   // A disabled stage computes no query embedding at all.
@@ -200,8 +203,8 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     });
 
   const [lexical, fullText, vector] = await Promise.all([
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(query, limits.retrievalLimit)),
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(query, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(lexicalText, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(lexicalText, limits.retrievalLimit)),
     vectorStage,
   ]);
 

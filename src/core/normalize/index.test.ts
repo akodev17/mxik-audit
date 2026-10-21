@@ -78,6 +78,28 @@ describe('normalizeName', () => {
     assert.deepEqual(n.tokens, []);
   });
 
+  it('expands trade abbreviations after the sizes are stripped', () => {
+    const n = normalizeName('Труба ГД б/ш 32х3,0');
+    assert.equal(n.core, 'Труба горячедеформированные бесшовные');
+    assert.equal(n.attrs.dimensions, '32х3,0');
+    assert.deepEqual(n.expanded, ['ГД', 'б/ш']);
+    assert.equal(n.queryKey, matchKeyOf('Труба горячедеформированные бесшовные'));
+    // The classifier's stored keys predate expansion, so the written form is kept for exact lookup.
+    assert.deepEqual(n.literalKeys, ['truba gd b sh', 'b gd sh truba']);
+  });
+
+  it('has no literal keys when nothing was expanded', () => {
+    const n = normalizeName('Шоколад молочный 100 г');
+    assert.deepEqual(n.expanded, []);
+    assert.deepEqual(n.literalKeys, []);
+  });
+
+  it('drops a unit of sale written as an abbreviation', () => {
+    const n = normalizeName('Плинтус м/п');
+    assert.equal(n.core, 'Плинтус');
+    assert.ok(n.removed.includes('м/п'));
+  });
+
   it('keeps the raw input verbatim', () => {
     const raw = "  GO'ShT  ";
     assert.equal(normalizeName(raw).raw, raw);

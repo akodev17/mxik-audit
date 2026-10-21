@@ -1,10 +1,12 @@
 // Composes the normalization steps into the one shape the matcher consumes.
 // Pure and deterministic: no I/O, so it is fully unit-testable.
+import { expandAbbreviations } from './abbreviations.js';
 import { normalizeApostrophes, stripApostrophes } from './apostrophe.js';
 import { stripNoise, type ExtractedAttrs } from './noise.js';
 import { detectScript, latinToCyrillic, scriptAlternates, toLatin, type ScriptKind } from './script.js';
 import { collapseRepeats, foldCase, foldDiacritics, repairHomoglyphs, squeezeWhitespace, stripPunctuation, tokenize } from './text.js';
 
+export * from './abbreviations.js';
 export * from './apostrophe.js';
 export * from './barcode.js';
 export * from './noise.js';
@@ -17,7 +19,7 @@ export type NormalizedName = {
   raw: string;
   /** Human-facing form: correct modifier letters, tidy whitespace. */
   display: string;
-  /** Product name with packaging noise removed. */
+  /** Product name with packaging noise removed and trade abbreviations expanded. */
   core: string;
   /** `core` rendered in Latin, whatever the input script. */
   latin: string;
@@ -37,6 +39,14 @@ export type NormalizedName = {
   attrs: ExtractedAttrs;
   /** Noise substrings that were removed, for explaining a match. */
   removed: string[];
+  /** Abbreviations expanded in `core`, as written ("б/ш", "г/к"). */
+  expanded: string[];
+  /**
+   * `matchKey` and `sortedKey` as they were before abbreviations were expanded.
+   * The classifier's stored keys predate the expansion, so an exact lookup asks
+   * for both. Empty when nothing was expanded.
+   */
+  literalKeys: string[];
   script: ScriptKind;
 };
 
@@ -54,7 +64,11 @@ export function matchKeyOf(input: string): string {
 export function normalizeName(input: string): NormalizedName {
   const raw = input;
   const display = squeezeWhitespace(normalizeApostrophes(input));
-  const { core, attrs, removed } = stripNoise(display);
+  const stripped = stripNoise(display);
+  const { attrs } = stripped;
+  const abbreviations = expandAbbreviations(stripped.core);
+  const core = abbreviations.text;
+  const removed = [...stripped.removed, ...abbreviations.removed];
   const script = detectScript(core);
   const latin = toLatin(repairHomoglyphs(core));
   const cyrillic = script === 'cyrillic' ? core : latinToCyrillic(latin);
@@ -64,7 +78,16 @@ export function normalizeName(input: string): NormalizedName {
   const wordTokens = tokens.filter((t) => !/^\d+$/.test(t));
   // Fall back to the full key rather than searching for nothing.
   const queryKey = wordTokens.length > 0 ? wordTokens.join(' ') : matchKey;
-  return { raw, display, core, latin, cyrillic, matchKey, sortedKey, queryKey, tokens, attrs, removed, script };
+  const literalKeys = core === stripped.core ? [] : literalKeysOf(stripped.core);
+  return {
+    raw, display, core, latin, cyrillic, matchKey, sortedKey, queryKey, tokens, attrs, removed,
+    expanded: abbreviations.expanded, literalKeys, script,
+  };
+}
+
+function literalKeysOf(core: string): string[] {
+  const matchKey = matchKeyOf(core);
+  return [matchKey, tokenize(matchKey).sort().join(' ')].filter(Boolean);
 }
 
 /**
@@ -75,7 +98,7 @@ export function normalizeName(input: string): NormalizedName {
 export function indexKeys(input: string): string[] {
   const n = normalizeName(input);
   const keys = new Set<string>();
-  for (const base of [n.matchKey, n.sortedKey, matchKeyOf(n.cyrillic)]) {
+  for (const base of [n.matchKey, n.sortedKey, matchKeyOf(n.cyrillic), ...n.literalKeys]) {
     for (const alt of scriptAlternates(base)) keys.add(alt);
   }
   keys.delete('');

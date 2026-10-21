@@ -72,3 +72,13 @@ export function bySource(outcomes: readonly Outcome[]): Record<'real' | 'synthet
     all: summarize(outcomes),
   };
 }
+
+/** The case set an outcome came from: the file label in its id ("real-metal.csv:12"). */
+export const setOf = (id: string): string => id.slice(0, id.lastIndexOf(':')).replace(/\.csv$/, '');
+
+/** Metrics per case set, so one customer file can be tracked on its own. */
+export function bySet(outcomes: readonly Outcome[]): Record<string, GroupMetrics> {
+  const sets = new Map<string, Outcome[]>();
+  for (const o of outcomes) sets.set(setOf(o.id), [...(sets.get(setOf(o.id)) ?? []), o]);
+  return Object.fromEntries([...sets].map(([set, list]) => [set, summarize(list)]));
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { evidenceFor, readEvidence, vetoEvidence } from './evidence.js';
+import { evidenceFor, matchedWords, readEvidence, vetoEvidence } from './evidence.js';
 
 const CANDIDATE = { nameUz: 'Guruch', nameRu: 'Рис', unitBinding: 'none' as const, unitCanonical: [] };
 
@@ -10,6 +10,19 @@ describe('evidenceFor', () => {
     assert.deepEqual(withRules.rules, ['baseCodePreferred']);
     const without = evidenceFor({ stage: 'fusion', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, rules: [] });
     assert.equal('rules' in without, false);
+  });
+});
+
+describe('matchedWords', () => {
+  const CEMENT = { nameUz: 'Portlandsement SEM II/B-Sh 32.5 N', nameRu: 'Портландцемент SEM II/B-Sh 32.5 N', unitBinding: 'none' as const, unitCanonical: [] };
+
+  it('never offers a fragment shorter than three letters as a matched word', () => {
+    // "б/ш" folds to "b sh"; the cement brand "B-Sh" shares both, and that alone was the evidence.
+    assert.deepEqual(matchedWords('Труба ГД б/ш 32х3,0', CEMENT), []);
+  });
+
+  it('still lists the real words a product shares with the code', () => {
+    assert.deepEqual(matchedWords('Portlandsement M400', CEMENT), ['portlandsement']);
   });
 });
 

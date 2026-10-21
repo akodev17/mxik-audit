@@ -6,6 +6,7 @@ import { db } from './db.js';
 import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
 import { matchProduct, timed, type DisableableStage, type StageTimer } from '../core/match/pipeline.js';
+import { lexicalQuery } from '../core/match/query.js';
 import { rerankFromEnv } from '../core/match/rerank.js';
 import type { DictionaryLookup } from '../core/match/dictionary.js';
 import { loadDictionary } from './dictionary.js';
@@ -301,7 +302,7 @@ export async function searchClassifier(query: string, limit = 10) {
     vectorEnabled: readiness.usable,
   });
   const normalized = normalizeName(query);
-  const key = normalized.queryKey || normalized.matchKey;
+  const key = lexicalQuery(normalized.queryKey || normalized.matchKey);
   if (!key) return [];
   const [lexical, fullText] = await Promise.all([
     store.byLexical(key, limit),

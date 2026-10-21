@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { parseCases } from './cases.js';
+import { accepts, parseCases } from './cases.js';
 import { parseCsv, toCsv } from './csv.js';
 
 describe('csv', () => {
@@ -46,5 +46,26 @@ describe('parseCases', () => {
   it('reports a missing required column', () => {
     const { errors } = parseCases('name,unit\nA,kg\n', 'x.csv');
     assert.match(errors[0] ?? '', /missing column/);
+  });
+});
+
+describe('code prefixes', () => {
+  it('loads a position prefix beside full codes', () => {
+    const { cases, errors } = parseCases(`${HEADER}"Труба ВГП 15х2,5",тонна,,07306001*|07304001001000000,real,metal\n`, 'real-metal.csv');
+    assert.deepEqual(errors, []);
+    assert.deepEqual(cases[0]?.correct, ['07306001*', '07304001001000000']);
+  });
+
+  it('rejects a prefix shorter than a position', () => {
+    const { errors } = parseCases(`${HEADER}X,,,0730*,real,x\n`, 'real-metal.csv');
+    assert.match(errors[0] ?? '', /code prefix/);
+  });
+
+  it('accepts any code under a prefix and only the exact code otherwise', () => {
+    const correct = ['07306001*', '07304001001000000'];
+    assert.equal(accepts(correct, '07306001005011854'), true);
+    assert.equal(accepts(correct, '07304001001000000'), true);
+    assert.equal(accepts(correct, '07304001001000001'), false);
+    assert.equal(accepts(correct, '02523002001095005'), false);
   });
 });
