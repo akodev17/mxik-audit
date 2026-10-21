@@ -1,13 +1,16 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { canWrite } from '@/lib/access';
 import { codeDetails } from '@/lib/code-details';
 import { db } from '@/lib/db';
 import { mayUseDictionary } from '@/lib/dictionary';
+import { approverEmails, dictionaryCounts, dictionaryWhere, parseDictFilter, retiredEntryCodes, DICT_FILTERS, type DictFilter } from '@/lib/dictionary-review';
 import { fmtDate, fmtNumber } from '@/lib/format';
 import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
+import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { DictionarySearch } from './dictionary-search';
@@ -20,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const PAGE = 100;
 
-export default async function DictionaryPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
+export default async function DictionaryPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; f?: string }> }) {
   const { ta, locale } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
@@ -36,29 +39,47 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const q = (sp.q ?? '').trim().slice(0, 80);
   const page = Math.max(0, Math.floor(Number(sp.page) || 0));
+  const filter = parseDictFilter(sp.f);
 
-  const where = {
-    orgId: user.orgId,
-    ...(q ? { OR: [{ label: { contains: q, mode: 'insensitive' as const } }, { key: { startsWith: q } }, { code: { startsWith: q } }] } : {}),
-  };
-  const [total, entries] = await Promise.all([
+  const retired = await retiredEntryCodes(user.orgId);
+  const where = dictionaryWhere(user.orgId, filter, retired, q);
+  const [counts, total, entries] = await Promise.all([
+    dictionaryCounts(user.orgId, q),
     db.firmMapping.count({ where }),
     db.firmMapping.findMany({ where, orderBy: [{ uses: 'desc' }, { updatedAt: 'desc' }], skip: page * PAGE, take: PAGE }),
   ]);
-  const details = await codeDetails(entries.map((e) => e.code), locale);
+  const [details, approvers] = await Promise.all([
+    codeDetails(entries.map((e) => e.code), locale),
+    approverEmails(user.orgId, entries.map((e) => e.updatedBy ?? e.createdBy)),
+  ]);
   const rows: DictRow[] = entries.map((e) => ({
     id: e.id, kind: e.kind, label: e.label, unit: e.unit, code: e.code, codeName: details.get(e.code)?.name ?? null,
     uses: e.uses, confirmations: e.confirmations, source: e.source,
+    approver: approvers.get(e.updatedBy ?? e.createdBy ?? '') ?? null,
     stale: e.staleAt !== null || details.get(e.code)?.live === false, updated: fmtDate(locale, e.updatedAt),
   }));
-  const href = (p: number): string => `/dictionary?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
+  const params = (over: { p?: number; f?: DictFilter }): string => {
+    const f = over.f ?? filter;
+    return `/dictionary?${new URLSearchParams({ ...(q ? { q } : {}), ...(f !== 'all' ? { f } : {}), page: String(over.p ?? 0) })}`;
+  };
+  const href = (p: number): string => params({ p });
   const editable = canWrite(user);
 
   return (
     <Page title={ta.dict.title} hint={ta.dict.hint} wide>
       <DictionarySearch initial={q} />
+      {counts.all > 0 ? (
+        <nav aria-label={x.filterLabel} className="mb-3 flex flex-wrap items-center gap-1 text-small">
+          {DICT_FILTERS.filter((f) => f === 'all' || f === filter || counts[f] > 0).map((f) => (
+            <Link key={f} href={params({ f })} aria-current={f === filter ? 'true' : undefined} className={cx('rounded-ctl px-2.5 py-1 font-medium', f === filter ? 'bg-surface text-fg' : 'text-muted hover:bg-surface hover:text-fg')}>
+              {x.filters[f]} <span className="tabular-nums text-subtle">{fmtNumber(locale, counts[f])}</span>
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+      {filter === 'unverified' || filter === 'stale' ? <p className="mb-2 text-small text-muted">{x.filterHints[filter]}</p> : null}
       {rows.length === 0 ? (
-        q ? <EmptyState title={x.emptySearch} hint={x.emptySearchHint} /> : <EmptyState title={x.emptyTitle} hint={x.emptyHint} />
+        q || filter !== 'all' ? <EmptyState title={x.emptySearch} hint={x.emptySearchHint} /> : <EmptyState title={x.emptyTitle} hint={x.emptyHint} />
       ) : (
         <>
           {editable ? null : <p className="mb-2 text-small text-muted">{x.viewerHint}</p>}

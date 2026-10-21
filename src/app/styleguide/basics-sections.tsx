@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { Button, ButtonLink, type ButtonSize, type ButtonVariant } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { CodeChip } from '@/ui/code-chip';
@@ -10,6 +11,7 @@ import { IconButton } from '@/ui/icon-button';
 import { IconCopy, IconDownload, IconPrint, IconSearch, IconX } from '@/ui/icons';
 import { Field, Input } from '@/ui/input';
 import { Page, Section } from '@/ui/page';
+import { PrintButton } from '@/ui/print-button';
 import { Segmented } from '@/ui/segmented';
 import { Select } from '@/ui/select';
 import { RankedBars } from '@/ui/ranked-bars';
@@ -187,6 +189,21 @@ export function LayoutSection() {
           { id: 'a', label: 'Mijozlar', content: <p className="text-small text-muted">Birinchi panel</p> },
           { id: 'b', label: 'Harakatlar', content: <p className="text-small text-muted">Ikkinchi panel</p> },
         ]} />
+      </Sub>
+
+      <Sub title="Print button" note="PrintButton: opens the browser print dialog for the current page; the shell's header and sidebar are left out of the printout (audit report)">
+        <PrintButton>Chop etish</PrintButton>
+      </Sub>
+
+      <Sub title="Review task states" note="Catalogue review task: the assignee and one state chip (in progress, overdue, done) with the due date; the same chips sit in the dashboard list of handed-out reviews">
+        <div className="space-y-3 text-small">
+          {([['info', 'Jarayonda', '25.10.2026'], ['danger', 'Muddati oʻtgan', '19.10.2026'], ['good', 'Bajarilgan', '21.10.2026']] as const).map(([tone, label, date]) => (
+            <p key={tone} className="flex flex-wrap items-center gap-1.5"><span className="text-muted">Tekshiruv:</span><span>buxgalter@example.test</span><Badge tone={tone}>{label}</Badge><span className="text-muted">{date}</span></p>
+          ))}
+        </div>
+        <ul className="mt-4 max-w-sm divide-y divide-line rounded-ctl border border-line bg-raised">
+          <li className="px-4 py-2.5"><span className="block font-medium">Namunaviy MChJ</span><span className="block truncate text-small text-muted">buxgalter@example.test</span><span className="mt-0.5 flex flex-wrap items-center gap-2 text-small text-muted">Muddat: 19.10.2026<StatusChip tone="danger" icon={<StatusIcon tone="danger" size={12} />}>Muddati oʻtgan</StatusChip></span></li>
+        </ul>
       </Sub>
 
       <Sub title="Open list" note="RowList: hairlines between rows, no box. For secondary content such as recent activity">
