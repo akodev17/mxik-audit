@@ -26,25 +26,31 @@ const VALUE: Record<StatRowTone, string> = { neutral: 'text-fg', good: 'text-goo
 
 /**
  * A compact summary: three or four measures side by side, divided by hairlines, with no box of their
- * own. Use it where a row of separate stat cards would compete with the work below it.
+ * own. Every cell is centred and built from the same slots (label, value, bar, hint), so the numbers
+ * and the hints line up across the row even when only one cell has a bar.
  */
 export function StatRow({ items, label, size = 'md', bare = false }: { items: StatRowItem[]; label: string; size?: 'md' | 'lg'; bare?: boolean }) {
+  const anyBar = items.some((i) => i.bar);
   return (
     <ul aria-label={label} className={cx('grid grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-line', !bare && 'border-y border-line')}>
       {items.map((item, i) => {
         const body = (
           <>
-            <span className="line-clamp-2 text-small text-muted" title={item.label}>{item.label}</span>
-            <span className="mt-auto flex items-baseline gap-1.5 pt-1.5">
+            <span className="line-clamp-2 flex min-h-9 items-center text-small text-muted" title={item.label}>{item.label}</span>
+            <span className="mt-1 flex items-baseline justify-center gap-1.5">
               <span className={cx('tabular-nums', size === 'lg' ? 'text-[2.25rem] font-medium leading-10 tracking-tight' : 'text-title', VALUE[item.tone ?? 'neutral'])}>{item.value}</span>
               {item.unit ? <span className="text-small tabular-nums text-muted">{item.unit}</span> : null}
             </span>
-            {item.bar ? <Progress className="mt-1.5" size="sm" tone="good" hideLabel label={item.label} value={item.bar.done} max={item.bar.total} /> : null}
-            {item.hint ? <span className="mt-1 block text-micro text-muted">{item.hint}</span> : null}
+            {anyBar ? (
+              <span className="mt-2 block h-1.5 w-full max-w-[12rem]">
+                {item.bar ? <Progress size="sm" tone="good" hideLabel label={item.label} value={item.bar.done} max={item.bar.total} /> : null}
+              </span>
+            ) : null}
+            <span className="mt-1.5 block min-h-8 text-micro text-muted">{item.hint}</span>
           </>
         );
-        // Two columns on a phone: the second row gets its own top rule, the left column no side padding.
-        const cell = cx('flex h-full min-w-0 flex-col py-3 pr-4 lg:px-5 lg:first:pl-0', i % 2 === 1 && 'pl-4 max-lg:border-l max-lg:border-line', i >= 2 && 'max-lg:border-t max-lg:border-line');
+        // Two columns on a phone: the second column gets a rule on its left, the second row one on top.
+        const cell = cx('flex h-full min-w-0 flex-col items-center px-3 py-4 text-center lg:px-5', i % 2 === 1 && 'max-lg:border-l max-lg:border-line', i >= 2 && 'max-lg:border-t max-lg:border-line');
         return (
           <li key={item.key} className="min-w-0">
             {item.href
