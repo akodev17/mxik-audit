@@ -3,6 +3,7 @@
 // pending high or medium finding) are the unit of work; findings are shown
 // alongside, never mixed with them.
 import { Prisma } from '@prisma/client';
+import { pendingAudits, type PendingAudit } from './client-attention';
 import { attentionReasons, clientStats, type ClientStats } from './client-stats';
 import { db } from './db';
 
@@ -128,26 +129,32 @@ export type Dashboard = {
   accountants: AccountantOption[];
   selected: AccountantOption | null;
   workload: WorkloadRow[] | null;
+  /** Clients shown (default client left out) whose newest upload is still being audited or failed. */
+  pending: Map<string, PendingAudit>;
 };
 
 const MAX_CLIENTS = 2000;
 
 export async function dashboard(user: DashboardViewer, accountantId: string | null): Promise<Dashboard> {
   const admin = user.role === 'admin';
-  const people = admin ? await accountantOptions(user.orgId) : [];
+  const [people, stats] = await Promise.all([
+    admin ? accountantOptions(user.orgId) : Promise.resolve([]),
+    clientStats({ orgId: user.orgId, clientIds: user.clientIds ?? null, filter: 'all', sort: 'attention', limit: MAX_CLIENTS }),
+  ]);
   const chosen = accountantId ? people.find((p) => p.id === accountantId) ?? null : null;
-  const all = (await clientStats({ orgId: user.orgId, clientIds: user.clientIds ?? null, filter: 'all', sort: 'attention', limit: MAX_CLIENTS })).rows;
+  const all = stats.rows;
   // An accountant with no assignments works on every client, so the filter shows them all.
   const clients = chosen && chosen.clientIds.length > 0 ? all.filter((c) => chosen.clientIds.includes(c.id)) : all;
   const catalogIds = clients.flatMap((c) => (c.catalogId ? [c.catalogId] : []));
-  const [byType, changes, load] = await Promise.all([
+  const [byType, changes, load, pending] = await Promise.all([
     pendingByType(catalogIds),
     changesSincePrevious(user.orgId, clients),
     admin ? workload(user.orgId, people, all) : Promise.resolve(null),
+    pendingAudits(user.orgId, clients.filter((c) => !c.isDefault)),
   ]);
   const strip = ({ id, email, assigned }: AccountantOption): AccountantOption => ({ id, email, assigned });
   return {
     clients, totals: dashboardTotals(clients), byType, changes,
-    accountants: people.map(strip), selected: chosen ? strip(chosen) : null, workload: load,
+    accountants: people.map(strip), selected: chosen ? strip(chosen) : null, workload: load, pending,
   };
 }
