@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/locale-client';
 import type { GridRow } from '@/lib/workspace-rows';
 import { useToast } from '@/ui/toast';
 import { count, shortName, skippedText } from './ws-text';
+import { markServerChange } from '@/ui/shell/router-cache';
 
 const isRisky = (r: GridRow): boolean => r.severity === 'high' || r.severity === 'medium';
 
@@ -40,6 +41,7 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
   const revert = useCallback(async (target: UndoTarget): Promise<string | null> => {
     try {
       const result = await undo(target);
+      markServerChange();
       if (!result.ok) { toast(result.error, { tone: 'error' }); return null; }
       const ids = new Set(result.findingIds);
       const risky = rowsRef.current.filter((r) => ids.has(r.findingId) && isRisky(r) && r.decision !== 'pending').length;
@@ -93,6 +95,7 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     let result: DecideResult;
     try {
       result = await decide({ findingId, decision, chosenMxik: chosen?.code ?? null });
+      markServerChange();
     } catch {
       rollback();
       toast(x.network, { tone: 'error' });
@@ -151,6 +154,7 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     if (targets.length === 0) return;
     try {
       const result = await decideGroup({ findingIds: targets.map((r) => r.findingId), decision });
+      markServerChange();
       if (!result.ok) { toast(result.error, { tone: 'error' }); return; }
       applyMany({ ids: result.ids, eventId: result.eventId, decision, source: 'group' });
       reportMany(result);

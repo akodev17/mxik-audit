@@ -6,6 +6,7 @@ import type { NameFromBarcode } from '@/lib/barcode-name';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { useToast } from '@/ui/toast';
+import { markServerChange } from '@/ui/shell/router-cache';
 
 /** Offers the classifier's product name for a row whose own name is empty or very short. */
 export function NameFromBarcodeOffer({ findingId, offer, readOnly, onFilled }: { findingId: string; offer: NameFromBarcode; readOnly: boolean; onFilled: (name: string) => void }) {
@@ -17,7 +18,9 @@ export function NameFromBarcodeOffer({ findingId, offer, readOnly, onFilled }: {
   async function apply(): Promise<void> {
     setBusy(true);
     try {
-      if (!(await fillNameFromBarcode(findingId))) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
+      const filled = await fillNameFromBarcode(findingId);
+      markServerChange();
+      if (!filled) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
       toast(ta.barcodeName.done);
       setDone(true);
       onFilled(offer.name);

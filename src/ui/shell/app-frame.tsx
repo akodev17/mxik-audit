@@ -17,6 +17,7 @@ import { PlanBanner } from './plan-banner';
 import { Rail } from './rail';
 import { ResponseNudge } from './response-nudge';
 import { RouteBoundary } from './route-boundary';
+import { RefreshAfterChange } from './router-cache';
 import { NavigationWatchdog } from './same-route-links';
 import { SearchButton } from './search-button';
 import { isPaletteShortcut, isTypingTarget } from './shortcuts';
@@ -103,6 +104,7 @@ export function AppFrame({ shell, children }: Props) {
       </div>
       <Suspense fallback={null}>
         <NavigationWatchdog />
+        <RefreshAfterChange />
       </Suspense>
       <ResponseNudge />
       <CommandPalette

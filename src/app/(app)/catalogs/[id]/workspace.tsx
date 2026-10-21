@@ -37,6 +37,7 @@ import { useDrawerWidth } from './use-drawer-width';
 import { PHONE_QUERY, TOUCH_QUERY, useMedia } from './use-media';
 import { useWidth } from './use-width';
 import { decisionText, shortName } from './ws-text';
+import { markServerChange } from '@/ui/shell/router-cache';
 
 export type WorkspaceProps = {
   catalogId: string;
@@ -282,6 +283,7 @@ export function Workspace(props: WorkspaceProps) {
     try {
       const target = allFiltered ? { filter: filterQuery(filter) } : { ids: [...selected] };
       const result = await bulkAction({ catalogId, target, action });
+      markServerChange();
       if (!result.ok) {
         if (!inDialog) toast(result.error, { tone: 'error' });
         return { ok: false, error: result.error };
@@ -327,6 +329,7 @@ export function Workspace(props: WorkspaceProps) {
   const split = useCallback(async (row: GridRow) => {
     try {
       const result = await splitRow(row.findingId);
+      markServerChange();
       if (!result.ok) { toast(x.toast.failed, { tone: 'error' }); return; }
       ungroup(row.findingId);
       toast(x.toast.split);
