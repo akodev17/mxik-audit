@@ -15,6 +15,15 @@ describe('shell navigation', () => {
     assert.equal(helpHref('uz'), '/yordam');
   });
 
+  it('shows the team page only to administrators, right after the clients', () => {
+    const hrefs = (canTeam: boolean): string[] => navGroups({ canWrite: true, canTeam, locale: 'uz' }).flatMap((g) => g.items.map((i) => i.href));
+    assert.ok(!hrefs(false).includes('/team'));
+    const withTeam = hrefs(true);
+    assert.equal(withTeam[withTeam.indexOf('/clients') + 1], '/team');
+    assert.ok(paletteCommands({ canWrite: true, canTeam: true, locale: 'uz', clientCount: 1 }).some((c) => c.key === 'team'));
+    assert.ok(!paletteCommands({ canWrite: true, locale: 'uz', clientCount: 1 }).some((c) => c.key === 'team'));
+  });
+
   it('marks a section active on its own path and below it only', () => {
     assert.equal(isActive('/catalogs', '/catalogs'), true);
     assert.equal(isActive('/catalogs/abc', '/catalogs'), true);

@@ -51,7 +51,7 @@ export async function onboardingSteps(user: OnboardingViewer, now = new Date()):
     { key: 'upload', done: catalogs > 0, href: '/upload' },
     { key: 'review', done: decided, href: '/queue' },
   ];
-  if (admin) steps.push({ key: 'invite', done: colleagues > 0 || invites > 0, href: '/settings?tab=team' });
+  if (admin) steps.push({ key: 'invite', done: colleagues > 0 || invites > 0, href: '/team' });
   steps.push({ key: 'twoFactor', done: Boolean(me?.totpEnabledAt), href: '/settings?tab=security' });
   // Chats are linked in Integrations (admins only); everyone else binds Telegram sign-in under Security.
   if (telegramConfig().enabled) {

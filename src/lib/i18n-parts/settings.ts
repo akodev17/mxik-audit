@@ -41,6 +41,9 @@ export const uz = {
     team: {
       title: 'Jamoa aʼzolari',
       hint: 'Kim kira oladi va qaysi mijozlarni koʻradi.',
+      pageHint: 'Kim tizimga kira oladi, qaysi mijozlarni koʻradi va kimga taklif yuborilgan.',
+      inviteCta: 'Aʼzo taklif qilish',
+      memberCount: (n: number) => `${n} ta aʼzo`,
       you: 'siz',
       role: 'Rol',
       roleHints: {
@@ -117,6 +120,14 @@ export const uz = {
         revokeText: 'Havola darhol ishlamay qoladi. Kerak boʻlsa, yangi taklif yaratasiz.',
         revoked: 'Taklif oʻchirildi',
         notFound: 'Taklif topilmadi: u allaqachon qabul qilingan yoki oʻchirilgan boʻlishi mumkin.',
+        statusPending: 'Kutilmoqda',
+        statusExpired: 'Muddati tugagan',
+        expiredOn: (date: string) => `${date} da muddati tugagan`,
+        resend: 'Qayta yuborish',
+        resendTitle: (email: string) => `${email} manziliga taklif qayta yuborilsinmi?`,
+        resendText: 'Yangi havola yaratilib, xat yuboriladi; eski havola darhol ishlamay qoladi.',
+        resent: (email: string) => `Yangi taklif ${email} manziliga yuborildi`,
+        resendFailed: 'Taklifni qayta yuborib boʻlmadi. Sahifani yangilab, qayta urinib koʻring.',
       },
     },
     plan: {
@@ -387,6 +398,9 @@ export const ru: typeof uz = {
     team: {
       title: 'Участники команды',
       hint: 'Кто может входить и каких клиентов видит.',
+      pageHint: 'Кто может входить в систему, каких клиентов видит и кому отправлены приглашения.',
+      inviteCta: 'Пригласить участника',
+      memberCount: (n: number) => `Участников: ${n}`,
       you: 'вы',
       role: 'Роль',
       roleHints: {
@@ -463,6 +477,14 @@ export const ru: typeof uz = {
         revokeText: 'Ссылка сразу перестанет работать. При необходимости создадите новое приглашение.',
         revoked: 'Приглашение отменено',
         notFound: 'Приглашение не найдено: возможно, его уже приняли или отменили.',
+        statusPending: 'Ожидает',
+        statusExpired: 'Срок истёк',
+        expiredOn: (date: string) => `срок истёк ${date}`,
+        resend: 'Отправить снова',
+        resendTitle: (email: string) => `Отправить приглашение на ${email} снова?`,
+        resendText: 'Будет создана новая ссылка и отправлено письмо; прежняя ссылка сразу перестанет работать.',
+        resent: (email: string) => `Новое приглашение отправлено на ${email}`,
+        resendFailed: 'Не удалось отправить приглашение снова. Обновите страницу и повторите.',
       },
     },
     plan: {

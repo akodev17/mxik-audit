@@ -12,15 +12,15 @@ import { Portal } from '../portal';
 import { useNav } from './nav-items';
 import { LogoMark, NavGroups } from './sidebar';
 
-type Props = { id: string; open: boolean; onClose: () => void; canWrite: boolean };
+type Props = { id: string; open: boolean; onClose: () => void; canWrite: boolean; canTeam: boolean };
 
 /**
  * Navigation below md: a modal panel from the left. Focus is trapped inside, Escape and the backdrop
  * close it, and it closes on navigation or when the window grows wide enough for the rail.
  */
-export function MobileNav({ id, open, onClose, canWrite }: Props) {
+export function MobileNav({ id, open, onClose, canWrite, canTeam }: Props) {
   const { t, ta } = useI18n();
-  const groups = useNav(canWrite);
+  const groups = useNav(canWrite, canTeam);
   const panel = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const openedAt = useRef(pathname);

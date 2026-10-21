@@ -670,10 +670,14 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     await main(page).getByText(TA.importX.select.readOnlyTitle).waitFor();
     assert.equal(await main(page).locator('input[type="file"]').count(), 0, 'no file input');
 
-    for (const tab of ['team', 'integrations', 'data'] as const) {
+    for (const tab of ['integrations', 'data'] as const) {
       await page.goto(`/settings?tab=${tab}`);
       await main(page).getByText(TA.setX.adminOnly(TA.setX.tabs[tab])).waitFor();
     }
+    // The team page replaced the team tab: it refuses a viewer on the server and is not in their sidebar.
+    await page.goto('/team');
+    await main(page).getByText(TA.setX.adminOnly(TA.nav.team)).waitFor();
+    assert.equal(await page.getByRole('link', { name: TA.nav.team, exact: true }).count(), 0, 'no team link in the viewer navigation');
     const accountExport = await page.request.get('/api/account/export');
     assert.equal(accountExport.status(), 403, 'account data export is admin-only');
 

@@ -12,7 +12,7 @@ import { EmptyState } from '@/ui/empty-state';
 import { IconError } from '@/ui/icons';
 import { useToast } from '@/ui/toast';
 
-const TEAM_HREF = '/settings?tab=team';
+const TEAM_HREF = '/team';
 
 /**
  * Admins tick which accountants work on this client. People whose reach would

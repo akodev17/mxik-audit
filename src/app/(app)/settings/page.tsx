@@ -13,7 +13,6 @@ import { PlanTab } from './plan-tab';
 import { SecurityTab } from './security-tab';
 import { TabStrip } from './tab-strip';
 import { chooseTab, tabHref, visibleTabs, type SettingsTab } from './tabs';
-import { TeamTab } from './team-tab';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -27,6 +26,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const params = await searchParams;
+  // Team management moved to its own page; old links and bookmarks land there.
+  if (params['tab'] === 'team') redirect('/team');
   // The Telegram sign-in binding comes back to /settings?tg=…: keep the result, open the tab it belongs to.
   if (typeof params['tg'] === 'string' && params['tab'] === undefined) redirect(`/settings?tab=security&tg=${encodeURIComponent(params['tg'])}`);
 
@@ -47,7 +48,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
       <div className="mt-6">
         {tab === 'account' ? <AccountTab user={user} demo={demo} /> : null}
         {tab === 'security' ? <SecurityTab user={user} /> : null}
-        {tab === 'team' ? <TeamTab user={user} /> : null}
         {tab === 'plan' ? <PlanTab user={user} demo={demo} /> : null}
         {tab === 'integrations' ? <IntegrationsTab user={user} /> : null}
         {tab === 'data' ? <DataTab user={user} /> : null}

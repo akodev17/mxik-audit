@@ -24,7 +24,7 @@ import { goTo } from './same-route-links';
 import { useSwitchClient } from './use-switch-client';
 
 type ClientRef = { id: string; name: string };
-type Props = { open: boolean; onClose: () => void; canWrite: boolean; clients: ClientRef[]; activeClientId: string | null };
+type Props = { open: boolean; onClose: () => void; canWrite: boolean; canTeam: boolean; clients: ClientRef[]; activeClientId: string | null };
 
 type Action = { kind: 'go'; href: string } | { kind: 'copy'; text: string } | { kind: 'mode' } | { kind: 'switch'; clientId: string };
 type GroupKey = 'commands' | 'clients' | 'catalogs' | 'products' | 'codes' | 'switch';
@@ -46,7 +46,7 @@ const STATUS_TONE: Record<ProductStatus, Tone> = { attention: 'warn', decided: '
  * Ctrl+K palette: page commands, client switching, and search over clients, catalogues, products and
  * classifier codes. Combobox and listbox semantics: focus stays in the field, arrows move, Enter acts.
  */
-export function CommandPalette({ open, onClose, canWrite, clients, activeClientId }: Props) {
+export function CommandPalette({ open, onClose, canWrite, canTeam, clients, activeClientId }: Props) {
   const { t, ta, locale } = useI18n();
   const s = ta.shellX.search;
   const router = useRouter();
@@ -97,7 +97,7 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
     const keyword = (key: CommandKey): string =>
       (key === 'notifications' ? ta.shellX.bell.title : key === 'switchClient' ? ta.shellX.client.label : navLabels[key]);
     const icon = (key: CommandKey): ReactNode => (key === 'notifications' ? <IconBell /> : key === 'switchClient' ? <IconSwitch /> : NAV_ICONS[key]);
-    return paletteCommands({ canWrite, locale, clientCount: clients.length })
+    return paletteCommands({ canWrite, canTeam, locale, clientCount: clients.length })
       .filter((c) => matchesQuery(s.cmd[c.key], [keyword(c.key)], query))
       .map((c): Option => ({
         key: `cmd-${c.key}`,
@@ -105,7 +105,7 @@ export function CommandPalette({ open, onClose, canWrite, clients, activeClientI
         icon: icon(c.key),
         action: c.href ? { kind: 'go', href: c.href } : { kind: 'mode' },
       }));
-  }, [canWrite, locale, clients.length, s, ta, navLabels, query]);
+  }, [canWrite, canTeam, locale, clients.length, s, ta, navLabels, query]);
 
   const results = status.kind === 'done' ? status.answer.results : status.kind === 'loading' ? status.previous?.results ?? null : null;
 

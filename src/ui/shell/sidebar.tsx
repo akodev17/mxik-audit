@@ -20,6 +20,7 @@ type Props = {
   expanded: boolean;
   onToggle: () => void;
   canWrite: boolean;
+  canTeam: boolean;
 };
 
 // Width and label visibility per preference; "auto" is collapsed from md to lg and expanded above.
@@ -30,9 +31,9 @@ const RAIL_ONLY: Record<SidebarPref, string> = { auto: 'lg:hidden', collapsed: '
 const TOGGLE_WRAP: Record<SidebarPref, string> = { auto: 'flex-1 justify-center lg:flex-none', collapsed: 'flex-1 justify-center', expanded: 'flex-none' };
 
 /** Desktop navigation rail (md and up). Below md the same links open from the header menu button. */
-export function Sidebar({ id, pref, expanded, onToggle, canWrite }: Props) {
+export function Sidebar({ id, pref, expanded, onToggle, canWrite, canTeam }: Props) {
   const { t, ta } = useI18n();
-  const groups = useNav(canWrite);
+  const groups = useNav(canWrite, canTeam);
   return (
     <nav
       id={id}

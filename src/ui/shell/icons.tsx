@@ -13,3 +13,4 @@ export const IconHash = (p: IconProps) => <Svg {...p}><path d="M8 3 6.5 17M13.5 
 export const IconBox = (p: IconProps) => <Svg {...p}><path d="m10 2.8 7 3.6v7.2l-7 3.6-7-3.6V6.4l7-3.6Z" /><path d="m3 6.4 7 3.6 7-3.6M10 10v7.2" /></Svg>;
 export const IconArrowLeft = (p: IconProps) => <Svg {...p}><path d="M16 10H4M9 5l-5 5 5 5" /></Svg>;
 export const IconSwitch = (p: IconProps) => <Svg {...p}><path d="M4 7h11l-3-3M16 13H5l3 3" /></Svg>;
+export const IconTeam = (p: IconProps) => <Svg {...p}><circle cx="8" cy="7" r="3" /><path d="M2.5 16c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5" /><path d="M15.5 5v5M13 7.5h5" /></Svg>;

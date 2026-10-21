@@ -26,7 +26,7 @@ type Props = {
 };
 type Open = 'rename' | 'archive' | 'delete' | null;
 
-const TEAM_HREF = '/settings?tab=team';
+const TEAM_HREF = '/team';
 
 /** Admin lifecycle of a client: rename, archive, delete (typed name). The default client can only be renamed. */
 export function ClientMenu({ clientId, name, isDefault, archived, catalogs, blockers: initialBlockers, stranded }: Props) {

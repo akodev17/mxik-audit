@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { useI18n } from '@/lib/locale-client';
 import { IconBook, IconGear, IconHome, IconList, IconTable, IconUpload, IconUsers } from '../icons';
-import { IconHelp, IconQueue } from './icons';
+import { IconHelp, IconQueue, IconTeam } from './icons';
 import { navGroups, type NavEntry, type NavGroupKey, type NavKey } from './nav';
 
 export type NavItemView = NavEntry & { label: string; icon: ReactNode };
@@ -13,6 +13,7 @@ export const NAV_ICONS: Record<NavKey, ReactNode> = {
   dashboard: <IconHome />,
   queue: <IconQueue />,
   clients: <IconUsers />,
+  team: <IconTeam />,
   catalogs: <IconTable />,
   upload: <IconUpload />,
   dictionary: <IconBook />,
@@ -28,6 +29,7 @@ export function useNavLabels(): Record<NavKey, string> {
     dashboard: ta.nav.dashboard,
     queue: ta.shellX.nav.queue,
     clients: ta.nav.clients,
+    team: ta.nav.team,
     catalogs: ta.nav.catalogs,
     upload: ta.nav.upload,
     dictionary: ta.nav.dictionary,
@@ -38,7 +40,7 @@ export function useNavLabels(): Record<NavKey, string> {
 }
 
 /** Navigation groups with labels and icons in the current language. */
-export function useNav(canWrite: boolean): NavGroupView[] {
+export function useNav(canWrite: boolean, canTeam = false): NavGroupView[] {
   const { locale, ta } = useI18n();
   const labels = useNavLabels();
   return useMemo(() => {
@@ -49,10 +51,10 @@ export function useNav(canWrite: boolean): NavGroupView[] {
       knowledge: ta.shellX.nav.knowledge,
       settings: null,
     };
-    return navGroups({ canWrite, locale }).map((g) => ({
+    return navGroups({ canWrite, canTeam, locale }).map((g) => ({
       key: g.key,
       label: groupLabels[g.key],
       items: g.items.map((item) => ({ ...item, label: labels[item.key], icon: NAV_ICONS[item.key] })),
     }));
-  }, [canWrite, locale, ta, labels]);
+  }, [canWrite, canTeam, locale, ta, labels]);
 }

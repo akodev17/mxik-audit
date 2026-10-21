@@ -32,16 +32,20 @@ function MemberRow({ member, clients, adminCount }: { member: Member; clients: r
   };
 
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-      <div className="min-w-0 flex-1 basis-60">
-        <p className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-medium">{member.email}</span>
+    <li className="grid grid-cols-1 items-center gap-x-4 gap-y-1.5 px-4 py-3 md:grid-cols-[minmax(0,1.6fr)_9rem_minmax(0,1fr)_19rem]">
+      <div className="min-w-0">
+        <p className="flex min-w-0 flex-wrap items-center gap-x-2">
+          <span className="font-medium [overflow-wrap:anywhere]">{member.email}</span>
           {member.you ? <Badge tone="brand">{s.you}</Badge> : null}
         </p>
-        <p className="text-small text-muted">{ta.team.roles[member.role]} · {access}</p>
         {member.you ? <p className="text-micro text-muted">{s.removeSelf}</p> : null}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 text-small text-muted">
+        <Badge>{ta.team.roles[member.role]}</Badge>
+        <span className="md:hidden">{access}</span>
+      </div>
+      <p className="hidden text-small text-muted md:block">{access}</p>
+      <div className="mt-1 flex flex-wrap gap-2 md:mt-0 md:flex-nowrap md:justify-end">
         <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>{s.edit}</Button>
         {member.you ? null : <Button size="sm" variant="danger-ghost" onClick={() => setRemoving(true)}>{s.remove}</Button>}
       </div>
@@ -57,10 +61,17 @@ function MemberRow({ member, clients, adminCount }: { member: Member; clients: r
 
 /** Every member with role and client access; edit opens a dialog, removal asks first. */
 export function TeamMembers({ members, clients }: { members: Member[]; clients: ClientOption[] }) {
+  const { ta } = useI18n();
+  const s = ta.setX.team;
   const adminCount = members.filter((m) => m.role === 'admin').length;
   return (
-    <ul className="divide-y divide-line rounded-md border border-line">
-      {members.map((m) => <MemberRow key={m.id} member={m} clients={clients} adminCount={adminCount} />)}
-    </ul>
+    <div className="overflow-hidden rounded-ctl border border-line bg-raised">
+      <div aria-hidden className="hidden grid-cols-[minmax(0,1.6fr)_9rem_minmax(0,1fr)_19rem] gap-x-4 border-b border-line bg-surface px-4 py-2 text-micro font-medium uppercase tracking-wide text-muted md:grid">
+        <span>{ta.setX.account.email}</span><span>{s.role}</span><span>{s.access}</span><span />
+      </div>
+      <ul className="divide-y divide-line">
+        {members.map((m) => <MemberRow key={m.id} member={m} clients={clients} adminCount={adminCount} />)}
+      </ul>
+    </div>
   );
 }

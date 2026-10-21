@@ -2,7 +2,7 @@
 // and the tests share one definition.
 import type { Locale } from '@/lib/i18n';
 
-export type NavKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'help' | 'settings';
+export type NavKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'help' | 'settings' | 'team';
 export type NavGroupKey = 'work' | 'clients' | 'knowledge' | 'settings';
 export type NavEntry = { key: NavKey; href: string };
 export type NavGroup = { key: NavGroupKey; items: NavEntry[] };
@@ -10,14 +10,15 @@ export type NavGroup = { key: NavGroupKey; items: NavEntry[] };
 /** The help centre is public and has one tree per language. */
 export const helpHref = (locale: Locale): string => (locale === 'ru' ? '/yordam/ru' : '/yordam');
 
-/** Sidebar groups in order; upload only for users who may change data. */
-export function navGroups({ canWrite, locale }: { canWrite: boolean; locale: Locale }): NavGroup[] {
+/** Sidebar groups in order; upload only for users who may change data, the team only for administrators of a real organisation. */
+export function navGroups({ canWrite, canTeam = false, locale }: { canWrite: boolean; canTeam?: boolean; locale: Locale }): NavGroup[] {
   return [
     { key: 'work', items: [{ key: 'dashboard', href: '/dashboard' }, { key: 'queue', href: '/queue' }] },
     {
       key: 'clients',
       items: [
         { key: 'clients', href: '/clients' },
+        ...(canTeam ? [{ key: 'team' as const, href: '/team' }] : []),
         { key: 'catalogs', href: '/catalogs' },
         ...(canWrite ? [{ key: 'upload' as const, href: '/upload' }] : []),
       ],

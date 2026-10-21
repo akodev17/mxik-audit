@@ -67,8 +67,8 @@ export function AppFrame({ shell, sidebar, children }: Props) {
         >
           {ta.shellX.skip}
         </a>
-        <Sidebar id={railId} pref={pref} expanded={expanded} onToggle={toggleRail} canWrite={shell.canWrite} />
-        <MobileNav id={menuId} open={menuOpen} onClose={closeMenu} canWrite={shell.canWrite} />
+        <Sidebar id={railId} pref={pref} expanded={expanded} onToggle={toggleRail} canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
+        <MobileNav id={menuId} open={menuOpen} onClose={closeMenu} canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="no-print flex h-14 shrink-0 items-center gap-1.5 border-b border-line bg-base px-2 sm:gap-2 sm:px-4">
             <span className="flex shrink-0 md:hidden">
@@ -107,6 +107,7 @@ export function AppFrame({ shell, sidebar, children }: Props) {
         open={paletteOpen}
         onClose={closePalette}
         canWrite={shell.canWrite}
+        canTeam={shell.canManageTeam}
         clients={shell.clients}
         activeClientId={shell.activeClient?.id ?? null}
       />

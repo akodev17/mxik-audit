@@ -1,10 +1,10 @@
 // Which settings tabs a user sees, and which one a URL opens. Pure; the page enforces it on the server.
 import type { Role } from '@/lib/session';
 
-export const SETTINGS_TABS = ['account', 'security', 'team', 'plan', 'integrations', 'data'] as const;
+export const SETTINGS_TABS = ['account', 'security', 'plan', 'integrations', 'data'] as const;
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
-const ADMIN_ONLY: readonly SettingsTab[] = ['team', 'integrations', 'data'];
+const ADMIN_ONLY: readonly SettingsTab[] = ['integrations', 'data'];
 
 export function isSettingsTab(value: unknown): value is SettingsTab {
   return typeof value === 'string' && (SETTINGS_TABS as readonly string[]).includes(value);

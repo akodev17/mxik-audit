@@ -8,7 +8,8 @@ import { db } from '@/lib/db';
 import { isDemoOrg } from '@/lib/demo';
 import { formText } from '@/lib/form';
 import { admin } from '@/lib/guard';
-import { acceptInvite, createInvite } from '@/lib/invites';
+import { acceptInvite, createInvite, InviteRefused } from '@/lib/invites';
+import { mailEnabled } from '@/lib/mailer';
 import { gate } from '@/lib/plan';
 import { openSession } from '@/lib/security/sign-in';
 import type { CurrentUser } from '@/lib/session';
@@ -64,7 +65,7 @@ export async function inviteMember(_prev: InviteState, form: FormData): Promise<
   if (!allowed.ok) return { error: allowed.reason === 'expired' ? ta.msg.gate.expired : s.invite.seatsFull };
 
   const result = await createInvite(user, { email, role: role.data, clientIds, locale });
-  revalidatePath('/settings');
+  revalidatePath('/team');
   return { url: result.url, email, emailed: result.emailed };
 }
 
@@ -83,7 +84,7 @@ export async function updateMember(payload: unknown): Promise<TeamResult> {
   if (!parsed.success) return { ok: false, error: errors.invalid };
   const result = await changeMember(user, parsed.data);
   if (!result.ok) return { ok: false, error: errors[result.reason] };
-  revalidatePath('/settings');
+  revalidatePath('/team');
   return { ok: true };
 }
 
@@ -96,7 +97,7 @@ export async function removeMember(userId: unknown): Promise<TeamResult> {
   if (!id.success) return { ok: false, error: ta.setX.team.errors.invalid };
   const result = await removeTeamMember(user, id.data);
   if (!result.ok) return { ok: false, error: ta.setX.team.errors[result.reason] };
-  revalidatePath('/settings');
+  revalidatePath('/team');
   return { ok: true };
 }
 
@@ -108,7 +109,50 @@ export async function revokeInvite(inviteId: unknown): Promise<TeamResult> {
   if (!id.success) return { ok: false, error: ta.setX.team.errors.invalid };
   const result = await revokeTeamInvite(user, id.data);
   if (!result.ok) return { ok: false, error: ta.setX.team.pending.notFound };
-  revalidatePath('/settings');
+  revalidatePath('/team');
+  return { ok: true };
+}
+
+/**
+ * Sends a pending or expired email invite again. The stored token is only a hash, so the old link
+ * cannot be re-sent: a new invite with the same address, role and access replaces it, and the old
+ * one is deleted only once the new letter has gone out.
+ */
+export async function resendInvite(inviteId: unknown): Promise<TeamResult> {
+  const { t, ta, locale } = await getI18n();
+  const s = ta.setX.team;
+  const user = await teamAdmin();
+  const id = z.string().min(1).safeParse(inviteId);
+  if (!user) return { ok: false, error: t.errorGeneric };
+  if (!id.success) return { ok: false, error: s.errors.invalid };
+  const old = await db.invite.findFirst({
+    where: { id: id.data, orgId: user.orgId, usedAt: null },
+    select: { id: true, email: true, role: true, clientIds: true, expiresAt: true },
+  });
+  if (!old || !old.email) return { ok: false, error: s.pending.notFound };
+  if (!mailEnabled()) return { ok: false, error: s.pending.resendFailed };
+  if (await db.user.findFirst({ where: { orgId: user.orgId, email: old.email }, select: { id: true } })) return { ok: false, error: s.invite.memberExists };
+  // A pending invite already holds its seat; an expired one must find one free again.
+  if (old.expiresAt <= new Date()) {
+    const allowed = await gate(user.orgId, 'seats');
+    if (!allowed.ok) return { ok: false, error: allowed.reason === 'expired' ? ta.msg.gate.expired : s.invite.seatsFull };
+  }
+  let sent: Awaited<ReturnType<typeof createInvite>>;
+  try {
+    sent = await createInvite(user, { email: old.email, role: old.role, clientIds: old.clientIds, locale });
+  } catch (error) {
+    if (error instanceof InviteRefused) return { ok: false, error: s.pending.resendFailed };
+    throw error;
+  }
+  if (!sent.emailed) {
+    // The new link was never delivered and is not shown anywhere: take it back, keep the old invite.
+    const fresh = await db.invite.findFirst({ where: { orgId: user.orgId, email: old.email, usedAt: null, id: { not: old.id } }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+    if (fresh) await revokeTeamInvite(user, fresh.id);
+    revalidatePath('/team');
+    return { ok: false, error: s.pending.resendFailed };
+  }
+  await revokeTeamInvite(user, old.id);
+  revalidatePath('/team');
   return { ok: true };
 }
 

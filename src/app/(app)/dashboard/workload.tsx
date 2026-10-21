@@ -12,7 +12,7 @@ export async function Workload({ rows }: { rows: WorkloadRow[] }) {
     return (
       <p className="text-small text-muted">
         {home.workloadNone}{' '}
-        <Link href="/settings?tab=team" className="font-medium text-brand-ink hover:underline">{ta.firmX.client.inviteColleague}</Link>
+        <Link href="/team" className="font-medium text-brand-ink hover:underline">{ta.firmX.client.inviteColleague}</Link>
       </p>
     );
   }

@@ -17,22 +17,27 @@ describe('settings tabs', () => {
   });
 
   it('opens the tab in the URL when it is visible', () => {
-    assert.deepEqual(chooseTab({ tab: 'team' }, visibleTabs('admin', false)), { tab: 'team', refused: null });
+    assert.deepEqual(chooseTab({ tab: 'data' }, visibleTabs('admin', false)), { tab: 'data', refused: null });
   });
 
   it('a tab the role may not open falls back to the first and is named', () => {
-    assert.deepEqual(chooseTab({ tab: 'team' }, visibleTabs('viewer', false)), { tab: 'account', refused: 'team' });
+    assert.deepEqual(chooseTab({ tab: 'integrations' }, visibleTabs('viewer', false)), { tab: 'account', refused: 'integrations' });
     assert.deepEqual(chooseTab({ tab: 'data' }, visibleTabs('accountant', false)), { tab: 'account', refused: 'data' });
   });
 
   it('unknown or missing tabs open the first tab without a notice', () => {
     assert.deepEqual(chooseTab({ tab: 'billing' }, visibleTabs('admin', false)), { tab: 'account', refused: null });
     assert.deepEqual(chooseTab({}, visibleTabs('viewer', false)), { tab: 'account', refused: null });
-    assert.deepEqual(chooseTab({ tab: ['team', 'data'] }, visibleTabs('admin', false)), { tab: 'account', refused: null });
+    assert.deepEqual(chooseTab({ tab: ['plan', 'data'] }, visibleTabs('admin', false)), { tab: 'account', refused: null });
   });
 
   it('the Telegram sign-in callback (?tg=) lands on security', () => {
     assert.deepEqual(chooseTab({ tg: 'bound' }, visibleTabs('viewer', false)), { tab: 'security', refused: null });
+  });
+
+  it('team is no longer a settings tab', () => {
+    assert.ok(!(SETTINGS_TABS as readonly string[]).includes('team'));
+    assert.deepEqual(chooseTab({ tab: 'team' }, visibleTabs('admin', false)), { tab: 'account', refused: null });
   });
 
   it('account is the bare /settings URL', () => {

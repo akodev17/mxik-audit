@@ -6,7 +6,7 @@ import { partsUz } from './i18n-parts';
 import type { Locale } from './i18n';
 
 const coreUz = {
-  nav: { dashboard: 'Bosh sahifa', clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', dictionary: 'Lugʻat', activity: 'Harakatlar', settings: 'Sozlamalar' },
+  nav: { dashboard: 'Bosh sahifa', clients: 'Mijozlar', catalogs: 'Kataloglar', upload: 'Yuklash', dictionary: 'Lugʻat', activity: 'Harakatlar', settings: 'Sozlamalar', team: 'Jamoa' },
   shell: {
     collapse: 'Yon panelni yigʻish',
     expand: 'Yon panelni ochish',

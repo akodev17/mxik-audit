@@ -45,7 +45,7 @@ describe('first-run checklist counts only what the user may open (database)', { 
 
   it('links to the settings tabs that exist', async () => {
     const steps = await onboardingSteps(viewer(admin));
-    assert.equal(step(steps, 'invite')?.href, '/settings?tab=team');
+    assert.equal(step(steps, 'invite')?.href, '/team');
     assert.equal(step(steps, 'twoFactor')?.href, '/settings?tab=security');
     const telegram = step(steps, 'telegram');
     if (telegram) assert.equal(telegram.href, '/settings?tab=integrations');

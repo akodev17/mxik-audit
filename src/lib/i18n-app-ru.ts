@@ -8,7 +8,7 @@ import { pluralRu } from './plural';
 const n = (v: number): string => fmtNumber('ru', v);
 
 const coreRu: CoreAppDict = {
-  nav: { dashboard: 'Главная', clients: 'Клиенты', catalogs: 'Каталоги', upload: 'Загрузка', dictionary: 'Словарь', activity: 'Действия', settings: 'Настройки' },
+  nav: { dashboard: 'Главная', clients: 'Клиенты', catalogs: 'Каталоги', upload: 'Загрузка', dictionary: 'Словарь', activity: 'Действия', settings: 'Настройки', team: 'Команда' },
   shell: {
     collapse: 'Свернуть боковую панель',
     expand: 'Развернуть боковую панель',

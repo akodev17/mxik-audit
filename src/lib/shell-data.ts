@@ -1,5 +1,5 @@
 // What the app frame needs on every page: the user's visible clients, the active one, unread count, plan.
-import { canWrite } from './access';
+import { canWrite, isAdminRole } from './access';
 import { resolveVisibleClient, visibleClients, type VisibleClient } from './active-client';
 import type { LimitKey } from './billing/limits';
 import { defaultClient } from './clients';
@@ -11,6 +11,8 @@ export type ShellData = {
   email: string;
   demo: boolean;
   canWrite: boolean;
+  /** Administrator of a real organisation: may open the team page. */
+  canManageTeam: boolean;
   plan: { state: PlanState; daysLeft: number | null; warnings: LimitKey[]; full: LimitKey[] };
   /** Clients this user may switch to; never another scope's. */
   clients: { id: string; name: string }[];
@@ -39,6 +41,7 @@ export async function shellData(user: CurrentUser): Promise<ShellData> {
     email: user.email,
     demo: user.demo,
     canWrite: canWrite(user),
+    canManageTeam: isAdminRole(user) && !user.demo,
     plan: { state: plan.state, daysLeft: plan.daysLeft, warnings: plan.warnings, full: plan.full },
     clients,
     activeClient: active ? { id: active.id, name: active.name } : null,
