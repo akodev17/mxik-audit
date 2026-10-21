@@ -45,3 +45,17 @@ export function ownsKeys(target: EventTarget | null): boolean {
   const role = target.getAttribute('role');
   return role !== null && INTERACTIVE_ROLES.has(role);
 }
+
+type NodeLike = { contains(other: never): boolean };
+
+/**
+ * Whether a key pressed with `target` focused is meant for the workspace. Focus on the page itself
+ * (the body, or <main> and any other ancestor of the workspace) counts: after a client-side
+ * navigation the shell moves focus to <main>, and keys must work from there as they do after a reload.
+ * Focus inside another part of the page (header, menus, dialogs) is left alone.
+ */
+export function keysReachWorkspace(target: NodeLike | null, root: NodeLike | null, body: unknown): boolean {
+  if (target === null || target === body) return true;
+  if (root === null) return false;
+  return root.contains(target as never) || target.contains(root as never);
+}

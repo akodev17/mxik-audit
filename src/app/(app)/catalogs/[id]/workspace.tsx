@@ -28,7 +28,7 @@ import { OnboardingHint } from './onboarding-hint';
 import { RowDrawer } from './row-drawer';
 import { ShortcutHelp } from './shortcut-help';
 import { ShortcutHint } from './shortcut-hint';
-import { ownsKeys, shortcutFor } from './shortcuts';
+import { keysReachWorkspace, ownsKeys, shortcutFor } from './shortcuts';
 import { SummaryStrip } from './summary-strip';
 import { SureAcceptDialog } from './sure-accept-dialog';
 import { Toolbar } from './toolbar';
@@ -364,7 +364,7 @@ export function Workspace(props: WorkspaceProps) {
       const action = shortcutFor(e);
       if (!action || ownsKeys(e.target) || helpOpen || sureOpen) return;
       const target = e.target instanceof Node ? e.target : null;
-      if (target && target !== document.body && !rootRef.current?.contains(target)) return;
+      if (!keysReachWorkspace(target, rootRef.current, document.body)) return;
       const entry = entries[activeIndex];
       const row = entryRow(entry);
       const single = entry?.kind === 'row' ? entry.row : null;

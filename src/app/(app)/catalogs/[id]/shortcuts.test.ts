@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ownsKeys, shortcutFor } from './shortcuts.js';
+import { keysReachWorkspace, ownsKeys, shortcutFor } from './shortcuts.js';
 
 const key = (code: string, key: string, extra: Partial<{ shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean; repeat: boolean }> = {}) =>
   ({ code, key, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, repeat: false, ...extra });
@@ -42,5 +42,46 @@ describe('workspace shortcuts', () => {
   it('leaves keys alone when the target is not an element', () => {
     assert.equal(ownsKeys(null), false);
     assert.equal(ownsKeys({} as EventTarget), false);
+  });
+});
+
+describe('keysReachWorkspace', () => {
+  // A tiny tree: body > main > root > row, and body > header > button.
+  type Tree = { parent: Tree | null; contains: (o: unknown) => boolean };
+  const node = (parent: Tree | null = null): Tree => {
+    const self: Tree = {
+      parent,
+      contains: (o) => { for (let n = o as Tree | null; n; n = n.parent) if (n === self) return true; return false; },
+    };
+    return self;
+  };
+  const body = node();
+  const main = node(body);
+  const root = node(main);
+  const row = node(root);
+  const header = node(body);
+  const button = node(header);
+
+  it('accepts focus on the body, as after a reload', () => {
+    assert.equal(keysReachWorkspace(null, root, body), true);
+    assert.equal(keysReachWorkspace(body, root, body), true);
+  });
+
+  it('accepts focus on <main>, where the shell leaves it after a client-side navigation', () => {
+    assert.equal(keysReachWorkspace(main, root, body), true);
+  });
+
+  it('accepts focus inside the workspace', () => {
+    assert.equal(keysReachWorkspace(root, root, body), true);
+    assert.equal(keysReachWorkspace(row, root, body), true);
+  });
+
+  it('refuses focus in another part of the page', () => {
+    assert.equal(keysReachWorkspace(button, root, body), false);
+    assert.equal(keysReachWorkspace(header, root, body), false);
+  });
+
+  it('refuses everything while the workspace is not mounted', () => {
+    assert.equal(keysReachWorkspace(main, null, body), false);
   });
 });
