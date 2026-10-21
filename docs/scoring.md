@@ -267,6 +267,7 @@ filters so a strong retrieval signal can outvote a heuristic.
 | Row unit contradicts a **strict** binding | **−0.15** | 385,414 codes (87.8%) have a strict binding. |
 | **Recommended** binding: row unit is a recommended unit | **+0.03** | Added 2026-10-21 (plan §3.5). |
 | **Recommended** binding: row sold by a measure (mass, length, area, volume) and every recommended unit is of another kind | **−0.05** | Added 2026-10-21. kg against tonnes converts and is left alone; a row sold in pieces is never judged (a piece can hold metres). |
+| Metal semi-product (groups 072, 074–076, tubes 7304–7306) whose name declares a metal the row never names (stainless, aluminium, copper, brass, bronze, titanium) | **−0.05** | Added 2026-10-22 (`unrequestedMaterial`). Unnamed means carbon steel in metal trade; finished articles are never judged. Run 45 vs 44: 40 rows better, none worse. |
 
 Recommended-only bindings (4,223 codes) **never** produce a conflict, and an
 unresolvable unit on either side is never a conflict — `UNIT_CONFLICT` must not
@@ -410,6 +411,58 @@ What ships, therefore:
   golden the stand-in is worth +25 points of top-1 (run 29: 75.0 with it, 50.0
   without), on metal it costs 30. With e5 vectors (plan phase 0) the vector list
   stops pulling metal to the wrong positions; re-fit then.
+
+## e5 vectors after phase 0 (2026-10-22)
+
+The phase-0 data layer (snapshot #4, 442,964 codes, local
+`multilingual-e5-small`) first made the real sets **worse** than no vector stage
+(metal 36.9/86.9 vs 75.6/98.2). Three causes, fixed in order, each measured on
+a copy of `mxik` (`mxik_scratch`) and confirmed on `mxik`:
+
+1. **Text shape.** Vectors were made from the folded match key with e5's
+   "query: " prefix on both sides; e5 similarities then sat at 0.85–0.91 for
+   everything. `src/core/embed/text.ts` `embeddingText()` is now the one place
+   that decides the text: rows embed their natural name (script, case and
+   apostrophes kept, abbreviations expanded, pack noise stripped) with
+   "query: ", classifier names embed as written with "passage: ". Both columns
+   are filled (`embeddingUz` from nameUz, `embeddingRu` from nameRu) and a row
+   searches the column of its script (both for mixed names);
+   `embedding_state.columns` records which hold the provider's vectors. The
+   natural variant has its own provider name (`…#natural-v2`), so it is never
+   compared with folded vectors.
+2. **Index recall.** With pgvector's default graph (`m = 16,
+   ef_construction = 64`) the HNSW top 50 shared on average 47% of the exact
+   top 50 on the metal rows: thousands of near-identical identifying codes sit
+   almost on top of each other in e5 space. `m = 32, ef_construction = 200`
+   with `hnsw.ef_search = 1000` gives 0.95 at 13 ms per query (exact scan:
+   705 ms). `npm run eval:recall` measures this; `npm run vectors:reindex`
+   rebuilds online (serial builds: a parallel build's shared-memory segment
+   did not fit in the container's `/dev/shm`).
+3. **Cosine band.** e5 cosine is mapped linearly from 0.80 to 0.95
+   (`vectorToUnit`), not (1 + cos) / 2; the hashing stand-in keeps the old
+   mapping. Two hold-out fits (`docs/weight-fit-results.json`, 390
+   configurations over band, vector weight, per-position cap of the vector
+   list and position fusion) found nothing better on the hold-out than 0.80 –
+   0.95 with no cap and no position fusion.
+
+Plus one rule (above, `unrequestedMaterial`) for the sheet rows the stainless
+code took. Eval, all stages, top-1/top-5 (runs in `docs/eval-results.json`):
+
+| | golden | construction | metal | synthetic |
+|---|---|---|---|---|
+| phase 0 as stored (run 36) | 75.0 / 83.3 | 69.6 / 88.2 | 36.9 / 86.9 | 90.6 / 96.9 |
+| natural text, HNSW m=16/64 on mxik (run 38) | 66.7 / 66.7 | 81.4 / 89.2 | 46.4 / 48.2 | 90.6 / 95.3 |
+| natural text, HNSW m=32/200, ef 1000 (run 44) | 66.7 / 75.0 | 81.4 / 92.2 | 45.8 / 77.4 | 93.7 / 99.0 |
+| + unrequested-material rule (run 45) | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | 93.7 / 99.0 |
+| no vector stage | 50.0 / 58.3 | 76.5 / 86.3 | 75.6 / 98.2 | 85.3 / 92.1 |
+
+Still open: golden loses "PANADOL 500mg tabletka N12", which the folded
+vectors got right; metal top-1 stays below the vector-off figure because 49 profile
+pipes take the hot-rolled profile base code and 35 hot-rolled sheets the
+"Лист просечно-вытяжной" base code (the right sheets now in the top 5), where
+the base-code preference (+0.05) beats unmarked identifying codes (−0.10).
+Subposition fusion fixes the pipes but fails the synthetic constraint. The weighted hierarchy full-text column (opt-in) moved nothing
+with e5 either (run 46: 0 rows better, 1 worse) and stays off.
 
 ## Known weaknesses
 

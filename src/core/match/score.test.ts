@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   BANDS, LLM_WEIGHT, NO_RERANK_CEILING, bandOf, blendWithLlm,
-  calibrate, calibratePool, cosineToUnit, marginFactor, retrievalScore,
+  calibrate, calibratePool, cosineToUnit, marginFactor, retrievalScore, SEMANTIC_COSINE, vectorToUnit,
 } from './score.js';
 
 describe('cosineToUnit', () => {
@@ -180,5 +180,26 @@ describe('bandOf', () => {
   it('handles the extremes', () => {
     assert.equal(bandOf(1), 'high');
     assert.equal(bandOf(0), 'low');
+  });
+});
+
+describe('vectorToUnit', () => {
+  it('maps the e5 cosine band linearly onto 0..1 and clamps outside it', () => {
+    assert.equal(vectorToUnit(SEMANTIC_COSINE.floor), 0);
+    assert.equal(vectorToUnit(SEMANTIC_COSINE.ceil), 1);
+    assert.equal(vectorToUnit(0.5), 0);
+    assert.equal(vectorToUnit(0.99), 1);
+    assert.ok(Math.abs(vectorToUnit(0.875, { floor: 0.8, ceil: 0.95 }) - 0.5) < 1e-9);
+  });
+
+  it('separates what the old mapping bunched together', () => {
+    // 0.86 vs 0.90: 0.93 vs 0.95 before, 0.40 vs 0.67 on the band.
+    assert.ok(cosineToUnit(0.9) - cosineToUnit(0.86) < 0.03);
+    assert.ok(vectorToUnit(0.9) - vectorToUnit(0.86) > 0.25);
+  });
+
+  it('treats a degenerate band as a step instead of dividing by zero', () => {
+    assert.equal(vectorToUnit(0.9, { floor: 0.9, ceil: 0.9 }), 1);
+    assert.equal(vectorToUnit(0.89, { floor: 0.9, ceil: 0.9 }), 0);
   });
 });

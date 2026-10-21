@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HashingEmbeddingProvider } from '../embed/index.js';
 import type { DictionaryEntry, DictionaryLookup } from './dictionary.js';
-import { matchProduct } from './pipeline.js';
+import { matchProduct, vectorColumnsFor } from './pipeline.js';
 import { NoopRerankProvider } from './rerank.js';
 import { NONE_REASON } from './rerank-parse.js';
 import { BANDS, NO_RERANK_CEILING } from './score.js';
@@ -509,5 +509,70 @@ describe('ranking options (plan §3.2, §5)', () => {
     const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder: semantic, reranker: noop, nonSemanticVectorWeight: 0 });
     assert.equal(r.vector, 'used');
     assert.ok(r.candidates.some((c) => c.signals.vector !== undefined));
+  });
+});
+
+describe('semantic vector stage (plan §5, 2026-10-22)', () => {
+  /** A semantic embedder that records what it was asked to embed. */
+  class RecordingEmbedder implements EmbeddingProvider {
+    readonly name = 'semantic recorder';
+    readonly dimensions = 384;
+    readonly semantic = true;
+    readonly textShape = 'natural' as const;
+    calls: { texts: readonly string[]; role: string | undefined }[] = [];
+    embed(texts: readonly string[], role?: 'query' | 'passage'): Promise<number[][]> {
+      this.calls.push({ texts, role });
+      return Promise.resolve(texts.map(() => new Array<number>(384).fill(0.05)));
+    }
+  }
+  /** Answers each column with its own hits and cosines, and records which were asked. */
+  class ColumnStore extends FakeStore {
+    asked: (string | undefined)[] = [];
+    override byVector(_e: readonly number[], limit: number, column?: 'uz' | 'ru') {
+      this.asked.push(column);
+      const rows = column === 'ru' ? ROWS.slice(0, 2) : ROWS.slice(2);
+      return Promise.resolve(rows.slice(0, limit).map((r, i) => ({ candidate: r, score: 0.95, cosine: 0.9 - i * 0.05 })));
+    }
+  }
+
+  it('embeds the row as natural text in the query role', async () => {
+    const e = new RecordingEmbedder();
+    await matchProduct({ rawName: 'Трубы эл/св 57х3,0' }, { store: new ColumnStore(ROWS), embedder: e, reranker: noop });
+    assert.equal(e.calls[0]?.role, 'query');
+    assert.match(e.calls[0]?.texts[0] ?? '', /^Трубы электросварные/);
+  });
+
+  it('searches the column of the row script when it is filled, both for a mixed name', async () => {
+    const cyr = new ColumnStore(ROWS);
+    await matchProduct({ rawName: 'Гуруч' }, { store: cyr, embedder: new RecordingEmbedder(), reranker: noop, vectorColumns: ['uz', 'ru'] });
+    assert.deepEqual(cyr.asked, ['ru']);
+    const lat = new ColumnStore(ROWS);
+    await matchProduct({ rawName: 'guruch' }, { store: lat, embedder: new RecordingEmbedder(), reranker: noop, vectorColumns: ['uz', 'ru'] });
+    assert.deepEqual(lat.asked, ['uz']);
+    const mixed = new ColumnStore(ROWS);
+    await matchProduct({ rawName: 'Guruch гуруч' }, { store: mixed, embedder: new RecordingEmbedder(), reranker: noop, vectorColumns: ['uz', 'ru'] });
+    assert.deepEqual([...mixed.asked].sort(), ['ru', 'uz']);
+    const onlyUz = new ColumnStore(ROWS);
+    await matchProduct({ rawName: 'Гуруч' }, { store: onlyUz, embedder: new RecordingEmbedder(), reranker: noop });
+    assert.deepEqual(onlyUz.asked, ['uz']);
+  });
+
+  it('scores a semantic cosine on its calibrated band, and the old way on request', async () => {
+    const opts = { store: new ColumnStore(ROWS), embedder: new RecordingEmbedder(), reranker: noop, vectorColumns: ['uz'] as const };
+    // Not an exact name, so the row is ranked, not settled by stage 2.
+    const calibrated = await matchProduct({ rawName: 'kartoshka yangi' }, { ...opts, vectorCalibration: { floor: 0.8, ceil: 0.95 } });
+    const potato = calibrated.candidates.find((c) => c.candidate.code === '00701001001000000');
+    // Second uz hit: cosine 0.85 on the 0.80..0.95 band is a third of it.
+    assert.ok(Math.abs((potato?.signals.vector ?? 0) - (0.05 / 0.15)) < 1e-9);
+    const legacy = await matchProduct({ rawName: 'kartoshka yangi' }, { ...opts, vectorCalibration: null });
+    assert.equal(legacy.candidates.find((c) => c.candidate.code === '00701001001000000')?.signals.vector, 0.95);
+  });
+});
+
+describe('vectorColumnsFor', () => {
+  it('falls back to the filled columns, and to uz when nothing is recorded', () => {
+    assert.deepEqual(vectorColumnsFor('cyrillic', ['uz']), ['uz']);
+    assert.deepEqual(vectorColumnsFor('neither', ['uz', 'ru']), ['uz', 'ru']);
+    assert.deepEqual(vectorColumnsFor('latin', []), ['uz']);
   });
 });

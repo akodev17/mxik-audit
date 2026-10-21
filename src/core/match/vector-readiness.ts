@@ -9,29 +9,56 @@ import type { EmbeddingProvider } from './types.js';
 /** embedding_state.provider while `npm run embed:catalog` is rewriting vectors. */
 export const REBUILDING_PREFIX = 'rebuilding:';
 
+/** A vector column: "embeddingUz" (from nameUz) or "embeddingRu" (from nameRu). */
+export type VectorColumn = 'uz' | 'ru';
+
 export type StoredEmbeddingState = {
   provider: string;
   dimensions: number;
   rowsEmbedded: number;
+  /** Columns holding this provider's vectors; ['uz'] where the column predates 2026-10-22. */
+  columns?: VectorColumn[];
 };
 
+const isColumn = (c: unknown): c is VectorColumn => c === 'uz' || c === 'ru';
+
 export async function readEmbeddingState(pool: Pool): Promise<StoredEmbeddingState | null> {
-  const res = await pool.query<{ provider: string; dimensions: number; rowsEmbedded: number }>(
-    'SELECT provider, dimensions, "rowsEmbedded" FROM embedding_state WHERE id = 1',
-  );
-  const row = res.rows[0];
-  return row ? { provider: row.provider, dimensions: Number(row.dimensions), rowsEmbedded: Number(row.rowsEmbedded) } : null;
+  // As JSON, so a database without the "columns" migration still reads (as uz only).
+  const res = await pool.query<{ row: Record<string, unknown> }>('SELECT to_jsonb(e) AS row FROM embedding_state e WHERE id = 1');
+  const row = res.rows[0]?.row;
+  if (!row) return null;
+  const columns = Array.isArray(row['columns']) ? row['columns'].filter(isColumn) : [];
+  return {
+    provider: String(row['provider']),
+    dimensions: Number(row['dimensions']),
+    rowsEmbedded: Number(row['rowsEmbedded']),
+    columns: columns.length > 0 ? columns : ['uz'],
+  };
 }
 
 export async function writeEmbeddingState(pool: Pool, state: StoredEmbeddingState): Promise<void> {
-  await pool.query(
-    `INSERT INTO embedding_state (id, provider, dimensions, "rowsEmbedded", "updatedAt")
-     VALUES (1, $1, $2, $3, now())
-     ON CONFLICT (id) DO UPDATE SET
-       provider = EXCLUDED.provider, dimensions = EXCLUDED.dimensions,
-       "rowsEmbedded" = EXCLUDED."rowsEmbedded", "updatedAt" = now()`,
-    [state.provider, state.dimensions, state.rowsEmbedded],
-  );
+  const params = [state.provider, state.dimensions, state.rowsEmbedded];
+  try {
+    await pool.query(
+      `INSERT INTO embedding_state (id, provider, dimensions, "rowsEmbedded", columns, "updatedAt")
+       VALUES (1, $1, $2, $3, $4::text[], now())
+       ON CONFLICT (id) DO UPDATE SET
+         provider = EXCLUDED.provider, dimensions = EXCLUDED.dimensions,
+         "rowsEmbedded" = EXCLUDED."rowsEmbedded", columns = EXCLUDED.columns, "updatedAt" = now()`,
+      [...params, state.columns ?? ['uz']],
+    );
+  } catch (error) {
+    // 42703 undefined_column: the embedding_state_columns migration is not applied yet.
+    if ((error as { code?: unknown }).code !== '42703') throw error;
+    await pool.query(
+      `INSERT INTO embedding_state (id, provider, dimensions, "rowsEmbedded", "updatedAt")
+       VALUES (1, $1, $2, $3, now())
+       ON CONFLICT (id) DO UPDATE SET
+         provider = EXCLUDED.provider, dimensions = EXCLUDED.dimensions,
+         "rowsEmbedded" = EXCLUDED."rowsEmbedded", "updatedAt" = now()`,
+      params,
+    );
+  }
 }
 
 export type VectorReadiness = {

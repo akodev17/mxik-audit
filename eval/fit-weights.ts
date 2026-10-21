@@ -9,14 +9,14 @@
 // decide alone. Constraints, also on training rows only: no golden row that is
 // top-1 in the baseline loses it, and synthetic top-1 drops at most 1 point.
 // Appends the grid's best rows and the baseline to docs/weight-fit-results.json.
-// Run: npm run eval:fit [-- --label "..." --grid capped]   (DATABASE_URL picks the copy)
+// Run: npm run eval:fit [-- --label "..." --grid capped|position|vector|final]   (DATABASE_URL picks the copy)
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
 import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
 import { matchProduct, type PositionFusion } from '../src/core/match/pipeline.js';
 import { NoopRerankProvider } from '../src/core/match/rerank.js';
-import type { SignalWeights } from '../src/core/match/score.js';
+import type { SignalWeights, VectorCalibration } from '../src/core/match/score.js';
 import { PostgresCandidateStore } from '../src/core/match/store.js';
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
 import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
@@ -55,9 +55,15 @@ const cases = loaded.flatMap((c) => {
 const held = holdoutIds(cases.map((c) => c.id));
 const reranker = new NoopRerankProvider('weight fit');
 
-type Config = { positionFusion: PositionFusion; positionFusionCap?: number; nonSemanticVectorWeight: number | undefined; weights: SignalWeights };
+type Config = {
+  positionFusion: PositionFusion; positionFusionCap?: number; nonSemanticVectorWeight: number | undefined; weights: SignalWeights;
+  /** Semantic cosine band; null = the pre-2026-10-22 (1 + cos) / 2; absent = score.ts default. */
+  vectorCalibration?: VectorCalibration | null;
+  /** Codes per subposition kept from the vector list (pipeline vectorPerPosition). */
+  vectorPerPosition?: number;
+};
 const key = (c: Config): string =>
-  `${c.positionFusion}${c.positionFusionCap === undefined ? "" : ` cap=${c.positionFusionCap}`} vec=${c.nonSemanticVectorWeight ?? 'signal'} lex=${c.weights.lexical} rrf=${c.weights.rrf} pos=${c.weights.positionRrf}`;
+  `${c.positionFusion}${c.positionFusionCap === undefined ? "" : ` cap=${c.positionFusionCap}`}${c.vectorCalibration === undefined ? "" : c.vectorCalibration === null ? " cos=legacy" : ` cos=${c.vectorCalibration.floor}..${c.vectorCalibration.ceil}`} vec=${c.nonSemanticVectorWeight ?? 'signal'}${c.vectorPerPosition === undefined ? '' : ` perpos=${c.vectorPerPosition}`} lex=${c.weights.lexical} rrf=${c.weights.rrf} pos=${c.weights.positionRrf}`;
 
 /** Rank of the first correct code in the top five, per case id; null = not there. */
 async function ranks(config: Config): Promise<Map<string, number | null>> {
@@ -68,7 +74,7 @@ async function ranks(config: Config): Promise<Map<string, number | null>> {
       const c = cases[next++];
       if (!c) return;
       const result = await matchProduct({ rawName: c.name, barcode: c.barcode, unit: c.unit }, {
-        store, embedder, reranker, ...config,
+        store, embedder, reranker, vectorColumns: readiness.stored?.columns, ...config,
       });
       const i = result.candidates.findIndex((x) => accepts(c.correct, x.candidate.code));
       out.set(c.id, i === -1 ? null : i + 1);
@@ -107,6 +113,10 @@ const goldenTop1 = cases.filter((c) => setOf(c.id) === 'golden' && !held.has(c.i
 // --grid position: position fusion alone (keys, weights), the default ranking otherwise.
 const CAPPED = argValue('--grid') === 'capped';
 const POSITION_ONLY = argValue('--grid') === 'position';
+// --grid vector: a semantic provider's cosine band and the vector weight (plan §5, 2026-10-22).
+const VECTOR = argValue('--grid') === 'vector';
+// --grid final: the short list the vector fit left, re-measured after a rule change.
+const FINAL = argValue('--grid') === 'final';
 const grid: Config[] = [];
 if (CAPPED) {
   for (const positionFusion of ['position', 'subposition'] as const) {
@@ -124,7 +134,37 @@ if (POSITION_ONLY) {
     }
   }
 }
-for (const positionFusion of CAPPED || POSITION_ONLY ? [] : ['off', 'position', 'subposition'] as const) {
+if (VECTOR) {
+  const bands: (VectorCalibration | null)[] = [null];
+  for (const floor of [0.75, 0.78, 0.8, 0.82, 0.85]) for (const ceil of [0.9, 0.93, 0.95, 0.98]) bands.push({ floor, ceil });
+  for (const positionFusion of ['off', 'subposition', 'position'] as const) {
+    for (const vectorPerPosition of [undefined, 2, 3]) {
+      for (const vector of [0.25, 0.35]) {
+        for (const vectorCalibration of bands) {
+          grid.push({
+            positionFusion, nonSemanticVectorWeight: undefined, vectorCalibration,
+            ...(vectorPerPosition === undefined ? {} : { vectorPerPosition }),
+            weights: { lexical: 0.45, vector, rrf: 0.3, positionRrf: 0.2 },
+          });
+        }
+      }
+    }
+  }
+}
+if (FINAL) {
+  for (const positionFusion of ['off', 'subposition'] as const) {
+    for (const vectorCalibration of [{ floor: 0.8, ceil: 0.95 }, { floor: 0.82, ceil: 0.9 }, { floor: 0.78, ceil: 0.93 }]) {
+      for (const vectorPerPosition of [undefined, 3]) {
+        grid.push({
+          positionFusion, nonSemanticVectorWeight: undefined, vectorCalibration,
+          ...(vectorPerPosition === undefined ? {} : { vectorPerPosition }),
+          weights: { lexical: 0.45, vector: 0.25, rrf: 0.3, positionRrf: 0.2 },
+        });
+      }
+    }
+  }
+}
+for (const positionFusion of CAPPED || POSITION_ONLY || VECTOR || FINAL ? [] : ['off', 'position', 'subposition'] as const) {
   for (const positionRrf of positionFusion === 'off' ? [0] : [0.05, 0.1, 0.2]) {
     for (const nonSemanticVectorWeight of [undefined, 1, 0.5, 0.25, 0]) {
       for (const lexical of [0.35, 0.45, 0.55]) {

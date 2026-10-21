@@ -3,19 +3,43 @@
 // weights are downloaded once from the Hugging Face hub into LOCAL_MODEL_DIR.
 import { availableParallelism } from 'node:os';
 import type { EmbeddingProvider } from '../match/types.js';
+import type { EmbedRole, TextShape } from './text.js';
 
 export type LocalModel = {
   /** Hugging Face model id. */
   id: string;
-  /** Text prepended to every input, as the model card prescribes. */
-  prefix: string;
+  /** Text prepended to each input by role, as the model card prescribes. */
+  prefix: Record<EmbedRole, string>;
+  /** What text the vectors are made from (text.ts). */
+  textShape: TextShape;
+  /**
+   * Told apart in the provider name (and so in embedding_state) when the same
+   * weights embed a different text shape: vectors of two shapes must never be
+   * compared. Absent for the shape the model was first stored with.
+   */
+  variant?: string;
 };
 
-/** Both emit 384 dimensions, the size the schema pins. */
+/**
+ * All emit 384 dimensions, the size the schema pins. e5 is asymmetric: rows are
+ * queries, classifier names are passages ("query: " / "passage: ", model card).
+ */
 export const LOCAL_MODELS: Record<string, LocalModel> = {
-  'multilingual-e5-small': { id: 'Xenova/multilingual-e5-small', prefix: 'query: ' },
-  'paraphrase-multilingual-minilm': { id: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', prefix: '' },
+  'multilingual-e5-small': {
+    id: 'Xenova/multilingual-e5-small', prefix: { query: 'query: ', passage: 'passage: ' }, textShape: 'natural', variant: 'natural-v2',
+  },
+  // The shape stored until 2026-10-22: folded text, "query: " on both sides. Kept
+  // so a database embedded that way is still queried the same way until re-embedded.
+  'multilingual-e5-small-folded': {
+    id: 'Xenova/multilingual-e5-small', prefix: { query: 'query: ', passage: 'query: ' }, textShape: 'folded',
+  },
+  'paraphrase-multilingual-minilm': {
+    id: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', prefix: { query: '', passage: '' }, textShape: 'folded',
+  },
 };
+
+/** The provider name a model is stored under in embedding_state. */
+export const localModelName = (model: LocalModel): string => `local:${model.id}${model.variant ? `#${model.variant}` : ''}`;
 
 export const DEFAULT_LOCAL_MODEL = 'multilingual-e5-small';
 
@@ -43,6 +67,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   readonly dimensions = 384;
   readonly semantic = true;
   readonly name: string;
+  readonly textShape: TextShape;
   private extractor: Promise<Extractor> | null = null;
 
   constructor(
@@ -50,7 +75,8 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
     private readonly cacheDir = process.env['LOCAL_MODEL_DIR']?.trim() || 'data/models',
     private readonly batchSize = 64,
   ) {
-    this.name = `local:${model.id}`;
+    this.name = localModelName(model);
+    this.textShape = model.textShape;
   }
 
   /** Loaded on first use, so importing this module costs nothing. */
@@ -70,15 +96,16 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
     return this.extractor;
   }
 
-  async embed(texts: readonly string[]): Promise<number[][]> {
+  async embed(texts: readonly string[], role: EmbedRole = 'query'): Promise<number[][]> {
     const extract = await this.load();
+    const prefix = this.model.prefix[role];
     // A batch is padded to its longest text, and classifier names range from
     // two words to a paragraph: batch similar lengths together, then restore order.
     const order = texts.map((_, i) => i).sort((a, b) => (texts[a]?.length ?? 0) - (texts[b]?.length ?? 0));
     const out = new Array<number[]>(texts.length);
     for (let i = 0; i < order.length; i += this.batchSize) {
       const slice = order.slice(i, i + this.batchSize);
-      const tensor = await extract(slice.map((j) => this.model.prefix + (texts[j] ?? '')), { pooling: 'mean', normalize: true });
+      const tensor = await extract(slice.map((j) => prefix + (texts[j] ?? '')), { pooling: 'mean', normalize: true });
       tensor.tolist().forEach((vec, k) => {
         const j = slice[k];
         if (j !== undefined) out[j] = vec;
@@ -90,6 +117,6 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
 
 /** The local provider that produced a stored vector set, if it can be rebuilt here. */
 export function localProviderByName(name: string): LocalEmbeddingProvider | null {
-  const model = Object.values(LOCAL_MODELS).find((m) => `local:${m.id}` === name);
+  const model = Object.values(LOCAL_MODELS).find((m) => localModelName(m) === name);
   return model ? new LocalEmbeddingProvider(model) : null;
 }

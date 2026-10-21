@@ -3,11 +3,11 @@ import { describe, it } from 'node:test';
 import type { Pool } from 'pg';
 import { HashingEmbeddingProvider } from '../embed/index.js';
 import { LOCAL_MODELS, LocalEmbeddingProvider } from '../embed/local.js';
-import { REBUILDING_PREFIX, checkVectorReadiness } from './vector-readiness.js';
+import { REBUILDING_PREFIX, checkVectorReadiness, readEmbeddingState } from './vector-readiness.js';
 
 /** A pool whose embedding_state row is whatever the test says. */
-function poolWith(state: { provider: string; dimensions: number; rowsEmbedded: number } | null): Pool {
-  return { query: () => Promise.resolve({ rows: state ? [state] : [] }) } as unknown as Pool;
+function poolWith(state: { provider: string; dimensions: number; rowsEmbedded: number; columns?: string[] } | null): Pool {
+  return { query: () => Promise.resolve({ rows: state ? [{ row: state }] : [] }) } as unknown as Pool;
 }
 
 const e5 = LOCAL_MODELS['multilingual-e5-small'];
@@ -57,5 +57,31 @@ describe('checkVectorReadiness', () => {
     const r = await checkVectorReadiness(poolWith({ provider: local.name, dimensions: 384, rowsEmbedded: 10 }), local);
     assert.equal(r.usable, true);
     assert.equal(r.substituted, false);
+  });
+
+  it('queries vectors stored from folded text with the folded variant, never the natural one', async () => {
+    const folded = LOCAL_MODELS['multilingual-e5-small-folded'];
+    if (!folded) throw new Error('model table changed');
+    // The database still holds the pre-2026-10-22 shape; the configured default is natural-v2.
+    const r = await checkVectorReadiness(
+      poolWith({ provider: 'local:Xenova/multilingual-e5-small', dimensions: 384, rowsEmbedded: 442_964 }),
+      new LocalEmbeddingProvider(e5),
+    );
+    assert.equal(r.usable, true);
+    assert.equal(r.substituted, true);
+    assert.equal(r.embedder.name, 'local:Xenova/multilingual-e5-small');
+    assert.equal(r.embedder.textShape, 'folded');
+    assert.notEqual(new LocalEmbeddingProvider(e5).name, r.embedder.name);
+  });
+});
+
+describe('readEmbeddingState columns', () => {
+  it('reads the recorded columns, and uz only where the column does not exist yet', async () => {
+    const both = await readEmbeddingState(poolWith({ provider: 'x', dimensions: 384, rowsEmbedded: 1, columns: ['uz', 'ru'] }));
+    assert.deepEqual(both?.columns, ['uz', 'ru']);
+    const old = await readEmbeddingState(poolWith({ provider: 'x', dimensions: 384, rowsEmbedded: 1 }));
+    assert.deepEqual(old?.columns, ['uz']);
+    const junk = await readEmbeddingState(poolWith({ provider: 'x', dimensions: 384, rowsEmbedded: 1, columns: ['fr'] }));
+    assert.deepEqual(junk?.columns, ['uz']);
   });
 });

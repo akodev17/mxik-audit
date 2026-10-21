@@ -53,6 +53,21 @@ export function cosineToUnit(cosine: number): number {
 }
 
 /**
+ * The cosine band a semantic model actually uses. e5 puts unrelated pairs near
+ * 0.80 and near-identical ones above 0.95 (phase 0 probes, 2026-10-22), so the
+ * old (1 + cos) / 2 mapped everything to 0.90-0.98: a strong, flat signal that
+ * said little. Mapped linearly from floor to ceiling instead; fitted with
+ * `npm run eval:fit` (docs/weight-fit-results.json).
+ */
+export type VectorCalibration = { readonly floor: number; readonly ceil: number };
+export const SEMANTIC_COSINE: VectorCalibration = { floor: 0.8, ceil: 0.95 };
+
+export function vectorToUnit(cosine: number, calibration: VectorCalibration = SEMANTIC_COSINE): number {
+  const span = calibration.ceil - calibration.floor;
+  return span <= 0 ? (cosine >= calibration.ceil ? 1 : 0) : clamp01((cosine - calibration.floor) / span);
+}
+
+/**
  * Blends the retrieval signals, renormalizing over whichever are present so a
  * missing stage does not silently drag the score toward zero.
  */

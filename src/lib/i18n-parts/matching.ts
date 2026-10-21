@@ -35,6 +35,7 @@ export const uz = {
       strictUnitConflict: 'Qatordagi oʻlchov birligi kodga qatʼiy biriktirilgan birlikka mos emas.',
       recommendedUnitMatch: 'Qatordagi oʻlchov birligi tasniflagich bu kod uchun tavsiya qilgan birliklardan biri.',
       unitKindMismatch: 'Tasniflagich bu kod uchun boshqa turdagi birlikni tavsiya qiladi (masalan, dona, qatorda esa tonna).',
+      unrequestedMaterial: 'Kod nomida qatorda aytilmagan metall bor (masalan, zanglamaydigan poʻlat); metall koʻrsatilmasa, odatda oddiy poʻlat nazarda tutiladi.',
     },
     degraded: {
       title: 'Bu tahlil cheklangan rejimda bajarildi',
@@ -110,6 +111,7 @@ export const ru: typeof uz = {
       strictUnitConflict: 'Единица измерения в строке не совпадает с единицей, жёстко привязанной к коду.',
       recommendedUnitMatch: 'Единица в строке — одна из рекомендованных классификатором для этого кода.',
       unitKindMismatch: 'Классификатор рекомендует для этого кода единицу другого рода (например, штуки, а в строке тонны).',
+      unrequestedMaterial: 'В названии кода металл, которого нет в строке (например, нержавеющая сталь); без указания металла обычно имеется в виду обычная сталь.',
     },
     degraded: {
       title: 'Этот анализ выполнен в ограниченном режиме',
