@@ -341,8 +341,14 @@ async function replay(file: string, req: Captured): Promise<{ ms: number; bytes:
   const headers = Object.fromEntries(Object.entries(req.headers).filter(([k]) => k === 'cookie' || k === 'rsc' || k === 'accept' || k === 'x-real-ip' || k.startsWith('next-')));
   const offset = statSync(file).size;
   const t = performance.now();
-  const res = await fetch(`${BASE}${req.url}`, { headers, redirect: 'manual' });
-  const bytes = (await res.arrayBuffer()).byteLength;
+  let bytes: number;
+  try {
+    const res = await fetch(`${BASE}${req.url}`, { headers, redirect: 'manual' });
+    bytes = (await res.arrayBuffer()).byteLength;
+  } catch (error) {
+    process.stderr.write(`replay of ${req.name} failed: ${String(error)}\n`);
+    bytes = -1;
+  }
   const ms = performance.now() - t;
   await sleep(300);
   return { ms, bytes, queries: parseQueries(readFrom(file, offset)) };
