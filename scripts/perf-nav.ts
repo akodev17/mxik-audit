@@ -14,6 +14,8 @@
 // --server-log FILE   the server's stdout, started with PRISMA_LOG=1: replays each captured
 //                     navigation request alone and counts its queries (docs: src/lib/db.ts)
 // --commit SHA        the commit the served build was made from (default: HEAD)
+// --only a,b          only these passes: tabs, settings, workspace, history, heap, fast3g (debugging; implies --no-save)
+// PERF_VERBOSE=1      prints every switch as it is measured
 // --no-save           print only
 // PERF_BASE_URL (default http://localhost:3001), PERF_EMAIL / PERF_PASSWORD (default: the seed org
 // from the README, `npm run seed`).
@@ -38,8 +40,10 @@ const PASSES = Number(arg('--passes') ?? '5');
 const DWELL_MS = Number(arg('--dwell') ?? '0');
 const SERVER_LOG = arg('--server-log');
 const SLOW = process.argv.includes('--slow');
-const SAVE = !process.argv.includes('--no-save');
+const SAVE = !process.argv.includes('--no-save') && !process.argv.includes('--only');
 const BUILT_FROM = arg('--commit');
+const ONLY = arg('--only')?.split(',') ?? null;
+const runs = (pass: string): boolean => ONLY === null || ONLY.includes(pass);
 const RESULTS = 'docs/perf-nav-results.json';
 /** Sign-in attempts are rate limited per address; a per-run address keeps runs apart (as e2e/fixture.ts). */
 const RUN_IP = `perf-${randomBytes(6).toString('hex')}`;
@@ -58,6 +62,8 @@ type Trigger = 'click' | 'change' | 'popstate';
 
 export type Sample = {
   feedbackMs: number | null;
+  /** First frame with the navigation progress bar up (src/ui/shell/navigation-progress.tsx); null when it never showed. */
+  barMs: number | null;
   urlMs: number | null;
   contentMs: number | null;
   /** _rsc fetches started between the trigger and the content (the ones the switch waited for). */
@@ -86,7 +92,7 @@ function installProbe(): void {
   w.__perf = w.__perf ?? [];
   performance.setResourceTimingBufferSize(5000);
   type State = {
-    armAt: number; t0: number | null; feedback: number | null; url: number | null; content: number | null; done: boolean;
+    armAt: number; t0: number | null; feedback: number | null; bar: number | null; url: number | null; content: number | null; done: boolean;
     start: string; oldReady: Element | null; oldBusy: Set<Element>; longTasks: [number, number][]; events: [number, number][];
   };
   let st: State | null = null;
@@ -98,7 +104,7 @@ function installProbe(): void {
       performance.clearResourceTimings();
       const main = document.querySelector('main');
       const state: State = {
-        armAt: performance.now(), t0: null, feedback: null, url: null, content: null, done: false,
+        armAt: performance.now(), t0: null, feedback: null, bar: null, url: null, content: null, done: false,
         start: address(), oldReady: document.querySelector(ready),
         oldBusy: new Set(main ? Array.from(main.querySelectorAll('[aria-busy="true"]')) : []),
         longTasks: [], events: [],
@@ -122,6 +128,7 @@ function installProbe(): void {
           const fresh = node !== null && node !== state.oldReady;
           const moved = address() !== state.start;
           if (state.feedback === null && (busy || (moved && fresh))) state.feedback = now;
+          if (state.bar === null && state.content === null && document.querySelector('[data-navigation-pending]') !== null) state.bar = now;
           if (state.url === null && moved) state.url = now;
           if (state.content === null && moved && fresh && !busy) state.content = now;
         }
@@ -145,7 +152,7 @@ function installProbe(): void {
       const commits = (w.__perf ?? []).filter((c) => c.commitTime >= t0);
       const kb = (n: number): number => Math.round(n / 102.4) / 10;
       return {
-        feedbackMs: s.feedback, urlMs: s.url, contentMs: s.content,
+        feedbackMs: s.feedback, barMs: s.bar, urlMs: s.url, contentMs: s.content,
         rscFetches: nav.length,
         rscBeforeClick: before.length,
         rscKB: kb(nav.reduce((n, e) => n + e.decodedBodySize, 0)),
@@ -198,11 +205,13 @@ async function measure(page: Page, trigger: Trigger, ready: string, act: () => P
     throw new Error(`${error.message}\n    waiting for ${ready} after ${trigger}: ${seen}`);
   });
   await sleep(SETTLE_MS);
-  return page.evaluate(() => {
+  const sample = await page.evaluate(() => {
     const probe = (window as ProbeWindow).__navProbe;
     if (!probe) throw new Error('no probe in the page');
     return probe.collect();
   });
+  if (process.env['PERF_VERBOSE'] === '1') process.stdout.write(`  ${trigger} ${page.url().replace(BASE, '')}: feedback ${sample.feedbackMs} content ${sample.contentMs} rsc ${sample.rscBeforeClick}+${sample.rscFetches} responseEnd ${sample.rscMs}\n`);
+  return sample;
 }
 
 /** Clicks a visible link to `href` (hovering `DWELL_MS` first) and measures the switch. */
@@ -252,6 +261,8 @@ function summary(samples: Sample[]) {
   return {
     n: samples.length,
     feedbackMs: spread((s) => s.feedbackMs),
+    /** First visible sign of any kind: skeleton, new content or the progress bar. */
+    anyFeedbackMs: spread((s) => (s.barMs === null ? s.feedbackMs : s.feedbackMs === null ? s.barMs : Math.min(s.barMs, s.feedbackMs))),
     urlMs: spread((s) => s.urlMs),
     contentMs: spread((s) => s.contentMs),
     rscFetchesPerSwitch: Math.round((samples.reduce((n, s) => n + s.rscFetches, 0) / Math.max(1, samples.length)) * 100) / 100,
@@ -398,6 +409,7 @@ async function main(): Promise<void> {
     await first.context.close();
 
     // Header tabs: a fresh profile per pass (empty router cache), then the same round again warm.
+    if (runs('tabs')) {
     const loads = [];
     const cold: Transition[] = [];
     const warm: Transition[] = [];
@@ -428,8 +440,10 @@ async function main(): Promise<void> {
       documentKB: loads[0]?.documentKB, jsKB: loads[0]?.jsKB,
     };
     results['tabs'] = { cold: summary(cold.map((t) => t.sample)), warm: summary(warm.map((t) => t.sample)), perTransition };
+    }
 
     // Settings ?tab= strip, cold then warm, in one profile per pass.
+    if (runs('settings')) {
     const settingsCold: Sample[] = [];
     const settingsWarm: Sample[] = [];
     for (let i = 0; i < PASSES; i++) {
@@ -445,8 +459,10 @@ async function main(): Promise<void> {
     }
     results['settingsTabs'] = { cold: summary(settingsCold), warm: summary(settingsWarm) };
     process.stdout.write('settings done\n');
+    }
 
     // Workspace on the org's newest ready catalogue: open from the list, decision filter, sort, Back.
+    if (runs('workspace')) {
     const ws = { open: [] as Sample[], filter: [] as Sample[], sort: [] as Sample[], back: [] as Sample[] };
     let catalogPath: string | null = null;
     for (let i = 0; i < PASSES; i++) {
@@ -471,9 +487,10 @@ async function main(): Promise<void> {
     }
     results['workspace'] = { catalog: 'newest ready catalogue of the seed org', open: summary(ws.open), filter: summary(ws.filter), sort: summary(ws.sort), back: summary(ws.back) };
     process.stdout.write('workspace done\n');
+    }
 
     // Back and Forward across six entries, after one round of tabs.
-    {
+    if (runs('history')) {
       const { context, page } = await newProfile(browser, state);
       await page.goto('/dashboard');
       await page.locator('main h1').first().waitFor();
@@ -504,7 +521,7 @@ async function main(): Promise<void> {
     process.stdout.write('history and rapid done\n');
 
     // Heap: after 5 switches and after 40, garbage collected first.
-    {
+    if (runs('heap')) {
       const { context, page } = await newProfile(browser, state);
       await page.goto('/dashboard');
       await page.locator('main h1').first().waitFor();
@@ -520,7 +537,7 @@ async function main(): Promise<void> {
     }
     process.stdout.write('heap done\n');
 
-    if (SLOW) {
+    if (SLOW && runs('fast3g')) {
       const { context, page } = await newProfile(browser, state);
       await slowNetwork(context, page);
       await page.goto('/dashboard', { timeout: 120_000 });
@@ -528,7 +545,7 @@ async function main(): Promise<void> {
       await page.waitForLoadState('networkidle', { timeout: 120_000 });
       const c = (await tabRound(page)).map((t) => t.sample);
       const w = (await tabRound(page)).map((t) => t.sample);
-      const brief = (s: Sample[]) => ({ feedbackMs: summary(s).feedbackMs, contentMs: summary(s).contentMs });
+      const brief = (s: Sample[]) => ({ feedbackMs: summary(s).feedbackMs, anyFeedbackMs: summary(s).anyFeedbackMs, contentMs: summary(s).contentMs });
       results['fast3g'] = { cold: brief(c), warm: brief(w) };
       await context.close();
       process.stdout.write('fast 3g done\n');
