@@ -245,13 +245,17 @@ for (const o of fullOutcomes.filter((x) => x.source === 'real')) {
 
 // Top-5 misses in tokens: the query as retrieval sees it next to the correct
 // code's own words. Tells a vocabulary gap from an inflection miss (plan §5).
-/** The code a label stands for: itself, or for a prefix the base code under it (else its first code). */
-async function representative(labels: readonly string[]): Promise<{ code: string; nameUz: string; nameRu: string } | null> {
+/**
+ * The code a label stands for: itself, or for a prefix the code under it whose
+ * name is closest to the query, so "Лист г/к" is compared with the position's
+ * "лист горячекатаный" codes rather than with its differently worded base code.
+ */
+async function representative(labels: readonly string[], query: string): Promise<{ code: string; nameUz: string; nameRu: string } | null> {
   for (const label of labels) {
     const res = isPrefix(label)
       ? await pool.query<{ code: string; nameUz: string; nameRu: string }>(
         `SELECT code, "nameUz", "nameRu" FROM mxik_code WHERE code LIKE $1 AND "retiredAt" IS NULL
-         ORDER BY "isBase" DESC, code LIMIT 1`, [`${label.slice(0, -1)}%`])
+         ORDER BY word_similarity($2, "searchText") DESC, "isBase" DESC, code LIMIT 1`, [`${label.slice(0, -1)}%`, query])
       : await pool.query<{ code: string; nameUz: string; nameRu: string }>(
         'SELECT code, "nameUz", "nameRu" FROM mxik_code WHERE code = $1', [label]);
     const row = res.rows[0];
@@ -264,11 +268,11 @@ const missDiagnostics: MissRecord[] = [];
 const realMisses = fullOutcomes.filter((o) => o.source === 'real' && o.rank === null);
 if (realMisses.length > 0) {
   console.log('');
-  console.log('real top-5 misses in tokens (query | correct code words; ~ = same stem, inflected)');
+  console.log('real top-5 misses in tokens (query | closest correct code\'s words; ~ = same stem, inflected)');
 }
 for (const o of realMisses) {
   const query = lexicalQuery(normalizeName(o.name).queryKey);
-  const code = await representative(o.correct);
+  const code = await representative(o.correct, query);
   const codeTokens = code ? [...tokenize(matchKeyOf(code.nameUz)), ...tokenize(matchKeyOf(code.nameRu))] : [];
   const d = diagnoseMiss(tokenize(query), codeTokens);
   missDiagnostics.push({ id: o.id, query, correctCode: code?.code ?? null, ...d });

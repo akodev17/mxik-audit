@@ -318,6 +318,22 @@ Labels may list several defensible codes or a position prefix; the metric
 counts a hit on any of them (`eval/cases.ts`, `metrics.ts` already support
 prefix labels since the branch).
 
+> **Implementation note (2026-10-21, phase 1).** `eval/real-construction.csv`
+> has 102 rows, one or more per restricted base code, written by the
+> implementer in seller style (Russian, Uzbek Latin, sizes, trade
+> abbreviations; e.g. "Пеноблок D600 600х300х200", "Montaj ko'pigi 750 ml").
+> They are not customer data and every row's notes say so. Labels are the
+> list's official code **plus its 11-digit subposition prefix**
+> (`06810008003000000|06810008003*`), not the 8-digit position: the
+> restricted base code is exactly what sellers must replace with an
+> identifying code of the same subposition, so both are right, while the
+> 8-digit position (e.g. `06810006*`, every reinforced-concrete product)
+> would accept wrong answers. Where two list codes are equally defensible
+> both are listed. One label was widened after the baseline (run 16):
+> "Газоблок D500" also accepts `06810999038000000`, a base code named
+> exactly "Газоблок" that the exact stage found; run 17 is the corrected
+> baseline. The metal set keeps its 8-digit labels.
+
 ### 7.2 Baselines (reproducible with `npm run eval` on the stated data)
 
 Degraded configuration (hashing vectors, no reranker, 438,925-code snapshot of
@@ -401,6 +417,20 @@ session must **not** run this against the shared DB; it may run everything
 diagnostic to `eval/run.ts`; run the baseline on the current data and commit it.
 No engine change. Depends on nothing.
 
+> **Implementation note (2026-10-21).** Done in `3472a2b`/`6257198`. Runs 16
+> and 17 (shared `mxik` DB, read only) reproduce §7.2 exactly. The miss
+> diagnostic on run 17: of 64 real top-5 misses, 45 share no word or stem
+> with the correct code (vocabulary: "арматура" vs "прокат арматурный",
+> "уголок" vs "угловые профили", "минвата"), 9 share only an inflected
+> stem (armatura~armaturali, kirpich~kirpichi, fiting~fitingi). Eval runs
+> now also record the database name, because from phase 2.3 on every run
+> is made on **`mxik_scratch`**, a copy of `mxik` in the same container
+> (schema + data streamed with `pg_dump | psql`, all indexes except the two
+> HNSW ones, which the hashing provider never uses: it forces an exact
+> scan). The migration of §3.1 can only be applied there, so the whole
+> before/after series moves there; a reproduction run on the copy confirms
+> it gives the same numbers as `mxik`.
+
 **Phase 2: retrieval.** 3.4 relevance guard; 3.3 synonym table; 3.1 weighted
 search vector (migration + loader + store + evidence); 3.5 unit-aware rules.
 Each as its own commit with its eval. Depends on phase 1 for the sets.
@@ -463,6 +493,14 @@ new evidence labels.
 - No test is weakened to pass. The DB-version `sample-report.test.ts` failure is
   resolved by phase 0 data or by making the test state its expected snapshot
   and skip with a reason, never by deleting the assertion.
+
+  > **Implementation note (2026-10-21).** Done the second way, for the one
+  > failing subtest only: "every code in the explorable catalogue exists"
+  > reads the snapshot the sample states it was generated from
+  > (`classifier.snapshot` = 15.10.2026, 442,719 codes) and skips, saying
+  > so, when the local `catalog_snapshot` is older; on that snapshot or a
+  > newer one the unchanged assertion runs. The other DB subtest still runs
+  > and passes on the August copy.
 
 ---
 
