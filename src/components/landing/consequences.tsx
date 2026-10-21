@@ -24,7 +24,7 @@ export function Consequences() {
   const practice = items.filter((c) => c.sources.length === 0);
 
   return (
-    <section aria-labelledby="consequences-title" className="py-20 sm:py-28">
+    <section aria-labelledby="consequences-title" className="bg-lp-surface py-20 sm:py-28">
       <div className={CONTAINER}>
         <h2 id="consequences-title" className="lp-display max-w-[22ch] text-[clamp(1.875rem,3.8vw,2.75rem)]">Notoʻgʻri kod nimaga olib keladi</h2>
 

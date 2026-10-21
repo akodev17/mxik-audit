@@ -1,52 +1,47 @@
-import { ButtonLink, TextLink } from './button';
-import { DEMO_URL } from './config';
+import { ButtonLink } from './button';
 import { CONTAINER } from './container';
-import { CATALOG_CODES, SAMPLE_FILENAME, nf } from './data';
-import { HeroSheet } from './hero-sheet';
+import { ProductPreview } from './product-preview';
 
-// What it is, for whom, why it matters, what to do next: said once each, beside the product itself.
+// What it is, for whom, what to do next — then the product itself, large, inside the grey canvas.
 export function Hero() {
   return (
-    <section aria-labelledby="hero-title" className="relative overflow-hidden border-b border-lp-line bg-lp-surface">
-      <div className={`${CONTAINER} grid grid-cols-1 gap-x-14 gap-y-14 pb-16 pt-12 sm:pt-16 lg:grid-cols-12 lg:items-center lg:pb-24 lg:pt-20`}>
-        <div className="lp-rise lg:col-span-6">
-          <p className="inline-flex items-center gap-2 rounded-full border border-lp-line bg-lp-base px-3 py-1 text-[14px] text-lp-muted">
+    <section aria-labelledby="hero-title" className="px-3 pb-4 sm:px-4">
+      <div className="relative overflow-hidden rounded-lp-xl bg-lp-surface">
+        <div className={`${CONTAINER} pt-10 text-center sm:pt-14`}>
+          <p className="lp-rise inline-flex items-center gap-2 rounded-full border border-lp-line bg-lp-base px-3.5 py-1.5 text-[14px] font-medium text-lp-muted shadow-sm">
             <span aria-hidden="true" className="size-2 rounded-full bg-lp-brand" />
             Buxgalterlar va autsorsing firmalari uchun
           </p>
-          <h1 id="hero-title" className="lp-display mt-6 text-[clamp(2.25rem,5vw,3.5rem)]">
-            Katalogdagi har bir kod <em>tekshirilgan</em>, har bir qaror izli.
+          <h1 id="hero-title" className="lp-display lp-rise mx-auto mt-5 max-w-[22ch] text-[clamp(2rem,4.2vw,3.25rem)] font-bold" style={{ ['--d' as string]: '.05s' }}>
+            MXIK katalogingizni tekshiring. Xatolarni aniqlang. <em>Ishonch bilan qaror qiling.</em>
           </h1>
-          <p className="mt-6 max-w-[34rem] text-[18px] leading-relaxed text-lp-muted">
-            Excel yoki CSV katalogni yuklang. Tasnivo har bir qatorni{' '}
-            <span className="num text-lp-ink">{nf.format(CATALOG_CODES)}</span> ta kodli rasmiy MXIK
-            tasniflagichi bilan solishtiradi, shubhali qatorni ajratadi va nega aynan shu kod
-            taklif qilinganini yonida koʻrsatadi. Qarorni siz qabul qilasiz.
+          <p className="lp-rise mx-auto mt-4 max-w-[40rem] text-[17px] leading-relaxed text-lp-muted sm:text-[18px]" style={{ ['--d' as string]: '.1s' }}>
+            Mahsulot katalogingizdagi MXIK kodlari, oʻlchov birliklari va boshqa nomuvofiqliklarni
+            aniqlang. Har bir tekshiruv natijasini tushunarli izoh va audit tarixi bilan koʻring.
           </p>
-          <div id="hero-actions" className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
-            {DEMO_URL ? (
-              <>
-                <ButtonLink href={DEMO_URL}>Demoni ochish</ButtonLink>
-                <TextLink href="#audit">Faylni bepul tekshirtirish</TextLink>
-              </>
-            ) : (
-              <>
-                <ButtonLink href="#audit">Faylni bepul tekshirtirish</ButtonLink>
-                <TextLink href={`/demo/${SAMPLE_FILENAME}`} download>Namuna faylni yuklab olish</TextLink>
-              </>
-            )}
+          <div id="hero-actions" className="lp-rise mt-6 flex flex-wrap items-center justify-center gap-3" style={{ ['--d' as string]: '.15s' }}>
+            <ButtonLink href="/sign-up">Bepul boshlash</ButtonLink>
+            <ButtonLink href="#demo" variant="secondary">Qanday ishlashini koʻrish</ButtonLink>
           </div>
-          <p className="mt-5 text-[15px] text-lp-muted">Roʻyxatdan oʻtish shart emas. Risk auditi bepul.</p>
+          <p className="mt-4 text-[14px] text-lp-muted">
+            Yoki{' '}
+            <a href="#audit" className="font-medium text-lp-brand-ink underline underline-offset-4 hover:text-lp-ink">faylni yuborib bepul risk auditini oling</a>
+            {' '}— roʻyxatdan oʻtish shart emas.
+          </p>
         </div>
 
-        <div className="lp-rise min-w-0 lg:col-span-6 " style={{ ['--d' as string]: '.15s' }}>
-          <HeroSheet />
-          <p className="mt-6 max-w-[48ch] text-[13px] leading-relaxed text-lp-muted">
-            Oʻylab topilgan doʻkon katalogi: nomlar oʻylab topilgan, kodlar tasniflagichdan, xatolar
-            ataylab qoʻyilgan. Natijani tizim chiqargan va xato boʻlishi mumkin.
-          </p>
+        <div className={`${CONTAINER} lp-rise mt-8 sm:mt-10`} style={{ ['--d' as string]: '.25s' }}>
+          {/* Cropped at the bottom like a window sliding up from the canvas; the full audit follows in "Demo". */}
+          <div className="relative max-h-[30rem] overflow-hidden rounded-t-lp-lg sm:max-h-[34rem]">
+            <ProductPreview />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-lp-surface to-transparent" />
+          </div>
         </div>
       </div>
+      <p className="mx-auto mt-4 max-w-[60ch] text-center text-[13px] leading-relaxed text-lp-muted">
+        Koʻrinish — oʻylab topilgan doʻkon katalogi: nomlar oʻylab topilgan, kodlar tasniflagichdan,
+        xatolar ataylab qoʻyilgan. Natijani tizim chiqargan va xato boʻlishi mumkin.
+      </p>
     </section>
   );
 }

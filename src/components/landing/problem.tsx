@@ -33,7 +33,7 @@ export function Problem() {
 
         <div className="mt-24">
           <h3 className="lp-display text-[clamp(1.5rem,3vw,2rem)]">Shu ish qoʻlda va Tasnivo bilan</h3>
-          <div className="mt-8 overflow-hidden rounded-lp border border-lp-line bg-lp-base">
+          <div className="mt-8 overflow-hidden rounded-lp-lg border border-lp-line bg-lp-base">
             <div className="hidden grid-cols-[11rem_1fr_1fr] border-b border-lp-line bg-lp-surface text-[14px] font-medium sm:grid">
               <span className="px-5 py-3" />
               <span className="border-l border-lp-line px-5 py-3 text-lp-muted">Qoʻlda</span>

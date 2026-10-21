@@ -15,7 +15,7 @@ const OUTCOMES = [
 export function Outcomes() {
   const items = OUTCOMES.filter((o) => o.show);
   return (
-    <section aria-labelledby="accountants-title" className="py-20 sm:py-28">
+    <section aria-labelledby="accountants-title" className="bg-lp-surface py-20 sm:py-28">
       <div className={`${CONTAINER} grid grid-cols-1 gap-x-14 gap-y-10 lg:grid-cols-12`}>
         <div className="lg:col-span-5">
           <div className="lg:sticky lg:top-8">

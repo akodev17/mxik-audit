@@ -7,7 +7,7 @@ import { LiveScan } from './live-scan';
 // Section 4: the real interactive audit of the sample file, set as a sheet on a dark desk.
 export function DemoBand() {
   return (
-    <section aria-labelledby="demo-title" className="border-y border-lp-line bg-lp-surface py-20 sm:py-28">
+    <section id="demo" aria-labelledby="demo-title" className="bg-lp-surface py-20 sm:py-28">
       <div className={CONTAINER}>
         <div className="grid grid-cols-1 gap-x-14 gap-y-6 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-7">
@@ -21,7 +21,7 @@ export function DemoBand() {
             yoki toʻgʻri ekani, taklif va tasniflagichdagi oʻrni ochiladi.
           </p>
         </div>
-        <div className="mt-10 rounded-lp border border-lp-line bg-lp-base p-3 text-lp-ink shadow-sm sm:p-5">
+        <div className="mt-10 rounded-lp-lg border border-lp-line bg-lp-base p-3 text-lp-ink shadow-sm sm:p-5">
           <LiveScan catalog={SAMPLE_REPORT.catalog} codes={SAMPLE_REPORT.codes} filename={SAMPLE_FILENAME} demoUrl={DEMO_URL} />
         </div>
         <p className="mt-5 max-w-[68ch] text-[14px] leading-relaxed text-lp-muted">

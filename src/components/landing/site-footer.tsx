@@ -43,7 +43,7 @@ function Source({ lang }: { lang: SiteLang }) {
 export function SiteFooter({ lang = 'uz' }: { lang?: SiteLang }) {
   const c = SHELL_COPY[lang];
   return (
-    <footer id="site-footer" className="border-t border-lp-line bg-lp-surface text-lp-muted">
+    <footer id="site-footer" className="border-t border-lp-line bg-lp-base text-lp-muted">
       <div className={`${CONTAINER} grid grid-cols-1 gap-8 py-12 md:grid-cols-[1fr_auto]`}>
         <div className="max-w-[68ch] space-y-3 text-[15px]">
           <p className="text-[18px] text-lp-ink"><TasnivoLogo markClassName="size-7" accent="var(--color-lp-brand)" /></p>

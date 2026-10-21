@@ -27,6 +27,8 @@
   --color-lp-warn-cell: #f8dfa6;
 
   --radius-lp: 8px;
+  --radius-lp-lg: 14px;
+  --radius-lp-xl: 24px;
 }
 
 .landing {

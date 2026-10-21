@@ -35,7 +35,7 @@ const STEPS: readonly { title: string; body: string; detail: readonly string[] }
 // Section 5: a rail of four cells, filling in until the last one — the checked one, as in the logo.
 export function Workflow() {
   return (
-    <section aria-labelledby="how-title" className="border-y border-lp-line bg-lp-surface py-20 sm:py-24">
+    <section id="qanday-ishlaydi" aria-labelledby="how-title" className="py-20 sm:py-28">
       <div className={CONTAINER}>
         <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Qanday ishlaydi</p>
         <h2 id="how-title" className="lp-display mt-4 max-w-[18ch] text-[clamp(1.875rem,3.8vw,2.75rem)]">
