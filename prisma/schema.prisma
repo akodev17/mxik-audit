@@ -83,6 +83,11 @@ model MxikCode {
   /// GENERATED ALWAYS columns itself.
   searchVector Unsupported("tsvector")?
 
+  /// Weighted full-text vector over the names and the hierarchy (A leaf, B
+  /// position, C class/group, D brand/attribute). Filled by load:db or
+  /// `npm run search:weighted`; see the weighted_search_vector migration.
+  searchVectorWeighted Unsupported("tsvector")?
+
   /// Set when a later import no longer contains this code. See docs/gate0-report.md
   /// section 3: no source exposes deprecation, so this is populated by snapshot
   /// diffing and is null on a first import.

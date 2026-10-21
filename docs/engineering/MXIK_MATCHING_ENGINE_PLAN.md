@@ -143,6 +143,31 @@ plain "лист г/к") stops tying with the right one.
 - Evidence: `matchedWords` reports hierarchy hits separately
   (`matchedHierarchyWords`) so a reviewer sees *why* a position was chosen.
 
+> **Implementation note (2026-10-21, phase 2.3).** Built as planned, with
+> three adaptations. (1) The column cannot be `GENERATED` like `searchVector`
+> because the folding is TypeScript, so it is a plain column filled by
+> `load:db` and by a new resumable `npm run search:weighted` backfill (223 s
+> for 438,925 rows on the scratch copy; GIN index 53 MB, built
+> `CONCURRENTLY` in 10 s after the fill). The migration only adds the column;
+> the store treats a valid index as "filled". Verified: the migration on
+> `mxik_scratch` (5.7 s) and on an empty database, `load:db` on 3,000 real
+> records producing byte-identical `searchText` and vectors to the backfill.
+> (2) `scriptAlternates` is not applied: it rewrites every "s" in a string,
+> right for exact keys but a junk lexeme per word in a tsvector, and the
+> miss diagnostic shows no ц misses. (3) Weights: A = 0.1 (exactly the plain
+> column's weight, so `FULLTEXT_K` keeps its meaning and a leaf-only hit
+> ranks identically, tested), B 0.05, C 0.025, D 0.0125; only leaf (A) words
+> select candidates. **Result: no case moved** (runs 23 vs 25, identical
+> predictions on all 473 cases); letting position words select too (A+B,
+> run 24) made two synthetic cases worse. The decisive words of these rows
+> are already in the leaf names; the hierarchy only reorders codes that tie
+> inside one position, which §3.2 addresses directly. Following this
+> section's own rule ("keep the old column until the eval shows the new one
+> wins"), the weighted column is **opt-in** (`fullTextColumn: 'weighted'`,
+> `npm run eval -- --fulltext-column weighted`); the default stays
+> `searchVector`. The evidence field and its UI line work when it is on.
+> Re-measure with e5 vectors after phase 0 before switching.
+
 ### 3.2 Position-level fusion (addresses P5, P6)
 
 Candidates are fused per code. 150 near-identical identifying codes under one

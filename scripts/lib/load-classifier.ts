@@ -9,8 +9,10 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { Client } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
-import { indexKeys, matchKeyOf } from '../../src/core/normalize/index.js';
+import { weightedSearchText, weightedVectorSql } from '../../src/core/match/search-document.js';
+import { indexKeys } from '../../src/core/normalize/index.js';
 import { resolveUnit } from '../../src/core/normalize/units.js';
+import { ensureWeightedIndex, hasWeightedColumn } from './weighted-search.js';
 
 type Rec = {
   code: string;
@@ -146,12 +148,18 @@ export async function loadClassifier(options: LoadOptions): Promise<LoadResult> 
     const previousLive = Number(prev.rows[0]?.n ?? 0);
     log(`existing live codes in db: ${previousLive.toLocaleString()}`);
 
+    // After the weighted_search_vector migration the load fills that column too;
+    // before it, the column does not exist and the load is unchanged.
+    const weighted = await hasWeightedColumn(client);
+
     await client.query('BEGIN');
     await client.query('CREATE TEMP TABLE mxik_load (LIKE mxik_code INCLUDING DEFAULTS) ON COMMIT DROP');
     await client.query('ALTER TABLE mxik_load DROP COLUMN "searchVector"');
+    // The hierarchy text per weight, B to D (A is "searchText"); temp-only columns.
+    await client.query('ALTER TABLE mxik_load ADD COLUMN "weightB" text, ADD COLUMN "weightC" text, ADD COLUMN "weightD" text');
 
     const quoted = COLUMNS.map((c) => `"${c}"`).join(', ');
-    const copy = client.query(copyFrom(`COPY mxik_load (${quoted}) FROM STDIN WITH (FORMAT csv)`));
+    const copy = client.query(copyFrom(`COPY mxik_load (${quoted}, "weightB", "weightC", "weightD") FROM STDIN WITH (FORMAT csv)`));
 
     let rows = 0;
     let barcodesDropped = 0;
@@ -173,9 +181,11 @@ export async function loadClassifier(options: LoadOptions): Promise<LoadResult> 
         for (const n of [nameUz, nameRu, nameUzCyrl]) {
           if (n) for (const k of indexKeys(n)) keys.add(k);
         }
-        // Folded, because queries are folded before they hit it. Only the two
-        // names: more text diluted trigram similarity (see git history).
-        const searchText = [matchKeyOf(nameUz), matchKeyOf(nameRu)].filter(Boolean).join(' ');
+        // Folded, because queries are folded before they hit it. The trigram
+        // text is only the two names (more text diluted trigram similarity, see
+        // git history); the hierarchy goes to the weighted full-text column.
+        const weightedText = weightedSearchText(r);
+        const searchText = weightedText.a;
 
         const unitIds = [...new Set(r.unitCanonical.map((u) => resolveUnit(u)?.id).filter((id): id is number => id !== undefined))];
         if (r.unitCanonical.length > 0 && unitIds.length === 0) unitsUnresolved++;
@@ -199,6 +209,7 @@ export async function loadClassifier(options: LoadOptions): Promise<LoadResult> 
           csv(r.unitBinding), csv(pgArray(r.recommendedUnits)), csv(pgArray(r.recommendedUnitGroups)),
           csv(r.packagesRaw), csv(pgArray(r.taxPrivilegeIds)),
           csv(r.isBase), csv(r.isMarked), csv(pgArray([...keys])), csv(searchText),
+          csv(weightedText.b), csv(weightedText.c), csv(weightedText.d),
         ].join(',') + '\n';
 
         if (buffer.length > 1 << 20) { yield buffer; buffer = ''; }
@@ -231,12 +242,15 @@ export async function loadClassifier(options: LoadOptions): Promise<LoadResult> 
     }
 
     // Upsert into the real table, then retire anything the new import dropped.
+    const vector = weighted
+      ? { column: ', "searchVectorWeighted"', value: `, ${weightedVectorSql('"searchText"', '"weightB"', '"weightC"', '"weightD"')}`, set: ', "searchVectorWeighted" = EXCLUDED."searchVectorWeighted"' }
+      : { column: '', value: '', set: '' };
     await client.query(`
-      INSERT INTO mxik_code (${quoted}, "importedAt")
-      SELECT ${quoted}, now() FROM mxik_load
+      INSERT INTO mxik_code (${quoted}, "importedAt"${vector.column})
+      SELECT ${quoted}, now()${vector.value} FROM mxik_load
       ON CONFLICT (code) DO UPDATE SET
         ${COLUMNS.filter((c) => c !== 'code').map((c) => `"${c}" = EXCLUDED."${c}"`).join(', ')},
-        "importedAt" = now(), "retiredAt" = NULL
+        "importedAt" = now(), "retiredAt" = NULL${vector.set}
     `);
     const retired = await client.query<{ code: string }>(`
       UPDATE mxik_code m SET "retiredAt" = now()
@@ -248,6 +262,8 @@ export async function loadClassifier(options: LoadOptions): Promise<LoadResult> 
       [snapshotId, retired.rows.map((r) => r.code.trim()), diff.added, diff.retired, diff.unitChanged, diff.nameChanged],
     );
     await client.query('COMMIT');
+    // Outside the transaction: the weighted index is built concurrently, once.
+    if (weighted) await ensureWeightedIndex(client, log);
     await client.query('ANALYZE mxik_code');
 
     log(`rows loaded ${rows.toLocaleString()} · barcodes dropped (invalid length) ${barcodesDropped} · units unresolved ${unitsUnresolved}`);

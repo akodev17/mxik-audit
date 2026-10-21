@@ -3,7 +3,8 @@
 // (derived from classifier names), runs the full pipeline plus one ablation per
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
-// Run: npm run eval [-- --label "after key" --no-ablate --fulltext-common-docs N]
+// Run: npm run eval [-- --label "after key" --no-ablate --fulltext-common-docs N
+//                       --fulltext-column plain|weighted --fulltext-select A|AB]
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -55,12 +56,20 @@ const configured = embeddingProviderFromEnv();
 const readiness = await checkVectorReadiness(pool, configured);
 const embedder = readiness.embedder;
 const commonDocs = argValue('--fulltext-common-docs');
+// --fulltext-column weighted ranks on the hierarchy-aware "searchVectorWeighted"
+// (opt-in, plan §3.1); --fulltext-select AB lets position words select candidates
+// too (store.ts). Both default to the store's own.
+const fullTextColumn = argValue('--fulltext-column');
+const fullTextSelect = argValue('--fulltext-select');
 const baseStore = new PostgresCandidateStore(pool, {
   // The placeholder embedder's sparse vectors defeat HNSW; see store.ts.
   exactVectorScan: !embedder.semantic,
   vectorEnabled: readiness.usable,
   ...(commonDocs === undefined ? {} : { fullTextCommonDocs: Number(commonDocs) }),
+  ...(fullTextColumn === 'plain' || fullTextColumn === 'weighted' ? { fullTextColumn } : {}),
+  ...(fullTextSelect === 'A' || fullTextSelect === 'AB' ? { fullTextSelectWeights: fullTextSelect } : {}),
 });
+const fullTextSource = await baseStore.fullTextSource();
 const store = new MemoStore(baseStore);
 
 // Never score against a label that is not a live classifier code, or a prefix no live code has.
@@ -124,6 +133,7 @@ console.log(`code            ${commit}`);
 console.log(`classifier      ${Number(codeCount).toLocaleString()} live codes · snapshot #${classifierSnapshotId ?? '?'} taken ${classifierTakenAt?.slice(0, 10) ?? '?'} · database ${database ?? '?'}`);
 console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
 for (const e of excluded) console.log(`  excluded: ${e}`);
+console.log(`full-text       "${fullTextSource}"${fullTextSource === 'searchVectorWeighted' ? `, selecting on weight ${fullTextSelect ?? 'A'}` : ''}`);
 console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- NOT SEMANTIC'}`);
 if (readiness.reason) console.log(`  vector stage    ${readiness.usable ? 'SUBSTITUTED' : 'DISABLED'}: ${readiness.reason}`);
 console.log(`reranker        ${realReranker.name}${realReranker.available ? '' : '   <-- DISABLED (gate measured in dry run)'}`);
@@ -328,6 +338,7 @@ history.runs.push({
   providers: {
     embedding: embedder.name, embeddingSemantic: embedder.semantic, vectorUsable: readiness.usable,
     reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
+    fullText: { column: fullTextSource, selectWeights: fullTextSource === 'searchVectorWeighted' ? (fullTextSelect ?? 'A') : null },
   },
   cases: { real: real.length, synthetic: synthetic.length, excluded },
   metrics: results,

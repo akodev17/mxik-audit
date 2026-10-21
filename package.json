@@ -21,6 +21,7 @@
     "test:e2e": "node scripts/test-e2e.mjs",
     "eval:translit": "tsx eval/translit.ts",
     "load:db": "tsx scripts/load-db.ts",
+    "search:weighted": "tsx scripts/build-weighted-search.ts",
     "classifier:update": "tsx scripts/update-classifier.ts",
     "privileges:fetch": "tsx scripts/fetch-privileges.ts",
     "telegram:bot": "tsx scripts/telegram-bot.ts",

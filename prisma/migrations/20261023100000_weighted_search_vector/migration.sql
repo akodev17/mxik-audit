@@ -1,0 +1,14 @@
+-- Hierarchy-aware full-text (docs/engineering/MXIK_MATCHING_ENGINE_PLAN.md §3.1). Additive.
+--
+-- A weighted tsvector per code: the code's own names weight A, subposition and
+-- position names B, class and group C, brand and attribute D, all three
+-- languages folded to Latin (src/core/match/search-document.ts). It cannot be a
+-- generated column like "searchVector": the folding is done in TypeScript.
+--
+-- This migration only adds the empty column, which takes an instant even on a
+-- live database. The column is filled, and its GIN index built with
+-- CREATE INDEX CONCURRENTLY (not allowed inside a migration's transaction), by
+--   npm run search:weighted        on an existing classifier (resumable), or
+--   npm run load:db                on every classifier load after this one.
+-- Until it is filled, retrieval keeps using "searchVector" (store.ts checks).
+ALTER TABLE "mxik_code" ADD COLUMN IF NOT EXISTS "searchVectorWeighted" tsvector;

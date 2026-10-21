@@ -21,6 +21,13 @@ describe('evidenceFor', () => {
     const plain = evidenceFor({ stage: 'fusion', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, synonyms: { applied: [], added: [] } });
     assert.equal('synonymApplied' in plain, false);
   });
+
+  it('lists the words found only in the hierarchy, without fragments or numbers, once each', () => {
+    const e = evidenceFor({ stage: 'fusion', productName: 'Лист г/к 2', rowUnit: null, candidate: CANDIDATE, hierarchyWords: ['goryachekataniy', 'goryachekataniy', 'sh', '2'] });
+    assert.deepEqual(e.matchedHierarchyWords, ['goryachekataniy']);
+    const none = evidenceFor({ stage: 'fusion', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, hierarchyWords: [] });
+    assert.equal('matchedHierarchyWords' in none, false);
+  });
 });
 
 describe('matchedWords', () => {
@@ -52,6 +59,7 @@ describe('readEvidence', () => {
       ...evidenceFor({ stage: 'barcode', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, rules: ['identifyingMarked'] }),
       dictionaryUses: 4, dictionaryConfirmations: 2, dictionaryConflict: '01901001003000000',
       synonymApplied: ['минвата → минеральная вата'],
+      matchedHierarchyWords: ['goryachekataniy'],
     };
     assert.deepEqual(readEvidence(JSON.parse(JSON.stringify(stored))), stored);
   });

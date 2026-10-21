@@ -59,6 +59,9 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, t
       ? { label: m.nameLabel, text: m.words(evidence.matchedWords.join(', ')), tone: 'good' }
       : { label: m.nameLabel, text: m.noWords, tone: 'bad' });
   }
+  if (evidence.matchedHierarchyWords && evidence.matchedHierarchyWords.length > 0) {
+    out.push({ label: ta.matchX.hierarchyLabel, text: ta.matchX.hierarchy(evidence.matchedHierarchyWords.join(', ')), tone: 'good' });
+  }
   if (evidence.synonymApplied && evidence.synonymApplied.length > 0) {
     out.push({ label: ta.matchX.synonymLabel, text: ta.matchX.synonym(evidence.synonymApplied.join('; ')), tone: 'neutral' });
   }

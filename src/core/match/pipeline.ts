@@ -196,7 +196,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
   // A disabled stage computes no query embedding at all.
-  type Hit = { candidate: MxikCandidate; score: number };
+  type Hit = { candidate: MxikCandidate; score: number; hierarchyWords?: string[] };
   let vectorOutcome: VectorOutcome = off('vector') ? 'off' : 'used';
   const vectorStage: Promise<Hit[]> = off('vector') ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([query]))
     .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => store.byVector(vec, limits.retrievalLimit)) : []))
@@ -223,6 +223,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const vectorScore = new Map(vector.map((r) => [r.candidate.code, r.score]));
   // ts_rank_cd is unbounded; map it absolutely so a weak query's best hit is not 1.0.
   const fullTextScore = new Map(fullText.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
+  const hierarchyWords = new Map(fullText.map((r) => [r.candidate.code, r.hierarchyWords ?? []]));
 
   // ------------------------------------------------------------- 5. fusion
   const fused = reciprocalRankFusion(
@@ -299,6 +300,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
         rerankNone,
         rules: p.rules.keys,
         synonyms,
+        hierarchyWords: hierarchyWords.get(p.fused.item.code),
       }),
     };
   }).sort((a, b) => b.confidence - a.confidence);

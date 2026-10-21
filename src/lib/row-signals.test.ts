@@ -85,6 +85,16 @@ describe('rowSignals: synonyms', () => {
   });
 });
 
+describe('rowSignals: hierarchy words', () => {
+  it('says which words matched the code\'s section rather than its own name', () => {
+    const s = signals(evidence({ matchedHierarchyWords: ['goryachekataniy'] }));
+    const line = s.find((x) => x.label === uz.matchX.hierarchyLabel);
+    assert.equal(line?.text, uz.matchX.hierarchy('goryachekataniy'));
+    assert.equal(line?.tone, 'good');
+    assert.ok(!signals(evidence()).some((x) => x.label === uz.matchX.hierarchyLabel));
+  });
+});
+
 describe('rowSignals: without evidence', () => {
   it('shows the score as a score', () => {
     const s = rowSignals({ evidence: null, confidence: 0.81, rowUnit: null, codeUnit: null }, uz);

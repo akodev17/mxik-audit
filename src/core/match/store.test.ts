@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import type { Pool } from 'pg';
-import { isTransient, PostgresCandidateStore, storeRetryCount } from './store.js';
+import { after, describe, it } from 'node:test';
+import { Pool } from 'pg';
+import { isTransient, PostgresCandidateStore, storeRetryCount, WEIGHTED_INDEX } from './store.js';
 
 /** A pool whose query() fails with the given errors, in order, then answers. */
 function flakyPool(errors: Error[]): { pool: Pool; calls: () => number } {
@@ -47,22 +47,32 @@ describe('PostgresCandidateStore retries', () => {
   });
 });
 
-/** A pool that answers the term-statistics query and records full-text queries. */
-function statsPool(stats: Record<string, number> | Error): { pool: Pool; searches: unknown[][]; statLoads: () => number } {
+/**
+ * A pool that answers the term-statistics query and records full-text queries.
+ * `weighted` says whether the weighted column's index is built and valid.
+ */
+function statsPool(
+  stats: Record<string, number> | Error, weighted = false,
+): { pool: Pool; searches: unknown[][]; sqls: string[]; statLoads: () => number; statParams: unknown[][] } {
   const searches: unknown[][] = [];
+  const sqls: string[] = [];
+  const statParams: unknown[][] = [];
   let statLoads = 0;
   const pool = {
     query: (sql: string, params: unknown[]) => {
+      if (sql.includes('pg_index')) return Promise.resolve({ rows: weighted ? [{ valid: true }] : [] });
       if (sql.includes('ts_stat')) {
         statLoads++;
+        statParams.push(params);
         if (stats instanceof Error) return Promise.reject(stats);
         return Promise.resolve({ rows: Object.entries(stats).map(([word, ndoc]) => ({ word, ndoc })) });
       }
       searches.push(params);
+      sqls.push(sql);
       return Promise.resolve({ rows: [] });
     },
   } as unknown as Pool;
-  return { pool, searches, statLoads: () => statLoads };
+  return { pool, searches, sqls, statLoads: () => statLoads, statParams };
 }
 
 describe('PostgresCandidateStore full-text term selection', () => {
@@ -91,6 +101,38 @@ describe('PostgresCandidateStore full-text term selection', () => {
     assert.equal(statLoads(), 1);
   });
 
+  it('stays on the plain column until the weighted index is built', async () => {
+    const { pool, sqls } = statsPool({}, false);
+    const store = new PostgresCandidateStore(pool, { fullTextColumn: 'weighted' });
+    assert.equal(await store.fullTextSource(), 'searchVector');
+    await store.byFullText('list goryachekataniy', 50);
+    assert.match(sqls[0] ?? '', /"searchVector" @@ f/);
+  });
+
+  it('on the weighted column, selects on leaf-name words and ranks with the hierarchy weights', async () => {
+    const { pool, searches, sqls, statParams } = statsPool({ list: 30_000 }, true);
+    const store = new PostgresCandidateStore(pool, { fullTextCommonDocs: 10_000, fullTextColumn: 'weighted' });
+    assert.equal(await store.fullTextSource(), 'searchVectorWeighted');
+    await store.byFullText('list goryachekataniy', 50);
+    assert.match(sqls[0] ?? '', /"searchVectorWeighted" @@ f/);
+    assert.match(sqls[0] ?? '', /ts_rank_cd\(\$4::float4\[\], "searchVectorWeighted", q\)/);
+    // "list" is common among leaf names, so only the rare word selects, and only as a leaf word.
+    assert.deepEqual(searches[0], ['list | goryachekataniy', 50, 'goryachekataniy:A', [0.0125, 0.025, 0.05, 0.1], ['list', 'goryachekataniy']]);
+    // Term counts are taken over the selecting weight only.
+    assert.equal(statParams[0]?.[2], 'A');
+  });
+
+  it('can let position words select too, and can be forced back to the plain column', async () => {
+    const ab = statsPool({}, true);
+    await new PostgresCandidateStore(ab.pool, { fullTextColumn: 'weighted', fullTextSelectWeights: 'AB' }).byFullText('armatura', 50);
+    assert.equal(ab.searches[0]?.[2], 'armatura:AB');
+    const plain = statsPool({}, true);
+    const store = new PostgresCandidateStore(plain.pool, { fullTextColumn: 'plain' });
+    assert.equal(await store.fullTextSource(), 'searchVector');
+    await store.byFullText('armatura', 50);
+    assert.match(plain.sqls[0] ?? '', /"searchVector" @@ f/);
+  });
+
   it('falls back to every term when the statistics fail, and retries later', async () => {
     const { pool, searches, statLoads } = statsPool(new Error('canceling statement'));
     const store = new PostgresCandidateStore(pool, { fullTextCommonDocs: 10_000 });
@@ -98,5 +140,46 @@ describe('PostgresCandidateStore full-text term selection', () => {
     await store.byFullText('elektr uchun', 50);
     assert.deepEqual(searches[0], ['elektr | uchun', 50, 'elektr | uchun']);
     assert.equal(statLoads(), 2);
+  });
+});
+
+describe('weighted full-text against the database', async () => {
+  const pool = new Pool({
+    connectionString: process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik',
+    connectionTimeoutMillis: 1500,
+    max: 2,
+  });
+  after(() => pool.end());
+
+  let skip: string | false = 'database not available';
+  try {
+    const r = await pool.query<{ valid: boolean }>(
+      'SELECT i.indisvalid AS valid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = $1',
+      [WEIGHTED_INDEX],
+    );
+    skip = r.rows[0]?.valid ? false : 'weighted full-text column not built here (npm run search:weighted)';
+  } catch {
+    // keep the "not available" reason
+  }
+
+  it('ranks a leaf-only hit exactly as the plain column does, so the score mapping keeps its meaning', { skip }, async () => {
+    const weighted = await new PostgresCandidateStore(pool, { fullTextColumn: 'weighted' }).byFullText('kartoshka', 20);
+    const plain = await new PostgresCandidateStore(pool, { fullTextColumn: 'plain' }).byFullText('kartoshka', 20);
+    const leafOnly = weighted.find((h) => !h.hierarchyWords);
+    assert.ok(leafOnly, 'some hit matched in its own name only');
+    const same = plain.find((h) => h.candidate.code === leafOnly.candidate.code);
+    if (same) assert.equal(leafOnly.score.toFixed(6), same.score.toFixed(6));
+  });
+
+  it('ranks a word of the position name, and says it came from the hierarchy', { skip }, async () => {
+    // "нелегированной" is in position 07208001's name, not in its codes' own names.
+    const query = 'list goryachekataniy nelegirovannoy';
+    const hits = await new PostgresCandidateStore(pool, { fullTextColumn: 'weighted' }).byFullText(query, 20);
+    const lifted = hits.filter((h) => h.hierarchyWords?.includes('nelegirovannoy'));
+    assert.ok(lifted.length > 0, 'a hit reports the position word');
+    for (const h of hits) for (const w of h.hierarchyWords ?? []) assert.ok(query.split(' ').includes(w), w);
+    const plain = await new PostgresCandidateStore(pool, { fullTextColumn: 'plain' }).byFullText(query, 20);
+    const before = plain.find((h) => h.candidate.code === lifted[0]?.candidate.code);
+    if (before && lifted[0]) assert.ok(lifted[0].score > before.score, 'the hierarchy word adds to the rank');
   });
 });

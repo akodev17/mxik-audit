@@ -108,7 +108,8 @@ export type CandidateStore = {
   byBarcode(barcode: string): Promise<MxikCandidate[]>;
   byMatchKey(keys: readonly string[]): Promise<MxikCandidate[]>;
   byLexical(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
-  byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
+  /** `hierarchyWords`: query words found only in the code's position, class or group names (weighted column). */
+  byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
   byVector(embedding: readonly number[], limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
   byCode(code: string): Promise<MxikCandidate | null>;
   baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null>;

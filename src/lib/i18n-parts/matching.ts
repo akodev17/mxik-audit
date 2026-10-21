@@ -22,6 +22,8 @@ export const uz = {
     },
     synonymLabel: 'Atama',
     synonym: (pairs: string) => `Tovar nomidagi soʻz tasniflagich atamasi bilan ham qidirildi: ${pairs}.`,
+    hierarchyLabel: 'Boʻlim',
+    hierarchy: (words: string) => `Kodning oʻz nomida emas, u turgan tasniflagich boʻlimi nomida bor: ${words}.`,
     rulesLabel: 'Qoida',
     rules: {
       baseCodePreferred: 'Bazaviy kod (…000000): aniq mos kod boʻlmaganda amaliyotda shu tanlanadi.',
@@ -93,6 +95,8 @@ export const ru: typeof uz = {
     },
     synonymLabel: 'Термин',
     synonym: (pairs: string) => `Слово из названия товара искали и по термину классификатора: ${pairs}.`,
+    hierarchyLabel: 'Раздел',
+    hierarchy: (words: string) => `Есть не в названии кода, а в названии раздела классификатора, где он стоит: ${words}.`,
     rulesLabel: 'Правило',
     rules: {
       baseCodePreferred: 'Базовый код (…000000): на практике выбирается, когда точного кода нет.',

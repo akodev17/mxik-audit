@@ -33,6 +33,8 @@ export type MatchEvidence = {
   rules?: RuleKey[];
   /** Seller words searched as the classifier's term ("арматура → прокат арматурный"), normalize/synonyms.ts. */
   synonymApplied?: string[];
+  /** Query words found in the code's position, class or group names but not its own name, folded to Latin. */
+  matchedHierarchyWords?: string[];
 };
 
 export type EvidenceCandidate = {
@@ -82,10 +84,15 @@ export type EvidenceInput = {
   rules?: readonly RuleKey[];
   /** Synonym entries that fired for the row, and the classifier words they added to the query. */
   synonyms?: { applied: readonly string[]; added: readonly string[] };
+  /** Query words the weighted full-text found only in this code's hierarchy (store.ts). */
+  hierarchyWords?: readonly string[];
 };
 
 export function evidenceFor(input: EvidenceInput): MatchEvidence {
   const synonymApplied = input.synonyms?.applied ?? [];
+  // Fragments never count as evidence, here as in matchedWords.
+  const hierarchy = [...new Set(input.hierarchyWords ?? [])]
+    .filter((w) => w.length >= MIN_QUERY_WORD && !/^\d+$/.test(w)).slice(0, 8);
   return {
     stage: input.stage,
     barcode: input.stage === 'barcode',
@@ -96,6 +103,7 @@ export function evidenceFor(input: EvidenceInput): MatchEvidence {
     rerankNone: input.rerankNone ?? false,
     ...(input.rules && input.rules.length > 0 ? { rules: [...input.rules] } : {}),
     ...(synonymApplied.length > 0 ? { synonymApplied: [...synonymApplied] } : {}),
+    ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),
   };
 }
 
@@ -120,6 +128,7 @@ export function readEvidence(value: unknown): MatchEvidence | null {
   if (!STAGES.has(v['stage'] as MatchStage) || !UNITS.has(v['unit'] as UnitEvidence)) return null;
   const rules = Array.isArray(v['rules']) ? v['rules'].filter((r): r is RuleKey => typeof r === 'string' && RULES.has(r)) : [];
   const synonymApplied = Array.isArray(v['synonymApplied']) ? v['synonymApplied'].filter((s): s is string => typeof s === 'string') : [];
+  const hierarchy = Array.isArray(v['matchedHierarchyWords']) ? v['matchedHierarchyWords'].filter((s): s is string => typeof s === 'string') : [];
   return {
     stage: v['stage'] as MatchStage,
     barcode: v['barcode'] === true,
@@ -133,5 +142,6 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     ...(typeof v['dictionaryConflict'] === 'string' && /^\d{17}$/.test(v['dictionaryConflict']) ? { dictionaryConflict: v['dictionaryConflict'] } : {}),
     ...(rules.length > 0 ? { rules } : {}),
     ...(synonymApplied.length > 0 ? { synonymApplied } : {}),
+    ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),
   };
 }
