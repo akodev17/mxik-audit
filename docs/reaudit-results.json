@@ -1,0 +1,141 @@
+{
+  "note": "Append-only history of `npm run reaudit:diff` (plan §6): in-memory re-audits diffed against the stored audit; nothing is written to the catalogues.",
+  "runs": [
+    {
+      "label": "plan phase 3 re-audit diff: stored audits (app code at audit time) vs this branch, in memory, on mxik_scratch (degraded: hashing vectors, no reranker, snapshot 2026-08-20)",
+      "ranAt": "2026-10-21T11:29:17.136Z",
+      "database": "mxik_scratch",
+      "catalogues": [
+        {
+          "catalog": "cmt1jk6jw0004vj646ukct7x7",
+          "filename": "demo-katalog.xlsx",
+          "orgKind": "customer",
+          "rows": 200,
+          "uploadedAt": "2026-08-20T13:13:38.348Z",
+          "stored": {
+            "MISMATCH": 33,
+            "MISSING": 23,
+            "UNIT_CONFLICT": 13,
+            "NOT_FOUND": 16,
+            "PRIVILEGE_CODE": 10,
+            "PRIVILEGE_OPPORTUNITY": 1
+          },
+          "fresh": {
+            "MISMATCH": 30,
+            "MISSING": 23,
+            "UNIT_CONFLICT": 13,
+            "NOT_FOUND": 16
+          },
+          "rowsWhoseTypesChanged": 14,
+          "transitions": {
+            "PRIVILEGE_CODE -> none": 8,
+            "MISMATCH+PRIVILEGE_CODE -> MISMATCH": 1,
+            "MISMATCH+UNIT_CONFLICT -> UNIT_CONFLICT": 1,
+            "PRIVILEGE_CODE+UNIT_CONFLICT -> UNIT_CONFLICT": 1,
+            "MISMATCH+PRIVILEGE_OPPORTUNITY -> MISMATCH": 1,
+            "MISMATCH -> none": 2
+          },
+          "newMismatch": [],
+          "suggestionChanged": 17
+        },
+        {
+          "catalog": "cmvb1bxvt0002vjkwuqdiyphq",
+          "filename": "Demo_Savdo_1C_eksport.xlsx",
+          "orgKind": "demo_template",
+          "rows": 186,
+          "uploadedAt": "2026-10-16T14:00:27.209Z",
+          "stored": {
+            "MISMATCH": 36,
+            "NOT_FOUND": 17,
+            "MISSING": 47,
+            "UNIT_CONFLICT": 13
+          },
+          "fresh": {
+            "NOT_FOUND": 17,
+            "MISSING": 47,
+            "UNIT_CONFLICT": 13,
+            "MISMATCH": 37
+          },
+          "rowsWhoseTypesChanged": 1,
+          "transitions": {
+            "none -> MISMATCH": 1
+          },
+          "newMismatch": [
+            "row 185 \"Конфеты шоколадные весовые\" own 01806003001000000 -> 01704001016031001"
+          ],
+          "suggestionChanged": 49,
+          "demoQuality": {
+            "stored": {
+              "flagged": {
+                "MISMATCH": 33,
+                "MISSING": 45,
+                "NOT_FOUND": 14,
+                "UNIT_CONFLICT": 10
+              },
+              "correct": {
+                "MISMATCH": 19,
+                "MISSING": 45,
+                "NOT_FOUND": 13,
+                "UNIT_CONFLICT": 6
+              },
+              "missed": {},
+              "cleanFlagged": 13,
+              "cleanRows": 76,
+              "rightSuggestion": 35,
+              "needSuggestion": 77
+            },
+            "fresh": {
+              "flagged": {
+                "MISMATCH": 34,
+                "MISSING": 45,
+                "NOT_FOUND": 14,
+                "UNIT_CONFLICT": 10
+              },
+              "correct": {
+                "MISMATCH": 19,
+                "MISSING": 45,
+                "NOT_FOUND": 13,
+                "UNIT_CONFLICT": 6
+              },
+              "missed": {},
+              "cleanFlagged": 14,
+              "cleanRows": 76,
+              "rightSuggestion": 38,
+              "needSuggestion": 77
+            }
+          }
+        },
+        {
+          "catalog": "cmvhqey5p00aqvjuc3g71eije",
+          "filename": "stroy-materials-423.xlsx",
+          "orgKind": "customer",
+          "rows": 423,
+          "uploadedAt": "2026-10-21T06:29:14.989Z",
+          "stored": {},
+          "fresh": {
+            "MISMATCH": 1
+          },
+          "rowsWhoseTypesChanged": 1,
+          "transitions": {
+            "none -> MISMATCH": 1
+          },
+          "newMismatch": [
+            "row 179 \"Уголок перфорированный\" own 07216001007000000 -> 03916001015000128"
+          ],
+          "suggestionChanged": 1
+        },
+        {
+          "csv": "eval/real-metal.csv",
+          "rows": 168,
+          "fresh": {
+            "MISSING": 168
+          },
+          "suggestionBands": {
+            "low": 98,
+            "medium": 70
+          }
+        }
+      ]
+    }
+  ]
+}
