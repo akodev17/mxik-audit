@@ -2,7 +2,7 @@
 
 ## Last Updated
 
-2026-10-19 (21-feature product pass, see "PRODUCT PASS 2" at the end), 2026-10-16 (product pass A–O, see "PRODUCT PASS A–O" near the end), on top
+2026-10-21 (matching engine plan phases 1–5 on branch claude/matching-engine-06cd30, see "Matching engine plan, implemented" under Matching Engine), 2026-10-19 (21-feature product pass, see "PRODUCT PASS 2" at the end), 2026-10-16 (product pass A–O, see "PRODUCT PASS A–O" near the end), on top
 of 2026-10-15 (P0 demo-readiness block). Measurements under "Verified Data Facts"
 are dated 2026-08-20 (438,925 codes) unless marked; the export of 2026-10-15
 has 442,719 codes.
@@ -362,6 +362,33 @@ Implementation: `src/core/match/pipeline.ts`.
   (`ts_stat`, ~5 s) are loaded once per process.
 
 ---
+
+### Matching engine plan, implemented 2026-10-21 (branch `claude/matching-engine-06cd30`)
+
+`docs/engineering/MXIK_MATCHING_ENGINE_PLAN.md` phases 1–5 (phase 0, the data
+layer, is the owner's), report in `docs/engineering/MXIK_MATCHING_ENGINE_REPORT.md`.
+All numbers below are **degraded mode**: 2026-08-20 classifier (438,925 codes),
+hashing vectors, no reranker key, measured on `mxik_scratch` (a copy of `mxik`
+in the same container; identical results, run 18 vs 17).
+
+- On by default: synonym table for the lexical query (`normalize/synonyms.ts`),
+  relevance guard on ≥ 3-letter words, unit rules for recommended bindings,
+  trigram threshold cascade (`LEXICAL_STRICT_THRESHOLD`, identical results),
+  rerank-cache fingerprint over what the prompt shows.
+- Built and **opt-in** after measuring no gain or a constraint breach:
+  weighted hierarchy full-text column (`searchVectorWeighted`, additive
+  migration `20261023100000`, `npm run search:weighted`; not applied to `mxik`),
+  position-level fusion (`positionFusion`), non-semantic vector weighting
+  (`nonSemanticVectorWeight`). Weights unchanged after a hold-out fit
+  (`npm run eval:fit`, `docs/weight-fit-results.json`).
+- New tools: `eval/real-construction.csv` (102 rows), miss-token diagnostic and
+  snapshot provenance in every eval run, `npm run reaudit:diff`
+  (`docs/reaudit-results.json`), `npm run rekey:normalized`, dry-run reranker
+  cost estimate in `npm run eval`.
+- Eval, phase 1 baseline (run 17) → end of phase 3 (run 35), top-1/top-5:
+  real-construction 67.6/82.4 → 75.5/88.2, real-metal 44.0/74.4 → 45.8/75.6
+  (vector off 73.8/96.4 → 75.6/98.2), golden 75.0/83.3 and synthetic
+  92.7/96.3 unchanged, high band 100% precise everywhere.
 
 ## Evaluation
 

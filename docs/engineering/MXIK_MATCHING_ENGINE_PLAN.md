@@ -569,6 +569,26 @@ reranker on all sets, cost per row, gate tuning, cache key check. Depends on
 phases 0 and 3. If no key is available, the phase ends with the exact command
 and the expected cost estimate from `rerank-usage.ts`.
 
+> **Implementation note (2026-10-21, phase 5).** No key (`ANTHROPIC_API_KEY`
+> is empty in `.env`), so nothing was sent. The eval's dry run now renders
+> the real prompt of every row the gate passes and prints an estimate
+> through `rerank-usage.ts` (run 33): 384 of 473 rows pass the default gate
+> (0.95 / 0.10), 48 calls of 8, ~1.43 M input and ~0.12 M output tokens
+> (assumptions printed with it: ~3 characters per input token, 300 output
+> tokens per row, no extended thinking). Claude Opus 5.5 ($4 / $20 per M):
+> **~$8.02 for the eval, ~$16.96 per 1,000 catalogue rows**; Sonnet 5.5
+> ~$8.48, Haiku 5.5 ~$0.42 per 1,000 rows at the table's prices. The cache
+> check found the snapshot covered only through code sets; the fingerprint
+> now covers names and paths (`4fbc0ed`). The exact command, after phase 0:
+>
+> ```
+> ANTHROPIC_API_KEY=… npm run eval -- --label "plan phase 5: reranker on, e5 vectors, snapshot <date>"
+> ```
+>
+> then tune with `RERANK_GATE_CONFIDENCE` / `RERANK_GATE_MARGIN` (same
+> command, one run per setting) until high-band coverage rises with
+> high-band precision still 100%.
+
 **Phase 6: report.** Full diff review, before/after tables for every set and
 config, open items, the final commit hash. Nothing is pushed or merged.
 
