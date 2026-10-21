@@ -10,7 +10,7 @@ const STEPS: readonly { title: string; body: string; detail: readonly string[] }
   {
     title: 'Yuklash',
     body: 'Excel yoki CSV. Ustunlar tartibi muhim emas: oʻzbekcha yoki ruscha sarlavhadan aniqlanadi.',
-    detail: ['Наименование — tovar nomi', 'Штрих-код — shtrix kod', 'ИКПУ — MXIK kodi', 'Ед. изм. — oʻlchov birligi'],
+    detail: ['Наименование: tovar nomi', 'Штрих-код: shtrix kod', 'ИКПУ: MXIK kodi', 'Ед. изм.: oʻlchov birligi'],
   },
   {
     title: 'Tekshirish',
@@ -22,7 +22,7 @@ const STEPS: readonly { title: string; body: string; detail: readonly string[] }
     body: 'Har bir taklifni tasdiqlaysiz yoki rad etasiz, xato qarorni bekor qilasiz. Kim va qachon qilgani tarixda qoladi.',
     detail: [
       'Yuqori moslikdagi takliflarni bir bosishda tasdiqlash mumkin',
-      'Klaviatura: j va k — qatorlar, Enter — tasdiqlash, r — rad etish',
+      'Klaviatura: j va k: qatorlar, Enter: tasdiqlash, r: rad etish',
     ],
   },
   {

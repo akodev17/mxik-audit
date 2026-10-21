@@ -33,7 +33,7 @@ export function LeadForm() {
           <li className="flex gap-3">
             <span className="num shrink-0 font-bold text-lp-brand">2.</span>
             <span>
-              Bir ish kuni ichida riskli pozitsiyalar roʻyxatini yuboramiz — siz
+              Bir ish kuni ichida riskli pozitsiyalar roʻyxatini yuboramiz, siz
               koʻrsatgan raqam yoki Telegram orqali.
             </span>
           </li>
@@ -84,7 +84,7 @@ export function LeadForm() {
       <label htmlFor="lead-file" className="block rounded-lp has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-lp-brand has-[input:focus-visible]:outline-solid">
         <span className="block text-[16px] font-bold">
           Excel yoki CSV katalog{' '}
-          <span className="font-normal text-lp-muted">(.xlsx, .csv — 5 MB gacha)</span>
+          <span className="font-normal text-lp-muted">(.xlsx, .csv, 5 MB gacha)</span>
         </span>
         <span
           className={
@@ -102,7 +102,7 @@ export function LeadForm() {
             </span>
             {file ? (
               <span className="num block text-[15px] text-lp-muted">
-                {(file.size / 1024).toFixed(0)} KB — yuborishga tayyor
+                {(file.size / 1024).toFixed(0)} KB, yuborishga tayyor
               </span>
             ) : null}
           </span>
@@ -155,7 +155,7 @@ export function LeadForm() {
       <p className="text-[15px] text-lp-muted">
         Roʻyxatdan oʻtish, parol yoki karta kerak emas. Fayl faqat shu audit uchun
         ishlatiladi. Tashqi AI xizmatiga faqat tovar nomi va oʻlchov birligi
-        borishi mumkin — narx, shtrix kod va boshqa ustunlar emas. Batafsil:{' '}
+        borishi mumkin: narx, shtrix kod va boshqa ustunlar emas. Batafsil:{' '}
         <Link href="/maxfiylik" className="rounded-lp text-lp-ink underline underline-offset-4">maxfiylik siyosati</Link>,{' '}
         <Link href="/oferta" className="rounded-lp text-lp-ink underline underline-offset-4">oferta</Link>.
       </p>

@@ -11,7 +11,7 @@ export function FinalCta() {
         <div className="grid grid-cols-1 gap-x-14 gap-y-10 overflow-hidden rounded-lp-xl bg-lp-brand p-6 text-white sm:p-10 lg:grid-cols-12 lg:items-center lg:p-14">
           <div className="lg:col-span-6">
             <h2 id="audit-title" className="lp-display text-[clamp(1.875rem,4vw,2.75rem)] font-bold">
-              Faylingizni yuboring — riskli pozitsiyalar roʻyxatini oling
+              Faylingizni yuboring va riskli pozitsiyalar roʻyxatini oling
             </h2>
             <p className="mt-5 max-w-[34rem] text-[17px] leading-relaxed text-white/90">
               Ikki maydon, roʻyxatdan oʻtish yoʻq. Faylni koʻrib chiqamiz va bir ish kuni ichida

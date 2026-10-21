@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
 //
 // The bundled font has Latin only and no U+02BB, so the copy avoids oʻ / gʻ
 // rather than render a wrong apostrophe on a page that makes a point of them.
-export const alt = 'Tasnivo — MXIK katalogingizni tekshiring, xatolarni aniqlang';
+export const alt = 'Tasnivo | MXIK katalogingizni tekshiring, xatolarni aniqlang';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

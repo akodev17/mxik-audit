@@ -17,7 +17,7 @@ export function DemoBand() {
             </h2>
           </div>
           <p className="text-[17px] text-lp-muted lg:col-span-5">
-            Quyida demo katalogning oʻzi, ilovadagi audit natijasi bilan: qatorni bosing — nega xato
+            Quyida demo katalogning oʻzi, ilovadagi audit natijasi bilan. Qatorni bosing: nega xato
             yoki toʻgʻri ekani, taklif va tasniflagichdagi oʻrni ochiladi.
           </p>
         </div>

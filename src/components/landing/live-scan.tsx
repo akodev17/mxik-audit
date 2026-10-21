@@ -148,7 +148,7 @@ export function LiveScan({
         </div>
         <p className="text-right">
           <span className="num text-[34px] font-bold leading-none tracking-[-0.02em] sm:text-[40px]">
-            {progress > 0 ? risky : '–'} <span className="text-lp-muted">/ {total}</span>
+            {progress > 0 ? risky : '-'} <span className="text-lp-muted">/ {total}</span>
           </span>
           <span className="block text-[15px] text-lp-muted">qator riskli</span>
         </p>

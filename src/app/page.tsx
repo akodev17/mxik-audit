@@ -17,7 +17,7 @@ import { LandingShell } from '@/components/landing/shell';
 import { StickyCta } from '@/components/landing/sticky-cta';
 
 
-const TITLE = 'Tasnivo — MXIK katalogingizni tekshiring, xatolarni aniqlang';
+const TITLE = 'Tasnivo | MXIK katalogingizni tekshiring, xatolarni aniqlang';
 const DESCRIPTION =
   'Mahsulot katalogingizdagi MXIK kodlari, oʻlchov birliklari va boshqa nomuvofiqliklarni aniqlang. '
   + 'Har bir tekshiruv natijasini tushunarli izoh va audit tarixi bilan koʻring. Risk auditi bepul.';

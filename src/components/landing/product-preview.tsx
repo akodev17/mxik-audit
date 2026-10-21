@@ -67,7 +67,7 @@ export function ProductPreview() {
   const a = own ? codes[own] : undefined;
   const b = sug ? codes[sug] : undefined;
   const band = f?.confidence != null ? bandOf(f.confidence) : null;
-  const lvl = (c: typeof a, i: number) => (c ? sentenceCase(i < 4 ? (c.path[i] ?? '—') : (c.brand ?? '—')) : '—');
+  const lvl = (c: typeof a, i: number) => (c ? sentenceCase(i < 4 ? (c.path[i] ?? '-') : (c.brand ?? '-')) : '-');
   const findingsTotal = Object.values(byType).reduce((n, v) => n + v, 0);
   const issues = (Object.keys(byType) as (keyof typeof byType)[]).sort((x, y) => byType[y] - byType[x]);
 
@@ -155,7 +155,7 @@ export function ProductPreview() {
                       <dd className="text-lp-ink">{BLOCKS[split]?.label}: «{lvl(b, split)}»</dd>
                     </div>
                   </dl>
-                  <p className="mt-2 border-t border-lp-line pt-2 text-[11px] text-lp-muted">Taklif — hali qaror emas. Qarorni siz qabul qilasiz.</p>
+                  <p className="mt-2 border-t border-lp-line pt-2 text-[11px] text-lp-muted">Taklif hali qaror emas. Qarorni siz qabul qilasiz.</p>
                 </div>
               ) : null}
               <div className="hidden rounded-lp border border-lp-line p-3 lg:block">

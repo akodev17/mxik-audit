@@ -20,11 +20,11 @@ export function Problem() {
           <div className="lg:col-span-5">
             <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Muammo</p>
             <h2 id="why-title" className="lp-display mt-4 text-[clamp(1.875rem,3.8vw,2.75rem)]">
-              Eng xavfli kod — <em>toʻgʻri koʻrinadigani</em>
+              Eng xavfli kod: <em>toʻgʻri koʻrinadigani</em>
             </h2>
             <p className="mt-6 text-[18px] text-lp-muted">
               Boʻsh katakni darrov koʻrasiz. Boshqa tovarning haqiqiy kodi esa 17 raqami bilan joyida
-              turadi. Xatoni faqat kodni tasniflagich darajalari boʻyicha oʻqib topish mumkin — Tasnivo
+              turadi. Xatoni faqat kodni tasniflagich darajalari boʻyicha oʻqib topish mumkin. Tasnivo
               har bir qatorni shunday tekshiradi.
             </p>
           </div>

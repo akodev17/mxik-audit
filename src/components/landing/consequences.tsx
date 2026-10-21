@@ -41,7 +41,7 @@ export function Consequences() {
           </div>
 
           <div>
-            <p className="text-[16px] font-medium">Amaliyot tavsifi — modda raqamisiz</p>
+            <p className="text-[16px] font-medium">Amaliyot tavsifi, modda raqamisiz</p>
             <ul className="mt-4 divide-y divide-lp-line border-y border-lp-line">
               {practice.map((c) => (
                 <li key={c.title} className="py-5">

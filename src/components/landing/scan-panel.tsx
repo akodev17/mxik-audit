@@ -67,7 +67,7 @@ export function ScanPanel({
         </h3>
         <p className="mt-1 text-[15px] text-lp-muted">
           {row.barcode ? <>Shtrix kod <span className="num">{row.barcode}</span>. </> : null}
-          Birlik: «{row.unit ?? '—'}»
+          Birlik: «{row.unit ?? '-'}»
         </p>
 
         {row.findings.length === 0 ? (
@@ -115,8 +115,8 @@ export function ScanPanel({
                     <div>
                       <dt className="text-[15px] text-lp-muted">Oʻlchov birligi</dt>
                       <dd className="mt-1 text-[17px]">
-                        <span className="bg-lp-warn-fill px-1.5">«{row.unit ?? '—'}»</span> oʻrniga{' '}
-                        <span className="bg-lp-ok-fill px-1.5">«{f.requiredUnit ?? '—'}»</span>
+                        <span className="bg-lp-warn-fill px-1.5">«{row.unit ?? '-'}»</span> oʻrniga{' '}
+                        <span className="bg-lp-ok-fill px-1.5">«{f.requiredUnit ?? '-'}»</span>
                       </dd>
                     </div>
                   ) : (

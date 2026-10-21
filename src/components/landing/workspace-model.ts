@@ -109,12 +109,12 @@ export function readFinding(
   // depends on how sure the system is (same bands as the app).
   const band = finding.confidence === null ? null : bandOf(finding.confidence).key;
   const offer = !suggestion
-    ? 'Mos kod topilmadi — kodni qoʻlda tanlash kerak.'
+    ? 'Mos kod topilmadi. Kodni qoʻlda tanlash kerak.'
     : band === 'high'
       ? 'Taklifni koʻrib chiqib, tasdiqlang.'
       : band === 'medium'
         ? 'Taklifni tekshiring: tasdiqlang yoki muqobillardan boshqasini tanlang.'
-        : 'Moslik past — kodni qoʻlda tanlang, taklifga tayanmang.';
+        : 'Moslik past: kodni qoʻlda tanlang, taklifga tayanmang.';
 
   switch (finding.type) {
     case 'MISSING':
@@ -127,7 +127,7 @@ export function readFinding(
       return {
         what: 'Bunday kod tasniflagichda yoʻq.',
         why: row.code && row.code.length !== 17
-          ? `Kodda ${row.code.length} ta raqam bor, 17 ta boʻlishi kerak — koʻpincha Excel boshidagi nolni oʻchirgani.`
+          ? `Kodda ${row.code.length} ta raqam bor, 17 ta boʻlishi kerak, koʻpincha Excel boshidagi nolni oʻchirgani.`
           : 'Kod 17 xonali, lekin tasniflagichning joriy eksportida topilmadi.',
         next: offer,
       };
@@ -140,8 +140,8 @@ export function readFinding(
     case 'UNIT_CONFLICT':
       return {
         what: 'Kod toʻgʻri, oʻlchov birligi emas.',
-        why: `Kod «${finding.requiredUnit ?? '—'}» birligiga qatʼiy bogʻlangan, qatorda «${row.unit ?? '—'}».`,
-        next: `Birlikni «${row.unit ?? '—'}» oʻrniga «${finding.requiredUnit ?? '—'}» deb yozing. Kod oʻzgarmaydi.`,
+        why: `Kod «${finding.requiredUnit ?? '-'}» birligiga qatʼiy bogʻlangan, qatorda «${row.unit ?? '-'}».`,
+        next: `Birlikni «${row.unit ?? '-'}» oʻrniga «${finding.requiredUnit ?? '-'}» deb yozing. Kod oʻzgarmaydi.`,
       };
   }
 }

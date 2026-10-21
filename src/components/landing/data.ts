@@ -61,13 +61,13 @@ export const PORTAL_EXAMPLES = [
   {
     query: 'Coca-Cola 1.5L',
     note: 'doʻkon katalogida yozilganidek',
-    result: 'Birinchi natija — dori vositasi (Ketoprofen)',
+    result: 'Birinchi natija: dori vositasi (Ketoprofen)',
     contrast: { query: 'Coca Cola', result: '57 natija, birinchisi toʻgʻri' },
   },
   {
     query: "no'xat",
     note: 'klaviaturadagi oddiy apostrof bilan',
-    result: '1 natija — akril polimer dispersiyasi',
+    result: '1 natija: akril polimer dispersiyasi',
     contrast: { query: 'noʻxat', result: '68 natija' },
   },
   {
@@ -125,7 +125,7 @@ const EHF_CARD: Consequence = {
       href: 'https://lex.uz/docs/5650010',
       note:
         'lex.uz bilan tekshirilgan: yetkazib beruvchida tovar mavjudligini '
-        + 'avtomatik aniqlash, tovar boʻlmasa — EHFni cheklash',
+        + 'avtomatik aniqlash, tovar boʻlmasa, EHFni cheklash',
     },
     {
       label: 'Soliq qoʻmitasi rasmiy munosabati, 08.04.2026',
@@ -152,7 +152,7 @@ const FINE_CARD_GENERIC: Consequence = {
    19.07.2026 (prg.kz). Not yet confirmed on lex.uz by a tax adviser — which is
    exactly what the flag waits for. */
 const FINE_CARD_223: Consequence = {
-  title: 'Jarima — sotuv qiymatining 1%',
+  title: 'Jarima: sotuv qiymatining 1%',
   body:
     'Hisobvaraq-faktura yoki kassa chekida tovar nomenklaturasiga mos '
     + 'kelmaydigan identifikatsiya kodi koʻrsatilsa, shu hujjatdagi sotuv '
@@ -175,7 +175,7 @@ export function consequences(showLegal223: boolean): readonly Consequence[] {
       title: 'Xaridorning QQS hisobi',
       body:
         'Kirish QQSi mos keladigan EHF asosida hisobga olinadi. Kod notoʻgʻri '
-        + 'boʻlsa, savol avval mijozingizda paydo boʻladi — keyin sizda.',
+        + 'boʻlsa, savol avval mijozingizda paydo boʻladi, keyin sizda.',
       sources: [],
       note: 'Amaliyot tavsifi. Aniq moddani soliq maslahatchingiz bilan tasdiqlang',
       verified: false,
@@ -184,7 +184,7 @@ export function consequences(showLegal223: boolean): readonly Consequence[] {
       title: 'Razriv → tushuntirish soʻrovi',
       body:
         'Sizning EHF bilan kontragent EHF orasidagi moslik buzilsa, tizim buni '
-        + 'belgilaydi. Keyingi qadam — kameral tekshiruv doirasidagi soʻrov.',
+        + 'belgilaydi. Keyingi qadam: kameral tekshiruv doirasidagi soʻrov.',
       sources: [],
       note: 'Maʼmuriy amaliyot: aniq modda emas, tizim mexanizmi',
       verified: false,
@@ -229,7 +229,7 @@ export const CHECKS = [
      src/lib/catalogs.ts). */
 export const DATA_FLOW = {
   stored:
-    'Fayl serverimizda saqlanadi — tuzatilgan Excelni asl koʻrinishida '
+    'Fayl serverimizda saqlanadi: tuzatilgan Excelni asl koʻrinishida '
     + 'qaytarish uchun. Tahlilda toʻrt ustun oʻqiladi: tovar nomi, shtrix kod, '
     + 'MXIK kodi va oʻlchov birligi.',
   external:
@@ -239,9 +239,9 @@ export const DATA_FLOW = {
   optOut: 'Xohlasangiz, katalogingizni tashqi xizmatsiz tekshiramiz.',
   deletion:
     `Bepul audit uchun yuborilgan fayl ${LEAD_FILE_RETENTION_DAYS} kundan keyin oʻchiriladi, `
-    + 'soʻrovingiz boʻyicha — darhol.',
+    + 'soʻrovingiz boʻyicha darhol.',
   appDeletion:
-    'Ilovaga yuklagan katalogingizni istalgan payt oʻzingiz oʻchirasiz — '
+    'Ilovaga yuklagan katalogingizni istalgan payt oʻzingiz oʻchirasiz, '
     + 'topilmalari va qarorlar yozuvlari bilan birga.',
   purpose: 'Fayl faqat shu audit uchun ishlatiladi.',
 } as const;

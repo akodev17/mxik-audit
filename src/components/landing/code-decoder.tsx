@@ -29,7 +29,7 @@ export function CodeDecoder() {
   if (!a || !b || !ba || !bb) return null;
   const split = firstBlockDivergence(own, suggested);
   const name = (c: typeof a, i: number) =>
-    i < 4 ? sentenceCase(c.path[i] ?? '—') : (c.brand ?? (c.isBase ? 'umumiy kod' : '—'));
+    i < 4 ? sentenceCase(c.path[i] ?? '-') : (c.brand ?? (c.isBase ? 'umumiy kod' : '-'));
 
   return (
     <figure className="border border-lp-line bg-lp-surface p-5 sm:p-8">

@@ -26,7 +26,7 @@ export function Hero() {
           <p className="mt-4 text-[14px] text-lp-muted">
             Yoki{' '}
             <a href="#audit" className="font-medium text-lp-brand-ink underline underline-offset-4 hover:text-lp-ink">faylni yuborib bepul risk auditini oling</a>
-            {' '}— roʻyxatdan oʻtish shart emas.
+            . Roʻyxatdan oʻtish shart emas.
           </p>
         </div>
 
@@ -39,7 +39,7 @@ export function Hero() {
         </div>
       </div>
       <p className="mx-auto mt-4 max-w-[60ch] text-center text-[13px] leading-relaxed text-lp-muted">
-        Koʻrinish — oʻylab topilgan doʻkon katalogi: nomlar oʻylab topilgan, kodlar tasniflagichdan,
+        Koʻrinish: oʻylab topilgan doʻkon katalogi: nomlar oʻylab topilgan, kodlar tasniflagichdan,
         xatolar ataylab qoʻyilgan. Natijani tizim chiqargan va xato boʻlishi mumkin.
       </p>
     </section>
