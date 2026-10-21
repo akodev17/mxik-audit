@@ -14,18 +14,19 @@ describe('routeBoundaryKey', () => {
     assert.equal(routeBoundaryKey('/activity', 'page=2'), '/activity?page=2');
   });
 
-  it('gives each workspace filter its own boundary, but not the row it opens', () => {
-    assert.equal(routeBoundaryKey('/catalogs/x', 'type=MISSING&v=0'), '/catalogs/x?type=MISSING&v=0');
-    assert.notEqual(routeBoundaryKey('/catalogs/x', 'type=MISSING'), routeBoundaryKey('/catalogs/x', 'type=NOT_FOUND'));
+  it('changes workspace filters and settings tabs in place, one boundary per catalogue or page', () => {
+    assert.equal(routeBoundaryKey('/catalogs/x', 'type=MISSING&v=0'), '/catalogs/x');
+    assert.equal(routeBoundaryKey('/catalogs/x', 'type=MISSING'), routeBoundaryKey('/catalogs/x', 'type=NOT_FOUND'));
     assert.equal(routeBoundaryKey('/catalogs/x', 'q=sut&row=f1'), routeBoundaryKey('/catalogs/x', 'q=sut'), 'removing ?row= keeps the open drawer');
     assert.notEqual(routeBoundaryKey('/catalogs/x', ''), routeBoundaryKey('/catalogs/y', ''));
+    assert.equal(routeBoundaryKey('/settings', 'tab=plan'), routeBoundaryKey('/settings', 'tab=security'));
+    assert.equal(routeBoundaryKey('/catalogs/x/diff', 'against=y'), '/catalogs/x/diff?against=y', 'only the workspace itself, not the pages under it');
   });
 
   it('keeps the upload wizard and the Telegram bind result mounted when they edit the address', () => {
     assert.equal(routeBoundaryKey('/upload', 'catalog=abc'), '/upload');
     assert.equal(routeBoundaryKey('/upload', ''), '/upload');
     assert.equal(routeBoundaryKey('/settings', 'tab=security&tg=bound'), routeBoundaryKey('/settings', 'tab=security'));
-    assert.notEqual(routeBoundaryKey('/settings', 'tab=security'), routeBoundaryKey('/settings', 'tab=team'));
   });
 });
 

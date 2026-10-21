@@ -86,4 +86,36 @@ describe('query-only navigation', () => {
     await open(page, '/activity?from=2030-01-01');
     await follow(page, main(page).locator('a[href="/activity"]').first(), '/activity');
   });
+
+  /** Records whether the page skeleton appears in main from now on (src/ui/skeleton.tsx). */
+  const watchSkeleton = (page: Page) => page.evaluate(() => {
+    const w = window as unknown as { __sawSkeleton?: boolean };
+    w.__sawSkeleton = false;
+    const root = document.querySelector('main');
+    if (root) new MutationObserver(() => { if (root.querySelector('[aria-busy="true"]')) w.__sawSkeleton = true; }).observe(root, { childList: true, subtree: true });
+  });
+  const sawSkeleton = (page: Page) => page.evaluate(() => (window as unknown as { __sawSkeleton?: boolean }).__sawSkeleton === true);
+
+  test('20 settings tabs and workspace filters change in place: they commit, without the skeleton', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    await open(page, '/settings');
+    for (const tab of ['/settings?tab=security', '/settings?tab=plan', '/settings']) {
+      await page.waitForLoadState('networkidle');
+      await watchSkeleton(page);
+      const link = main(page).locator(`a[href="${tab}"]`).first();
+      await follow(page, link, tab);
+      await main(page).locator(`a[aria-current="page"][href="${tab}"]`).waitFor({ timeout: NAV_TIMEOUT });
+      assert.equal(await sawSkeleton(page), false, `${tab} opened without the page skeleton`);
+    }
+
+    await open(page, `/catalogs/${fx.clientBCatalogId}`);
+    await page.locator('[role="grid"]').waitFor();
+    await watchSkeleton(page);
+    await Promise.all([
+      page.waitForURL((url) => url.searchParams.get('dec') === 'all', { ...COMMIT, timeout: NAV_TIMEOUT }),
+      main(page).locator('select:has(option[value="carried"])').first().selectOption('all'),
+    ]);
+    await page.locator('[role="grid"]').waitFor({ timeout: NAV_TIMEOUT });
+    assert.equal(await sawSkeleton(page), false, 'the decision filter changed without the page skeleton');
+  });
 });

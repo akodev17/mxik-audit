@@ -10,6 +10,13 @@
 // Nothing else wakes the root, so the address and page stayed put until an unrelated update.
 // A boundary that is new for each address takes React's other path: it commits the skeleton and
 // retries, as cross-section navigations always did.
+//
+// Rechecked 2026-10-21 on Next 15.5.23 / React 19.2.8 (docs/engineering/TAB_SWITCH_PERFORMANCE_REPORT.md):
+// with one boundary per path for every page, e2e/navigation and e2e/refresh passed ten consecutive
+// runs on a production build with the watchdog's fallback off. So pages that rebuild their query-
+// driven parts themselves now change the query in place (QUERY_IN_PLACE): no skeleton, and no
+// 300 ms wait for React to reveal content after one. List pages keep a boundary per address: their
+// filter forms hold uncontrolled inputs that only a remount resets.
 
 // The boundary key follows useSearchParams, which history.replaceState and pushState also update.
 // A page that rewrites its own address that way must be listed below (whole page, or the param it
@@ -18,15 +25,21 @@
 /** Pages that rewrite their own query while staying mounted (the upload wizard's resume id): a change must not remount them. */
 const KEEP_QUERY_STATE = /^\/upload$/;
 /**
+ * Pages whose query changes render in place, under one boundary: settings (each ?tab= is its own
+ * panel, mounted fresh) and the workspace (its grid is keyed by catalogue and filter; density,
+ * grouping and columns follow their props).
+ */
+const QUERY_IN_PLACE = /^\/(settings|catalogs\/[^/]+)$/;
+/**
  * Query params a page reads once and then removes from the address itself: the Telegram bind
  * result in settings, and the row to open in the workspace. Removing them must not remount the page.
- * Every other query change is a new page (the workspace grid already remounts on each filter).
+ * Every other query change on a list page is a new page.
  */
 const CLIENT_ONLY_PARAMS = ['tg', 'row'];
 
 /** Key of the page boundary: the path, plus the query except where the page keeps state in it. */
 export function routeBoundaryKey(pathname: string, search: string): string {
-  if (KEEP_QUERY_STATE.test(pathname)) return pathname;
+  if (KEEP_QUERY_STATE.test(pathname) || QUERY_IN_PLACE.test(pathname)) return pathname;
   const params = new URLSearchParams(search);
   for (const name of CLIENT_ONLY_PARAMS) params.delete(name);
   const query = params.toString();

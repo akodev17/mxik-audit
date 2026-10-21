@@ -7,6 +7,7 @@ import { DECISION_FILTERS, FLAG_FILTERS, type WsFilter } from '@/lib/workspace-f
 import { Checkbox } from '@/ui/checkbox';
 import { cx } from '@/ui/cx';
 import { Select } from '@/ui/select';
+import { goTo } from '@/ui/shell/same-route-links';
 
 /** Replaces the workspace URL's query; `v=0` keeps the default view from being applied again. */
 export function useFilterNav(): (mutate: (p: URLSearchParams) => void) => void {
@@ -20,7 +21,7 @@ export function useFilterNav(): (mutate: (p: URLSearchParams) => void) => void {
     next.delete('pending');
     mutate(next);
     next.set('v', '0');
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    goTo(`${pathname}?${next.toString()}`, (href) => router.replace(href, { scroll: false }));
   }, [params, pathname, router]);
 }
 

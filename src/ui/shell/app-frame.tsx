@@ -12,6 +12,7 @@ import { ToastProvider } from '../toast';
 import { ClientSwitcher } from './client-switcher';
 import { CommandPalette } from './command-palette';
 import { MobileNav } from './mobile-nav';
+import { NavigationProgress } from './navigation-progress';
 import { NotificationBell } from './notification-bell';
 import { PlanBanner } from './plan-banner';
 import { Rail } from './rail';
@@ -96,7 +97,8 @@ export function AppFrame({ shell, children }: Props) {
 
         <div className="flex min-h-0 flex-1">
           <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative flex min-w-0 flex-1 flex-col">
+            <NavigationProgress />
             <PlanBanner plan={shell.plan} />
             <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none"><RouteBoundary>{children}</RouteBoundary></main>
           </div>

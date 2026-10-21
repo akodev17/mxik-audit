@@ -20,12 +20,17 @@ declare global {
 let pending: { from: string; timer: number } | null = null;
 /** A state update in the shell, set while the watchdog is mounted. */
 let nudge: (() => void) | null = null;
+/** Told when a watch starts or ends (NavigationProgress). */
+const listeners = new Set<() => void>();
+const notify = (): void => { for (const listener of listeners) listener(); };
 
 const here = (): string => `${window.location.pathname}${window.location.search}`;
 
 function stopWatching(): void {
-  if (pending) window.clearTimeout(pending.timer);
+  if (!pending) return;
+  window.clearTimeout(pending.timer);
   pending = null;
+  notify();
 }
 
 /**
@@ -40,6 +45,7 @@ export function watchNavigation(target: string): void {
   const from = here();
   const timer = window.setTimeout(() => {
     pending = null;
+    notify();
     if (here() !== from) return;
     console.warn(`[navigation] ${target} did not commit within ${NAVIGATION_WATCHDOG_MS} ms`);
     nudge?.();
@@ -47,6 +53,7 @@ export function watchNavigation(target: string): void {
     window.setTimeout(() => { if (here() === from) window.location.assign(target); }, NUDGE_GRACE_MS);
   }, NAVIGATION_WATCHDOG_MS);
   pending = { from, timer };
+  notify();
 }
 
 /** Watches in-app link clicks (capture phase, before React); the router does the navigation. */
@@ -83,6 +90,15 @@ export function NavigationWatchdog(): null {
   }, []);
   return null;
 }
+
+/** For NavigationProgress: called when a watch starts or ends. */
+export function subscribeNavigation(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** A watched navigation has not committed yet. */
+export const navigationPending = (): boolean => pending !== null;
 
 /** For code that navigates itself: the router navigates, the watchdog watches. */
 export function goTo(href: string, push: (href: string) => void): void {
