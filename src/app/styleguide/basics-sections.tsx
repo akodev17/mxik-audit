@@ -121,7 +121,7 @@ export function FormsSection() {
 
 export function LayoutSection() {
   return (
-    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page, sidebar), surface (panels, active nav item, table heads), raised (cards), sunken (wells). Prefer open lists and hairlines over nested boxes; shadow only for floating layers.">
+    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page, sidebar), surface (panels, active nav item, table heads), raised (cards), sunken (wells). The app frame puts the sidebar on a surface canvas and the workspace on one base sheet inset from md. Prefer open lists and hairlines over nested boxes; shadow only for floating layers.">
       <Sub title="Surfaces">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[

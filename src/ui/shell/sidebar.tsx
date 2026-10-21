@@ -38,7 +38,7 @@ export function Sidebar({ id, pref, expanded, onToggle, canWrite, canTeam }: Pro
     <nav
       id={id}
       aria-label={ta.shellX.nav.label}
-      className={cx('no-print hidden shrink-0 flex-col border-r border-line bg-base transition-[width] duration-(--duration-base) ease-standard md:flex', WIDTH[pref])}
+      className={cx('no-print hidden shrink-0 flex-col transition-[width] duration-(--duration-base) ease-standard md:flex', WIDTH[pref])}
     >
       <div className="flex h-14 shrink-0 items-center gap-2 px-2">
         <Link href="/dashboard" aria-label={ta.shellX.nav.home} className={cx('flex min-w-0 flex-1 items-center gap-2 rounded-ctl px-1.5 py-1', WIDE_ONLY[pref])}>

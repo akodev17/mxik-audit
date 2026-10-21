@@ -60,7 +60,7 @@ export function AppFrame({ shell, sidebar, children }: Props) {
 
   return (
     <ToastProvider>
-      <div className="relative flex h-dvh overflow-hidden">
+      <div className="relative flex h-dvh overflow-hidden bg-surface">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-toast focus:rounded-ctl focus:border focus:border-line-strong focus:bg-raised focus:px-3 focus:py-2 focus:text-data focus:font-medium focus:text-fg focus:shadow-pop"
@@ -69,7 +69,9 @@ export function AppFrame({ shell, sidebar, children }: Props) {
         </a>
         <Sidebar id={railId} pref={pref} expanded={expanded} onToggle={toggleRail} canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
         <MobileNav id={menuId} open={menuOpen} onClose={closeMenu} canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* From md the workspace is one white sheet inset in the grey canvas, as the sidebar sits on the canvas itself. */}
+        <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2 print:p-0">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-base md:rounded-lg md:border md:border-line md:shadow-sm print:border-0 print:shadow-none">
           <header className="no-print flex h-14 shrink-0 items-center gap-1.5 border-b border-line bg-base px-2 sm:gap-2 sm:px-4">
             <span className="flex shrink-0 md:hidden">
               <IconButton
@@ -97,6 +99,7 @@ export function AppFrame({ shell, sidebar, children }: Props) {
           </header>
           <PlanBanner plan={shell.plan} />
           <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none"><RouteBoundary>{children}</RouteBoundary></main>
+          </div>
         </div>
       </div>
       <Suspense fallback={null}>
