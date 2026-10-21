@@ -330,7 +330,8 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       positionRrf: positionMode === 'off' ? undefined : positionScore?.get(groupKey[positionMode](f.item)) ?? 0,
     };
   };
-  const rulesOf = (f: (typeof fused)[number]) => applyRules({ candidate: f.item, rowUnit, preparedDish });
+  const productTokens = [...normalized.tokens, ...synonyms.added];
+  const rulesOf = (f: (typeof fused)[number]) => applyRules({ candidate: f.item, rowUnit, preparedDish, productTokens });
 
   // ------------------------------------------------------------- 6. rerank
   const step = await rerankStep({

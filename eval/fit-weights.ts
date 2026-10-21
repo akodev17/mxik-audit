@@ -9,7 +9,7 @@
 // decide alone. Constraints, also on training rows only: no golden row that is
 // top-1 in the baseline loses it, and synthetic top-1 drops at most 1 point.
 // Appends the grid's best rows and the baseline to docs/weight-fit-results.json.
-// Run: npm run eval:fit [-- --label "..." --grid capped|position|vector]   (DATABASE_URL picks the copy)
+// Run: npm run eval:fit [-- --label "..." --grid capped|position|vector|final]   (DATABASE_URL picks the copy)
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
@@ -115,6 +115,8 @@ const CAPPED = argValue('--grid') === 'capped';
 const POSITION_ONLY = argValue('--grid') === 'position';
 // --grid vector: a semantic provider's cosine band and the vector weight (plan §5, 2026-10-22).
 const VECTOR = argValue('--grid') === 'vector';
+// --grid final: the short list the vector fit left, re-measured after a rule change.
+const FINAL = argValue('--grid') === 'final';
 const grid: Config[] = [];
 if (CAPPED) {
   for (const positionFusion of ['position', 'subposition'] as const) {
@@ -149,7 +151,20 @@ if (VECTOR) {
     }
   }
 }
-for (const positionFusion of CAPPED || POSITION_ONLY || VECTOR ? [] : ['off', 'position', 'subposition'] as const) {
+if (FINAL) {
+  for (const positionFusion of ['off', 'subposition'] as const) {
+    for (const vectorCalibration of [{ floor: 0.8, ceil: 0.95 }, { floor: 0.82, ceil: 0.9 }, { floor: 0.78, ceil: 0.93 }]) {
+      for (const vectorPerPosition of [undefined, 3]) {
+        grid.push({
+          positionFusion, nonSemanticVectorWeight: undefined, vectorCalibration,
+          ...(vectorPerPosition === undefined ? {} : { vectorPerPosition }),
+          weights: { lexical: 0.45, vector: 0.25, rrf: 0.3, positionRrf: 0.2 },
+        });
+      }
+    }
+  }
+}
+for (const positionFusion of CAPPED || POSITION_ONLY || VECTOR || FINAL ? [] : ['off', 'position', 'subposition'] as const) {
   for (const positionRrf of positionFusion === 'off' ? [0] : [0.05, 0.1, 0.2]) {
     for (const nonSemanticVectorWeight of [undefined, 1, 0.5, 0.25, 0]) {
       for (const lexical of [0.35, 0.45, 0.55]) {

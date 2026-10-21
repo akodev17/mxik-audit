@@ -1,7 +1,7 @@
 // Domain rules from the official guidance, encoded as score adjustments rather
 // than hard filters, so a strong retrieval signal can still outvote a heuristic.
 // Pure: no I/O, fully unit-testable.
-import { matchKeyOf } from '../normalize/index.js';
+import { matchKeyOf, tokenize } from '../normalize/index.js';
 import { kindOfUnit, resolveUnit, unitsCompatible } from '../normalize/units.js';
 import type { MxikCandidate } from './types.js';
 
@@ -37,13 +37,41 @@ export type RuleContext = {
   rowUnit: string | null;
   /** Whether the product name reads as a prepared dish. */
   preparedDish: boolean;
+  /** The row's folded words (normalised tokens and synonym terms); absent = no word-based rule. */
+  productTokens?: readonly string[];
 };
+
+/**
+ * Metals a name can declare, as folded stems. In metal trade an unnamed metal is
+ * plain carbon steel: "Лист г/к" is not the stainless "Лист горячекатаный"
+ * (07219001001000007), which won 35 of the eval's sheet rows on its exactly
+ * matching words (2026-10-22).
+ */
+const MATERIALS: Readonly<Record<string, readonly string[]>> = {
+  stainless: ['nerjave', 'korrozionnostoyk', 'zanglamay'],
+  aluminium: ['alyumin'],
+  copper: ['medn'],
+  brass: ['latun'],
+  bronze: ['bronz'],
+  titanium: ['titan'],
+};
+
+/** Where the default holds: metal semi-products (groups 072, 074-076) and steel tubes (7304-7306), not finished articles. */
+const SEMI_PRODUCT = /^(072|074|075|076|07304|07305|07306)/;
+
+function materialsIn(tokens: readonly string[]): Set<string> {
+  const found = new Set<string>();
+  for (const [material, stems] of Object.entries(MATERIALS)) {
+    if (tokens.some((t) => stems.some((s) => t.startsWith(s)))) found.add(material);
+  }
+  return found;
+}
 
 /** Stable names of the rules, stored in match evidence and translated in the UI. */
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
   'preparedDishBase', 'preparedDishSpecific', 'strictUnitConflict',
-  'recommendedUnitMatch', 'unitKindMismatch',
+  'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial',
 ] as const;
 
 export type RuleKey = (typeof RULE_KEYS)[number];
@@ -82,6 +110,8 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
    * pieces can hold anything, so neither fires. Small: a recommendation is not a rule.
    */
   unitKindMismatch: -0.05,
+  /** A metal semi-product whose name declares a metal the row never mentions. */
+  unrequestedMaterial: -0.05,
 };
 
 /** Evaluates every rule against one candidate. */
@@ -119,6 +149,13 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     && !unitsCompatible(rowUnit, candidate.unitCanonical);
   if (unitConflict) {
     fire('strictUnitConflict', `Unit mismatch: row says "${rowUnit ?? ''}", code requires ${candidate.unitCanonical.join(' / ')}.`);
+  }
+
+  if (ctx.productTokens && SEMI_PRODUCT.test(candidate.code)) {
+    const asked = materialsIn(ctx.productTokens);
+    const declared = materialsIn(tokenize(`${matchKeyOf(candidate.nameUz)} ${matchKeyOf(candidate.nameRu)}`));
+    const extra = [...declared].filter((m) => !asked.has(m));
+    if (extra.length > 0) fire('unrequestedMaterial', `The code is ${extra.join('/')}; the row names no such metal (unnamed means carbon steel).`);
   }
 
   // A recommended binding never conflicts (no UNIT_CONFLICT finding), but it
