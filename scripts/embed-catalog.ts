@@ -21,6 +21,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
 import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
 import { embeddingText } from '../src/core/embed/text.js';
+import { hnswIndexSql } from './lib/hnsw.js';
 import { REBUILDING_PREFIX, writeEmbeddingState, type VectorColumn } from '../src/core/match/vector-readiness.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
@@ -115,10 +116,9 @@ else console.log('--no-index: HNSW indexes not built; vector queries scan exactl
 for (const col of !buildIndex ? [] : fillRu ? ['embeddingUz', 'embeddingRu'] as const : ['embeddingUz'] as const) {
   const t0 = Date.now();
   await pool.query(`DROP INDEX IF EXISTS "mxik_code_${col}_hnsw"`);
-  await pool.query(
-    `CREATE INDEX "mxik_code_${col}_hnsw" ON mxik_code
-     USING hnsw ("${col}" vector_cosine_ops) WITH (m = 16, ef_construction = 64)`,
-  );
+  // Denser than pgvector's defaults: see scripts/lib/hnsw.ts for the recall it buys.
+  await pool.query("SET maintenance_work_mem = '2GB'");
+  await pool.query(hnswIndexSql(col));
   console.log(`  ${col}: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }
 await pool.query('ANALYZE mxik_code');

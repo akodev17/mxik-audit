@@ -88,7 +88,7 @@ export type StoreOptions = {
    * problem, so leave this off in production. Costs ~1.7s per query over 439k rows.
    */
   exactVectorScan?: boolean;
-  /** HNSW search breadth when the index is in use. */
+  /** HNSW search breadth when the index is in use; DEFAULT_EF_SEARCH (1000) when absent. */
   efSearch?: number;
   /**
    * Set false to skip vector retrieval entirely — used when the stored vectors
@@ -123,6 +123,14 @@ export type StoreOptions = {
    */
   lexicalStrictThreshold?: number | null;
 };
+
+/**
+ * HNSW search breadth. With e5 and the m=32, ef_construction=200 index
+ * (scripts/lib/hnsw.ts), 1000 gives mean recall@50 0.95 against an exact scan
+ * on the metal eval rows at 13 ms per query; 100 gave 0.65 (2026-10-22,
+ * `npm run eval:recall`).
+ */
+export const DEFAULT_EF_SEARCH = 1000;
 
 /** See StoreOptions.lexicalStrictThreshold; chosen with `npm run perf` (docs/perf-results.json). */
 export const DEFAULT_LEXICAL_STRICT_THRESHOLD = 0.75;
@@ -218,7 +226,7 @@ export class PostgresCandidateStore implements CandidateStore {
     this.embeddingColumn = options.embeddingColumn ?? 'embeddingUz';
     this.exactVectorScan = options.exactVectorScan ?? false;
     // Interpolated into SET LOCAL, so only a positive integer is accepted.
-    this.efSearch = Number.isInteger(options.efSearch) && (options.efSearch ?? 0) > 0 ? (options.efSearch ?? 100) : 100;
+    this.efSearch = Number.isInteger(options.efSearch) && (options.efSearch ?? 0) > 0 ? (options.efSearch ?? DEFAULT_EF_SEARCH) : DEFAULT_EF_SEARCH;
     this.vectorEnabled = options.vectorEnabled ?? true;
     this.fullTextCommonDocs = options.fullTextCommonDocs ?? DEFAULT_FULLTEXT_COMMON_DOCS;
     this.fullTextColumn = options.fullTextColumn ?? 'plain';
