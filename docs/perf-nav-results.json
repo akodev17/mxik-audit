@@ -1,0 +1,1749 @@
+{
+  "note": "Append-only history of `npm run perf:nav` (docs/engineering/TAB_SWITCH_PERFORMANCE_PLAN.md §4).",
+  "runs": [
+    {
+      "label": "before",
+      "commit": "572ec1a",
+      "date": "2026-10-21T13:19:07.036Z",
+      "conditions": {
+        "baseUrl": "http://localhost:3001",
+        "build": "next start (production), BUILD_ID vmyiDecRmwCLklSb7F6zt",
+        "org": "seed org (npm run seed): 2 clients, 5 catalogues, 213 rows",
+        "database": "local Postgres 16 in Docker (shared)",
+        "browser": "Chromium 151.0.7922.34 headless, 1440x900",
+        "machine": {
+          "cpu": "12th Gen Intel(R) Core(TM) i5-12400F",
+          "threads": 12,
+          "memGb": 64,
+          "os": "win32"
+        },
+        "passes": 5,
+        "dwellMs": 0,
+        "settleMs": 500,
+        "profiling": "unknown (commitMs is null unless the build is a profiling one)"
+      },
+      "results": {
+        "initialLoad": {
+          "n": 5,
+          "ttfbMs": 49,
+          "fcpMs": 152,
+          "domContentLoadedMs": 2451,
+          "loadMs": 2452,
+          "documentKB": 94.2,
+          "jsKB": 239.3
+        },
+        "tabs": {
+          "cold": {
+            "n": 40,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 35
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 35
+            },
+            "contentMs": {
+              "p50": 333,
+              "p95": 5531,
+              "max": 6987
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 25,
+              "p95": 361,
+              "max": 361
+            },
+            "rscMs": {
+              "p50": 88,
+              "p95": 5499,
+              "max": 6949
+            },
+            "longTasks": {
+              "total": 1,
+              "maxMs": 59
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          },
+          "warm": {
+            "n": 40,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 32
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 32
+            },
+            "contentMs": {
+              "p50": 331,
+              "p95": 6823,
+              "max": 8977
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 24,
+              "p95": 360,
+              "max": 360
+            },
+            "rscMs": {
+              "p50": 76,
+              "p95": 6771,
+              "max": 8926
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          },
+          "perTransition": {
+            "dashboard>queue": {
+              "cold": {
+                "contentMs": 4989,
+                "feedbackMs": 31,
+                "rscKB": 361
+              },
+              "warm": {
+                "contentMs": 4625,
+                "feedbackMs": 30,
+                "rscFetches": 5
+              }
+            },
+            "queue>clients": {
+              "cold": {
+                "contentMs": 330,
+                "feedbackMs": 30,
+                "rscKB": 25
+              },
+              "warm": {
+                "contentMs": 331,
+                "feedbackMs": 30,
+                "rscFetches": 5
+              }
+            },
+            "clients>catalogs": {
+              "cold": {
+                "contentMs": 346,
+                "feedbackMs": 29,
+                "rscKB": 23
+              },
+              "warm": {
+                "contentMs": 331,
+                "feedbackMs": 31,
+                "rscFetches": 5
+              }
+            },
+            "catalogs>dictionary": {
+              "cold": {
+                "contentMs": 330,
+                "feedbackMs": 30,
+                "rscKB": 6
+              },
+              "warm": {
+                "contentMs": 330,
+                "feedbackMs": 30,
+                "rscFetches": 5
+              }
+            },
+            "dictionary>activity": {
+              "cold": {
+                "contentMs": 333,
+                "feedbackMs": 30,
+                "rscKB": 91
+              },
+              "warm": {
+                "contentMs": 335,
+                "feedbackMs": 30,
+                "rscFetches": 5
+              }
+            },
+            "activity>settings": {
+              "cold": {
+                "contentMs": 330,
+                "feedbackMs": 30,
+                "rscKB": 13
+              },
+              "warm": {
+                "contentMs": 329,
+                "feedbackMs": 29,
+                "rscFetches": 5
+              }
+            },
+            "settings>team": {
+              "cold": {
+                "contentMs": 331,
+                "feedbackMs": 30,
+                "rscKB": 5
+              },
+              "warm": {
+                "contentMs": 330,
+                "feedbackMs": 30,
+                "rscFetches": 5
+              }
+            },
+            "team>dashboard": {
+              "cold": {
+                "contentMs": 346,
+                "feedbackMs": 31,
+                "rscKB": 36
+              },
+              "warm": {
+                "contentMs": 329,
+                "feedbackMs": 30,
+                "rscFetches": 5
+              }
+            }
+          }
+        },
+        "settingsTabs": {
+          "cold": {
+            "n": 25,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 32
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 32
+            },
+            "contentMs": {
+              "p50": 332,
+              "p95": 351,
+              "max": 355
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 15,
+              "max": 15
+            },
+            "rscMs": {
+              "p50": 49,
+              "p95": 162,
+              "max": 248
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 24,
+              "max": 24
+            },
+            "commitMs": null
+          },
+          "warm": {
+            "n": 25,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 31,
+              "max": 32
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 31,
+              "max": 32
+            },
+            "contentMs": {
+              "p50": 331,
+              "p95": 347,
+              "max": 357
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 15,
+              "max": 15
+            },
+            "rscMs": {
+              "p50": 50,
+              "p95": 88,
+              "max": 92
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          }
+        },
+        "workspace": {
+          "catalog": "newest ready catalogue of the seed org",
+          "open": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 32,
+              "p95": 47,
+              "max": 47
+            },
+            "urlMs": {
+              "p50": 32,
+              "p95": 47,
+              "max": 47
+            },
+            "contentMs": {
+              "p50": 359,
+              "p95": 378,
+              "max": 378
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 12,
+              "max": 12
+            },
+            "rscMs": {
+              "p50": 109,
+              "p95": 207,
+              "max": 207
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          },
+          "filter": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 23,
+              "p95": 27,
+              "max": 27
+            },
+            "urlMs": {
+              "p50": 23,
+              "p95": 27,
+              "max": 27
+            },
+            "contentMs": {
+              "p50": 331,
+              "p95": 333,
+              "max": 333
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 12,
+              "max": 12
+            },
+            "rscMs": {
+              "p50": 78,
+              "p95": 110,
+              "max": 110
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "sort": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 14,
+              "p95": 25,
+              "max": 25
+            },
+            "urlMs": {
+              "p50": 14,
+              "p95": 25,
+              "max": 25
+            },
+            "contentMs": {
+              "p50": 330,
+              "p95": 332,
+              "max": 332
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 12,
+              "max": 12
+            },
+            "rscMs": {
+              "p50": 90,
+              "p95": 97,
+              "max": 97
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "back": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 7,
+              "p95": 13,
+              "max": 13
+            },
+            "urlMs": {
+              "p50": 7,
+              "p95": 13,
+              "max": 13
+            },
+            "contentMs": {
+              "p50": 7,
+              "p95": 13,
+              "max": 13
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 5,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          }
+        },
+        "history": {
+          "back": {
+            "n": 6,
+            "feedbackMs": {
+              "p50": 9,
+              "p95": 44,
+              "max": 44
+            },
+            "urlMs": {
+              "p50": 9,
+              "p95": 44,
+              "max": 44
+            },
+            "contentMs": {
+              "p50": 9,
+              "p95": 44,
+              "max": 44
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 6,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "forward": {
+            "n": 6,
+            "feedbackMs": {
+              "p50": 16,
+              "p95": 34,
+              "max": 34
+            },
+            "urlMs": {
+              "p50": 16,
+              "p95": 34,
+              "max": 34
+            },
+            "contentMs": {
+              "p50": 16,
+              "p95": 34,
+              "max": 34
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 6,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          }
+        },
+        "rapid": {
+          "passed": 5,
+          "of": 5,
+          "failures": []
+        },
+        "heap": {
+          "after5MB": 6.7,
+          "after40MB": 7.9,
+          "growthPct": 17.9
+        },
+        "fast3g": {
+          "cold": {
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 30,
+              "max": 30
+            },
+            "contentMs": {
+              "p50": 1281,
+              "p95": 4785,
+              "max": 4785
+            }
+          },
+          "warm": {
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 32
+            },
+            "contentMs": {
+              "p50": 659,
+              "p95": 5594,
+              "max": 5594
+            }
+          }
+        }
+      }
+    },
+    {
+      "label": "before (query log)",
+      "commit": "be85f10",
+      "date": "2026-10-21T13:32:41.600Z",
+      "conditions": {
+        "baseUrl": "http://localhost:3001",
+        "build": "next start (production), BUILD_ID MxnoBqsJh_zu2Y4L-ebgO",
+        "org": "seed org (npm run seed): 2 clients, 5 catalogues, 213 rows",
+        "database": "local Postgres 16 in Docker (shared)",
+        "browser": "Chromium 151.0.7922.34 headless, 1440x900",
+        "machine": {
+          "cpu": "12th Gen Intel(R) Core(TM) i5-12400F",
+          "threads": 12,
+          "memGb": 64,
+          "os": "win32"
+        },
+        "passes": 1,
+        "dwellMs": 0,
+        "settleMs": 500,
+        "profiling": "unknown (commitMs is null unless the build is a profiling one)"
+      },
+      "results": {
+        "initialLoad": {
+          "n": 1,
+          "ttfbMs": 53,
+          "fcpMs": 140,
+          "domContentLoadedMs": 223,
+          "loadMs": 223,
+          "documentKB": 94.2,
+          "jsKB": 239.7
+        },
+        "tabs": {
+          "cold": {
+            "n": 8,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 31,
+              "max": 31
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 31,
+              "max": 31
+            },
+            "contentMs": {
+              "p50": 331,
+              "p95": 4417,
+              "max": 4417
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 25,
+              "p95": 361,
+              "max": 361
+            },
+            "rscMs": {
+              "p50": 85,
+              "p95": 4342,
+              "max": 4342
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          },
+          "warm": {
+            "n": 8,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 32
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 32,
+              "max": 32
+            },
+            "contentMs": {
+              "p50": 329,
+              "p95": 4377,
+              "max": 4377
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 24,
+              "p95": 360,
+              "max": 360
+            },
+            "rscMs": {
+              "p50": 63,
+              "p95": 4324,
+              "max": 4324
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          },
+          "perTransition": {
+            "dashboard>queue": {
+              "cold": {
+                "contentMs": 4417,
+                "feedbackMs": 31,
+                "rscKB": 361
+              },
+              "warm": {
+                "contentMs": 4377,
+                "feedbackMs": 30,
+                "rscFetches": 1
+              }
+            },
+            "queue>clients": {
+              "cold": {
+                "contentMs": 329,
+                "feedbackMs": 30,
+                "rscKB": 25
+              },
+              "warm": {
+                "contentMs": 344,
+                "feedbackMs": 27,
+                "rscFetches": 1
+              }
+            },
+            "clients>catalogs": {
+              "cold": {
+                "contentMs": 345,
+                "feedbackMs": 30,
+                "rscKB": 23
+              },
+              "warm": {
+                "contentMs": 328,
+                "feedbackMs": 30,
+                "rscFetches": 1
+              }
+            },
+            "catalogs>dictionary": {
+              "cold": {
+                "contentMs": 329,
+                "feedbackMs": 31,
+                "rscKB": 6
+              },
+              "warm": {
+                "contentMs": 329,
+                "feedbackMs": 29,
+                "rscFetches": 1
+              }
+            },
+            "dictionary>activity": {
+              "cold": {
+                "contentMs": 349,
+                "feedbackMs": 28,
+                "rscKB": 91
+              },
+              "warm": {
+                "contentMs": 327,
+                "feedbackMs": 29,
+                "rscFetches": 1
+              }
+            },
+            "activity>settings": {
+              "cold": {
+                "contentMs": 331,
+                "feedbackMs": 31,
+                "rscKB": 13
+              },
+              "warm": {
+                "contentMs": 328,
+                "feedbackMs": 29,
+                "rscFetches": 1
+              }
+            },
+            "settings>team": {
+              "cold": {
+                "contentMs": 329,
+                "feedbackMs": 30,
+                "rscKB": 5
+              },
+              "warm": {
+                "contentMs": 331,
+                "feedbackMs": 32,
+                "rscFetches": 1
+              }
+            },
+            "team>dashboard": {
+              "cold": {
+                "contentMs": 329,
+                "feedbackMs": 30,
+                "rscKB": 36
+              },
+              "warm": {
+                "contentMs": 329,
+                "feedbackMs": 30,
+                "rscFetches": 1
+              }
+            }
+          }
+        },
+        "settingsTabs": {
+          "cold": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 31,
+              "max": 31
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 31,
+              "max": 31
+            },
+            "contentMs": {
+              "p50": 346,
+              "p95": 348,
+              "max": 348
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 15,
+              "max": 15
+            },
+            "rscMs": {
+              "p50": 59,
+              "p95": 81,
+              "max": 81
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          },
+          "warm": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 31,
+              "p95": 31,
+              "max": 31
+            },
+            "urlMs": {
+              "p50": 31,
+              "p95": 31,
+              "max": 31
+            },
+            "contentMs": {
+              "p50": 330,
+              "p95": 347,
+              "max": 347
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 15,
+              "max": 15
+            },
+            "rscMs": {
+              "p50": 49,
+              "p95": 81,
+              "max": 81
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          }
+        },
+        "workspace": {
+          "catalog": "newest ready catalogue of the seed org",
+          "open": {
+            "n": 1,
+            "feedbackMs": {
+              "p50": 30,
+              "p95": 30,
+              "max": 30
+            },
+            "urlMs": {
+              "p50": 30,
+              "p95": 30,
+              "max": 30
+            },
+            "contentMs": {
+              "p50": 368,
+              "p95": 368,
+              "max": 368
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 12,
+              "max": 12
+            },
+            "rscMs": {
+              "p50": 107,
+              "p95": 107,
+              "max": 107
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "commitMs": null
+          },
+          "filter": {
+            "n": 1,
+            "feedbackMs": {
+              "p50": 13,
+              "p95": 13,
+              "max": 13
+            },
+            "urlMs": {
+              "p50": 13,
+              "p95": 13,
+              "max": 13
+            },
+            "contentMs": {
+              "p50": 315,
+              "p95": 315,
+              "max": 315
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 12,
+              "max": 12
+            },
+            "rscMs": {
+              "p50": 89,
+              "p95": 89,
+              "max": 89
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "sort": {
+            "n": 1,
+            "feedbackMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "urlMs": {
+              "p50": 16,
+              "p95": 16,
+              "max": 16
+            },
+            "contentMs": {
+              "p50": 318,
+              "p95": 318,
+              "max": 318
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 12,
+              "max": 12
+            },
+            "rscMs": {
+              "p50": 93,
+              "p95": 93,
+              "max": 93
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "back": {
+            "n": 1,
+            "feedbackMs": {
+              "p50": 11,
+              "p95": 11,
+              "max": 11
+            },
+            "urlMs": {
+              "p50": 11,
+              "p95": 11,
+              "max": 11
+            },
+            "contentMs": {
+              "p50": 11,
+              "p95": 11,
+              "max": 11
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 1,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          }
+        },
+        "history": {
+          "back": {
+            "n": 6,
+            "feedbackMs": {
+              "p50": 15,
+              "p95": 40,
+              "max": 40
+            },
+            "urlMs": {
+              "p50": 15,
+              "p95": 40,
+              "max": 40
+            },
+            "contentMs": {
+              "p50": 15,
+              "p95": 40,
+              "max": 40
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 6,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "forward": {
+            "n": 6,
+            "feedbackMs": {
+              "p50": 9,
+              "p95": 35,
+              "max": 35
+            },
+            "urlMs": {
+              "p50": 9,
+              "p95": 35,
+              "max": 35
+            },
+            "contentMs": {
+              "p50": 9,
+              "p95": 35,
+              "max": 35
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 6,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          }
+        },
+        "rapid": {
+          "passed": 5,
+          "of": 5,
+          "failures": []
+        },
+        "heap": {
+          "after5MB": 6.7,
+          "after40MB": 7.9,
+          "growthPct": 17.9
+        },
+        "server": {
+          "prefetch /": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 6,
+            "responseKB": 0.1
+          },
+          "prefetch /activity": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "prefetch /api-docs": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 6,
+            "responseKB": 0.1
+          },
+          "prefetch /catalogs": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 6,
+            "responseKB": 0.2
+          },
+          "prefetch /catalogs/cmt1jk6jw0004vj646ukct7x7": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "prefetch /catalogs/cmt1jk6jw0004vj646ukct7x7?q=Baliq+ikrasi%3A+Dar%D1%8B+Morya%2C+qizil+va+qora+200+g+%2890+%D0%B4%D0%BE%D0%BD%D0%B0%29&row=cmt1jkh5n0002vjegtl62sv5e": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.3
+          },
+          "prefetch /catalogs/cmvaydxq7000gvj5ocdf3f68a": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 4,
+            "responseKB": 0.2
+          },
+          "prefetch /catalogs/cmvazrjhz0001vj4wk3zwp5an": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 4,
+            "responseKB": 0.2
+          },
+          "prefetch /catalogs/cmvazs2uz000kvj4wu66imxf0": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "prefetch /catalogs/cmvazs2uz000kvj4wu66imxf0?dec=all&v=0": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.3
+          },
+          "prefetch /catalogs/cmvazs2uz000kvj4wu66imxf0?dec=all&v=0&sort=row": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.3
+          },
+          "prefetch /catalogs/cmvazs2uz000kvj4wu66imxf0?q=%D0%A1%D0%B0%D1%85%D0%B0%D1%80-%D0%BF%D0%B5%D1%81%D0%BE%D0%BA+50+%D0%BA%D0%B3+%D0%BC%D0%B5%D1%88%D0%BE%D0%BA&row=cmvazs8ef000vvj4wgmgjbok9": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 4,
+            "responseKB": 0.3
+          },
+          "prefetch /catalogs/cmvewgkd20001vjfgwmeuxwrs": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "prefetch /clients": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 6,
+            "responseKB": 0.1
+          },
+          "prefetch /clients/cl7049a339063209bcfad02f91672eb1dd": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "prefetch /clients/cmvayby250003vj5oqme4klxo": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "prefetch /dashboard": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "prefetch /dictionary": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 4,
+            "responseKB": 0.2
+          },
+          "prefetch /queue": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.1
+          },
+          "prefetch /settings": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 4,
+            "responseKB": 0.2
+          },
+          "prefetch /team": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.1
+          },
+          "prefetch /upload": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.1
+          },
+          "prefetch /yordam": {
+            "queries": 0,
+            "dbMs": 0,
+            "slowest": null,
+            "duplicates": [],
+            "ops": [],
+            "responseMs": 5,
+            "responseKB": 0.2
+          },
+          "render /activity": {
+            "queries": 7,
+            "dbMs": 23,
+            "slowest": "User.findFirst 7.6ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Client.findMany",
+              "User.findMany",
+              "$queryRaw",
+              "$queryRaw",
+              "AuditEvent.findMany"
+            ],
+            "responseMs": 73,
+            "responseKB": 91
+          },
+          "render /catalogs": {
+            "queries": 10,
+            "dbMs": 70,
+            "slowest": "Catalog.findMany 14.5ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Client.findMany",
+              "Catalog.count",
+              "Catalog.count",
+              "Catalog.findMany",
+              "User.findMany",
+              "Catalog.findMany",
+              "AuditEvent.findMany",
+              "User.findMany"
+            ],
+            "responseMs": 70,
+            "responseKB": 22.7
+          },
+          "render /catalogs/cmvazs2uz000kvj4wu66imxf0": {
+            "queries": 27,
+            "dbMs": 125,
+            "slowest": "Finding.groupBy 10.6ms",
+            "duplicates": [
+              "UserSession.findUnique x2"
+            ],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "UserSession.findUnique",
+              "Catalog.findFirst",
+              "Client.findFirst",
+              "Organization.findUnique",
+              "Catalog.findFirst",
+              "SavedView.findFirst",
+              "Finding.count",
+              "Finding.count",
+              "CatalogItem.count",
+              "CatalogItem.count",
+              "CatalogItem.count",
+              "$queryRaw",
+              "$queryRaw",
+              "$queryRaw",
+              "Finding.count",
+              "$queryRaw",
+              "Finding.groupBy",
+              "Finding.findMany",
+              "FindingComment.groupBy",
+              "MxikCode.findMany",
+              "CatalogSnapshot.findFirst",
+              "Organization.findUnique",
+              "CatalogItem.aggregate",
+              "CatalogItem.aggregate",
+              "Order.count"
+            ],
+            "responseMs": 62,
+            "responseKB": 12.1
+          },
+          "render /catalogs/cmvazs2uz000kvj4wu66imxf0?dec=all&v=0": {
+            "queries": 26,
+            "dbMs": 135,
+            "slowest": "$queryRaw 15.8ms",
+            "duplicates": [
+              "UserSession.findUnique x2"
+            ],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "UserSession.findUnique",
+              "Catalog.findFirst",
+              "Catalog.findFirst",
+              "Organization.findUnique",
+              "Client.findFirst",
+              "CatalogItem.count",
+              "$queryRaw",
+              "$queryRaw",
+              "CatalogItem.count",
+              "Finding.groupBy",
+              "Finding.count",
+              "$queryRaw",
+              "Finding.count",
+              "CatalogItem.count",
+              "Finding.count",
+              "$queryRaw",
+              "Finding.findMany",
+              "FindingComment.groupBy",
+              "MxikCode.findMany",
+              "CatalogSnapshot.findFirst",
+              "CatalogItem.aggregate",
+              "Organization.findUnique",
+              "CatalogItem.aggregate",
+              "Order.count"
+            ],
+            "responseMs": 77,
+            "responseKB": 11.7
+          },
+          "render /catalogs/cmvazs2uz000kvj4wu66imxf0?dec=all&v=0&sort=row": {
+            "queries": 26,
+            "dbMs": 97,
+            "slowest": "$queryRaw 6.6ms",
+            "duplicates": [
+              "UserSession.findUnique x2"
+            ],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "UserSession.findUnique",
+              "Catalog.findFirst",
+              "Catalog.findFirst",
+              "Organization.findUnique",
+              "Client.findFirst",
+              "CatalogItem.count",
+              "Finding.groupBy",
+              "Finding.count",
+              "Finding.count",
+              "$queryRaw",
+              "$queryRaw",
+              "CatalogItem.count",
+              "Finding.count",
+              "CatalogItem.count",
+              "$queryRaw",
+              "$queryRaw",
+              "Finding.findMany",
+              "FindingComment.groupBy",
+              "MxikCode.findMany",
+              "CatalogItem.aggregate",
+              "CatalogItem.aggregate",
+              "CatalogSnapshot.findFirst",
+              "Organization.findUnique",
+              "Order.count"
+            ],
+            "responseMs": 53,
+            "responseKB": 11.7
+          },
+          "render /clients": {
+            "queries": 4,
+            "dbMs": 19,
+            "slowest": "$queryRaw 11.1ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Organization.findUnique",
+              "$queryRaw"
+            ],
+            "responseMs": 35,
+            "responseKB": 24.5
+          },
+          "render /dashboard": {
+            "queries": 20,
+            "dbMs": 116,
+            "slowest": "$queryRaw 18.9ms",
+            "duplicates": [
+              "Invite.count x2"
+            ],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "ReminderTask.findMany",
+              "User.findMany",
+              "User.findUnique",
+              "Catalog.count",
+              "User.count",
+              "Invite.count",
+              "Client.count",
+              "Organization.findUnique",
+              "AuditEvent.count",
+              "Invite.count",
+              "TelegramLink.count",
+              "Catalog.aggregate",
+              "User.count",
+              "Client.count",
+              "$queryRaw",
+              "$queryRaw",
+              "AuditEvent.findMany",
+              "$queryRaw"
+            ],
+            "responseMs": 47,
+            "responseKB": 36.3
+          },
+          "render /dictionary": {
+            "queries": 4,
+            "dbMs": 9,
+            "slowest": "User.findFirst 4.4ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "FirmMapping.count",
+              "FirmMapping.findMany"
+            ],
+            "responseMs": 20,
+            "responseKB": 6
+          },
+          "render /queue": {
+            "queries": 6,
+            "dbMs": 3815,
+            "slowest": "$queryRaw 3802.5ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "User.findMany",
+              "Client.findMany",
+              "$queryRaw",
+              "$queryRaw"
+            ],
+            "responseMs": 3739,
+            "responseKB": 360.7
+          },
+          "render /settings": {
+            "queries": 4,
+            "dbMs": 28,
+            "slowest": "User.findFirst 10.8ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Organization.findUnique",
+              "Organization.findUniqueOrThrow"
+            ],
+            "responseMs": 47,
+            "responseKB": 12.6
+          },
+          "render /settings?tab=data": {
+            "queries": 4,
+            "dbMs": 13,
+            "slowest": "User.findFirst 4.1ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Organization.findUnique",
+              "Organization.findUniqueOrThrow"
+            ],
+            "responseMs": 25,
+            "responseKB": 6.9
+          },
+          "render /settings?tab=integrations": {
+            "queries": 13,
+            "dbMs": 49,
+            "slowest": "UserSession.findUnique 8.1ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Organization.findUnique",
+              "ApiUsage.aggregate",
+              "Organization.findUnique",
+              "User.findMany",
+              "ApiKey.findMany",
+              "TelegramLink.findMany",
+              "Invite.count",
+              "Client.count",
+              "ApiUsage.findMany",
+              "Catalog.aggregate",
+              "User.count"
+            ],
+            "responseMs": 27,
+            "responseKB": 5.2
+          },
+          "render /settings?tab=plan": {
+            "queries": 10,
+            "dbMs": 20,
+            "slowest": "User.findFirst 6.2ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Organization.findUnique",
+              "Organization.findUnique",
+              "Organization.findUnique",
+              "ApiUsage.aggregate",
+              "User.count",
+              "Client.count",
+              "Invite.count",
+              "Catalog.aggregate"
+            ],
+            "responseMs": 32,
+            "responseKB": 14.7
+          },
+          "render /settings?tab=security": {
+            "queries": 9,
+            "dbMs": 25,
+            "slowest": "User.findFirst 6.3ms",
+            "duplicates": [
+              "UserSession.findUnique x2",
+              "Organization.findUnique x2"
+            ],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Organization.findUnique",
+              "User.findUnique",
+              "UserSession.findUnique",
+              "UserSession.findMany",
+              "Organization.findUnique",
+              "User.findUnique",
+              "RecoveryCode.count"
+            ],
+            "responseMs": 54,
+            "responseKB": 12.4
+          },
+          "render /team": {
+            "queries": 11,
+            "dbMs": 24,
+            "slowest": "User.findFirst 4.8ms",
+            "duplicates": [],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "Organization.findUnique",
+              "Organization.findUnique",
+              "Client.findMany",
+              "Client.count",
+              "User.count",
+              "Invite.findMany",
+              "Invite.count",
+              "Catalog.aggregate",
+              "User.findMany"
+            ],
+            "responseMs": 19,
+            "responseKB": 5.3
+          },
+          "document /dashboard": {
+            "queries": 30,
+            "dbMs": 121,
+            "slowest": "$queryRaw 13.3ms",
+            "duplicates": [
+              "UserSession.findUnique x3",
+              "Organization.findUnique x2",
+              "Invite.count x2",
+              "Catalog.aggregate x2",
+              "User.count x2",
+              "Client.count x2"
+            ],
+            "ops": [
+              "User.findFirst",
+              "UserSession.findUnique",
+              "UserSession.findUnique",
+              "UserSession.findUnique",
+              "Catalog.count",
+              "ReminderTask.findMany",
+              "User.findMany",
+              "User.count",
+              "$queryRaw",
+              "AuditEvent.count",
+              "TelegramLink.count",
+              "Organization.findUnique",
+              "Invite.count",
+              "AuditEvent.findMany",
+              "Client.count",
+              "User.findUnique",
+              "Invite.count",
+              "Client.findFirst",
+              "Catalog.aggregate",
+              "User.count",
+              "Notification.count",
+              "Client.findMany",
+              "Client.count",
+              "Organization.findUnique",
+              "Invite.count",
+              "Catalog.aggregate",
+              "User.count",
+              "Client.count",
+              "$queryRaw",
+              "$queryRaw"
+            ],
+            "responseMs": 66,
+            "responseKB": 94.2
+          }
+        }
+      }
+    }
+  ]
+}
