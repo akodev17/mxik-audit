@@ -1,0 +1,859 @@
+{
+  "note": "Append-only history of `npm run eval:fit` (plan §3.6): grid fits on 80% of every eval set, with the 20% hold-out reported.",
+  "runs": [
+    {
+      "label": "plan phase 3.6 fit 1: fusion mode x position weight x stand-in vector weight x lexical/rrf (degraded: hashing vectors, no reranker, snapshot 2026-08-20)",
+      "ranAt": "2026-10-21T11:15:00.310Z",
+      "database": "mxik_scratch",
+      "embedding": "hashing (local, non-semantic)",
+      "cases": 473,
+      "heldOut": 97,
+      "gridSize": 210,
+      "baseline": {
+        "config": "baseline off vec=signal lex=0.45 rrf=0.3 pos=0",
+        "train": {
+          "golden": {
+            "n": 9,
+            "top1": 66.66666666666667,
+            "top5": 77.77777777777777
+          },
+          "real-construction": {
+            "n": 81,
+            "top1": 75.30864197530865,
+            "top5": 88.88888888888889
+          },
+          "real-metal": {
+            "n": 134,
+            "top1": 47.76119402985075,
+            "top5": 70.14925373134328
+          },
+          "synthetic": {
+            "n": 152,
+            "top1": 94.07894736842105,
+            "top5": 96.71052631578948
+          }
+        },
+        "holdout": {
+          "golden": {
+            "n": 3,
+            "top1": 100,
+            "top5": 100
+          },
+          "real-construction": {
+            "n": 21,
+            "top1": 76.19047619047619,
+            "top5": 85.71428571428571
+          },
+          "real-metal": {
+            "n": 34,
+            "top1": 38.23529411764706,
+            "top5": 97.05882352941177
+          },
+          "synthetic": {
+            "n": 39,
+            "top1": 87.17948717948718,
+            "top5": 94.87179487179488
+          }
+        },
+        "objective": 77.16773709425581,
+        "holdoutObjective": 84.90627020038785,
+        "feasible": true,
+        "why": []
+      },
+      "best": [
+        {
+          "config": "off vec=signal lex=0.45 rrf=0.2 pos=0",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 77.77777777777777,
+              "top5": 88.88888888888889
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 48.507462686567166,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 93.42105263157895,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 76.19047619047619,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 84.61538461538461,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.48742580954874,
+          "holdoutObjective": 84.58575737987503,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "off vec=signal lex=0.55 rrf=0.2 pos=0",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 77.77777777777777,
+              "top5": 88.88888888888889
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 48.507462686567166,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 93.42105263157895,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 76.19047619047619,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 84.61538461538461,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.48742580954874,
+          "holdoutObjective": 84.58575737987503,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "off vec=signal lex=0.55 rrf=0.3 pos=0",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 76.54320987654322,
+              "top5": 88.88888888888889
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 48.507462686567166,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 94.07894736842105,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 76.19047619047619,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 87.17948717948718,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.4153416639997,
+          "holdoutObjective": 84.90627020038785,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "off vec=signal lex=0.45 rrf=0.3 pos=0",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 75.30864197530865,
+              "top5": 88.88888888888889
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 47.76119402985075,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 94.07894736842105,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 76.19047619047619,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 87.17948717948718,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.16773709425581,
+          "holdoutObjective": 84.90627020038785,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "off vec=signal lex=0.35 rrf=0.2 pos=0",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 75.30864197530865,
+              "top5": 88.88888888888889
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 47.76119402985075,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 93.42105263157895,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 66.66666666666667,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 84.61538461538461,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.08550025215055,
+          "holdoutObjective": 83.39528118939884,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "off vec=signal lex=0.35 rrf=0.3 pos=0",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 74.07407407407408,
+              "top5": 87.65432098765432
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 47.76119402985075,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 94.07894736842105,
+              "top5": 97.36842105263158
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 66.66666666666667,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 87.17948717948718,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 76.94133196105244,
+          "holdoutObjective": 83.71579400991166,
+          "feasible": true,
+          "why": []
+        }
+      ],
+      "infeasibleBest": {
+        "config": "subposition vec=1 lex=0.45 rrf=0.2 pos=0.2",
+        "train": {
+          "golden": {
+            "n": 9,
+            "top1": 66.66666666666667,
+            "top5": 77.77777777777777
+          },
+          "real-construction": {
+            "n": 81,
+            "top1": 79.01234567901234,
+            "top5": 80.24691358024691
+          },
+          "real-metal": {
+            "n": 134,
+            "top1": 97.76119402985074,
+            "top5": 97.76119402985074
+          },
+          "synthetic": {
+            "n": 152,
+            "top1": 83.55263157894737,
+            "top5": 92.76315789473684
+          }
+        },
+        "holdout": {
+          "golden": {
+            "n": 3,
+            "top1": 33.333333333333336,
+            "top5": 33.333333333333336
+          },
+          "real-construction": {
+            "n": 21,
+            "top1": 80.95238095238095,
+            "top5": 85.71428571428571
+          },
+          "real-metal": {
+            "n": 34,
+            "top1": 100,
+            "top5": 100
+          },
+          "synthetic": {
+            "n": 39,
+            "top1": 79.48717948717949,
+            "top5": 87.17948717948718
+          }
+        },
+        "objective": 84.44273515463618,
+        "holdoutObjective": 75,
+        "feasible": false,
+        "why": [
+          "synthetic top-1 drops > 1 point"
+        ]
+      }
+    },
+    {
+      "label": "plan phase 3.6 fit 2: position fusion capped at 1 or 3 codes per position per list (degraded: hashing vectors, no reranker, snapshot 2026-08-20)",
+      "ranAt": "2026-10-21T11:18:05.169Z",
+      "database": "mxik_scratch",
+      "embedding": "hashing (local, non-semantic)",
+      "cases": 473,
+      "heldOut": 97,
+      "gridSize": 16,
+      "baseline": {
+        "config": "baseline off vec=signal lex=0.45 rrf=0.3 pos=0",
+        "train": {
+          "golden": {
+            "n": 9,
+            "top1": 66.66666666666667,
+            "top5": 77.77777777777777
+          },
+          "real-construction": {
+            "n": 81,
+            "top1": 75.30864197530865,
+            "top5": 88.88888888888889
+          },
+          "real-metal": {
+            "n": 134,
+            "top1": 47.76119402985075,
+            "top5": 70.14925373134328
+          },
+          "synthetic": {
+            "n": 152,
+            "top1": 94.07894736842105,
+            "top5": 96.71052631578948
+          }
+        },
+        "holdout": {
+          "golden": {
+            "n": 3,
+            "top1": 100,
+            "top5": 100
+          },
+          "real-construction": {
+            "n": 21,
+            "top1": 76.19047619047619,
+            "top5": 85.71428571428571
+          },
+          "real-metal": {
+            "n": 34,
+            "top1": 38.23529411764706,
+            "top5": 97.05882352941177
+          },
+          "synthetic": {
+            "n": 39,
+            "top1": 87.17948717948718,
+            "top5": 94.87179487179488
+          }
+        },
+        "objective": 77.16773709425581,
+        "holdoutObjective": 84.90627020038785,
+        "feasible": true,
+        "why": []
+      },
+      "best": [
+        {
+          "config": "position cap=1 vec=signal lex=0.45 rrf=0.2 pos=0.1",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 76.54320987654322,
+              "top5": 87.65432098765432
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 48.507462686567166,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 93.42105263157895,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 71.42857142857143,
+              "top5": 80.95238095238095
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 84.61538461538461,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.17878383424011,
+          "holdoutObjective": 83.39528118939884,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "subposition cap=1 vec=signal lex=0.45 rrf=0.2 pos=0.1",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 76.54320987654322,
+              "top5": 87.65432098765432
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 48.507462686567166,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 93.42105263157895,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 66.66666666666667,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 84.61538461538461,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.17878383424011,
+          "holdoutObjective": 83.39528118939884,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "position cap=1 vec=signal lex=0.45 rrf=0.3 pos=0.1",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 76.54320987654322,
+              "top5": 86.41975308641975
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 48.507462686567166,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 93.42105263157895,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 71.42857142857143,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 84.61538461538461,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.02446284658578,
+          "holdoutObjective": 83.99051928463693,
+          "feasible": true,
+          "why": []
+        },
+        {
+          "config": "subposition cap=1 vec=signal lex=0.45 rrf=0.3 pos=0.1",
+          "train": {
+            "golden": {
+              "n": 9,
+              "top1": 66.66666666666667,
+              "top5": 77.77777777777777
+            },
+            "real-construction": {
+              "n": 81,
+              "top1": 76.54320987654322,
+              "top5": 86.41975308641975
+            },
+            "real-metal": {
+              "n": 134,
+              "top1": 48.507462686567166,
+              "top5": 70.14925373134328
+            },
+            "synthetic": {
+              "n": 152,
+              "top1": 93.42105263157895,
+              "top5": 96.71052631578948
+            }
+          },
+          "holdout": {
+            "golden": {
+              "n": 3,
+              "top1": 100,
+              "top5": 100
+            },
+            "real-construction": {
+              "n": 21,
+              "top1": 66.66666666666667,
+              "top5": 85.71428571428571
+            },
+            "real-metal": {
+              "n": 34,
+              "top1": 38.23529411764706,
+              "top5": 97.05882352941177
+            },
+            "synthetic": {
+              "n": 39,
+              "top1": 84.61538461538461,
+              "top5": 94.87179487179488
+            }
+          },
+          "objective": 77.02446284658578,
+          "holdoutObjective": 83.39528118939884,
+          "feasible": true,
+          "why": []
+        }
+      ],
+      "infeasibleBest": {
+        "config": "subposition cap=3 vec=signal lex=0.45 rrf=0.2 pos=0.2",
+        "train": {
+          "golden": {
+            "n": 9,
+            "top1": 66.66666666666667,
+            "top5": 77.77777777777777
+          },
+          "real-construction": {
+            "n": 81,
+            "top1": 79.01234567901234,
+            "top5": 83.95061728395062
+          },
+          "real-metal": {
+            "n": 134,
+            "top1": 70.14925373134328,
+            "top5": 72.38805970149254
+          },
+          "synthetic": {
+            "n": 152,
+            "top1": 88.8157894736842,
+            "top5": 95.39473684210526
+          }
+        },
+        "holdout": {
+          "golden": {
+            "n": 3,
+            "top1": 66.66666666666667,
+            "top5": 100
+          },
+          "real-construction": {
+            "n": 21,
+            "top1": 71.42857142857143,
+            "top5": 85.71428571428571
+          },
+          "real-metal": {
+            "n": 34,
+            "top1": 97.05882352941177,
+            "top5": 97.05882352941177
+          },
+          "synthetic": {
+            "n": 39,
+            "top1": 84.61538461538461,
+            "top5": 92.3076923076923
+          }
+        },
+        "objective": 79.26940589450409,
+        "holdoutObjective": 86.85628097392804,
+        "feasible": false,
+        "why": [
+          "synthetic top-1 drops > 1 point"
+        ]
+      }
+    },
+    {
+      "label": "plan phase 3.6 fit 3: position fusion voted by lexical and full-text only (stand-in vector excluded from the position pass) (degraded: hashing vectors, no reranker, snapshot 2026-08-20)",
+      "ranAt": "2026-10-21T11:20:12.091Z",
+      "database": "mxik_scratch",
+      "embedding": "hashing (local, non-semantic)",
+      "cases": 473,
+      "heldOut": 97,
+      "gridSize": 12,
+      "baseline": {
+        "config": "baseline off vec=signal lex=0.45 rrf=0.3 pos=0",
+        "train": {
+          "golden": {
+            "n": 9,
+            "top1": 66.66666666666667,
+            "top5": 77.77777777777777
+          },
+          "real-construction": {
+            "n": 81,
+            "top1": 75.30864197530865,
+            "top5": 88.88888888888889
+          },
+          "real-metal": {
+            "n": 134,
+            "top1": 47.76119402985075,
+            "top5": 70.14925373134328
+          },
+          "synthetic": {
+            "n": 152,
+            "top1": 93.42105263157895,
+            "top5": 96.71052631578948
+          }
+        },
+        "holdout": {
+          "golden": {
+            "n": 3,
+            "top1": 100,
+            "top5": 100
+          },
+          "real-construction": {
+            "n": 21,
+            "top1": 76.19047619047619,
+            "top5": 85.71428571428571
+          },
+          "real-metal": {
+            "n": 34,
+            "top1": 38.23529411764706,
+            "top5": 97.05882352941177
+          },
+          "synthetic": {
+            "n": 39,
+            "top1": 87.17948717948718,
+            "top5": 94.87179487179488
+          }
+        },
+        "objective": 77.08550025215055,
+        "holdoutObjective": 84.90627020038785,
+        "feasible": true,
+        "why": []
+      },
+      "best": [],
+      "infeasibleBest": {
+        "config": "subposition vec=signal lex=0.45 rrf=0.3 pos=0.2",
+        "train": {
+          "golden": {
+            "n": 9,
+            "top1": 66.66666666666667,
+            "top5": 77.77777777777777
+          },
+          "real-construction": {
+            "n": 81,
+            "top1": 80.24691358024691,
+            "top5": 81.48148148148148
+          },
+          "real-metal": {
+            "n": 134,
+            "top1": 70.14925373134328,
+            "top5": 97.76119402985074
+          },
+          "synthetic": {
+            "n": 152,
+            "top1": 87.5,
+            "top5": 94.73684210526316
+          }
+        },
+        "holdout": {
+          "golden": {
+            "n": 3,
+            "top1": 33.333333333333336,
+            "top5": 33.333333333333336
+          },
+          "real-construction": {
+            "n": 21,
+            "top1": 80.95238095238095,
+            "top5": 85.71428571428571
+          },
+          "real-metal": {
+            "n": 34,
+            "top1": 97.05882352941177,
+            "top5": 100
+          },
+          "synthetic": {
+            "n": 39,
+            "top1": 76.92307692307692,
+            "top5": 89.74358974358974
+          }
+        },
+        "objective": 82.04001617157876,
+        "holdoutObjective": 74.63235294117646,
+        "feasible": false,
+        "why": [
+          "synthetic top-1 drops > 1 point"
+        ]
+      }
+    }
+  ]
+}

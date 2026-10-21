@@ -10,14 +10,16 @@ import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
 import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { matchProduct, type DisableableStage } from '../src/core/match/pipeline.js';
+import { matchProduct, type DisableableStage, type PositionFusion } from '../src/core/match/pipeline.js';
 import { NoopRerankProvider, rerankFromEnv } from '../src/core/match/rerank.js';
 import { MemoryRerankCache } from '../src/core/match/rerank-cache.js';
 import { costPer1000Rows, formatLlmUsage } from '../src/core/match/rerank-usage.js';
 import { PostgresCandidateStore, storeRetryCount } from '../src/core/match/store.js';
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
 import { BANDS } from '../src/core/match/score.js';
-import type { RerankProvider, RerankVerdict } from '../src/core/match/types.js';
+import type { RerankProvider, RerankRequest, RerankUsage, RerankVerdict } from '../src/core/match/types.js';
+import { rerankConfigFromEnv } from '../src/core/match/rerank-config.js';
+import { OUTPUT_SCHEMA, renderRow, SYSTEM_PROMPT } from '../src/core/match/rerank-prompt.js';
 import { lexicalQuery } from '../src/core/match/query.js';
 import { matchKeyOf, normalizeName, tokenize } from '../src/core/normalize/index.js';
 import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
@@ -37,6 +39,14 @@ const argValue = (flag: string): string | undefined => {
 };
 const LABEL = argValue('--label') ?? 'eval';
 const ABLATE = !process.argv.includes('--no-ablate');
+// Ranking options under test (pipeline.ts): --position-fusion off|subposition|position,
+// --nonsemantic-vector-weight N. Absent flags leave the pipeline defaults.
+const positionFusionArg = argValue('--position-fusion');
+const vectorWeightArg = argValue('--nonsemantic-vector-weight');
+const ranking: { positionFusion?: PositionFusion; nonSemanticVectorWeight?: number } = {
+  ...(positionFusionArg === 'off' || positionFusionArg === 'subposition' || positionFusionArg === 'position' ? { positionFusion: positionFusionArg } : {}),
+  ...(vectorWeightArg === undefined ? {} : { nonSemanticVectorWeight: Number(vectorWeightArg) }),
+};
 
 // ------------------------------------------------------------------ cases
 const loaded: EvalCase[] = [];
@@ -95,9 +105,42 @@ const { reranker: realReranker, gate } = rerankFromEnv(process.env, new MemoryRe
 class DryRunReranker implements RerankProvider {
   readonly name = 'dry run (gate only, no call)';
   readonly available = true;
-  rerank(): Promise<RerankVerdict[]> { return Promise.resolve([]); }
+  /** Rows and prompt characters the gate passed during the full-pipeline config. */
+  recording = false;
+  rows = 0;
+  promptChars = 0;
+  rerank(request: RerankRequest): Promise<RerankVerdict[]> {
+    if (this.recording) {
+      this.rows++;
+      this.promptChars += renderRow('0', request).length + 2;
+    }
+    return Promise.resolve([]);
+  }
 }
-const reranker: RerankProvider = realReranker.available ? realReranker : new DryRunReranker();
+const dryRun = realReranker.available ? null : new DryRunReranker();
+const reranker: RerankProvider = dryRun ?? realReranker;
+
+/**
+ * Without a key: what the full pipeline would have cost, from the prompts the
+ * gate actually passed (renderRow, the real prompt text). Two assumptions,
+ * printed with the estimate: ~3 characters per input token for this mixed
+ * Latin/Cyrillic/code text, and ~60 output tokens per ranked code (code,
+ * confidence, one Uzbek sentence) for 5 codes per row. No extended thinking.
+ */
+const CHARS_PER_INPUT_TOKEN = 3;
+const OUTPUT_TOKENS_PER_ROW = 5 * 60;
+function estimatedUsage(dry: DryRunReranker): RerankUsage {
+  const config = rerankConfigFromEnv(process.env);
+  const calls = Math.ceil(dry.rows / config.batchSize);
+  const fixed = SYSTEM_PROMPT.length + JSON.stringify(OUTPUT_SCHEMA).length;
+  const inputTokens = Math.round((dry.promptChars + calls * fixed) / CHARS_PER_INPUT_TOKEN);
+  const outputTokens = dry.rows * OUTPUT_TOKENS_PER_ROW;
+  return {
+    model: `${config.model} (ESTIMATE, dry run)`, rowsRequested: dry.rows, rowsSent: dry.rows, cacheHits: 0, rowsFailed: 0,
+    codesDiscarded: 0, apiCalls: calls, inputTokens, outputTokens, latencyMs: 0,
+    estimatedCostUsd: config.price ? (inputTokens * config.price.inputPerMTok + outputTokens * config.price.outputPerMTok) / 1_000_000 : null,
+  };
+}
 
 // --------------------------------------------------------------- header
 const codeCount = (await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM mxik_code WHERE "retiredAt" IS NULL')).rows[0]?.n ?? '?';
@@ -168,7 +211,7 @@ async function runConfig(config: Config): Promise<Outcome[]> {
       const t0 = Date.now();
       const result = await matchProduct(
         { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit },
-        { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled) },
+        { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled), ...ranking },
       );
       const rankIndex = result.candidates.findIndex((c) => accepts(testCase.correct, c.candidate.code));
       const top = result.candidates[0];
@@ -207,6 +250,7 @@ const resultsBySet: Record<string, Record<string, GroupMetrics>> = {};
 let fullOutcomes: Outcome[] = [];
 for (const config of configs) {
   const t0 = Date.now();
+  if (dryRun) dryRun.recording = config.key === 'full';
   const outcomes = await runConfig(config);
   results[config.key] = bySource(outcomes);
   resultsBySet[config.key] = bySet(outcomes);
@@ -314,6 +358,12 @@ if (usage) {
   console.log('');
   console.log(formatLlmUsage(usage, cases.length));
 }
+const estimate = dryRun ? estimatedUsage(dryRun) : null;
+if (estimate) {
+  console.log('');
+  console.log(`no reranker key: cost ESTIMATE for the full pipeline (~${CHARS_PER_INPUT_TOKEN} chars per input token, ${OUTPUT_TOKENS_PER_ROW} output tokens per row, no thinking)`);
+  console.log(formatLlmUsage(estimate, cases.length));
+}
 
 // -------------------------------------------------------------- history
 type History = { note: string; runs: unknown[] };
@@ -339,11 +389,13 @@ history.runs.push({
     embedding: embedder.name, embeddingSemantic: embedder.semantic, vectorUsable: readiness.usable,
     reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
     fullText: { column: fullTextSource, selectWeights: fullTextSource === 'searchVectorWeighted' ? (fullTextSelect ?? 'A') : null },
+    ranking,
   },
   cases: { real: real.length, synthetic: synthetic.length, excluded },
   metrics: results,
   metricsBySet: resultsBySet,
   llm: usage ? { ...usage, costPer1000Rows: costPer1000Rows(usage, cases.length) } : null,
+  llmEstimate: estimate ? { ...estimate, costPer1000Rows: costPer1000Rows(estimate, cases.length), charsPerInputToken: CHARS_PER_INPUT_TOKEN, outputTokensPerRow: OUTPUT_TOKENS_PER_ROW } : null,
   readRetries: storeRetryCount(),
   outcomes: fullOutcomes.map((o) => ({
     id: o.id, source: o.source, predicted: o.predicted, rank: o.rank,

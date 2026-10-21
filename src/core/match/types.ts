@@ -37,6 +37,8 @@ export type Signals = {
   vector?: number;
   /** Reciprocal-rank-fusion score, normalized against the best possible. */
   rrf?: number;
+  /** The candidate's position's fusion score, 1 for the leading position (fusion.ts groupFusion). */
+  positionRrf?: number;
   /** The reranker's own 0..1 confidence. Never used alone. */
   llm?: number;
 };

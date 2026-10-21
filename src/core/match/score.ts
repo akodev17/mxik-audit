@@ -9,8 +9,16 @@ export const BANDS = {
   medium: 0.6,
 } as const;
 
-/** Signal weights. They sum to 1 across whichever signals are present. */
-export const WEIGHTS = { lexical: 0.45, vector: 0.25, rrf: 0.30 } as const;
+export type SignalWeights = { readonly lexical: number; readonly vector: number; readonly rrf: number; readonly positionRrf: number };
+
+/**
+ * Signal weights, renormalised over whichever signals are present. lexical,
+ * vector and rrf are unchanged by the 2026-10-21 fit: no feasible alternative
+ * beat them on the 20% hold-out (docs/weight-fit-results.json). positionRrf
+ * only exists when position fusion is switched on (opt-in, docs/scoring.md);
+ * 0.2 is its best measured weight.
+ */
+export const WEIGHTS: SignalWeights = { lexical: 0.45, vector: 0.25, rrf: 0.3, positionRrf: 0.2 };
 
 /** How much the reranker is allowed to move a retrieval-derived score. */
 export const LLM_WEIGHT = 0.4;
@@ -48,14 +56,14 @@ export function cosineToUnit(cosine: number): number {
  * Blends the retrieval signals, renormalizing over whichever are present so a
  * missing stage does not silently drag the score toward zero.
  */
-export function retrievalScore(signals: Signals): number {
+export function retrievalScore(signals: Signals, weights: SignalWeights = WEIGHTS): number {
   let weighted = 0;
   let total = 0;
-  for (const key of ['lexical', 'vector', 'rrf'] as const) {
+  for (const key of ['lexical', 'vector', 'rrf', 'positionRrf'] as const) {
     const value = signals[key];
     if (value === undefined) continue;
-    weighted += WEIGHTS[key] * clamp01(value);
-    total += WEIGHTS[key];
+    weighted += weights[key] * clamp01(value);
+    total += weights[key];
   }
   return total === 0 ? 0 : weighted / total;
 }
@@ -86,11 +94,13 @@ export type CalibrationInput = {
   rerankAvailable: boolean;
   /** Additive rule adjustments, applied before clamping. */
   adjustment?: number;
+  /** Signal weights; WEIGHTS unless a weight fit (eval/fit-weights.ts) supplies others. */
+  weights?: SignalWeights | undefined;
 };
 
 /** The single place a confidence number is produced. */
 export function calibrate(input: CalibrationInput): number {
-  const retrieval = retrievalScore(input.signals);
+  const retrieval = retrievalScore(input.signals, input.weights);
   const blended = blendWithLlm(retrieval, input.signals.llm);
   const margin = input.margin === undefined ? marginFactor(blended, input.runnerUp) : clamp01(input.margin);
   const shaped = blended * (1 - MARGIN_WEIGHT + MARGIN_WEIGHT * margin);

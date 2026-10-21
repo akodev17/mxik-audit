@@ -179,6 +179,20 @@ base code first. Implement in `fusion.ts` as a pure function with tests; expose
 the position rank in `Signals` (`positionRrf`) and give it a small weight in
 `score.ts` (start 0.10, taken from `rrf`), re-measured on all eval sets.
 
+> **Implementation note (2026-10-21, phase 3).** Implemented as planned
+> (`groupFusion`, `Signals.positionRrf`, keys subposition or 8-digit
+> position), plus a per-list cap and the rule that a non-semantic stand-in
+> does not vote. "Spread to its base code first" was not added: the base
+> code of a position already carries the +0.05 base rule, and injecting a
+> base code retrieval never found would give it a score from the position
+> signal alone. Measured (exploratory runs 30–32, fits 1–3 in
+> `docs/weight-fit-results.json`): it fixes the metal set (14 profile pipes
+> leave 07216001015; top-1 46 → 76, up to 98 with the stand-in out of the
+> scoring) but every variant breaks §7.3 on synthetic (−4 to −10 points)
+> and on the hold-out loses golden rows (hold-out objective 74.6–75.0 vs
+> 84.9 baseline). It is therefore **opt-in** (`positionFusion`), weight
+> 0.20 when on, `rrf` keeps 0.30. Re-measure with e5 vectors (phase 0).
+
 ### 3.3 Synonym and term table for the classifier's own vocabulary (addresses P5)
 
 The abbreviation table expands what the *customer* writes. A second, smaller
@@ -248,6 +262,15 @@ Weights in `score.ts` were tuned on 12 + 191 cases with hashing vectors. After
 the retrieval changes, re-fit on all sets with vectors **on (e5)** and **off**,
 keeping `docs/scoring.md` in step. The acceptance rule is in §7: high-band
 precision stays 100% on every set; nothing else is allowed to buy top-1.
+
+> **Implementation note (2026-10-21, phase 3).** e5 is not on this machine,
+> so the fit ran with the stand-in the audit actually uses here
+> (`npm run eval:fit`, new: grid search over memoised retrieval, fixed 20%
+> hold-out per set from `eval/split.ts`, constraints from §7.3, history in
+> `docs/weight-fit-results.json`). Without a reranker the 0.85 ceiling keeps
+> fusion out of the high band, so weights cannot move high-band precision.
+> Result: no weight change survives the hold-out; the committed weights
+> stay. Repeat `npm run eval:fit` after phase 0.
 
 ### 3.7 Reranker: measure before tuning (addresses P10)
 
@@ -331,6 +354,19 @@ What this plan adds or fixes:
   Implement as: `WEIGHTS.vector` applies only to semantic providers; a
   non-semantic vector list is excluded from RRF (note in `notes[]`, reported in
   `degradedReasons`). Measure on all sets with vectors on and off.
+
+  > **Implementation note (2026-10-21, phase 3).** Implemented as an option,
+  > `nonSemanticVectorWeight` (stand-in enters RRF at that weight and never
+  > as a score; 0 skips the stage and its 1.7 s exact scan), with a note in
+  > `notes[]`; `degradedReasons` already reports `vector_not_semantic`.
+  > Measured in fit 1 at 1, 0.5, 0.25 and 0: **every variant loses golden
+  > rows** (golden top-1 75.0 with the stand-in, 50.0 without, run 29) and
+  > drops synthetic, while the metal set gains ~30 points. The premise held
+  > for real data only; on golden and synthetic the stand-in is the strongest
+  > signal. The default therefore stays "counts like a model"; the §7.3
+  > criterion "vectors-on never worse than vectors-off by more than 2 points"
+  > is **not met** on real-metal in degraded mode (45.8 vs 75.6, run 29) and
+  > can only be re-judged with e5 vectors.
 
 ---
 
@@ -450,6 +486,27 @@ A change that moves a number is committed with the eval run that measured it.
   queries goes into the report.
 - **Vector** 0.49 s/row with HNSW `ef_search` default; keep. The exact scan the
   hashing provider forces (~1.7 s) disappears with e5.
+
+> **Implementation note (2026-10-21, phase 4).** `EXPLAIN (ANALYZE, BUFFERS)`
+> on `mxik_scratch` (same data and indexes as `mxik` minus HNSW) contradicts
+> the full-text premise above: the three full-text queries take 1.4, 11.0 and
+> 1.4 ms (bitmap index scan on `mxik_code_search_vector_idx`, 189–1,285 heap
+> rows; the 10,000-doc "selecting terms" cutoff of 2026-10-16 already fixed
+> it). Trigram is the whole lexical cost: "truba vodogazoprovodnaya" 655 ms
+> cold / 661 ms warm, because the GIN bitmap admits 9,836 rows that each
+> need a heap recheck in a table whose rows are ~3.9 KB wide (inline
+> embeddings), 43k buffers; "kraska vodoemulsionnaya belaya" 81 ms (456
+> rows), "gipsokarton knauf" 30 ms (256 rows). Raising
+> `pg_trgm.word_similarity_threshold` for the same query: 0.7 → 326 ms
+> (5,168 rows), 0.75 → 81 ms (619), 0.8 → 60 ms (365), with the *same* top
+> 50 (all score ≥ 0.8). Option (b) is therefore implemented as an exact
+> cascade rather than a tuned threshold: a strict pass (default 0.75), and
+> the default-threshold query only when the strict pass does not fill the
+> limit, which by construction returns the identical list (proved by a DB
+> test on three queries and by identical eval outcomes). Options (a) and
+> (c) were not needed for the measured queries; a narrow side table for
+> `searchText` (to make each recheck cheap) is the next lever if the
+> fallback path dominates on real catalogues.
 - **Concurrency** 8 is per process; Postgres `max_connections` and the pool size
   in `store.ts` bound it. Do not raise concurrency before the per-row cost drops.
 - **60,000-row catalogue**: run `npm run perf -- --rows 60000` once after the
