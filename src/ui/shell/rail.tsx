@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cx } from '../cx';
 import { IconUpload } from '../icons';
 import { Tooltip } from '../tooltip';
+import { useIntentPrefetch } from './intent-prefetch';
 import { isActive } from './nav';
 import { useNav } from './nav-items';
 
@@ -21,6 +22,7 @@ export function Rail({ canWrite, canTeam, canUpload, activePath }: { canWrite: b
   const top = items.filter((i) => i.key === 'help' || i.key === 'settings');
   // Not in a demo: uploading is switched off there, and a shortcut to a dead end is worse than none.
   const upload = canUpload ? items.find((i) => i.key === 'upload') : undefined;
+  const intent = useIntentPrefetch();
   return (
     <div className="no-print hidden w-16 shrink-0 flex-col items-center justify-between border-r border-line bg-base py-4 md:flex">
       <ul className="flex flex-col items-center gap-2">
@@ -30,7 +32,7 @@ export function Rail({ canWrite, canTeam, canUpload, activePath }: { canWrite: b
             <li key={item.key}>
               <Tooltip content={item.label} side="bottom" describe={false}>
                 <Link
-                  href={item.href} aria-label={item.label} aria-current={active ? 'page' : undefined}
+                  href={item.href} {...intent(item.href)} aria-label={item.label} aria-current={active ? 'page' : undefined}
                   className={cx(RAIL_ICON, active ? 'bg-surface text-fg' : 'text-muted hover:bg-surface hover:text-fg')}
                 >
                   {item.icon}

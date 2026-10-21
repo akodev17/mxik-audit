@@ -10,6 +10,11 @@ const config: NextConfig = {
   experimental: {
     // Catalogue uploads are the whole point; the 1 MB default is far too small.
     serverActions: { bodySizeLimit: '25mb' },
+    // Router cache. dynamic 0 (Next's default): a page opened by a plain navigation is fetched each
+    // time; the workspace keeps its rows in client state, so a cached copy of a filter view could
+    // show a row as undecided after it was decided. static 30 (Next's minimum, default 300): a page
+    // fetched ahead on intent (src/ui/shell/intent-prefetch.ts) is reused for at most 30 s.
+    staleTimes: { dynamic: 0, static: 30 },
   },
   // CSP, nosniff, referrer and permissions policies on every route; HSTS in production only.
   async headers() {
