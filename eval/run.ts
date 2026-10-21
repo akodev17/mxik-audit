@@ -45,10 +45,14 @@ const positionFusionArg = argValue('--position-fusion');
 const vectorWeightArg = argValue('--nonsemantic-vector-weight');
 // --vector-calibration legacy | floor,ceil: how a semantic cosine becomes a signal (score.ts).
 const calibrationArg = argValue('--vector-calibration');
+const perPositionArg = argValue('--vector-per-position');
 const calibrationBand = calibrationArg?.split(',').map(Number);
-const ranking: { positionFusion?: PositionFusion; nonSemanticVectorWeight?: number; vectorCalibration?: VectorCalibration | null } = {
+const ranking: {
+  positionFusion?: PositionFusion; nonSemanticVectorWeight?: number; vectorCalibration?: VectorCalibration | null; vectorPerPosition?: number;
+} = {
   ...(positionFusionArg === 'off' || positionFusionArg === 'subposition' || positionFusionArg === 'position' ? { positionFusion: positionFusionArg } : {}),
   ...(vectorWeightArg === undefined ? {} : { nonSemanticVectorWeight: Number(vectorWeightArg) }),
+  ...(perPositionArg === undefined ? {} : { vectorPerPosition: Number(perPositionArg) }),
   ...(calibrationArg === 'legacy' ? { vectorCalibration: null }
     : calibrationBand?.length === 2 && calibrationBand.every(Number.isFinite)
       ? { vectorCalibration: { floor: calibrationBand[0] ?? 0.8, ceil: calibrationBand[1] ?? 0.95 } } : {}),
@@ -77,6 +81,8 @@ const commonDocs = argValue('--fulltext-common-docs');
 // too (store.ts). Both default to the store's own.
 const fullTextColumn = argValue('--fulltext-column');
 const fullTextSelect = argValue('--fulltext-select');
+// --ef-search N: HNSW search breadth (store default 100); exact scans ignore it.
+const efSearchArg = argValue('--ef-search');
 const baseStore = new PostgresCandidateStore(pool, {
   // The placeholder embedder's sparse vectors defeat HNSW; see store.ts.
   exactVectorScan: !embedder.semantic,
@@ -84,6 +90,7 @@ const baseStore = new PostgresCandidateStore(pool, {
   ...(commonDocs === undefined ? {} : { fullTextCommonDocs: Number(commonDocs) }),
   ...(fullTextColumn === 'plain' || fullTextColumn === 'weighted' ? { fullTextColumn } : {}),
   ...(fullTextSelect === 'A' || fullTextSelect === 'AB' ? { fullTextSelectWeights: fullTextSelect } : {}),
+  ...(efSearchArg === undefined ? {} : { efSearch: Number(efSearchArg) }),
 });
 const fullTextSource = await baseStore.fullTextSource();
 // Columns holding the provider's vectors; the pipeline picks the row's script's column.
@@ -399,6 +406,7 @@ history.runs.push({
     reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
     fullText: { column: fullTextSource, selectWeights: fullTextSource === 'searchVectorWeighted' ? (fullTextSelect ?? 'A') : null },
     ranking,
+    efSearch: efSearchArg === undefined ? null : Number(efSearchArg),
   },
   cases: { real: real.length, synthetic: synthetic.length, excluded },
   metrics: results,

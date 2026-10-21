@@ -217,7 +217,8 @@ export class PostgresCandidateStore implements CandidateStore {
   constructor(private readonly pool: Pool, options: StoreOptions = {}) {
     this.embeddingColumn = options.embeddingColumn ?? 'embeddingUz';
     this.exactVectorScan = options.exactVectorScan ?? false;
-    this.efSearch = options.efSearch ?? 100;
+    // Interpolated into SET LOCAL, so only a positive integer is accepted.
+    this.efSearch = Number.isInteger(options.efSearch) && (options.efSearch ?? 0) > 0 ? (options.efSearch ?? 100) : 100;
     this.vectorEnabled = options.vectorEnabled ?? true;
     this.fullTextCommonDocs = options.fullTextCommonDocs ?? DEFAULT_FULLTEXT_COMMON_DOCS;
     this.fullTextColumn = options.fullTextColumn ?? 'plain';

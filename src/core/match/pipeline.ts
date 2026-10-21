@@ -9,7 +9,7 @@ import { barcodeIdentity, normalizeName, type BarcodeIdentity } from '../normali
 import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
-import { groupFusion, reciprocalRankFusion } from './fusion.js';
+import { diversify, groupFusion, reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankStep } from './rerank-step.js';
 import { evidenceFor } from './evidence.js';
@@ -60,6 +60,12 @@ export type PipelineOptions = {
   weights?: SignalWeights;
   /** Vector columns holding the provider's vectors (embedding_state.columns); ['uz'] when absent. */
   vectorColumns?: readonly VectorColumn[];
+  /**
+   * Codes per subposition kept from the vector list before fusion (fusion.ts
+   * diversify), so one position's many sizes cannot flood the fused pool.
+   * Absent = no cap.
+   */
+  vectorPerPosition?: number;
   /** Cosine band of a semantic provider; score.ts SEMANTIC_COSINE when absent, null = the pre-2026-10-22 (1 + cos) / 2. */
   vectorCalibration?: VectorCalibration | null;
 };
@@ -273,11 +279,14 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       return [] as Hit[];
     });
 
-  const [lexical, fullText, vector] = await Promise.all([
+  const [lexical, fullText, vectorRaw] = await Promise.all([
     off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(lexicalText, limits.retrievalLimit)),
     off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(lexicalText, limits.retrievalLimit)),
     vectorStage,
   ]);
+  const vector = opts.vectorPerPosition === undefined
+    ? vectorRaw
+    : diversify(vectorRaw, (h) => h.candidate.subPositionCode, opts.vectorPerPosition);
 
   if (lexical.length === 0 && fullText.length === 0 && vector.length === 0) {
     return {

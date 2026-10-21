@@ -70,6 +70,23 @@ export function reciprocalRankFusion<T>(
 }
 
 /**
+ * Keeps at most `cap` items per group, in order: the first ones of each group
+ * survive, the rest drop out. A semantic list can put 30 sizes of one wrong
+ * position on top (e5 v2: "Труба профильная г/к" → 49 codes of 07216001015);
+ * capped, the other positions it found stay in reach of fusion.
+ */
+export function diversify<T>(items: readonly T[], groupOf: (item: T) => string, cap: number): T[] {
+  if (!(cap >= 1)) return [...items];
+  const seen = new Map<string, number>();
+  return items.filter((item) => {
+    const group = groupOf(item);
+    const n = (seen.get(group) ?? 0) + 1;
+    seen.set(group, n);
+    return n <= cap;
+  });
+}
+
+/**
  * Position-level fusion (plan §3.2). Fusion per code splits a position's
  * evidence across its many near-identical codes (150 pipe sizes each get one
  * rank), so a wrong position with a single code can win. This pass sums every
