@@ -20,7 +20,7 @@ function pickRows(): { rows: SampleCatalogRow[]; focus: SampleCatalogRow | null 
   return { rows: unique, focus };
 }
 
-const MARK = { risk: 'bg-lp-risk', caution: 'bg-lp-warn' } as const;
+const CHIP = { risk: 'bg-lp-risk-fill text-lp-risk-ink', caution: 'bg-lp-warn-fill text-lp-warn-ink', ok: 'bg-lp-ok-fill text-lp-ok-ink' } as const;
 
 /** A 17-digit code as mono groups; groups from `from` on are underlined in the verdict colour. */
 function Code({ code, from = -1, tone = 'risk' }: { code: string; from?: number; tone?: 'risk' | 'ok' }) {
@@ -56,9 +56,7 @@ export function HeroSheet() {
 
   return (
     <div className="relative">
-      {/* A second sheet underneath: this is a file, not a card. */}
-      <div aria-hidden="true" className="absolute inset-0 translate-x-2 translate-y-2 rounded-lp border border-lp-line-strong bg-lp-surface sm:translate-x-3 sm:translate-y-3" />
-      <figure className="relative overflow-hidden rounded-lp border border-lp-ink bg-lp-paper" style={{ ['--lp-sweep' as string]: '320px' }}>
+      <figure className="relative overflow-hidden rounded-lp border border-lp-line bg-lp-base shadow-[0_6px_20px_rgb(16_24_32/0.08),0_1px_3px_rgb(16_24_32/0.08)]" style={{ ['--lp-sweep' as string]: '320px' }}>
         <figcaption className="flex items-center justify-between gap-3 border-b border-lp-line bg-lp-surface px-4 py-2.5 text-[13px]">
           <span className="lp-mono truncate text-lp-ink">{SAMPLE_FILENAME}</span>
           <span className="shrink-0 rounded-full border border-lp-line-strong px-2 py-0.5 text-[12px] text-lp-muted">namunaviy maʼlumot</span>
@@ -74,7 +72,7 @@ export function HeroSheet() {
             return (
               <li
                 key={r.row}
-                className={`grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-start gap-x-3 px-4 py-3 ${isFocus ? 'bg-lp-warn-fill' : ''}`}
+                className={`grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-start gap-x-3 px-4 py-3 ${isFocus ? 'bg-lp-surface' : ''}`}
               >
                 <span className="lp-mono pt-0.5 text-[12px] text-lp-muted">{r.row}</span>
                 <span className="min-w-0">
@@ -85,10 +83,8 @@ export function HeroSheet() {
                     <span className="lp-mono text-[13px] text-lp-risk">kod yoʻq</span>
                   )}
                 </span>
-                <span className="lp-settle flex items-center gap-1.5 whitespace-nowrap pt-0.5 text-[13px] text-lp-ink" style={{ ['--i' as string]: i }}>
-                  <span aria-hidden="true" className={`size-2 ${meta ? MARK[meta.tone] : 'bg-lp-ok'}`} />
-                  <span className="hidden sm:inline">{meta ? meta.label : 'Muammosiz'}</span>
-                  <span className="sr-only sm:hidden">{meta ? meta.label : 'Muammosiz'}</span>
+                <span className={`lp-settle inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium ${meta ? CHIP[meta.tone] : CHIP.ok}`} style={{ ['--i' as string]: i }}>
+                  {meta ? meta.label : 'Muammosiz'}
                 </span>
               </li>
             );
@@ -96,8 +92,8 @@ export function HeroSheet() {
         </ol>
 
         {f && own && sug && a && b ? (
-          <div className="border-t-2 border-lp-ink bg-lp-paper px-4 py-4">
-            <p className="flex items-center justify-between gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-lp-muted">
+          <div className="border-t border-lp-line bg-lp-surface px-4 py-4">
+            <p className="flex items-center justify-between gap-2 text-[12px] font-medium uppercase tracking-wide text-lp-muted">
               <span>Nega bu kod? — {focus?.row}-qator</span>
               {band ? <span className="rounded-full bg-lp-brand-fill px-2 py-0.5 normal-case tracking-normal text-lp-brand-ink">{band.label}</span> : null}
             </p>
@@ -116,8 +112,8 @@ export function HeroSheet() {
             <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-lp-line pt-3 text-[13px] text-lp-muted">
               <span>Taklif — hali qaror emas.</span>
               <span aria-hidden="true" className="ml-auto hidden gap-1.5 sm:inline-flex">
-                <span className="rounded-lp border border-lp-line-strong px-2.5 py-1 text-lp-ink">Rad etish</span>
-                <span className="rounded-lp bg-lp-ink px-2.5 py-1 text-lp-base">Tasdiqlash</span>
+                <span className="rounded-lp border border-lp-line-strong bg-lp-base px-2.5 py-1 text-lp-ink">Rad etish</span>
+                <span className="rounded-lp bg-lp-brand px-2.5 py-1 text-white">Tasdiqlash</span>
               </span>
             </p>
           </div>

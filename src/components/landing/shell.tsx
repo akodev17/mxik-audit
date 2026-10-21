@@ -1,6 +1,6 @@
 import { HtmlLang } from '@/components/html-lang';
 import type { Theme } from '@/ui/theme';
-import { display, onest } from './fonts';
+import { onest } from './fonts';
 import { SHELL_COPY, type SiteLang } from './shell-copy';
 import { SiteFooter } from './site-footer';
 import { SiteHeader } from './site-header';
@@ -19,7 +19,7 @@ type Props = {
 // language, so <html lang> never claims Russian for Uzbek content.
 export function LandingShell({ children, lang = 'uz', signedIn = false, theme }: Props) {
   return (
-    <div className={`landing ${onest.variable} ${display.variable} min-h-screen`} lang={lang} data-theme={theme}>
+    <div className={`landing ${onest.variable} min-h-screen`} lang={lang} data-theme={theme}>
       <HtmlLang lang={lang} />
       <a
         href="#main"

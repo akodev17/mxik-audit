@@ -255,7 +255,7 @@ export function LiveScan({
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="min-h-11 w-full rounded-lp border border-lp-line-strong text-[16px] font-medium hover:border-lp-ink"
+            className="min-h-11 w-full rounded-lp border border-lp-line-strong text-[16px] font-medium hover:border-lp-line-strong"
           >
             Barcha {total} qatorni koʻrsatish
           </button>

@@ -35,10 +35,10 @@ const STEPS: readonly { title: string; body: string; detail: readonly string[] }
 // Section 5: a rail of four cells, filling in until the last one — the checked one, as in the logo.
 export function Workflow() {
   return (
-    <section aria-labelledby="how-title" className="border-y border-lp-line bg-lp-surface py-20 sm:py-28">
+    <section aria-labelledby="how-title" className="border-y border-lp-line bg-lp-surface py-20 sm:py-24">
       <div className={CONTAINER}>
-        <p className="lp-mono text-[13px] uppercase tracking-[0.1em] text-lp-brand-ink">Qanday ishlaydi</p>
-        <h2 id="how-title" className="lp-serif mt-4 max-w-[18ch] text-[clamp(2.25rem,5vw,3.75rem)]">
+        <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Qanday ishlaydi</p>
+        <h2 id="how-title" className="lp-display mt-4 max-w-[18ch] text-[clamp(1.875rem,3.8vw,2.75rem)]">
           Fayldan <em>tasdiqlangan</em> faylgacha
         </h2>
         <p className="mt-5 max-w-[40rem] text-[18px] text-lp-muted">
@@ -47,17 +47,17 @@ export function Workflow() {
         </p>
 
         <ol className="relative mt-14 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-4">
-          <span aria-hidden="true" className="absolute left-[11px] top-3 hidden h-px w-[calc(100%-1.5rem)] bg-lp-ink lg:block" />
-          <span aria-hidden="true" className="absolute bottom-6 left-[11px] top-3 w-px bg-lp-ink md:hidden" />
+          <span aria-hidden="true" className="absolute left-[11px] top-3 hidden h-px w-[calc(100%-1.5rem)] bg-lp-line-strong lg:block" />
+          <span aria-hidden="true" className="absolute bottom-6 left-[11px] top-3 w-px bg-lp-line-strong md:hidden" />
           {STEPS.map((s, i) => (
             <li key={s.title} className="relative pl-10 md:pl-0 lg:pt-10">
               <span
                 aria-hidden="true"
-                className={`absolute left-0 top-1 size-6 rounded-[5px] border border-lp-ink md:left-0 md:top-0 lg:top-0 ${i === STEPS.length - 1 ? 'border-lp-brand bg-lp-brand' : 'bg-lp-ink'}`}
-                style={i === STEPS.length - 1 ? undefined : { opacity: 0.35 + i * 0.22 }}
+                className={`absolute left-0 top-1 size-6 rounded-[5px] md:left-0 md:top-0 lg:top-0 bg-lp-brand`}
+                style={i === STEPS.length - 1 ? undefined : { opacity: 0.3 + i * 0.22 }}
               />
-              <p className="lp-mono text-[13px] text-lp-muted md:mt-9 lg:mt-0">0{i + 1}</p>
-              <h3 className="lp-serif mt-1 text-[2rem]">{s.title}</h3>
+              <p className="text-[13px] font-medium tabular-nums text-lp-muted md:mt-9 lg:mt-0">0{i + 1}</p>
+              <h3 className="lp-display mt-1 text-[1.5rem]">{s.title}</h3>
               <p className="mt-3 text-[16px]">{s.body}</p>
               <ul className="mt-4 space-y-1.5 border-t border-lp-line-strong pt-4 text-[14px] text-lp-muted">
                 {s.detail.map((d) => <li key={d}>{d}</li>)}

@@ -19,16 +19,16 @@ export function Outcomes() {
       <div className={`${CONTAINER} grid grid-cols-1 gap-x-14 gap-y-10 lg:grid-cols-12`}>
         <div className="lg:col-span-5">
           <div className="lg:sticky lg:top-8">
-            <p className="lp-mono text-[13px] uppercase tracking-[0.1em] text-lp-brand-ink">Buxgalteriya firmalari uchun</p>
-            <h2 id="accountants-title" className="lp-serif mt-4 text-[clamp(2.25rem,5vw,3.75rem)]">
+            <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Buxgalteriya firmalari uchun</p>
+            <h2 id="accountants-title" className="lp-display mt-4 text-[clamp(1.875rem,3.8vw,2.75rem)]">
               Mijoz katalogi kiradi, <em>mijozga tushunarli</em> natija chiqadi
             </h2>
           </div>
         </div>
-        <ol className="border-t border-lp-ink lg:col-span-7">
+        <ol className="border-t border-lp-line lg:col-span-7">
           {items.map((o, i) => (
             <li key={o.title} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-x-4 border-b border-lp-line py-6">
-              <span className="lp-mono pt-1 text-[13px] text-lp-muted">{String(i + 1).padStart(2, '0')}</span>
+              <span className="pt-1 text-[13px] font-medium tabular-nums text-lp-muted">{String(i + 1).padStart(2, '0')}</span>
               <span>
                 <span className="block text-[20px] font-medium tracking-tight">{o.title}</span>
                 <span className="mt-1.5 block text-[16px] text-lp-muted">{o.body}</span>

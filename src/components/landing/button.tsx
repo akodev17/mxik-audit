@@ -1,9 +1,9 @@
 const BASE =
-  'inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-full px-7 py-3 text-[17px] font-medium transition-colors';
+  'inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lp px-5 py-2.5 text-[16px] font-medium transition-colors';
 
 const VARIANT = {
-  primary: 'bg-lp-ink text-lp-base hover:bg-lp-brand',
-  secondary: 'border border-lp-line-strong bg-lp-base text-lp-ink hover:border-lp-ink',
+  primary: 'bg-lp-brand text-white hover:bg-lp-brand-ink',
+  secondary: 'border border-lp-line-strong bg-lp-base text-lp-ink hover:border-lp-line-strong',
 } as const;
 
 // A link styled as a button; the label says exactly what happens.

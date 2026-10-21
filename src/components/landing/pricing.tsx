@@ -4,12 +4,12 @@ import { PRICING } from './config';
 export function Pricing() {
   return (
     <div>
-      <h2 id="narxlar" className="lp-serif scroll-mt-6 text-[clamp(2rem,4.2vw,3rem)]">Narxlar</h2>
+      <h2 id="narxlar" className="lp-display scroll-mt-6 text-[clamp(1.75rem,3.4vw,2.25rem)]">Narxlar</h2>
       <p className="mt-4 max-w-[36rem] text-[18px] text-lp-muted">
         Avval nechta pozitsiya riskli ekanini bepul koʻrasiz. Toʻgʻrilash kerakmi, shundan keyin
         oʻzingiz hal qilasiz.
       </p>
-      <ul className="mt-8 border-t-4 border-lp-ink">
+      <ul className="mt-8 border-t border-lp-line">
         <li className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-lp-line py-5">
           <span>
             <span className="block text-[20px] font-bold">{PRICING.free.name}</span>

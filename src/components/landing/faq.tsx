@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { DATA_FLOW } from './data';
-import { tight } from './tight';
 
 // Answers limited to what the code does today; sources noted in data.ts.
 const FAQ = [
@@ -62,7 +61,7 @@ const FAQ = [
 export function Faq() {
   return (
     <div>
-      <h2 id="savollar" className="lp-serif scroll-mt-6 text-[clamp(2rem,4.2vw,3rem)]">{tight('Koʻp beriladigan savollar')}</h2>
+      <h2 id="savollar" className="lp-display scroll-mt-6 text-[clamp(1.75rem,3.4vw,2.25rem)]">Koʻp beriladigan savollar</h2>
       <div className="mt-8 border-t border-lp-line">
         {FAQ.map((item) => (
           <details key={item.q} className="group border-b border-lp-line">

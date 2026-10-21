@@ -2,7 +2,6 @@ import { LeadForm } from '@/app/lead-form';
 import { ButtonLink } from './button';
 import { DEMO_URL } from './config';
 import { CONTAINER } from './container';
-import { tight } from './tight';
 import { DATA_FLOW } from './data';
 import { Faq } from './faq';
 import { Pricing } from './pricing';
@@ -31,20 +30,20 @@ export function GetStarted() {
         </div>
       </section>
 
-      <section aria-labelledby="audit-title" className="bg-lp-night py-20 text-white sm:py-28">
+      <section aria-labelledby="audit-title" className="border-y border-lp-line bg-lp-surface py-20 sm:py-28">
         <div className={`${CONTAINER} grid grid-cols-1 gap-x-16 gap-y-12 lg:grid-cols-12`}>
           <div className="lg:col-span-6">
-            <p className="lp-mono text-[13px] uppercase tracking-[0.1em] text-[#8fb0ff]">Boshlash</p>
-            <h2 id="audit-title" className="lp-serif mt-4 text-[clamp(2.5rem,5.5vw,4.25rem)]">
-              Faylingizni yuboring — <em className="!text-[#8fb0ff]">riskli pozitsiyalar</em> {tight('roʻyxatini oling')}
+            <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Boshlash</p>
+            <h2 id="audit-title" className="lp-display mt-4 text-[clamp(2rem,4.4vw,3rem)]">
+              Faylingizni yuboring — <em className="">riskli pozitsiyalar</em> roʻyxatini oling
             </h2>
-            <p className="mt-6 max-w-[34rem] text-[18px] text-lp-night-muted">
+            <p className="mt-6 max-w-[34rem] text-[18px] text-lp-muted">
               Ikki maydon, roʻyxatdan oʻtish yoʻq. Faylni koʻrib chiqamiz va bir ish kuni ichida
               riskli pozitsiyalar roʻyxatini yuboramiz. {DATA_FLOW.purpose} {DATA_FLOW.deletion}
             </p>
           </div>
-          <div id="audit" className="scroll-mt-6 rounded-lp bg-lp-base p-6 text-lp-ink sm:p-8 lg:col-span-6">
-            <h3 className="lp-serif text-[2rem]">Katalogni bepul tekshirtirish</h3>
+          <div id="audit" className="scroll-mt-6 rounded-lp border border-lp-line bg-lp-base p-6 text-lp-ink shadow-sm sm:p-8 lg:col-span-6">
+            <h3 className="text-[1.375rem] font-semibold">Katalogni bepul tekshirtirish</h3>
             <div className="mt-5"><LeadForm /></div>
           </div>
         </div>

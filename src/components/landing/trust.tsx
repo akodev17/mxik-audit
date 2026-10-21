@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { LEAD_FILE_RETENTION_DAYS } from './config';
 import { CONTAINER } from './container';
-import { tight } from './tight';
 import { DATA_FLOW } from './data';
 
 // How a suggestion becomes a decision. Each lane is something the product does today.
@@ -24,8 +23,8 @@ export function Trust() {
   return (
     <section aria-labelledby="trust-title" className="border-y border-lp-line bg-lp-surface py-20 sm:py-28">
       <div className={CONTAINER}>
-        <p className="lp-mono text-[13px] uppercase tracking-[0.1em] text-lp-brand-ink">Ishonch</p>
-        <h2 id="trust-title" className="lp-serif mt-4 max-w-[20ch] text-[clamp(2.25rem,5vw,3.75rem)]">
+        <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Ishonch</p>
+        <h2 id="trust-title" className="lp-display mt-4 max-w-[20ch] text-[clamp(1.875rem,3.8vw,2.75rem)]">
           Dastur taklif qiladi, <em>qarorni siz</em> qabul qilasiz
         </h2>
         <p className="mt-5 max-w-[44rem] text-[18px] text-lp-muted">
@@ -34,20 +33,20 @@ export function Trust() {
           hujjat: kodlar koʻrib chiqilganini koʻrsatadi, yuridik kafolat emas.
         </p>
 
-        <ol className="mt-12 grid grid-cols-1 border border-lp-ink bg-lp-paper md:grid-cols-2 lg:grid-cols-4">
+        <ol className="mt-12 grid grid-cols-1 rounded-lp border border-lp-line bg-lp-base md:grid-cols-2 lg:grid-cols-4">
           {LANES.map((l, i) => (
             <li key={l.who} className="relative border-b border-lp-line p-6 last:border-b-0 md:border-r md:[&:nth-child(2n)]:border-r-0 lg:border-b-0 lg:border-r lg:[&:nth-child(2n)]:border-r lg:last:border-r-0">
-              <p className="lp-mono text-[12px] uppercase tracking-[0.1em] text-lp-muted">{i + 1} · {l.who}</p>
-              <h3 className="lp-serif mt-3 text-[1.75rem]">{l.what}</h3>
+              <p className="text-[12px] font-medium uppercase tracking-wide text-lp-muted">{i + 1} · {l.who}</p>
+              <h3 className="lp-display mt-3 text-[1.375rem]">{l.what}</h3>
               <p className="mt-3 text-[15px] text-lp-muted">{l.body}</p>
             </li>
           ))}
         </ol>
 
-        <h3 className="lp-serif mt-20 text-[clamp(1.75rem,3.4vw,2.5rem)]">{tight('Maʼlumotlaringiz qayerda')}</h3>
+        <h3 className="lp-display mt-20 text-[clamp(1.75rem,3.4vw,2.5rem)]">Maʼlumotlaringiz qayerda</h3>
         <dl className="mt-8 grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2">
           {DATA.map((d) => (
-            <div key={d.label} className="border-t border-lp-ink pt-4">
+            <div key={d.label} className="border-t border-lp-line pt-4">
               <dt className="flex items-center gap-2 font-medium"><span aria-hidden="true" className={`size-2.5 ${d.tone}`} />{d.label}</dt>
               <dd className="mt-2 text-[16px] text-lp-muted">{d.body}</dd>
             </div>

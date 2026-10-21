@@ -26,7 +26,7 @@ export function StickyCta({ href, label }: { href: string; label: string }) {
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-lp-line bg-lp-base/95 p-3 backdrop-blur md:hidden">
       <a
         href={href}
-        className="flex min-h-12 w-full items-center justify-center rounded-full bg-lp-ink px-6 text-[17px] font-medium text-lp-base hover:bg-lp-brand"
+        className="flex min-h-12 w-full items-center justify-center rounded-lp bg-lp-brand px-6 text-[16px] font-medium text-white hover:bg-lp-brand-ink"
       >
         {label}
       </a>

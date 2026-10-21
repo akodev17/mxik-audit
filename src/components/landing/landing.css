@@ -1,31 +1,32 @@
 /* Landing-only tokens. Prefixed lp- and scoped to .landing so app routes keep their own look. */
+/* Same values as the app's tokens (src/styles/app-tokens.css): the public pages and the signed-in
+   product are one system, so a change of brand colour, neutral or radius lands in both. */
 @theme {
-  --color-lp-base: #f6f4ee;
-  --color-lp-surface: #ece9df;
-  --color-lp-ink: #0e1620;
-  --color-lp-muted: #4f5b66;
-  --color-lp-line: #d8d3c5;
-  --color-lp-line-strong: #a9a392;
-  --color-lp-risk: #c4301e;
+  --color-lp-base: #ffffff;
+  --color-lp-surface: #f3f6f9;
+  --color-lp-ink: #15202b;
+  --color-lp-muted: #5b6875;
+  --color-lp-line: #e2e8ee;
+  --color-lp-line-strong: #cbd5df;
+  --color-lp-risk: #cc3324;
   --color-lp-warn: #e39b12;
-  --color-lp-ok: #1f8a55;
+  --color-lp-ok: #1a7f4c;
   --color-lp-brand: #2457f5;
   --color-lp-brand-ink: #1a44cc;
 
-  /* Conditional-formatting fills: meaning only, text on them stays ink. */
-  --color-lp-risk-fill: #f7dcd4;
-  --color-lp-warn-fill: #f7e8c4;
-  --color-lp-ok-fill: #dceddf;
-  --color-lp-brand-fill: #e2e9fd;
+  /* Tints carry meaning only; the *-ink colours are the text on them (>= 4.5:1). */
+  --color-lp-risk-fill: #fcefed;
+  --color-lp-warn-fill: #fdf4e1;
+  --color-lp-ok-fill: #e7f4ec;
+  --color-lp-brand-fill: #eaf0fe;
+  --color-lp-risk-ink: #a52a1d;
+  --color-lp-warn-ink: #8a5a00;
+  --color-lp-ok-ink: #14653c;
   /* Stronger fill for the one cell a finding is about. */
   --color-lp-risk-cell: #f6c9c3;
   --color-lp-warn-cell: #f8dfa6;
 
-  --radius-lp: 6px;
-  --color-lp-night: #0b1220;
-  --color-lp-night-line: #243044;
-  --color-lp-night-muted: #a3b0c4;
-  --color-lp-paper: #fffdf8;
+  --radius-lp: 8px;
 }
 
 .landing {
@@ -37,7 +38,7 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* The app's global headings are serif; the landing uses one family throughout. */
+/* One family throughout, as in the app. */
 .landing :is(h1, h2, h3, h4) {
   font-family: inherit;
   font-weight: 700;
@@ -77,6 +78,9 @@
     --color-lp-ok-fill: #11291d;
     --color-lp-brand-fill: #18264a;
     --color-lp-risk-cell: #4a2420;
+    --color-lp-risk-ink: #ff9f94;
+    --color-lp-warn-ink: #f1c46e;
+    --color-lp-ok-ink: #83d9ab;
     --color-lp-warn-cell: #3d3115;
   }
 }
@@ -100,42 +104,34 @@
     --color-lp-ok-fill: #11291d;
     --color-lp-brand-fill: #18264a;
     --color-lp-risk-cell: #4a2420;
+    --color-lp-risk-ink: #ff9f94;
+    --color-lp-warn-ink: #f1c46e;
+    --color-lp-ok-ink: #83d9ab;
     --color-lp-warn-cell: #3d3115;
   }
 }
 
-/* ---- Tasnivo landing: art direction ------------------------------------------------------ */
-.landing .lp-serif {
-  font-family: var(--font-display), "Iowan Old Style", Georgia, serif;
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1.02;
+/* ---- Landing display type and motion ------------------------------------------------------- */
+.landing .lp-display {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
-.landing .lp-serif em { font-style: italic; color: var(--color-lp-brand-ink); }
-.landing .lp-mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-variant-numeric: tabular-nums; }
-
-/* Ledger ruling: a faint column grid behind the hero, one line per 12 columns of the container. */
-.landing .lp-ruled {
-  background-image: linear-gradient(to right, color-mix(in srgb, var(--color-lp-line) 55%, transparent) 1px, transparent 1px);
-  background-size: calc(100% / 6) 100%;
-}
+.landing .lp-display em { font-style: normal; color: var(--color-lp-brand-ink); }
+.landing .lp-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* The hero scan: a line sweeps the sheet once, then each verdict settles in. */
 @keyframes lp-sweep { from { transform: translateY(0); opacity: 1; } 85% { opacity: 1; } to { transform: translateY(var(--lp-sweep, 340px)); opacity: 0; } }
 @keyframes lp-settle { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-@keyframes lp-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes lp-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .landing .lp-sweep { animation: lp-sweep 1.6s cubic-bezier(.4,.1,.2,1) .35s both; }
 .landing .lp-settle { animation: lp-settle .45s ease-out both; animation-delay: calc(.45s + var(--i, 0) * .18s); }
-.landing .lp-rise { animation: lp-rise .7s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d, 0s); }
+.landing .lp-rise { animation: lp-rise .6s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d, 0s); }
 
-/* Anchored sections clear the header. */
+/* Anchored sections clear the top edge. */
 .landing [id] { scroll-margin-top: 1.5rem; }
 
 @media (prefers-reduced-motion: reduce) {
   .landing .lp-sweep { display: none; }
   .landing .lp-settle, .landing .lp-rise { animation: none; }
 }
-
-/* Display-size modifier letters (see tight.tsx). */
-.landing .lp-apos { letter-spacing: -0.1em; margin-left: -0.05em; }
-@media (min-width: 1024px) { .landing .lp-ruled { background-size: calc(100% / 12) 100%; } }

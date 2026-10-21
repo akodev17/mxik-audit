@@ -8,7 +8,7 @@ import { CONTAINER } from './container';
 import { CANONICAL_UNITS, CATALOG_CODES, MARKED_CODES, SNAPSHOT, SUBPOSITIONS } from './data';
 import { SHELL_COPY, type SiteLang } from './shell-copy';
 
-const LINK = 'rounded-lp text-white underline decoration-white/30 underline-offset-4 hover:decoration-white';
+const LINK = 'rounded-lp text-lp-ink underline decoration-lp-line-strong underline-offset-4 hover:decoration-lp-ink';
 
 function Num({ lang, n }: { lang: SiteLang; n: number }) {
   return <span className="num">{fmtNumber(lang, n)}</span>;
@@ -20,7 +20,7 @@ function Source({ lang }: { lang: SiteLang }) {
     const ru = (n: number, one: string, few: string, many: string) => pluralRu(n, one, few, many);
     return (
       <p>
-        Данные классификатора взяты из официальной выгрузки <span className="text-white">tasnif.soliq.uz</span>,
+        Данные классификатора взяты из официальной выгрузки <span className="text-lp-ink">tasnif.soliq.uz</span>,
         по состоянию на {SNAPSHOT}: <Num lang={lang} n={CATALOG_CODES} /> {ru(CATALOG_CODES, 'код', 'кода', 'кодов')},{' '}
         <Num lang={lang} n={SUBPOSITIONS} /> {ru(SUBPOSITIONS, 'субпозиция', 'субпозиции', 'субпозиций')}, из них{' '}
         <Num lang={lang} n={MARKED_CODES} /> {ru(MARKED_CODES, 'код подлежит', 'кода подлежат', 'кодов подлежат')} маркировке,{' '}
@@ -30,7 +30,7 @@ function Source({ lang }: { lang: SiteLang }) {
   }
   return (
     <p>
-      Tasniflagich maʼlumotlari <span className="text-white">tasnif.soliq.uz</span> rasmiy
+      Tasniflagich maʼlumotlari <span className="text-lp-ink">tasnif.soliq.uz</span> rasmiy
       eksportidan olingan, holati {SNAPSHOT}: <Num lang={lang} n={CATALOG_CODES} /> ta
       kod, <Num lang={lang} n={SUBPOSITIONS} /> ta subpozitsiya, shundan{' '}
       <Num lang={lang} n={MARKED_CODES} /> ta kod markirovka qilinadigan,{' '}
@@ -43,10 +43,10 @@ function Source({ lang }: { lang: SiteLang }) {
 export function SiteFooter({ lang = 'uz' }: { lang?: SiteLang }) {
   const c = SHELL_COPY[lang];
   return (
-    <footer id="site-footer" className="overflow-hidden border-t border-lp-night-line bg-lp-night text-lp-night-muted">
-      <div className={`${CONTAINER} grid grid-cols-1 gap-8 pb-8 pt-14 md:grid-cols-[1fr_auto]`}>
+    <footer id="site-footer" className="border-t border-lp-line bg-lp-surface text-lp-muted">
+      <div className={`${CONTAINER} grid grid-cols-1 gap-8 py-12 md:grid-cols-[1fr_auto]`}>
         <div className="max-w-[68ch] space-y-3 text-[15px]">
-          <p className="text-[20px] text-white"><TasnivoLogo markClassName="size-7" accent="#7aa0ff" /></p>
+          <p className="text-[18px] text-lp-ink"><TasnivoLogo markClassName="size-7" accent="var(--color-lp-brand)" /></p>
           <Source lang={lang} />
           <p>{c.legalNote}</p>
         </div>
@@ -66,7 +66,6 @@ export function SiteFooter({ lang = 'uz' }: { lang?: SiteLang }) {
           </ul>
         </nav>
       </div>
-      <p aria-hidden="true" className="lp-serif pointer-events-none mt-6 select-none whitespace-nowrap text-center text-[clamp(5rem,26vw,19rem)] leading-[0.8] text-white/[0.06]">Tasnivo</p>
     </footer>
   );
 }

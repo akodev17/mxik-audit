@@ -5,8 +5,8 @@ import { DEMO_URL, TELEGRAM_URL } from './config';
 import { CONTAINER } from './container';
 import { SHELL_COPY, type SiteLang } from './shell-copy';
 
-const NAV_LINK = 'rounded-full px-3.5 py-2 text-[16px] text-lp-ink transition-colors hover:bg-lp-surface';
-const PRIMARY = 'inline-flex min-h-10 items-center whitespace-nowrap rounded-full bg-lp-ink px-4 text-[15px] font-medium text-lp-base transition-colors hover:bg-lp-brand md:px-5 md:text-[16px]';
+const NAV_LINK = 'rounded-lp px-3 py-2 text-[16px] text-lp-ink transition-colors hover:bg-lp-surface';
+const PRIMARY = 'inline-flex min-h-10 items-center whitespace-nowrap rounded-lp bg-lp-brand px-4 text-[15px] font-medium text-white transition-colors hover:bg-lp-brand-ink md:px-5 md:text-[16px]';
 const MENU_LINK = 'block rounded-lp px-3 py-2 text-[16px] text-lp-ink hover:bg-lp-surface';
 
 type Item = { href: string; label: string; external?: boolean; strong?: boolean };
@@ -31,7 +31,7 @@ export function SiteHeader({ lang = 'uz', signedIn = false }: { lang?: SiteLang;
   const primaryShort: Item = { ...primary, label: signedIn ? c.backToAppShort : c.signUpShort };
 
   return (
-    <header className="border-b border-lp-ink bg-lp-base">
+    <header className="border-b border-lp-line bg-lp-base">
       <div className={`${CONTAINER} flex min-h-[4.25rem] items-center justify-between gap-x-4 py-2`}>
         <Link href="/" className="shrink-0 rounded-lp text-[18px] font-bold tracking-[-0.02em] text-lp-ink sm:text-[20px]">
           <TasnivoLogo markClassName="size-6 sm:size-7" accent="var(--color-lp-brand)" />
@@ -47,10 +47,10 @@ export function SiteHeader({ lang = 'uz', signedIn = false }: { lang?: SiteLang;
         <div className="flex items-center gap-2 md:hidden">
           <ItemLink item={primaryShort} className={PRIMARY} />
           <details className="relative">
-            <summary className="flex min-h-10 cursor-pointer list-none items-center rounded-full border border-lp-ink px-4 text-[15px] text-lp-ink [&::-webkit-details-marker]:hidden">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center rounded-lp border border-lp-line-strong px-3 text-[15px] text-lp-ink [&::-webkit-details-marker]:hidden">
               {c.menu}
             </summary>
-            <nav aria-label={c.nav} className="absolute right-0 top-full z-40 mt-3 w-64 rounded-lp border border-lp-ink bg-lp-paper p-2 shadow-[6px_6px_0_0_var(--color-lp-ink)]">
+            <nav aria-label={c.nav} className="absolute right-0 top-full z-40 mt-3 w-64 rounded-lp border border-lp-line bg-lp-base p-2 shadow-lg">
               <ul>{items.map((item) => <li key={item.href}><ItemLink item={item} className={MENU_LINK} /></li>)}</ul>
             </nav>
           </details>

@@ -1,6 +1,5 @@
 import { CodeDecoder } from './code-decoder';
 import { CONTAINER } from './container';
-import { tight } from './tight';
 import { PortalExamples } from './portal-examples';
 
 // Each row is one thing that changes. Wording stays within what the product does today.
@@ -19,9 +18,9 @@ export function Problem() {
       <div className={CONTAINER}>
         <div className="grid grid-cols-1 gap-x-14 gap-y-10 lg:grid-cols-12">
           <div className="lg:col-span-5">
-            <p className="lp-mono text-[13px] uppercase tracking-[0.1em] text-lp-brand-ink">Muammo</p>
-            <h2 id="why-title" className="lp-serif mt-4 text-[clamp(2.25rem,5vw,3.75rem)]">
-              {tight('Eng xavfli kod —')} <em>{tight('toʻgʻri koʻrinadigani')}</em>
+            <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Muammo</p>
+            <h2 id="why-title" className="lp-display mt-4 text-[clamp(1.875rem,3.8vw,2.75rem)]">
+              Eng xavfli kod — <em>toʻgʻri koʻrinadigani</em>
             </h2>
             <p className="mt-6 text-[18px] text-lp-muted">
               Boʻsh katakni darrov koʻrasiz. Boshqa tovarning haqiqiy kodi esa 17 raqami bilan joyida
@@ -33,12 +32,12 @@ export function Problem() {
         </div>
 
         <div className="mt-24">
-          <h3 className="lp-serif text-[clamp(1.75rem,3.4vw,2.5rem)]">{tight('Shu ish qoʻlda va Tasnivo bilan')}</h3>
-          <div className="mt-8 overflow-hidden rounded-lp border border-lp-ink">
-            <div className="hidden grid-cols-[11rem_1fr_1fr] border-b border-lp-ink bg-lp-surface text-[14px] font-medium sm:grid">
+          <h3 className="lp-display text-[clamp(1.5rem,3vw,2rem)]">Shu ish qoʻlda va Tasnivo bilan</h3>
+          <div className="mt-8 overflow-hidden rounded-lp border border-lp-line bg-lp-base">
+            <div className="hidden grid-cols-[11rem_1fr_1fr] border-b border-lp-line bg-lp-surface text-[14px] font-medium sm:grid">
               <span className="px-5 py-3" />
               <span className="border-l border-lp-line px-5 py-3 text-lp-muted">Qoʻlda</span>
-              <span className="border-l border-lp-ink bg-lp-ink px-5 py-3 text-lp-base">Tasnivo bilan</span>
+              <span className="border-l border-lp-line bg-lp-brand-fill px-5 py-3 text-lp-brand-ink">Tasnivo bilan</span>
             </div>
             <dl>
               {ROWS.map((r) => (
@@ -47,7 +46,7 @@ export function Problem() {
                   <dd className="px-5 py-1 text-[16px] text-lp-muted sm:border-l sm:border-lp-line sm:py-4">
                     <span className="mr-2 text-[13px] sm:hidden">Qoʻlda:</span>{r.before}
                   </dd>
-                  <dd className="bg-lp-brand-fill/60 px-5 pb-4 pt-1 text-[16px] text-lp-ink sm:border-l sm:border-lp-ink sm:py-4">
+                  <dd className="bg-lp-base px-5 pb-4 pt-1 text-[16px] text-lp-ink sm:border-l sm:border-lp-line sm:py-4">
                     <span className="mr-2 text-[13px] text-lp-brand-ink sm:hidden">Tasnivo:</span>{r.after}
                   </dd>
                 </div>
