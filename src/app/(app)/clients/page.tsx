@@ -4,14 +4,13 @@ import { redirect } from 'next/navigation';
 import { canWrite } from '@/lib/access';
 import { clientAttention, pendingAudits } from '@/lib/client-attention';
 import { clientStats, CLIENT_FILTERS, CLIENT_SORTS, rowProgress, STALE_DAYS, type ClientStats } from '@/lib/client-stats';
-import { isDemoOrg } from '@/lib/demo';
 import { fmtDate, fmtNumber } from '@/lib/format';
 import type { Locale } from '@/lib/i18n';
 import type { AppDict } from '@/lib/i18n-app';
 import { getI18n } from '@/lib/locale';
 import { withQuery } from '@/lib/query-string';
 import { agoText, daysSince } from '@/lib/relative-day';
-import { currentUser } from '@/lib/session';
+import { currentUser, inDemoOrg } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
@@ -70,7 +69,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
 
   const [data, demo] = await Promise.all([
     clientStats({ orgId: user.orgId, clientIds: user.clientIds, search, filter, staleDays, sort, limit: PAGE, offset: (page - 1) * PAGE }),
-    isDemoOrg(user.orgId),
+    inDemoOrg(user),
   ]);
   const pending = await pendingAudits(user.orgId, data.rows.filter((c) => !c.archivedAt));
   const reasonsOf = (c: ClientStats) => (c.archivedAt ? [] : clientAttention(c, pending));

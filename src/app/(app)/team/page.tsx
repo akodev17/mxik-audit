@@ -2,13 +2,12 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { isAdminRole } from '@/lib/access';
 import { db } from '@/lib/db';
-import { isDemoOrg } from '@/lib/demo';
 import { fmtDate } from '@/lib/format';
 import { INVITE_DAYS } from '@/lib/invites';
 import { getI18n } from '@/lib/locale';
 import { mailEnabled } from '@/lib/mailer';
 import { allows, planStatus } from '@/lib/plan';
-import { currentUser } from '@/lib/session';
+import { currentUser, inDemoOrg } from '@/lib/session';
 import { EmptyState } from '@/ui/empty-state';
 import { Page, Section } from '@/ui/page';
 import { InviteDialog } from './invite-dialog';
@@ -32,7 +31,7 @@ export default async function TeamPage() {
   const s = ta.setX.team;
 
   // Nothing is read for someone who may not manage the team.
-  const demo = await isDemoOrg(user.orgId);
+  const demo = await inDemoOrg(user);
   if (!isAdminRole(user) || demo) {
     return (
       <Page title={ta.nav.team}>
@@ -46,7 +45,7 @@ export default async function TeamPage() {
     db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } } }),
     db.client.findMany({ where: { orgId: user.orgId }, orderBy: { name: 'asc' }, select: { id: true, name: true, archivedAt: true } }),
     db.invite.findMany({ where: { orgId: user.orgId, usedAt: null }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, email: true, role: true, clientIds: true, expiresAt: true } }),
-    planStatus(user.orgId, now),
+    planStatus(user.orgId),
   ]);
   const seats = allows(status, 'seats');
   const clientOptions = clients.map((c) => ({ id: c.id, name: c.name, archived: c.archivedAt !== null }));

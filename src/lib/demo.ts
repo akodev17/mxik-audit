@@ -4,6 +4,7 @@
 // expire and are removed by `npm run purge:expired`.
 import { randomBytes } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
+import { cache } from 'react';
 import { db } from './db.js';
 import { demoTtlHours } from './demo-config.js';
 import { hashPassword } from './password.js';
@@ -78,10 +79,11 @@ export async function startDemoSession(now = new Date()): Promise<DemoSession | 
   }, { timeout: 60_000 });
 }
 
-export async function isDemoOrg(orgId: string): Promise<boolean> {
+/** Once per render (React cache); server actions and route handlers read it each time. */
+export const isDemoOrg = cache(async (orgId: string): Promise<boolean> => {
   const org = await db.organization.findUnique({ where: { id: orgId }, select: { kind: true } });
   return org?.kind === 'demo';
-}
+});
 
 /** Deletes expired demo copies with everything in them. Never touches customer orgs. */
 export async function purgeExpiredDemos(now = new Date()): Promise<number> {
