@@ -1,9 +1,23 @@
 'use client';
 
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useRef, type ReactNode } from 'react';
+import { Profiler, Suspense, useEffect, useRef, type ProfilerOnRenderCallback, type ReactNode } from 'react';
 import { PageSkeleton } from '../skeleton';
 import { routeBoundaryKey } from './navigation';
+
+/** NEXT_PUBLIC_PERF_PROFILE=1 with `next build --profile` (performance work only): page commits go to window.__perf. */
+const PROFILE = process.env.NEXT_PUBLIC_PERF_PROFILE === '1';
+
+declare global {
+  interface Window {
+    /** React commits of the page, read by scripts/perf-nav.ts. */
+    __perf?: { phase: string; actualDuration: number; commitTime: number }[];
+  }
+}
+
+const recordCommit: ProfilerOnRenderCallback = (_id, phase, actualDuration, _base, _start, commitTime) => {
+  (window.__perf ??= []).push({ phase, actualDuration, commitTime });
+};
 
 /**
  * A fresh Suspense boundary for every page address, so a navigation inside one section commits
@@ -22,5 +36,6 @@ export function RouteBoundary({ children }: { children: ReactNode }) {
     if (active === null || active === document.body) document.getElementById('main')?.focus({ preventScroll: true });
   }, [key]);
 
-  return <Suspense key={key} fallback={<PageSkeleton />}>{children}</Suspense>;
+  const page = <Suspense key={key} fallback={<PageSkeleton />}>{children}</Suspense>;
+  return PROFILE ? <Profiler id="page" onRender={recordCommit}>{page}</Profiler> : page;
 }
