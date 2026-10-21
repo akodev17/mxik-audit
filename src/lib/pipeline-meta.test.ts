@@ -49,6 +49,17 @@ describe('buildPipelineMeta', () => {
     const meta = buildPipelineMeta(FULL, { rowsAudited: 3, rowsWithoutAi: 1, llmRowsFailed: 0, vectorErrors: 0 }, 2, AT);
     assert.deepEqual(readPipelineMeta(JSON.parse(JSON.stringify(meta))), meta);
   });
+
+  it('records the classifier snapshot the run matched against, and nulls when it is unknown', () => {
+    const classifier = { snapshotId: 2, takenAt: '2026-08-20T11:43:45.735Z' };
+    const meta = buildPipelineMeta({ ...FULL, classifier }, emptyCounters(), 0, AT);
+    assert.equal(meta.classifierSnapshotId, 2);
+    assert.equal(meta.classifierTakenAt, classifier.takenAt);
+    assert.deepEqual(readPipelineMeta(JSON.parse(JSON.stringify(meta))), meta);
+    const unknown = buildPipelineMeta(FULL, emptyCounters(), 0, AT);
+    assert.equal(unknown.classifierSnapshotId, null);
+    assert.equal(unknown.classifierTakenAt, null);
+  });
 });
 
 describe('readPipelineMeta', () => {
@@ -67,6 +78,9 @@ describe('readPipelineMeta', () => {
     assert.deepEqual(meta?.degradedReasons, ['rerank_off']);
     assert.equal(meta?.rowsWithoutAi, 0);
     assert.equal(meta?.llmRowsFailed, 0);
+    // Stored before the snapshot fields existed: read as unknown, not rejected.
+    assert.equal(meta?.classifierSnapshotId, null);
+    assert.equal(meta?.classifierTakenAt, null);
   });
 });
 

@@ -26,12 +26,21 @@ export type PipelineMeta = {
   /** First row of this run, above 0 for a resumed audit. */
   fromRow: number;
   finishedAt: string;
+  /** catalog_snapshot id the run matched against; null when unknown (audits before 2026-10-21). */
+  classifierSnapshotId: number | null;
+  /** When that snapshot was taken (ISO); null when unknown. */
+  classifierTakenAt: string | null;
 };
+
+/** The classifier snapshot an audit or eval ran against. */
+export type ClassifierProvenance = { snapshotId: number | null; takenAt: string | null };
 
 export type PipelineSetup = {
   embedder: { name: string; semantic: boolean };
   vectorUsable: boolean;
   reranker: { enabled: boolean; model: string | null; promptVersion: string };
+  /** Absent when the caller does not know the snapshot; stored as nulls. */
+  classifier?: ClassifierProvenance | undefined;
 };
 
 export type PipelineCounters = { rowsAudited: number; rowsWithoutAi: number; llmRowsFailed: number; vectorErrors: number };
@@ -69,6 +78,8 @@ export function buildPipelineMeta(setup: PipelineSetup, counters: PipelineCounte
     ...counters,
     fromRow,
     finishedAt: finishedAt.toISOString(),
+    classifierSnapshotId: setup.classifier?.snapshotId ?? null,
+    classifierTakenAt: setup.classifier?.takenAt ?? null,
   };
 }
 
@@ -84,6 +95,8 @@ const Stored = z.object({
   rowsAudited: count,
   fromRow: count,
   finishedAt: z.string().catch(''),
+  classifierSnapshotId: z.number().int().nullable().catch(null),
+  classifierTakenAt: z.string().nullable().catch(null),
 });
 
 const KNOWN = new Set<string>(DEGRADED_REASONS);

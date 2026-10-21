@@ -17,7 +17,10 @@ import { PostgresCandidateStore, storeRetryCount } from '../src/core/match/store
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
 import { BANDS } from '../src/core/match/score.js';
 import type { RerankProvider, RerankVerdict } from '../src/core/match/types.js';
+import { lexicalQuery } from '../src/core/match/query.js';
+import { matchKeyOf, normalizeName, tokenize } from '../src/core/normalize/index.js';
 import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
+import { diagnoseMiss, type MissDiagnostic } from './diagnose.js';
 import { MemoStore } from './memo-store.js';
 import { bySet, bySource, setOf, type GroupMetrics, type Outcome } from './metrics.js';
 
@@ -89,6 +92,18 @@ const reranker: RerankProvider = realReranker.available ? realReranker : new Dry
 
 // --------------------------------------------------------------- header
 const codeCount = (await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM mxik_code WHERE "retiredAt" IS NULL')).rows[0]?.n ?? '?';
+// Which classifier copy this is: numbers from different snapshots are not comparable.
+const snapshot = (await pool.query<{ id: number; takenAt: Date }>('SELECT id, "takenAt" FROM catalog_snapshot ORDER BY id DESC LIMIT 1')).rows[0];
+const classifierSnapshotId = snapshot?.id ?? null;
+const classifierTakenAt = snapshot?.takenAt.toISOString() ?? null;
+// The database name only, never the credentials: shared dev DB and scratch copies must be told apart.
+const database = (() => {
+  try {
+    return new URL(DATABASE_URL).pathname.replace(/^\//, '') || null;
+  } catch {
+    return null;
+  }
+})();
 const commit = (() => {
   try {
     const sha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
@@ -106,7 +121,7 @@ console.log('='.repeat(78));
 console.log(`MXIK matching evaluation — ${LABEL}`);
 console.log('='.repeat(78));
 console.log(`code            ${commit}`);
-console.log(`classifier      ${Number(codeCount).toLocaleString()} live codes`);
+console.log(`classifier      ${Number(codeCount).toLocaleString()} live codes · snapshot #${classifierSnapshotId ?? '?'} taken ${classifierTakenAt?.slice(0, 10) ?? '?'} · database ${database ?? '?'}`);
 console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
 for (const e of excluded) console.log(`  excluded: ${e}`);
 console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- NOT SEMANTIC'}`);
@@ -228,6 +243,45 @@ for (const o of fullOutcomes.filter((x) => x.source === 'real')) {
   if (o.rank !== 1) console.log(`              want ${o.correct.join(' | ')}  got ${o.predicted ?? '(none)'}`);
 }
 
+// Top-5 misses in tokens: the query as retrieval sees it next to the correct
+// code's own words. Tells a vocabulary gap from an inflection miss (plan §5).
+/** The code a label stands for: itself, or for a prefix the base code under it (else its first code). */
+async function representative(labels: readonly string[]): Promise<{ code: string; nameUz: string; nameRu: string } | null> {
+  for (const label of labels) {
+    const res = isPrefix(label)
+      ? await pool.query<{ code: string; nameUz: string; nameRu: string }>(
+        `SELECT code, "nameUz", "nameRu" FROM mxik_code WHERE code LIKE $1 AND "retiredAt" IS NULL
+         ORDER BY "isBase" DESC, code LIMIT 1`, [`${label.slice(0, -1)}%`])
+      : await pool.query<{ code: string; nameUz: string; nameRu: string }>(
+        'SELECT code, "nameUz", "nameRu" FROM mxik_code WHERE code = $1', [label]);
+    const row = res.rows[0];
+    if (row) return { ...row, code: row.code.trim() };
+  }
+  return null;
+}
+type MissRecord = MissDiagnostic & { id: string; query: string; correctCode: string | null };
+const missDiagnostics: MissRecord[] = [];
+const realMisses = fullOutcomes.filter((o) => o.source === 'real' && o.rank === null);
+if (realMisses.length > 0) {
+  console.log('');
+  console.log('real top-5 misses in tokens (query | correct code words; ~ = same stem, inflected)');
+}
+for (const o of realMisses) {
+  const query = lexicalQuery(normalizeName(o.name).queryKey);
+  const code = await representative(o.correct);
+  const codeTokens = code ? [...tokenize(matchKeyOf(code.nameUz)), ...tokenize(matchKeyOf(code.nameRu))] : [];
+  const d = diagnoseMiss(tokenize(query), codeTokens);
+  missDiagnostics.push({ id: o.id, query, correctCode: code?.code ?? null, ...d });
+  console.log(`  ${o.id}  "${query}"`);
+  console.log(`      vs ${code?.code ?? '?'} "${[...new Set(codeTokens)].join(' ').slice(0, 90)}"`);
+  console.log(`      shared [${d.shared.join(' ')}]  inflected [${d.inflection.join(' ')}]  query-only [${d.queryOnly.join(' ')}]`);
+}
+if (realMisses.length > 0) {
+  const inflected = missDiagnostics.filter((m) => m.inflection.length > 0).length;
+  const vocabulary = missDiagnostics.filter((m) => m.shared.length === 0 && m.inflection.length === 0).length;
+  console.log(`  ${realMisses.length} misses: ${inflected} with an inflected word, ${vocabulary} sharing no word or stem with the correct code`);
+}
+
 const synthMisses = fullOutcomes.filter((o) => o.source === 'synthetic' && o.rank === null);
 const noiseOf = (id: string): string[] => {
   const c = cases.find((x) => x.id === id);
@@ -264,6 +318,9 @@ history.runs.push({
   ranAt: new Date().toISOString(),
   code: commit,
   classifierLiveCodes: Number(codeCount),
+  classifierSnapshotId,
+  classifierTakenAt,
+  database,
   providers: {
     embedding: embedder.name, embeddingSemantic: embedder.semantic, vectorUsable: readiness.usable,
     reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
@@ -277,6 +334,7 @@ history.runs.push({
     id: o.id, source: o.source, predicted: o.predicted, rank: o.rank,
     confidence: Number(o.confidence.toFixed(4)), band: o.band, decidedBy: o.decidedBy, sentToLlm: o.sentToLlm,
   })),
+  realTop5Misses: missDiagnostics,
 });
 writeFileSync(RESULTS, JSON.stringify(history, null, 2) + '\n');
 console.log(`\nappended run ${history.runs.length} to ${RESULTS}`);
