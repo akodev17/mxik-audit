@@ -163,6 +163,14 @@ with the verdicts and a mismatch is a cache miss. Without it, a classifier
 update that added the right code stayed hidden behind a cached "none". Entries
 written before this change carry no fingerprint and are treated as misses.
 
+Since 2026-10-21 the fingerprint (`candidatePoolHashOf`) covers what the prompt
+showed of each candidate (code, name, hierarchy path, kind, marking, bound
+unit, brand, attribute), not the code alone: an update that renames a code or
+moves it to another position keeps the code set, and a verdict about the old
+wording must not be reused. The classifier snapshot id is deliberately not in
+the key, which would discard every cached verdict on each daily update. The
+local `rerank_cache` was empty when this changed (no key has ever been set).
+
 When the stored vectors are unusable, stage 4 is switched off for the run and
 no query embedding is computed at all (it used to call the embedding provider
 for every row and throw the result away).

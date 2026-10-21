@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { BatchedReranker } from './rerank-batched.js';
-import { MemoryRerankCache, candidatePoolHash, rerankCacheKey, type RerankCache } from './rerank-cache.js';
+import { MemoryRerankCache, candidatePoolHashOf, rerankCacheKey, type RerankCache } from './rerank-cache.js';
 import type { BatchReply, BatchRow, RerankClient } from './rerank-claude.js';
 import { NONE_REASON } from './rerank-parse.js';
 import type { MxikCandidate, RerankRequest } from './types.js';
@@ -100,7 +100,7 @@ describe('BatchedReranker', () => {
   it('re-validates cached verdicts against the current candidates', async () => {
     const client = new FakeClient();
     const cache = new MemoryRerankCache();
-    await cache.set(rerankCacheKey('claude-test', 'a', 'dona'), { pool: candidatePoolHash([B]), verdicts: [{ code: B, confidence: 0.9, reason: 'old' }] });
+    await cache.set(rerankCacheKey('claude-test', 'a', 'dona'), { pool: candidatePoolHashOf([candidate(B)]), verdicts: [{ code: B, confidence: 0.9, reason: 'old' }] });
     const reranker = new BatchedReranker(client, { ...OPTIONS, cache });
     // B is no longer a candidate, so the stale entry must not be used.
     const result = await reranker.rerank(request('a', [A]));
@@ -114,12 +114,12 @@ describe('BatchedReranker', () => {
     const client = new FakeClient();
     const cache = new MemoryRerankCache();
     const key = rerankCacheKey('claude-test', 'a', 'dona');
-    await cache.set(key, { pool: candidatePoolHash([A]), verdicts: [{ code: A, confidence: 0, reason: NONE_REASON }] });
+    await cache.set(key, { pool: candidatePoolHashOf([candidate(A)]), verdicts: [{ code: A, confidence: 0, reason: NONE_REASON }] });
     const reranker = new BatchedReranker(client, { ...OPTIONS, cache });
     const result = await reranker.rerank(request('a', [A, B]));
     assert.equal(client.calls.length, 1, 'a changed candidate set must be asked again');
     assert.equal(result[0]?.confidence, 0.9);
-    assert.equal((await cache.get(key))?.pool, candidatePoolHash([B, A]));
+    assert.equal((await cache.get(key))?.pool, candidatePoolHashOf([candidate(B), candidate(A)]));
   });
 
   it('reuses an entry for the same candidates in any order', async () => {
@@ -156,5 +156,19 @@ describe('BatchedReranker', () => {
     assert.equal(rerankCacheKey('m', 'shakar', 'kg'), rerankCacheKey('m', 'shakar', 'кг'));
     assert.notEqual(rerankCacheKey('m', 'shakar', 'kg'), rerankCacheKey('other', 'shakar', 'kg'));
     assert.notEqual(rerankCacheKey('m', 'shakar', 'kg'), rerankCacheKey('m', 'shakar', 'dona'));
+  });
+});
+
+describe('BatchedReranker cache after a classifier rename', () => {
+  it('asks again when a candidate kept its code but changed its name or position', async () => {
+    const client = new FakeClient();
+    const cache = new MemoryRerankCache();
+    const key = rerankCacheKey('claude-test', 'a', 'dona');
+    await cache.set(key, { pool: candidatePoolHashOf([candidate(A)]), verdicts: [{ code: A, confidence: 0.9, reason: 'old' }] });
+    const renamed = { ...request('a', [A]), candidates: [{ ...candidate(A), nameUz: 'renamed in the new export', positionName: 'moved' }] };
+    const reranker = new BatchedReranker(client, { ...OPTIONS, cache });
+    await reranker.rerank(renamed);
+    assert.equal(client.calls.length, 1, 'a verdict about the old name must not be reused');
+    assert.equal(reranker.usage().cacheHits, 0);
   });
 });
