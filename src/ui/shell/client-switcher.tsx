@@ -95,7 +95,7 @@ export function ClientSwitcher({ clients, active, canAdd }: Props) {
           aria-label={quiet ? name : ta.shellX.client.trigger(name)}
           aria-busy={switching ? true : undefined}
           onClick={() => dd.setOpen(!dd.open)}
-          className="flex h-control-md min-w-0 max-w-full items-center gap-2 rounded-ctl border border-line-strong bg-raised px-2.5 text-data font-medium text-fg transition-colors duration-(--duration-fast) hover:bg-surface"
+          className="flex h-control-md min-w-0 max-w-full items-center gap-2 rounded-ctl border border-transparent px-2.5 text-data font-medium text-fg transition-colors duration-(--duration-fast) hover:border-line hover:bg-surface"
         >
           {quiet ? null : <span className="hidden shrink-0 text-muted sm:inline">{ta.shellX.client.label}</span>}
           <span className={cx('min-w-0 truncate', quiet && 'text-muted')}>{name}</span>

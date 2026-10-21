@@ -25,9 +25,10 @@ export function navGroups({ canWrite, canTeam = false, locale }: { canWrite: boo
     },
     {
       key: 'knowledge',
-      items: [{ key: 'dictionary', href: '/dictionary' }, { key: 'activity', href: '/activity' }, { key: 'help', href: helpHref(locale) }],
+      items: [{ key: 'dictionary', href: '/dictionary' }, { key: 'activity', href: '/activity' }],
     },
-    { key: 'settings', items: [{ key: 'settings', href: '/settings' }] },
+    // Preferences sit at the bottom of the rail: help, then settings.
+    { key: 'settings', items: [{ key: 'help', href: helpHref(locale) }, { key: 'settings', href: '/settings' }] },
   ];
 }
 

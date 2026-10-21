@@ -12,7 +12,9 @@ import { Field, Input } from '@/ui/input';
 import { Page, Section } from '@/ui/page';
 import { Segmented } from '@/ui/segmented';
 import { Select } from '@/ui/select';
+import { RowList } from '@/ui/row-list';
 import { Skeleton } from '@/ui/skeleton';
+import { StatRow } from '@/ui/stat-row';
 import { Stat } from '@/ui/stat';
 import { Textarea } from '@/ui/textarea';
 import { Block, PatternNote, Row, Stage, Sub } from './kit';
@@ -119,7 +121,7 @@ export function FormsSection() {
 
 export function LayoutSection() {
   return (
-    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page), surface (panels, table heads), raised (cards), sunken (wells). Radius rounded-ctl, hairline border-line, shadow only for floating layers.">
+    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page, sidebar), surface (panels, active nav item, table heads), raised (cards), sunken (wells). Prefer open lists and hairlines over nested boxes; shadow only for floating layers.">
       <Sub title="Surfaces">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -149,6 +151,23 @@ export function LayoutSection() {
             </Section>
           </Page>
         </div>
+      </Sub>
+
+      <Sub title="Summary row" note="StatRow: hairline-divided measures with no boxes; value, unit, one line of context, optional bar and link">
+        <StatRow label="Namuna" items={[
+          { key: 'a', label: 'Ochiq xavfli qatorlar', value: '107', tone: 'danger', hint: '113 ta topilma: ayrim qatorlarda bir nechta', href: '#layout' },
+          { key: 'b', label: 'Koʻrib chiqilgan', value: '52', unit: '/ 107', hint: '48% bajarildi', bar: { done: 52, total: 107 } },
+          { key: 'c', label: 'Eʼtibor kerak', value: '1', tone: 'warn', hint: '1 ta mijozdan' },
+          { key: 'd', label: 'Muddati oʻtgan tekshiruvlar', value: '0', hint: 'oylik vazifalar' },
+        ]} />
+      </Sub>
+
+      <Sub title="Open list" note="RowList: hairlines between rows, no box. For secondary content such as recent activity">
+        <RowList>
+          {[['Demo ishga tushirildi', '21.10.2026 15:45'], ['Tahlil tugadi', '21.10.2026 15:45'], ['Taklif qabul qilindi', '21.10.2026 15:52']].map(([t, d]) => (
+            <li key={t} className="flex flex-wrap items-baseline justify-between gap-x-4 py-2.5"><span><span className="block font-medium">{t}</span><span className="block text-small text-muted">namuna@example.test · Namunaviy MChJ</span></span><time className="text-small tabular-nums text-muted">{d}</time></li>
+          ))}
+        </RowList>
       </Sub>
 
       <Sub title="Sidebar layout and content grid">

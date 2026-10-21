@@ -38,7 +38,7 @@ export function Sidebar({ id, pref, expanded, onToggle, canWrite, canTeam }: Pro
     <nav
       id={id}
       aria-label={ta.shellX.nav.label}
-      className={cx('no-print hidden shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-(--duration-base) ease-standard md:flex', WIDTH[pref])}
+      className={cx('no-print hidden shrink-0 flex-col border-r border-line bg-base transition-[width] duration-(--duration-base) ease-standard md:flex', WIDTH[pref])}
     >
       <div className="flex h-14 shrink-0 items-center gap-2 px-2">
         <Link href="/dashboard" aria-label={ta.shellX.nav.home} className={cx('flex min-w-0 flex-1 items-center gap-2 rounded-ctl px-1.5 py-1', WIDE_ONLY[pref])}>
@@ -83,7 +83,7 @@ export function NavGroups({ groups, labelClass, headingClass, dividerClass, onNa
           <div key={g.key} className={cx(last && 'mt-auto')}>
             {g.label ? (
               <>
-                <p id={headingId} className={cx('px-2.5 pb-1 text-micro font-semibold uppercase tracking-wide text-subtle', headingClass)}>
+                <p id={headingId} className={cx('px-2.5 pb-1 text-micro font-medium text-subtle', headingClass)}>
                   {g.label}
                 </p>
                 {i > 0 ? <hr aria-hidden className={cx('mx-2 mb-2 border-line', dividerClass ?? 'hidden')} /> : null}

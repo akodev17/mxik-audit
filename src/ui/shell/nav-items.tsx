@@ -44,7 +44,7 @@ export function useNav(canWrite: boolean, canTeam = false): NavGroupView[] {
   const { locale, ta } = useI18n();
   const labels = useNavLabels();
   return useMemo(() => {
-    // Settings is a single link at the bottom; a heading repeating its name would add nothing.
+    // Help and settings share the unlabelled group at the bottom of the rail.
     const groupLabels: Record<NavGroupKey, string | null> = {
       work: ta.shellX.nav.work,
       clients: ta.shellX.nav.clients,

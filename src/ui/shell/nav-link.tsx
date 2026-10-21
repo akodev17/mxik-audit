@@ -72,8 +72,8 @@ export function NavLink({ item, active, labelClass, onNavigate }: Props) {
         onBlur={hide}
         onClick={() => { hide(); onNavigate?.(); }}
         className={cx(
-          'relative flex h-10 items-center gap-3 rounded-ctl px-2.5 text-data font-medium transition-colors duration-(--duration-fast)',
-          active ? 'bg-sunken text-fg before:absolute before:left-0 before:top-2.5 before:h-5 before:w-[3px] before:rounded-full before:bg-brand' : 'text-muted hover:bg-sunken hover:text-fg',
+          'relative flex h-9 items-center gap-3 rounded-ctl px-2.5 text-data font-medium transition-colors duration-(--duration-fast)',
+          active ? 'bg-surface text-fg before:absolute before:-left-2 before:top-2 before:h-5 before:w-[3px] before:rounded-full before:bg-brand' : 'text-muted hover:bg-surface hover:text-fg',
         )}
       >
         <span className={cx('shrink-0', active && 'text-brand-ink')}>{item.icon}</span>

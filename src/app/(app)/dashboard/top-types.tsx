@@ -4,6 +4,7 @@ import { fmtNumber, fmtPercent } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { issueShares } from '@/lib/work-queue';
 import { typeLabels } from '@/ui/labels';
+import { RowList } from '@/ui/row-list';
 
 /**
  * Which checks fail most among undecided findings, ranked. Every bar is that check's share of all
@@ -12,12 +13,12 @@ import { typeLabels } from '@/ui/labels';
  */
 export async function TopTypes({ types, accountantQuery }: { types: TypeCount[]; accountantQuery: string }) {
   const { locale, t, ta } = await getI18n();
-  if (types.length === 0) return <p className="rounded-ctl border border-line bg-raised px-4 py-3 text-small text-muted">{ta.firmX.home.typesNone}</p>;
+  if (types.length === 0) return <p className="text-small text-muted">{ta.firmX.home.typesNone}</p>;
   const labels = typeLabels(t);
   return (
-    <ol className="divide-y divide-line rounded-ctl border border-line bg-raised">
+    <RowList ordered>
       {issueShares(types).map((x) => (
-        <li key={x.type} className="px-4 py-3">
+        <li key={x.type} className="py-3">
           <div className="flex items-baseline justify-between gap-3">
             <Link
               href={`/queue?${[`type=${encodeURIComponent(x.type)}`, accountantQuery].filter(Boolean).join('&')}`}
@@ -36,6 +37,6 @@ export async function TopTypes({ types, accountantQuery }: { types: TypeCount[];
           {x.rows !== x.findings ? <p className="mt-1 text-micro text-muted">{ta.firmX.home.typeRows(fmtNumber(locale, x.rows), x.rows)}</p> : null}
         </li>
       ))}
-    </ol>
+    </RowList>
   );
 }

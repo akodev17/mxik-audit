@@ -12,6 +12,7 @@ import { onboardingSteps } from '@/lib/onboarding';
 import { openTasks } from '@/lib/reminders';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
+import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/empty-state';
 import { Page, Section } from '@/ui/page';
 import { ButtonLink } from '@/ui/button';
@@ -61,6 +62,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const pending = await pendingAudits(user.orgId, data.clients.filter((c) => !c.isDefault));
 
   const canAct = canWrite(user) && !user.demo;
+  // The second column exists only when it has something to say; otherwise the work gets the full width.
+  const hasAside = data.byType.length > 0 || tasks.length > 0 || (openSteps && !firstRun);
+  const workload = data.workload && data.workload.length > 0 ? data.workload : null;
 
   return (
     <Page
@@ -87,13 +91,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} />
 
           {/* Reading order on a phone: queue, issues, tasks, then history. From xl the second column holds the aside. */}
-          <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_24rem] xl:content-start xl:items-start">
+          <div className={cx('mt-6 grid grid-cols-1 gap-x-10 gap-y-8 xl:content-start xl:items-start', hasAside && 'xl:grid-cols-[minmax(0,1fr)_22rem]')}>
             <WorkQueue clients={data.clients} pending={pending} canUpload={canAct} queueHref={queueHref} />
 
+            {hasAside ? (
             <aside className="flex min-w-0 flex-col gap-8 xl:col-start-2 xl:row-span-4 xl:row-start-1 [&>section]:mt-0">
-              <Section title={home.typesTitle} hint={home.typesHint}>
-                <TopTypes types={data.byType} accountantQuery={accountantQuery} />
-              </Section>
+              {data.byType.length > 0 ? (
+                <Section title={home.typesTitle} hint={home.typesHint}>
+                  <TopTypes types={data.byType} accountantQuery={accountantQuery} />
+                </Section>
+              ) : null}
               {tasks.length > 0 ? (
                 <Section title={ta.reminders.tasks}>
                   <Tasks
@@ -104,6 +111,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               ) : null}
               {openSteps && !firstRun ? <Onboarding steps={steps} primary={false} /> : null}
             </aside>
+            ) : null}
 
             {data.changes.length > 0 ? (
               <Section title={home.changesTitle} hint={home.changesHint}>
@@ -111,9 +119,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               </Section>
             ) : null}
 
-            {data.workload ? (
+            {workload ? (
               <Section title={home.workloadTitle} hint={home.workloadHint}>
-                <Workload rows={data.workload} />
+                <Workload rows={workload} />
               </Section>
             ) : null}
 
@@ -126,9 +134,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </>
       ) : (
         <>
-          {data.workload ? (
+          {workload ? (
             <Section title={home.workloadTitle} hint={home.workloadHint}>
-              <Workload rows={data.workload} />
+              <Workload rows={workload} />
             </Section>
           ) : null}
           {openSteps && !firstRun ? <div className="mt-8"><Onboarding steps={steps} primary={false} /></div> : null}

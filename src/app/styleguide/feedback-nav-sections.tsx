@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-import { StatusIcon, type Tone } from '@/ui/badge';
+import { useState } from 'react';
+import { Alert } from '@/ui/alert';
 import { Breadcrumbs } from '@/ui/breadcrumbs';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
-import { cx } from '@/ui/cx';
 import { Dialog } from '@/ui/dialog';
 import { EmptyState } from '@/ui/empty-state';
 import { IconCopy, IconDownload, IconMore, IconPrint } from '@/ui/icons';
@@ -15,29 +14,15 @@ import { Popover } from '@/ui/popover';
 import { Progress } from '@/ui/progress';
 import { Checkbox } from '@/ui/checkbox';
 import { Select } from '@/ui/select';
-import { NAV_ICONS } from '@/ui/shell/nav-items';
+import { useNav } from '@/ui/shell/nav-items';
 import { NavLink } from '@/ui/shell/nav-link';
 import { Spinner } from '@/ui/spinner';
 import { Tabs } from '@/ui/tabs';
 import { useToast } from '@/ui/toast';
 import { Tooltip } from '@/ui/tooltip';
-import { Block, PatternNote, Row, Stage, Sub } from './kit';
+import { Block, Row, Stage, Sub } from './kit';
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-const ALERT: Record<Exclude<Tone, 'neutral' | 'brand'>, string> = {
-  info: 'border-info bg-info-tint text-info-ink', good: 'border-good bg-good-tint text-good-ink',
-  warn: 'border-warn bg-warn-tint text-warn-ink', danger: 'border-danger bg-danger-tint text-danger-ink',
-};
-
-function Alert({ tone, children }: { tone: keyof typeof ALERT; children: ReactNode }) {
-  return (
-    <div role={tone === 'danger' ? 'alert' : 'status'} className={cx('flex items-start gap-2 rounded-ctl border px-3 py-2 text-small', ALERT[tone])}>
-      <span className="mt-0.5 shrink-0"><StatusIcon tone={tone} size={14} /></span>
-      <span>{children}</span>
-    </div>
-  );
-}
-
 export function FeedbackSection() {
   const toast = useToast();
   const [dialog, setDialog] = useState(false);
@@ -91,7 +76,7 @@ export function FeedbackSection() {
         </Row>
       </Stage>
 
-      <Sub title="Inline alerts"><PatternNote>Built from tint and ink tokens; no shared Alert component exists yet.</PatternNote>
+      <Sub title="Inline alerts" note="Alert from src/ui/alert.tsx; danger is announced at once, the rest politely">
         <div className="grid gap-2">
           <Alert tone="info">Tekshiruv fonda bajarilmoqda; sahifani yopishingiz mumkin.</Alert>
           <Alert tone="good">Katalog yuklandi va tekshirildi.</Alert>
@@ -128,26 +113,28 @@ export function FeedbackSection() {
 
 export function NavigationSection() {
   const [active, setActive] = useState('clients');
-  const items = [
-    { key: 'dashboard', label: 'Bosh sahifa' }, { key: 'queue', label: 'Koʻrib chiqish navbati' }, { key: 'clients', label: 'Mijozlar' },
-    { key: 'catalogs', label: 'Kataloglar' }, { key: 'upload', label: 'Yuklash' },
-  ] as const;
+  const groups = useNav(true, true);
   return (
-    <Block id="navigation" title="Navigation" hint="NavLink is the real sidebar link (active marker, hover, focus); links here only switch the sample state.">
+    <Block id="navigation" title="Navigation" hint="The sidebar groups come from navGroups() and NavLink is the real link: quiet grey fill and a thin brand marker for the current page. Links here only switch the sample state.">
       <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
-        <nav aria-label="Sidebar sample" className="rounded-ctl border border-line bg-surface p-2">
-          <ul className="space-y-0.5">
-            {items.map((i) => (
-              <NavLink key={i.key} item={{ key: i.key, href: `#nav-${i.key}`, label: i.label, icon: NAV_ICONS[i.key] }} active={active === i.key} onNavigate={() => setActive(i.key)} />
+        <nav aria-label="Sidebar sample" className="rounded-ctl border border-line bg-base p-2">
+          <div className="flex flex-col gap-3">
+            {groups.map((g, i) => (
+              <div key={g.key}>
+                {g.label ? <p className="px-2.5 pb-1 text-micro font-medium text-subtle">{g.label}</p> : i > 0 ? <hr aria-hidden className="mx-2 mb-2 border-line" /> : null}
+                <ul className="flex flex-col gap-0.5">
+                  {g.items.map((item) => (
+                    <NavLink key={item.key} item={{ ...item, href: `#nav-${item.key}` }} active={active === item.key} onNavigate={() => setActive(item.key)} />
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </nav>
         <div className="space-y-5">
           <Sub title="Breadcrumbs"><Breadcrumbs items={[{ label: 'Mijozlar', href: '#navigation' }, { label: 'Namunaviy MChJ', href: '#navigation' }, { label: 'katalog.xlsx' }]} /></Sub>
           <Sub title="Tabs" note="Link based: the active tab is a URL in the app">
-            <div className="space-y-4">
-              <Tabs items={[{ href: '#tab-a', label: 'Hisob', active: true }, { href: '#tab-b', label: 'Xavfsizlik', active: false }, { href: '#tab-c', label: 'Tarif', active: false, count: 2 }]} />
-            </div>
+            <Tabs items={[{ href: '#tab-a', label: 'Hisob', active: true }, { href: '#tab-b', label: 'Xavfsizlik', active: false }, { href: '#tab-c', label: 'Tarif', active: false, count: 2 }]} />
           </Sub>
           <Sub title="Dropdown menu">
             <Menu label="Amallar" items={[{ label: 'Tahrirlash' }, { label: 'Nusxa olish', icon: <IconCopy size={16} /> }, { label: 'Oʻchirish', tone: 'danger' }]} />
