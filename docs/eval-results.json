@@ -52212,6 +52212,6140 @@
           ]
         }
       ]
+    },
+    {
+      "label": "plan phase 2.1 relevance guard (3.4) (degraded: hashing vectors, no reranker, snapshot 2026-08-20)",
+      "ranAt": "2026-10-21T10:12:37.115Z",
+      "code": "ef6d3ec",
+      "classifierLiveCodes": 438925,
+      "classifierSnapshotId": 2,
+      "classifierTakenAt": "2026-08-20T06:43:45.735Z",
+      "database": "mxik_scratch",
+      "providers": {
+        "embedding": "hashing (local, non-semantic)",
+        "embeddingSemantic": false,
+        "vectorUsable": true,
+        "reranker": "noop (no ANTHROPIC_API_KEY)",
+        "rerankerAvailable": false,
+        "gate": {
+          "minConfidence": 0.95,
+          "minMargin": 0.1
+        }
+      },
+      "cases": {
+        "real": 282,
+        "synthetic": 191,
+        "excluded": []
+      },
+      "metrics": {
+        "full": {
+          "real": {
+            "n": 282,
+            "top1": 152,
+            "top5": 219,
+            "top1Pct": 53.90070921985816,
+            "top5Pct": 77.6595744680851,
+            "highCount": 13,
+            "highCoveragePct": 4.609929078014184,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6024748005824978,
+            "meanConfidenceWrong": 0.5417562557828401,
+            "ceilingPct": 94.32624113475178,
+            "llmSharePct": 94.68085106382979
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 176,
+            "top5": 184,
+            "top1Pct": 92.14659685863874,
+            "top5Pct": 96.33507853403141,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8148796489619629,
+            "meanConfidenceWrong": 0.6857966527304488,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 61.25654450261781
+          },
+          "all": {
+            "n": 473,
+            "top1": 328,
+            "top5": 403,
+            "top1Pct": 69.3446088794926,
+            "top5Pct": 85.20084566596195,
+            "highCount": 74,
+            "highCoveragePct": 15.644820295983086,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7164481338592822,
+            "meanConfidenceWrong": 0.5566569865015583,
+            "ceilingPct": 95.34883720930233,
+            "llmSharePct": 81.18393234672304
+          }
+        },
+        "no-barcode": {
+          "real": {
+            "n": 282,
+            "top1": 152,
+            "top5": 219,
+            "top1Pct": 53.90070921985816,
+            "top5Pct": 77.6595744680851,
+            "highCount": 12,
+            "highCoveragePct": 4.25531914893617,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6012091249728406,
+            "meanConfidenceWrong": 0.5417562557828401,
+            "ceilingPct": 94.32624113475178,
+            "llmSharePct": 95.0354609929078
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 174,
+            "top5": 184,
+            "top1Pct": 91.09947643979058,
+            "top5Pct": 96.33507853403141,
+            "highCount": 53,
+            "highCoveragePct": 27.748691099476442,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8029453222770565,
+            "meanConfidenceWrong": 0.6782385615890596,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 65.44502617801047
+          },
+          "all": {
+            "n": 473,
+            "top1": 326,
+            "top5": 403,
+            "top1Pct": 68.92177589852008,
+            "top5Pct": 85.20084566596195,
+            "highCount": 65,
+            "highCoveragePct": 13.742071881606766,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7088842732272365,
+            "meanConfidenceWrong": 0.5575399238012465,
+            "ceilingPct": 95.34883720930233,
+            "llmSharePct": 83.08668076109936
+          }
+        },
+        "no-exact": {
+          "real": {
+            "n": 282,
+            "top1": 152,
+            "top5": 219,
+            "top1Pct": 53.90070921985816,
+            "top5Pct": 77.6595744680851,
+            "highCount": 1,
+            "highCoveragePct": 0.3546099290780142,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.5898061719263474,
+            "meanConfidenceWrong": 0.5417562557828401,
+            "ceilingPct": 94.32624113475178,
+            "llmSharePct": 96.80851063829788
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 174,
+            "top5": 183,
+            "top1Pct": 91.09947643979058,
+            "top5Pct": 95.81151832460732,
+            "highCount": 12,
+            "highCoveragePct": 6.282722513089005,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7755844114541471,
+            "meanConfidenceWrong": 0.6981662775665096,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 79.05759162303664
+          },
+          "all": {
+            "n": 473,
+            "top1": 326,
+            "top5": 402,
+            "top1Pct": 68.92177589852008,
+            "top5Pct": 84.98942917547568,
+            "highCount": 13,
+            "highCoveragePct": 2.748414376321353,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6889638825945595,
+            "meanConfidenceWrong": 0.559844489594557,
+            "ceilingPct": 95.34883720930233,
+            "llmSharePct": 89.64059196617336
+          }
+        },
+        "no-lexical": {
+          "real": {
+            "n": 282,
+            "top1": 54,
+            "top5": 118,
+            "top1Pct": 19.148936170212767,
+            "top5Pct": 41.843971631205676,
+            "highCount": 13,
+            "highCoveragePct": 4.609929078014184,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7921136222886191,
+            "meanConfidenceWrong": 0.6769806472181217,
+            "ceilingPct": 43.262411347517734,
+            "llmSharePct": 93.61702127659575
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 143,
+            "top5": 158,
+            "top1Pct": 74.86910994764398,
+            "top5Pct": 82.72251308900523,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8731742706595323,
+            "meanConfidenceWrong": 0.6523609310365782,
+            "ceilingPct": 85.86387434554975,
+            "llmSharePct": 60.20942408376963
+          },
+          "all": {
+            "n": 473,
+            "top1": 197,
+            "top5": 276,
+            "top1Pct": 41.64904862579281,
+            "top5Pct": 58.350951374207185,
+            "highCount": 74,
+            "highCoveragePct": 15.644820295983086,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8509546005477066,
+            "meanConfidenceWrong": 0.6726989574474183,
+            "ceilingPct": 60.46511627906976,
+            "llmSharePct": 80.12684989429175
+          }
+        },
+        "no-vector": {
+          "real": {
+            "n": 282,
+            "top1": 200,
+            "top5": 250,
+            "top1Pct": 70.92198581560284,
+            "top5Pct": 88.65248226950354,
+            "highCount": 13,
+            "highCoveragePct": 4.609929078014184,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6296061433715375,
+            "meanConfidenceWrong": 0.658691142186663,
+            "ceilingPct": 90.42553191489363,
+            "llmSharePct": 92.19858156028369
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 162,
+            "top5": 175,
+            "top1Pct": 84.81675392670157,
+            "top5Pct": 91.62303664921467,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8409510967839867,
+            "meanConfidenceWrong": 0.6577270642984059,
+            "ceilingPct": 94.24083769633508,
+            "llmSharePct": 60.20942408376963
+          },
+          "all": {
+            "n": 473,
+            "top1": 362,
+            "top5": 425,
+            "top1Pct": 76.53276955602537,
+            "top5Pct": 89.85200845665962,
+            "highCount": 74,
+            "highCoveragePct": 15.644820295983086,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7241859291527971,
+            "meanConfidenceWrong": 0.6584392659816224,
+            "ceilingPct": 91.9661733615222,
+            "llmSharePct": 79.28118393234672
+          }
+        },
+        "no-rerank": {
+          "real": {
+            "n": 282,
+            "top1": 152,
+            "top5": 219,
+            "top1Pct": 53.90070921985816,
+            "top5Pct": 77.6595744680851,
+            "highCount": 13,
+            "highCoveragePct": 4.609929078014184,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6024748005824978,
+            "meanConfidenceWrong": 0.5417562557828401,
+            "ceilingPct": 94.32624113475178,
+            "llmSharePct": 0
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 176,
+            "top5": 184,
+            "top1Pct": 92.14659685863874,
+            "top5Pct": 96.33507853403141,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8148796489619629,
+            "meanConfidenceWrong": 0.6857966527304488,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 0
+          },
+          "all": {
+            "n": 473,
+            "top1": 328,
+            "top5": 403,
+            "top1Pct": 69.3446088794926,
+            "top5Pct": 85.20084566596195,
+            "highCount": 74,
+            "highCoveragePct": 15.644820295983086,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7164481338592822,
+            "meanConfidenceWrong": 0.5566569865015583,
+            "ceilingPct": 95.34883720930233,
+            "llmSharePct": 0
+          }
+        }
+      },
+      "metricsBySet": {
+        "full": {
+          "golden": {
+            "n": 12,
+            "top1": 9,
+            "top5": 10,
+            "top1Pct": 75,
+            "top5Pct": 83.33333333333334,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8262491756450999,
+            "meanConfidenceWrong": 0.6468026750601977,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 58.333333333333336
+          },
+          "real-construction": {
+            "n": 102,
+            "top1": 69,
+            "top5": 84,
+            "top1Pct": 67.64705882352942,
+            "top5Pct": 82.35294117647058,
+            "highCount": 8,
+            "highCoveragePct": 7.8431372549019605,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6849508989384545,
+            "meanConfidenceWrong": 0.5805521591646864,
+            "ceilingPct": 86.27450980392157,
+            "llmSharePct": 91.17647058823529
+          },
+          "real-metal": {
+            "n": 168,
+            "top1": 74,
+            "top5": 125,
+            "top1Pct": 44.047619047619044,
+            "top5Pct": 74.40476190476191,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0.4983556092024374,
+            "meanConfidenceWrong": 0.5247838720654678,
+            "ceilingPct": 100,
+            "llmSharePct": 99.40476190476191
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 176,
+            "top5": 184,
+            "top1Pct": 92.14659685863874,
+            "top5Pct": 96.33507853403141,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8148796489619629,
+            "meanConfidenceWrong": 0.6857966527304488,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 61.25654450261781
+          }
+        },
+        "no-barcode": {
+          "golden": {
+            "n": 12,
+            "top1": 9,
+            "top5": 10,
+            "top1Pct": 75,
+            "top5Pct": 83.33333333333334,
+            "highCount": 4,
+            "highCoveragePct": 33.33333333333333,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8048733209042224,
+            "meanConfidenceWrong": 0.6468026750601977,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 66.66666666666666
+          },
+          "real-construction": {
+            "n": 102,
+            "top1": 69,
+            "top5": 84,
+            "top1Pct": 67.64705882352942,
+            "top5Pct": 82.35294117647058,
+            "highCount": 8,
+            "highCoveragePct": 7.8431372549019605,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6849508989384545,
+            "meanConfidenceWrong": 0.5805521591646864,
+            "ceilingPct": 86.27450980392157,
+            "llmSharePct": 91.17647058823529
+          },
+          "real-metal": {
+            "n": 168,
+            "top1": 74,
+            "top5": 125,
+            "top1Pct": 44.047619047619044,
+            "top5Pct": 74.40476190476191,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0.4983556092024374,
+            "meanConfidenceWrong": 0.5247838720654678,
+            "ceilingPct": 100,
+            "llmSharePct": 99.40476190476191
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 174,
+            "top5": 184,
+            "top1Pct": 91.09947643979058,
+            "top5Pct": 96.33507853403141,
+            "highCount": 53,
+            "highCoveragePct": 27.748691099476442,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8029453222770565,
+            "meanConfidenceWrong": 0.6782385615890596,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 65.44502617801047
+          }
+        },
+        "no-exact": {
+          "golden": {
+            "n": 12,
+            "top1": 9,
+            "top5": 10,
+            "top1Pct": 75,
+            "top5Pct": 83.33333333333334,
+            "highCount": 1,
+            "highCoveragePct": 8.333333333333332,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7818047312006554,
+            "meanConfidenceWrong": 0.6468026750601977,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 66.66666666666666
+          },
+          "real-construction": {
+            "n": 102,
+            "top1": 69,
+            "top5": 84,
+            "top1Pct": 67.64705882352942,
+            "top5Pct": 82.35294117647058,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0.6628402966814275,
+            "meanConfidenceWrong": 0.5805521591646864,
+            "ceilingPct": 86.27450980392157,
+            "llmSharePct": 96.07843137254902
+          },
+          "real-metal": {
+            "n": 168,
+            "top1": 74,
+            "top5": 125,
+            "top1Pct": 44.047619047619044,
+            "top5Pct": 74.40476190476191,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0.4983556092024374,
+            "meanConfidenceWrong": 0.5247838720654678,
+            "ceilingPct": 100,
+            "llmSharePct": 99.40476190476191
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 174,
+            "top5": 183,
+            "top1Pct": 91.09947643979058,
+            "top5Pct": 95.81151832460732,
+            "highCount": 12,
+            "highCoveragePct": 6.282722513089005,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7755844114541471,
+            "meanConfidenceWrong": 0.6981662775665096,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 79.05759162303664
+          }
+        },
+        "no-lexical": {
+          "golden": {
+            "n": 12,
+            "top1": 9,
+            "top5": 10,
+            "top1Pct": 75,
+            "top5Pct": 83.33333333333334,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8930143021954451,
+            "meanConfidenceWrong": 0.8188375567913558,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 50
+          },
+          "real-construction": {
+            "n": 102,
+            "top1": 41,
+            "top5": 54,
+            "top1Pct": 40.19607843137255,
+            "top5Pct": 52.94117647058824,
+            "highCount": 8,
+            "highCoveragePct": 7.8431372549019605,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7749588702461669,
+            "meanConfidenceWrong": 0.6481745197554695,
+            "ceilingPct": 56.86274509803921,
+            "llmSharePct": 89.2156862745098
+          },
+          "real-metal": {
+            "n": 168,
+            "top1": 4,
+            "top5": 54,
+            "top1Pct": 2.380952380952381,
+            "top5Pct": 32.142857142857146,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0.7409233009333956,
+            "meanConfidenceWrong": 0.6851001779894766,
+            "ceilingPct": 32.142857142857146,
+            "llmSharePct": 99.40476190476191
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 143,
+            "top5": 158,
+            "top1Pct": 74.86910994764398,
+            "top5Pct": 82.72251308900523,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8731742706595323,
+            "meanConfidenceWrong": 0.6523609310365782,
+            "ceilingPct": 85.86387434554975,
+            "llmSharePct": 60.20942408376963
+          }
+        },
+        "no-vector": {
+          "golden": {
+            "n": 12,
+            "top1": 6,
+            "top5": 7,
+            "top1Pct": 50,
+            "top5Pct": 58.333333333333336,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.9325600899794434,
+            "meanConfidenceWrong": 0.6147552646085902,
+            "ceilingPct": 58.333333333333336,
+            "llmSharePct": 58.333333333333336
+          },
+          "real-construction": {
+            "n": 102,
+            "top1": 70,
+            "top5": 81,
+            "top1Pct": 68.62745098039215,
+            "top5Pct": 79.41176470588235,
+            "highCount": 8,
+            "highCoveragePct": 7.8431372549019605,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7343842176502358,
+            "meanConfidenceWrong": 0.6083192836155559,
+            "ceilingPct": 80.3921568627451,
+            "llmSharePct": 85.29411764705883
+          },
+          "real-metal": {
+            "n": 168,
+            "top1": 124,
+            "top5": 162,
+            "top1Pct": 73.80952380952381,
+            "top5Pct": 96.42857142857143,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0.5557981685396322,
+            "meanConfidenceWrong": 0.7013164771808437,
+            "ceilingPct": 98.80952380952381,
+            "llmSharePct": 98.80952380952381
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 162,
+            "top5": 175,
+            "top1Pct": 84.81675392670157,
+            "top5Pct": 91.62303664921467,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8409510967839867,
+            "meanConfidenceWrong": 0.6577270642984059,
+            "ceilingPct": 94.24083769633508,
+            "llmSharePct": 60.20942408376963
+          }
+        },
+        "no-rerank": {
+          "golden": {
+            "n": 12,
+            "top1": 9,
+            "top5": 10,
+            "top1Pct": 75,
+            "top5Pct": 83.33333333333334,
+            "highCount": 5,
+            "highCoveragePct": 41.66666666666667,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8262491756450999,
+            "meanConfidenceWrong": 0.6468026750601977,
+            "ceilingPct": 83.33333333333334,
+            "llmSharePct": 0
+          },
+          "real-construction": {
+            "n": 102,
+            "top1": 69,
+            "top5": 84,
+            "top1Pct": 67.64705882352942,
+            "top5Pct": 82.35294117647058,
+            "highCount": 8,
+            "highCoveragePct": 7.8431372549019605,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.6849508989384545,
+            "meanConfidenceWrong": 0.5805521591646864,
+            "ceilingPct": 86.27450980392157,
+            "llmSharePct": 0
+          },
+          "real-metal": {
+            "n": 168,
+            "top1": 74,
+            "top5": 125,
+            "top1Pct": 44.047619047619044,
+            "top5Pct": 74.40476190476191,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0.4983556092024374,
+            "meanConfidenceWrong": 0.5247838720654678,
+            "ceilingPct": 100,
+            "llmSharePct": 0
+          },
+          "synthetic": {
+            "n": 191,
+            "top1": 176,
+            "top5": 184,
+            "top1Pct": 92.14659685863874,
+            "top5Pct": 96.33507853403141,
+            "highCount": 61,
+            "highCoveragePct": 31.93717277486911,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.8148796489619629,
+            "meanConfidenceWrong": 0.6857966527304488,
+            "ceilingPct": 96.8586387434555,
+            "llmSharePct": 0
+          }
+        }
+      },
+      "llm": null,
+      "readRetries": 0,
+      "outcomes": [
+        {
+          "id": "golden.csv:2",
+          "source": "real",
+          "predicted": "06111001017008001",
+          "rank": null,
+          "confidence": 0.6543,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:3",
+          "source": "real",
+          "predicted": "04407001004000000",
+          "rank": 1,
+          "confidence": 0.6897,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:4",
+          "source": "real",
+          "predicted": "01701001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:5",
+          "source": "real",
+          "predicted": "00701001001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:6",
+          "source": "real",
+          "predicted": "10902001013000000",
+          "rank": 1,
+          "confidence": 0.7749,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:7",
+          "source": "real",
+          "predicted": "03004322008173002",
+          "rank": 2,
+          "confidence": 0.7066,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:8",
+          "source": "real",
+          "predicted": "02523002008000000",
+          "rank": 1,
+          "confidence": 0.5756,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:9",
+          "source": "real",
+          "predicted": "05705003001000000",
+          "rank": 1,
+          "confidence": 0.5961,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:10",
+          "source": "real",
+          "predicted": "06901001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:11",
+          "source": "real",
+          "predicted": "02103002006007027",
+          "rank": null,
+          "confidence": 0.5795,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "golden.csv:12",
+          "source": "real",
+          "predicted": "02202004002001001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "golden.csv:13",
+          "source": "real",
+          "predicted": "01901001003000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:2",
+          "source": "real",
+          "predicted": "02505001002000000",
+          "rank": 1,
+          "confidence": 0.6329,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:3",
+          "source": "real",
+          "predicted": "02505001002000000",
+          "rank": 1,
+          "confidence": 0.7574,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:4",
+          "source": "real",
+          "predicted": "02517001003000000",
+          "rank": 1,
+          "confidence": 0.7391,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:5",
+          "source": "real",
+          "predicted": "07016001003000000",
+          "rank": 2,
+          "confidence": 0.7179,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:6",
+          "source": "real",
+          "predicted": "07016001003000000",
+          "rank": 2,
+          "confidence": 0.8469,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:7",
+          "source": "real",
+          "predicted": "02520002003000000",
+          "rank": 1,
+          "confidence": 0.7662,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:8",
+          "source": "real",
+          "predicted": "02522003001000010",
+          "rank": 1,
+          "confidence": 0.6227,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:9",
+          "source": "real",
+          "predicted": "02522003002000000",
+          "rank": 1,
+          "confidence": 0.6398,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:10",
+          "source": "real",
+          "predicted": "02714001003000000",
+          "rank": 1,
+          "confidence": 0.5915,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:11",
+          "source": "real",
+          "predicted": "03214001081000003",
+          "rank": 2,
+          "confidence": 0.6541,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:12",
+          "source": "real",
+          "predicted": "02715001007000004",
+          "rank": 1,
+          "confidence": 0.6737,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:13",
+          "source": "real",
+          "predicted": "02403002001032012",
+          "rank": 3,
+          "confidence": 0.506,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:14",
+          "source": "real",
+          "predicted": "03004200005002001",
+          "rank": 3,
+          "confidence": 0.6816,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:15",
+          "source": "real",
+          "predicted": "03209004003000003",
+          "rank": 2,
+          "confidence": 0.5709,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:16",
+          "source": "real",
+          "predicted": "03208006011000000",
+          "rank": 1,
+          "confidence": 0.7183,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:17",
+          "source": "real",
+          "predicted": "03208007009057001",
+          "rank": 1,
+          "confidence": 0.5396,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:18",
+          "source": "real",
+          "predicted": "03209001005000008",
+          "rank": 1,
+          "confidence": 0.5295,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:19",
+          "source": "real",
+          "predicted": "03209001005044015",
+          "rank": 1,
+          "confidence": 0.6374,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:20",
+          "source": "real",
+          "predicted": "03208006011000043",
+          "rank": 2,
+          "confidence": 0.6465,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:21",
+          "source": "real",
+          "predicted": "03210001011000000",
+          "rank": 1,
+          "confidence": 0.6682,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:22",
+          "source": "real",
+          "predicted": "03210001023000004",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:23",
+          "source": "real",
+          "predicted": "03214001003000023",
+          "rank": 1,
+          "confidence": 0.6899,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:24",
+          "source": "real",
+          "predicted": "03214001005000002",
+          "rank": 1,
+          "confidence": 0.6531,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:25",
+          "source": "real",
+          "predicted": "03214001006000001",
+          "rank": 1,
+          "confidence": 0.5206,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:26",
+          "source": "real",
+          "predicted": "04814001001000053",
+          "rank": null,
+          "confidence": 0.5587,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:27",
+          "source": "real",
+          "predicted": "03214001021000000",
+          "rank": 1,
+          "confidence": 0.5955,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:28",
+          "source": "real",
+          "predicted": "03214001021000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:29",
+          "source": "real",
+          "predicted": "03214001022000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:30",
+          "source": "real",
+          "predicted": "03214001029000000",
+          "rank": 1,
+          "confidence": 0.8164,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:31",
+          "source": "real",
+          "predicted": "03214001044000046",
+          "rank": 1,
+          "confidence": 0.6426,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:32",
+          "source": "real",
+          "predicted": "03214001100000000",
+          "rank": 1,
+          "confidence": 0.7856,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:33",
+          "source": "real",
+          "predicted": "03907001004000000",
+          "rank": 1,
+          "confidence": 0.8259,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:34",
+          "source": "real",
+          "predicted": "03916001006000033",
+          "rank": 1,
+          "confidence": 0.5248,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:35",
+          "source": "real",
+          "predicted": "06811001003000000",
+          "rank": null,
+          "confidence": 0.8164,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:36",
+          "source": "real",
+          "predicted": "03917001006005756",
+          "rank": 4,
+          "confidence": 0.4865,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:37",
+          "source": "real",
+          "predicted": "06906001004000000",
+          "rank": null,
+          "confidence": 0.6721,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:38",
+          "source": "real",
+          "predicted": "03917001006000230",
+          "rank": 1,
+          "confidence": 0.534,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:39",
+          "source": "real",
+          "predicted": "03904001006000000",
+          "rank": null,
+          "confidence": 0.5738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:40",
+          "source": "real",
+          "predicted": "03904001006000000",
+          "rank": null,
+          "confidence": 0.5823,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:41",
+          "source": "real",
+          "predicted": "04407002010000061",
+          "rank": null,
+          "confidence": 0.4887,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:42",
+          "source": "real",
+          "predicted": "04407002109000001",
+          "rank": 1,
+          "confidence": 0.6351,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:43",
+          "source": "real",
+          "predicted": "04409001002000112",
+          "rank": 1,
+          "confidence": 0.5599,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:44",
+          "source": "real",
+          "predicted": "04410001001000048",
+          "rank": 1,
+          "confidence": 0.6381,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:45",
+          "source": "real",
+          "predicted": "08508001001009024",
+          "rank": 2,
+          "confidence": 0.5342,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:46",
+          "source": "real",
+          "predicted": "04410002001000000",
+          "rank": 1,
+          "confidence": 0.5958,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:47",
+          "source": "real",
+          "predicted": "04411001001000054",
+          "rank": 1,
+          "confidence": 0.6727,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:48",
+          "source": "real",
+          "predicted": "04411001003000000",
+          "rank": 1,
+          "confidence": 0.5929,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:49",
+          "source": "real",
+          "predicted": "08536009008000000",
+          "rank": null,
+          "confidence": 0.6593,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:50",
+          "source": "real",
+          "predicted": "04412001006000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:51",
+          "source": "real",
+          "predicted": "03214001003000001",
+          "rank": 2,
+          "confidence": 0.3689,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:52",
+          "source": "real",
+          "predicted": "04418002014000000",
+          "rank": null,
+          "confidence": 0.4321,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:53",
+          "source": "real",
+          "predicted": "04421001026000026",
+          "rank": 1,
+          "confidence": 0.6242,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:54",
+          "source": "real",
+          "predicted": "04421001006000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:55",
+          "source": "real",
+          "predicted": "04814001001000033",
+          "rank": 1,
+          "confidence": 0.6473,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:56",
+          "source": "real",
+          "predicted": "05703001002000010",
+          "rank": 1,
+          "confidence": 0.5992,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:57",
+          "source": "real",
+          "predicted": "05904001001000064",
+          "rank": 1,
+          "confidence": 0.6085,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:58",
+          "source": "real",
+          "predicted": "06801001001000045",
+          "rank": 1,
+          "confidence": 0.6096,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:59",
+          "source": "real",
+          "predicted": "06801001004000015",
+          "rank": 1,
+          "confidence": 0.6987,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:60",
+          "source": "real",
+          "predicted": "06802001021000050",
+          "rank": 1,
+          "confidence": 0.6356,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:61",
+          "source": "real",
+          "predicted": "06802001023000667",
+          "rank": 1,
+          "confidence": 0.7477,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:62",
+          "source": "real",
+          "predicted": "06802001015000004",
+          "rank": 1,
+          "confidence": 0.6829,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:63",
+          "source": "real",
+          "predicted": "06810006002027935",
+          "rank": null,
+          "confidence": 0.4129,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:64",
+          "source": "real",
+          "predicted": null,
+          "rank": null,
+          "confidence": 0,
+          "band": "none",
+          "decidedBy": "none",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:65",
+          "source": "real",
+          "predicted": "06806001026000002",
+          "rank": 1,
+          "confidence": 0.7145,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:66",
+          "source": "real",
+          "predicted": "06807001002000000",
+          "rank": 1,
+          "confidence": 0.7641,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:67",
+          "source": "real",
+          "predicted": "06807001003000000",
+          "rank": 1,
+          "confidence": 0.7556,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:68",
+          "source": "real",
+          "predicted": "06809001002000000",
+          "rank": 1,
+          "confidence": 0.612,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:69",
+          "source": "real",
+          "predicted": "06809001002000052",
+          "rank": 1,
+          "confidence": 0.5459,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:70",
+          "source": "real",
+          "predicted": "06809001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:71",
+          "source": "real",
+          "predicted": "06810008003000000",
+          "rank": 1,
+          "confidence": 0.8201,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:72",
+          "source": "real",
+          "predicted": "06810999038000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:73",
+          "source": "real",
+          "predicted": "06810999001000006",
+          "rank": 1,
+          "confidence": 0.6502,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:74",
+          "source": "real",
+          "predicted": "06810999002000000",
+          "rank": 1,
+          "confidence": 0.7289,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:75",
+          "source": "real",
+          "predicted": "06810006013000101",
+          "rank": 1,
+          "confidence": 0.6687,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:76",
+          "source": "real",
+          "predicted": "06810006002000000",
+          "rank": 1,
+          "confidence": 0.6947,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:77",
+          "source": "real",
+          "predicted": "06810006020000000",
+          "rank": 1,
+          "confidence": 0.7501,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:78",
+          "source": "real",
+          "predicted": "06811003004000000",
+          "rank": 1,
+          "confidence": 0.6224,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:79",
+          "source": "real",
+          "predicted": "06815001020000000",
+          "rank": 1,
+          "confidence": 0.5758,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:80",
+          "source": "real",
+          "predicted": "06901001002000071",
+          "rank": 1,
+          "confidence": 0.52,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:81",
+          "source": "real",
+          "predicted": "06815001019000000",
+          "rank": 2,
+          "confidence": 0.5979,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:82",
+          "source": "real",
+          "predicted": "06904001004000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-construction.csv:83",
+          "source": "real",
+          "predicted": "06810006046000913",
+          "rank": null,
+          "confidence": 0.6077,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:84",
+          "source": "real",
+          "predicted": "06905001001000004",
+          "rank": 1,
+          "confidence": 0.4991,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:85",
+          "source": "real",
+          "predicted": "06907002002000000",
+          "rank": 2,
+          "confidence": 0.7277,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:86",
+          "source": "real",
+          "predicted": "06811003002000000",
+          "rank": null,
+          "confidence": 0.6197,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:87",
+          "source": "real",
+          "predicted": "07227200001000001",
+          "rank": 2,
+          "confidence": 0.4334,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:88",
+          "source": "real",
+          "predicted": "06811003002000000",
+          "rank": null,
+          "confidence": 0.6197,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:89",
+          "source": "real",
+          "predicted": "07408001002000000",
+          "rank": 2,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:90",
+          "source": "real",
+          "predicted": "07216001007000000",
+          "rank": null,
+          "confidence": 0.7982,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:91",
+          "source": "real",
+          "predicted": "07216001010000007",
+          "rank": 1,
+          "confidence": 0.7005,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:92",
+          "source": "real",
+          "predicted": "07216001004000000",
+          "rank": 1,
+          "confidence": 0.762,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:93",
+          "source": "real",
+          "predicted": "07216001001000150",
+          "rank": 1,
+          "confidence": 0.7121,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:94",
+          "source": "real",
+          "predicted": "07216001006000726",
+          "rank": 1,
+          "confidence": 0.4263,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:95",
+          "source": "real",
+          "predicted": "07313001001000000",
+          "rank": null,
+          "confidence": 0.5031,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:96",
+          "source": "real",
+          "predicted": "07314002001000934",
+          "rank": 1,
+          "confidence": 0.6117,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:97",
+          "source": "real",
+          "predicted": "07308005020000083",
+          "rank": 1,
+          "confidence": 0.5621,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:98",
+          "source": "real",
+          "predicted": "07308001020000645",
+          "rank": 1,
+          "confidence": 0.5063,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:99",
+          "source": "real",
+          "predicted": "07409001003000000",
+          "rank": 3,
+          "confidence": 0.6285,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:100",
+          "source": "real",
+          "predicted": "02202002001010080",
+          "rank": null,
+          "confidence": 0.5903,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:101",
+          "source": "real",
+          "predicted": "04418002002000001",
+          "rank": null,
+          "confidence": 0.26,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:102",
+          "source": "real",
+          "predicted": "08516007007000000",
+          "rank": 1,
+          "confidence": 0.8055,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-construction.csv:103",
+          "source": "real",
+          "predicted": "02714001001000000",
+          "rank": null,
+          "confidence": 0.7124,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:2",
+          "source": "real",
+          "predicted": "07306001005003162",
+          "rank": 1,
+          "confidence": 0.4355,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:3",
+          "source": "real",
+          "predicted": "07306001005003162",
+          "rank": 1,
+          "confidence": 0.4355,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:4",
+          "source": "real",
+          "predicted": "07306001005003162",
+          "rank": 1,
+          "confidence": 0.4355,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:5",
+          "source": "real",
+          "predicted": "07306001005003162",
+          "rank": 1,
+          "confidence": 0.4355,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:6",
+          "source": "real",
+          "predicted": "07306001005003162",
+          "rank": 1,
+          "confidence": 0.4355,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:7",
+          "source": "real",
+          "predicted": "07306001005003162",
+          "rank": 1,
+          "confidence": 0.4355,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:8",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:9",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:10",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:11",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:12",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:13",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:14",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:15",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:16",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:17",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:18",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:19",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:20",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:21",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:22",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:23",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": 1,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:24",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": null,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:25",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": null,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:26",
+          "source": "real",
+          "predicted": "07306001005000361",
+          "rank": null,
+          "confidence": 0.3738,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:27",
+          "source": "real",
+          "predicted": "07304001001000473",
+          "rank": 1,
+          "confidence": 0.4073,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:28",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:29",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:30",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:31",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:32",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:33",
+          "source": "real",
+          "predicted": "07304001001000473",
+          "rank": 1,
+          "confidence": 0.4073,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:34",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:35",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:36",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:37",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:38",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:39",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:40",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:41",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:42",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:43",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:44",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:45",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:46",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:47",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:48",
+          "source": "real",
+          "predicted": "07306001005000247",
+          "rank": 1,
+          "confidence": 0.4062,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:49",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:50",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:51",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:52",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:53",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:54",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:55",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:56",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:57",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:58",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:59",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:60",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:61",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:62",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:63",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:64",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:65",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:66",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:67",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:68",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:69",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:70",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:71",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:72",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:73",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:74",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:75",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:76",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:77",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:78",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:79",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:80",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:81",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:82",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:83",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:84",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:85",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:86",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:87",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:88",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:89",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:90",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:91",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:92",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:93",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:94",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:95",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:96",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:97",
+          "source": "real",
+          "predicted": "07216001015000001",
+          "rank": 3,
+          "confidence": 0.45,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:98",
+          "source": "real",
+          "predicted": "06811003002000000",
+          "rank": null,
+          "confidence": 0.6197,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:99",
+          "source": "real",
+          "predicted": "06811003002000000",
+          "rank": null,
+          "confidence": 0.6197,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:100",
+          "source": "real",
+          "predicted": "07227200001000001",
+          "rank": 2,
+          "confidence": 0.4309,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:101",
+          "source": "real",
+          "predicted": "07408001002000000",
+          "rank": 2,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:102",
+          "source": "real",
+          "predicted": "07216001007000000",
+          "rank": 1,
+          "confidence": 0.7982,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:103",
+          "source": "real",
+          "predicted": "07216001010000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "real-metal.csv:104",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:105",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:106",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:107",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:108",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:109",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:110",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:111",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:112",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:113",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:114",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:115",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:116",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:117",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:118",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:119",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:120",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:121",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:122",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:123",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:124",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:125",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:126",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:127",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:128",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:129",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:130",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:131",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:132",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:133",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:134",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:135",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:136",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:137",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:138",
+          "source": "real",
+          "predicted": "07219001001000007",
+          "rank": null,
+          "confidence": 0.6238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:139",
+          "source": "real",
+          "predicted": "07409001002000000",
+          "rank": null,
+          "confidence": 0.6014,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:140",
+          "source": "real",
+          "predicted": "07409001002000000",
+          "rank": null,
+          "confidence": 0.6014,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:141",
+          "source": "real",
+          "predicted": "07409001002000000",
+          "rank": null,
+          "confidence": 0.6014,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:142",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:143",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:144",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:145",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:146",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:147",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:148",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:149",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:150",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:151",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:152",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:153",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:154",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:155",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:156",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:157",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:158",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:159",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:160",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:161",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:162",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:163",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:164",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:165",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:166",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:167",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:168",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "real-metal.csv:169",
+          "source": "real",
+          "predicted": "07209002001000033",
+          "rank": 1,
+          "confidence": 0.6321,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:2",
+          "source": "synthetic",
+          "predicted": "08516006009002369",
+          "rank": 2,
+          "confidence": 0.8175,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:3",
+          "source": "synthetic",
+          "predicted": "08528002001030001",
+          "rank": 1,
+          "confidence": 0.8332,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:4",
+          "source": "synthetic",
+          "predicted": "08516999043033010",
+          "rank": 2,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:5",
+          "source": "synthetic",
+          "predicted": "02402001001012012",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:6",
+          "source": "synthetic",
+          "predicted": "00602999018000000",
+          "rank": 1,
+          "confidence": 0.7873,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:7",
+          "source": "synthetic",
+          "predicted": "07616002002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:8",
+          "source": "synthetic",
+          "predicted": "02505001004000209",
+          "rank": 1,
+          "confidence": 0.7089,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:9",
+          "source": "synthetic",
+          "predicted": "06911001038001085",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:10",
+          "source": "synthetic",
+          "predicted": "07321001003013001",
+          "rank": null,
+          "confidence": 0.6823,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:11",
+          "source": "synthetic",
+          "predicted": "10499001015000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:12",
+          "source": "synthetic",
+          "predicted": "07204001002000000",
+          "rank": 1,
+          "confidence": 0.8428,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:13",
+          "source": "synthetic",
+          "predicted": "03920001019000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:14",
+          "source": "synthetic",
+          "predicted": "08205001013000000",
+          "rank": 1,
+          "confidence": 0.7836,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:15",
+          "source": "synthetic",
+          "predicted": "11307015003000000",
+          "rank": 1,
+          "confidence": 0.8458,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:16",
+          "source": "synthetic",
+          "predicted": "08415001007018029",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:17",
+          "source": "synthetic",
+          "predicted": "07321001010020013",
+          "rank": 2,
+          "confidence": 0.7843,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:18",
+          "source": "synthetic",
+          "predicted": "03304017002000001",
+          "rank": 1,
+          "confidence": 0.6626,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:19",
+          "source": "synthetic",
+          "predicted": "02833001001000033",
+          "rank": 1,
+          "confidence": 0.6136,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:20",
+          "source": "synthetic",
+          "predicted": "06911001004007058",
+          "rank": 1,
+          "confidence": 0.7283,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:21",
+          "source": "synthetic",
+          "predicted": "10399001001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:22",
+          "source": "synthetic",
+          "predicted": "08415001007018001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:23",
+          "source": "synthetic",
+          "predicted": "08450001003009004",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:24",
+          "source": "synthetic",
+          "predicted": "06810004001000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:25",
+          "source": "synthetic",
+          "predicted": "07403002002000000",
+          "rank": 1,
+          "confidence": 0.8155,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:26",
+          "source": "synthetic",
+          "predicted": "00806001001008002",
+          "rank": 1,
+          "confidence": 0.6955,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:27",
+          "source": "synthetic",
+          "predicted": "00403003002000001",
+          "rank": 1,
+          "confidence": 0.7238,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:28",
+          "source": "synthetic",
+          "predicted": "07116001001000000",
+          "rank": 1,
+          "confidence": 0.71,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:29",
+          "source": "synthetic",
+          "predicted": "03209001005000000",
+          "rank": 1,
+          "confidence": 0.6208,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:30",
+          "source": "synthetic",
+          "predicted": "07323001002005007",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:31",
+          "source": "synthetic",
+          "predicted": "06812001003000011",
+          "rank": 1,
+          "confidence": 0.6616,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:32",
+          "source": "synthetic",
+          "predicted": "02106999028028026",
+          "rank": 1,
+          "confidence": 0.6422,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:33",
+          "source": "synthetic",
+          "predicted": "07019001020000003",
+          "rank": 1,
+          "confidence": 0.6787,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:34",
+          "source": "synthetic",
+          "predicted": "02106999031000000",
+          "rank": 1,
+          "confidence": 0.7853,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:35",
+          "source": "synthetic",
+          "predicted": "02402002001003136",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:36",
+          "source": "synthetic",
+          "predicted": "03006001009000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:37",
+          "source": "synthetic",
+          "predicted": "02106999028036007",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:38",
+          "source": "synthetic",
+          "predicted": "02507001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:39",
+          "source": "synthetic",
+          "predicted": "04811001001001004",
+          "rank": 1,
+          "confidence": 0.6666,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:40",
+          "source": "synthetic",
+          "predicted": "08704001001029001",
+          "rank": 1,
+          "confidence": 0.7331,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:41",
+          "source": "synthetic",
+          "predicted": "06810006045000004",
+          "rank": 1,
+          "confidence": 0.7036,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:42",
+          "source": "synthetic",
+          "predicted": "05201001007000003",
+          "rank": null,
+          "confidence": 0.6595,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:43",
+          "source": "synthetic",
+          "predicted": "01601001001232002",
+          "rank": 1,
+          "confidence": 0.7102,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:44",
+          "source": "synthetic",
+          "predicted": "04016001100000000",
+          "rank": 1,
+          "confidence": 0.7355,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:45",
+          "source": "synthetic",
+          "predicted": "01704001016025091",
+          "rank": 1,
+          "confidence": 0.6974,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:46",
+          "source": "synthetic",
+          "predicted": "06302003001001047",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:47",
+          "source": "synthetic",
+          "predicted": "03215001001000000",
+          "rank": 1,
+          "confidence": 0.8177,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:48",
+          "source": "synthetic",
+          "predicted": "08702001001014001",
+          "rank": 1,
+          "confidence": 0.6003,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:49",
+          "source": "synthetic",
+          "predicted": "11199001038000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:50",
+          "source": "synthetic",
+          "predicted": "00810999015000000",
+          "rank": 1,
+          "confidence": 0.7877,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:51",
+          "source": "synthetic",
+          "predicted": "03209004003000003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:52",
+          "source": "synthetic",
+          "predicted": "02402002001003087",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:53",
+          "source": "synthetic",
+          "predicted": "00602999038000354",
+          "rank": 1,
+          "confidence": 0.7501,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:54",
+          "source": "synthetic",
+          "predicted": "09011001001000003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:55",
+          "source": "synthetic",
+          "predicted": "08110001002000000",
+          "rank": 1,
+          "confidence": 0.7351,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:56",
+          "source": "synthetic",
+          "predicted": "02933001003000000",
+          "rank": 1,
+          "confidence": 0.8104,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:57",
+          "source": "synthetic",
+          "predicted": "01517001002000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:58",
+          "source": "synthetic",
+          "predicted": "00206001010000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:59",
+          "source": "synthetic",
+          "predicted": "03103001002000002",
+          "rank": 1,
+          "confidence": 0.6981,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:60",
+          "source": "synthetic",
+          "predicted": "07608001004000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:61",
+          "source": "synthetic",
+          "predicted": "04407001019000002",
+          "rank": null,
+          "confidence": 0.638,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:62",
+          "source": "synthetic",
+          "predicted": "04421001016000000",
+          "rank": 1,
+          "confidence": 0.8349,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:63",
+          "source": "synthetic",
+          "predicted": "04420001007000000",
+          "rank": 1,
+          "confidence": 0.623,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:64",
+          "source": "synthetic",
+          "predicted": "06302001007016002",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:65",
+          "source": "synthetic",
+          "predicted": "07216001001000115",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:66",
+          "source": "synthetic",
+          "predicted": "05201001006000005",
+          "rank": 1,
+          "confidence": 0.6178,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:67",
+          "source": "synthetic",
+          "predicted": "06115001001053005",
+          "rank": 1,
+          "confidence": 0.7023,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:68",
+          "source": "synthetic",
+          "predicted": "02202002005152002",
+          "rank": null,
+          "confidence": 0.57,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:69",
+          "source": "synthetic",
+          "predicted": "06115001001011015",
+          "rank": 4,
+          "confidence": 0.7081,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:70",
+          "source": "synthetic",
+          "predicted": "02505001004000062",
+          "rank": 1,
+          "confidence": 0.6903,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:71",
+          "source": "synthetic",
+          "predicted": "06115001001007001",
+          "rank": 1,
+          "confidence": 0.6923,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:72",
+          "source": "synthetic",
+          "predicted": "04016002005000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:73",
+          "source": "synthetic",
+          "predicted": "06911001004007063",
+          "rank": 1,
+          "confidence": 0.7155,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:74",
+          "source": "synthetic",
+          "predicted": "02714005001000000",
+          "rank": 1,
+          "confidence": 0.8289,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:75",
+          "source": "synthetic",
+          "predicted": "08711001005000000",
+          "rank": 1,
+          "confidence": 0.8429,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:76",
+          "source": "synthetic",
+          "predicted": "07013002004000000",
+          "rank": 1,
+          "confidence": 0.6537,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:77",
+          "source": "synthetic",
+          "predicted": "00602005005000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:78",
+          "source": "synthetic",
+          "predicted": "03504001001000000",
+          "rank": 1,
+          "confidence": 0.6554,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:79",
+          "source": "synthetic",
+          "predicted": "05509002001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:80",
+          "source": "synthetic",
+          "predicted": "03401001001113001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:81",
+          "source": "synthetic",
+          "predicted": "01905012001886001",
+          "rank": 1,
+          "confidence": 0.7101,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:82",
+          "source": "synthetic",
+          "predicted": "01904003001000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:83",
+          "source": "synthetic",
+          "predicted": "10011001001000000",
+          "rank": 1,
+          "confidence": 0.7206,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:84",
+          "source": "synthetic",
+          "predicted": "02710001008000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:85",
+          "source": "synthetic",
+          "predicted": "03403001001000015",
+          "rank": 1,
+          "confidence": 0.6029,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:86",
+          "source": "synthetic",
+          "predicted": "03304999052000000",
+          "rank": 1,
+          "confidence": 0.7021,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:87",
+          "source": "synthetic",
+          "predicted": "07604001003000000",
+          "rank": 1,
+          "confidence": 0.5643,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:88",
+          "source": "synthetic",
+          "predicted": "07216001018000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:89",
+          "source": "synthetic",
+          "predicted": "02835001005000003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:90",
+          "source": "synthetic",
+          "predicted": "06211001014000000",
+          "rank": 1,
+          "confidence": 0.8364,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:91",
+          "source": "synthetic",
+          "predicted": "00806001001001001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:92",
+          "source": "synthetic",
+          "predicted": "09016001001000000",
+          "rank": 1,
+          "confidence": 0.7164,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:93",
+          "source": "synthetic",
+          "predicted": "06214001013001005",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:94",
+          "source": "synthetic",
+          "predicted": "00403999005069001",
+          "rank": 1,
+          "confidence": 0.737,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:95",
+          "source": "synthetic",
+          "predicted": "05503002002000000",
+          "rank": 1,
+          "confidence": 0.7739,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:96",
+          "source": "synthetic",
+          "predicted": "02835001001000001",
+          "rank": 3,
+          "confidence": 0.6901,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:97",
+          "source": "synthetic",
+          "predicted": "01905002004060001",
+          "rank": 1,
+          "confidence": 0.7164,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:98",
+          "source": "synthetic",
+          "predicted": "05802001001000000",
+          "rank": 1,
+          "confidence": 0.845,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:99",
+          "source": "synthetic",
+          "predicted": "03402001042000000",
+          "rank": 2,
+          "confidence": 0.582,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:100",
+          "source": "synthetic",
+          "predicted": "03402002004072001",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:101",
+          "source": "synthetic",
+          "predicted": "10604002001000000",
+          "rank": 1,
+          "confidence": 0.7498,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:102",
+          "source": "synthetic",
+          "predicted": "01901001006012053",
+          "rank": null,
+          "confidence": 0.5474,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:103",
+          "source": "synthetic",
+          "predicted": "08607001002000000",
+          "rank": 1,
+          "confidence": 0.5809,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:104",
+          "source": "synthetic",
+          "predicted": "00206001013000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:105",
+          "source": "synthetic",
+          "predicted": "07017001009000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:106",
+          "source": "synthetic",
+          "predicted": "10701001008000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:107",
+          "source": "synthetic",
+          "predicted": "02710004004000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:108",
+          "source": "synthetic",
+          "predicted": "00406001001117001",
+          "rank": 1,
+          "confidence": 0.5789,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:109",
+          "source": "synthetic",
+          "predicted": "04202001004002002",
+          "rank": 1,
+          "confidence": 0.7073,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:110",
+          "source": "synthetic",
+          "predicted": "09011001001000000",
+          "rank": 1,
+          "confidence": 0.7046,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:111",
+          "source": "synthetic",
+          "predicted": "10402001009000000",
+          "rank": 1,
+          "confidence": 0.7243,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:112",
+          "source": "synthetic",
+          "predicted": "02208015004000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:113",
+          "source": "synthetic",
+          "predicted": "05701001001007001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:114",
+          "source": "synthetic",
+          "predicted": "02904001004000000",
+          "rank": 1,
+          "confidence": 0.7311,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:115",
+          "source": "synthetic",
+          "predicted": "03902001002000000",
+          "rank": 1,
+          "confidence": 0.8144,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:116",
+          "source": "synthetic",
+          "predicted": "01108001002003002",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:117",
+          "source": "synthetic",
+          "predicted": "03808001004000014",
+          "rank": 1,
+          "confidence": 0.7703,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:118",
+          "source": "synthetic",
+          "predicted": "03006001004000000",
+          "rank": 1,
+          "confidence": 0.773,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:119",
+          "source": "synthetic",
+          "predicted": "06307002013000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:120",
+          "source": "synthetic",
+          "predicted": "00307002004000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:121",
+          "source": "synthetic",
+          "predicted": "11199002017000000",
+          "rank": 1,
+          "confidence": 0.8109,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:122",
+          "source": "synthetic",
+          "predicted": "03306001012000000",
+          "rank": 1,
+          "confidence": 0.8041,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:123",
+          "source": "synthetic",
+          "predicted": "10202001002000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:124",
+          "source": "synthetic",
+          "predicted": "06214001013001008",
+          "rank": 1,
+          "confidence": 0.7169,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:125",
+          "source": "synthetic",
+          "predicted": "09207001002000000",
+          "rank": 1,
+          "confidence": 0.7692,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:126",
+          "source": "synthetic",
+          "predicted": "04911001021000000",
+          "rank": 1,
+          "confidence": 0.8117,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:127",
+          "source": "synthetic",
+          "predicted": "08212001001004026",
+          "rank": 1,
+          "confidence": 0.7215,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:128",
+          "source": "synthetic",
+          "predicted": "03919001002001007",
+          "rank": 1,
+          "confidence": 0.7196,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:129",
+          "source": "synthetic",
+          "predicted": "01806001008003005",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:130",
+          "source": "synthetic",
+          "predicted": "09401001028000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:131",
+          "source": "synthetic",
+          "predicted": "10602005001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:132",
+          "source": "synthetic",
+          "predicted": "07207001007000000",
+          "rank": 2,
+          "confidence": 0.7435,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:133",
+          "source": "synthetic",
+          "predicted": "08214001002001012",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:134",
+          "source": "synthetic",
+          "predicted": "07113002012000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:135",
+          "source": "synthetic",
+          "predicted": "09403001127000166",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:136",
+          "source": "synthetic",
+          "predicted": "03801001003000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:137",
+          "source": "synthetic",
+          "predicted": "07411001005000000",
+          "rank": 1,
+          "confidence": 0.8406,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:138",
+          "source": "synthetic",
+          "predicted": "01105001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:139",
+          "source": "synthetic",
+          "predicted": "09405007001000000",
+          "rank": 1,
+          "confidence": 0.7614,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:140",
+          "source": "synthetic",
+          "predicted": "02202004004025009",
+          "rank": 1,
+          "confidence": 0.8001,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:141",
+          "source": "synthetic",
+          "predicted": "06701001003000000",
+          "rank": 1,
+          "confidence": 0.7348,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:142",
+          "source": "synthetic",
+          "predicted": "07108001010000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:143",
+          "source": "synthetic",
+          "predicted": "09603004005000000",
+          "rank": 1,
+          "confidence": 0.7122,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:144",
+          "source": "synthetic",
+          "predicted": "04016001104000000",
+          "rank": 1,
+          "confidence": 0.8198,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:145",
+          "source": "synthetic",
+          "predicted": "01209001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:146",
+          "source": "synthetic",
+          "predicted": "06505001017000000",
+          "rank": 1,
+          "confidence": 0.6149,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:147",
+          "source": "synthetic",
+          "predicted": "00709001002000000",
+          "rank": 1,
+          "confidence": 0.4914,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:148",
+          "source": "synthetic",
+          "predicted": "01104001001000000",
+          "rank": 1,
+          "confidence": 0.8355,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:149",
+          "source": "synthetic",
+          "predicted": "01704001016025087",
+          "rank": 1,
+          "confidence": 0.709,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:150",
+          "source": "synthetic",
+          "predicted": "07802001001000000",
+          "rank": 1,
+          "confidence": 0.7958,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:151",
+          "source": "synthetic",
+          "predicted": "05702001001008002",
+          "rank": 1,
+          "confidence": 0.7277,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:152",
+          "source": "synthetic",
+          "predicted": "04802001001000003",
+          "rank": 1,
+          "confidence": 0.7061,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:153",
+          "source": "synthetic",
+          "predicted": "03824999015003011",
+          "rank": 1,
+          "confidence": 1,
+          "band": "high",
+          "decidedBy": "barcode",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:154",
+          "source": "synthetic",
+          "predicted": "02007002003007008",
+          "rank": 1,
+          "confidence": 0.6225,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:155",
+          "source": "synthetic",
+          "predicted": "05806001006000000",
+          "rank": 1,
+          "confidence": 0.7635,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:156",
+          "source": "synthetic",
+          "predicted": "01704001016141003",
+          "rank": 1,
+          "confidence": 0.7205,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:157",
+          "source": "synthetic",
+          "predicted": "10902003055000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:158",
+          "source": "synthetic",
+          "predicted": "04911003001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:159",
+          "source": "synthetic",
+          "predicted": "00708001001012001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:160",
+          "source": "synthetic",
+          "predicted": "10311001001000000",
+          "rank": 1,
+          "confidence": 0.8342,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:161",
+          "source": "synthetic",
+          "predicted": "00704001001006001",
+          "rank": 1,
+          "confidence": 0.5982,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:162",
+          "source": "synthetic",
+          "predicted": "03105003001000000",
+          "rank": null,
+          "confidence": 0.7983,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:163",
+          "source": "synthetic",
+          "predicted": "04911001005000000",
+          "rank": 1,
+          "confidence": 0.7822,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:164",
+          "source": "synthetic",
+          "predicted": "09603004003000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:165",
+          "source": "synthetic",
+          "predicted": "10699001019000000",
+          "rank": 1,
+          "confidence": 0.8378,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:166",
+          "source": "synthetic",
+          "predicted": "11199001061000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:167",
+          "source": "synthetic",
+          "predicted": "05401001001000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:168",
+          "source": "synthetic",
+          "predicted": "01803001001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:169",
+          "source": "synthetic",
+          "predicted": "05201001006000005",
+          "rank": null,
+          "confidence": 0.5935,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:170",
+          "source": "synthetic",
+          "predicted": "05702001001008003",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:171",
+          "source": "synthetic",
+          "predicted": "04504002001000000",
+          "rank": 1,
+          "confidence": 0.7966,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:172",
+          "source": "synthetic",
+          "predicted": "10902001045000000",
+          "rank": 1,
+          "confidence": 0.7814,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:173",
+          "source": "synthetic",
+          "predicted": "00104001005000000",
+          "rank": 1,
+          "confidence": 0.8388,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:174",
+          "source": "synthetic",
+          "predicted": "08603001002000002",
+          "rank": 1,
+          "confidence": 0.5836,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:175",
+          "source": "synthetic",
+          "predicted": "01806003003029004",
+          "rank": 1,
+          "confidence": 0.6996,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:176",
+          "source": "synthetic",
+          "predicted": "03102002001000001",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:177",
+          "source": "synthetic",
+          "predicted": "10105001004000000",
+          "rank": 1,
+          "confidence": 0.7595,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:178",
+          "source": "synthetic",
+          "predicted": "08306002006000000",
+          "rank": 1,
+          "confidence": 0.7968,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:179",
+          "source": "synthetic",
+          "predicted": "02008001014000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:180",
+          "source": "synthetic",
+          "predicted": "00306002002000000",
+          "rank": 1,
+          "confidence": 0.617,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:181",
+          "source": "synthetic",
+          "predicted": "09603011009000000",
+          "rank": 2,
+          "confidence": 0.6224,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:182",
+          "source": "synthetic",
+          "predicted": "08113001002000000",
+          "rank": 1,
+          "confidence": 0.8466,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:183",
+          "source": "synthetic",
+          "predicted": "10304017002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:184",
+          "source": "synthetic",
+          "predicted": "07409001004000000",
+          "rank": 1,
+          "confidence": 0.7873,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:185",
+          "source": "synthetic",
+          "predicted": "10107002001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:186",
+          "source": "synthetic",
+          "predicted": "05602001003000000",
+          "rank": 1,
+          "confidence": 0.8214,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:187",
+          "source": "synthetic",
+          "predicted": "00101001001000000",
+          "rank": 1,
+          "confidence": 0.6354,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:188",
+          "source": "synthetic",
+          "predicted": "10902002001000003",
+          "rank": 1,
+          "confidence": 0.7151,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:189",
+          "source": "synthetic",
+          "predicted": "01501001001000000",
+          "rank": 1,
+          "confidence": 0.85,
+          "band": "medium",
+          "decidedBy": "fusion",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:190",
+          "source": "synthetic",
+          "predicted": "10015001003000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "synthetic.csv:191",
+          "source": "synthetic",
+          "predicted": "04804001001000001",
+          "rank": 1,
+          "confidence": 0.5584,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "synthetic.csv:192",
+          "source": "synthetic",
+          "predicted": "09801002003000001",
+          "rank": 1,
+          "confidence": 0.5668,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        }
+      ],
+      "realTop5Misses": [
+        {
+          "id": "golden.csv:2",
+          "query": "bolalar uchun rezina soska chicco",
+          "correctCode": "03926001020000000",
+          "shared": [],
+          "inflection": [],
+          "queryOnly": [
+            "bolalar",
+            "uchun",
+            "rezina",
+            "soska",
+            "chicco"
+          ]
+        },
+        {
+          "id": "golden.csv:11",
+          "query": "palov",
+          "correctCode": "10202001006000001",
+          "shared": [],
+          "inflection": [],
+          "queryOnly": [
+            "palov"
+          ]
+        },
+        {
+          "id": "real-construction.csv:26",
+          "query": "jidkiye oboi shelkoviye",
+          "correctCode": "03214001019000000",
+          "shared": [
+            "jidkiye",
+            "oboi"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "shelkoviye"
+          ]
+        },
+        {
+          "id": "real-construction.csv:35",
+          "query": "truba",
+          "correctCode": "03917001001000000",
+          "shared": [],
+          "inflection": [],
+          "queryOnly": [
+            "truba"
+          ]
+        },
+        {
+          "id": "real-construction.csv:37",
+          "query": "fiting ugol",
+          "correctCode": "03917001006000000",
+          "shared": [],
+          "inflection": [
+            "fiting~fitingi"
+          ],
+          "queryOnly": [
+            "ugol"
+          ]
+        },
+        {
+          "id": "real-construction.csv:39",
+          "query": "podokonnik pvx polivinilxloridniye beliy",
+          "correctCode": "03919001003000000",
+          "shared": [
+            "podokonnik"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "pvx",
+            "polivinilxloridniye",
+            "beliy"
+          ]
+        },
+        {
+          "id": "real-construction.csv:40",
+          "query": "okno pvx polivinilxloridniye dvuxstvorchatoye",
+          "correctCode": "03925001008000000",
+          "shared": [],
+          "inflection": [],
+          "queryOnly": [
+            "okno",
+            "pvx",
+            "polivinilxloridniye",
+            "dvuxstvorchatoye"
+          ]
+        },
+        {
+          "id": "real-construction.csv:41",
+          "query": "doska obreznaya sosna",
+          "correctCode": "04407001001000000",
+          "shared": [
+            "sosna"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "doska",
+            "obreznaya"
+          ]
+        },
+        {
+          "id": "real-construction.csv:49",
+          "query": "panel mdf stenovaya",
+          "correctCode": "04411001006000000",
+          "shared": [
+            "mdf"
+          ],
+          "inflection": [
+            "panel~panellari",
+            "stenovaya~stenoviye"
+          ],
+          "queryOnly": []
+        },
+        {
+          "id": "real-construction.csv:52",
+          "query": "dver mejkomnatnaya mdf",
+          "correctCode": "04418002005000000",
+          "shared": [
+            "dver",
+            "mdf"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "mejkomnatnaya"
+          ]
+        },
+        {
+          "id": "real-construction.csv:63",
+          "query": "uteplitel bazaltoviy plita",
+          "correctCode": "06806001001000000",
+          "shared": [
+            "plita"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "uteplitel",
+            "bazaltoviy"
+          ]
+        },
+        {
+          "id": "real-construction.csv:64",
+          "query": "minvata rockwool",
+          "correctCode": "06806001026000000",
+          "shared": [],
+          "inflection": [],
+          "queryOnly": [
+            "minvata",
+            "rockwool"
+          ]
+        },
+        {
+          "id": "real-construction.csv:83",
+          "query": "kirpich silikatniy beliy odinarniy",
+          "correctCode": "06904001006000000",
+          "shared": [],
+          "inflection": [
+            "kirpich~kirpichi",
+            "silikatniy~silikat"
+          ],
+          "queryOnly": [
+            "beliy",
+            "odinarniy"
+          ]
+        },
+        {
+          "id": "real-construction.csv:86",
+          "query": "armatura",
+          "correctCode": "07214001001000000",
+          "shared": [],
+          "inflection": [
+            "armatura~armaturali"
+          ],
+          "queryOnly": []
+        },
+        {
+          "id": "real-construction.csv:88",
+          "query": "armatura",
+          "correctCode": "07214001001000000",
+          "shared": [],
+          "inflection": [
+            "armatura~armaturali"
+          ],
+          "queryOnly": []
+        },
+        {
+          "id": "real-construction.csv:90",
+          "query": "ugolok",
+          "correctCode": "07216001002000000",
+          "shared": [],
+          "inflection": [],
+          "queryOnly": [
+            "ugolok"
+          ]
+        },
+        {
+          "id": "real-construction.csv:95",
+          "query": "provoloka vyazalnaya",
+          "correctCode": "07217001001000000",
+          "shared": [
+            "provoloka"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "vyazalnaya"
+          ]
+        },
+        {
+          "id": "real-construction.csv:100",
+          "query": "truba alyuminiyevaya",
+          "correctCode": "07608001001000000",
+          "shared": [],
+          "inflection": [
+            "alyuminiyevaya~alyuminiy"
+          ],
+          "queryOnly": [
+            "truba"
+          ]
+        },
+        {
+          "id": "real-construction.csv:101",
+          "query": "okno alyuminiyevoye razdvijnoye",
+          "correctCode": "07610001009000000",
+          "shared": [],
+          "inflection": [
+            "alyuminiyevoye~alyuminiy"
+          ],
+          "queryOnly": [
+            "okno",
+            "razdvijnoye"
+          ]
+        },
+        {
+          "id": "real-construction.csv:103",
+          "query": "bitum bnd",
+          "correctCode": "02714001003000000",
+          "shared": [
+            "bitum"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "bnd"
+          ]
+        },
+        {
+          "id": "real-metal.csv:24",
+          "query": "trubi elektrosvarniye",
+          "correctCode": "07305001999003297",
+          "shared": [
+            "trubi",
+            "elektrosvarniye"
+          ],
+          "inflection": [],
+          "queryOnly": []
+        },
+        {
+          "id": "real-metal.csv:25",
+          "query": "trubi elektrosvarniye",
+          "correctCode": "07305001999003297",
+          "shared": [
+            "trubi",
+            "elektrosvarniye"
+          ],
+          "inflection": [],
+          "queryOnly": []
+        },
+        {
+          "id": "real-metal.csv:26",
+          "query": "trubi elektrosvarniye",
+          "correctCode": "07305001999003297",
+          "shared": [
+            "trubi",
+            "elektrosvarniye"
+          ],
+          "inflection": [],
+          "queryOnly": []
+        },
+        {
+          "id": "real-metal.csv:98",
+          "query": "armatura",
+          "correctCode": "07214001001000115",
+          "shared": [
+            "armatura"
+          ],
+          "inflection": [],
+          "queryOnly": []
+        },
+        {
+          "id": "real-metal.csv:99",
+          "query": "armatura",
+          "correctCode": "07214001001000115",
+          "shared": [
+            "armatura"
+          ],
+          "inflection": [],
+          "queryOnly": []
+        },
+        {
+          "id": "real-metal.csv:104",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:105",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:106",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:107",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:108",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:109",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:110",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:111",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:112",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:113",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:114",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:115",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:116",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:117",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:118",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:119",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:120",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:121",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:122",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:123",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:124",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:125",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:126",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:127",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:128",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:129",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:130",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:131",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:132",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:133",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:134",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:135",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:136",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:137",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:138",
+          "query": "list goryachekataniy",
+          "correctCode": "07208001001000429",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:139",
+          "query": "list goryachekataniy rifleniy",
+          "correctCode": "07208001001000308",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [
+            "rifleniy~rifleniya"
+          ],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:140",
+          "query": "list goryachekataniy rifleniy",
+          "correctCode": "07208001001000308",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [
+            "rifleniy~rifleniya"
+          ],
+          "queryOnly": [
+            "list"
+          ]
+        },
+        {
+          "id": "real-metal.csv:141",
+          "query": "list goryachekataniy rifleniy",
+          "correctCode": "07208001001000308",
+          "shared": [
+            "goryachekataniy"
+          ],
+          "inflection": [
+            "rifleniy~rifleniya"
+          ],
+          "queryOnly": [
+            "list"
+          ]
+        }
+      ]
     }
   ]
 }
