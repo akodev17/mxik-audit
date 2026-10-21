@@ -136,6 +136,130 @@
           }
         }
       ]
+    },
+    {
+      "label": "plan phase 3 re-audit diff after the уголок gate: stored audits vs this branch, engine finding types only, in memory, on mxik_scratch (degraded: hashing vectors, no reranker, snapshot 2026-08-20)",
+      "ranAt": "2026-10-21T11:34:53.932Z",
+      "database": "mxik_scratch",
+      "catalogues": [
+        {
+          "catalog": "cmt1jk6jw0004vj646ukct7x7",
+          "filename": "demo-katalog.xlsx",
+          "orgKind": "customer",
+          "rows": 200,
+          "uploadedAt": "2026-08-20T13:13:38.348Z",
+          "stored": {
+            "MISMATCH": 33,
+            "MISSING": 23,
+            "UNIT_CONFLICT": 13,
+            "NOT_FOUND": 16
+          },
+          "fresh": {
+            "MISMATCH": 30,
+            "MISSING": 23,
+            "UNIT_CONFLICT": 13,
+            "NOT_FOUND": 16
+          },
+          "rowsWhoseTypesChanged": 3,
+          "transitions": {
+            "MISMATCH+UNIT_CONFLICT -> UNIT_CONFLICT": 1,
+            "MISMATCH -> none": 2
+          },
+          "newMismatch": [],
+          "suggestionChanged": 16
+        },
+        {
+          "catalog": "cmvb1bxvt0002vjkwuqdiyphq",
+          "filename": "Demo_Savdo_1C_eksport.xlsx",
+          "orgKind": "demo_template",
+          "rows": 186,
+          "uploadedAt": "2026-10-16T14:00:27.209Z",
+          "stored": {
+            "MISMATCH": 36,
+            "NOT_FOUND": 17,
+            "MISSING": 47,
+            "UNIT_CONFLICT": 13
+          },
+          "fresh": {
+            "NOT_FOUND": 17,
+            "MISSING": 47,
+            "UNIT_CONFLICT": 13,
+            "MISMATCH": 37
+          },
+          "rowsWhoseTypesChanged": 1,
+          "transitions": {
+            "none -> MISMATCH": 1
+          },
+          "newMismatch": [
+            "row 185 \"Конфеты шоколадные весовые\" own 01806003001000000 -> 01704001016031001"
+          ],
+          "suggestionChanged": 48,
+          "demoQuality": {
+            "stored": {
+              "flagged": {
+                "MISMATCH": 33,
+                "MISSING": 45,
+                "NOT_FOUND": 14,
+                "UNIT_CONFLICT": 10
+              },
+              "correct": {
+                "MISMATCH": 19,
+                "MISSING": 45,
+                "NOT_FOUND": 13,
+                "UNIT_CONFLICT": 6
+              },
+              "missed": {},
+              "cleanFlagged": 13,
+              "cleanRows": 76,
+              "rightSuggestion": 35,
+              "needSuggestion": 77
+            },
+            "fresh": {
+              "flagged": {
+                "MISMATCH": 34,
+                "MISSING": 45,
+                "NOT_FOUND": 14,
+                "UNIT_CONFLICT": 10
+              },
+              "correct": {
+                "MISMATCH": 19,
+                "MISSING": 45,
+                "NOT_FOUND": 13,
+                "UNIT_CONFLICT": 6
+              },
+              "missed": {},
+              "cleanFlagged": 14,
+              "cleanRows": 76,
+              "rightSuggestion": 38,
+              "needSuggestion": 77
+            }
+          }
+        },
+        {
+          "catalog": "cmvhqey5p00aqvjuc3g71eije",
+          "filename": "stroy-materials-423.xlsx",
+          "orgKind": "customer",
+          "rows": 423,
+          "uploadedAt": "2026-10-21T06:29:14.989Z",
+          "stored": {},
+          "fresh": {},
+          "rowsWhoseTypesChanged": 0,
+          "transitions": {},
+          "newMismatch": [],
+          "suggestionChanged": 0
+        },
+        {
+          "csv": "eval/real-metal.csv",
+          "rows": 168,
+          "fresh": {
+            "MISSING": 168
+          },
+          "suggestionBands": {
+            "low": 98,
+            "medium": 70
+          }
+        }
+      ]
     }
   ]
 }
