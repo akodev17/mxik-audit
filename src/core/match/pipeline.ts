@@ -6,6 +6,7 @@
 //   3 lexical (trigram)  |
 //   4 vector (pgvector)  |-> 5 reciprocal rank fusion -> 6 LLM rerank
 import { barcodeIdentity, normalizeName, type BarcodeIdentity } from '../normalize/index.js';
+import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
 import { reciprocalRankFusion } from './fusion.js';
@@ -188,7 +189,10 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
 
   // -------------------------------------------------- 3+4. lexical and vector
   const query = normalized.queryKey || normalized.matchKey || normalized.core;
-  const lexicalText = lexicalQuery(query);
+  // Synonyms reach the lexical query only; the vector stage embeds the row as written.
+  const synonyms = applySynonyms(query);
+  if (synonyms.applied.length > 0) notes.push(`Searched with the classifier's term: ${synonyms.applied.join('; ')}.`);
+  const lexicalText = lexicalQuery(synonyms.text);
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
   // A disabled stage computes no query embedding at all.
@@ -294,12 +298,13 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
         rerankReason: llm && !rerankNone ? llm.reason : null,
         rerankNone,
         rules: p.rules.keys,
+        synonyms,
       }),
     };
   }).sort((a, b) => b.confidence - a.confidence);
 
   // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
-  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence));
+  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
   if (!rerankNone && kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
 
   return {

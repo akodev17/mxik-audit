@@ -11,6 +11,16 @@ describe('evidenceFor', () => {
     const without = evidenceFor({ stage: 'fusion', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, rules: [] });
     assert.equal('rules' in without, false);
   });
+
+  it('names the synonym that fired and counts its classifier words as matched', () => {
+    const rebar = { nameUz: 'Armaturali prokat', nameRu: 'Прокат арматурный', unitBinding: 'none' as const, unitCanonical: [] };
+    const synonyms = { applied: ['арматура → прокат арматурный'], added: ['prokat', 'armaturniy'] };
+    const e = evidenceFor({ stage: 'fusion', productName: 'Арматура 12', rowUnit: null, candidate: rebar, synonyms });
+    assert.deepEqual(e.synonymApplied, ['арматура → прокат арматурный']);
+    assert.deepEqual(e.matchedWords, ['prokat', 'armaturniy']);
+    const plain = evidenceFor({ stage: 'fusion', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, synonyms: { applied: [], added: [] } });
+    assert.equal('synonymApplied' in plain, false);
+  });
 });
 
 describe('matchedWords', () => {
@@ -41,6 +51,7 @@ describe('readEvidence', () => {
     const stored = {
       ...evidenceFor({ stage: 'barcode', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, rules: ['identifyingMarked'] }),
       dictionaryUses: 4, dictionaryConfirmations: 2, dictionaryConflict: '01901001003000000',
+      synonymApplied: ['минвата → минеральная вата'],
     };
     assert.deepEqual(readEvidence(JSON.parse(JSON.stringify(stored))), stored);
   });

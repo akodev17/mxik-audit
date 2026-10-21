@@ -59,6 +59,9 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, t
       ? { label: m.nameLabel, text: m.words(evidence.matchedWords.join(', ')), tone: 'good' }
       : { label: m.nameLabel, text: m.noWords, tone: 'bad' });
   }
+  if (evidence.synonymApplied && evidence.synonymApplied.length > 0) {
+    out.push({ label: ta.matchX.synonymLabel, text: ta.matchX.synonym(evidence.synonymApplied.join('; ')), tone: 'neutral' });
+  }
   if (evidence.unit === 'match') out.push({ label: m.unitLabel, text: m.unitMatch(rowUnit ?? codeUnit ?? ''), tone: 'good' });
   if (evidence.unit === 'conflict') out.push({ label: m.unitLabel, text: m.unitConflict(rowUnit ?? '', codeUnit ?? ''), tone: 'bad' });
   if (evidence.unit === 'unknown') out.push({ label: m.unitLabel, text: m.unitUnknown, tone: 'warn' });

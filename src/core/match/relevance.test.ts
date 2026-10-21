@@ -53,6 +53,13 @@ describe('sharesMeaning', () => {
     assert.equal(isUnrelated('Профиль ПН ii sh 50', cement, UNRELATED_BELOW), false);
   });
 
+  it('counts the classifier words a synonym searched for', () => {
+    const wool = candidate({ nameUz: 'Mineral tola', nameRu: 'Минеральная вата', groupName: null, className: null });
+    assert.equal(sharesMeaning('Минвата Rockwool 50мм', wool), false);
+    assert.equal(sharesMeaning('Минвата Rockwool 50мм', wool, ['mineralnaya', 'vata']), true);
+    assert.equal(isUnrelated('Минвата Rockwool 50мм', wool, 0.5, ['mineralnaya', 'vata']), false);
+  });
+
   it('matches words up to a suffix, in the hierarchy as well as the names', () => {
     assert.equal(sharesMeaning('Quvur 20 mm', candidate()), true);
     assert.equal(sharesMeaning('Metall buyum', candidate()), true);

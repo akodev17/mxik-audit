@@ -20,6 +20,8 @@ export const uz = {
       legacy: 'Kod firma lugʻatidan olingan.',
       conflict: (code: string) => `Firma lugʻatida bu nom uchun boshqa kod bor: ${code}. Shtrix-kod boʻyicha topilgan kod qoldirildi.`,
     },
+    synonymLabel: 'Atama',
+    synonym: (pairs: string) => `Tovar nomidagi soʻz tasniflagich atamasi bilan ham qidirildi: ${pairs}.`,
     rulesLabel: 'Qoida',
     rules: {
       baseCodePreferred: 'Bazaviy kod (…000000): aniq mos kod boʻlmaganda amaliyotda shu tanlanadi.',
@@ -89,6 +91,8 @@ export const ru: typeof uz = {
       legacy: 'Код взят из словаря фирмы.',
       conflict: (code: string) => `В словаре фирмы для этого названия другой код: ${code}. Оставлен код, найденный по штрихкоду.`,
     },
+    synonymLabel: 'Термин',
+    synonym: (pairs: string) => `Слово из названия товара искали и по термину классификатора: ${pairs}.`,
     rulesLabel: 'Правило',
     rules: {
       baseCodePreferred: 'Базовый код (…000000): на практике выбирается, когда точного кода нет.',

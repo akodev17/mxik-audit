@@ -31,6 +31,8 @@ export type MatchEvidence = {
   dictionaryConflict?: string;
   /** Rule adjustments applied to this code (rules.ts keys). */
   rules?: RuleKey[];
+  /** Seller words searched as the classifier's term ("арматура → прокат арматурный"), normalize/synonyms.ts. */
+  synonymApplied?: string[];
 };
 
 export type EvidenceCandidate = {
@@ -53,15 +55,17 @@ export function unitEvidence(rowUnit: string | null, candidate: EvidenceCandidat
 /**
  * Distinct row words (three letters or more, not bare numbers) present in the
  * code's names. A fragment like "sh" from "б/ш" is no justification on its own;
- * the expansion it stands for ("besshovniye") is, so expanded words count too.
+ * the expansion it stands for ("besshovniye") is, so expanded words count too,
+ * and so do the classifier terms a synonym searched for (`extra`), which the
+ * evidence names separately.
  */
-export function matchedWords(productName: string, candidate: EvidenceCandidate): string[] {
+export function matchedWords(productName: string, candidate: EvidenceCandidate, extra: readonly string[] = []): string[] {
   const codeWords = new Set([
     ...tokenize(matchKeyOf(candidate.nameUz)),
     ...tokenize(matchKeyOf(candidate.nameRu)),
   ]);
   const seen = new Set<string>();
-  for (const word of [...tokenize(matchKeyOf(productName)), ...normalizeName(productName).tokens]) {
+  for (const word of [...tokenize(matchKeyOf(productName)), ...normalizeName(productName).tokens, ...extra]) {
     if (word.length < MIN_QUERY_WORD || /^\d+$/.test(word) || seen.has(word)) continue;
     if (codeWords.has(word)) seen.add(word);
   }
@@ -76,18 +80,22 @@ export type EvidenceInput = {
   rerankReason?: string | null;
   rerankNone?: boolean;
   rules?: readonly RuleKey[];
+  /** Synonym entries that fired for the row, and the classifier words they added to the query. */
+  synonyms?: { applied: readonly string[]; added: readonly string[] };
 };
 
 export function evidenceFor(input: EvidenceInput): MatchEvidence {
+  const synonymApplied = input.synonyms?.applied ?? [];
   return {
     stage: input.stage,
     barcode: input.stage === 'barcode',
     exactName: input.stage === 'exact',
-    matchedWords: matchedWords(input.productName, input.candidate),
+    matchedWords: matchedWords(input.productName, input.candidate, input.synonyms?.added),
     unit: unitEvidence(input.rowUnit, input.candidate),
     rerankReason: input.rerankReason ?? null,
     rerankNone: input.rerankNone ?? false,
     ...(input.rules && input.rules.length > 0 ? { rules: [...input.rules] } : {}),
+    ...(synonymApplied.length > 0 ? { synonymApplied: [...synonymApplied] } : {}),
   };
 }
 
@@ -111,6 +119,7 @@ export function readEvidence(value: unknown): MatchEvidence | null {
   const v = value as Record<string, unknown>;
   if (!STAGES.has(v['stage'] as MatchStage) || !UNITS.has(v['unit'] as UnitEvidence)) return null;
   const rules = Array.isArray(v['rules']) ? v['rules'].filter((r): r is RuleKey => typeof r === 'string' && RULES.has(r)) : [];
+  const synonymApplied = Array.isArray(v['synonymApplied']) ? v['synonymApplied'].filter((s): s is string => typeof s === 'string') : [];
   return {
     stage: v['stage'] as MatchStage,
     barcode: v['barcode'] === true,
@@ -123,5 +132,6 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     ...(isCount(v['dictionaryConfirmations']) ? { dictionaryConfirmations: v['dictionaryConfirmations'] } : {}),
     ...(typeof v['dictionaryConflict'] === 'string' && /^\d{17}$/.test(v['dictionaryConflict']) ? { dictionaryConflict: v['dictionaryConflict'] } : {}),
     ...(rules.length > 0 ? { rules } : {}),
+    ...(synonymApplied.length > 0 ? { synonymApplied } : {}),
   };
 }

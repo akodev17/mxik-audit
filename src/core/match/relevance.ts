@@ -27,10 +27,12 @@ function sameWord(a: string, b: string): boolean {
 /**
  * True when some product word appears (up to a suffix) in the candidate's names
  * or groups. Product words are the normalised tokens, so an abbreviation counts
- * through its expansion: "б/ш" shares meaning with a code that says "бесшовные".
+ * through its expansion: "б/ш" shares meaning with a code that says "бесшовные";
+ * `synonymWords` are the classifier terms a synonym searched for ("минвата" →
+ * "mineralnaya vata"), which count the same way.
  */
-export function sharesMeaning(productName: string, candidate: MxikCandidate): boolean {
-  const product = normalizeName(productName).tokens.filter(meaningful);
+export function sharesMeaning(productName: string, candidate: MxikCandidate, synonymWords: readonly string[] = []): boolean {
+  const product = [...normalizeName(productName).tokens, ...synonymWords].filter(meaningful);
   if (product.length === 0) return true;
   const haystack = [
     candidate.nameUz, candidate.nameRu, candidate.groupName, candidate.className,
@@ -40,6 +42,6 @@ export function sharesMeaning(productName: string, candidate: MxikCandidate): bo
 }
 
 /** A candidate to hide: low confidence and no shared word with the product. */
-export function isUnrelated(productName: string, candidate: MxikCandidate, confidence: number): boolean {
-  return confidence < UNRELATED_BELOW && !sharesMeaning(productName, candidate);
+export function isUnrelated(productName: string, candidate: MxikCandidate, confidence: number, synonymWords: readonly string[] = []): boolean {
+  return confidence < UNRELATED_BELOW && !sharesMeaning(productName, candidate, synonymWords);
 }
