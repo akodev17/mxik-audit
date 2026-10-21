@@ -147,6 +147,44 @@ describe('applyRules', () => {
   });
 });
 
+describe('applyRules: recommended units', () => {
+  const steel = candidate({ isBase: true, unitBinding: 'recommended', unitCanonical: [], recommendedUnits: ['tonna'] });
+  const fitting = candidate({ isBase: true, unitBinding: 'recommended', unitCanonical: [], recommendedUnits: ['dona'] });
+  const keys = (r: ReturnType<typeof applyRules>) => r.keys.filter((k) => k !== 'baseCodePreferred');
+
+  it('rewards a row unit the classifier recommends', () => {
+    const r = applyRules({ candidate: steel, rowUnit: 'тонна', preparedDish: false });
+    assert.deepEqual(keys(r), ['recommendedUnitMatch']);
+    assert.ok(Math.abs(r.adjustment - (0.05 + 0.03)) < 1e-9);
+  });
+
+  it('penalises a code recommended in pieces for a row sold by the tonne, gently and without a conflict', () => {
+    const r = applyRules({ candidate: fitting, rowUnit: 'тонна', preparedDish: false });
+    assert.deepEqual(keys(r), ['unitKindMismatch']);
+    assert.ok(Math.abs(r.adjustment - (0.05 - 0.05)) < 1e-9);
+    assert.equal(r.unitConflict, false);
+  });
+
+  it('leaves units of the same kind alone: kg against tonnes converts', () => {
+    assert.deepEqual(keys(applyRules({ candidate: steel, rowUnit: 'кг', preparedDish: false })), []);
+  });
+
+  it('never penalises a row sold in pieces: a piece can hold metres (plinth sold "шт", run 27)', () => {
+    const plinth = candidate({ isBase: true, unitBinding: 'recommended', unitCanonical: [], recommendedUnits: ['metr'] });
+    assert.deepEqual(keys(applyRules({ candidate: plinth, rowUnit: 'шт', preparedDish: false })), []);
+  });
+
+  it('judges nothing it cannot resolve, and never a strict or unbound code', () => {
+    assert.deepEqual(keys(applyRules({ candidate: fitting, rowUnit: 'мешок', preparedDish: false })), []);
+    assert.deepEqual(keys(applyRules({ candidate: fitting, rowUnit: null, preparedDish: false })), []);
+    assert.deepEqual(keys(applyRules({ candidate: candidate({ isBase: true, unitBinding: 'recommended', recommendedUnits: ['qop'] }), rowUnit: 'тонна', preparedDish: false })), []);
+    const strict = candidate({ isBase: true, unitBinding: 'strict', unitCanonical: ['dona'], recommendedUnits: ['dona'] });
+    assert.deepEqual(keys(applyRules({ candidate: strict, rowUnit: 'тонна', preparedDish: false })), ['strictUnitConflict']);
+    const none = candidate({ isBase: true, unitBinding: 'none', recommendedUnits: ['dona'] });
+    assert.deepEqual(keys(applyRules({ candidate: none, rowUnit: 'тонна', preparedDish: false })), []);
+  });
+});
+
 describe('hierarchyPath', () => {
   it('joins the four levels', () => {
     assert.equal(

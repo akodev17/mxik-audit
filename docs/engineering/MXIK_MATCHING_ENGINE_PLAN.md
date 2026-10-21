@@ -191,12 +191,33 @@ to the display name or match keys), and gated by context words where a term is
 ambiguous ("арматура" with труба/фитинг nearby stays as is). Every entry needs a
 test and a DB count comment like the abbreviation table has.
 
+> **Implementation note (2026-10-21, phase 2.2).** Eight entries, each from a
+> miss in the phase 1 diagnostic and with its live-name count: арматура →
+> прокат арматурный (*replaces* the word, gated off by 30 pipe/valve/fitting/
+> plastic stems, because 9,270 of 9,892 "арматур" names are fittings),
+> уголок, минвата (replace), утеплитель, газоблок, пеноблок, керамзитоблок,
+> ПП/PPR → полипропиленовые (kept here rather than in abbreviations.ts so
+> match keys do not change). The plan's "уголок → уголки" was wrong in
+> practice: "уголки" pulled "Уголок 90,100,125" to a PVC corner (run 20);
+> the entry uses the classifier's own wording "угловые профили / сталь
+> угловая" instead (run 21). "кирпич → кирпичи керамические" was not
+> added: it would turn every silicate brick ceramic. The relevance guard
+> also counts the synonym's words, or "Минвата" lost "Минеральная вата" to
+> the unrelated-filter. Result (run 22 vs 19): construction 67.6/82.4 →
+> 75.5/88.2, metal 44.0/74.4 → 45.8/75.6, metal vector-off 73.8/96.4 →
+> 75.6/98.2, golden and synthetic unchanged, 12 rows better, none worse.
+
 ### 3.4 Relevance guard consistency (addresses P4)
 
 `relevance.ts` `words()` must use the same `MIN_QUERY_WORD` (3) as `query.ts`,
 and `sharesMeaning` must also look at the expanded tokens
 (`normalizeName(...).tokens`) so a candidate matched through "бесшовные" is not
 hidden as "unrelated" to "б/ш". Tests for both directions.
+
+> **Implementation note (2026-10-21, phase 2.1).** Done (`ef6d3ec`).
+> `normalizeName().core` was already the expanded text, so the second half
+> held before; it is now explicit and tested. No eval case moved (run 19 vs
+> 18; the one flip is the documented tie `synthetic.csv:4`).
 
 ### 3.5 Unit-aware ranking for per-tonne / per-metre rows
 
@@ -205,6 +226,21 @@ the row unit is тонна. `rules.ts` already has a strict-unit conflict adjust
 extend it so a *recommended* unit match earns a small positive adjustment and a
 container mismatch (kg vs tonna is compatible; dona vs tonna is not) a negative
 one. Pure, tested, measured.
+
+> **Implementation note (2026-10-21, phase 2.4).** The data differ from the
+> premise: plastic fittings (03917001) are mostly *strict* {dona}, and so are
+> most steel pipe codes (07306001: 13,918 strict {metr}), so both already
+> take the −0.15 strict conflict on a per-tonne row; only 4,223 codes have a
+> recommended binding. The strict rule is left alone (it drives
+> UNIT_CONFLICT findings). New, for recommended bindings only, with a
+> quantity-kind map over the 90 official units (`quantityKind` in
+> units.ts): `recommendedUnitMatch` +0.03, `unitKindMismatch` −0.05.
+> First version also penalised rows sold in pieces and lost "Плинтус ПВХ …
+> шт" against a plinth recommended in metres (run 27); a piece can hold any
+> quantity, so only a measured row unit (mass, length, area, volume) can
+> contradict now. Result (run 28 vs 26): no row worse, construction
+> vector-off top-1 75.5 → 76.5, and five top-1 picks move to a more
+> specific code of the same subposition (e.g. "в бухтах" → "в мотках").
 
 ### 3.6 Calibration re-fit after 3.1–3.5
 

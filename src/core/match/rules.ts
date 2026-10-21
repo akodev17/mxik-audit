@@ -2,7 +2,7 @@
 // than hard filters, so a strong retrieval signal can still outvote a heuristic.
 // Pure: no I/O, fully unit-testable.
 import { matchKeyOf } from '../normalize/index.js';
-import { unitsCompatible } from '../normalize/units.js';
+import { kindOfUnit, resolveUnit, unitsCompatible } from '../normalize/units.js';
 import type { MxikCandidate } from './types.js';
 
 /**
@@ -43,6 +43,7 @@ export type RuleContext = {
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
   'preparedDishBase', 'preparedDishSpecific', 'strictUnitConflict',
+  'recommendedUnitMatch', 'unitKindMismatch',
 ] as const;
 
 export type RuleKey = (typeof RULE_KEYS)[number];
@@ -72,6 +73,15 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
   preparedDishSpecific: -0.1,
   /** Row unit contradicts a strictly bound unit: probably the wrong code. */
   strictUnitConflict: -0.15,
+  /** Recommended binding: the row's unit is one the portal recommends for this code. */
+  recommendedUnitMatch: 0.03,
+  /**
+   * Recommended binding: the row is sold by a measure (tonnes, metres, m²,
+   * litres) and every recommended unit measures something else (pieces against
+   * tonnes). Same-kind units (kg against tonnes) convert and a row sold in
+   * pieces can hold anything, so neither fires. Small: a recommendation is not a rule.
+   */
+  unitKindMismatch: -0.05,
 };
 
 /** Evaluates every rule against one candidate. */
@@ -109,6 +119,23 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     && !unitsCompatible(rowUnit, candidate.unitCanonical);
   if (unitConflict) {
     fire('strictUnitConflict', `Unit mismatch: row says "${rowUnit ?? ''}", code requires ${candidate.unitCanonical.join(' / ')}.`);
+  }
+
+  // A recommended binding never conflicts (no UNIT_CONFLICT finding), but it
+  // still says what the code is usually sold in: plastic fittings in pieces,
+  // steel in tonnes. Unresolvable units on either side are never judged.
+  if (candidate.unitBinding === 'recommended') {
+    const row = resolveUnit(rowUnit);
+    const recommended = (candidate.recommendedUnits ?? []).map(resolveUnit).filter((u) => u !== null);
+    const rowKind = row ? kindOfUnit(row) : null;
+    if (row && recommended.some((u) => u.id === row.id)) {
+      fire('recommendedUnitMatch', `Row unit "${rowUnit ?? ''}" is one the classifier recommends for this code.`);
+    } else if (rowKind && rowKind !== 'count' && recommended.length > 0
+      // A piece can hold any quantity (a 2.5 m plinth is sold "шт"), so only a
+      // measured row unit (tonnes, metres...) can contradict a recommendation.
+      && recommended.every((u) => { const kind = kindOfUnit(u); return kind !== null && kind !== rowKind; })) {
+      fire('unitKindMismatch', `Row is sold by ${rowKind}; this code is recommended in ${(candidate.recommendedUnits ?? []).join(' / ')}.`);
+    }
   }
 
   return { adjustment, notes, keys, unitConflict };

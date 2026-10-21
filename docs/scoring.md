@@ -256,15 +256,23 @@ filters so a strong retrieval signal can outvote a heuristic.
 | Prepared dish → base code | **+0.08** | Dishes deliberately have no detailed MXIK. |
 | Prepared dish → detailed code | **−0.10** | The classifier does not provide these. |
 | Row unit contradicts a **strict** binding | **−0.15** | 385,414 codes (87.8%) have a strict binding. |
+| **Recommended** binding: row unit is a recommended unit | **+0.03** | Added 2026-10-21 (plan §3.5). |
+| **Recommended** binding: row sold by a measure (mass, length, area, volume) and every recommended unit is of another kind | **−0.05** | Added 2026-10-21. kg against tonnes converts and is left alone; a row sold in pieces is never judged (a piece can hold metres). |
 
 Recommended-only bindings (4,223 codes) **never** produce a conflict, and an
 unresolvable unit on either side is never a conflict — `UNIT_CONFLICT` must not
-fire on our own inability to parse.
+fire on our own inability to parse. The two recommended-binding rules only
+reorder candidates; they raise no finding. Kinds come from `quantityKind()` in
+[`units.ts`](../src/core/normalize/units.ts); units of time, energy and
+services have no kind and are never judged. Measured with `npm run eval`
+(scratch copy, hashing vectors, no reranker; runs 26 → 28): no row worse,
+construction top-1 with the vector stage off 75.5% → 76.5%.
 
 The base-code and marking rules encode practice, not a legal requirement; the
 UI words them that way. The keys of the rules that fired (`baseCodePreferred`,
 `identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`,
-`preparedDishBase`, `preparedDishSpecific`, `strictUnitConflict`) are stored in
+`preparedDishBase`, `preparedDishSpecific`, `strictUnitConflict`, `recommendedUnitMatch`,
+`unitKindMismatch`) are stored in
 the evidence and translated in `ta.matchX.rules`.
 
 ## Firm dictionary confidence

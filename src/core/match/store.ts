@@ -8,7 +8,7 @@ const SELECT_FIELDS = `
   "groupNameUz" AS "groupName", "classNameUz" AS "className",
   "positionNameUz" AS "positionName", "subPositionNameUz" AS "subPositionName",
   "brandNameUz" AS "brandName", "attributeNameUz" AS "attributeName",
-  "subPositionCode", "isBase", "isMarked", "unitBinding", "unitCanonical",
+  "subPositionCode", "isBase", "isMarked", "unitBinding", "unitCanonical", "recommendedUnits",
   "unitRaw", "unitContainer", barcode
 `;
 
@@ -27,6 +27,7 @@ type Row = {
   isMarked: boolean | null;
   unitBinding: 'strict' | 'recommended' | 'none';
   unitCanonical: string[];
+  recommendedUnits: string[] | null;
   unitRaw: string | null;
   unitContainer: string | null;
   barcode: string | null;
@@ -48,6 +49,7 @@ function toCandidate(row: Row): MxikCandidate {
     isMarked: row.isMarked,
     unitBinding: row.unitBinding,
     unitCanonical: row.unitCanonical ?? [],
+    recommendedUnits: row.recommendedUnits ?? [],
     unitRaw: row.unitRaw,
     unitContainer: row.unitContainer,
     barcode: row.barcode?.trim() ?? null,

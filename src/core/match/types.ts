@@ -23,6 +23,8 @@ export type MxikCandidate = {
   isMarked: boolean | null;
   unitBinding: 'strict' | 'recommended' | 'none';
   unitCanonical: string[];
+  /** Units the portal recommends (columns M/N); the only units a 'recommended' binding has. */
+  recommendedUnits?: string[];
   unitRaw: string | null;
   /** Packaging qualifier parsed out of the bound unit, e.g. "pэt butilka". */
   unitContainer: string | null;
