@@ -50,8 +50,10 @@ export function useIntentPrefetch(): (href: string) => IntentHandlers {
         if (e.pointerType !== 'touch') timer.current = setTimeout(fetchNow, INTENT_DELAY_MS);
       },
       onPointerLeave: cancel,
+      // A press ends the wait: the click navigates now, so a fetch would repeat the navigation's own.
       onPointerDown: (e) => {
         if (e.pointerType === 'touch') fetchNow();
+        else cancel();
       },
       onFocus: (e) => {
         if (focusVisible(e.target)) fetchNow();
