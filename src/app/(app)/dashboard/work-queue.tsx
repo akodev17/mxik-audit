@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { clientAttention, type PendingAudit } from '@/lib/client-attention';
 import { rowProgress, type ClientStats } from '@/lib/client-stats';
-import { fmtNumber } from '@/lib/format';
+import { fmtDate, fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { workQueue, type QueueEntry } from '@/lib/work-queue';
 import { ButtonLink } from '@/ui/button';
@@ -15,9 +15,10 @@ const SHOWN = 5;
 const initials = (name: string): string => name.replace(/[^\p{L}\p{N} ]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '·';
 
 /**
- * Where to work next, as a list of actions: one row per client with something to do, most urgent
- * first (a missed monthly check, then the most open risky rows), each with one button. The first
- * row's button is the primary action of the page. The full list is /clients?filter=attention.
+ * Where to work next: one row per client with something to do, most urgent first (a missed monthly
+ * check, then the most open risky rows). Each row says who, which catalogue and how far the review
+ * is, and has exactly one button; the first row's button is the page's primary action. The full list
+ * is /clients?filter=attention.
  */
 export async function WorkQueue({ clients, pending, canUpload, queueHref }: {
   clients: ClientStats[]; pending: ReadonlyMap<string, PendingAudit>; canUpload: boolean; queueHref: (extra?: string) => string;
@@ -46,7 +47,7 @@ export async function WorkQueue({ clients, pending, canUpload, queueHref }: {
       </div>
 
       {shown.length === 0 ? (
-        <div className="mt-5 flex items-start gap-3 rounded-ctl border border-line bg-surface p-4">
+        <div className="mt-4 flex items-start gap-3 border-y border-line py-5">
           <span aria-hidden className="mt-0.5 text-good-ink"><IconSuccess size={20} /></span>
           <div className="min-w-0">
             <h3 className="font-medium">{home.queueDoneTitle}</h3>
@@ -61,20 +62,26 @@ export async function WorkQueue({ clients, pending, canUpload, queueHref }: {
             const progress = rowProgress(c);
             const action = act(e);
             const reasons = clientAttention(c, pending).filter((r) => r.kind !== 'open');
+            const context = c.catalogName ? `${c.catalogName}${c.auditedAt ? ` · ${home.queueLast(fmtDate(locale, c.auditedAt))}` : ''}` : null;
             return (
-              <li key={c.id} className="flex items-center gap-3 py-3">
+              <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-4 sm:flex-nowrap">
                 <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-ctl border border-line bg-surface text-small font-medium text-muted">{initials(c.name)}</span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-48">
+                  {i === 0 ? <p className="text-micro font-medium uppercase tracking-wide text-brand-ink">{home.queueFirst}</p> : null}
                   <Link href={`/clients/${c.id}`} className="block truncate font-medium hover:text-brand-ink hover:underline" title={c.name}>{c.name}</Link>
-                  {progress && c.openRows > 0 ? (
-                    <>
-                      <p className="text-small tabular-nums text-danger-ink">{home.queueOpenOf(fmt(c.openRows), fmt(progress.total), progress.total)}</p>
-                      <Progress className="mt-1" size="sm" tone="good" hideLabel label={ta.firmX.progress.label} value={progress.done} max={progress.total} />
-                    </>
-                  ) : null}
-                  {reasons.length > 0 ? <div className="mt-1"><AttentionBadges reasons={reasons} ta={ta} locale={locale} /></div> : null}
+                  {context ? <p className="truncate text-small text-muted" title={context}>{context}</p> : null}
+                  {reasons.length > 0 ? <div className="mt-1.5"><AttentionBadges reasons={reasons} ta={ta} locale={locale} /></div> : null}
                 </div>
-                <ButtonLink href={action.href} variant={i === 0 ? 'primary' : 'secondary'} size="sm" className="shrink-0">{action.label}</ButtonLink>
+                {progress && c.openRows > 0 ? (
+                  <div className="w-full shrink-0 sm:w-56">
+                    <p className="mb-1 flex items-baseline justify-between gap-2 text-small tabular-nums">
+                      <span className="font-medium text-danger-ink">{home.queueOpenOf(fmt(c.openRows), fmt(progress.total), progress.total)}</span>
+                    </p>
+                    <Progress size="sm" tone="good" hideLabel label={ta.firmX.progress.label} value={progress.done} max={progress.total}
+                      valueText={ta.firmX.progress.of(fmt(progress.done), fmt(progress.total), progress.total)} />
+                  </div>
+                ) : null}
+                <ButtonLink href={action.href} variant={i === 0 ? 'primary' : 'secondary'} size="sm" className="shrink-0 max-sm:w-full">{action.label}</ButtonLink>
               </li>
             );
           })}

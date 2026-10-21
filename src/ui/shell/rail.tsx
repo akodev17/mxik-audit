@@ -2,54 +2,62 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { useI18n } from '@/lib/locale-client';
 import { cx } from '../cx';
-import { IconUpload } from '../icons';
+import { IconBell, IconUpload } from '../icons';
 import { Tooltip } from '../tooltip';
 import { isActive } from './nav';
 import { useNav } from './nav-items';
 
-const RAIL_ICON = 'grid size-9 place-items-center rounded-ctl transition-colors duration-(--duration-fast)';
+const ICON = 'relative grid size-9 place-items-center rounded-ctl transition-colors duration-(--duration-fast)';
+const IDLE = 'text-muted hover:bg-surface hover:text-fg';
+const CURRENT = 'bg-surface text-fg';
+
+function RailLink({ href, label, active, children, className }: { href: string; label: string; active: boolean; children: ReactNode; className?: string }) {
+  return (
+    <Tooltip content={label} side="bottom" describe={false}>
+      <Link href={href} aria-label={label} aria-current={active ? 'page' : undefined} className={cx(ICON, active ? CURRENT : IDLE, className)}>
+        {children}
+      </Link>
+    </Tooltip>
+  );
+}
 
 /**
- * Slim icon rail (from md): help and settings at the top, "upload a catalogue" (the upload icon) as the
- * one action at the bottom, for people who may upload. Every icon has a text name and a tooltip; nothing here duplicates a header tab.
+ * The left sidebar (from md; a permanent part of the layout, below md the same destinations open in the
+ * drawer). It carries the utilities that are not header tabs: notifications and help at the top, and
+ * "upload a catalogue" at the bottom for people who may upload. Icons share one size and hover state,
+ * each has a text name and a tooltip, and the border on its right edge separates it from the page.
  */
-export function Rail({ canWrite, canTeam, canUpload, activePath }: { canWrite: boolean; canTeam: boolean; canUpload: boolean; activePath?: string }) {
+export function Rail({ canWrite, canTeam, canUpload, unread, activePath }: {
+  canWrite: boolean; canTeam: boolean; canUpload: boolean; unread: number | null; activePath?: string;
+}) {
+  const { ta } = useI18n();
   const current = usePathname();
   const pathname = activePath ?? current;
   const items = useNav(canWrite, canTeam).flatMap((g) => g.items);
-  const top = items.filter((i) => i.key === 'help' || i.key === 'settings');
+  const help = items.find((i) => i.key === 'help');
   // Not in a demo: uploading is switched off there, and a shortcut to a dead end is worse than none.
   const upload = canUpload ? items.find((i) => i.key === 'upload') : undefined;
+  const bell = ta.shellX.bell.title;
   return (
-    <div className="no-print hidden w-16 shrink-0 flex-col items-center justify-between border-r border-line bg-base py-4 md:flex">
+    <nav aria-label={ta.shellX.nav.label} className="no-print hidden w-16 shrink-0 flex-col items-center justify-between border-r border-line bg-base py-4 md:flex">
       <ul className="flex flex-col items-center gap-2">
-        {top.map((item) => {
-          const active = isActive(pathname, item.href);
-          return (
-            <li key={item.key}>
-              <Tooltip content={item.label} side="bottom" describe={false}>
-                <Link
-                  href={item.href} aria-label={item.label} aria-current={active ? 'page' : undefined}
-                  className={cx(RAIL_ICON, active ? 'bg-surface text-fg' : 'text-muted hover:bg-surface hover:text-fg')}
-                >
-                  {item.icon}
-                </Link>
-              </Tooltip>
-            </li>
-          );
-        })}
+        <li>
+          <RailLink href="/notifications" label={bell} active={isActive(pathname, '/notifications')}>
+            <IconBell size={18} />
+            {unread ? <span aria-hidden className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand ring-2 ring-base" /> : null}
+            {unread ? <span className="sr-only">{unread}</span> : null}
+          </RailLink>
+        </li>
+        {help ? <li><RailLink href={help.href} label={help.label} active={isActive(pathname, help.href)}>{help.icon}</RailLink></li> : null}
       </ul>
       {upload ? (
-        <Tooltip content={upload.label} side="top" describe={false}>
-          <Link
-            href={upload.href} aria-label={upload.label}
-            className={cx(RAIL_ICON, 'border border-line-strong bg-raised text-fg shadow-sm hover:bg-surface', isActive(pathname, upload.href) && 'bg-surface')}
-          >
-            <IconUpload size={18} />
-          </Link>
-        </Tooltip>
+        <RailLink href={upload.href} label={upload.label} active={isActive(pathname, upload.href)} className="border border-line-strong bg-raised shadow-sm">
+          <IconUpload size={18} />
+        </RailLink>
       ) : <span />}
-    </div>
+    </nav>
   );
 }

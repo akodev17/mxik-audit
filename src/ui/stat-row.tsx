@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { cx } from './cx';
+import { IconChevron } from './icons';
 import { Progress } from './progress';
 
 export type StatRowTone = 'neutral' | 'good' | 'warn' | 'danger';
@@ -36,9 +37,9 @@ export function StatRow({ items, label, size = 'md', bare = false }: { items: St
       {items.map((item, i) => {
         const body = (
           <>
-            <span className="line-clamp-2 flex min-h-9 items-center text-small text-muted" title={item.label}>{item.label}</span>
+            <span className="line-clamp-2 flex min-h-9 items-center gap-1 text-small font-medium text-fg" title={item.label}>{item.label}{item.href ? <IconChevron size={12} className="shrink-0 text-subtle transition-transform duration-(--duration-fast) group-hover/cell:translate-x-0.5 motion-reduce:transition-none" /> : null}</span>
             <span className="mt-1 flex items-baseline justify-center gap-1.5">
-              <span className={cx('tabular-nums', size === 'lg' ? 'text-[2.25rem] font-medium leading-10 tracking-tight' : 'text-title', VALUE[item.tone ?? 'neutral'])}>{item.value}</span>
+              <span className={cx('tabular-nums', size === 'lg' ? 'text-[1.75rem] font-medium leading-8 tracking-tight' : 'text-title', VALUE[item.tone ?? 'neutral'])}>{item.value}</span>
               {item.unit ? <span className="text-small tabular-nums text-muted">{item.unit}</span> : null}
             </span>
             {anyBar ? (
@@ -54,7 +55,7 @@ export function StatRow({ items, label, size = 'md', bare = false }: { items: St
         return (
           <li key={item.key} className="min-w-0">
             {item.href
-              ? <Link href={item.href} className={cx(cell, 'rounded-ctl transition-colors duration-(--duration-fast) hover:bg-surface')}>{body}</Link>
+              ? <Link href={item.href} className={cx(cell, 'group/cell rounded-ctl transition-colors duration-(--duration-fast) hover:bg-surface')}>{body}</Link>
               : <div className={cell}>{body}</div>}
           </li>
         );

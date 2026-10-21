@@ -12,7 +12,7 @@ import { Field, Input } from '@/ui/input';
 import { Page, Section } from '@/ui/page';
 import { Segmented } from '@/ui/segmented';
 import { Select } from '@/ui/select';
-import { BarChart } from '@/ui/bar-chart';
+import { RankedBars } from '@/ui/ranked-bars';
 import { RowList } from '@/ui/row-list';
 import { TabPanels } from '@/ui/tab-panels';
 import { Skeleton } from '@/ui/skeleton';
@@ -123,7 +123,7 @@ export function FormsSection() {
 
 export function LayoutSection() {
   return (
-    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page, sidebar), surface (panels, active nav item, table heads), raised (cards), sunken (wells). The app frame is a header (brand cell, section tabs, account controls) over a slim icon rail and a full-bleed page divided by hairlines. Prefer open lists and hairlines over nested boxes; shadow only for floating layers.">
+    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page, sidebar), surface (panels, active nav item, table heads), raised (cards), sunken (wells). The app frame is a header (brand, section tabs, account controls) and a left sidebar (notifications, help, upload) around a full-bleed page divided by hairlines. Prefer open lists and hairlines over nested boxes; shadow only for floating layers.">
       <Sub title="Surfaces">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -173,13 +173,13 @@ export function LayoutSection() {
         ]} />
       </Sub>
 
-      <Sub title="Bar chart" note="BarChart: zero baseline, the tallest bar in brand colour, counts printed on the bars, columns link to filtered lists">
-        <BarChart label="Namuna" items={[
-          { key: 'a', label: 'Kod yoʻq', value: 47, display: '47 · 42%' },
-          { key: 'b', label: 'Nomga mos emas', value: 36, display: '36 · 32%' },
-          { key: 'c', label: 'Tasniflagichda yoʻq', value: 17, display: '17 · 15%' },
-          { key: 'd', label: 'Oʻlchov birligi', value: 13, display: '13 · 12%' },
-        ]} height={160} />
+      <Sub title="Ranked bars" note="RankedBars: label, a bar for the share of the whole (one 0 to 100% scale), count and share; largest in brand colour; rows link to filtered lists; empty data says so">
+        <RankedBars label="Namuna" empty="Koʻrib chiqilmagan topilma yoʻq." items={[
+          { key: 'a', label: 'Kod yoʻq', value: 47, share: 47 / 113, display: '47 · 42%', href: '#layout' },
+          { key: 'b', label: 'Nomga mos emas', value: 36, share: 36 / 113, display: '36 · 32%' },
+          { key: 'c', label: 'Tasniflagichda yoʻq', value: 17, share: 17 / 113, display: '17 · 15%' },
+          { key: 'd', label: 'Oʻlchov birligi', value: 13, share: 13 / 113, display: '13 · 12%' },
+        ]} />
       </Sub>
 
       <Sub title="Tab panels" note="TabPanels: in-page tabs with arrow-key navigation; every panel is already on the page">

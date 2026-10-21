@@ -15,8 +15,8 @@ import { Progress } from '@/ui/progress';
 import { Checkbox } from '@/ui/checkbox';
 import { Select } from '@/ui/select';
 import { TasnivoMark } from '@/ui/logo';
-import { useNav } from '@/ui/shell/nav-items';
 import { Rail } from '@/ui/shell/rail';
+import { useNav } from '@/ui/shell/nav-items';
 import { TopNav } from '@/ui/shell/top-nav';
 import { NavLink } from '@/ui/shell/nav-link';
 import { Spinner } from '@/ui/spinner';
@@ -119,13 +119,13 @@ export function NavigationSection() {
   const groups = useNav(true, true);
   return (
     <Block id="navigation" title="Navigation" hint="Desktop navigation is the header tabs plus the icon rail. Below md the same destinations open in a drawer, shown here as grouped NavLinks (raised pill for the current page). Links only switch the sample state.">
-      <Sub title="App header and rail" note="TopNav (section tabs, current one underlined) and Rail (help, settings, upload) are the real components; from md up">
+      <Sub title="App header and left sidebar" note="Two permanent parts of the layout from md: the header (brand, section tabs, client, search, account) and the left sidebar (notifications, help, upload) with a border on its right edge. Below md the same destinations open in a drawer.">
         <div className="hidden overflow-hidden rounded-ctl border border-line md:block">
           <div className="flex h-16 border-b border-line">
-            <div className="grid w-16 shrink-0 place-items-center border-r border-line"><TasnivoMark className="size-7 text-fg" /></div>
+            <span className="grid w-16 shrink-0 place-items-center border-r border-line"><TasnivoMark className="size-7 text-fg" /></span>
             <TopNav canWrite canTeam activePath="/clients" />
           </div>
-          <div className="flex h-44"><Rail canWrite canTeam canUpload activePath="/settings" /><p className="p-5 text-small text-muted">Sahifa mazmuni</p></div>
+          <div className="flex h-44"><Rail canWrite canTeam canUpload unread={3} activePath="/notifications" /><p className="p-5 text-small text-muted">Sahifa mazmuni</p></div>
         </div>
       </Sub>
       <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">

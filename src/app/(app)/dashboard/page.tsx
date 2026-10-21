@@ -13,13 +13,11 @@ import { planStatus } from '@/lib/plan';
 import { openTasks } from '@/lib/reminders';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
-import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { TabPanels, type TabPanel } from '@/ui/tab-panels';
 import { ActivityFeed } from '../activity/activity-feed';
 import { AccountantFilter } from './accountant-filter';
 import { Changes } from './changes';
-import { ClientRisk } from './client-risk';
 import { IssueChart } from './issue-chart';
 import { Onboarding } from './onboarding';
 import { Summary } from './summary';
@@ -72,7 +70,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // Secondary content sits in tabs so it never competes with the work: clients, activity, changes, team.
   const tabs: TabPanel[] = [
-    { id: 'clients', label: ta.nav.clients, content: <ClientRisk clients={data.clients} accountantQuery={accountantQuery} /> },
     {
       id: 'activity', label: ta.nav.activity,
       content: (
@@ -92,7 +89,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <div className="mx-auto w-full max-w-[100rem]">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 pb-6 pt-8 sm:px-8">
         <div className="min-w-0">
-          <h1 className="text-[2.25rem] font-normal leading-10 tracking-tight">{ta.dash.title}</h1>
+          <h1 className="text-[2rem] font-normal leading-9 tracking-tight">{ta.dash.title}</h1>
           <p className="mt-1.5 max-w-2xl text-small text-muted">{home.hint}</p>
           {user.demo ? (
             <p className="mt-3 flex flex-wrap items-center gap-2 text-small text-muted">
@@ -103,7 +100,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {admin && data.accountants.length > 0 ? <AccountantFilter accountants={data.accountants} selected={data.selected} /> : null}
-          {hasClients && canAct ? <ButtonLink href="/upload" variant="secondary">{home.nextEmptyCta}</ButtonLink> : null}
         </div>
       </div>
 
@@ -114,21 +110,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ) : null}
 
       {hasClients ? (
-        <div className="grid border-t border-line xl:grid-cols-[minmax(0,1fr)_28rem]">
-          <div className="min-w-0 xl:border-r xl:border-line">
-            <div className={`${REGION} border-b border-line`}>
+        <>
+        <div className="grid border-t border-line xl:grid-cols-[minmax(0,1fr)_25rem]">
+          <div className="min-w-0 divide-y divide-line xl:border-r xl:border-line">
+            <div className={REGION}>
               <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} />
             </div>
-            {data.byType.length > 0 ? (
-              <div className={`${REGION} border-b border-line`}><IssueChart types={data.byType} accountantQuery={accountantQuery} /></div>
-            ) : null}
-            <div className={`${REGION} max-xl:border-b max-xl:border-line`}><TabPanels label={ta.dash.recent} tabs={tabs} /></div>
-          </div>
-
-          <aside className="min-w-0 divide-y divide-line">
             <div className={REGION}>
               <WorkQueue clients={data.clients} pending={pending} canUpload={canAct} queueHref={queueHref} />
             </div>
+          </div>
+
+          <aside className="min-w-0 divide-y divide-line max-xl:border-t max-xl:border-line">
+            {data.byType.length > 0 ? <div className={REGION}><IssueChart types={data.byType} accountantQuery={accountantQuery} /></div> : null}
             {tasks.length > 0 ? (
               <div className={REGION}>
                 <h2 className="mb-4 text-[1.125rem] font-medium leading-6">{ta.reminders.tasks}</h2>
@@ -142,6 +136,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {openSteps && !firstRun ? <div className={REGION}><Onboarding steps={steps} primary={false} /></div> : null}
           </aside>
         </div>
+        <div className={`${REGION} border-t border-line`}>
+          {tabs.length > 1 ? <TabPanels label={ta.dash.recent} tabs={tabs} /> : (
+              <section aria-labelledby="recent-title">
+                <h2 id="recent-title" className="mb-3 text-[1.125rem] font-medium leading-6">{ta.dash.recent}</h2>
+                {tabs[0]?.content}
+              </section>
+            )}
+        </div>
+        </>
       ) : null}
     </div>
   );

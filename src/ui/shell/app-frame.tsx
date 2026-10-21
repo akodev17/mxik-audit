@@ -31,7 +31,7 @@ type Props = { shell: ShellData; children: ReactNode };
  * link, plan banner, main area and command palette.
  */
 export function AppFrame({ shell, children }: Props) {
-  const { ta } = useI18n();
+  const { t, ta } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const menuId = useId();
@@ -77,7 +77,7 @@ export function AppFrame({ shell, children }: Props) {
               tooltipAlign="start"
             />
           </span>
-          <Link href="/dashboard" aria-label={ta.shellX.nav.home} className="hidden w-16 shrink-0 place-items-center border-r border-line md:grid">
+          <Link href="/dashboard" aria-label={ta.shellX.nav.home} title={t.appName} className="grid w-12 shrink-0 place-items-center md:w-16 md:border-r md:border-line">
             <TasnivoMark className="size-7 text-fg" />
           </Link>
           <TopNav canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
@@ -94,7 +94,7 @@ export function AppFrame({ shell, children }: Props) {
         </header>
 
         <div className="flex min-h-0 flex-1">
-          <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} />
+          <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} unread={shell.unread} />
           <div className="flex min-w-0 flex-1 flex-col">
             <PlanBanner plan={shell.plan} />
             <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none"><RouteBoundary>{children}</RouteBoundary></main>
