@@ -6,15 +6,17 @@ import { fmtDate } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { degradedNotes, readPipelineMeta } from '@/lib/pipeline-meta';
 import { Badge } from '@/ui/badge';
+import type { CurrentUser } from '@/lib/session';
 import { IconInfo } from '@/ui/icons';
 import { BillingBox } from './billing-box';
 import { ExportActions } from './export-actions';
 import { InfoHint } from './info-hint';
+import { ReviewField } from './review-field';
 import { ShareButton } from './share-button';
 
 type Props = {
   orgId: string;
-  catalog: { id: string; filename: string; createdAt: Date; rowCount: number; status: string; previousId?: string | null; snapshotId?: number | null; pipelineMeta?: unknown };
+  catalog: { id: string; clientId?: string | null; filename: string; createdAt: Date; rowCount: number; status: string; previousId?: string | null; snapshotId?: number | null; pipelineMeta?: unknown };
   client: { id: string; name: string };
   /** Only writers may create share links. */
   canShare?: boolean;
@@ -22,6 +24,8 @@ type Props = {
   canPay: boolean;
   /** A demo org never pays. */
   demo: boolean;
+  /** When given, a ready catalogue shows its review task for this user. */
+  viewer?: CurrentUser;
 };
 
 /** Whether the corrected file needs a payment first; shared with the page's completion state. */
@@ -34,7 +38,7 @@ export async function exportLocked(orgId: string, catalogId: string): Promise<bo
  * (named by its date, with a hint when a newer one exists), any degraded-run
  * notes, and the export actions.
  */
-export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay, demo }: Props) {
+export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay, demo, viewer }: Props) {
   const { ta, locale } = await getI18n();
   const h = ta.wsX.header;
   const [used, latest, locked] = await Promise.all([
@@ -65,6 +69,7 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay
                 {newer ? <Badge tone="info" icon={<IconInfo size={12} />}>{h.newer(fmtDate(locale, newer.takenAt))}</Badge> : null}
               </dd>
             </div>
+            {viewer && catalog.status === 'ready' && catalog.clientId ? <ReviewField user={viewer} catalogId={catalog.id} clientId={catalog.clientId} demo={demo} /> : null}
             {catalog.status === 'ready' ? (
               <div className="flex gap-1.5"><dt className="text-muted">{ta.importX.report.details}:</dt><dd><Link href={`/catalogs/${catalog.id}/report`} className="text-brand-ink hover:underline">{ta.importX.report.title}</Link></dd></div>
             ) : null}

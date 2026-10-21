@@ -9,7 +9,11 @@ import { auditCatalog } from './audit-runner.js';
 import { catalogScope } from './access.js';
 import { isOrgWriter } from './actor-role.js';
 import { db } from './db.js';
+import { isDemoOrg } from './demo.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
+import { auditReadyText } from './notification-text.js';
+import { notify } from './notifications.js';
+import { orgLocale } from './org-locale.js';
 import { runPrivilegeCheck } from './privileges.js';
 import { completeFor } from './reminders.js';
 import { carryOver, linkPrevious } from './versions.js';
@@ -70,7 +74,7 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
     const catalog = await db.catalog.update({
       where: { id: catalogId },
       data: { status: 'ready', progressDone: await db.catalogItem.count({ where: { catalogId } }), auditHeartbeatAt: new Date() },
-      select: { orgId: true, rowCount: true, clientId: true },
+      select: { orgId: true, rowCount: true, clientId: true, filename: true, auditStartedAt: true, client: { select: { name: true } } },
     });
     // A catalogue audited for the client settles its open monthly checks.
     if (catalog.clientId) await completeFor(catalog.clientId);
@@ -90,6 +94,7 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
         },
       },
     });
+    await notifyReady(catalogId, catalog, actor);
   } catch (error) {
     // Logged here once, with the stack; the page shows only its localized message.
     console.error(`[audit ${catalogId}] failed`, error);
@@ -99,6 +104,31 @@ async function run(catalogId: string, fromRow: number, actor: AuditActor, extra:
     }).catch(() => undefined);
   }
   await replyToTelegram(catalogId);
+}
+
+/**
+ * Tells the person who started the audit (or, for a resumed one, everyone who may see the client) that
+ * it is done. Once per run: a resumed audit keeps its start time, so it keeps its key. Never fails the audit.
+ */
+async function notifyReady(
+  catalogId: string,
+  catalog: { orgId: string; clientId: string | null; filename: string; auditStartedAt: Date | null; client: { name: string } | null },
+  actor: AuditActor,
+): Promise<void> {
+  try {
+    if (!catalog.clientId || await isDemoOrg(catalog.orgId)) return;
+    const [locale, open] = await Promise.all([
+      orgLocale(catalog.orgId),
+      db.finding.count({ where: { item: { catalogId }, decision: 'pending' } }),
+    ]);
+    const text = auditReadyText({ clientName: catalog.client?.name ?? '', filename: catalog.filename, open }, locale);
+    await notify({
+      orgId: catalog.orgId, clientId: catalog.clientId, userId: actor?.userId ?? null, kind: 'catalog.ready', ...text,
+      href: `/catalogs/${catalogId}`, dedupeKey: `catalog.ready:${catalogId}:${catalog.auditStartedAt?.getTime() ?? 0}`, external: false,
+    });
+  } catch (error) {
+    console.warn(`[audit ${catalogId}] notification failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /** A catalogue that came through the bot gets its summary (or failure) back there. */

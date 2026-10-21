@@ -17,7 +17,7 @@ export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[
   ],
   exports: ['catalog.exported', 'catalog.pdf_exported', 'catalog.report_csv_exported', 'account.exported'],
   share: ['share.created', 'share.revoked'],
-  clients: ['client.created', 'client.renamed', 'client.archived', 'client.restored', 'client.deleted', 'client.accountants_set', 'client.activity_set', 'schedule.set', 'reminder.sent', 'reminder.done'],
+  clients: ['client.created', 'client.renamed', 'client.archived', 'client.restored', 'client.deleted', 'client.accountants_set', 'client.activity_set', 'schedule.set', 'reminder.sent', 'reminder.done', 'review.assigned', 'review.completed'],
   team: [
     'team.invited', 'team.invite_revoked', 'team.joined', 'team.updated', 'team.removed', 'account.created', 'demo.started', 'apikey.created', 'apikey.revoked',
     'security.2fa_enabled', 'security.2fa_disabled', 'security.session_revoked', 'security.password_changed', 'security.password_reset', 'security.telegram_bound', 'security.telegram_unbound',

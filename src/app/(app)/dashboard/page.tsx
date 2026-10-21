@@ -12,6 +12,7 @@ import { getI18n } from '@/lib/locale';
 import { onboardingSteps } from '@/lib/onboarding';
 import { planStatus } from '@/lib/plan';
 import { openTasks } from '@/lib/reminders';
+import { openReviews, reviewCounts } from '@/lib/review-assignments';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
@@ -22,6 +23,7 @@ import { Changes } from './changes';
 import { IssueChart } from './issue-chart';
 import { Onboarding } from './onboarding';
 import { Summary } from './summary';
+import { ReviewTasks } from './review-tasks';
 import { Tasks } from './tasks';
 import { UsagePanel } from './usage-panel';
 import { WorkQueue } from './work-queue';
@@ -36,7 +38,7 @@ const RECENT = 8;
 /** Padding of every region of the page; the hairlines between regions are drawn by the grid. */
 const REGION = 'px-5 py-6 sm:px-8';
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string; qf?: string; qs?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string; qf?: string; qs?: string; rv?: string }> }) {
   const { ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
@@ -45,12 +47,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const home = ta.firmX.home;
   const view = parseQueueParams(sp);
 
-  const [data, allTasks, steps, recent, plan] = await Promise.all([
+  const mineOnly = sp.rv === 'mine';
+  const [data, allTasks, steps, recent, plan, reviews, reviewTotals] = await Promise.all([
     dashboard(user, admin ? sp.accountant ?? null : null),
     openTasks(user.orgId, user.clientIds),
     onboardingSteps(user),
     activityPage(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: 40 }),
     planStatus(user.orgId),
+    openReviews(user, { mineOnly }),
+    reviewCounts(user),
   ]);
   const shown = new Set(data.clients.map((c) => c.id));
   const tasks = allTasks.filter((x) => shown.has(x.clientId));
@@ -67,6 +72,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     if (data.selected) q.set('accountant', data.selected.id);
     if (v.qf && v.qf !== 'all') q.set('qf', v.qf);
     if (v.qs && v.qs !== 'urgent') q.set('qs', v.qs);
+    if (mineOnly) q.set('rv', 'mine');
+    const text = q.toString();
+    return text ? `/dashboard?${text}` : '/dashboard';
+  };
+  const reviewHref = (mine: boolean): string => {
+    const q = new URLSearchParams();
+    if (data.selected) q.set('accountant', data.selected.id);
+    if (view.filter !== 'all') q.set('qf', view.filter);
+    if (view.sort !== 'urgent') q.set('qs', view.sort);
+    if (mine) q.set('rv', 'mine');
     const text = q.toString();
     return text ? `/dashboard?${text}` : '/dashboard';
   };
@@ -134,6 +149,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
           <aside className="min-w-0 divide-y divide-line max-xl:border-t max-xl:border-line">
             {data.byType.length > 0 ? <div className={REGION}><IssueChart types={data.byType} accountantQuery={accountantQuery} /></div> : null}
+            {reviewTotals.open > 0 ? <div className={REGION}><ReviewTasks items={reviews} counts={reviewTotals} mineOnly={mineOnly} viewHref={reviewHref} /></div> : null}
             {tasks.length > 0 ? (
               <div className={REGION}>
                 <h2 className="mb-4 text-[1.125rem] font-medium leading-6">{ta.reminders.tasks}</h2>
