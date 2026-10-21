@@ -114,7 +114,26 @@ export type StoreOptions = {
    * names, exactly like the plain column, and lets the hierarchy reorder them.
    */
   fullTextSelectWeights?: 'A' | 'AB';
+  /**
+   * Trigram retrieval first runs at this stricter word_similarity threshold and
+   * falls back to the server's default (0.6) only when that does not fill the
+   * limit; the result is identical either way (byLexical). null = one query at
+   * the default, as before 2026-10-21.
+   */
+  lexicalStrictThreshold?: number | null;
 };
+
+/** See StoreOptions.lexicalStrictThreshold; chosen with `npm run perf` (docs/perf-results.json). */
+export const DEFAULT_LEXICAL_STRICT_THRESHOLD = 0.75;
+
+/** LEXICAL_STRICT_THRESHOLD: a number in (0, 1], or "off" for the single default query; unset = the default. */
+export function lexicalStrictThresholdFromEnv(env: Record<string, string | undefined>): number | null | undefined {
+  const raw = env['LEXICAL_STRICT_THRESHOLD']?.trim();
+  if (!raw) return undefined;
+  if (raw === 'off') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 && n <= 1 ? n : undefined;
+}
 
 /** See StoreOptions.fullTextCommonDocs; chosen by eval (docs/eval-results.json). */
 export const DEFAULT_FULLTEXT_COMMON_DOCS = 10_000;
@@ -189,6 +208,7 @@ export class PostgresCandidateStore implements CandidateStore {
   private readonly fullTextCommonDocs: number;
   private readonly fullTextColumn: 'plain' | 'weighted';
   private readonly fullTextSelectWeights: 'A' | 'AB';
+  private readonly lexicalStrictThreshold: number | null;
 
   constructor(private readonly pool: Pool, options: StoreOptions = {}) {
     this.embeddingColumn = options.embeddingColumn ?? 'embeddingUz';
@@ -198,6 +218,9 @@ export class PostgresCandidateStore implements CandidateStore {
     this.fullTextCommonDocs = options.fullTextCommonDocs ?? DEFAULT_FULLTEXT_COMMON_DOCS;
     this.fullTextColumn = options.fullTextColumn ?? 'plain';
     this.fullTextSelectWeights = options.fullTextSelectWeights ?? 'A';
+    const strict = options.lexicalStrictThreshold === undefined ? DEFAULT_LEXICAL_STRICT_THRESHOLD : options.lexicalStrictThreshold;
+    // Interpolated into SET LOCAL, so only a plain number in (0, 1] is accepted.
+    this.lexicalStrictThreshold = strict !== null && Number.isFinite(strict) && strict > 0 && strict <= 1 ? strict : null;
   }
 
   /** The full-text column this store ranks on, after checking that the weighted one is ready. */
@@ -230,15 +253,43 @@ export class PostgresCandidateStore implements CandidateStore {
     if (!query) return [];
     // word_similarity, not similarity: the target is a whole product name and
     // plain similarity dilutes a short query below the threshold entirely.
-    const res = await this.read(() => this.pool.query<Row & { score: number }>(
-      `SELECT ${SELECT_FIELDS}, word_similarity($1, "searchText") AS score
+    const sql = `SELECT ${SELECT_FIELDS}, word_similarity($1, "searchText") AS score
        FROM mxik_code
        WHERE $1 <% "searchText" AND "retiredAt" IS NULL
        ORDER BY score DESC, "isBase" DESC, code
-       LIMIT $2`,
-      [query, limit],
-    ));
-    return res.rows.map((r) => ({ candidate: toCandidate(r), score: Number(r.score) }));
+       LIMIT $2`;
+    if (this.lexicalStrictThreshold === null) {
+      const res = await this.read(() => this.pool.query<Row & { score: number }>(sql, [query, limit]));
+      return res.rows.map((r) => ({ candidate: toCandidate(r), score: Number(r.score) }));
+    }
+    // A strict pass first. The GIN index prunes by the threshold, and the cost
+    // is rechecking every pruned-in row of a wide table: "truba ..." pulled
+    // 9,836 rows at the default 0.6 (660 ms) and 619 at 0.75 (80 ms). When the
+    // strict pass fills the limit, no row below it could have ranked, so the
+    // answer is the default query's exactly; otherwise run that query.
+    const strict = this.lexicalStrictThreshold;
+    return this.read(async () => {
+      const client = await this.pool.connect();
+      let failure: Error | undefined;
+      try {
+        await client.query('BEGIN');
+        await client.query(`SET LOCAL pg_trgm.word_similarity_threshold = ${strict}`);
+        let res = await client.query<Row & { score: number }>(sql, [query, limit]);
+        if (res.rows.length < limit) {
+          await client.query('SET LOCAL pg_trgm.word_similarity_threshold TO DEFAULT');
+          res = await client.query<Row & { score: number }>(sql, [query, limit]);
+        }
+        await client.query('COMMIT');
+        return res.rows.map((r) => ({ candidate: toCandidate(r), score: Number(r.score) }));
+      } catch (error) {
+        failure = error instanceof Error ? error : new Error(String(error));
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        // A connection that failed is destroyed, never handed back to the pool.
+        client.release(failure);
+      }
+    });
   }
 
   /**

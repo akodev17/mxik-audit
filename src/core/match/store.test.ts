@@ -183,3 +183,69 @@ describe('weighted full-text against the database', async () => {
     if (before && lifted[0]) assert.ok(lifted[0].score > before.score, 'the hierarchy word adds to the rank');
   });
 });
+
+/** A pool whose dedicated client answers each search with `rows[i]` rows, in turn. */
+function cascadePool(rowCounts: number[]): { pool: Pool; statements: string[] } {
+  const statements: string[] = [];
+  let search = 0;
+  const client = {
+    query: (sql: string) => {
+      statements.push(sql.trim().split('\n')[0] ?? '');
+      if (!sql.includes('word_similarity(')) return Promise.resolve({ rows: [] });
+      const n = rowCounts[search++] ?? 0;
+      return Promise.resolve({ rows: Array.from({ length: n }, (_, i) => ({ code: `0000000000000000${i}`.slice(-17), subPositionCode: '00000000000', score: 0.9 })) });
+    },
+    release: () => undefined,
+  };
+  const pool = { connect: () => Promise.resolve(client), query: () => Promise.reject(new Error('no pool queries')) } as unknown as Pool;
+  return { pool, statements };
+}
+
+describe('PostgresCandidateStore trigram threshold cascade', () => {
+  it('answers from the strict pass when it fills the limit', async () => {
+    const { pool, statements } = cascadePool([50]);
+    const hits = await new PostgresCandidateStore(pool, { lexicalStrictThreshold: 0.75 }).byLexical('truba vodogazoprovodnaya', 50);
+    assert.equal(hits.length, 50);
+    assert.deepEqual(statements.filter((s) => s.startsWith('SET')), ['SET LOCAL pg_trgm.word_similarity_threshold = 0.75']);
+  });
+
+  it('falls back to the default threshold when the strict pass comes back short', async () => {
+    const { pool, statements } = cascadePool([3, 40]);
+    const hits = await new PostgresCandidateStore(pool, { lexicalStrictThreshold: 0.75 }).byLexical('gipsokarton knauf', 50);
+    assert.equal(hits.length, 40);
+    assert.ok(statements.includes('SET LOCAL pg_trgm.word_similarity_threshold TO DEFAULT'));
+  });
+
+  it('accepts only a plain threshold in (0, 1]; anything else means one query at the default', async () => {
+    const { pool, statements } = cascadePool([]);
+    await assert.rejects(new PostgresCandidateStore(pool, { lexicalStrictThreshold: Number.NaN }).byLexical('x', 50), /no pool queries/);
+    assert.equal(statements.length, 0);
+  });
+});
+
+describe('trigram threshold cascade against the database', async () => {
+  const pool = new Pool({
+    connectionString: process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik',
+    connectionTimeoutMillis: 1500,
+    max: 2,
+  });
+  after(() => pool.end());
+  let skip: string | false = 'database not available';
+  try {
+    const r = await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM mxik_code WHERE "retiredAt" IS NULL');
+    skip = Number(r.rows[0]?.n ?? 0) > 0 ? false : 'classifier not loaded';
+  } catch {
+    // keep the reason
+  }
+
+  it('returns exactly what the single default-threshold query returns', { skip }, async () => {
+    const cascade = new PostgresCandidateStore(pool, { lexicalStrictThreshold: 0.75 });
+    const single = new PostgresCandidateStore(pool, { lexicalStrictThreshold: null });
+    // A common word (strict pass fills), a rare pair (falls back), a short name.
+    for (const query of ['truba vodogazoprovodnaya', 'gipsokarton knauf', 'kartoshka']) {
+      const a = await cascade.byLexical(query, 50);
+      const b = await single.byLexical(query, 50);
+      assert.deepEqual(a.map((h) => [h.candidate.code, h.score]), b.map((h) => [h.candidate.code, h.score]), query);
+    }
+  });
+});

@@ -16,7 +16,7 @@ import {
 import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
 import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
 import { PROMPT_VERSION } from '../core/match/rerank-prompt.js';
-import { PostgresCandidateStore } from '../core/match/store.js';
+import { lexicalStrictThresholdFromEnv, PostgresCandidateStore } from '../core/match/store.js';
 import { checkVectorReadiness, type VectorReadiness } from '../core/match/vector-readiness.js';
 import { normalizeName } from '../core/normalize/index.js';
 import { readCode, runChecks, type Finding, type ResolvedRow } from '../core/audit/checks.js';
@@ -117,6 +117,7 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   const store = new PostgresCandidateStore(pool, {
     exactVectorScan: !embedder.semantic,
     vectorEnabled: readiness.usable,
+    lexicalStrictThreshold: lexicalStrictThresholdFromEnv(process.env),
   });
   const setup: PipelineSetup = {
     embedder: { name: embedder.name, semantic: embedder.semantic },
