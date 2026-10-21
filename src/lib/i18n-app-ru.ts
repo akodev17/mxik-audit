@@ -487,6 +487,7 @@ const coreRu: CoreAppDict = {
       'catalog.audited': 'Проверка завершена',
       'catalog.exported': 'Исправленный файл скачан',
       'catalog.pdf_exported': 'PDF-отчёт скачан',
+      'catalog.report_csv_exported': 'CSV-файл замечаний скачан',
       'catalog.deleted': 'Каталог удалён',
       'finding.accepted': 'Предложение принято',
       'finding.rejected': 'Предложение отклонено',

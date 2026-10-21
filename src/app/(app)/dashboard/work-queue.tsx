@@ -3,7 +3,8 @@ import { clientAttention, type PendingAudit } from '@/lib/client-attention';
 import { rowProgress, type ClientStats } from '@/lib/client-stats';
 import { fmtDate, fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
-import { workQueue, type QueueEntry } from '@/lib/work-queue';
+import { QUEUE_FILTERS, QUEUE_SORTS, arrangeQueue, queueFilterCounts, workQueue, type QueueEntry, type QueueFilter, type QueueSort } from '@/lib/work-queue';
+import { cx } from '@/ui/cx';
 import { ButtonLink } from '@/ui/button';
 import { IconSuccess } from '@/ui/icons';
 import { Progress } from '@/ui/progress';
@@ -20,13 +21,16 @@ const initials = (name: string): string => name.replace(/[^\p{L}\p{N} ]/gu, '').
  * is, and has exactly one button; the first row's button is the page's primary action. The full list
  * is /clients?filter=attention.
  */
-export async function WorkQueue({ clients, pending, canUpload, queueHref }: {
+export async function WorkQueue({ clients, pending, canUpload, queueHref, filter, sort, viewHref }: {
   clients: ClientStats[]; pending: ReadonlyMap<string, PendingAudit>; canUpload: boolean; queueHref: (extra?: string) => string;
+  filter: QueueFilter; sort: QueueSort; viewHref: (v: { qf?: QueueFilter; qs?: QueueSort }) => string;
 }) {
   const { locale, ta } = await getI18n();
   const home = ta.firmX.home;
   const fmt = (n: number): string => fmtNumber(locale, n);
-  const entries = workQueue(clients, new Set(pending.keys()));
+  const all = workQueue(clients, new Set(pending.keys()));
+  const counts = queueFilterCounts(all);
+  const entries = arrangeQueue(all, filter, sort);
   const shown = entries.slice(0, SHOWN);
 
   const act = (e: QueueEntry): { href: string; label: string } => {
@@ -46,7 +50,30 @@ export async function WorkQueue({ clients, pending, canUpload, queueHref }: {
         {entries.length > SHOWN ? <Link href="/clients?filter=attention" className="shrink-0 text-small font-medium text-brand-ink hover:underline">{home.attentionAll} ({fmt(entries.length)})</Link> : null}
       </div>
 
-      {shown.length === 0 ? (
+      {all.length > 1 ? (
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-small">
+          <nav aria-label={home.queueFilterLabel} className="flex flex-wrap items-center gap-1">
+            {QUEUE_FILTERS.filter((f) => f === 'all' || counts[f] > 0).map((f) => (
+              <Link
+                key={f} href={viewHref({ qf: f, qs: sort })} aria-current={f === filter ? 'true' : undefined} scroll={false}
+                className={cx('rounded-ctl px-2.5 py-1 font-medium transition-colors duration-(--duration-fast)', f === filter ? 'bg-surface text-fg' : 'text-muted hover:bg-surface hover:text-fg')}
+              >
+                {home.queueFilters[f]} <span className="tabular-nums text-subtle">{fmt(counts[f])}</span>
+              </Link>
+            ))}
+          </nav>
+          <nav aria-label={home.queueSortLabel} className="flex flex-wrap items-center gap-1 text-muted">
+            <span>{home.queueSortLabel}:</span>
+            {QUEUE_SORTS.map((s) => (
+              <Link key={s} href={viewHref({ qf: filter, qs: s })} aria-current={s === sort ? 'true' : undefined} scroll={false} className={cx('rounded-ctl px-1.5 py-0.5 hover:text-fg', s === sort && 'font-medium text-fg underline underline-offset-4')}>{home.queueSorts[s]}</Link>
+            ))}
+          </nav>
+        </div>
+      ) : null}
+
+      {shown.length === 0 && all.length > 0 ? (
+        <p className="mt-4 border-y border-line py-5 text-small text-muted">{home.queueNoMatch}</p>
+      ) : shown.length === 0 ? (
         <div className="mt-4 flex items-start gap-3 border-y border-line py-5">
           <span aria-hidden className="mt-0.5 text-good-ink"><IconSuccess size={20} /></span>
           <div className="min-w-0">

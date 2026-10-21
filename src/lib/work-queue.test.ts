@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { ClientStats } from './client-stats.js';
-import { issueShares, workQueue } from './work-queue.js';
+import { arrangeQueue, issueShares, parseQueueParams, queueFilterCounts, workQueue } from './work-queue.js';
 
 function client(over: Partial<ClientStats> & { id: string; name: string }): ClientStats {
   return {
@@ -51,5 +51,35 @@ describe('issueShares', () => {
   });
   it('is all zero with no findings', () => {
     assert.deepEqual(issueShares([]), []);
+  });
+});
+
+describe('queue filters and sorting', () => {
+  const entries = workQueue([
+    client({ id: 'a', name: 'Alfa', openRows: 5, auditedAt: new Date('2026-10-01') }),
+    client({ id: 'b', name: 'Beta', openRows: 90, auditedAt: new Date('2026-09-01') }),
+    client({ id: 'c', name: 'Gamma', overdueTasks: 2, auditedAt: new Date('2026-10-10') }),
+    client({ id: 'd', name: 'Delta', catalogId: null, catalogs: 0, auditedAt: null }),
+  ], new Set());
+
+  it('parses unknown parameters to the defaults', () => {
+    assert.deepEqual(parseQueueParams({ qf: 'x', qs: 3 }), { filter: 'all', sort: 'urgent' });
+    assert.deepEqual(parseQueueParams({ qf: 'overdue', qs: 'name' }), { filter: 'overdue', sort: 'name' });
+  });
+
+  it('counts what each filter shows', () => {
+    assert.deepEqual(queueFilterCounts(entries), { all: 4, overdue: 1, open: 2, setup: 1 });
+  });
+
+  it('filters', () => {
+    assert.deepEqual(arrangeQueue(entries, 'overdue', 'urgent').map((e) => e.client.id), ['c']);
+    assert.deepEqual(arrangeQueue(entries, 'open', 'urgent').map((e) => e.client.id), ['b', 'a']);
+    assert.deepEqual(arrangeQueue(entries, 'setup', 'urgent').map((e) => e.client.id), ['d']);
+  });
+
+  it('sorts without changing the set', () => {
+    assert.deepEqual(arrangeQueue(entries, 'all', 'name').map((e) => e.client.id), ['a', 'b', 'd', 'c']);
+    assert.deepEqual(arrangeQueue(entries, 'all', 'open').map((e) => e.client.id), ['b', 'a', 'd', 'c']);
+    assert.deepEqual(arrangeQueue(entries, 'all', 'audited').map((e) => e.client.id), ['d', 'b', 'a', 'c']);
   });
 });

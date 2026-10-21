@@ -54,7 +54,7 @@ export function AppFrame({ shell, children }: Props) {
 
   return (
     <ToastProvider>
-      <div className="relative flex h-dvh flex-col overflow-hidden bg-base">
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-base print:block print:h-auto print:overflow-visible">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-toast focus:rounded-ctl focus:border focus:border-line-strong focus:bg-raised focus:px-3 focus:py-2 focus:text-data focus:font-medium focus:shadow-pop"
@@ -93,11 +93,11 @@ export function AppFrame({ shell, children }: Props) {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 print:block">
           <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} unread={shell.unread} />
           <div className="flex min-w-0 flex-1 flex-col">
             <PlanBanner plan={shell.plan} />
-            <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none"><RouteBoundary>{children}</RouteBoundary></main>
+            <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none print:overflow-visible"><RouteBoundary>{children}</RouteBoundary></main>
           </div>
         </div>
       </div>

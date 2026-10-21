@@ -15,7 +15,7 @@ export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[
     'purchases.uploaded', 'purchases.mapped', 'purchases.deleted',
     'sales.uploaded', 'sales.checked', 'sales.deleted', 'cheques.uploaded', 'cheques.checked', 'cheques.deleted',
   ],
-  exports: ['catalog.exported', 'catalog.pdf_exported', 'account.exported'],
+  exports: ['catalog.exported', 'catalog.pdf_exported', 'catalog.report_csv_exported', 'account.exported'],
   share: ['share.created', 'share.revoked'],
   clients: ['client.created', 'client.renamed', 'client.archived', 'client.restored', 'client.deleted', 'client.accountants_set', 'client.activity_set', 'schedule.set', 'reminder.sent', 'reminder.done'],
   team: [

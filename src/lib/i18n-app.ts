@@ -485,6 +485,7 @@ const coreUz = {
       'catalog.audited': 'Tahlil tugadi',
       'catalog.exported': 'Tuzatilgan fayl yuklab olindi',
       'catalog.pdf_exported': 'PDF hisobot yuklab olindi',
+      'catalog.report_csv_exported': 'Topilmalar CSV fayli yuklab olindi',
       'catalog.deleted': 'Katalog oʻchirildi',
       'finding.accepted': 'Taklif qabul qilindi',
       'finding.rejected': 'Taklif rad etildi',

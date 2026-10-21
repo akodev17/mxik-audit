@@ -49,4 +49,30 @@ describe('version diff', () => {
   it('names barcode and unit changes', () => {
     assert.deepEqual(changedFields(item('Guruch', { barcode: '4780074540164' }), item('Guruch', { barcode: '4601501483581', unit: 'dona' })), ['unit', 'barcode']);
   });
+
+  it('keeps the previous values and how the pair was made, so a change reads old to new', () => {
+    const parts = diffParts(pairing, { prevRisky: set(), nextRisky: set(), updated: set(), prevDecided: set(), nextPending: set() }, 200);
+    const row = parts.changed[0];
+    assert.equal(row?.before?.code, '02202001001000000');
+    assert.equal(row?.code, '01901001003000000');
+    // Same words and unit, no barcode: paired by the exact name key.
+    assert.equal(row?.match, 'name');
+  });
+
+  it('flags an approximate pairing: same position and words, but unit and code differ', () => {
+    const a = item('Shakar oq', { unit: 'kg', rowIndex: 7 });
+    const b = item('Shakar oq', { unit: 'dona', existingMxik: '01901001003000000', rowIndex: 7 });
+    const approx = pairVersions([a], [b]);
+    const parts = diffParts(approx, { prevRisky: set(), nextRisky: set(), updated: set(), prevDecided: set(), nextPending: set() }, 10);
+    assert.equal(parts.changed[0]?.match, 'row');
+    assert.deepEqual(parts.changed[0]?.notes, ['unit', 'code']);
+  });
+
+  it('pages a list by offset without changing the counts', () => {
+    const many = pairVersions([], Array.from({ length: 5 }, (_, n) => item(`Yangi tovar ${n} 1 kg`)));
+    const sets = { prevRisky: set(), nextRisky: set(), updated: set(), prevDecided: set(), nextPending: set() };
+    assert.equal(diffParts(many, sets, 2, 0).added.length, 2);
+    assert.equal(diffParts(many, sets, 2, 4).added.length, 1);
+    assert.equal(diffParts(many, sets, 2, 4).counts.added, 5);
+  });
 });

@@ -8,8 +8,10 @@ import { StatRow, type StatRowItem } from '@/ui/stat-row';
  * Four measures in one hairline-divided row: rows to review, rows reviewed, clients needing
  * attention, overdue checks. Each says what it counts and links to the list behind it.
  */
-export async function Summary({ totals, reviewed, audited, queueHref }: {
+export async function Summary({ totals, reviewed, audited, queueHref, awaiting }: {
   totals: Totals; reviewed: { done: number; total: number } | null; audited: boolean; queueHref: string;
+  /** Clients whose latest catalogue still has open risky rows: the catalogues waiting for review. */
+  awaiting: number;
 }) {
   const { locale, ta } = await getI18n();
   const home = ta.firmX.home;
@@ -18,7 +20,7 @@ export async function Summary({ totals, reviewed, audited, queueHref }: {
     {
       key: 'open', label: home.openRows, value: fmt(totals.openRows), href: queueHref,
       tone: totals.openRows > 0 ? 'danger' : 'good',
-      hint: openRowsHint(locale, ta.firmX.progress, totals.openRows, totals.pendingFindings),
+      hint: awaiting > 0 ? home.awaitingCatalogs(fmt(awaiting), awaiting) : openRowsHint(locale, ta.firmX.progress, totals.openRows, totals.pendingFindings),
     },
     {
       key: 'reviewed', label: ta.firmX.progress.label, href: '/clients?sort=progress',
@@ -28,7 +30,7 @@ export async function Summary({ totals, reviewed, audited, queueHref }: {
     },
     {
       key: 'attention', label: home.attention, value: fmt(totals.attention), href: '/clients?filter=attention',
-      tone: totals.attention > 0 ? 'warn' : 'good', hint: home.attentionHint(fmt(totals.clients), totals.clients),
+      tone: totals.attention > 0 ? 'warn' : 'good', hint: home.activeClients(fmt(totals.attention), fmt(totals.clients), totals.clients),
     },
     {
       key: 'overdue', label: home.overdue, value: fmt(totals.overdueTasks), href: '/clients?filter=overdue',

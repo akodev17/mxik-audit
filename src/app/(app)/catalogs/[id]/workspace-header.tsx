@@ -65,6 +65,9 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay
                 {newer ? <Badge tone="info" icon={<IconInfo size={12} />}>{h.newer(fmtDate(locale, newer.takenAt))}</Badge> : null}
               </dd>
             </div>
+            {catalog.status === 'ready' ? (
+              <div className="flex gap-1.5"><dt className="text-muted">{ta.importX.report.details}:</dt><dd><Link href={`/catalogs/${catalog.id}/report`} className="text-brand-ink hover:underline">{ta.importX.report.title}</Link></dd></div>
+            ) : null}
             {catalog.previousId ? (
               <div className="flex gap-1.5"><dt className="text-muted">{ta.diff.versions}:</dt><dd><Link href={`/catalogs/${catalog.id}/diff`} className="text-brand-ink hover:underline">{ta.diff.title}</Link></dd></div>
             ) : null}

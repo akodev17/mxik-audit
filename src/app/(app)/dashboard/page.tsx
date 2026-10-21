@@ -6,6 +6,7 @@ import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
 import { pendingAudits } from '@/lib/client-attention';
 import { rowProgress } from '@/lib/client-stats';
+import { parseQueueParams, type QueueFilter, type QueueSort } from '@/lib/work-queue';
 import { dashboard } from '@/lib/dashboard';
 import { getI18n } from '@/lib/locale';
 import { onboardingSteps } from '@/lib/onboarding';
@@ -35,13 +36,14 @@ const RECENT = 8;
 /** Padding of every region of the page; the hairlines between regions are drawn by the grid. */
 const REGION = 'px-5 py-6 sm:px-8';
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string; qf?: string; qs?: string }> }) {
   const { ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const admin = isAdminRole(user);
   const home = ta.firmX.home;
+  const view = parseQueueParams(sp);
 
   const [data, allTasks, steps, recent, plan] = await Promise.all([
     dashboard(user, admin ? sp.accountant ?? null : null),
@@ -59,6 +61,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return q ? `/queue?${q}` : '/queue';
   };
   const reviewed = rowProgress(totals);
+  const awaiting = data.clients.filter((c) => c.openRows > 0).length;
+  const viewHref = (v: { qf?: QueueFilter; qs?: QueueSort }): string => {
+    const q = new URLSearchParams();
+    if (data.selected) q.set('accountant', data.selected.id);
+    if (v.qf && v.qf !== 'all') q.set('qf', v.qf);
+    if (v.qs && v.qs !== 'urgent') q.set('qs', v.qs);
+    const text = q.toString();
+    return text ? `/dashboard?${text}` : '/dashboard';
+  };
   const audited = data.clients.some((c) => c.catalogId !== null);
   const openSteps = steps.some((s) => !s.done);
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
@@ -114,10 +125,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div className="grid border-t border-line xl:grid-cols-[minmax(0,1fr)_25rem]">
           <div className="min-w-0 divide-y divide-line xl:border-r xl:border-line">
             <div className={REGION}>
-              <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} />
+              <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} awaiting={awaiting} />
             </div>
             <div className={REGION}>
-              <WorkQueue clients={data.clients} pending={pending} canUpload={canAct} queueHref={queueHref} />
+              <WorkQueue clients={data.clients} pending={pending} canUpload={canAct} queueHref={queueHref} filter={view.filter} sort={view.sort} viewHref={viewHref} />
             </div>
           </div>
 

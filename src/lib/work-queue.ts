@@ -43,3 +43,38 @@ export function issueShares(types: readonly { type: string; findings: number; ro
   const total = types.reduce((n, x) => n + x.findings, 0);
   return types.map((x) => ({ ...x, share: total > 0 ? x.findings / total : 0 }));
 }
+
+export const QUEUE_FILTERS = ['all', 'overdue', 'open', 'setup'] as const;
+export type QueueFilter = (typeof QUEUE_FILTERS)[number];
+export const QUEUE_SORTS = ['urgent', 'open', 'name', 'audited'] as const;
+export type QueueSort = (typeof QUEUE_SORTS)[number];
+
+const oneOf = <T extends string>(list: readonly T[], value: unknown, fallback: T): T =>
+  typeof value === 'string' && (list as readonly string[]).includes(value) ? (value as T) : fallback;
+
+/** The queue's two URL parameters; anything unknown falls back to "all" and "most urgent first". */
+export function parseQueueParams(params: { qf?: unknown; qs?: unknown }): { filter: QueueFilter; sort: QueueSort } {
+  return { filter: oneOf(QUEUE_FILTERS, params.qf, 'all'), sort: oneOf(QUEUE_SORTS, params.qs, 'urgent') };
+}
+
+const matches = (e: QueueEntry, filter: QueueFilter): boolean => {
+  if (filter === 'overdue') return e.client.overdueTasks > 0;
+  if (filter === 'open') return e.client.openRows > 0;
+  if (filter === 'setup') return e.client.catalogId === null;
+  return true;
+};
+
+/** How many entries each filter would show, so the chips can say so. */
+export function queueFilterCounts(entries: readonly QueueEntry[]): Record<QueueFilter, number> {
+  return Object.fromEntries(QUEUE_FILTERS.map((f) => [f, entries.filter((e) => matches(e, f)).length])) as Record<QueueFilter, number>;
+}
+
+/** Filters and orders the queue. "urgent" is the order workQueue already produced; the rest are plain attributes. */
+export function arrangeQueue(entries: readonly QueueEntry[], filter: QueueFilter, sort: QueueSort): QueueEntry[] {
+  const shown = entries.filter((e) => matches(e, filter));
+  if (sort === 'open') return shown.sort((a, b) => b.client.openRows - a.client.openRows || a.client.name.localeCompare(b.client.name));
+  if (sort === 'name') return shown.sort((a, b) => a.client.name.localeCompare(b.client.name));
+  // Longest since the last audit first; a client never audited counts as the longest.
+  if (sort === 'audited') return shown.sort((a, b) => (a.client.auditedAt?.getTime() ?? 0) - (b.client.auditedAt?.getTime() ?? 0) || a.client.name.localeCompare(b.client.name));
+  return shown;
+}

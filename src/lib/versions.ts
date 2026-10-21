@@ -176,7 +176,7 @@ async function carriedRows(orgId: string, catalogId: string): Promise<{ rows: Ca
  * listed only against the linked previous version, the one they came from.
  * Null when there is nothing to compare with.
  */
-export async function versionDiff(orgId: string, catalogId: string, againstId?: string): Promise<VersionDiff | null> {
+export async function versionDiff(orgId: string, catalogId: string, againstId?: string, window: { limit?: number; offset?: number } = {}): Promise<VersionDiff | null> {
   const loaded = await loadPairing(orgId, catalogId, againstId);
   if (!loaded) return null;
   const { previousId } = loaded;
@@ -190,7 +190,7 @@ export async function versionDiff(orgId: string, catalogId: string, againstId?: 
     itemIds({ item: { catalogId }, ...RISKY_FINDING, decision: 'pending' }),
     linked ? carriedRows(orgId, catalogId) : { rows: [], count: 0 },
   ]);
-  const parts = diffParts(loaded.pairing, { prevRisky, nextRisky, updated, prevDecided, nextPending }, LIMIT);
+  const parts = diffParts(loaded.pairing, { prevRisky, nextRisky, updated, prevDecided, nextPending }, window.limit ?? LIMIT, window.offset ?? 0);
   return { ...parts, previousId, linked, previous, carried: carried.rows, counts: { ...parts.counts, carried: carried.count } };
 }
 
