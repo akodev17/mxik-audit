@@ -10,14 +10,17 @@ export const INTENT_DELAY_MS = 50;
 export type IntentHandlers = {
   onPointerEnter: (e: PointerEvent) => void;
   onPointerLeave: () => void;
-  onPointerDown: () => void;
+  onPointerDown: (e: PointerEvent) => void;
   onFocus: (e: FocusEvent) => void;
 };
 
 /**
  * Fetches a section's whole page when the user shows the intent to open it (the pointer rests on its
- * link, a press starts, keyboard focus, a touch), so the click usually finds it ready and the page
- * appears without the skeleton. <Link>'s own prefetch stops at the (app) loading boundary for these
+ * link, keyboard focus, a touch), so the click usually finds it ready and the page appears without
+ * the skeleton. A mouse press alone fetches nothing: the click follows within milliseconds, and a
+ * full fetch still on its way makes Next wait for it instead of showing the loading skeleton it
+ * already holds (on a slow network that was half a second without feedback; while a fetched-ahead
+ * page is still on its way, ./navigation-progress shows the wait). <Link>'s own prefetch stops at the (app) loading boundary for these
  * dynamic pages. Next keeps a full prefetch for experimental.staleTimes.static (next.config.ts:
  * 30 s), and drops it on router.refresh() and on server actions that revalidate (./router-cache).
  * Only the header tabs, the rail and link tab strips (src/ui/tabs.tsx) use it: rendering every
@@ -43,11 +46,13 @@ export function useIntentPrefetch(): (href: string) => IntentHandlers {
     return {
       onPointerEnter: (e) => {
         cancel();
-        // A touch is handled by its pointerdown.
+        // A touch has no hover: its pointerdown fetches.
         if (e.pointerType !== 'touch') timer.current = setTimeout(fetchNow, INTENT_DELAY_MS);
       },
       onPointerLeave: cancel,
-      onPointerDown: fetchNow,
+      onPointerDown: (e) => {
+        if (e.pointerType === 'touch') fetchNow();
+      },
       onFocus: (e) => {
         if (focusVisible(e.target)) fetchNow();
       },
