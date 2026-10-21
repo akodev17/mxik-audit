@@ -92,6 +92,102 @@
         "fulltext": 217,
         "self-match": 8
       }
+    },
+    {
+      "label": "plan phase 4 before: 3000 rows, trigram cascade off (LEXICAL_STRICT_THRESHOLD=off), mxik_scratch, hashing vectors exact scan, no reranker",
+      "ranAt": "2026-10-21T11:59:43.248Z",
+      "machine": {
+        "cpu": "12th Gen Intel(R) Core(TM) i5-12400F",
+        "threads": 12,
+        "memGb": 69
+      },
+      "rows": 3000,
+      "embedder": "hashing (local, non-semantic)",
+      "findings": 1026,
+      "resumes": 0,
+      "degradedReasons": [
+        "LLM qayta tartiblash oʻchirilgan",
+        "vektor qidiruv toʻliq semantik emas"
+      ],
+      "secondsUploadToReport": 1383.1,
+      "steps": {
+        "generate": 0.6,
+        "parse": 0.1,
+        "store": 2.6,
+        "audit": 1380.3,
+        "report": 0
+      },
+      "auditRowsPerSecond": 2.2,
+      "stageMsPerRow": {
+        "exact": 298.09,
+        "embed": 0.04,
+        "barcode": 56.63,
+        "existing-code": 497.4,
+        "persist": 10.28,
+        "lexical": 1701.29,
+        "vector": 2062,
+        "fulltext": 805.01,
+        "self-match": 36.78
+      },
+      "stageCalls": {
+        "exact": 2508,
+        "embed": 2236,
+        "barcode": 492,
+        "existing-code": 2544,
+        "persist": 978,
+        "lexical": 2236,
+        "vector": 2236,
+        "fulltext": 2236,
+        "self-match": 52
+      }
+    },
+    {
+      "label": "plan phase 4 after: 3000 rows, trigram cascade at 0.75 (default), mxik_scratch, hashing vectors exact scan, no reranker",
+      "ranAt": "2026-10-21T12:18:58.127Z",
+      "machine": {
+        "cpu": "12th Gen Intel(R) Core(TM) i5-12400F",
+        "threads": 12,
+        "memGb": 69
+      },
+      "rows": 3000,
+      "embedder": "hashing (local, non-semantic)",
+      "findings": 1026,
+      "resumes": 0,
+      "degradedReasons": [
+        "LLM qayta tartiblash oʻchirilgan",
+        "vektor qidiruv toʻliq semantik emas"
+      ],
+      "secondsUploadToReport": 1143,
+      "steps": {
+        "generate": 0.6,
+        "parse": 0.1,
+        "store": 2.7,
+        "audit": 1140.2,
+        "report": 0
+      },
+      "auditRowsPerSecond": 2.6,
+      "stageMsPerRow": {
+        "exact": 257.33,
+        "embed": 0.04,
+        "barcode": 51.02,
+        "persist": 8.45,
+        "lexical": 1512.99,
+        "vector": 1616.28,
+        "existing-code": 411.9,
+        "fulltext": 673.65,
+        "self-match": 28.46
+      },
+      "stageCalls": {
+        "exact": 2508,
+        "embed": 2236,
+        "barcode": 492,
+        "persist": 978,
+        "lexical": 2236,
+        "vector": 2236,
+        "existing-code": 2544,
+        "fulltext": 2236,
+        "self-match": 52
+      }
     }
   ]
 }
