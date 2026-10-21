@@ -50,44 +50,43 @@ export async function ActivityTable({ entries }: { entries: ActivityEntry[] }) {
     return `${fmtDateTime(locale, entry.first)} – ${isoDay(entry.first) === isoDay(entry.last) ? end.slice(end.indexOf(' ') + 1) : end}`;
   };
 
+  // Each entry's pieces are built once and placed in both layouts: the payload then carries them once
+  // (React sends a repeated element as a reference), not once per layout.
+  const items = entries.flatMap((entry) => {
+    const head = entryHead(entry);
+    return head ? [{ key: entry.kind === 'event' ? head.id : `group-${head.id}`, head, when: when(entry, head), what: what(entry), client: client(head), catalog: catalog(head) }] : [];
+  });
+
   return (
     <>
       <div className="hidden md:block">
         <Table label={ta.log.title}>
           <thead><tr><Th>{ta.log.when}</Th><Th>{ta.log.what}</Th><Th>{ta.log.user}</Th><Th>{ta.log.client}</Th><Th>{ta.log.file}</Th></tr></thead>
           <tbody>
-            {entries.map((entry) => {
-              const head = entryHead(entry);
-              if (!head) return null;
-              return (
-                <tr key={entry.kind === 'event' ? head.id : `group-${head.id}`}>
-                  <Td className="whitespace-nowrap align-top tabular-nums text-muted">{when(entry, head)}</Td>
-                  <Td className="min-w-[14rem] align-top">{what(entry)}</Td>
-                  <Td className="max-w-[14rem] truncate align-top text-muted" title={actorText(head, ta)}>{actorText(head, ta)}</Td>
-                  <Td className="max-w-[12rem] truncate align-top text-muted">{client(head)}</Td>
-                  <Td className="max-w-xs truncate align-top">{catalog(head)}</Td>
-                </tr>
-              );
-            })}
+            {items.map(({ key, head, ...x }) => (
+              <tr key={key}>
+                <Td className="whitespace-nowrap align-top tabular-nums text-muted">{x.when}</Td>
+                <Td className="min-w-[14rem] align-top">{x.what}</Td>
+                <Td className="max-w-[14rem] truncate align-top text-muted" title={actorText(head, ta)}>{actorText(head, ta)}</Td>
+                <Td className="max-w-[12rem] truncate align-top text-muted">{x.client}</Td>
+                <Td className="max-w-xs truncate align-top">{x.catalog}</Td>
+              </tr>
+            ))}
           </tbody>
         </Table>
       </div>
       <ul className="space-y-2 md:hidden">
-        {entries.map((entry) => {
-          const head = entryHead(entry);
-          if (!head) return null;
-          return (
-            <li key={entry.kind === 'event' ? head.id : `group-${head.id}`} className="rounded-ctl border border-line bg-raised p-3">
-              <p className="text-small tabular-nums text-muted">{when(entry, head)}</p>
-              <div className="mt-0.5">{what(entry)}</div>
-              <p className="mt-1 text-small text-muted [overflow-wrap:anywhere]">
-                {actorText(head, ta)}
-                {head.clientName ? <> · {client(head)}</> : null}
-                {catalogText(head, ta) ? <> · {catalog(head)}</> : null}
-              </p>
-            </li>
-          );
-        })}
+        {items.map(({ key, head, ...x }) => (
+          <li key={key} className="rounded-ctl border border-line bg-raised p-3">
+            <p className="text-small tabular-nums text-muted">{x.when}</p>
+            <div className="mt-0.5">{x.what}</div>
+            <p className="mt-1 text-small text-muted [overflow-wrap:anywhere]">
+              {actorText(head, ta)}
+              {head.clientName ? <> · {x.client}</> : null}
+              {x.catalog ? <> · {x.catalog}</> : null}
+            </p>
+          </li>
+        ))}
       </ul>
     </>
   );
