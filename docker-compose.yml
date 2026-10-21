@@ -28,8 +28,10 @@ services:
       # Loopback only. Docker-published ports bypass host firewalls such as ufw,
       # so binding 0.0.0.0 would expose Postgres to the internet on a VPS.
       - "127.0.0.1:54329:5432"
-    # pgvector builds HNSW indexes in parallel through shared memory; the 64MB
-    # Docker default is far too small and the build fails with ENOSPC.
+    # Parallel index builds and parallel queries use shared memory; the 64MB
+    # Docker default is far too small and fails with ENOSPC. The HNSW builds in
+    # scripts/lib/hnsw.ts are serial (a 2 GB maintenance_work_mem segment did
+    # not fit in 2gb, DEPLOY.md section 4); keep maintenance_work_mem well below this.
     shm_size: "2gb"
     volumes:
       - mxik-pgdata:/var/lib/postgresql/data

@@ -7,7 +7,7 @@
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { Pool } from 'pg';
 import { readEmbeddingState } from '../src/core/match/vector-readiness.js';
-import { hnswIndexName, hnswIndexSql, HNSW_EF_CONSTRUCTION, HNSW_M, type VectorColumnName } from './lib/hnsw.js';
+import { HNSW_BUILD_SETTINGS, hnswIndexName, hnswIndexSql, HNSW_EF_CONSTRUCTION, HNSW_M, type VectorColumnName } from './lib/hnsw.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -29,8 +29,14 @@ try {
     const temp = `${name}_new`;
     const t0 = Date.now();
     await client.query(`DROP INDEX CONCURRENTLY IF EXISTS "${temp}"`); // a previous attempt that died half-way
-    await client.query("SET maintenance_work_mem = '2GB'");
-    await client.query(hnswIndexSql(column, { concurrently: true, name: temp }));
+    for (const setting of HNSW_BUILD_SETTINGS) await client.query(setting);
+    try {
+      await client.query(hnswIndexSql(column, { concurrently: true, name: temp }));
+    } catch (error) {
+      // A failed CONCURRENTLY build leaves an invalid index behind; remove it so a rerun starts clean.
+      await client.query(`DROP INDEX CONCURRENTLY IF EXISTS "${temp}"`).catch(() => undefined);
+      throw error;
+    }
     await client.query(`DROP INDEX CONCURRENTLY IF EXISTS "${name}"`);
     await client.query(`ALTER INDEX "${temp}" RENAME TO "${name}"`);
     console.log(`  ${column}: rebuilt in ${((Date.now() - t0) / 1000).toFixed(0)}s`);

@@ -84,7 +84,7 @@ mx npx prisma migrate deploy        # tables and indexes
 mx npm run fetch:catalog            # 3 official Excel exports, ~93 MB, ~1 min
 mx npm run ingest -- --enrich       # normalize + marking flags, ~10 min
 mx npm run load:db                  # ~443k codes into Postgres, ~3 min
-mx npm run embed:catalog            # local e5 vectors + HNSW index, ~2.7 h on 4 vCPU
+mx npm run embed:catalog            # local e5 vectors, both columns, + HNSW indexes, ~3 h on 4 vCPU
 mx npm run seed:demo                # the demo catalogue behind /demo, ~1 min
 ```
 
@@ -92,6 +92,19 @@ mx npm run seed:demo                # the demo catalogue behind /demo, ~1 min
 persists across rebuilds. It is resumable: if the session drops, run the same
 command again and it continues from `data/embed-checkpoint.json`. Run it inside
 `tmux` or `screen` so a dropped SSH session does not stop it.
+
+The HNSW indexes (`m = 32, ef_construction = 200`, `scripts/lib/hnsw.ts`) are
+built **serially** with `maintenance_work_mem = 1GB`. A parallel build places
+its whole working memory in one shared-memory segment of `maintenance_work_mem`
+bytes, and the database container's `/dev/shm` is `shm_size` in
+`docker-compose.yml` (2 GB): a 2 GB segment did not fit on 2026-10-22 and the
+build failed ("could not resize shared memory segment … No space left on
+device"). If you enable parallel builds yourself, keep `maintenance_work_mem`
+well below `shm_size`. To rebuild the indexes later without re-embedding (for
+example after changing those parameters), run `mx npm run vectors:reindex`
+(dry run with `-- --dry-run`): it builds each new index `CONCURRENTLY` beside
+the old one, so plan ~0.9 GB of free disk per column, and the app keeps
+answering throughout.
 
 `ingest -- --enrich` calls the public tasnif.soliq.uz API for every code; if
 that is unreachable from the server, run `mx npm run ingest` (without
