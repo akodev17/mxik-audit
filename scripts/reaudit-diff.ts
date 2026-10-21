@@ -17,6 +17,12 @@ import { db } from '../src/lib/db.js';
 import { bandOf } from '../src/core/match/score.js';
 
 const RESULTS = 'docs/reaudit-results.json';
+/**
+ * The finding types checkItem produces. Privilege findings come from a separate
+ * pass after the audit (audit-jobs.ts runPrivilegeCheck) and are left out of
+ * the comparison; NOT_PURCHASED needs purchase data the re-audit does not load.
+ */
+const ENGINE_TYPES = new Set(['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT']);
 const args = process.argv.slice(2);
 const values = (flag: string): string[] => args.flatMap((a, i) => (a === flag && args[i + 1] ? [args[i + 1] as string] : []));
 const LABEL = values('--label')[0] ?? 'reaudit diff';
@@ -72,7 +78,7 @@ async function reaudit(orgId: string, items: (AuditableItem & { key: string })[]
       const { findings } = await checkItem(item, ctx);
       const top = findings.find((f) => f.suggestedMxik);
       out.set(item.key, {
-        types: [...new Set(findings.map((f) => f.type))].sort(),
+        types: [...new Set(findings.map((f) => f.type).filter((t) => ENGINE_TYPES.has(t)))].sort(),
         suggested: top?.suggestedMxik ?? null,
         band: top?.confidence === null || top?.confidence === undefined ? null : bandOf(top.confidence),
       });
@@ -102,7 +108,7 @@ for (const catalog of catalogs) {
   const stored = new Map(items.map((i) => {
     const top = i.findings.find((f) => f.suggestedMxik);
     return [i.id, {
-      types: [...new Set(i.findings.map((f) => f.type))].sort(),
+      types: [...new Set(i.findings.map((f) => f.type).filter((t) => ENGINE_TYPES.has(t)))].sort(),
       suggested: top?.suggestedMxik ?? null,
       band: top?.confidence === null || top?.confidence === undefined ? null : bandOf(top.confidence),
     }];

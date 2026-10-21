@@ -48,7 +48,17 @@ export const SYNONYMS: readonly Synonym[] = [
   // 07216001002000000) and "Сталь угловая". "уголок" (203 names) and "уголки"
   // (2,564) are mostly PVC, plaster and furniture corners; adding "уголки"
   // pulled "Уголок 90,100,125" to a PVC corner in the eval (run 20).
-  { forms: ['уголок'], term: 'угловые профили угловая сталь' },
+  // Corners that are not angle steel keep their own word: "Уголок
+  // перфорированный" (plaster corner, 07216001007) was pulled to a plastic
+  // profile by "профили" in the re-audit of the 423-row file (2026-10-21).
+  {
+    forms: ['уголок'],
+    term: 'угловые профили угловая сталь',
+    unless: [
+      'перфор', 'perfor', 'пвх', 'pvx', 'pvc', 'пласт', 'plast', 'мебел', 'mebel', 'алюмин', 'alyumin',
+      'декор', 'dekor', 'штукатур', 'shtukatur', 'малярн', 'malyar', 'плинтус', 'plintus',
+    ],
+  },
   // Mineral wool: "минвата" 0 names, "минеральная вата" 3,496.
   { forms: ['минвата', 'minvata'], term: 'минеральная вата', replace: true },
   // Thermal insulation: "утеплитель" 531 names, "теплоизоляц" 4,117.

@@ -29,6 +29,12 @@ describe('applySynonyms', () => {
     assert.equal(r.text, 'ugolok ugloviye profili uglovaya stal');
   });
 
+  it('leaves corners that are not angle steel alone (re-audit of the 423-row file)', () => {
+    for (const name of ['Уголок перфорированный', 'Уголок ПВХ белый 3м', 'Уголок мебельный', 'Уголок алюминиевый 20х20']) {
+      assert.deepEqual(applySynonyms(query(name)).applied, [], name);
+    }
+  });
+
   it('replaces "минвата", which no classifier name uses', () => {
     assert.equal(applySynonyms(query('Минвата Rockwool 50мм')).text, 'mineralnaya vata rockwool');
   });
