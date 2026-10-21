@@ -313,7 +313,7 @@ above (~291 KB decoded after, ~19 KB gzip).
 | `npm run typecheck` | clean |
 | `npm run lint` | 0 errors, 1 warning (pre-existing, `scripts/lib/xlsx.ts:131`, non-null assertion) |
 | `npm test` | 1,140 tests: 1,138 pass, 0 fail, 2 skipped (database-dependent skips that report their reason; 3 skipped in an earlier run of the same suite on this branch) |
-| `npm run test:e2e` with `E2E_BASE_URL=http://localhost:3001 E2E_NO_NAV_FALLBACK=1`, production build **30 / 30 pass** on the build of `50b673d` (5 files: empty states, navigation, refresh, review flow, scale; 3,000 rows: first rows 408 / 895 / 395 ms, j/k median 9.0 ms, p95 15.3 ms); 29 / 29 earlier on the build of `9a3b003` |
+| `npm run test:e2e` with `E2E_BASE_URL=http://localhost:3001 E2E_NO_NAV_FALLBACK=1`, production build | **30 / 30 pass** on the build of `50b673d` (5 files: empty states, navigation, refresh, review flow, scale; 3,000 rows: first rows 408 / 895 / 395 ms, j/k median 9.0 ms, p95 15.3 ms); 29 / 29 earlier on the build of `9a3b003` |
 | Navigation + refresh gate, final code | 10 / 10 consecutive green runs (8 tests each) |
 | `npm run build` | succeeds; size table above |
 
