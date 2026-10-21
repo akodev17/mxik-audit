@@ -27,7 +27,7 @@ export function Page({ title, hint, actions, children, wide, crumbs }: Props) {
       {crumbs && crumbs.length > 0 ? <Breadcrumbs items={[...crumbs, { label: title }]} className="mb-2" /> : null}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-title">{title}</h1>
+          <h1 className="text-[1.75rem] font-medium leading-9 tracking-tight">{title}</h1>
           {hint ? <p className="mt-1 max-w-2xl text-small text-muted">{hint}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}

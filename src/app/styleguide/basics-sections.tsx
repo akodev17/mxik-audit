@@ -12,7 +12,9 @@ import { Field, Input } from '@/ui/input';
 import { Page, Section } from '@/ui/page';
 import { Segmented } from '@/ui/segmented';
 import { Select } from '@/ui/select';
+import { BarChart } from '@/ui/bar-chart';
 import { RowList } from '@/ui/row-list';
+import { TabPanels } from '@/ui/tab-panels';
 import { Skeleton } from '@/ui/skeleton';
 import { StatRow } from '@/ui/stat-row';
 import { Stat } from '@/ui/stat';
@@ -121,7 +123,7 @@ export function FormsSection() {
 
 export function LayoutSection() {
   return (
-    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page, sidebar), surface (panels, active nav item, table heads), raised (cards), sunken (wells). The app frame puts the sidebar on a surface canvas and the workspace on one base sheet inset from md. Prefer open lists and hairlines over nested boxes; shadow only for floating layers.">
+    <Block id="layout" title="Cards and layout" hint="Surfaces: base (page, sidebar), surface (panels, active nav item, table heads), raised (cards), sunken (wells). The app frame is a header (brand cell, section tabs, account controls) over a slim icon rail and a full-bleed page divided by hairlines. Prefer open lists and hairlines over nested boxes; shadow only for floating layers.">
       <Sub title="Surfaces">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -159,6 +161,31 @@ export function LayoutSection() {
           { key: 'b', label: 'Koʻrib chiqilgan', value: '52', unit: '/ 107', hint: '48% bajarildi', bar: { done: 52, total: 107 } },
           { key: 'c', label: 'Eʼtibor kerak', value: '1', tone: 'warn', hint: '1 ta mijozdan' },
           { key: 'd', label: 'Muddati oʻtgan tekshiruvlar', value: '0', hint: 'oylik vazifalar' },
+        ]} />
+      </Sub>
+
+      <Sub title="Large summary row" note={"StatRow size=lg and bare: the dashboard version, hairlines supplied by the page grid"}>
+        <StatRow size="lg" bare label="Namuna" items={[
+          { key: 'a', label: 'Ochiq xavfli qatorlar', value: '107', tone: 'danger', hint: '113 ta topilma' },
+          { key: 'b', label: 'Koʻrib chiqilgan', value: '52', unit: '/ 107', bar: { done: 52, total: 107 }, hint: '48% bajarildi' },
+          { key: 'c', label: 'Eʼtibor kerak', value: '1', tone: 'warn' },
+          { key: 'd', label: 'Muddati oʻtgan', value: '0' },
+        ]} />
+      </Sub>
+
+      <Sub title="Bar chart" note="BarChart: zero baseline, the tallest bar in brand colour, counts printed on the bars, columns link to filtered lists">
+        <BarChart label="Namuna" items={[
+          { key: 'a', label: 'Kod yoʻq', value: 47, display: '47 · 42%' },
+          { key: 'b', label: 'Nomga mos emas', value: 36, display: '36 · 32%' },
+          { key: 'c', label: 'Tasniflagichda yoʻq', value: 17, display: '17 · 15%' },
+          { key: 'd', label: 'Oʻlchov birligi', value: 13, display: '13 · 12%' },
+        ]} height={160} />
+      </Sub>
+
+      <Sub title="Tab panels" note="TabPanels: in-page tabs with arrow-key navigation; every panel is already on the page">
+        <TabPanels label="Namuna" tabs={[
+          { id: 'a', label: 'Mijozlar', content: <p className="text-small text-muted">Birinchi panel</p> },
+          { id: 'b', label: 'Harakatlar', content: <p className="text-small text-muted">Ikkinchi panel</p> },
         ]} />
       </Sub>
 

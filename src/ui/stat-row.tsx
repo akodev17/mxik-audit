@@ -28,15 +28,15 @@ const VALUE: Record<StatRowTone, string> = { neutral: 'text-fg', good: 'text-goo
  * A compact summary: three or four measures side by side, divided by hairlines, with no box of their
  * own. Use it where a row of separate stat cards would compete with the work below it.
  */
-export function StatRow({ items, label }: { items: StatRowItem[]; label: string }) {
+export function StatRow({ items, label, size = 'md', bare = false }: { items: StatRowItem[]; label: string; size?: 'md' | 'lg'; bare?: boolean }) {
   return (
-    <ul aria-label={label} className="grid grid-cols-2 border-y border-line lg:grid-cols-4 lg:divide-x lg:divide-line">
+    <ul aria-label={label} className={cx('grid grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-line', !bare && 'border-y border-line')}>
       {items.map((item, i) => {
         const body = (
           <>
             <span className="line-clamp-2 text-small text-muted" title={item.label}>{item.label}</span>
             <span className="mt-auto flex items-baseline gap-1.5 pt-1.5">
-              <span className={cx('text-title tabular-nums', VALUE[item.tone ?? 'neutral'])}>{item.value}</span>
+              <span className={cx('tabular-nums', size === 'lg' ? 'text-[2.25rem] font-medium leading-10 tracking-tight' : 'text-title', VALUE[item.tone ?? 'neutral'])}>{item.value}</span>
               {item.unit ? <span className="text-small tabular-nums text-muted">{item.unit}</span> : null}
             </span>
             {item.bar ? <Progress className="mt-1.5" size="sm" tone="good" hideLabel label={item.label} value={item.bar.done} max={item.bar.total} /> : null}

@@ -35,5 +35,5 @@ export async function Summary({ totals, reviewed, audited, queueHref }: {
       tone: totals.overdueTasks > 0 ? 'danger' : 'neutral', hint: home.overdueHint,
     },
   ];
-  return <StatRow items={items} label={ta.dash.title} />;
+  return <StatRow items={items} label={ta.dash.title} size="lg" bare />;
 }

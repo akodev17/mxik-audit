@@ -14,7 +14,10 @@ import { Popover } from '@/ui/popover';
 import { Progress } from '@/ui/progress';
 import { Checkbox } from '@/ui/checkbox';
 import { Select } from '@/ui/select';
+import { TasnivoMark } from '@/ui/logo';
 import { useNav } from '@/ui/shell/nav-items';
+import { Rail } from '@/ui/shell/rail';
+import { TopNav } from '@/ui/shell/top-nav';
 import { NavLink } from '@/ui/shell/nav-link';
 import { Spinner } from '@/ui/spinner';
 import { Tabs } from '@/ui/tabs';
@@ -115,7 +118,16 @@ export function NavigationSection() {
   const [active, setActive] = useState('clients');
   const groups = useNav(true, true);
   return (
-    <Block id="navigation" title="Navigation" hint="The sidebar groups come from navGroups() and NavLink is the real link: quiet grey fill and a thin brand marker for the current page. Links here only switch the sample state.">
+    <Block id="navigation" title="Navigation" hint="Desktop navigation is the header tabs plus the icon rail. Below md the same destinations open in a drawer, shown here as grouped NavLinks (raised pill for the current page). Links only switch the sample state.">
+      <Sub title="App header and rail" note="TopNav (section tabs, current one underlined) and Rail (help, settings, upload) are the real components; from md up">
+        <div className="hidden overflow-hidden rounded-ctl border border-line md:block">
+          <div className="flex h-16 border-b border-line">
+            <div className="grid w-16 shrink-0 place-items-center border-r border-line"><TasnivoMark className="size-7 text-fg" /></div>
+            <TopNav canWrite canTeam activePath="/clients" />
+          </div>
+          <div className="flex h-44"><Rail canWrite canTeam activePath="/settings" /><p className="p-5 text-small text-muted">Sahifa mazmuni</p></div>
+        </div>
+      </Sub>
       <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
         <nav aria-label="Sidebar sample" className="rounded-ctl border border-line bg-base p-2">
           <div className="flex flex-col gap-3">
