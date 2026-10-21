@@ -125,7 +125,7 @@ export function NavigationSection() {
             <div className="grid w-16 shrink-0 place-items-center border-r border-line"><TasnivoMark className="size-7 text-fg" /></div>
             <TopNav canWrite canTeam activePath="/clients" />
           </div>
-          <div className="flex h-44"><Rail canWrite canTeam activePath="/settings" /><p className="p-5 text-small text-muted">Sahifa mazmuni</p></div>
+          <div className="flex h-44"><Rail canWrite canTeam canUpload activePath="/settings" /><p className="p-5 text-small text-muted">Sahifa mazmuni</p></div>
         </div>
       </Sub>
       <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">

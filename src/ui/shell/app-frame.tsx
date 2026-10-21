@@ -61,7 +61,7 @@ export function AppFrame({ shell, children }: Props) {
         >
           {ta.shellX.skip}
         </a>
-        <MobileNav id={menuId} open={menuOpen} onClose={closeMenu} canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
+        <MobileNav id={menuId} open={menuOpen} onClose={closeMenu} canWrite={shell.canWrite && !shell.demo} canTeam={shell.canManageTeam} />
 
         <header className="no-print flex h-14 shrink-0 items-stretch border-b border-line bg-base md:h-16">
           <span className="flex items-center pl-2 md:hidden">
@@ -94,7 +94,7 @@ export function AppFrame({ shell, children }: Props) {
         </header>
 
         <div className="flex min-h-0 flex-1">
-          <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
+          <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} />
           <div className="flex min-w-0 flex-1 flex-col">
             <PlanBanner plan={shell.plan} />
             <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none"><RouteBoundary>{children}</RouteBoundary></main>
@@ -108,7 +108,7 @@ export function AppFrame({ shell, children }: Props) {
       <CommandPalette
         open={paletteOpen}
         onClose={closePalette}
-        canWrite={shell.canWrite}
+        canWrite={shell.canWrite && !shell.demo}
         canTeam={shell.canManageTeam}
         clients={shell.clients}
         activeClientId={shell.activeClient?.id ?? null}
