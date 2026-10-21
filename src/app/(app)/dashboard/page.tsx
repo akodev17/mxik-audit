@@ -5,10 +5,8 @@ import { canWrite, isAdminRole } from '@/lib/access';
 import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
 import { pendingAudits } from '@/lib/client-attention';
-import { openRowsHint, reviewedShare } from '@/lib/client-kpi';
-import { attentionReasons, rowProgress } from '@/lib/client-stats';
+import { rowProgress } from '@/lib/client-stats';
 import { dashboard } from '@/lib/dashboard';
-import { fmtNumber } from '@/lib/format';
 import { getI18n } from '@/lib/locale';
 import { onboardingSteps } from '@/lib/onboarding';
 import { openTasks } from '@/lib/reminders';
@@ -16,16 +14,15 @@ import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
 import { Page, Section } from '@/ui/page';
-import { Stat } from '@/ui/stat';
+import { ButtonLink } from '@/ui/button';
 import { ActivityFeed } from '../activity/activity-feed';
 import { AccountantFilter } from './accountant-filter';
-import { AttentionList } from './attention-list';
 import { Changes } from './changes';
-import { NextStep } from './next-step';
 import { Onboarding } from './onboarding';
-import { TopRisk } from './top-risk';
 import { TopTypes } from './top-types';
 import { Tasks } from './tasks';
+import { Summary } from './summary';
+import { WorkQueue } from './work-queue';
 import { Workload } from './workload';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -36,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const RECENT = 8;
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string }> }) {
-  const { locale, ta } = await getI18n();
+  const { ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const sp = await searchParams;
@@ -52,7 +49,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const shown = new Set(data.clients.map((c) => c.id));
   const tasks = allTasks.filter((x) => shown.has(x.clientId));
   const { totals } = data;
-  const fmt = (n: number): string => fmtNumber(locale, n);
   const accountantQuery = data.selected ? `accountant=${encodeURIComponent(data.selected.id)}` : '';
   const queueHref = (extra = ''): string => {
     const q = [accountantQuery, extra].filter(Boolean).join('&');
@@ -62,13 +58,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const audited = data.clients.some((c) => c.catalogId !== null);
   const openSteps = steps.some((s) => !s.done);
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
-  const attention = data.clients.filter((c) => attentionReasons(c).length > 0);
   const pending = await pendingAudits(user.orgId, data.clients.filter((c) => !c.isDefault));
 
+  const canAct = canWrite(user) && !user.demo;
+
   return (
-    <Page title={ta.dash.title} hint={home.hint} wide>
+    <Page
+      title={ta.dash.title} hint={home.hint} wide
+      actions={data.clients.length > 0 && canAct ? <ButtonLink href="/upload" variant="secondary" size="sm">{home.nextEmptyCta}</ButtonLink> : undefined}
+    >
       {user.demo ? (
-        <p className="mb-5 flex flex-wrap items-center gap-2 text-small text-muted">
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-small text-muted">
           <Badge tone="info">{ta.firmX.sample.badge}</Badge>
           {ta.firmX.sample.hint}
         </p>
@@ -84,73 +84,56 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       {data.clients.length > 0 ? (
         <>
-          {/* Two by two on a phone, so the tiles do not fill the whole first screen; labels may wrap there. */}
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 max-sm:[&_.truncate]:whitespace-normal">
-            <Stat
-              label={home.openRows} value={fmt(totals.openRows)} href={queueHref()}
-              tone={totals.openRows > 0 ? 'danger' : 'good'}
-              hint={openRowsHint(locale, ta.firmX.progress, totals.openRows, totals.pendingFindings)}
-            />
-            <Stat
-              label={ta.firmX.progress.label} href="/clients?sort=progress"
-              value={reviewed ? `${fmt(reviewed.done)} / ${fmt(reviewed.total)}` : ta.firmX.dash}
-              hint={reviewed ? reviewedShare(locale, ta.firmX.progress, reviewed) : audited ? ta.firmX.progress.none : ta.firmX.progress.notAudited}
-            />
-            <Stat
-              label={home.attention} value={fmt(totals.attention)} href="/clients?filter=attention"
-              tone={totals.attention > 0 ? 'warn' : 'good'}
-              hint={home.attentionHint(fmt(totals.clients), totals.clients)}
-            />
-            <Stat
-              label={home.overdue} value={fmt(totals.overdueTasks)} href="/clients?filter=overdue"
-              tone={totals.overdueTasks > 0 ? 'danger' : 'neutral'} hint={home.overdueHint}
-            />
-          </div>
+          <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} />
 
-          {firstRun ? null : <NextStep clients={data.clients} pending={pending} tasks={tasks} canUpload={canWrite(user) && !user.demo} queueHref={queueHref} />}
+          {/* Reading order on a phone: queue, issues, tasks, then history. From xl the second column holds the aside. */}
+          <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_24rem] xl:content-start xl:items-start">
+            <WorkQueue clients={data.clients} pending={pending} canUpload={canAct} queueHref={queueHref} />
 
-          {openSteps && !firstRun ? <div className="mt-6"><Onboarding steps={steps} primary={false} /></div> : null}
+            <aside className="flex min-w-0 flex-col gap-8 xl:col-start-2 xl:row-span-4 xl:row-start-1 [&>section]:mt-0">
+              <Section title={home.typesTitle} hint={home.typesHint}>
+                <TopTypes types={data.byType} accountantQuery={accountantQuery} />
+              </Section>
+              {tasks.length > 0 ? (
+                <Section title={ta.reminders.tasks}>
+                  <Tasks
+                    canWrite={canAct}
+                    items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn.toISOString(), overdue: x.overdue }))}
+                  />
+                </Section>
+              ) : null}
+              {openSteps && !firstRun ? <Onboarding steps={steps} primary={false} /> : null}
+            </aside>
 
-          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 [&>section]:mt-0">
-            <Section title={home.attentionTitle} actions={attention.length > 0 ? <Link href="/clients?filter=attention" className="text-small font-medium text-brand-ink hover:underline">{home.attentionAll}</Link> : null}>
-              <AttentionList clients={attention} pending={pending} />
-            </Section>
-            <Section title={ta.reminders.tasks}>
-              <Tasks
-                canWrite={canWrite(user) && !user.demo}
-                items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn.toISOString(), overdue: x.overdue }))}
-              />
-            </Section>
-          </div>
+            {data.changes.length > 0 ? (
+              <Section title={home.changesTitle} hint={home.changesHint}>
+                <Changes changes={data.changes} />
+              </Section>
+            ) : null}
 
-          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 [&>section]:mt-0">
-            <Section title={home.topTitle} hint={home.topHint}>
-              <TopRisk clients={data.clients} accountantQuery={accountantQuery} />
-            </Section>
-            <Section title={home.typesTitle} hint={home.typesHint}>
-              <TopTypes types={data.byType} accountantQuery={accountantQuery} />
+            {data.workload ? (
+              <Section title={home.workloadTitle} hint={home.workloadHint}>
+                <Workload rows={data.workload} />
+              </Section>
+            ) : null}
+
+            <Section title={ta.dash.recent} actions={<Link href="/activity" className="text-small font-medium text-brand-ink hover:underline">{home.recentAll}</Link>}>
+              {recent.rows.length === 0
+                ? <p className="text-small text-muted">{ta.dash.recentEmpty}</p>
+                : <ActivityFeed entries={groupDecisions(recent.rows).slice(0, RECENT)} />}
             </Section>
           </div>
-
-          <Section title={home.changesTitle} hint={home.changesHint}>
-            <Changes changes={data.changes} />
-          </Section>
         </>
-      ) : null}
-
-      {data.workload ? (
-        <Section title={home.workloadTitle} hint={home.workloadHint}>
-          <Workload rows={data.workload} />
-        </Section>
-      ) : null}
-
-      <Section title={ta.dash.recent} actions={<Link href="/activity" className="text-small font-medium text-brand-ink hover:underline">{home.recentAll}</Link>}>
-        {recent.rows.length === 0
-          ? <p className="text-small text-muted">{ta.dash.recentEmpty}</p>
-          : <ActivityFeed entries={groupDecisions(recent.rows).slice(0, RECENT)} />}
-      </Section>
-
-      {openSteps && !firstRun && data.clients.length === 0 ? <div className="mt-8"><Onboarding steps={steps} primary={false} /></div> : null}
+      ) : (
+        <>
+          {data.workload ? (
+            <Section title={home.workloadTitle} hint={home.workloadHint}>
+              <Workload rows={data.workload} />
+            </Section>
+          ) : null}
+          {openSteps && !firstRun ? <div className="mt-8"><Onboarding steps={steps} primary={false} /></div> : null}
+        </>
+      )}
     </Page>
   );
 }

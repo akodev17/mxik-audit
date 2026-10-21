@@ -73,10 +73,10 @@ export function NavLink({ item, active, labelClass, onNavigate }: Props) {
         onClick={() => { hide(); onNavigate?.(); }}
         className={cx(
           'relative flex h-10 items-center gap-3 rounded-ctl px-2.5 text-data font-medium transition-colors duration-(--duration-fast)',
-          active ? 'bg-raised text-brand-ink shadow-[inset_3px_0_0_var(--color-brand)]' : 'text-muted hover:bg-sunken hover:text-fg',
+          active ? 'bg-sunken text-fg before:absolute before:left-0 before:top-2.5 before:h-5 before:w-[3px] before:rounded-full before:bg-brand' : 'text-muted hover:bg-sunken hover:text-fg',
         )}
       >
-        <span className="shrink-0">{item.icon}</span>
+        <span className={cx('shrink-0', active && 'text-brand-ink')}>{item.icon}</span>
         <span ref={label} className={cx('truncate', labelClass)}>{item.label}</span>
       </Link>
       {tip ? (
