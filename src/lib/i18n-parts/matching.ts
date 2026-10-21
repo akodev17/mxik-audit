@@ -20,6 +20,10 @@ export const uz = {
       legacy: 'Kod firma lugʻatidan olingan.',
       conflict: (code: string) => `Firma lugʻatida bu nom uchun boshqa kod bor: ${code}. Shtrix-kod boʻyicha topilgan kod qoldirildi.`,
     },
+    synonymLabel: 'Atama',
+    synonym: (pairs: string) => `Tovar nomidagi soʻz tasniflagich atamasi bilan ham qidirildi: ${pairs}.`,
+    hierarchyLabel: 'Boʻlim',
+    hierarchy: (words: string) => `Kodning oʻz nomida emas, u turgan tasniflagich boʻlimi nomida bor: ${words}.`,
     rulesLabel: 'Qoida',
     rules: {
       baseCodePreferred: 'Bazaviy kod (…000000): aniq mos kod boʻlmaganda amaliyotda shu tanlanadi.',
@@ -29,6 +33,8 @@ export const uz = {
       preparedDishBase: 'Tayyor taom: tasniflagichda batafsil kod yoʻq, umumiy kod mos.',
       preparedDishSpecific: 'Tayyor taom batafsil kodga moslangan, tasniflagich esa bunday kodlarni bermaydi.',
       strictUnitConflict: 'Qatordagi oʻlchov birligi kodga qatʼiy biriktirilgan birlikka mos emas.',
+      recommendedUnitMatch: 'Qatordagi oʻlchov birligi tasniflagich bu kod uchun tavsiya qilgan birliklardan biri.',
+      unitKindMismatch: 'Tasniflagich bu kod uchun boshqa turdagi birlikni tavsiya qiladi (masalan, dona, qatorda esa tonna).',
     },
     degraded: {
       title: 'Bu tahlil cheklangan rejimda bajarildi',
@@ -89,6 +95,10 @@ export const ru: typeof uz = {
       legacy: 'Код взят из словаря фирмы.',
       conflict: (code: string) => `В словаре фирмы для этого названия другой код: ${code}. Оставлен код, найденный по штрихкоду.`,
     },
+    synonymLabel: 'Термин',
+    synonym: (pairs: string) => `Слово из названия товара искали и по термину классификатора: ${pairs}.`,
+    hierarchyLabel: 'Раздел',
+    hierarchy: (words: string) => `Есть не в названии кода, а в названии раздела классификатора, где он стоит: ${words}.`,
     rulesLabel: 'Правило',
     rules: {
       baseCodePreferred: 'Базовый код (…000000): на практике выбирается, когда точного кода нет.',
@@ -98,6 +108,8 @@ export const ru: typeof uz = {
       preparedDishBase: 'Готовое блюдо: детального кода в классификаторе нет, подходит общий код.',
       preparedDishSpecific: 'Готовое блюдо сопоставлено с детальным кодом, а классификатор таких кодов не даёт.',
       strictUnitConflict: 'Единица измерения в строке не совпадает с единицей, жёстко привязанной к коду.',
+      recommendedUnitMatch: 'Единица в строке — одна из рекомендованных классификатором для этого кода.',
+      unitKindMismatch: 'Классификатор рекомендует для этого кода единицу другого рода (например, штуки, а в строке тонны).',
     },
     degraded: {
       title: 'Этот анализ выполнен в ограниченном режиме',

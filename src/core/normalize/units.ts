@@ -135,6 +135,35 @@ export function unitsCompatible(rowUnit: string | null, codeUnits: readonly stri
   return resolved.some((u) => u.id === row.id);
 }
 
+/** What a unit measures. Two units of one kind convert into each other (kg and tonna); of different kinds they do not. */
+export type QuantityKind = 'mass' | 'length' | 'area' | 'volume' | 'count';
+
+/**
+ * Official unit ids by kind (units.generated.ts). Units of time, energy,
+ * services and the like have no kind here: no unit rule judges them.
+ */
+const KIND_IDS: Record<QuantityKind, readonly number[]> = {
+  mass: [3, 4, 5, 6, 7, 64, 83, 111],
+  length: [8, 9, 10, 11, 12, 51],
+  area: [13, 14, 15, 16, 52, 95],
+  volume: [17, 20, 21, 22, 23, 24],
+  count: [1, 26, 29, 30, 46, 50, 58, 63, 72, 78, 81, 82, 84, 86, 88, 90, 96, 101, 102, 103, 104, 105, 106, 108, 109],
+};
+const KIND_BY_ID = new Map<number, QuantityKind>(
+  (Object.entries(KIND_IDS) as [QuantityKind, readonly number[]][]).flatMap(([kind, ids]) => ids.map((id) => [id, kind] as const)),
+);
+
+/** The kind of quantity an official unit measures; null for units of no listed kind. */
+export function kindOfUnit(unit: OfficialUnit): QuantityKind | null {
+  return KIND_BY_ID.get(unit.id) ?? null;
+}
+
+/** The kind of quantity a free-text unit measures; null when unresolvable or of no listed kind. */
+export function quantityKind(unit: string | null | undefined): QuantityKind | null {
+  const resolved = resolveUnit(unit);
+  return resolved ? kindOfUnit(resolved) : null;
+}
+
 /** Diagnostics for the ingest and eval reports. */
 export function unitIndexSize(): number {
   return INDEX.size;

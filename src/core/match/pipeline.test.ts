@@ -478,3 +478,36 @@ describe('provider failure handling', () => {
     assert.equal(r.candidates[0]?.confidence, 1);
   });
 });
+
+describe('ranking options (plan §3.2, §5)', () => {
+  it('adds a position signal only when position fusion is switched on', async () => {
+    const off = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop });
+    assert.ok(off.candidates.every((c) => c.signals.positionRrf === undefined));
+    const on = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop, positionFusion: 'subposition' });
+    assert.ok(on.candidates.length > 0);
+    assert.ok(on.candidates.every((c) => typeof c.signals.positionRrf === 'number'));
+    // Both guruch codes share subposition 01901001003, the position every list leads with.
+    assert.equal(on.candidates.find((c) => c.candidate.code === '01901001003000000')?.signals.positionRrf, 1);
+  });
+
+  it('lets a non-semantic stand-in into fusion at a reduced weight, never as a score', async () => {
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop, nonSemanticVectorWeight: 0.5 });
+    assert.ok(r.candidates.every((c) => c.signals.vector === undefined));
+    assert.ok(r.notes.some((n) => n.includes('weight 0.5')));
+  });
+
+  it('skips the stand-in entirely at weight 0, embedding nothing', async () => {
+    const counting = new CountingEmbedder();
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder: counting, reranker: noop, nonSemanticVectorWeight: 0 });
+    assert.equal(counting.calls, 0);
+    assert.equal(r.vector, 'off');
+    assert.ok(r.candidates.length > 0);
+  });
+
+  it('leaves a semantic embedder untouched by the stand-in setting', async () => {
+    const semantic: EmbeddingProvider = { name: 'semantic test', dimensions: 384, semantic: true, embed: (t) => embedder.embed(t) };
+    const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder: semantic, reranker: noop, nonSemanticVectorWeight: 0 });
+    assert.equal(r.vector, 'used');
+    assert.ok(r.candidates.some((c) => c.signals.vector !== undefined));
+  });
+});

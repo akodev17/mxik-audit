@@ -23,6 +23,8 @@ export type MxikCandidate = {
   isMarked: boolean | null;
   unitBinding: 'strict' | 'recommended' | 'none';
   unitCanonical: string[];
+  /** Units the portal recommends (columns M/N); the only units a 'recommended' binding has. */
+  recommendedUnits?: string[];
   unitRaw: string | null;
   /** Packaging qualifier parsed out of the bound unit, e.g. "pэt butilka". */
   unitContainer: string | null;
@@ -35,6 +37,8 @@ export type Signals = {
   vector?: number;
   /** Reciprocal-rank-fusion score, normalized against the best possible. */
   rrf?: number;
+  /** The candidate's position's fusion score, 1 for the leading position (fusion.ts groupFusion). */
+  positionRrf?: number;
   /** The reranker's own 0..1 confidence. Never used alone. */
   llm?: number;
 };
@@ -108,7 +112,8 @@ export type CandidateStore = {
   byBarcode(barcode: string): Promise<MxikCandidate[]>;
   byMatchKey(keys: readonly string[]): Promise<MxikCandidate[]>;
   byLexical(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
-  byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
+  /** `hierarchyWords`: query words found only in the code's position, class or group names (weighted column). */
+  byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
   byVector(embedding: readonly number[], limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
   byCode(code: string): Promise<MxikCandidate | null>;
   baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null>;

@@ -1,6 +1,8 @@
 // Golden-set loader. CSV columns: name, unit, barcode (optional), correct_code,
 // source (real | synthetic), notes. correct_code may list several defensible
-// codes separated by "|"; the first is the primary label.
+// codes separated by "|"; the first is the primary label. An entry ending in "*"
+// is a code prefix: "07306001*" accepts every code in that 8-digit position,
+// for products where any identifying code of the position is defensible.
 import { z } from 'zod';
 import { parseCsv } from './csv.js';
 
@@ -11,7 +13,7 @@ export type EvalCase = {
   name: string;
   unit: string | null;
   barcode: string | null;
-  /** Every defensible code, primary first. */
+  /** Every defensible code or code prefix ("07306001*"), primary first. */
   correct: string[];
   source: CaseSource;
   notes: string;
@@ -23,12 +25,23 @@ const Row = z.object({
   name: z.string().trim().min(1),
   unit: z.string().trim(),
   barcode: z.string().trim(),
-  correct_code: z.string().trim().min(17),
+  correct_code: z.string().trim().min(1),
   source: z.enum(['real', 'synthetic']),
   notes: z.string(),
 });
 
 export type LoadResult = { cases: EvalCase[]; errors: string[] };
+
+const CODE = /^\d{17}$/;
+/** At least a position: the 8 digits of group, class and position. */
+const PREFIX = /^\d{8,16}\*$/;
+
+export const isPrefix = (label: string): boolean => label.endsWith('*');
+
+/** True when `code` is one of the labels or falls under one of the prefixes. */
+export function accepts(correct: readonly string[], code: string): boolean {
+  return correct.some((label) => (isPrefix(label) ? code.startsWith(label.slice(0, -1)) : label === code));
+}
 
 /** Parses one CSV file. Bad rows are reported, never silently dropped. */
 export function parseCases(text: string, label: string): LoadResult {
@@ -57,9 +70,9 @@ export function parseCases(text: string, label: string): LoadResult {
       return;
     }
     const codes = parsed.data.correct_code.split('|').map((c) => c.trim()).filter(Boolean);
-    const bad = codes.filter((c) => !/^\d{17}$/.test(c));
+    const bad = codes.filter((c) => !CODE.test(c) && !PREFIX.test(c));
     if (bad.length > 0) {
-      errors.push(`${label}:${line}: not a 17-digit code: ${bad.join(', ')}`);
+      errors.push(`${label}:${line}: not a 17-digit code or code prefix: ${bad.join(', ')}`);
       return;
     }
     cases.push({

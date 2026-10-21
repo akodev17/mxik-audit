@@ -71,6 +71,30 @@ describe('rowSignals: rules', () => {
   });
 });
 
+describe('rowSignals: synonyms', () => {
+  it('says which seller word was searched as the classifier term, in both languages', () => {
+    const e = evidence({ synonymApplied: ['арматура → прокат арматурный'] });
+    const s = signals(e).find((x) => x.label === uz.matchX.synonymLabel);
+    assert.equal(s?.text, uz.matchX.synonym('арматура → прокат арматурный'));
+    assert.equal(s?.tone, 'neutral');
+    assert.ok(signals(e, ru).some((x) => x.label === ru.matchX.synonymLabel && x.text.includes('арматура → прокат арматурный')));
+  });
+
+  it('shows nothing when no synonym fired', () => {
+    assert.ok(!signals(evidence()).some((x) => x.label === uz.matchX.synonymLabel));
+  });
+});
+
+describe('rowSignals: hierarchy words', () => {
+  it('says which words matched the code\'s section rather than its own name', () => {
+    const s = signals(evidence({ matchedHierarchyWords: ['goryachekataniy'] }));
+    const line = s.find((x) => x.label === uz.matchX.hierarchyLabel);
+    assert.equal(line?.text, uz.matchX.hierarchy('goryachekataniy'));
+    assert.equal(line?.tone, 'good');
+    assert.ok(!signals(evidence()).some((x) => x.label === uz.matchX.hierarchyLabel));
+  });
+});
+
 describe('rowSignals: without evidence', () => {
   it('shows the score as a score', () => {
     const s = rowSignals({ evidence: null, confidence: 0.81, rowUnit: null, codeUnit: null }, uz);

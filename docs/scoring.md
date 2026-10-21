@@ -101,6 +101,7 @@ with
 | `w.lexical` | 0.45 | trigram / full-text score (full-text mapped as r / (r + 0.1), see below) |
 | `w.vector` | 0.25 | pgvector cosine, mapped to 0–1 |
 | `w.rrf` | 0.30 | fusion score, normalized against rank-1-everywhere |
+| `w.positionRrf` | 0.20 | position-level fusion score; present only when position fusion is switched on (opt-in, see "The 2026-10-21 ranking pass") |
 | `L` | 0.40 | how far the reranker may move a retrieval score |
 | margin weight | 0.15 | share of the score set by the top-1/top-2 gap |
 | `ceiling` | 0.85 without a reranker, 1.0 with | see below |
@@ -161,6 +162,14 @@ still find and delete its rows' entries; the candidate fingerprint is stored
 with the verdicts and a mismatch is a cache miss. Without it, a classifier
 update that added the right code stayed hidden behind a cached "none". Entries
 written before this change carry no fingerprint and are treated as misses.
+
+Since 2026-10-21 the fingerprint (`candidatePoolHashOf`) covers what the prompt
+showed of each candidate (code, name, hierarchy path, kind, marking, bound
+unit, brand, attribute), not the code alone: an update that renames a code or
+moves it to another position keeps the code set, and a verdict about the old
+wording must not be reused. The classifier snapshot id is deliberately not in
+the key, which would discard every cached verdict on each daily update. The
+local `rerank_cache` was empty when this changed (no key has ever been set).
 
 When the stored vectors are unusable, stage 4 is switched off for the run and
 no query embedding is computed at all (it used to call the embedding provider
@@ -256,15 +265,23 @@ filters so a strong retrieval signal can outvote a heuristic.
 | Prepared dish → base code | **+0.08** | Dishes deliberately have no detailed MXIK. |
 | Prepared dish → detailed code | **−0.10** | The classifier does not provide these. |
 | Row unit contradicts a **strict** binding | **−0.15** | 385,414 codes (87.8%) have a strict binding. |
+| **Recommended** binding: row unit is a recommended unit | **+0.03** | Added 2026-10-21 (plan §3.5). |
+| **Recommended** binding: row sold by a measure (mass, length, area, volume) and every recommended unit is of another kind | **−0.05** | Added 2026-10-21. kg against tonnes converts and is left alone; a row sold in pieces is never judged (a piece can hold metres). |
 
 Recommended-only bindings (4,223 codes) **never** produce a conflict, and an
 unresolvable unit on either side is never a conflict — `UNIT_CONFLICT` must not
-fire on our own inability to parse.
+fire on our own inability to parse. The two recommended-binding rules only
+reorder candidates; they raise no finding. Kinds come from `quantityKind()` in
+[`units.ts`](../src/core/normalize/units.ts); units of time, energy and
+services have no kind and are never judged. Measured with `npm run eval`
+(scratch copy, hashing vectors, no reranker; runs 26 → 28): no row worse,
+construction top-1 with the vector stage off 75.5% → 76.5%.
 
 The base-code and marking rules encode practice, not a legal requirement; the
 UI words them that way. The keys of the rules that fired (`baseCodePreferred`,
 `identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`,
-`preparedDishBase`, `preparedDishSpecific`, `strictUnitConflict`) are stored in
+`preparedDishBase`, `preparedDishSpecific`, `strictUnitConflict`, `recommendedUnitMatch`,
+`unitKindMismatch`) are stored in
 the evidence and translated in `ta.matchX.rules`.
 
 ## Firm dictionary confidence
@@ -359,6 +376,40 @@ on an in-memory re-audit of the demo template with the code before and after:
 
 Recall stayed 100% for every check. Unit tests for `src/core/match`,
 `src/core/audit` and `src/core/normalize`: 240 / 240 before, 298 / 298 after.
+
+## The 2026-10-21 ranking pass (plan §3.2, §3.6, §5)
+
+Measured on a copy of the local database (`mxik_scratch`, the 2026-08-20
+classifier, hashing vectors, no reranker key) with `npm run eval:fit`, which
+fits on 80% of every eval set and reports the fixed 20% hold-out
+(`eval/split.ts`); every fit is in `docs/weight-fit-results.json`. Objective:
+mean over the four sets of (top-1 + top-5) / 2. Constraints, from the plan's
+§7.3: no golden row that is top-1 today may lose it, synthetic top-1 may not
+drop by more than 1 point.
+
+| Fit | Grid | Baseline train / hold-out | Best feasible | Best overall (infeasible) |
+|---|---|---|---|---|
+| 1 | position fusion off/position/subposition × position weight × stand-in vector weight (signal, 1, 0.5, 0.25, 0) × lexical × rrf, 210 | 77.17 / 84.91 | lexical .45 rrf .20: 77.49 / 84.59 | subposition, stand-in in RRF only, rrf .20 pos .20: 84.44 / **75.00** (metal hold-out 100, golden 33, synthetic 79.5) |
+| 2 | position fusion counting at most 1 or 3 codes per position per list, 16 | 77.17 / 84.91 | cap 1: 77.18 / 83.40 | cap 3: 79.27 / 86.86, synthetic −5.3 train |
+| 3 | position fusion voted by lexical and full-text only, 12 | 77.09 / 84.91 | none | subposition pos .20: 82.04 / 74.63 |
+
+What ships, therefore:
+
+- **Signal weights are unchanged** (lexical 0.45, vector 0.25, rrf 0.30): the
+  only feasible improvement on the training rows was worse on the hold-out.
+- **Position fusion** (`fusion.ts groupFusion`, `Signals.positionRrf`) is
+  implemented and **opt-in** (`positionFusion: 'subposition' | 'position'`,
+  `npm run eval -- --position-fusion subposition`). It sums each position's
+  reciprocal ranks over the lists, so a position whose many codes fill the
+  lists beats a lone code of a wrong position, and carries weight 0.2 when on.
+  It fixes the metal set (top-1 46 → 76–98) but costs synthetic 4–10 points
+  and golden rows on the hold-out. A non-semantic stand-in never votes in it.
+- **The non-semantic stand-in stays a full signal.** The plan proposed
+  excluding hashing vectors from fusion; every variant that drops or
+  down-weights them (`nonSemanticVectorWeight`, opt-in) loses golden rows: on
+  golden the stand-in is worth +25 points of top-1 (run 29: 75.0 with it, 50.0
+  without), on metal it costs 30. With e5 vectors (plan phase 0) the vector list
+  stops pulling metal to the wrong positions; re-fit then.
 
 ## Known weaknesses
 

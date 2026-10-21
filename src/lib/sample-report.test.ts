@@ -115,14 +115,31 @@ describe('sample report: against the classifier', async () => {
   after(() => pool.end());
 
   let loaded = false;
+  let localSnapshot: Date | null = null;
   try {
     const r = await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM mxik_code');
     loaded = Number(r.rows[0]?.n ?? 0) > 0;
+    const s = await pool.query<{ takenAt: Date }>('SELECT "takenAt" FROM catalog_snapshot ORDER BY "takenAt" DESC LIMIT 1');
+    localSnapshot = s.rows[0]?.takenAt ?? null;
   } catch {
     loaded = false;
   }
 
-  it('every code in the explorable catalogue exists in the classifier', { skip: !loaded && 'database not available' }, async () => {
+  // The sample states the snapshot it was generated from (dd.mm.yyyy). An older
+  // local copy lacks the codes added since, so the full-catalogue check is only
+  // meaningful on that snapshot or a newer one.
+  const [day, month, year] = SAMPLE_REPORT.classifier.snapshot.split('.').map(Number);
+  const sampleSnapshot = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1));
+  // A day of slack: the generator formats the date in local time (UTC+5).
+  const olderCopy = localSnapshot !== null && localSnapshot.getTime() < sampleSnapshot.getTime() - 86_400_000;
+  const catalogueSkip = !loaded
+    ? 'database not available'
+    : olderCopy && localSnapshot
+      ? `local classifier snapshot ${localSnapshot.toISOString().slice(0, 10)} is older than the ${SAMPLE_REPORT.classifier.snapshot} snapshot `
+        + `(${SAMPLE_REPORT.classifier.codes.toLocaleString('en')} codes) this sample was generated from; run npm run classifier:update`
+      : false;
+
+  it('every code in the explorable catalogue exists in the classifier', { skip: catalogueSkip }, async () => {
     const all = Object.keys(SAMPLE_REPORT.codes);
     const res = await pool.query<{ code: string }>('SELECT code FROM mxik_code WHERE code = ANY($1)', [all]);
     assert.equal(res.rows.length, all.length);

@@ -1,8 +1,9 @@
 // Why a code was suggested, as facts a reviewer can check. Pure: computed in
 // the pipeline, stored on the finding, and re-derivable from stored rows for
 // catalogues audited before evidence existed.
-import { matchKeyOf, tokenize } from '../normalize/index.js';
+import { matchKeyOf, normalizeName, tokenize } from '../normalize/index.js';
 import { resolveUnit } from '../normalize/units.js';
+import { MIN_QUERY_WORD } from './query.js';
 import { RULE_KEYS, type RuleKey } from './rules.js';
 import type { MatchStage } from './types.js';
 
@@ -30,6 +31,10 @@ export type MatchEvidence = {
   dictionaryConflict?: string;
   /** Rule adjustments applied to this code (rules.ts keys). */
   rules?: RuleKey[];
+  /** Seller words searched as the classifier's term ("арматура → прокат арматурный"), normalize/synonyms.ts. */
+  synonymApplied?: string[];
+  /** Query words found in the code's position, class or group names but not its own name, folded to Latin. */
+  matchedHierarchyWords?: string[];
 };
 
 export type EvidenceCandidate = {
@@ -49,15 +54,21 @@ export function unitEvidence(rowUnit: string | null, candidate: EvidenceCandidat
   return bound.some((u) => u.id === row.id) ? 'match' : 'conflict';
 }
 
-/** Distinct row words (two letters or more, not bare numbers) present in the code's names. */
-export function matchedWords(productName: string, candidate: EvidenceCandidate): string[] {
+/**
+ * Distinct row words (three letters or more, not bare numbers) present in the
+ * code's names. A fragment like "sh" from "б/ш" is no justification on its own;
+ * the expansion it stands for ("besshovniye") is, so expanded words count too,
+ * and so do the classifier terms a synonym searched for (`extra`), which the
+ * evidence names separately.
+ */
+export function matchedWords(productName: string, candidate: EvidenceCandidate, extra: readonly string[] = []): string[] {
   const codeWords = new Set([
     ...tokenize(matchKeyOf(candidate.nameUz)),
     ...tokenize(matchKeyOf(candidate.nameRu)),
   ]);
   const seen = new Set<string>();
-  for (const word of tokenize(matchKeyOf(productName))) {
-    if (word.length < 2 || /^\d+$/.test(word) || seen.has(word)) continue;
+  for (const word of [...tokenize(matchKeyOf(productName)), ...normalizeName(productName).tokens, ...extra]) {
+    if (word.length < MIN_QUERY_WORD || /^\d+$/.test(word) || seen.has(word)) continue;
     if (codeWords.has(word)) seen.add(word);
   }
   return [...seen].slice(0, 8);
@@ -71,18 +82,28 @@ export type EvidenceInput = {
   rerankReason?: string | null;
   rerankNone?: boolean;
   rules?: readonly RuleKey[];
+  /** Synonym entries that fired for the row, and the classifier words they added to the query. */
+  synonyms?: { applied: readonly string[]; added: readonly string[] };
+  /** Query words the weighted full-text found only in this code's hierarchy (store.ts). */
+  hierarchyWords?: readonly string[];
 };
 
 export function evidenceFor(input: EvidenceInput): MatchEvidence {
+  const synonymApplied = input.synonyms?.applied ?? [];
+  // Fragments never count as evidence, here as in matchedWords.
+  const hierarchy = [...new Set(input.hierarchyWords ?? [])]
+    .filter((w) => w.length >= MIN_QUERY_WORD && !/^\d+$/.test(w)).slice(0, 8);
   return {
     stage: input.stage,
     barcode: input.stage === 'barcode',
     exactName: input.stage === 'exact',
-    matchedWords: matchedWords(input.productName, input.candidate),
+    matchedWords: matchedWords(input.productName, input.candidate, input.synonyms?.added),
     unit: unitEvidence(input.rowUnit, input.candidate),
     rerankReason: input.rerankReason ?? null,
     rerankNone: input.rerankNone ?? false,
     ...(input.rules && input.rules.length > 0 ? { rules: [...input.rules] } : {}),
+    ...(synonymApplied.length > 0 ? { synonymApplied: [...synonymApplied] } : {}),
+    ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),
   };
 }
 
@@ -106,6 +127,8 @@ export function readEvidence(value: unknown): MatchEvidence | null {
   const v = value as Record<string, unknown>;
   if (!STAGES.has(v['stage'] as MatchStage) || !UNITS.has(v['unit'] as UnitEvidence)) return null;
   const rules = Array.isArray(v['rules']) ? v['rules'].filter((r): r is RuleKey => typeof r === 'string' && RULES.has(r)) : [];
+  const synonymApplied = Array.isArray(v['synonymApplied']) ? v['synonymApplied'].filter((s): s is string => typeof s === 'string') : [];
+  const hierarchy = Array.isArray(v['matchedHierarchyWords']) ? v['matchedHierarchyWords'].filter((s): s is string => typeof s === 'string') : [];
   return {
     stage: v['stage'] as MatchStage,
     barcode: v['barcode'] === true,
@@ -118,5 +141,7 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     ...(isCount(v['dictionaryConfirmations']) ? { dictionaryConfirmations: v['dictionaryConfirmations'] } : {}),
     ...(typeof v['dictionaryConflict'] === 'string' && /^\d{17}$/.test(v['dictionaryConflict']) ? { dictionaryConflict: v['dictionaryConflict'] } : {}),
     ...(rules.length > 0 ? { rules } : {}),
+    ...(synonymApplied.length > 0 ? { synonymApplied } : {}),
+    ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),
   };
 }

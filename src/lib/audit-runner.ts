@@ -6,14 +6,17 @@ import { db } from './db.js';
 import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
 import { matchProduct, timed, type DisableableStage, type StageTimer } from '../core/match/pipeline.js';
+import { lexicalQuery } from '../core/match/query.js';
 import { rerankFromEnv } from '../core/match/rerank.js';
 import type { DictionaryLookup } from '../core/match/dictionary.js';
 import { loadDictionary } from './dictionary.js';
-import { buildPipelineMeta, countMatch, emptyCounters, type PipelineMeta, type PipelineSetup } from './pipeline-meta.js';
+import {
+  buildPipelineMeta, countMatch, emptyCounters, type ClassifierProvenance, type PipelineMeta, type PipelineSetup,
+} from './pipeline-meta.js';
 import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
 import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
 import { PROMPT_VERSION } from '../core/match/rerank-prompt.js';
-import { PostgresCandidateStore } from '../core/match/store.js';
+import { lexicalStrictThresholdFromEnv, PostgresCandidateStore } from '../core/match/store.js';
 import { checkVectorReadiness, type VectorReadiness } from '../core/match/vector-readiness.js';
 import { normalizeName } from '../core/normalize/index.js';
 import { readCode, runChecks, type Finding, type ResolvedRow } from '../core/audit/checks.js';
@@ -114,6 +117,7 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   const store = new PostgresCandidateStore(pool, {
     exactVectorScan: !embedder.semantic,
     vectorEnabled: readiness.usable,
+    lexicalStrictThreshold: lexicalStrictThresholdFromEnv(process.env),
   });
   const setup: PipelineSetup = {
     embedder: { name: embedder.name, semantic: embedder.semantic },
@@ -227,18 +231,21 @@ export function findingData(itemId: string, findings: readonly Finding[], snapsh
 }
 
 /** The classifier snapshot an audit runs against: set when it starts, kept when it resumes. */
-async function recordSnapshot(catalogId: string, current: number | null, fromRow: number): Promise<void> {
-  if (fromRow > 0 && current !== null) return;
-  const latest = await db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
-  if (latest && latest.id !== current) await db.catalog.update({ where: { id: catalogId }, data: { snapshotId: latest.id } });
+async function recordSnapshot(catalogId: string, current: number | null, fromRow: number): Promise<ClassifierProvenance> {
+  const snapshot = fromRow > 0 && current !== null
+    ? await db.catalogSnapshot.findUnique({ where: { id: current }, select: { id: true, takenAt: true } })
+    : await db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true, takenAt: true } });
+  if (snapshot && snapshot.id !== current) await db.catalog.update({ where: { id: catalogId }, data: { snapshotId: snapshot.id } });
+  return { snapshotId: snapshot?.id ?? null, takenAt: snapshot?.takenAt.toISOString() ?? null };
 }
 
 async function auditRows(catalogId: string, options: AuditOptions): Promise<AuditOutcome> {
   const { fromRow = 0, onProgress, timer } = options;
   const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, snapshotId: true } });
   if (!catalogOrg) throw new Error(`no catalogue ${catalogId}`);
-  await recordSnapshot(catalogId, catalogOrg.snapshotId, fromRow);
+  const classifier = await recordSnapshot(catalogId, catalogOrg.snapshotId, fromRow);
   const ctx = await auditContext(catalogOrg.orgId, timer);
+  ctx.setup.classifier = classifier;
   const { degradedReasons, reranker } = ctx;
   const counters = emptyCounters();
   // Operator-facing only: never shown on customer screens (see /admin).
@@ -301,7 +308,7 @@ export async function searchClassifier(query: string, limit = 10) {
     vectorEnabled: readiness.usable,
   });
   const normalized = normalizeName(query);
-  const key = normalized.queryKey || normalized.matchKey;
+  const key = lexicalQuery(normalized.queryKey || normalized.matchKey);
   if (!key) return [];
   const [lexical, fullText] = await Promise.all([
     store.byLexical(key, limit),

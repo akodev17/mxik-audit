@@ -47,6 +47,30 @@ describe('import diagnostics', () => {
     assert.deepEqual(d.duplicates, { count: 2, sample: [2, 4], groups: 2 });
   });
 
+  it('does not call rows duplicates when only their sizes differ', () => {
+    // A metal price list: one product name, many sizes. Before sizes were part of the key, all collided.
+    const pipes = [
+      ['Труба ВГП 15х2,5', '', '', 'тонна'],
+      ['Труба ВГП 20х2,5', '', '', 'тонна'],
+      ['Трубы эл/св 76х2,5', '', '', 'тонна'],
+      ['Трубы эл/св 76х2,8/3,0/3,5', '', '', 'тонна'],
+      ['Лист г/к 5,00х1500х6000', '', '', 'тонна'],
+      ['Лист г/к 6,00х1500х6000', '', '', 'тонна'],
+    ];
+    assert.deepEqual(importDiagnostics(pipes, MAP).duplicates, { count: 0, sample: [], groups: 0 });
+  });
+
+  it('still calls the same size written two ways a duplicate', () => {
+    const drinks = [
+      ['Coca-Cola 1.5L', '', '', 'dona'],
+      ['Coca Cola 1,5 l', '', '', 'dona'],
+      ['Coca-Cola 0.5L', '', '', 'dona'],
+      ['Лист г/к 5,00х1500х6000', '', '', 'тонна'],
+      ['Лист г/к 5х1500х6000', '', '', 'тонна'],
+    ];
+    assert.deepEqual(importDiagnostics(drinks, MAP).duplicates, { count: 2, sample: [2, 5], groups: 2 });
+  });
+
   it('reads stored meta back only when it has the expected shape', () => {
     assert.equal(readImportMeta(null), null);
     assert.equal(readImportMeta({ parse: {}, diagnostics: {} }), null);

@@ -24,6 +24,8 @@ const RULE_TONE: Record<RuleKey, SignalTone> = {
   preparedDishBase: 'good',
   preparedDishSpecific: 'warn',
   strictUnitConflict: 'bad',
+  recommendedUnitMatch: 'good',
+  unitKindMismatch: 'warn',
 };
 
 function dictionarySignal(evidence: MatchEvidence, ta: AppDict): Signal {
@@ -58,6 +60,12 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, t
     out.push(evidence.matchedWords.length > 0
       ? { label: m.nameLabel, text: m.words(evidence.matchedWords.join(', ')), tone: 'good' }
       : { label: m.nameLabel, text: m.noWords, tone: 'bad' });
+  }
+  if (evidence.matchedHierarchyWords && evidence.matchedHierarchyWords.length > 0) {
+    out.push({ label: ta.matchX.hierarchyLabel, text: ta.matchX.hierarchy(evidence.matchedHierarchyWords.join(', ')), tone: 'good' });
+  }
+  if (evidence.synonymApplied && evidence.synonymApplied.length > 0) {
+    out.push({ label: ta.matchX.synonymLabel, text: ta.matchX.synonym(evidence.synonymApplied.join('; ')), tone: 'neutral' });
   }
   if (evidence.unit === 'match') out.push({ label: m.unitLabel, text: m.unitMatch(rowUnit ?? codeUnit ?? ''), tone: 'good' });
   if (evidence.unit === 'conflict') out.push({ label: m.unitLabel, text: m.unitConflict(rowUnit ?? '', codeUnit ?? ''), tone: 'bad' });

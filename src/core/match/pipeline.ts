@@ -6,15 +6,17 @@
 //   3 lexical (trigram)  |
 //   4 vector (pgvector)  |-> 5 reciprocal rank fusion -> 6 LLM rerank
 import { barcodeIdentity, normalizeName, type BarcodeIdentity } from '../normalize/index.js';
+import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
-import { reciprocalRankFusion } from './fusion.js';
+import { groupFusion, reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankStep } from './rerank-step.js';
 import { evidenceFor } from './evidence.js';
+import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
-import { adjustedScore, bandOf, calibratePool, fullTextToUnit } from './score.js';
+import { adjustedScore, bandOf, calibratePool, fullTextToUnit, type SignalWeights } from './score.js';
 import type {
   CandidateStore, EmbeddingProvider, MatchInput, MatchResult, MxikCandidate,
   RerankProvider, ScoredCandidate, VectorOutcome,
@@ -38,6 +40,28 @@ export type PipelineOptions = {
   rerankLimit?: number;
   /** How many results to return. */
   topK?: number;
+  /**
+   * Group key for position-level fusion (plan §3.2): the 11-digit
+   * subposition, the 8-digit position, or 'off'. See fusion.ts groupFusion.
+   */
+  positionFusion?: PositionFusion;
+  /** Codes per position counted in each list by position fusion; unlimited when absent. */
+  positionFusionCap?: number;
+  /**
+   * RRF weight of the vector list when the embedder is not semantic (the
+   * hashing stand-in), which then also gives no vector signal to the score
+   * (plan §5). 0 skips the stage. Unset: the stand-in counts like a real model.
+   */
+  nonSemanticVectorWeight?: number;
+  /** Signal weights for calibration; score.ts WEIGHTS when absent (a weight fit passes others). */
+  weights?: SignalWeights;
+};
+
+export type PositionFusion = 'subposition' | 'position' | 'off';
+
+const groupKey: Record<Exclude<PositionFusion, 'off'>, (c: MxikCandidate) => string> = {
+  subposition: (c) => c.subPositionCode,
+  position: (c) => c.code.slice(0, 8),
 };
 
 export type DisableableStage = 'barcode' | 'exact' | 'lexical' | 'vector';
@@ -174,7 +198,8 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
 
   // ---------------------------------------------------------- 2. folded exact
   if (normalized.matchKey && !off('exact')) {
-    const exact = await timed(opts.timer, 'exact', () => store.byMatchKey([normalized.matchKey, normalized.sortedKey]));
+    const keys = [normalized.matchKey, normalized.sortedKey, ...normalized.literalKeys];
+    const exact = await timed(opts.timer, 'exact', () => store.byMatchKey(keys));
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code], ...settled,
@@ -186,12 +211,26 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
 
   // -------------------------------------------------- 3+4. lexical and vector
   const query = normalized.queryKey || normalized.matchKey || normalized.core;
+  // Synonyms reach the lexical query only; the vector stage embeds the row as written.
+  const synonyms = applySynonyms(query);
+  if (synonyms.applied.length > 0) notes.push(`Searched with the classifier's term: ${synonyms.applied.join('; ')}.`);
+  const lexicalText = lexicalQuery(synonyms.text);
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
   // A disabled stage computes no query embedding at all.
-  type Hit = { candidate: MxikCandidate; score: number };
-  let vectorOutcome: VectorOutcome = off('vector') ? 'off' : 'used';
-  const vectorStage: Promise<Hit[]> = off('vector') ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([query]))
+  type Hit = { candidate: MxikCandidate; score: number; hierarchyWords?: string[] };
+  // A non-semantic stand-in gives surface-form neighbours, not meaning: it may
+  // enter fusion at a reduced weight but never scores a candidate (plan §5).
+  const standIn = !embedder.semantic && opts.nonSemanticVectorWeight !== undefined;
+  const vectorWeight = standIn ? opts.nonSemanticVectorWeight ?? 1 : 1;
+  const skipVector = off('vector') || vectorWeight <= 0;
+  if (standIn && !off('vector')) {
+    notes.push(vectorWeight <= 0
+      ? 'Non-semantic vector stage skipped: it is not used for fusion or scoring.'
+      : `Non-semantic vector stage enters fusion at weight ${vectorWeight} and gives no score.`);
+  }
+  let vectorOutcome: VectorOutcome = skipVector ? 'off' : 'used';
+  const vectorStage: Promise<Hit[]> = skipVector ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([query]))
     .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => store.byVector(vec, limits.retrievalLimit)) : []))
     .catch((error: unknown) => {
       vectorOutcome = 'failed';
@@ -200,8 +239,8 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     });
 
   const [lexical, fullText, vector] = await Promise.all([
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(query, limits.retrievalLimit)),
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(query, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(lexicalText, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(lexicalText, limits.retrievalLimit)),
     vectorStage,
   ]);
 
@@ -213,19 +252,23 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   }
 
   const lexicalScore = new Map(lexical.map((r) => [r.candidate.code, r.score]));
-  const vectorScore = new Map(vector.map((r) => [r.candidate.code, r.score]));
+  const vectorScore = new Map(standIn ? [] : vector.map((r) => [r.candidate.code, r.score]));
   // ts_rank_cd is unbounded; map it absolutely so a weak query's best hit is not 1.0.
   const fullTextScore = new Map(fullText.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
+  const hierarchyWords = new Map(fullText.map((r) => [r.candidate.code, r.hierarchyWords ?? []]));
 
   // ------------------------------------------------------------- 5. fusion
-  const fused = reciprocalRankFusion(
-    [
-      { name: 'lexical', items: lexical.map((r) => r.candidate) },
-      { name: 'fullText', items: fullText.map((r) => r.candidate) },
-      { name: 'vector', items: vector.map((r) => r.candidate) },
-    ],
-    (c) => c.code,
-  ).slice(0, limits.rerankLimit);
+  const lists = [
+    { name: 'lexical', items: lexical.map((r) => r.candidate) },
+    { name: 'fullText', items: fullText.map((r) => r.candidate) },
+    { name: 'vector', items: vector.map((r) => r.candidate), weight: vectorWeight },
+  ];
+  const fused = reciprocalRankFusion(lists, (c) => c.code).slice(0, limits.rerankLimit);
+  // Second pass per position: the group whose codes fill the lists (plan §3.2).
+  const positionMode = opts.positionFusion ?? 'off';
+  // A non-semantic stand-in finds surface-form neighbours; it does not vote on positions (plan §5).
+  const positionLists = embedder.semantic ? lists : lists.filter((l) => l.name !== 'vector');
+  const positionScore = positionMode === 'off' ? null : groupFusion(positionLists, groupKey[positionMode], undefined, opts.positionFusionCap);
 
   const retrievalSignals = (f: (typeof fused)[number]) => {
     const code = f.item.code;
@@ -236,6 +279,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       lexical: lex === undefined && fts === undefined ? undefined : Math.max(lex ?? 0, fts ?? 0),
       vector: vectorScore.get(code),
       rrf: f.normalized,
+      positionRrf: positionMode === 'off' ? undefined : positionScore?.get(groupKey[positionMode](f.item)) ?? 0,
     };
   };
   const rulesOf = (f: (typeof fused)[number]) => applyRules({ candidate: f.item, rowUnit, preparedDish });
@@ -245,7 +289,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     reranker,
     store,
     gate: opts.rerankGate,
-    gateScores: fused.map((f) => adjustedScore({ signals: retrievalSignals(f), rerankAvailable: true, adjustment: rulesOf(f).adjustment })),
+    gateScores: fused.map((f) => adjustedScore({ signals: retrievalSignals(f), rerankAvailable: true, adjustment: rulesOf(f).adjustment, weights: opts.weights })),
     request: { productName: normalized.display, normalizedKey: normalized.matchKey, unit: rowUnit, candidates: fused.map((f) => f.item) },
     run: (fn) => timed(opts.timer, 'rerank', fn),
   });
@@ -261,7 +305,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // bulk-accept band.
   const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence }, rules: rulesOf(f) }));
   const poolScores = calibratePool(pool.map((p) => ({
-    signals: p.signals, rerankAvailable: p.signals.llm !== undefined, adjustment: p.rules.adjustment,
+    signals: p.signals, rerankAvailable: p.signals.llm !== undefined, adjustment: p.rules.adjustment, weights: opts.weights,
   })));
   const ranked = pool
     .map((p, i) => ({ ...p, score: poolScores[i] ?? { adjusted: 0, confidence: 0 } }))
@@ -291,12 +335,14 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
         rerankReason: llm && !rerankNone ? llm.reason : null,
         rerankNone,
         rules: p.rules.keys,
+        synonyms,
+        hierarchyWords: hierarchyWords.get(p.fused.item.code),
       }),
     };
   }).sort((a, b) => b.confidence - a.confidence);
 
   // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
-  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence));
+  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
   if (!rerankNone && kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
 
   return {

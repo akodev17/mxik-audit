@@ -1,7 +1,7 @@
 // The production reranker: cache first, then concurrent rows are grouped into
 // one API call. Every failure rejects only the rows it touched, and the
 // pipeline turns a rejection into the capped non-LLM ranking.
-import { candidatePoolHash, rerankCacheKey, type CachedRerank, type RerankCache } from './rerank-cache.js';
+import { candidatePoolHashOf, rerankCacheKey, type CachedRerank, type RerankCache } from './rerank-cache.js';
 import type { RerankClient } from './rerank-claude.js';
 import type { RerankConfig } from './rerank-config.js';
 import { rowVerdicts } from './rerank-parse.js';
@@ -35,7 +35,7 @@ export class BatchedReranker implements RerankProvider {
     if (request.candidates.length === 0) return [];
     this.counters.rowsRequested++;
     const key = rerankCacheKey(this.options.model, request.normalizedKey, request.unit);
-    const pool = candidatePoolHash(request.candidates.map((c) => c.code));
+    const pool = candidatePoolHashOf(request.candidates);
 
     const cached = await this.readCache(key, pool, request);
     if (cached) {

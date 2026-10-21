@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveUnit, unitIndexSize, unitsCompatible } from './units.js';
+import { quantityKind, resolveUnit, unitIndexSize, unitsCompatible } from './units.js';
 
 describe('resolveUnit', () => {
   it('resolves the same unit from four notations', () => {
@@ -81,5 +81,23 @@ describe('unitsCompatible', () => {
     assert.equal(unitsCompatible('kg', ['qwertyuiop']), true);
     assert.equal(unitsCompatible(null, ['kilogramm']), true);
     assert.equal(unitsCompatible('kg', []), true);
+  });
+});
+
+describe('quantityKind', () => {
+  it('names what a unit measures, in any notation', () => {
+    assert.equal(quantityKind('тонна'), 'mass');
+    assert.equal(quantityKind('kg'), 'mass');
+    assert.equal(quantityKind('шт'), 'count');
+    assert.equal(quantityKind('лист'), 'count');
+    assert.equal(quantityKind('pogono metr'), 'length');
+    assert.equal(quantityKind('м2'), 'area');
+    assert.equal(quantityKind('м3'), 'volume');
+  });
+
+  it('has no kind for units nobody judges, or text it cannot resolve', () => {
+    assert.equal(quantityKind('soat'), null);
+    assert.equal(quantityKind('мешок'), null);
+    assert.equal(quantityKind(null), null);
   });
 });

@@ -3,6 +3,7 @@
 import type { CandidateStore, MxikCandidate } from '../src/core/match/types.js';
 
 type Hit = { candidate: MxikCandidate; score: number };
+type FullTextHit = Hit & { hierarchyWords?: string[] };
 
 export class MemoStore implements CandidateStore {
   private readonly memo = new Map<string, Promise<unknown>>();
@@ -28,7 +29,7 @@ export class MemoStore implements CandidateStore {
   byLexical(query: string, limit: number): Promise<Hit[]> {
     return this.once(`l:${limit}:${query}`, () => this.inner.byLexical(query, limit));
   }
-  byFullText(query: string, limit: number): Promise<Hit[]> {
+  byFullText(query: string, limit: number): Promise<FullTextHit[]> {
     return this.once(`f:${limit}:${query}`, () => this.inner.byFullText(query, limit));
   }
   byVector(embedding: readonly number[], limit: number): Promise<Hit[]> {
