@@ -68,7 +68,7 @@ async function ranks(config: Config): Promise<Map<string, number | null>> {
       const c = cases[next++];
       if (!c) return;
       const result = await matchProduct({ rawName: c.name, barcode: c.barcode, unit: c.unit }, {
-        store, embedder, reranker, ...config,
+        store, embedder, reranker, vectorColumns: readiness.stored?.columns, ...config,
       });
       const i = result.candidates.findIndex((x) => accepts(c.correct, x.candidate.code));
       out.set(c.id, i === -1 ? null : i + 1);

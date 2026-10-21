@@ -16,7 +16,10 @@ import { evidenceFor } from './evidence.js';
 import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
-import { adjustedScore, bandOf, calibratePool, fullTextToUnit, type SignalWeights } from './score.js';
+import { adjustedScore, bandOf, calibratePool, fullTextToUnit, vectorToUnit, type SignalWeights, type VectorCalibration } from './score.js';
+import type { VectorColumn } from './vector-readiness.js';
+import { embeddingText } from '../embed/text.js';
+import type { ScriptKind } from '../normalize/index.js';
 import type {
   CandidateStore, EmbeddingProvider, MatchInput, MatchResult, MxikCandidate,
   RerankProvider, ScoredCandidate, VectorOutcome,
@@ -55,7 +58,36 @@ export type PipelineOptions = {
   nonSemanticVectorWeight?: number;
   /** Signal weights for calibration; score.ts WEIGHTS when absent (a weight fit passes others). */
   weights?: SignalWeights;
+  /** Vector columns holding the provider's vectors (embedding_state.columns); ['uz'] when absent. */
+  vectorColumns?: readonly VectorColumn[];
+  /** Cosine band of a semantic provider; score.ts SEMANTIC_COSINE when absent, null = the pre-2026-10-22 (1 + cos) / 2. */
+  vectorCalibration?: VectorCalibration | null;
 };
+
+/**
+ * Which vector columns a row searches: the column of its own script when it is
+ * filled (Cyrillic -> embeddingRu from nameRu, Latin -> embeddingUz from
+ * nameUz), every filled column for mixed or script-less names.
+ */
+export function vectorColumnsFor(script: ScriptKind, available: readonly VectorColumn[]): VectorColumn[] {
+  const own: VectorColumn | null = script === 'cyrillic' ? 'ru' : script === 'latin' ? 'uz' : null;
+  if (own && available.includes(own)) return [own];
+  return available.length > 0 ? [...available] : ['uz'];
+}
+
+/** Nearest codes over one or more columns, each code once at its best cosine. */
+async function searchColumns(
+  store: CandidateStore, vec: readonly number[], limit: number, columns: readonly VectorColumn[],
+): Promise<{ candidate: MxikCandidate; score: number; cosine?: number }[]> {
+  if (columns.length === 1) return store.byVector(vec, limit, columns[0]);
+  const lists = await Promise.all(columns.map((c) => store.byVector(vec, limit, c)));
+  const best = new Map<string, { candidate: MxikCandidate; score: number; cosine?: number }>();
+  for (const hit of lists.flat()) {
+    const seen = best.get(hit.candidate.code);
+    if (!seen || hit.score > seen.score) best.set(hit.candidate.code, hit);
+  }
+  return [...best.values()].sort((a, b) => b.score - a.score || a.candidate.code.localeCompare(b.candidate.code)).slice(0, limit);
+}
 
 export type PositionFusion = 'subposition' | 'position' | 'off';
 
@@ -218,7 +250,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // The vector stage must not be able to take down the audit: a provider outage
   // or an exhausted quota degrades retrieval to lexical rather than throwing.
   // A disabled stage computes no query embedding at all.
-  type Hit = { candidate: MxikCandidate; score: number; hierarchyWords?: string[] };
+  type Hit = { candidate: MxikCandidate; score: number; cosine?: number; hierarchyWords?: string[] };
   // A non-semantic stand-in gives surface-form neighbours, not meaning: it may
   // enter fusion at a reduced weight but never scores a candidate (plan §5).
   const standIn = !embedder.semantic && opts.nonSemanticVectorWeight !== undefined;
@@ -230,8 +262,11 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       : `Non-semantic vector stage enters fusion at weight ${vectorWeight} and gives no score.`);
   }
   let vectorOutcome: VectorOutcome = skipVector ? 'off' : 'used';
-  const vectorStage: Promise<Hit[]> = skipVector ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([query]))
-    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => store.byVector(vec, limits.retrievalLimit)) : []))
+  // The row as the model reads it: the same text shape its stored vectors were made from (embed/text.ts).
+  const vectorText = embeddingText(input.rawName, 'query', embedder.textShape ?? 'folded');
+  const columns = vectorColumnsFor(normalized.script, opts.vectorColumns ?? ['uz']);
+  const vectorStage: Promise<Hit[]> = skipVector ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([vectorText], 'query'))
+    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => searchColumns(store, vec, limits.retrievalLimit, columns)) : []))
     .catch((error: unknown) => {
       vectorOutcome = 'failed';
       notes.push(`Vector stage unavailable (${error instanceof Error ? error.message : String(error)}); using lexical retrieval only.`);
@@ -252,7 +287,11 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   }
 
   const lexicalScore = new Map(lexical.map((r) => [r.candidate.code, r.score]));
-  const vectorScore = new Map(standIn ? [] : vector.map((r) => [r.candidate.code, r.score]));
+  // A semantic model's cosine is calibrated to the band it uses; the stand-in keeps (1 + cos) / 2.
+  const vectorScore = new Map(standIn ? [] : vector.map((r) => [
+    r.candidate.code,
+    embedder.semantic && r.cosine !== undefined && opts.vectorCalibration !== null ? vectorToUnit(r.cosine, opts.vectorCalibration) : r.score,
+  ]));
   // ts_rank_cd is unbounded; map it absolutely so a weak query's best hit is not 1.0.
   const fullTextScore = new Map(fullText.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
   const hierarchyWords = new Map(fullText.map((r) => [r.candidate.code, r.hierarchyWords ?? []]));

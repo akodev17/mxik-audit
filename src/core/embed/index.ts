@@ -36,6 +36,7 @@ function fnv1a(text: string): number {
  */
 export class HashingEmbeddingProvider implements EmbeddingProvider {
   readonly name = 'hashing (local, non-semantic)';
+  readonly textShape = 'folded' as const;
   readonly dimensions = EMBEDDING_DIMENSIONS;
   readonly semantic = false;
 

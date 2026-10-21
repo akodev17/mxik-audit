@@ -32,8 +32,8 @@ export class MemoStore implements CandidateStore {
   byFullText(query: string, limit: number): Promise<FullTextHit[]> {
     return this.once(`f:${limit}:${query}`, () => this.inner.byFullText(query, limit));
   }
-  byVector(embedding: readonly number[], limit: number): Promise<Hit[]> {
-    return this.once(`v:${limit}:${embedding.join(',')}`, () => this.inner.byVector(embedding, limit));
+  byVector(embedding: readonly number[], limit: number, column?: 'uz' | 'ru'): Promise<(Hit & { cosine?: number })[]> {
+    return this.once(`v:${limit}:${column ?? ''}:${embedding.join(',')}`, () => this.inner.byVector(embedding, limit, column));
   }
   byCode(code: string): Promise<MxikCandidate | null> {
     return this.once(`c:${code}`, () => this.inner.byCode(code));

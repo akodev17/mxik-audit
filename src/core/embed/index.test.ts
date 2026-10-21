@@ -75,9 +75,18 @@ describe('embeddingProviderFromEnv', () => {
 describe('local multilingual model selection', () => {
   it('builds the local CPU model on request, semantic and 384-wide', () => {
     const p = embeddingProviderFromEnv({ EMBEDDING_PROVIDER: 'local' });
-    assert.equal(p.name, 'local:Xenova/multilingual-e5-small');
+    // Since 2026-10-22 the default embeds natural text with e5's query/passage
+    // prefixes, under its own name so it is never compared with folded vectors.
+    assert.equal(p.name, 'local:Xenova/multilingual-e5-small#natural-v2');
+    assert.equal(p.textShape, 'natural');
     assert.equal(p.semantic, true);
     assert.equal(p.dimensions, 384);
+  });
+
+  it('keeps the folded e5 variant under the name databases embedded before 2026-10-22 recorded', () => {
+    const folded = embeddingProviderFromEnv({ EMBEDDING_PROVIDER: 'local', LOCAL_EMBEDDING_MODEL: 'multilingual-e5-small-folded' });
+    assert.equal(folded.name, 'local:Xenova/multilingual-e5-small');
+    assert.equal(folded.textShape, 'folded');
   });
 
   it('takes the model from LOCAL_EMBEDDING_MODEL and rejects unknown ones', () => {
@@ -88,6 +97,8 @@ describe('local multilingual model selection', () => {
 
   it('can rebuild a stored local provider by name, and only local ones', () => {
     assert.equal(localProviderByName('local:Xenova/multilingual-e5-small')?.semantic, true);
+    assert.equal(localProviderByName('local:Xenova/multilingual-e5-small')?.textShape, 'folded');
+    assert.equal(localProviderByName('local:Xenova/multilingual-e5-small#natural-v2')?.textShape, 'natural');
     assert.equal(localProviderByName('openai:text-embedding-3-small'), null);
   });
 });

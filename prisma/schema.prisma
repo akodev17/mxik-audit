@@ -179,6 +179,8 @@ model EmbeddingState {
   dimensions   Int
   rowsEmbedded Int
   updatedAt    DateTime @default(now())
+  /// Vector columns holding this provider's vectors: "uz" (embeddingUz), "ru" (embeddingRu).
+  columns      String[] @default(["uz"])
 
   @@map("embedding_state")
 }

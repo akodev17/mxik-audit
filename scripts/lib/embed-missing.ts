@@ -3,8 +3,8 @@
 // the table never mixes models. HNSW indexes take the new rows incrementally.
 import type { Pool } from 'pg';
 import { embeddingProviderFromEnv } from '../../src/core/embed/index.js';
+import { embeddingText } from '../../src/core/embed/text.js';
 import { checkVectorReadiness, writeEmbeddingState } from '../../src/core/match/vector-readiness.js';
-import { matchKeyOf } from '../../src/core/normalize/index.js';
 
 const BATCH = 500;
 
@@ -16,23 +16,29 @@ export async function embedMissing(pool: Pool, log: (line: string) => void = con
     return { embedded: 0, skippedReason: readiness.reason ?? 'vector stage not usable' };
   }
   const { embedder, stored } = readiness;
+  const shape = embedder.textShape ?? 'folded';
+  // Every column the stored state says holds this provider's vectors, so none is left partial.
+  const fillRu = (stored.columns ?? ['uz']).includes('ru');
   const literal = (vec: readonly number[]): string => `[${vec.map((v) => v.toFixed(6)).join(',')}]`;
 
   let embedded = 0;
   for (;;) {
-    const batch = await pool.query<{ code: string; nameUz: string }>(
-      `SELECT code, "nameUz" FROM mxik_code
+    const batch = await pool.query<{ code: string; nameUz: string; nameRu: string }>(
+      `SELECT code, "nameUz", "nameRu" FROM mxik_code
        WHERE "embeddingUz" IS NULL AND "retiredAt" IS NULL ORDER BY code LIMIT $1`,
       [BATCH],
     );
     if (batch.rows.length === 0) break;
-    // Same input as embed:catalog: the folded name, which is what queries become.
-    const vectors = (await embedder.embed(batch.rows.map((r) => matchKeyOf(r.nameUz)))).map(literal);
+    // Same text as embed:catalog (embed/text.ts), so new codes sit in the same distribution.
+    const vectors = (await embedder.embed(batch.rows.map((r) => embeddingText(r.nameUz, 'passage', shape)), 'passage')).map(literal);
+    const ru = fillRu
+      ? (await embedder.embed(batch.rows.map((r) => embeddingText(r.nameRu || r.nameUz, 'passage', shape)), 'passage')).map(literal)
+      : vectors.map(() => null);
     await pool.query(
-      `UPDATE mxik_code AS m SET "embeddingUz" = v.vec::vector
-       FROM (SELECT * FROM unnest($1::char(17)[], $2::text[]) AS t(code, vec)) AS v
+      `UPDATE mxik_code AS m SET "embeddingUz" = v.vec::vector, "embeddingRu" = CASE WHEN $4 THEN v.ru::vector ELSE m."embeddingRu" END
+       FROM (SELECT * FROM unnest($1::char(17)[], $2::text[], $3::text[]) AS t(code, vec, ru)) AS v
        WHERE m.code = v.code`,
-      [batch.rows.map((r) => r.code), vectors],
+      [batch.rows.map((r) => r.code), vectors, ru, fillRu],
     );
     embedded += batch.rows.length;
     log(`  embedded ${embedded.toLocaleString()} new codes with ${embedder.name}`);
@@ -40,7 +46,7 @@ export async function embedMissing(pool: Pool, log: (line: string) => void = con
 
   if (embedded > 0) {
     const filled = await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM mxik_code WHERE "embeddingUz" IS NOT NULL');
-    await writeEmbeddingState(pool, { provider: stored.provider, dimensions: stored.dimensions, rowsEmbedded: Number(filled.rows[0]?.n ?? 0) });
+    await writeEmbeddingState(pool, { provider: stored.provider, dimensions: stored.dimensions, rowsEmbedded: Number(filled.rows[0]?.n ?? 0), columns: stored.columns ?? ['uz'] });
   }
   return { embedded, skippedReason: null };
 }

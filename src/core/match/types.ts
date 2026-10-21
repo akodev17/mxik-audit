@@ -1,5 +1,6 @@
 import type { NormalizedName } from '../normalize/index.js';
 import type { MatchEvidence } from './evidence.js';
+import type { EmbedRole, TextShape } from '../embed/text.js';
 
 /** Which pipeline stage produced or last touched a candidate. */
 export type MatchStage = 'barcode' | 'exact' | 'lexical' | 'vector' | 'fusion' | 'rerank' | 'dictionary' | 'none';
@@ -114,7 +115,8 @@ export type CandidateStore = {
   byLexical(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
   /** `hierarchyWords`: query words found only in the code's position, class or group names (weighted column). */
   byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
-  byVector(embedding: readonly number[], limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
+  /** `column`: 'uz' (embeddingUz) or 'ru' (embeddingRu); the store's default when absent. `cosine`: raw similarity. */
+  byVector(embedding: readonly number[], limit: number, column?: 'uz' | 'ru'): Promise<{ candidate: MxikCandidate; score: number; cosine?: number }[]>;
   byCode(code: string): Promise<MxikCandidate | null>;
   baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null>;
   /** The subset of `codes` that exist in the classifier and are not retired. */
@@ -126,7 +128,13 @@ export type EmbeddingProvider = {
   readonly dimensions: number;
   /** True for real semantic models; false for the local development stand-in. */
   readonly semantic: boolean;
-  embed(texts: readonly string[]): Promise<number[][]>;
+  /**
+   * The text shape its vectors are made from (src/core/embed/text.ts); absent
+   * means 'folded', the shape every provider used before 2026-10-22.
+   */
+  readonly textShape?: TextShape;
+  /** `role` picks the model's query or passage form where it has one (e5); others ignore it. */
+  embed(texts: readonly string[], role?: EmbedRole): Promise<number[][]>;
 };
 
 /** Everything a reranker may see about a catalogue row. Nothing else is sent. */

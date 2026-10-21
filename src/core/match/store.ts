@@ -2,6 +2,7 @@
 // in src/core/match is pure so it can be tested without a database.
 import type { Pool } from 'pg';
 import type { CandidateStore, MxikCandidate } from './types.js';
+import type { VectorColumn } from './vector-readiness.js';
 
 const SELECT_FIELDS = `
   code, "nameUz", "nameRu",
@@ -197,6 +198,9 @@ function loadWeightedReady(pool: Pool): Promise<boolean> {
   return loading;
 }
 
+/** A vector hit; `cosine` is the raw cosine similarity behind `score`. */
+export type VectorHit = { candidate: MxikCandidate; score: number; cosine?: number };
+
 /** A full-text hit; `hierarchyWords` are query words found only above the code's own names. */
 export type FullTextHit = { candidate: MxikCandidate; score: number; hierarchyWords?: string[] };
 
@@ -341,9 +345,15 @@ export class PostgresCandidateStore implements CandidateStore {
     });
   }
 
-  async byVector(embedding: readonly number[], limit: number): Promise<{ candidate: MxikCandidate; score: number }[]> {
+  /**
+   * Nearest codes by cosine. `column` picks the vector column (uz = "embeddingUz",
+   * ru = "embeddingRu"), the store's default when absent. `score` is the cosine
+   * mapped onto 0..1 as (1 + cos) / 2; `cosine` is the raw value, which semantic
+   * providers calibrate to their own range (score.ts vectorToUnit).
+   */
+  async byVector(embedding: readonly number[], limit: number, column?: VectorColumn): Promise<VectorHit[]> {
     if (!this.vectorEnabled || embedding.length === 0) return [];
-    const col = `"${this.embeddingColumn}"`;
+    const col = `"${column === undefined ? this.embeddingColumn : column === 'ru' ? 'embeddingRu' : 'embeddingUz'}"`;
     // The planner setting has to apply to the same session as the query, so
     // take a dedicated connection rather than going through pool.query.
     return this.read(async () => {
@@ -369,6 +379,7 @@ export class PostgresCandidateStore implements CandidateStore {
         return res.rows.map((r) => ({
           candidate: toCandidate(r),
           score: Math.max(0, Math.min(1, 1 - Number(r.distance) / 2)),
+          cosine: 1 - Number(r.distance),
         }));
       } catch (error) {
         failure = error instanceof Error ? error : new Error(String(error));
