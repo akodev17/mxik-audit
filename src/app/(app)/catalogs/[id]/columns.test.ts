@@ -7,7 +7,7 @@ describe('grid columns', () => {
     const all = layoutFor([], true);
     assert.deepEqual(all.keys, ['select', 'no', 'product', 'status', 'current', 'suggested', 'match', 'decision']);
     assert.match(all.template, /minmax\(172px,1fr\)/);
-    assert.equal(all.minWidth, 36 + 52 + 200 + 188 + 172 + 180 + 152 + 208);
+    assert.equal(all.minWidth, 36 + 52 + 200 + 188 + 172 + 180 + 152 + 232);
   });
 
   it('give viewers no selection column', () => {

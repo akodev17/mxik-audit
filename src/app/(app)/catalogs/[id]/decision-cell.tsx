@@ -55,12 +55,19 @@ export function DecisionCell({ row, readOnly, size = 'compact', prominent = fals
   const tone = row.decision === 'accepted' ? 'good' : 'neutral';
   const auto = isAutomatic(row.decisionSource);
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" onClick={stop}>
-      <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{decisionText(row, ta)}</StatusChip>
-      {auto && row.decisionSource ? <span className="text-micro text-muted">{ta.matchX.decisionSource[row.decisionSource]}</span> : null}
+    // A grid row has a fixed height, so the compact form is one line that never wraps: the chip gives
+    // way (its label ends in an ellipsis, the full text in its title) and the button keeps its size.
+    // The drawer (prominent) has room for the wrapping layout and the source note.
+    <span className={prominent ? 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5' : 'flex min-w-0 flex-nowrap items-center gap-1.5'} onClick={stop}>
+      <span className="min-w-0">
+        <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />} title={decisionText(row, ta)}>{decisionText(row, ta)}</StatusChip>
+      </span>
+      {auto && row.decisionSource
+        ? <span className={prominent ? 'text-micro text-muted' : 'sr-only'}>{ta.matchX.decisionSource[row.decisionSource]}</span>
+        : null}
       {readOnly ? null : prominent
         ? <Button size={size} variant="secondary" onClick={onUndo} title={a.changeHint}>{a.change}</Button>
-        : <Button size={size} variant="ghost" onClick={onUndo} title={a.changeHint}>{a.undo}</Button>}
+        : <Button size={size} variant="ghost" onClick={onUndo} title={a.changeHint} className="shrink-0">{a.undo}</Button>}
     </span>
   );
 }

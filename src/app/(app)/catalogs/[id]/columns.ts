@@ -15,10 +15,10 @@ const TRACK: Record<ColumnKey, string> = {
   current: 'minmax(172px,1fr)',
   suggested: 'minmax(180px,1.2fr)',
   match: '152px',
-  decision: '208px',
+  decision: '232px',
 };
 
-const MIN: Record<ColumnKey, number> = { select: 36, no: 52, product: 200, status: 188, current: 172, suggested: 180, match: 152, decision: 208 };
+const MIN: Record<ColumnKey, number> = { select: 36, no: 52, product: 200, status: 188, current: 172, suggested: 180, match: 152, decision: 232 };
 
 const ORDER: ColumnKey[] = ['select', 'no', 'product', 'status', 'current', 'suggested', 'match', 'decision'];
 
