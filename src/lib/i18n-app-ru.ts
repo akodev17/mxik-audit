@@ -111,6 +111,7 @@ const coreRu: CoreAppDict = {
     searchEmpty: 'Ничего не найдено',
     choose: 'Выбрать',
     markirovka: 'Маркировка',
+    markirovkaSuggested: 'Предложенный код маркируется',
     privilege: 'Льгота',
     request: 'Текст запроса нового кода',
     requestHint: 'Текст готов; отправьте его на tasnif.soliq.uz самостоятельно.',
