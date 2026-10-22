@@ -272,7 +272,7 @@ export const catalogs = defineModule('catalogs', {
     params: CatalogPath,
     responds: 'json', response: UploadProgress,
     replaces: ['route:GET /upload/progress'],
-    notes: 'Old URL /upload/progress?catalog=<id>; 404 for another org\'s catalogue. Cache-Control: no-store. Stale-audit resume moves to the worker.',
+    notes: 'Old URL /upload/progress?catalog=<id>; 404 for another org\'s catalogue. Cache-Control: no-store. An analyzing audit without a heartbeat is handed to jobs() again (resumeStaleAudits), as the old route did; the worker also resumes on boot.',
   }),
   retry: endpoint({
     method: 'POST', path: '/api/catalogs/{catalogId}/retry', auth: 'session', role: 'writer',

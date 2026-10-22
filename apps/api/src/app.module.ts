@@ -18,6 +18,13 @@ import { TeamModule } from './team/team.module';
     AuthModule,
     AccountModule,
     TeamModule,
+import { CatalogsModule } from './catalogs/catalogs.module';
+import { ImportsModule } from './imports/imports.module';
+import { ShareModule } from './share/share.module';
+    ConfigModule, AuthCoreModule, HealthModule, AuthModule,
+    CatalogsModule,
+    ImportsModule,
+    ShareModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },

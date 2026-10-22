@@ -1,54 +1,30 @@
 'use server';
 
+// Review tasks of a catalogue. The rules and messages live in @tasnivo/domain/catalog-review
+// (shared with the API); these add the session and the cache.
 import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
-import { isDemoOrg } from '@/lib/demo';
+import { assignCatalogReview as assignFor, finishCatalogReview as finishFor, type ReviewActionResult } from '@tasnivo/domain/catalog-review';
 import { writer } from '@/lib/guard';
-import { getI18n } from '@/lib/locale';
-import { assignReview, completeReview, NOTE_MAX, type ReviewError } from '@tasnivo/domain/review-assignments';
+import { getLocale } from '@/lib/locale';
 
-export type ReviewActionResult = { ok: true; changed?: boolean } | { ok: false; error: string };
+export type { ReviewActionResult };
 
-const Assign = z.object({
-  catalogId: z.string().min(1).max(64),
-  assigneeId: z.string().min(1).max(64),
-  dueOn: z.string().max(10).nullable(),
-  note: z.string().max(NOTE_MAX * 4).nullable(),
-});
-const Complete = z.object({ catalogId: z.string().min(1).max(64), note: z.string().max(NOTE_MAX * 4).nullable() });
-
-async function words(): Promise<Record<ReviewError, string> & { forbidden: string }> {
-  const { ta } = await getI18n();
-  const r = ta.review.errors;
-  return { ...r, forbidden: r.forbidden };
+function revalidate(payload: unknown): void {
+  revalidatePath(`/catalogs/${(payload as { catalogId: string }).catalogId}`);
+  revalidatePath('/dashboard');
+  revalidatePath('/notifications');
 }
 
 /** Hands a ready catalogue to a team member; refused for viewers, in a demo, and for anything outside the user's scope. */
 export async function assignCatalogReview(payload: unknown): Promise<ReviewActionResult> {
-  const e = await words();
-  const user = await writer();
-  if (!user || await isDemoOrg(user.orgId)) return { ok: false, error: e.forbidden };
-  const parsed = Assign.safeParse(payload);
-  if (!parsed.success) return { ok: false, error: e['bad note'] };
-  const result = await assignReview(user, parsed.data);
-  if (!result.ok) return { ok: false, error: e[result.error] };
-  revalidatePath(`/catalogs/${parsed.data.catalogId}`);
-  revalidatePath('/dashboard');
-  revalidatePath('/notifications');
-  return { ok: true, changed: result.changed };
+  const result = await assignFor(await writer(), await getLocale(), payload);
+  if (result.ok) revalidate(payload);
+  return result;
 }
 
 /** Marks a review done: by its assignee or an admin, never twice, never in a demo. */
 export async function finishCatalogReview(payload: unknown): Promise<ReviewActionResult> {
-  const e = await words();
-  const user = await writer();
-  if (!user || await isDemoOrg(user.orgId)) return { ok: false, error: e.forbidden };
-  const parsed = Complete.safeParse(payload);
-  if (!parsed.success) return { ok: false, error: e['bad note'] };
-  const result = await completeReview(user, parsed.data.catalogId, parsed.data.note);
-  if (!result.ok) return { ok: false, error: e[result.error] };
-  revalidatePath(`/catalogs/${parsed.data.catalogId}`);
-  revalidatePath('/dashboard');
-  revalidatePath('/notifications');
-  return { ok: true };
+  const result = await finishFor(await writer(), await getLocale(), payload);
+  if (result.ok) revalidate(payload);
+  return result;
 }

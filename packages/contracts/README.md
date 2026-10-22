@@ -220,30 +220,30 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `(app)/catalogs` | `catalogs.list` ⚠ | `GET /api/catalogs` | session (any) |
-| [ ] | [ ] | action `catalog.ts#previewUpload` | `catalogs.previewUpload` | `POST /api/catalogs/preview` | session (writer, no demo) |
-| [ ] | [ ] | page `(app)/upload` | `catalogs.preview` | `GET /api/catalogs/{catalogId}/preview` | session (any) |
-| [ ] | [ ] | action `catalog.ts#diagnoseUpload` | `catalogs.diagnose` | `POST /api/catalogs/{catalogId}/diagnose` | session (writer) |
-| [ ] | [ ] | action `catalog.ts#commitUpload` | `catalogs.commit` | `POST /api/catalogs/{catalogId}/commit` | session (writer, no demo) |
-| [ ] | [ ] | action `catalog.ts#discardUpload` | `catalogs.discard` | `DELETE /api/catalogs/{catalogId}/preview` | session (writer) |
-| [ ] | [ ] | route `GET /upload/progress` | `catalogs.progress` | `GET /api/catalogs/{catalogId}/progress` | session (any) |
-| [ ] | [ ] | action `catalog.ts#retryCatalogAudit` | `catalogs.retry` | `POST /api/catalogs/{catalogId}/retry` | session (writer) |
-| [ ] | [ ] | action `catalog.ts#removeCatalog` | `catalogs.remove` | `DELETE /api/catalogs/{catalogId}` | session (writer) |
-| [ ] | [ ] | page `(app)/catalogs/[id]` | `catalogs.get` ⚠ | `GET /api/catalogs/{catalogId}` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]#summary` | `catalogs.summary` | `GET /api/catalogs/{catalogId}/summary` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]/diff#candidates` | `catalogs.versions` | `GET /api/catalogs/{catalogId}/versions` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]/diff` | `catalogs.diff` | `GET /api/catalogs/{catalogId}/diff` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]/report` | `catalogs.report` ⚠ | `GET /api/catalogs/{catalogId}/report` | session (any) |
-| [ ] | [ ] | route `GET /api/export` | `catalogs.exportFile` | `GET /api/export` | session (any) |
-| [ ] | [ ] | route `GET /api/catalog-diff` | `catalogs.exportDiffCsv` | `GET /api/catalog-diff` | session (any) |
-| [ ] | [ ] | route `GET /api/catalog-report-csv` | `catalogs.exportReportCsv` | `GET /api/catalog-report-csv` | session (any) |
-| [ ] | [ ] | route `GET /api/report-pdf` | `catalogs.exportPdf` | `GET /api/report-pdf` | session (any) |
-| [ ] | [ ] | action `share.ts#shareList` | `catalogs.shareLinks` | `GET /api/catalogs/{catalogId}/share-links` | session (writer) |
-| [ ] | [ ] | action `share.ts#shareCreate` | `catalogs.createShareLink` | `POST /api/catalogs/{catalogId}/share-links` | session (writer) |
-| [ ] | [ ] | action `share.ts#shareRevoke` | `catalogs.revokeShareLink` | `DELETE /api/share-links/{linkId}` | session (writer) |
-| [ ] | [ ] | page `(app)/catalogs/[id]#review` | `catalogs.review` ⚠ | `GET /api/catalogs/{catalogId}/review` | session (any) |
-| [ ] | [ ] | action `reviews.ts#assignCatalogReview` | `catalogs.assignReview` | `PUT /api/catalogs/{catalogId}/review` | session (writer, no demo) |
-| [ ] | [ ] | action `reviews.ts#finishCatalogReview` | `catalogs.finishReview` | `POST /api/catalogs/{catalogId}/review/done` | session (writer, no demo) |
+| [x] | [ ] | page `(app)/catalogs` | `catalogs.list` ⚠ | `GET /api/catalogs` | session (any) |
+| [x] | [ ] | action `catalog.ts#previewUpload` | `catalogs.previewUpload` | `POST /api/catalogs/preview` | session (writer, no demo) |
+| [x] | [ ] | page `(app)/upload` | `catalogs.preview` | `GET /api/catalogs/{catalogId}/preview` | session (any) |
+| [x] | [ ] | action `catalog.ts#diagnoseUpload` | `catalogs.diagnose` | `POST /api/catalogs/{catalogId}/diagnose` | session (writer) |
+| [x] | [ ] | action `catalog.ts#commitUpload` | `catalogs.commit` | `POST /api/catalogs/{catalogId}/commit` | session (writer, no demo) |
+| [x] | [ ] | action `catalog.ts#discardUpload` | `catalogs.discard` | `DELETE /api/catalogs/{catalogId}/preview` | session (writer) |
+| [x] | [ ] | route `GET /upload/progress` | `catalogs.progress` | `GET /api/catalogs/{catalogId}/progress` | session (any) |
+| [x] | [ ] | action `catalog.ts#retryCatalogAudit` | `catalogs.retry` | `POST /api/catalogs/{catalogId}/retry` | session (writer) |
+| [x] | [ ] | action `catalog.ts#removeCatalog` | `catalogs.remove` | `DELETE /api/catalogs/{catalogId}` | session (writer) |
+| [x] | [ ] | page `(app)/catalogs/[id]` | `catalogs.get` ⚠ | `GET /api/catalogs/{catalogId}` | session (any) |
+| [x] | [ ] | page `(app)/catalogs/[id]#summary` | `catalogs.summary` | `GET /api/catalogs/{catalogId}/summary` | session (any) |
+| [x] | [ ] | page `(app)/catalogs/[id]/diff#candidates` | `catalogs.versions` | `GET /api/catalogs/{catalogId}/versions` | session (any) |
+| [x] | [ ] | page `(app)/catalogs/[id]/diff` | `catalogs.diff` | `GET /api/catalogs/{catalogId}/diff` | session (any) |
+| [x] | [ ] | page `(app)/catalogs/[id]/report` | `catalogs.report` ⚠ | `GET /api/catalogs/{catalogId}/report` | session (any) |
+| [x] | [ ] | route `GET /api/export` | `catalogs.exportFile` | `GET /api/export` | session (any) |
+| [x] | [ ] | route `GET /api/catalog-diff` | `catalogs.exportDiffCsv` | `GET /api/catalog-diff` | session (any) |
+| [x] | [ ] | route `GET /api/catalog-report-csv` | `catalogs.exportReportCsv` | `GET /api/catalog-report-csv` | session (any) |
+| [x] | [ ] | route `GET /api/report-pdf` | `catalogs.exportPdf` | `GET /api/report-pdf` | session (any) |
+| [x] | [ ] | action `share.ts#shareList` | `catalogs.shareLinks` | `GET /api/catalogs/{catalogId}/share-links` | session (writer) |
+| [x] | [ ] | action `share.ts#shareCreate` | `catalogs.createShareLink` | `POST /api/catalogs/{catalogId}/share-links` | session (writer) |
+| [x] | [ ] | action `share.ts#shareRevoke` | `catalogs.revokeShareLink` | `DELETE /api/share-links/{linkId}` | session (writer) |
+| [x] | [ ] | page `(app)/catalogs/[id]#review` | `catalogs.review` ⚠ | `GET /api/catalogs/{catalogId}/review` | session (any) |
+| [x] | [ ] | action `reviews.ts#assignCatalogReview` | `catalogs.assignReview` | `PUT /api/catalogs/{catalogId}/review` | session (writer, no demo) |
+| [x] | [ ] | action `reviews.ts#finishCatalogReview` | `catalogs.finishReview` | `POST /api/catalogs/{catalogId}/review/done` | session (writer, no demo) |
 
 ### workspace
 
@@ -290,19 +290,19 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `(app)/clients/[id]/purchases` | `imports.purchases` ⚠ | `GET /api/clients/{clientId}/purchases` | session (any) |
-| [ ] | [ ] | action `purchases.ts#uploadPurchases` | `imports.uploadPurchases` | `POST /api/clients/{clientId}/purchases` | session (writer, no demo) |
-| [ ] | [ ] | action `purchases.ts#applyPurchases` | `imports.applyPurchases` | `POST /api/purchases/{listId}/apply` | session (writer) |
-| [ ] | [ ] | action `purchases.ts#removePurchases` | `imports.removePurchases` | `DELETE /api/purchases/{listId}` | session (writer) |
-| [ ] | [ ] | action `purchases.ts#setActivity` | `imports.setActivity` | `PUT /api/clients/{clientId}/activity` | session (writer, no demo) |
-| [ ] | [ ] | page `(app)/clients/[id]/imports` | `imports.docs` ⚠ | `GET /api/clients/{clientId}/docs` | session (any) |
-| [ ] | [ ] | action `docs.ts#uploadDoc` | `imports.uploadDoc` | `POST /api/clients/{clientId}/docs` | session (writer, no demo) |
-| [ ] | [ ] | page `(app)/clients/[id]/imports/[listId]` | `imports.doc` ⚠ | `GET /api/docs/{listId}` | session (any) |
-| [ ] | [ ] | action `docs.ts#applyDoc` | `imports.applyDoc` | `POST /api/docs/{listId}/apply` | session (writer) |
-| [ ] | [ ] | action `docs.ts#restartDoc` | `imports.restartDoc` | `POST /api/docs/{listId}/restart` | session (writer) |
-| [ ] | [ ] | action `docs.ts#removeDoc` | `imports.removeDoc` | `DELETE /api/docs/{listId}` | session (writer) |
-| [ ] | [ ] | route `GET /api/doc-template` | `imports.docTemplate` | `GET /api/doc-template` | session (any) |
-| [ ] | [ ] | route `GET /api/purchase-template` | `imports.purchaseTemplate` | `GET /api/purchase-template` | session (any) |
+| [x] | [ ] | page `(app)/clients/[id]/purchases` | `imports.purchases` ⚠ | `GET /api/clients/{clientId}/purchases` | session (any) |
+| [x] | [ ] | action `purchases.ts#uploadPurchases` | `imports.uploadPurchases` | `POST /api/clients/{clientId}/purchases` | session (writer, no demo) |
+| [x] | [ ] | action `purchases.ts#applyPurchases` | `imports.applyPurchases` | `POST /api/purchases/{listId}/apply` | session (writer) |
+| [x] | [ ] | action `purchases.ts#removePurchases` | `imports.removePurchases` | `DELETE /api/purchases/{listId}` | session (writer) |
+| [x] | [ ] | action `purchases.ts#setActivity` | `imports.setActivity` | `PUT /api/clients/{clientId}/activity` | session (writer, no demo) |
+| [x] | [ ] | page `(app)/clients/[id]/imports` | `imports.docs` ⚠ | `GET /api/clients/{clientId}/docs` | session (any) |
+| [x] | [ ] | action `docs.ts#uploadDoc` | `imports.uploadDoc` | `POST /api/clients/{clientId}/docs` | session (writer, no demo) |
+| [x] | [ ] | page `(app)/clients/[id]/imports/[listId]` | `imports.doc` ⚠ | `GET /api/docs/{listId}` | session (any) |
+| [x] | [ ] | action `docs.ts#applyDoc` | `imports.applyDoc` | `POST /api/docs/{listId}/apply` | session (writer) |
+| [x] | [ ] | action `docs.ts#restartDoc` | `imports.restartDoc` | `POST /api/docs/{listId}/restart` | session (writer) |
+| [x] | [ ] | action `docs.ts#removeDoc` | `imports.removeDoc` | `DELETE /api/docs/{listId}` | session (writer) |
+| [x] | [ ] | route `GET /api/doc-template` | `imports.docTemplate` | `GET /api/doc-template` | session (any) |
+| [x] | [ ] | route `GET /api/purchase-template` | `imports.purchaseTemplate` | `GET /api/purchase-template` | session (any) |
 
 ### team
 
@@ -380,8 +380,8 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `r/[token]` | `share.view` | `GET /api/share/{token}` | shareToken |
-| [ ] | [ ] | route `GET /r/[token]/pdf` | `share.pdf` | `GET /api/share/{token}/pdf` | shareToken |
+| [x] | [ ] | page `r/[token]` | `share.view` | `GET /api/share/{token}` | shareToken |
+| [x] | [ ] | route `GET /r/[token]/pdf` | `share.pdf` | `GET /api/share/{token}/pdf` | shareToken |
 
 ### cron
 
