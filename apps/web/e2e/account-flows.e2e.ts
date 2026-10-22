@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Page } from 'playwright';
-import { COMMIT, db, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
+import { BASE_URL, COMMIT, db, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
 
 describe('account flows on the API', () => {
   let fx: Fixture;
@@ -55,7 +55,7 @@ describe('account flows on the API', () => {
     const guest = await newPage(browser);
     const email = `e2e-${fx.tag}-joined@e2e.mxik.test`;
     joined.push(email);
-    await guest.page.goto(new URL(link).pathname);
+    await guest.page.goto(new URL(link, BASE_URL).pathname);
     await guest.page.locator('input[name="email"]').fill(email);
     await guest.page.locator('input[name="password"]').fill(E2E_PASSWORDS.viewer);
     await Promise.all([

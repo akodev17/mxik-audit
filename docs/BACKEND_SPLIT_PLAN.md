@@ -293,7 +293,8 @@ domain as a dependency). `packages/db/prisma/seed.ts` imports domain's `load-env
 - `src/ui/query-provider.tsx` (one QueryClient, no retries) wraps `<body>` in `src/app/layout.tsx`.
 - `next.config.ts`: `transpilePackages` gains `@tasnivo/api-client` and `@tasnivo/contracts`; `rewrites()` sends
   `/api/:path*` to `${API_INTERNAL_URL}/api/:path*` as an afterFiles rule (route handlers not yet moved still win)
-  unless NEXT_PUBLIC_API_URL is set; `/verify/:token` redirects to `/api/auth/verify/:token` for mails already
+  unless NEXT_PUBLIC_API_URL is set (the destination is fixed at `next build`: build with API_INTERNAL_URL set
+  for `next start` without Caddy); `/verify/:token` redirects to `/api/auth/verify/:token` for mails already
   sent (new mails link to the API directly).
 - `apps/web/eslint.migrated.mjs` exports `MIGRATED_WEB_PATHS`; `eslint.config.js` forbids `@tasnivo/domain`,
   `@tasnivo/db`, `@tasnivo/core` (and their subpaths, type imports included) and `@/app/actions/*` there.

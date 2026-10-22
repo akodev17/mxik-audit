@@ -38,6 +38,8 @@ const config: NextConfig = {
   // Development and single-origin setups without Caddy: /api/* that no Next route handler answers
   // goes to the API (afterFiles, so the handlers not moved yet keep winning until they are deleted).
   // With NEXT_PUBLIC_API_URL set the browser calls the API itself and nothing is rewritten.
+  // `next build` writes the destination into the build: set API_INTERNAL_URL when building, not
+  // only when starting (behind Caddy /api/* never reaches the web app, so there it does not matter).
   async rewrites() {
     if (process.env.NEXT_PUBLIC_API_URL) return [];
     const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
