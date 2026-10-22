@@ -9,6 +9,7 @@ import request from 'supertest';
 import { endpoints } from '@tasnivo/contracts';
 import { db } from '@tasnivo/db';
 import { makeClient } from '@tasnivo/domain/firm-test-fixtures';
+import { finishReminderTask, saveClientSchedule } from '@tasnivo/domain/reminder-ops';
 import { localDate } from '@tasnivo/domain/reminders';
 import { dbSkipReason, dropOrgs } from '@tasnivo/domain/test-fixtures';
 import { i18nFor } from '@tasnivo/i18n/locale';
@@ -77,6 +78,10 @@ describe('reminders module (e2e)', { skip }, () => {
     const refused = await save(demo, { dayOfMonth: 5, assigneeId: null, enabled: true }, demoClient);
     assert.equal(refused.status, 403);
     assert.equal(bodyOf(refused).error.code, 'demo');
+    // The domain refuses a demo org on its own too, with the action's message (whatever the guard in front does).
+    const demoUser = { userId: demo.userId, orgId: demo.orgId, role: demo.role, clientIds: null };
+    assert.deepEqual(await saveClientSchedule(demoUser, demoClient, { dayOfMonth: 5, assigneeId: null, enabled: true }, 'uz'), { ok: false, error: words.errors.forbidden });
+    assert.deepEqual(await finishReminderTask(demoUser, 'any-task', 'uz'), { ok: false, error: words.errors.forbidden });
   });
 
   it('tasks: open checks of visible clients; finishing one, then again', async () => {

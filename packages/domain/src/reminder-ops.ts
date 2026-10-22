@@ -4,6 +4,7 @@ import { i18nFor } from '@tasnivo/i18n/locale';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { db } from '@tasnivo/db';
 import { canSeeClient } from './access.js';
+import { isDemoOrg } from './demo.js';
 import { getSchedule, markDone, setSchedule } from './reminders.js';
 import type { RoleCarrier } from './write-access.js';
 
@@ -28,6 +29,8 @@ export async function saveClientSchedule(
 ): Promise<ReminderResult> {
   const { ta } = i18nFor(locale);
   const words = ta.firmX.reminders;
+  // A demo org never changes schedules, whichever layer in front refused it already.
+  if (await isDemoOrg(user.orgId)) return { ok: false, error: ta.firmX.errors.forbidden };
   if (!Number.isInteger(input.dayOfMonth) || input.dayOfMonth < 1 || input.dayOfMonth > 28) return { ok: false, error: words.badDay };
   if (!canSeeClient(user, clientId)) return { ok: false, error: ta.firmX.errors['not found'] };
   const result = await setSchedule(user, clientId, input);
@@ -37,9 +40,10 @@ export async function saveClientSchedule(
   return { ok: true, nextDue: result.nextDue ? result.nextDue.toISOString() : null };
 }
 
-/** Marks a monthly check done by hand; `clientId` tells the web which pages to refresh. */
+/** Marks a monthly check done by hand (never in a demo org); `clientId` tells the web which pages to refresh. */
 export async function finishReminderTask(user: Who, taskId: string, locale: Locale): Promise<{ ok: true; clientId: string } | { ok: false; error: string }> {
   const { ta } = i18nFor(locale);
+  if (await isDemoOrg(user.orgId)) return { ok: false, error: ta.firmX.errors.forbidden };
   const result = await markDone(user, taskId);
   if (!result.ok) return { ok: false, error: result.error === 'already done' ? ta.firmX.reminders.alreadyDone : ta.firmX.errors['not found'] };
   return { ok: true, clientId: result.clientId };
