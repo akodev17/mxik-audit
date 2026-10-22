@@ -17,7 +17,7 @@ import type { CurrentUser as User } from '@tasnivo/domain/session';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { CurrentUser, Locale } from '../http/decorators';
 import { queryValue, sendFile } from '../http/download';
-import { Endpoint } from '../http/endpoint';
+import { Route } from '../http/route';
 import { FilePart, MultipartInterceptor } from '../http/multipart';
 import { found, withPath } from '../http/payload';
 import { ZodValidationPipe } from '../http/zod-validation.pipe';
@@ -29,12 +29,12 @@ type ListPath = z.output<typeof e.applyPurchases.params>;
 @ApiTags('imports')
 @Controller()
 export class ImportsController {
-  @Endpoint(e.purchases)
+  @Route(e.purchases)
   async purchases(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.purchases.params)) { clientId }: ClientPath) {
     return found(await purchaseListsPage(user, clientId));
   }
 
-  @Endpoint(e.uploadPurchases)
+  @Route(e.uploadPurchases)
   @UseInterceptors(MultipartInterceptor(e.uploadPurchases.multipart))
   uploadPurchases(
     @CurrentUser() user: User, @Locale() locale: LocaleCode,
@@ -44,22 +44,22 @@ export class ImportsController {
     return uploadPurchaseFile(user, locale, { clientId, file });
   }
 
-  @Endpoint(e.applyPurchases)
+  @Route(e.applyPurchases)
   applyPurchases(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.applyPurchases.params)) { listId }: ListPath, @Body() body: unknown) {
     return applyPurchaseFile(user, locale, withPath(body, { listId }));
   }
 
-  @Endpoint(e.removePurchases)
+  @Route(e.removePurchases)
   removePurchases(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.removePurchases.params)) { listId }: ListPath) {
     return removePurchaseFile(user, locale, listId);
   }
 
-  @Endpoint(e.setActivity)
+  @Route(e.setActivity)
   setActivity(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.setActivity.params)) { clientId }: ClientPath, @Body() body: unknown) {
     return setActivityFor(user, withPath(body, { clientId }));
   }
 
-  @Endpoint(e.docs)
+  @Route(e.docs)
   async docs(
     @CurrentUser() user: User,
     @Param(new ZodValidationPipe(e.docs.params)) { clientId }: ClientPath,
@@ -68,7 +68,7 @@ export class ImportsController {
     return found(await docListsPage(user, clientId, kind));
   }
 
-  @Endpoint(e.uploadDoc)
+  @Route(e.uploadDoc)
   @UseInterceptors(MultipartInterceptor(e.uploadDoc.multipart))
   uploadDoc(
     @CurrentUser() user: User, @Locale() locale: LocaleCode,
@@ -80,7 +80,7 @@ export class ImportsController {
     return uploadDocFile(user, locale, { clientId, kind: fields['kind'], file });
   }
 
-  @Endpoint(e.doc)
+  @Route(e.doc)
   async doc(
     @CurrentUser() user: User,
     @Param(new ZodValidationPipe(e.doc.params)) { listId }: ListPath,
@@ -89,28 +89,28 @@ export class ImportsController {
     return found(await docReport(user, listId, issue));
   }
 
-  @Endpoint(e.applyDoc)
+  @Route(e.applyDoc)
   applyDoc(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.applyDoc.params)) { listId }: ListPath, @Body() body: unknown) {
     return applyDocFile(user, locale, withPath(body, { listId }));
   }
 
-  @Endpoint(e.restartDoc)
+  @Route(e.restartDoc)
   restartDoc(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.restartDoc.params)) { listId }: ListPath) {
     return restartDocFile(user, locale, listId);
   }
 
-  @Endpoint(e.removeDoc)
+  @Route(e.removeDoc)
   removeDoc(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.removeDoc.params)) { listId }: ListPath) {
     return removeDocFile(user, locale, listId);
   }
 
   /** Kept URL /api/doc-template; any kind but "sales" is the cheque template, as before. */
-  @Endpoint(e.docTemplate)
+  @Route(e.docTemplate)
   async docTemplate(@Locale() locale: LocaleCode, @Query() q: Record<string, unknown>, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     return sendFile(res, await docTemplate(locale, queryValue(q['kind']) === 'sales' ? 'sales' : 'cheques'));
   }
 
-  @Endpoint(e.purchaseTemplate)
+  @Route(e.purchaseTemplate)
   async purchaseTemplate(@Locale() locale: LocaleCode, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     return sendFile(res, await purchaseTemplate(locale));
   }

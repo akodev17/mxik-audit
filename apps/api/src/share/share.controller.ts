@@ -12,7 +12,7 @@ import { shareView } from '@tasnivo/domain/catalog-pages';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { Locale } from '../http/decorators';
 import { sendDownload } from '../http/download';
-import { Endpoint } from '../http/endpoint';
+import { Route } from '../http/route';
 import { found } from '../http/payload';
 import { ZodValidationPipe } from '../http/zod-validation.pipe';
 
@@ -22,7 +22,7 @@ type TokenPath = z.output<typeof e.view.params>;
 @ApiTags('share')
 @Controller()
 export class ShareController {
-  @Endpoint(e.view)
+  @Route(e.view)
   async view(@Param(new ZodValidationPipe(e.view.params)) { token }: TokenPath, @Res({ passthrough: true }) res: Response) {
     // The share page asked search engines and referrers to leave it alone; so does its data.
     res.set({ 'x-robots-tag': 'noindex', 'cache-control': 'private, no-store' });
@@ -30,7 +30,7 @@ export class ShareController {
   }
 
   /** The old /r/<token>/pdf. */
-  @Endpoint(e.pdf)
+  @Route(e.pdf)
   async pdf(@Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.pdf.params)) { token }: TokenPath, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     return sendDownload(res, await sharePdf(token, locale));
   }

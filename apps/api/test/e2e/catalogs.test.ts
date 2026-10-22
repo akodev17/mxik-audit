@@ -317,8 +317,14 @@ describe('catalogs + share (database)', { skip }, () => {
     orgs.push(demo.orgId);
     const demoCookie = await sessionCookie(demo, { demo: true });
     const demoClient = await makeClient(demo.orgId, 'Demo mijoz');
-    assert.deepEqual((await upload(file, 'a.xlsx', demoCookie, { clientId: demoClient })).body, { ok: false, error: t.demoUploadDisabled });
-    assert.deepEqual((await post(`/api/catalogs/${catalogId}/commit`, demoCookie).send({ mapping: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1 } })).body, { ok: false, error: t.demoUploadDisabled });
-    assert.deepEqual((await http().put(`/api/catalogs/${catalogId}/review`).set('Cookie', demoCookie).set('X-Requested-With', 'tasnivo').send({ assigneeId: demo.userId, dueOn: null, note: null })).body, { ok: false, error: ta.review.errors.forbidden });
+    // noDemo endpoints: the registry's AccessGuard refuses a demo org with 403 `demo` before the handler.
+    const demoRefused = (res: { status: number; body: unknown }) => {
+      assert.equal(res.status, 403);
+      assert.equal(bodyOf(res).error.code, 'demo');
+    };
+    demoRefused(await upload(file, 'a.xlsx', demoCookie, { clientId: demoClient }));
+    demoRefused(await post(`/api/catalogs/${catalogId}/commit`, demoCookie).send({ mapping: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1 } }));
+    demoRefused(await http().put(`/api/catalogs/${catalogId}/review`).set('Cookie', demoCookie).set('X-Requested-With', 'tasnivo').send({ assigneeId: demo.userId, dueOn: null, note: null }));
+    assert.equal((await http().get(`/api/catalogs/${catalogId}/progress`).set('Cookie', demoCookie)).status, 404, 'reads are not refused, only scoped');
   });
 });

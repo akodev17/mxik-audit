@@ -18,7 +18,7 @@ import { binary, eventually, matches, sessionCookie, xlsx } from '../upload-fixt
 
 const skip = await dbSkipReason();
 const im = endpoints.imports;
-const { t, ta } = i18nFor('uz');
+const { ta } = i18nFor('uz');
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 type Uploaded = { ok: true; preview: { listId: string; map: Record<string, number>; totalRows: number } } | { ok: false; error: string };
@@ -159,9 +159,15 @@ describe('imports (database)', { skip }, () => {
     orgs.push(demo.orgId);
     const demoCookie = await sessionCookie(demo, { demo: true });
     const demoClient = await makeClient(demo.orgId, 'Demo mijoz');
-    assert.deepEqual((await send('post', `/api/clients/${demoClient}/purchases`, demoCookie).attach('file', file, 'k.xlsx')).body, { ok: false, error: t.demoUploadDisabled });
-    assert.deepEqual((await send('post', `/api/clients/${demoClient}/docs`, demoCookie).field('kind', 'cheques').attach('file', file, 'k.xlsx')).body, { ok: false, error: t.demoUploadDisabled });
-    assert.deepEqual((await send('put', `/api/clients/${demoClient}/activity`, demoCookie).send({ activity: 'savdo' })).body, { ok: false });
+    for (const res of [
+      await send('post', `/api/clients/${demoClient}/purchases`, demoCookie).attach('file', file, 'k.xlsx'),
+      await send('post', `/api/clients/${demoClient}/docs`, demoCookie).field('kind', 'cheques').attach('file', file, 'k.xlsx'),
+      await send('put', `/api/clients/${demoClient}/activity`, demoCookie).send({ activity: 'savdo' }),
+    ]) {
+      // noDemo endpoints: the registry's AccessGuard refuses a demo org with 403 `demo` before the handler.
+      assert.equal(res.status, 403);
+      assert.equal(bodyOf(res).error.code, 'demo');
+    }
 
     const expired = await makeUser();
     orgs.push(expired.orgId);

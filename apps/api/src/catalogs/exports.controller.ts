@@ -13,7 +13,7 @@ import type { CurrentUser as User } from '@tasnivo/domain/session';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { CurrentUser, Locale } from '../http/decorators';
 import { queryValue, sendDownload } from '../http/download';
-import { Endpoint } from '../http/endpoint';
+import { Route } from '../http/route';
 
 const e = endpoints.catalogs;
 type RawQuery = Record<string, unknown>;
@@ -21,22 +21,22 @@ type RawQuery = Record<string, unknown>;
 @ApiTags('catalogs')
 @Controller()
 export class ExportsController {
-  @Endpoint(e.exportFile)
+  @Route(e.exportFile)
   async exportFile(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Query() q: RawQuery, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     return sendDownload(res, await catalogExport(user, locale, queryValue(q['catalog']), queryValue(q['format'])));
   }
 
-  @Endpoint(e.exportDiffCsv)
+  @Route(e.exportDiffCsv)
   async exportDiffCsv(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Query() q: RawQuery, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     return sendDownload(res, await catalogDiffCsv(user, locale, queryValue(q['catalog']), queryValue(q['with'])));
   }
 
-  @Endpoint(e.exportReportCsv)
+  @Route(e.exportReportCsv)
   async exportReportCsv(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Query() q: RawQuery, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     return sendDownload(res, await catalogReportCsv(user, locale, queryValue(q['catalog'])));
   }
 
-  @Endpoint(e.exportPdf)
+  @Route(e.exportPdf)
   async exportPdf(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Query() q: RawQuery, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     return sendDownload(res, await catalogReportPdf(user, locale, queryValue(q['catalog']), {
       audience: queryValue(q['audience']) === 'client' ? 'client' : 'internal',

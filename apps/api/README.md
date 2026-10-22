@@ -139,18 +139,11 @@ callback's own signature check + `@SkipCsrf()`). Every body/query goes through
 `ZodValidationPipe`. Inject with `@Inject(...)`. Add a supertest e2e test that skips without the
 database (`test/helpers.ts`: `dbSkipReason`, `startApp`, `makeUser`).
 
-### Registry helpers (src/http/endpoint.ts, multipart.ts, download.ts, payload.ts)
+### Upload, download and payload helpers (src/http/multipart.ts, download.ts, payload.ts)
 
-- `@Endpoint(endpoints.<module>.<op>)` replaces the method decorator: the route (registry path
-  minus `/api`), the status (200 for POST too), the guards of the auth kind (`session` →
-  `SessionGuard` + `RoleGuard` with the registry's `role`: writer, admin or platformAdmin, else 403
-  `forbidden`; `cron` → `CronGuard` + `@SkipCsrf()`; `public` and `shareToken` → none) and the
-  Swagger operation converted from the zod schemas (operation id, params, query, body, answer,
-  `x-role`, `x-replaces`). A JSON answer that is `null` or a boolean leaves as JSON
-  (`JsonAnswerInterceptor`; Express would send an empty body or text). Put `@ApiTags(module)` and
-  `@Controller()` on the class.
-- `noDemo` is not a guard: the actions answered a demo org `{ ok: false, error }` (or `null`,
-  `{ ok: false }`) in the user's language, so the shared domain function does, inside the 200 answer.
+Routes use `@Route(endpoints.<module>.<op>)` (src/http/route.ts) with `AccessGuard` (role and
+`noDemo`, 403 `forbidden` / `demo`). The catalogs, imports and share modules add:
+
 - Multipart: `@UseInterceptors(MultipartInterceptor(e.multipart))` (multer memory storage, the
   registry's caps, UTF-8 file names) and `@FilePart('file')`, the domain's `UploadedFile`. A file
   over its cap is not a 413: the domain refuses it with the action's "too big" message.

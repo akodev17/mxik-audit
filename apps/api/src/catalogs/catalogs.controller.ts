@@ -21,7 +21,7 @@ import { shareCreateFor, shareRevokeFor, shareRows } from '@tasnivo/domain/share
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
 import { CurrentUser, Locale } from '../http/decorators';
-import { Endpoint } from '../http/endpoint';
+import { Route } from '../http/route';
 import { ApiError } from '../http/errors';
 import { FilePart, MultipartInterceptor } from '../http/multipart';
 import { found, notFound, withPath } from '../http/payload';
@@ -36,12 +36,12 @@ type CatalogPath = z.output<typeof e.get.params>;
 export class CatalogsController {
   constructor(@Inject(SessionService) private readonly sessions: SessionService) {}
 
-  @Endpoint(e.list)
+  @Route(e.list)
   list(@CurrentUser() user: User, @Query(new ZodValidationPipe(e.list.query)) query: z.output<typeof e.list.query>) {
     return catalogListPage(user, query);
   }
 
-  @Endpoint(e.previewUpload)
+  @Route(e.previewUpload)
   @UseInterceptors(MultipartInterceptor(e.previewUpload.multipart))
   previewUpload(
     @CurrentUser() user: User,
@@ -52,18 +52,18 @@ export class CatalogsController {
     return previewCatalogUpload(user, locale, { file, clientId: fields.clientId || null });
   }
 
-  @Endpoint(e.preview)
+  @Route(e.preview)
   preview(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.preview.params)) { catalogId }: CatalogPath) {
     return catalogPreview(user, catalogId);
   }
 
-  @Endpoint(e.diagnose)
+  @Route(e.diagnose)
   diagnose(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.diagnose.params)) { catalogId }: CatalogPath, @Body() body: unknown) {
     return diagnoseCatalogUpload(user, locale, withPath(body, { catalogId }));
   }
 
   /** Starts the audit through jobs(); the catalogue's client becomes the session's active client, as the action did. */
-  @Endpoint(e.commit)
+  @Route(e.commit)
   async commit(
     @CurrentUser() user: User,
     @Locale() locale: LocaleCode,
@@ -80,44 +80,44 @@ export class CatalogsController {
     return result;
   }
 
-  @Endpoint(e.discard)
+  @Route(e.discard)
   discard(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.discard.params)) { catalogId }: CatalogPath) {
     return discardCatalogUpload(user, locale, catalogId);
   }
 
   /** The former /upload/progress: 404 for a catalogue the user may not see; resumes a stalled audit. */
-  @Endpoint(e.progress)
+  @Route(e.progress)
   async progress(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.progress.params)) { catalogId }: CatalogPath) {
     return found(await catalogProgress(user, catalogId));
   }
 
-  @Endpoint(e.retry)
+  @Route(e.retry)
   retry(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.retry.params)) { catalogId }: CatalogPath) {
     return retryCatalogAudit(user, catalogId);
   }
 
-  @Endpoint(e.remove)
+  @Route(e.remove)
   remove(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.remove.params)) { catalogId }: CatalogPath) {
     return removeCatalogFor(user, locale, catalogId);
   }
 
-  @Endpoint(e.get)
+  @Route(e.get)
   async get(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.get.params)) { catalogId }: CatalogPath) {
     return found(await catalogHeader(user, catalogId));
   }
 
-  @Endpoint(e.summary)
+  @Route(e.summary)
   async summary(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.summary.params)) { catalogId }: CatalogPath) {
     return found(await catalogSummary(user, catalogId));
   }
 
-  @Endpoint(e.versions)
+  @Route(e.versions)
   async versions(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.versions.params)) { catalogId }: CatalogPath) {
     return found(await catalogVersions(user, catalogId));
   }
 
   /** Null when there is nothing to compare with; 404 for a catalogue the user may not see. */
-  @Endpoint(e.diff)
+  @Route(e.diff)
   async diff(
     @CurrentUser() user: User,
     @Param(new ZodValidationPipe(e.diff.params)) { catalogId }: CatalogPath,
@@ -128,39 +128,39 @@ export class CatalogsController {
     return diff;
   }
 
-  @Endpoint(e.report)
+  @Route(e.report)
   async report(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.report.params)) { catalogId }: CatalogPath) {
     const read = await catalogReport(user, catalogId);
     if (read.ok) return read.report;
     throw read.reason === 'not_ready' ? new ApiError(409, 'audit_not_finished', 'audit not finished') : notFound();
   }
 
-  @Endpoint(e.shareLinks)
+  @Route(e.shareLinks)
   shareLinks(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.shareLinks.params)) { catalogId }: CatalogPath) {
     return shareRows(user, catalogId);
   }
 
-  @Endpoint(e.createShareLink)
+  @Route(e.createShareLink)
   createShareLink(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.createShareLink.params)) { catalogId }: CatalogPath, @Body() body: unknown) {
     return shareCreateFor(user, withPath(body, { catalogId }));
   }
 
-  @Endpoint(e.revokeShareLink)
+  @Route(e.revokeShareLink)
   revokeShareLink(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.revokeShareLink.params)) { linkId }: z.output<typeof e.revokeShareLink.params>) {
     return shareRevokeFor(user, linkId);
   }
 
-  @Endpoint(e.review)
+  @Route(e.review)
   async review(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.review.params)) { catalogId }: CatalogPath) {
     return found(await catalogReview(user, catalogId));
   }
 
-  @Endpoint(e.assignReview)
+  @Route(e.assignReview)
   assignReview(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.assignReview.params)) { catalogId }: CatalogPath, @Body() body: unknown) {
     return assignCatalogReview(user, locale, withPath(body, { catalogId }));
   }
 
-  @Endpoint(e.finishReview)
+  @Route(e.finishReview)
   finishReview(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.finishReview.params)) { catalogId }: CatalogPath, @Body() body: unknown) {
     return finishCatalogReview(user, locale, withPath(body, { catalogId }));
   }
