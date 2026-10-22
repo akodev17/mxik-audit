@@ -5,7 +5,8 @@ import { appDict } from '@tasnivo/i18n/i18n-app';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { TRIAL_DAYS } from './billing/limits.js';
 import { db } from '@tasnivo/db';
-import { mailEnabled, sendMail } from './mailer.js';
+import { jobs } from './jobs/dispatcher.js';
+import { mailEnabled } from './mailer.js';
 import { hashPassword } from './password.js';
 import { MIN_PASSWORD } from './security/password-check.js';
 import { sendPendingAccountLink } from './security/password-reset.js';
@@ -41,7 +42,7 @@ async function alreadyRegistered(user: Existing, input: Input): Promise<SignupRe
   if (!(await hit(RULES.resendEmail, user.email)).allowed) return { ok: false, mailed: true };
   if (user.emailVerifiedAt) {
     const s = appDict(locale).secX.mail;
-    await sendMail({ to: user.email, subject: s.existsSubject, text: s.existsBody(absoluteUrl('/sign-in'), absoluteUrl('/sign-in/forgot')) });
+    await jobs().enqueueMail({ to: user.email, subject: s.existsSubject, text: s.existsBody(absoluteUrl('/sign-in'), absoluteUrl('/sign-in/forgot')) });
   } else {
     // Not the stored password: whoever controls the mailbox sets one, so nobody can pre-register someone else's address.
     await sendPendingAccountLink(user, locale);

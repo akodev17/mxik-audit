@@ -1,8 +1,9 @@
 // Background audits. An upload returns as soon as its rows are stored; the
-// audit then runs in this server process and records its progress on the
-// catalogue, so the report can show it. If the process dies mid-audit, the
-// next server start (src/instrumentation.ts) or a stale heartbeat resumes it
-// from the last fully audited row.
+// audit then runs where the job dispatcher sends it (this process when
+// JOBS_MODE=inline, apps/worker when bullmq) and records its progress on the
+// catalogue, so the report can show it. If that process dies mid-audit, the
+// next start (the web's instrumentation.ts, the worker's boot) or a stale
+// heartbeat resumes it from the last fully audited row.
 import type { Prisma } from '@prisma/client';
 import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
@@ -10,6 +11,8 @@ import { catalogScope } from './access.js';
 import { isOrgWriter } from './actor-role.js';
 import { db } from '@tasnivo/db';
 import { isDemoOrg } from './demo.js';
+import { jobs } from './jobs/dispatcher.js';
+import { InlineDispatcher } from './jobs/inline.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { auditReadyText } from './notification-text.js';
 import { notify } from './notifications.js';
@@ -27,8 +30,6 @@ export const STALE_MS = 120_000;
  */
 export const STARTUP_STALE_MS = 5 * HEARTBEAT_MS;
 
-const running = new Set<string>();
-
 /** The org's setting, not the uploader, accepts these: recorded as the system with source dictionary_auto. */
 async function autoAcceptDictionary(catalogId: string, actor: AuditActor): Promise<void> {
   const catalog = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, org: { select: { dictAutoAccept: true } } } });
@@ -38,23 +39,22 @@ async function autoAcceptDictionary(catalogId: string, actor: AuditActor): Promi
 
 export type AuditActor = { orgId: string; userId: string } | null;
 
-/** Marks the catalogue as analyzing and starts its audit without waiting for it. */
+/** Marks the catalogue as analyzing and starts (or queues) its audit without waiting for it. */
 export async function startAudit(catalogId: string, actor: AuditActor, extra: Prisma.InputJsonObject = {}): Promise<void> {
   await linkPrevious(catalogId);
   await db.catalog.update({
     where: { id: catalogId },
     data: { status: 'analyzing', progressDone: 0, auditStartedAt: new Date(), auditHeartbeatAt: new Date(), auditError: null },
   });
-  launch(catalogId, 0, actor, extra);
+  await jobs().enqueueAudit(catalogId, actor, extra, 0);
 }
 
-function launch(catalogId: string, fromRow: number, actor: AuditActor, extra: Prisma.InputJsonObject): void {
-  if (running.has(catalogId)) return;
-  running.add(catalogId);
-  void run(catalogId, fromRow, actor, extra).finally(() => running.delete(catalogId));
-}
-
-async function run(catalogId: string, fromRow: number, actor: AuditActor, extra: Prisma.InputJsonObject): Promise<void> {
+/**
+ * The audit itself, from `fromRow`: rows, purchase and privilege checks, carry-over, dictionary, then
+ * "ready", the audit event and the notices. Never throws: a failure marks the catalogue "failed" with
+ * its message. Run by the inline dispatcher or the worker's audit processor.
+ */
+export async function runAudit(catalogId: string, fromRow: number, actor: AuditActor, extra: Prisma.InputJsonObject): Promise<void> {
   const started = Date.now();
   try {
     // Rows at or past the resume point may have half-written findings.
@@ -134,8 +134,7 @@ async function notifyReady(
 /** A catalogue that came through the bot gets its summary (or failure) back there. */
 async function replyToTelegram(catalogId: string): Promise<void> {
   try {
-    const { sendAuditSummary } = await import('./telegram/deliver.js');
-    await sendAuditSummary(catalogId);
+    await jobs().enqueueTelegram({ kind: 'audit-summary', catalogId });
   } catch (error) {
     console.warn(`[audit ${catalogId}] telegram reply failed: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -144,7 +143,8 @@ async function replyToTelegram(catalogId: string): Promise<void> {
 /**
  * Resumes audits that no live worker is running: every "analyzing" catalogue
  * whose heartbeat is older than `staleMs` (STARTUP_STALE_MS on server start).
- * Optionally limited to one catalogue.
+ * Optionally limited to one catalogue. Returns how many were handed to the
+ * dispatcher (one already running or queued there is left as it is).
  */
 export async function resumeStaleAudits(staleMs = STALE_MS, catalogId?: string): Promise<number> {
   const cutoff = new Date(Date.now() - staleMs);
@@ -156,12 +156,14 @@ export async function resumeStaleAudits(staleMs = STALE_MS, catalogId?: string):
     },
     select: { id: true, progressDone: true },
   });
-  for (const c of stale) launch(c.id, c.progressDone, null, { resumed: true });
-  return stale.filter((c) => running.has(c.id)).length;
+  for (const c of stale) await jobs().enqueueAudit(c.id, null, { resumed: true }, c.progressDone);
+  return stale.length;
 }
 
+/** Whether this process runs the audit (JOBS_MODE=inline); always false where the worker runs audits. */
 export function isAuditRunning(catalogId: string): boolean {
-  return running.has(catalogId);
+  const dispatcher = jobs();
+  return dispatcher instanceof InlineDispatcher && dispatcher.auditRunning(catalogId);
 }
 
 /** Restarts a failed audit from scratch, for a writer (not a viewer) who may see the catalogue. */

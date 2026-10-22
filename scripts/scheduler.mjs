@@ -1,3 +1,8 @@
+// DEPRECATED: apps/worker runs these jobs now (same UTC+5 times, in-process, no HTTP call), plus the
+// stale-audit sweep; see apps/worker/README.md. This loop stays only until the compose `scheduler`
+// service is retired (Wave 1d). Never run both, or the purge, the classifier update and the daily
+// jobs each run twice.
+//
 // Runs the scheduled jobs from DEPLOY.md section 7 inside the compose network, so no host crontab is needed.
 import { spawn } from 'node:child_process';
 

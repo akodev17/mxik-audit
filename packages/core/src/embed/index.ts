@@ -267,3 +267,25 @@ export function embeddingProviderFromEnv(env: EnvLike = process.env): EmbeddingP
 
   return new HashingEmbeddingProvider();
 }
+
+/** The environment keys embeddingProviderFromEnv reads; two envs agreeing on these get the same provider. */
+const PROVIDER_KEYS = [
+  'EMBEDDING_PROVIDER', 'LOCAL_EMBEDDING_MODEL', 'LOCAL_MODEL_DIR', 'VOYAGE_API_KEY', 'VOYAGE_MODEL',
+  'OPENAI_API_KEY', 'OPENAI_EMBEDDING_MODEL', 'EMBEDDING_CONCURRENCY',
+] as const;
+const shared = new Map<string, EmbeddingProvider>();
+
+/**
+ * embeddingProviderFromEnv, built once per distinct configuration and then reused, for long-lived
+ * processes (the worker): a local model loads its weights (470 MB for e5-small fp32) on first use and
+ * keeps them, instead of once per audit. Short-lived callers keep using embeddingProviderFromEnv.
+ */
+export function sharedEmbeddingProvider(env: EnvLike = process.env): EmbeddingProvider {
+  const key = JSON.stringify(PROVIDER_KEYS.map((k) => env[k] ?? null));
+  let provider = shared.get(key);
+  if (!provider) {
+    provider = embeddingProviderFromEnv(env);
+    shared.set(key, provider);
+  }
+  return provider;
+}

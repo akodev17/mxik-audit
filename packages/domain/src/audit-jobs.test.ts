@@ -3,6 +3,8 @@ import { after, before, describe, it } from 'node:test';
 import { isAuditRunning, resumeStaleAudits, retryAudit, startAudit, STARTUP_STALE_MS } from './audit-jobs.js';
 import { auditCatalog } from './audit-runner.js';
 import { db } from '@tasnivo/db';
+import { setJobs } from './jobs/dispatcher.js';
+import { InlineDispatcher } from './jobs/inline.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
@@ -40,11 +42,14 @@ describe('background audits (database)', { skip }, () => {
   let code = '';
 
   before(async () => {
+    // These audits run in this process whatever JOBS_MODE the environment sets.
+    setJobs(new InlineDispatcher());
     code = (await liveCodes(1))[0] ?? '';
     a = await makeOrg();
     b = await makeOrg();
   });
   after(async () => {
+    setJobs(null);
     await dropOrgs([a.orgId, b.orgId]);
     await db.$disconnect();
   });

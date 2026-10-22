@@ -3,6 +3,7 @@
 import { Api } from 'grammy';
 import { db } from '@tasnivo/db';
 import { dict } from '@tasnivo/i18n/i18n';
+import type { TelegramJobData } from '../jobs/queues.js';
 import { orgLocale } from '../org-locale.js';
 import { orgActive } from '../security/org-active.js';
 import { appLink, telegramConfig } from './config.js';
@@ -40,4 +41,10 @@ export async function sendAuditSummary(catalogId: string): Promise<void> {
   if (!catalog?.telegramChatId || !(await orgActive(catalog.orgId))) return;
   const text = await auditSummaryText(catalogId, appLink(bot.config, `/catalogs/${catalogId}`), dict(await orgLocale(catalog.orgId)));
   await bot.api.sendMessage(catalog.telegramChatId, text, { link_preview_options: { is_disabled: true } });
+}
+
+/** One Telegram job, as the dispatcher (inline) or the worker's telegram queue runs it. */
+export async function deliverTelegram(message: TelegramJobData): Promise<void> {
+  if (message.kind === 'notification') await deliverToTelegram(message.notificationId);
+  else await sendAuditSummary(message.catalogId);
 }

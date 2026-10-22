@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { EMBEDDING_DIMENSIONS, EmbeddingRequestError, HashingEmbeddingProvider, embeddingProviderFromEnv } from './index.js';
+import { EMBEDDING_DIMENSIONS, EmbeddingRequestError, HashingEmbeddingProvider, embeddingProviderFromEnv, sharedEmbeddingProvider } from './index.js';
 import { localProviderByName } from './local.js';
 
 const provider = new HashingEmbeddingProvider();
@@ -69,6 +69,28 @@ describe('embeddingProviderFromEnv', () => {
     for (const env of [{}, { VOYAGE_API_KEY: 'x' }, { OPENAI_API_KEY: 'x' }]) {
       assert.equal(embeddingProviderFromEnv(env).dimensions, EMBEDDING_DIMENSIONS);
     }
+  });
+});
+
+describe('sharedEmbeddingProvider', () => {
+  it('builds a provider once per configuration and hands the same instance back', () => {
+    const env = { EMBEDDING_PROVIDER: 'local', LOCAL_MODEL_DIR: 'data/models-shared-test' };
+    const first = sharedEmbeddingProvider(env);
+    assert.equal(sharedEmbeddingProvider({ ...env }), first);
+    assert.equal(first.name, embeddingProviderFromEnv(env).name);
+  });
+
+  it('builds another one when a key it reads differs, and ignores keys it does not read', () => {
+    const env = { EMBEDDING_PROVIDER: 'local', LOCAL_MODEL_DIR: 'data/models-shared-test' };
+    const first = sharedEmbeddingProvider(env);
+    assert.equal(sharedEmbeddingProvider({ ...env, UNRELATED: 'x' }), first);
+    const other = sharedEmbeddingProvider({ ...env, LOCAL_EMBEDDING_MODEL: 'paraphrase-multilingual-minilm' });
+    assert.notEqual(other, first);
+    assert.equal(other.name, 'local:Xenova/paraphrase-multilingual-MiniLM-L12-v2');
+  });
+
+  it('leaves embeddingProviderFromEnv building a new provider on every call', () => {
+    assert.notEqual(embeddingProviderFromEnv({}), embeddingProviderFromEnv({}));
   });
 });
 

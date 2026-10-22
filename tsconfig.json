@@ -5,6 +5,8 @@
   // apps/api is included because tsx applies this file's compilerOptions only to the files it
   // includes, and Nest's parameter decorators compile only with experimentalDecorators: without
   // these entries `tsx apps/api/src/main.ts` and the apps/api tests fail to transform.
+  // apps/worker is included because tsx applies this file's compilerOptions only to the files it
+  // these entries `tsx apps/worker/src/main.ts` and the apps/worker tests fail to transform.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "experimentalDecorators": true,
@@ -18,7 +20,8 @@
     "scripts/**/*.ts",
     "eval/**/*.ts",
     "apps/api/src/**/*.ts",
-    "apps/api/test/**/*.ts"
+    "apps/api/test/**/*.ts",
+    "apps/worker/src/**/*.ts"
   ],
   "exclude": [
     "node_modules"

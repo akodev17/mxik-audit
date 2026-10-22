@@ -12,6 +12,8 @@ import { canSeeClient } from './access.js';
 import { readAmount } from './amount.js';
 import { auditContext, checkItem } from './audit-runner.js';
 import { db } from '@tasnivo/db';
+import { jobs } from './jobs/dispatcher.js';
+import { InlineDispatcher } from './jobs/inline.js';
 import { listMeta, type ListActor } from './purchases.js';
 import type { ParseResult } from './spreadsheet.js';
 import { mayWrite } from './write-access.js';
@@ -119,14 +121,12 @@ async function ownDocList(actor: ListActor, listId: string) {
   return list && canSeeClient(actor, list.clientId) ? list : null;
 }
 
-const running = new Set<string>();
-
-/** Applies the confirmed mapping and starts the check in the background. */
+/** Applies the confirmed mapping and starts (or queues) the check in the background. */
 export async function applyDocMap(actor: ListActor, listId: string, map: DocMap): Promise<boolean> {
   const list = await ownDocList(actor, listId);
   if (!list || list.status === 'analyzing') return false;
   await writeDocMap(listId, map, list.meta);
-  launch(listId);
+  await jobs().enqueueDocCheck(listId);
   return true;
 }
 
@@ -167,25 +167,25 @@ export async function writeDocMap(listId: string, map: DocMap, previousMeta: unk
 export async function restartDocCheck(actor: ListActor, listId: string): Promise<boolean> {
   const list = await ownDocList(actor, listId);
   if (!list) return false;
-  if (list.status !== 'failed' && !(docCheckStale(list) && !running.has(listId))) return false;
+  if (list.status !== 'failed' && !(docCheckStale(list) && !docCheckRunningHere(listId))) return false;
   await db.docList.update({
     where: { id: listId },
     data: { status: 'analyzing', progressDone: 0, error: null, meta: asJson({ ...readDocMeta(list.meta), heartbeatAt: new Date().toISOString() }) },
   });
-  launch(listId);
+  await jobs().enqueueDocCheck(listId);
   return true;
 }
 
-export function launch(listId: string): void {
-  if (running.has(listId)) return;
-  running.add(listId);
-  void runDocCheck(listId)
-    .catch(async (error: unknown) => {
-      // The reason stays in the server log; the page shows a localized message.
-      console.warn(`[doc check ${listId}] failed: ${error instanceof Error ? error.message : String(error)}`);
-      await db.docList.update({ where: { id: listId }, data: { status: 'failed', error: null } }).catch(() => undefined);
-    })
-    .finally(() => running.delete(listId));
+/** Whether this process runs the check (JOBS_MODE=inline); a queued check is judged by its heartbeat alone. */
+function docCheckRunningHere(listId: string): boolean {
+  const dispatcher = jobs();
+  return dispatcher instanceof InlineDispatcher && dispatcher.docCheckRunning(listId);
+}
+
+/** How a check that threw ends: "failed", with the reason only in the server log (the page shows a localized message). */
+export async function markDocCheckFailed(listId: string, error: unknown): Promise<void> {
+  console.warn(`[doc check ${listId}] failed: ${error instanceof Error ? error.message : String(error)}`);
+  await db.docList.update({ where: { id: listId }, data: { status: 'failed', error: null } }).catch(() => undefined);
 }
 
 type Acc = { key: string; mxik: string | null; unit: string | null; names: Map<string, number>; lines: number; quantity: number; amount: number; hasQty: boolean; hasAmount: boolean };
