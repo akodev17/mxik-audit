@@ -51,6 +51,8 @@ export const clients = defineModule('clients', {
       q: z.string().max(100).optional(),
       filter: z.enum(CLIENT_FILTERS).optional(),
       sort: z.enum(CLIENT_SORTS).optional(),
+      /** Days without an audit after which a client counts as stale (30, 60 or 90; default 30). */
+      days: z.coerce.number().int().optional(),
       page: QueryPage,
     }),
     responds: 'json',

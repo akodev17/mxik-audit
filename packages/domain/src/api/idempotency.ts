@@ -17,7 +17,11 @@ export type KeyRead = { ok: true; key: string | null } | { ok: false };
 
 /** The header's value: 1..255 visible ASCII characters, or absent. */
 export function readIdempotencyKey(headers: Headers): KeyRead {
-  const raw = headers.get(HEADERS.idempotencyKey);
+  return parseIdempotencyKey(headers.get(HEADERS.idempotencyKey));
+}
+
+/** The same rule on the raw header value (null = no header). */
+export function parseIdempotencyKey(raw: string | null): KeyRead {
   if (raw === null) return { ok: true, key: null };
   const key = raw.trim();
   const valid = key.length > 0 && key.length <= IDEMPOTENCY.maxLength && /^[\x21-\x7e]+$/.test(key);

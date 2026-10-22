@@ -8,6 +8,8 @@ import { dirname, join } from 'node:path';
 import { ageInDays, updateDecision, type UpdateDecision } from './classifier-freshness.js';
 import { classifierUpdateRunning } from './classifier-lock.js';
 import { latestSnapshot } from './classifier-state.js';
+import { jobs } from './jobs/dispatcher.js';
+import { QUEUES } from './jobs/queues.js';
 
 export type StartedUpdate = { pid: number | null; log: string };
 
@@ -70,4 +72,15 @@ export async function dailyClassifierUpdate(
   const decision = updateDecision(snapshot, await deps.running(), now);
   if (!decision.run) return { started: false, reason: decision.reason, ageDays };
   return { started: true, ageDays: ageDays ?? 0, ...(await deps.start()) };
+}
+
+/**
+ * POST /api/cron/classifier-update. With the worker (JOBS_MODE=bullmq) the update is queued and
+ * nothing is spawned here (pid null, log names the queue); otherwise it is spawned detached, as before.
+ */
+export async function triggerClassifierUpdate(): Promise<StartedUpdate> {
+  const dispatcher = jobs();
+  if (dispatcher.mode !== 'bullmq') return startClassifierUpdate();
+  await dispatcher.enqueueClassifierUpdate('manual');
+  return { pid: null, log: `queue:${QUEUES.classifierUpdate}` };
 }

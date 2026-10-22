@@ -5,7 +5,7 @@ import type { Prisma } from '@prisma/client';
 import type { Redis } from 'ioredis';
 import type { JobDispatcher } from './dispatcher.js';
 import {
-  JOB_DEFAULTS, QUEUES, type AuditJobData, type ClassifierUpdateJobData, type DocCheckJobData, type JobActor,
+  JOB_DEFAULTS, QUEUES, type AuditJobData, type ClassifierUpdateJobData, type DailyJobData, type DocCheckJobData, type JobActor,
   type MailJobData, type QueueName, type TelegramJobData,
 } from './queues.js';
 
@@ -70,6 +70,10 @@ export class BullDispatcher implements JobDispatcher {
   async enqueueClassifierUpdate(reason: ClassifierUpdateJobData['reason'] = 'manual'): Promise<void> {
     const data: ClassifierUpdateJobData = { reason };
     await (await this.queue(QUEUES.classifierUpdate)).add('classifier-update', data);
+  }
+
+  async enqueueDaily(data: DailyJobData, jobId: string): Promise<boolean> {
+    return addUnique(await this.queue(QUEUES.daily), data.job, data, jobId);
   }
 
   /** Closes the queues and their connection (scripts and tests; the worker closes its own). */

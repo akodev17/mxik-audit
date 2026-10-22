@@ -5,7 +5,7 @@
 // resumeStaleAudits) keeps them apart. The bullmq mode has no such gap.
 import type { Prisma } from '@prisma/client';
 import type { JobDispatcher } from './dispatcher.js';
-import type { JobActor, MailJobData, TelegramJobData } from './queues.js';
+import type { DailyJobData, JobActor, MailJobData, TelegramJobData } from './queues.js';
 
 export class InlineDispatcher implements JobDispatcher {
   readonly mode = 'inline' as const;
@@ -47,6 +47,14 @@ export class InlineDispatcher implements JobDispatcher {
   async enqueueClassifierUpdate(): Promise<void> {
     const { startClassifierUpdate } = await import('../classifier-start.js');
     startClassifierUpdate();
+  }
+
+  enqueueDaily(data: DailyJobData): Promise<boolean> {
+    void (data.job === 'purge'
+      ? import('../purge-expired.js').then(({ purgeExpired }) => purgeExpired())
+      : import('../daily.js').then(({ runDailyJobs }) => runDailyJobs()))
+      .catch((error: unknown) => console.error(`[${data.job}] failed`, error));
+    return Promise.resolve(true);
   }
 
   /** An audit this process is running. */

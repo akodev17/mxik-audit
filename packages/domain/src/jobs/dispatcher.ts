@@ -4,7 +4,7 @@
 import type { Prisma } from '@prisma/client';
 import { BullDispatcher, redisQueues } from './bullmq.js';
 import { InlineDispatcher } from './inline.js';
-import type { JobActor, MailJobData, TelegramJobData } from './queues.js';
+import type { DailyJobData, JobActor, MailJobData, TelegramJobData } from './queues.js';
 
 export type JobsMode = 'inline' | 'bullmq';
 
@@ -24,6 +24,11 @@ export interface JobDispatcher {
   enqueueTelegram(message: TelegramJobData): Promise<void>;
   /** Starts a classifier update (scripts/update-classifier.ts); the advisory lock keeps it to one. */
   enqueueClassifierUpdate(reason?: 'schedule' | 'daily' | 'manual'): Promise<void>;
+  /**
+   * The daily jobs or the purge (POST /api/cron/daily). Inline: started here, fire-and-forget.
+   * bullmq: queued under `jobId` unless a job with that id is still pending. Says whether it was added.
+   */
+  enqueueDaily(data: DailyJobData, jobId: string): Promise<boolean>;
 }
 
 export function jobsMode(env: Record<string, string | undefined> = process.env): JobsMode {
