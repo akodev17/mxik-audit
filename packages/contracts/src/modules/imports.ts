@@ -134,7 +134,16 @@ export const imports = defineModule('imports', {
     summary: 'One checked list: its groups, issues and suggestions',
     params: ListPath,
     query: z.object({ issue: z.string().max(40).optional() }),
-    responds: 'json', response: z.object({ list: DocListRow.extend({ clientId: z.string(), clientName: z.string() }), groups: z.array(DocGroupRow) }),
+    responds: 'json',
+    response: z.object({
+      list: DocListRow.extend({
+        clientId: z.string(), clientName: z.string(),
+        /** Groups found and checked (a list over MAX_GROUPS checks the largest), and amounts read ambiguously. */
+        groupsTotal: z.number().int().nullable(), groupsChecked: z.number().int().nullable(), ambiguous: z.number().int(),
+      }),
+      /** Every group of a finished check (largest amount first), or only those with `issue`; empty before it finished. */
+      groups: z.array(DocGroupRow),
+    }),
     replaces: ['page:(app)/clients/[id]/imports/[listId]'],
     provisional: 'imports/[listId]/page.tsx queries db.docList and db.docGroup and joins codeDetails itself',
   }),

@@ -2,7 +2,8 @@
 // pdfkit draws it directly (no browser); DejaVu covers Uzbek ʻ and Cyrillic.
 // It keeps apart what the system detected, what it suggested, what people
 // decided, what is still open and what the data did not allow to check.
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { restrictionDate } from '@tasnivo/core/audit/checks';
 import { typeLabels } from '@tasnivo/i18n/type-labels';
@@ -13,7 +14,18 @@ import { appDict } from '@tasnivo/i18n/i18n-app';
 import { degradedNotes } from '../pipeline-meta.js';
 import type { PdfRow, ReportPdfData } from './report-data.js';
 
-const FONT_DIR = join(process.cwd(), 'node_modules', 'dejavu-fonts-ttf', 'ttf');
+/**
+ * The DejaVu fonts from node_modules: in the working directory (the repository root, where every
+ * process runs), else the nearest folder above it that has them (a process started in apps/api, a
+ * git worktree inside the checkout). Looked up per PDF, so a missing font fails that PDF only.
+ */
+export function fontDir(from = process.cwd()): string {
+  for (let dir = from; ; dir = dirname(dir)) {
+    const candidate = join(dir, 'node_modules', 'dejavu-fonts-ttf', 'ttf');
+    if (existsSync(candidate)) return candidate;
+    if (dirname(dir) === dir) return join(from, 'node_modules', 'dejavu-fonts-ttf', 'ttf');
+  }
+}
 const MARGIN = 40;
 const FOOTER = 46;
 const INK = '#1c1c1c';
@@ -115,8 +127,9 @@ export async function buildReportPdf(data: ReportPdfData, locale: Locale = 'uz',
     margins: { top: MARGIN, bottom: MARGIN + FOOTER, left: MARGIN, right: MARGIN },
     info: { Title: `${t.pdfTitle} — ${data.clientName}`, Author: data.firmName },
   });
-  doc.registerFont('body', join(FONT_DIR, 'DejaVuSansCondensed.ttf'));
-  doc.registerFont('bold', join(FONT_DIR, 'DejaVuSansCondensed-Bold.ttf'));
+  const fonts = fontDir();
+  doc.registerFont('body', join(fonts, 'DejaVuSansCondensed.ttf'));
+  doc.registerFont('bold', join(fonts, 'DejaVuSansCondensed-Bold.ttf'));
   const chunks: Buffer[] = [];
   doc.on('data', (chunk: Buffer) => chunks.push(chunk));
   const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));

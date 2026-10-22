@@ -1,8 +1,9 @@
 # @tasnivo/api
 
 The NestJS 11 HTTP API (Express adapter), everything under `/api`. Plan and context:
-`docs/BACKEND_SPLIT_PLAN.md` §3.1 and Wave 1a. Today it serves `/api/health`, `/api/auth/*` and
-Swagger at `/api/docs` (JSON at `/api/docs-json`); Wave 2 adds the feature modules.
+`docs/BACKEND_SPLIT_PLAN.md` §3.1 and Wave 1a. Today it serves `/api/health`, `/api/auth/*`, the
+catalogs, imports and share routes (listed below) and Swagger at `/api/docs` (JSON at
+`/api/docs-json`); Wave 2 adds the other feature modules.
 
 ## Run
 
@@ -137,6 +138,51 @@ arguments; domain code must not read cookies or headers. Every route states its 
 callback's own signature check + `@SkipCsrf()`). Every body/query goes through
 `ZodValidationPipe`. Inject with `@Inject(...)`. Add a supertest e2e test that skips without the
 database (`test/helpers.ts`: `dbSkipReason`, `startApp`, `makeUser`).
+
+### Registry helpers (src/http/endpoint.ts, multipart.ts, download.ts, payload.ts)
+
+- `@Endpoint(endpoints.<module>.<op>)` replaces the method decorator: the route (registry path
+  minus `/api`), the status (200 for POST too), the guards of the auth kind (`session` →
+  `SessionGuard` + `RoleGuard` with the registry's `role`: writer, admin or platformAdmin, else 403
+  `forbidden`; `cron` → `CronGuard` + `@SkipCsrf()`; `public` and `shareToken` → none) and the
+  Swagger operation converted from the zod schemas (operation id, params, query, body, answer,
+  `x-role`, `x-replaces`). A JSON answer that is `null` or a boolean leaves as JSON
+  (`JsonAnswerInterceptor`; Express would send an empty body or text). Put `@ApiTags(module)` and
+  `@Controller()` on the class.
+- `noDemo` is not a guard: the actions answered a demo org `{ ok: false, error }` (or `null`,
+  `{ ok: false }`) in the user's language, so the shared domain function does, inside the 200 answer.
+- Multipart: `@UseInterceptors(MultipartInterceptor(e.multipart))` (multer memory storage, the
+  registry's caps, UTF-8 file names) and `@FilePart('file')`, the domain's `UploadedFile`. A file
+  over its cap is not a 413: the domain refuses it with the action's "too big" message.
+- Downloads: `sendDownload(res, download)` and `sendFile(res, file)` send
+  `@tasnivo/domain/catalog-exports` results (headers and bytes, or status, code and message).
+- Bodies of action-like endpoints go to the domain unparsed (`withPath(body, { id })`): the domain
+  validates them with the action's schema and answers a bad one with the action's refusal (200), so
+  W3 swaps the call without touching the form. Path params and read queries go through
+  `ZodValidationPipe` with the registry's schemas; the kept download URLs read their query the way
+  the old routes did (an unknown `format` is xlsx, `audience` other than client is internal).
+
+## Routes: catalogs, imports, share (Wave 2b)
+
+All 39 operations of `endpoints.catalogs`, `endpoints.imports` and `endpoints.share`
+(`packages/contracts/README.md` lists each with what it replaces). The logic is in
+`@tasnivo/domain`: `catalog-upload` (wizard, retry, delete), `catalog-pages` (list, header, summary,
+versions, diff, report, review, progress, share view), `catalog-review`, `share`, `catalog-exports`
+(every download), `list-upload` and `list-pages` (purchases, cheques and sales). The web app's
+actions and route handlers call the same functions.
+
+| Area | Routes |
+|---|---|
+| upload wizard | `POST /api/catalogs/preview` (multipart: `file` up to 20 MB .xlsx/.xls/.csv, `clientId`), `GET` and `DELETE /api/catalogs/{id}/preview`, `POST /api/catalogs/{id}/diagnose`, `POST /api/catalogs/{id}/commit` (audit through `jobs()`; makes the client the session's active one), `GET /api/catalogs/{id}/progress` (was `/upload/progress`; resumes a stalled audit), `POST /api/catalogs/{id}/retry` |
+| catalogues | `GET /api/catalogs`, `GET` and `DELETE /api/catalogs/{id}`, `GET /api/catalogs/{id}/summary`, `/versions`, `/diff`, `/report` |
+| review | `GET` and `PUT /api/catalogs/{id}/review`, `POST /api/catalogs/{id}/review/done` |
+| share links | `GET` and `POST /api/catalogs/{id}/share-links`, `DELETE /api/share-links/{linkId}`; public: `GET /api/share/{token}` (counts a view), `GET /api/share/{token}/pdf` (was `/r/{token}/pdf`) |
+| downloads (kept URLs) | `GET /api/export?catalog=&format=` (xlsx, 1c, 1c-xlsx; 404, 409 audit not finished, 402 payment required, 429 demo limit), `GET /api/catalog-diff?catalog=&with=`, `GET /api/catalog-report-csv?catalog=`, `GET /api/report-pdf?catalog=&audience=client&download=1` |
+| imports | `GET` and `POST /api/clients/{clientId}/purchases`, `POST /api/purchases/{listId}/apply`, `DELETE /api/purchases/{listId}`, `PUT /api/clients/{clientId}/activity`, `GET` and `POST /api/clients/{clientId}/docs`, `GET` and `DELETE /api/docs/{listId}`, `POST /api/docs/{listId}/apply` (check through `jobs()`), `POST /api/docs/{listId}/restart`, `GET /api/doc-template?kind=`, `GET /api/purchase-template` |
+
+Another org's catalogue or list, or another client's for a scoped accountant, is 404 everywhere.
+The PDF fonts come from `node_modules/dejavu-fonts-ttf` in the working directory or the nearest
+folder above it (`fontDir()` in `@tasnivo/domain/pdf/report-pdf`).
 
 ## Tests
 

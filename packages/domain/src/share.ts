@@ -1,5 +1,6 @@
 // Read-only report links. The token is shown once; only its hash is stored.
 import { createHash, randomBytes } from 'node:crypto';
+import { z } from 'zod';
 import { absoluteUrl } from './app-url';
 import { canWrite, catalogScope } from './access';
 import type { Role } from './session';
@@ -65,4 +66,37 @@ export async function resolveShare(token: string, now = new Date()): Promise<Res
 
 export async function countView(linkId: string): Promise<void> {
   await db.shareLink.update({ where: { id: linkId }, data: { views: { increment: 1 }, lastViewedAt: new Date() } }).catch(() => undefined);
+}
+
+// ── What the share-link actions answer (the web's share actions and the API call these) ─────
+
+/** ShareLinkView with ISO dates, as the browser receives it. */
+export type ShareRow = Omit<ShareLinkView, 'createdAt' | 'expiresAt' | 'revokedAt' | 'lastViewedAt'> & {
+  createdAt: string; expiresAt: string; revokedAt: string | null; lastViewedAt: string | null;
+};
+
+const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
+
+/** `actor` is null when the writer guard did not pass: no links. */
+export async function shareRows(actor: Actor | null, catalogId: unknown): Promise<ShareRow[]> {
+  const id = z.string().min(1).safeParse(catalogId);
+  if (!actor || !mayChange(actor) || !id.success) return [];
+  return (await listShareLinks(actor, id.data)).map((l) => ({
+    id: l.id, includePdf: l.includePdf, views: l.views,
+    createdAt: l.createdAt.toISOString(), expiresAt: l.expiresAt.toISOString(), revokedAt: iso(l.revokedAt), lastViewedAt: iso(l.lastViewedAt),
+  }));
+}
+
+const CreateInput = z.object({ catalogId: z.string().min(1), days: z.union([z.literal(7), z.literal(30)]), includePdf: z.boolean() });
+
+/** A new link for a ready catalogue the actor may see; null for anything else. */
+export async function shareCreateFor(actor: Actor | null, payload: unknown): Promise<{ url: string } | null> {
+  const parsed = CreateInput.safeParse(payload);
+  if (!actor || !parsed.success) return null;
+  return createShareLink(actor, parsed.data.catalogId, { days: parsed.data.days, includePdf: parsed.data.includePdf });
+}
+
+export async function shareRevokeFor(actor: Actor | null, linkId: unknown): Promise<boolean> {
+  const id = z.string().min(1).safeParse(linkId);
+  return Boolean(actor && id.success && await revokeShareLink(actor, id.data));
 }
