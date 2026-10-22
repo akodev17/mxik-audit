@@ -2,7 +2,7 @@
 
 import { useI18n } from '@/lib/locale-client';
 import Link from 'next/link';
-import type { ShellData } from '@/lib/shell-data';
+import type { ShellData } from './shell-queries';
 
 /** One slim line under the top bar: expired, a full limit, a limit near 80%, or a trial ending soon. */
 export function PlanBanner({ plan }: { plan: ShellData['plan'] }) {

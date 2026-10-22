@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { setActivity } from '@/app/actions/purchases';
+import { api } from '@/lib/api/browser';
+import { refusalText } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Select } from '@/ui/select';
@@ -25,13 +26,13 @@ export function ActivityForm({ clientId, activity }: { clientId: string; activit
     setBusy(true);
     setError(null);
     try {
-      const result = await setActivity({ clientId, activity: value });
+      const result = await api.imports.setActivity({ clientId, activity: value });
       if (!result.ok) { setError(ta.firmX.errors.forbidden); return; }
       setSaved(value);
       toast(ta.firmX.client.activitySaved);
       router.refresh();
-    } catch {
-      setError(ta.shellX.ui.confirmFailed);
+    } catch (e) {
+      setError(refusalText(e, ta.shellX.ui.confirmFailed));
     } finally {
       setBusy(false);
     }

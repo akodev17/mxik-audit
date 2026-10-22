@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { openDemo } from '@/app/actions/demo';
+import { api } from '@/lib/api/browser';
+import { refusalText } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 
@@ -14,9 +15,20 @@ export function OpenDemoButton({ token }: { token: string }) {
       <Button
         variant="primary" className="w-full" disabled={pending}
         onClick={() => start(async () => {
-          // A successful open redirects (the action never returns); anything returned is a refusal.
-          const result = await openDemo(token);
-          if (result?.error) setError(result.error);
+          // Runs in the browser: the API's answer sets the demo session cookie here. A successful open
+          // answers { redirect }: a full navigation, so every server component reads the new session.
+          try {
+            const result = await api.demo.open({ token });
+            if ('redirect' in result) {
+              window.location.assign(result.redirect);
+              // Stay pending while the next page loads.
+              await new Promise<never>(() => {});
+            } else if (result.error) {
+              setError(result.error);
+            }
+          } catch (e) {
+            setError(refusalText(e, t.errorGeneric));
+          }
         })}
       >
         {pending ? t.loading : t.demoAccess.open}

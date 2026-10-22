@@ -12,13 +12,14 @@ import { DIMENSIONS } from '@tasnivo/domain/accuracy';
 import { CheckItemSchema } from '@tasnivo/domain/api/check';
 import * as domainContract from '@tasnivo/domain/api/contract';
 import { MAX_UPLOAD_BYTES } from '@tasnivo/domain/catalog-import';
-import { CLIENT_FILTERS as DOMAIN_CLIENT_FILTERS, CLIENT_SORTS as DOMAIN_CLIENT_SORTS } from '@tasnivo/domain/client-stats';
+import { CLIENT_FILTERS as DOMAIN_CLIENT_FILTERS, CLIENT_SORTS as DOMAIN_CLIENT_SORTS, STALE_DAYS as DOMAIN_STALE_DAYS } from '@tasnivo/domain/client-stats';
 import { COLUMN_FIELDS as DOMAIN_COLUMN_FIELDS, ColumnMapSchema } from '@tasnivo/domain/column-map';
 import { DECISION_SOURCES as DOMAIN_DECISION_SOURCES } from '@tasnivo/domain/decision-source';
 import { DEMO_LIMITS as DOMAIN_DEMO_LIMITS } from '@tasnivo/domain/demo-access-fields';
 import { DICT_FILTERS as DOMAIN_DICT_FILTERS } from '@tasnivo/domain/dictionary-review';
 import { DOC_KINDS as DOMAIN_DOC_KINDS, DocMapSchema } from '@tasnivo/domain/docs';
 import { HONEYPOT_FIELD as DOMAIN_HONEYPOT, LEAD_LIMITS as DOMAIN_LEAD_LIMITS } from '@tasnivo/domain/lead-guard';
+import { LEAD_MAX_BYTES } from '@tasnivo/domain/lead-submit';
 import { NOTICE_GROUPS as DOMAIN_NOTICE_GROUPS } from '@tasnivo/domain/notifications';
 import { PurchaseMapSchema } from '@tasnivo/domain/purchases';
 import { NOTE_MAX } from '@tasnivo/domain/review-assignments';
@@ -37,7 +38,7 @@ import {
 } from './common';
 import { ACTIVITY_CATEGORIES } from './modules/account';
 import { ACCURACY_DIMENSIONS } from './modules/admin';
-import { CLIENT_FILTERS, CLIENT_SORTS } from './modules/clients';
+import { CLIENT_FILTERS, CLIENT_SORTS, STALE_DAYS } from './modules/clients';
 import { DEMO_LIMITS, HONEYPOT_FIELD, LEAD_LIMITS } from './modules/demo';
 import { DICT_FILTERS } from './modules/dictionary';
 import { NOTICE_GROUPS } from './modules/notifications';
@@ -78,6 +79,7 @@ describe('value lists equal their sources', () => {
     assert.deepEqual(LOCALES, DOMAIN_LOCALES);
     assert.deepEqual(CLIENT_FILTERS, DOMAIN_CLIENT_FILTERS);
     assert.deepEqual(CLIENT_SORTS, DOMAIN_CLIENT_SORTS);
+    assert.deepEqual(STALE_DAYS, DOMAIN_STALE_DAYS);
     assert.deepEqual(DICT_FILTERS, DOMAIN_DICT_FILTERS);
     assert.deepEqual(NOTICE_GROUPS, DOMAIN_NOTICE_GROUPS);
     assert.deepEqual(ACTIVITY_CATEGORIES, CATEGORIES);
@@ -91,8 +93,8 @@ describe('value lists equal their sources', () => {
   it('upload caps and accepted extensions', () => {
     assert.equal(LIMITS.uploadBytes, MAX_UPLOAD_BYTES);
     assert.deepEqual(LIMITS.uploadExtensions, UPLOAD_EXTENSIONS);
-    // Private constants of the actions, read from their source.
-    assert.match(readFileSync('apps/web/src/app/actions/lead.ts', 'utf8'), /const MAX_BYTES = 5 \* 1024 \* 1024;/);
+    // The lead form's cap, enforced by POST /api/lead (lead-submit.ts).
+    assert.equal(LIMITS.leadBytes, LEAD_MAX_BYTES);
     assert.equal(LIMITS.leadBytes, 5 * 1024 * 1024);
     assert.equal(LIMITS.logoBytes, LOGO_MAX_BYTES);
     // The review note limit the action allowed (NOTE_MAX * 4 characters before trimming).

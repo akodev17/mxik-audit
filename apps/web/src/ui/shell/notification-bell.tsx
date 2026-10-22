@@ -1,19 +1,21 @@
 'use client';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { markAllNotificationsRead, markNotificationsRead, notificationsPreview } from '@/app/actions/shell';
+import { useEffect, useState } from 'react';
 import { fmtDateTime } from '@tasnivo/i18n/format';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
-import type { NoticeView } from '@tasnivo/domain/notifications';
 import { Button } from '../button';
 import { cx } from '../cx';
 import { IconBell } from '../icons';
 import { Spinner } from '../spinner';
 import { useToast } from '../toast';
+import { bellQuery, type BellPreview } from './shell-queries';
 import { useDropdown } from './use-dropdown';
 
+type NoticeView = Extract<BellPreview, { ok: true }>['items'][number];
 type Preview = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; items: NoticeView[] };
 
 /** Bell with the unread count and a dropdown of the latest six; nothing is marked read just by looking. */
@@ -22,44 +24,49 @@ export function NotificationBell({ initialUnread }: { initialUnread: number | nu
   const router = useRouter();
   const toast = useToast();
   const dd = useDropdown();
+  const queryClient = useQueryClient();
   const [unread, setUnread] = useState(initialUnread);
-  const [preview, setPreview] = useState<Preview>({ kind: 'loading' });
   const [marking, setMarking] = useState(false);
+  // Fetched while the dropdown is open (and ahead of it on intent, see prefetch); reading marks nothing.
+  const bell = useQuery({ ...bellQuery, enabled: dd.open, retry: false });
+  const preview: Preview = bell.isPending || (bell.isFetching && bell.isError)
+    ? { kind: 'loading' }
+    : bell.isError || !bell.data.ok ? { kind: 'failed' } : { kind: 'ready', items: bell.data.items };
+  const fetchedUnread = bell.data?.ok ? bell.data.unread : null;
 
   useEffect(() => setUnread(initialUnread), [initialUnread]);
-
-  const load = useCallback(async () => {
-    setPreview({ kind: 'loading' });
-    try {
-      const result = await notificationsPreview();
-      if (!result.ok) { setPreview({ kind: 'failed' }); return; }
-      setPreview({ kind: 'ready', items: result.items });
-      setUnread(result.unread);
-    } catch {
-      setPreview({ kind: 'failed' });
-    }
-  }, []);
+  useEffect(() => { if (fetchedUnread !== null) setUnread(fetchedUnread); }, [fetchedUnread]);
 
   useEffect(() => {
     if (!dd.open) return;
-    void load();
     dd.panel.current?.focus({ preventScroll: true });
-  }, [dd.open, dd.panel, load]);
+  }, [dd.open, dd.panel]);
+
+  const load = (): void => { void bell.refetch(); };
+  /** The pointer resting on the bell (or a touch) fetches the preview, so the dropdown opens with it. */
+  const prefetch = (): void => { void queryClient.prefetchQuery(bellQuery); };
+  const markedInCache = (): void => {
+    queryClient.setQueryData(bellQuery.queryKey, (data) => (data?.ok ? { ...data, unread: 0, items: data.items.map((n) => ({ ...n, unread: false })) } : data));
+  };
 
   const openItem = (n: NoticeView): void => {
     dd.close(false);
     if (!n.unread) return;
     // Navigation goes ahead; the count only changes once the server has recorded the read.
-    void markNotificationsRead([n.id]).then((r) => { if (r.ok) setUnread(r.unread); }).catch(() => undefined);
+    void api.notifications.markRead({ ids: [n.id] }).then((r) => {
+      if (!r.ok) return;
+      setUnread(r.unread);
+      void queryClient.invalidateQueries({ queryKey: bellQuery.queryKey });
+    }).catch(() => undefined);
   };
 
   const markAll = async (): Promise<void> => {
     setMarking(true);
     try {
-      const result = await markAllNotificationsRead();
+      const result = await api.notifications.markAllRead();
       if (!result.ok) { toast(ta.shellX.bell.markFailed, { tone: 'error' }); return; }
       setUnread(result.unread);
-      setPreview((p) => (p.kind === 'ready' ? { kind: 'ready', items: p.items.map((n) => ({ ...n, unread: false })) } : p));
+      markedInCache();
       toast(ta.shellX.bell.marked);
       router.refresh();
     } catch {
@@ -80,6 +87,8 @@ export function NotificationBell({ initialUnread }: { initialUnread: number | nu
         aria-controls={dd.open ? dd.panelId : undefined}
         aria-label={unread === null ? ta.shellX.bell.title : ta.shellX.bell.label(count)}
         onClick={() => dd.setOpen(!dd.open)}
+        onPointerEnter={prefetch}
+        onFocus={prefetch}
         className="relative grid size-control-md place-items-center rounded-ctl text-muted transition-colors duration-(--duration-fast) hover:bg-surface hover:text-fg"
       >
         <IconBell />
@@ -113,7 +122,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number | nu
             ) : preview.kind === 'failed' ? (
               <div role="alert" className="flex flex-col items-center gap-2 px-3 py-6 text-center text-small text-muted">
                 <p>{ta.shellX.bell.failed}</p>
-                <Button size="sm" onClick={() => { void load(); }}>{ta.shellX.bell.retry}</Button>
+                <Button size="sm" onClick={load}>{ta.shellX.bell.retry}</Button>
               </div>
             ) : preview.items.length === 0 ? (
               <p className="px-3 py-8 text-center text-small text-muted">{ta.shellX.bell.empty}</p>

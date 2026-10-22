@@ -7,7 +7,7 @@ import { securityHeaders } from '@tasnivo/domain/security/headers';
 
 const config: NextConfig = {
   // The workspace packages are TypeScript source (package.json "exports" point at .ts files).
-  transpilePackages: ['@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n'],
+  transpilePackages: ['@tasnivo/api-client', '@tasnivo/contracts', '@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n'],
   // The dev overlay badge would appear in the landing page screenshots.
   devIndicators: false,
   // exceljs and pg must run on the server, never be bundled for the browser. bullmq and ioredis load
@@ -32,6 +32,13 @@ const config: NextConfig = {
       { source: '/login', destination: '/sign-in', permanent: true },
       { source: '/signin', destination: '/sign-in', permanent: true },
     ];
+  },
+  // Same-origin API calls (src/lib/api/browser.ts with NEXT_PUBLIC_API_URL empty): an /api/* path that
+  // no route handler of this app serves goes to the API. Behind Caddy /api/* never reaches this app.
+  async rewrites() {
+    if (process.env.NEXT_PUBLIC_API_URL) return [];
+    const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+    return { beforeFiles: [], afterFiles: [{ source: '/api/:path*', destination: `${api}/api/:path*` }], fallback: [] };
   },
   webpack: (webpackConfig) => {
     // packages/* are also run directly by tsx (scripts, eval, tests),

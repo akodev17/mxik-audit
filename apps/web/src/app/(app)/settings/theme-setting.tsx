@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { setTheme } from '@/app/actions/shell';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Segmented } from '@/ui/segmented';
 import { useTheme } from '@/ui/shell/theme-root';
@@ -23,8 +23,7 @@ export function ThemeSetting() {
     ctx.applyTheme(next);
     setSaving(true);
     try {
-      const result = await setTheme(next);
-      if (!result.ok) throw new Error(result.error);
+      if (!(await api.account.setTheme({ theme: next }))) throw new Error('invalid');
     } catch {
       ctx.applyTheme(previous);
       toast(words.failed, { tone: 'error' });

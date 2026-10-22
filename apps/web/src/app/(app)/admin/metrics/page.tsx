@@ -1,14 +1,14 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { accuracyBy, DIMENSIONS, keyText, overall, reasonText, wrongReasons, type AccuracyRow, type Dimension } from '@tasnivo/domain/accuracy';
-import { isPlatformAdmin } from '@tasnivo/domain/admin';
+import type { AccuracyRow } from '@tasnivo/domain/accuracy';
 import { fmtNumber, fmtPercent } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
-import { currentUser } from '@/lib/session';
+import { pageData } from '@/lib/api/page-data';
+import { serverApi } from '@/lib/api/server';
 import { Page, Section } from '@/ui/page';
 import { Table, Td, Th } from '@/ui/table';
+import { DIMENSIONS, keyText, reasonText, type Dimension } from './accuracy-text';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
@@ -48,10 +48,13 @@ async function AccuracyTable({ dim, rows }: { dim: Dimension; rows: AccuracyRow[
 export default async function MetricsPage() {
   const { locale, t, ta } = await getI18n();
   const fmt = (n: number): string => fmtNumber(locale, n);
-  const user = await currentUser();
-  if (!user || !(await isPlatformAdmin(user.userId))) notFound();
-  const [tables, reasons] = await Promise.all([Promise.all(DIMENSIONS.map(async (d) => [d, await accuracyBy(d)] as const)), wrongReasons()]);
-  const total = overall(tables[0]?.[1] ?? []);
+  const api = serverApi();
+  const reports = await pageData(Promise.all(DIMENSIONS.map(async (d) => [d, await api.admin.accuracy({ by: d })] as const)));
+  const tables = reports.map(([d, report]) => [d, report.rows] as const);
+  // Every report carries the overall rate (of the stage table, as before) and the wrong reasons.
+  const first = reports[0]?.[1];
+  const total = first?.overall ?? { key: 'total', unchanged: 0, replaced: 0, rejected: 0, open: 0, decided: 0, rate: null };
+  const reasons = first?.wrongReasons ?? [];
 
   return (
     <Page title={ta.metrics.title} hint={ta.metrics.hint} wide actions={<Link href="/admin" className="text-small font-medium text-brand-ink hover:underline">{t.adminTitle}</Link>}>

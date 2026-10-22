@@ -1,8 +1,7 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { peekDemoLink } from '@tasnivo/domain/demo-access';
-import { demoIdleMinutes, demoTtlHours } from '@tasnivo/domain/demo-config';
+import { serverApi } from '@/lib/api/server';
 import { ButtonLink } from '@/ui/button';
 import { OpenDemoButton } from './open-button';
 
@@ -22,7 +21,8 @@ export default async function VerifyDemoPage({ params }: { params: Promise<{ tok
   const { t } = await getI18n();
   const d = t.demoAccess;
   const { token } = await params;
-  const link = token.length >= 20 && token.length <= 100 ? await peekDemoLink(token) : null;
+  const usable = token.length >= 20 && token.length <= 100;
+  const [link, config] = await Promise.all([usable ? serverApi().demo.peek({ token }) : null, serverApi().demo.config()]);
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
       <Link href="/" className="text-xl font-bold tracking-tight">{t.appName}</Link>
@@ -30,7 +30,7 @@ export default async function VerifyDemoPage({ params }: { params: Promise<{ tok
         {link ? (
           <>
             <h1 className="text-xl">{d.verifyHello(link.name)}</h1>
-            <p className="mt-2 text-sm text-muted">{d.verifyBody(demoTtlHours(), demoIdleMinutes())}</p>
+            <p className="mt-2 text-sm text-muted">{d.verifyBody(config.ttlHours, config.idleMinutes)}</p>
             <OpenDemoButton token={token} />
           </>
         ) : (

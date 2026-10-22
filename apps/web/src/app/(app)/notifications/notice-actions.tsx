@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import { markAllNotificationsRead, markNotificationsRead } from '@/app/actions/shell';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { useToast } from '@/ui/toast';
@@ -14,7 +14,7 @@ export function NoticeLink({ id, href, unread, className, children }: { id: stri
   const onClick = (): void => {
     if (!unread) return;
     // The page changes anyway; a read that fails to record simply stays unread.
-    void markNotificationsRead([id]).then((r) => { if (r.ok) router.refresh(); }).catch(() => undefined);
+    void api.notifications.markRead({ ids: [id] }).then((r) => { if (r.ok) router.refresh(); }).catch(() => undefined);
   };
   return <Link href={href} onClick={onClick} className={className}>{children}</Link>;
 }
@@ -28,7 +28,7 @@ export function MarkReadButton({ id }: { id: string }) {
   const run = async (): Promise<void> => {
     setBusy(true);
     try {
-      const result = await markNotificationsRead([id]);
+      const result = await api.notifications.markRead({ ids: [id] });
       if (!result.ok) { toast(ta.shellX.bell.markFailed, { tone: 'error' }); return; }
       router.refresh();
     } catch {
@@ -49,7 +49,7 @@ export function MarkAllReadButton() {
   const run = async (): Promise<void> => {
     setBusy(true);
     try {
-      const result = await markAllNotificationsRead();
+      const result = await api.notifications.markAllRead();
       if (!result.ok) { toast(ta.shellX.bell.markFailed, { tone: 'error' }); return; }
       toast(ta.shellX.bell.marked);
       router.refresh();

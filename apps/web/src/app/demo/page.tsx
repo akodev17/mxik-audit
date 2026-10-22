@@ -1,7 +1,7 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { demoLinkMinutes } from '@tasnivo/domain/demo-config';
+import { serverApi } from '@/lib/api/server';
 import { DemoForm } from './demo-form';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Landing CTA target: ask for the demo by e-mail; the link that arrives opens a private copy of the sample catalogue. */
 export default async function DemoPage() {
-  const { t } = await getI18n();
+  const [{ t }, config] = await Promise.all([getI18n(), serverApi().demo.config()]);
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
       <Link href="/" className="text-xl font-bold tracking-tight">{t.appName}</Link>
@@ -26,7 +26,7 @@ export default async function DemoPage() {
             </li>
           ))}
         </ul>
-        <DemoForm linkMinutes={demoLinkMinutes()} />
+        <DemoForm linkMinutes={config.linkMinutes} />
       </div>
     </main>
   );

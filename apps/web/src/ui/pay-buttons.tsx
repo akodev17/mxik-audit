@@ -2,7 +2,8 @@
 
 import { useI18n } from '@/lib/locale-client';
 import { useState, useTransition } from 'react';
-import { startCheckout } from '@/app/actions/billing';
+import { api } from '@/lib/api/browser';
+import { orRefused } from '@/lib/api/refusal';
 import { Button } from './button';
 
 type Props = {
@@ -18,7 +19,7 @@ export function PayButtons({ planId, catalogId, providers }: Props) {
   const [busy, start] = useTransition();
   const go = (provider: 'click' | 'payme') => start(async () => {
     setError(null);
-    const result = await startCheckout({ planId, catalogId, provider });
+    const result = await orRefused(api.billing.checkout({ planId, catalogId, provider }), t.errorGeneric);
     if (result.ok) window.location.href = result.url;
     else setError(result.error);
   });

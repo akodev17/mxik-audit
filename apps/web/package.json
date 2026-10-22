@@ -8,6 +8,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.5",
+    "@tasnivo/api-client": "*",
+    "@tasnivo/contracts": "*",
     "@tasnivo/core": "*",
     "@tasnivo/db": "*",
     "@tasnivo/domain": "*",

@@ -2,13 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
-import { applyDoc, uploadDoc } from '@/app/actions/docs';
-import type { ListPreview } from '@/app/actions/purchases';
+import type { endpoints, ResponseOf } from '@tasnivo/contracts';
 import { ListMapper, type MapperField } from '@/app/(app)/clients/[id]/purchases/list-mapper';
 import { Dropzone } from '@/app/(app)/upload/dropzone';
 import { Notice } from '@/app/(app)/upload/notice';
 import type { DocKind, DocMap } from '@tasnivo/domain/docs';
+import { api } from '@/lib/api/browser';
+import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
+import { serverChange } from '@/ui/shell/router-cache';
 import { useToast } from '@/ui/toast';
 import { goTo } from '@/ui/shell/same-route-links';
 
@@ -33,7 +35,9 @@ export function DocMapper({ clientId, kind, listId, filename, headers, rows, map
       title={ta.importX.lists.resumeTitle(filename)} headers={headers} rows={rows} initial={map} notes={notes}
       fields={fields} submitLabel={ta.docs.start} onClose={onClose}
       onSubmit={async (chosen) => {
-        const outcome = await applyDoc({ listId, map: chosen });
+        // The action revalidated /clients; serverChange refreshes the report page once it opens, which also
+        // drops the router's older copies (the list page still showing "columns not chosen").
+        const outcome = await serverChange(orRefused(api.imports.applyDoc({ listId, map: chosen }), ta.importX.errors.network));
         if (!outcome.ok) return outcome;
         toast(ta.importX.docs.started);
         goTo(`/clients/${clientId}/imports/${listId}`, (href) => router.push(href));
@@ -43,23 +47,21 @@ export function DocMapper({ clientId, kind, listId, filename, headers, rows, map
   );
 }
 
+type DocPreview = Extract<ResponseOf<typeof endpoints.imports.uploadDoc>, { ok: true }>['preview'];
+
 /** Upload a list, confirm its columns, start the check. */
 export function DocForm({ clientId, kind }: { clientId: string; kind: DocKind }) {
   const { ta } = useI18n();
   const router = useRouter();
-  const [preview, setPreview] = useState<(ListPreview & { map: DocMap }) | null>(null);
+  const [preview, setPreview] = useState<DocPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reading, start] = useTransition();
 
   const choose = (file: File): void => {
-    const form = new FormData();
-    form.set('file', file);
-    form.set('clientId', clientId);
-    form.set('kind', kind);
     setError(null);
     setPreview(null);
     start(async () => {
-      const result = await uploadDoc(form).catch(() => ({ ok: false as const, error: ta.importX.errors.network }));
+      const result = await orRefused(api.imports.uploadDoc({ kind, file }, { clientId }), ta.importX.errors.network);
       if (!result.ok) { setError(result.error); return; }
       setPreview(result.preview);
       router.refresh();

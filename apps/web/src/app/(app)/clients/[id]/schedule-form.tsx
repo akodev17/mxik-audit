@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { saveSchedule } from '@/app/actions/reminders';
+import { api } from '@/lib/api/browser';
+import { refusalText } from '@/lib/api/refusal';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { nextReminderDate, skipsThisMonth } from '@tasnivo/domain/reminder-dates';
@@ -42,12 +43,12 @@ export function ScheduleForm({ clientId, initial, people }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const result = await saveSchedule({ clientId, dayOfMonth: day, assigneeId: assignee || null, enabled });
+      const result = await api.reminders.saveSchedule({ clientId, dayOfMonth: day, assigneeId: assignee || null, enabled });
       if (!result.ok) { setError(result.error); return; }
       toast(result.nextDue ? `${words.saved} ${words.next(fmtDate(locale, result.nextDue))}` : words.saved);
       router.refresh();
-    } catch {
-      setError(ta.shellX.ui.confirmFailed);
+    } catch (e) {
+      setError(refusalText(e, ta.shellX.ui.confirmFailed));
     } finally {
       setBusy(false);
     }

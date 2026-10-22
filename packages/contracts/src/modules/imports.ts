@@ -49,6 +49,10 @@ export const DocListRow = z.object({
   map: DocMap,
   /** The check stopped without a heartbeat (docCheckStale). */
   stale: z.boolean(),
+  /** First rows of an uploaded or failed list, to resume its mapping; [] otherwise. */
+  sample: z.array(z.array(z.string())),
+  totalSeen: z.number().int().nullable(),
+  truncated: z.boolean(),
 });
 
 /** docs.ts DocGroup with GroupDetail; Decimal columns as numbers. */
@@ -64,6 +68,10 @@ export const DocGroupRow = z.object({
   issues: z.array(z.string()),
   suggestedMxik: z.string().nullable(),
   confidence: z.number().nullable(),
+  /** Every product name the group's lines carried. */
+  names: z.array(z.string()),
+  /** The classifier name of the suggested code. */
+  suggestedName: z.string().nullable(),
   detail: z.object({
     reasons: z.array(z.string()),
     alternatives: z.array(z.object({ code: z.string(), name: z.string(), confidence: z.number() })),

@@ -20,3 +20,9 @@ export function reviewedShare(locale: Locale, w: KpiWords, progress: { done: num
   const ratio = progress.total > 0 ? Math.floor((progress.done / progress.total) * 100) / 100 : 0;
   return w.share(fmtPercent(locale, ratio));
 }
+
+/** Rows reviewed out of risky rows; null when there is nothing to review (shown as a dash, never 100%). */
+export function rowProgress(c: { riskyRows: number; openRows: number }): { done: number; total: number } | null {
+  if (c.riskyRows === 0) return null;
+  return { done: c.riskyRows - c.openRows, total: c.riskyRows };
+}

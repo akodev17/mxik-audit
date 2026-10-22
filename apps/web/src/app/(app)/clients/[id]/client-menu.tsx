@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { archiveClientAction, deleteClientAction, renameClientAction } from '@/app/actions/clients';
+import { api } from '@/lib/api/browser';
+import { orRefused, refusalText } from '@/lib/api/refusal';
 import type { Dependant } from '@tasnivo/domain/client-lifecycle';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
@@ -15,6 +16,7 @@ import { IconAlert } from '@/ui/icons';
 import { Field, Input } from '@/ui/input';
 import { Menu, type MenuItem } from '@/ui/menu';
 import { useToast } from '@/ui/toast';
+import { serverChange } from '@/ui/shell/router-cache';
 import { goTo } from '@/ui/shell/same-route-links';
 
 type Props = {
@@ -62,8 +64,8 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs, bloc
       setOpen(null);
       toast(done);
       after();
-    } catch {
-      setError(ta.shellX.ui.confirmFailed);
+    } catch (e) {
+      setError(refusalText(e, ta.shellX.ui.confirmFailed));
     } finally {
       setBusy(false);
     }
@@ -84,7 +86,7 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs, bloc
           </>
         )}
       >
-        <form id="rename-client" onSubmit={(e) => { e.preventDefault(); void run(() => renameClientAction({ clientId, name: draft }), words.renamed, () => router.refresh()); }}>
+        <form id="rename-client" onSubmit={(e) => { e.preventDefault(); void run(() => api.clients.rename({ clientId, name: draft }), words.renamed, () => router.refresh()); }}>
           <Field label={ta.firmX.clients.nameLabel} hint={ta.firmX.clients.nameHint} error={error ?? undefined} required>
             <Input value={draft} onChange={(e) => setDraft(e.target.value)} required minLength={2} maxLength={200} autoComplete="off" />
           </Field>
@@ -103,7 +105,7 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs, bloc
         scope={name}
         confirmLabel={words.archiveConfirm}
         onConfirm={async () => {
-          const result = await archiveClientAction(clientId);
+          const result = await orRefused(api.clients.archive({ clientId }), ta.shellX.ui.confirmFailed);
           if (!result.ok) return result;
           toast(result.stranded.length > 0 ? words.archivedStranded(result.stranded.join(', ')) : words.archivedDone);
           router.refresh();
@@ -133,7 +135,8 @@ export function ClientMenu({ clientId, name, isDefault, archived, catalogs, bloc
           onSubmit={(e) => {
             e.preventDefault();
             if (blocked || typed.replace(/\s+/g, ' ').trim() !== name) return;
-            void run(() => deleteClientAction({ clientId, confirmName: typed }), words.deleted, () => goTo('/clients', (href) => router.push(href)));
+            // The pages that listed the client may be held by the router: the next one opened refreshes (router-cache).
+            void run(() => serverChange(api.clients.remove({ clientId, confirmName: typed })), words.deleted, () => goTo('/clients', (href) => router.push(href)));
           }}
         >
           <p className="mt-3 text-small">{words.deleteTypeIntro}</p>

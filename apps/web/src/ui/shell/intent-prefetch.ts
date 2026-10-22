@@ -22,7 +22,7 @@ export type IntentHandlers = {
  * already holds (on a slow network that was half a second without feedback; while a fetched-ahead
  * page is still on its way, ./navigation-progress shows the wait). <Link>'s own prefetch stops at the (app) loading boundary for these
  * dynamic pages. Next keeps a full prefetch for experimental.staleTimes.static (next.config.ts:
- * 30 s), and drops it on router.refresh() and on server actions that revalidate (./router-cache).
+ * 30 s), and drops it on router.refresh(), which follows an API change (./router-cache).
  * Only the header tabs, the rail and link tab strips (src/ui/tabs.tsx) use it: rendering every
  * section on each page load would cost seven server renders per page, most of them never opened.
  */

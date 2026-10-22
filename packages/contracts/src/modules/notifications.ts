@@ -1,6 +1,6 @@
 // In-app notifications (page, bell, mark read) and the command-palette search.
 import { z } from 'zod';
-import { CATALOG_STATUSES, IsoDateTime, QueryFlag, QueryPage, ShellFail, ShortId } from '../common';
+import { CATALOG_STATUSES, ClientRef, IsoDateTime, PLAN_RESOURCES, QueryFlag, QueryPage, ShellFail, ShortId } from '../common';
 import { defineModule, endpoint } from '../endpoint';
 
 export const NOTICE_GROUPS = ['review', 'audit', 'other'] as const;
@@ -29,7 +29,32 @@ export const SearchResults = z.object({
   codes: z.array(z.object({ code: z.string(), name: z.string(), retired: z.boolean() })),
 });
 
+/** shell-frame.ts ShellFrame: what the signed-in frame shows on every page. */
+export const ShellFrame = z.object({
+  email: z.string(),
+  demo: z.boolean(),
+  canWrite: z.boolean(),
+  canManageTeam: z.boolean(),
+  plan: z.object({
+    state: z.enum(['unlimited', 'trial', 'firm', 'expired']),
+    daysLeft: z.number().int().nullable(),
+    warnings: z.array(z.enum(PLAN_RESOURCES)),
+    full: z.array(z.enum(PLAN_RESOURCES)),
+  }),
+  clients: z.array(ClientRef),
+  activeClient: ClientRef.nullable(),
+  unread: z.number().int().nullable(),
+});
+
 export const notifications = defineModule('notifications', {
+  shell: endpoint({
+    method: 'GET', path: '/api/shell', auth: 'session', role: 'any',
+    summary: 'The app frame: visible clients and the active one, unread count, plan warnings',
+    responds: 'json', response: ShellFrame,
+    replaces: ['page:(app)/layout#shell'],
+    notes: 'An unscoped user in an org without clients gets the default client created, as the layout did. unread is null when it could not be read.',
+  }),
+
   list: endpoint({
     method: 'GET', path: '/api/notifications', auth: 'session', role: 'any',
     summary: 'The notifications page: one page, optionally unread only or one group',

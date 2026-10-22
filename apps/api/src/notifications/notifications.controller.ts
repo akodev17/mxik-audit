@@ -1,10 +1,12 @@
-// In-app notifications (the page, the bell, marking read) and the command-palette search. Thin: the
+// In-app notifications (the page, the bell, marking read), the command-palette search and the app
+// frame's own data (GET /api/shell). Thin: the
 // domain (shell-ops) reads and writes; a database error is `{ ok: false, error: 'failed' }`, as the
 // shell actions answered.
 import { Body, Controller, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { endpoints } from '@tasnivo/contracts';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
+import { shellFrame } from '@tasnivo/domain/shell-frame';
 import { bellPreview, noticesPage, paletteSearch, readAllNotices, readNotices } from '@tasnivo/domain/shell-ops';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import type { z, ZodTypeAny } from 'zod';
@@ -19,6 +21,11 @@ const pipe = <S extends ZodTypeAny>(schema: S) => new ZodValidationPipe(schema);
 @Controller()
 @ApiTags('notifications')
 export class NotificationsController {
+  @Route(e.shell)
+  shell(@CurrentUser() user: User) {
+    return shellFrame(user);
+  }
+
   @Route(e.list)
   list(@CurrentUser() user: User, @Query(pipe(e.list.query)) q: In<typeof e.list.query>) {
     return noticesPage(user, { page: q.page, unreadOnly: q.unread === true, group: q.group });

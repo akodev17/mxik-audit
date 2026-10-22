@@ -1,12 +1,11 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { searchEverything } from '@/app/actions/shell';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { MIN_TEXT } from '@tasnivo/domain/search-query';
-import type { ProductStatus, SearchResults } from '@tasnivo/domain/search';
 import { Badge, type Tone } from '../badge';
 import { Button } from '../button';
 import { cx } from '../cx';
@@ -22,6 +21,7 @@ import { IconArrowLeft, IconBox, IconHash, IconSwitch } from './icons';
 import { NAV_ICONS, useNavLabels } from './nav-items';
 import { matchesQuery, paletteCommands, type CommandKey } from './palette-model';
 import { goTo } from './same-route-links';
+import { searchQuery, type SearchResults } from './shell-queries';
 import { useSwitchClient } from './use-switch-client';
 
 type ClientRef = { id: string; name: string };
@@ -31,6 +31,7 @@ type Action = { kind: 'go'; href: string } | { kind: 'copy'; text: string } | { 
 type GroupKey = 'commands' | 'clients' | 'catalogs' | 'products' | 'codes' | 'switch';
 type Option = { key: string; label: ReactNode; detail?: ReactNode; meta?: ReactNode; icon: ReactNode; action: Action; mono?: boolean };
 type Group = { key: GroupKey; label: string; hint?: string; options: Option[] };
+type ProductStatus = SearchResults['products'][number]['status'];
 type Answer = { text: string; results: SearchResults };
 type Status = { kind: 'idle' } | { kind: 'loading'; previous: Answer | null } | { kind: 'failed' } | { kind: 'done'; answer: Answer };
 
@@ -52,6 +53,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
   const s = ta.shellX.search;
   const router = useRouter();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const navLabels = useNavLabels();
   const { switching, switchTo } = useSwitchClient();
   const [mode, setMode] = useState<'root' | 'switch'>('root');
@@ -86,12 +88,12 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
     const mine = ++seq.current;
     setStatus((prev) => ({ kind: 'loading', previous: keepWhileLoading(prev.kind === 'done' ? prev.answer : prev.kind === 'loading' ? prev.previous : null, text) }));
     const timer = setTimeout(() => {
-      searchEverything(text)
+      queryClient.fetchQuery(searchQuery(text))
         .then((r) => { if (mine === seq.current) setStatus(r.ok ? { kind: 'done', answer: { text, results: r.results } } : { kind: 'failed' }); })
         .catch(() => { if (mine === seq.current) setStatus({ kind: 'failed' }); });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [searching, text, retry]);
+  }, [searching, text, retry, queryClient]);
 
   const commands = useMemo<Option[]>(() => {
     // The page's own name matches too, so "Kataloglar" finds "Kataloglarni ochish".

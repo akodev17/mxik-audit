@@ -64,11 +64,8 @@ export function attentionReasons(c: Pick<ClientStats, 'catalogId' | 'isDefault' 
   return reasons;
 }
 
-/** Rows reviewed out of risky rows; null when there is nothing to review (shown as a dash, never 100%). */
-export function rowProgress(c: Pick<ClientStats, 'riskyRows' | 'openRows'>): { done: number; total: number } | null {
-  if (c.riskyRows === 0) return null;
-  return { done: c.riskyRows - c.openRows, total: c.riskyRows };
-}
+// Pure, so pages that read through the API use it too (client-kpi has no database).
+export { rowProgress } from './client-kpi';
 
 const ATTENTION = Prisma.sql`(open_rows > 0 OR update_pending > 0 OR overdue_tasks > 0 OR (catalog_id IS NULL AND NOT is_default))`;
 

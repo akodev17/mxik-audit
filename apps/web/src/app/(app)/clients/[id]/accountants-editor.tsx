@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { setAccountantsAction } from '@/app/actions/clients';
+import { api } from '@/lib/api/browser';
+import { refusalText } from '@/lib/api/refusal';
 import type { AssignableAccountant } from '@tasnivo/domain/client-lifecycle';
 import { useI18n } from '@/lib/locale-client';
 import { Button, ButtonLink } from '@/ui/button';
@@ -42,13 +43,13 @@ export function AccountantsEditor({ clientId, people }: { clientId: string; peop
     setBusy(true);
     setError(null);
     try {
-      const result = await setAccountantsAction({ clientId, userIds: [...picked] });
+      const result = await api.clients.setAccountants({ clientId, userIds: [...picked] });
       if (!result.ok) { setError(result.error); return; }
       toast(words.accountantsSaved);
       setOpen(false);
       router.refresh();
-    } catch {
-      setError(ta.shellX.ui.confirmFailed);
+    } catch (e) {
+      setError(refusalText(e, ta.shellX.ui.confirmFailed));
     } finally {
       setBusy(false);
     }

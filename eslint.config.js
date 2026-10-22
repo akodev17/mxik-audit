@@ -3,6 +3,7 @@
 // workspace's own, or the root one for scripts and eval).
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import { migratedWebConfig } from './apps/web/eslint.migrated.mjs';
 
 export default tseslint.config(
   { ignores: ['**/node_modules/**', '**/.next/**', '**/dist/**', 'tmp/**', 'data/**', 'packages/db/prisma/**', 'packages/core/src/normalize/units.generated.ts'] },
@@ -41,4 +42,6 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'off',
     },
   },
+  // Web files switched to the API may not import the database, server actions or session adapters.
+  migratedWebConfig,
 );

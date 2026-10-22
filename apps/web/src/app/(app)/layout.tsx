@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
-import { currentUser } from '@/lib/session';
-import { shellData } from '@/lib/shell-data';
+import { pageData } from '@/lib/api/page-data';
+import { serverApi } from '@/lib/api/server';
 import { onest } from '@/ui/onest';
 import { LocaleScope } from '@/ui/locale-scope';
 import { AppFrame } from '@/ui/shell/app-frame';
@@ -8,9 +7,8 @@ import { readTheme } from '@/ui/shell/server-prefs';
 import { ThemeRoot } from '@/ui/shell/theme-root';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
-  const [shell, theme] = await Promise.all([shellData(user), readTheme()]);
+  // No session: the API answers 401 and pageData sends the browser to sign-in.
+  const [shell, theme] = await Promise.all([pageData(serverApi().notifications.shell()), readTheme()]);
   return (
     <ThemeRoot initial={theme} className={`app ${onest.variable}`}>
       <LocaleScope>

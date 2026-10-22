@@ -210,7 +210,7 @@ export const CHECKS = [
    two sections can never contradict each other again. Checked against code:
 
    - Stored: the whole file. Lead uploads keep the bytes (Lead.fileData,
-     src/app/actions/lead.ts); app uploads keep every original cell
+     POST /api/lead, packages/domain/src/lead-submit.ts); app uploads keep every original cell
      (CatalogItem.attrs.original) so Export can rebuild the file.
    - Read by the audit: name, barcode, MXIK, unit (src/lib/audit-runner.ts).
      Price is stored but not used.

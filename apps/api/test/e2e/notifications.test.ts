@@ -101,4 +101,21 @@ describe('notifications module (e2e)', { skip }, () => {
     assert.equal((await get(`/api/search?q=${'x'.repeat(201)}`, admin)).status, 400);
     assert.equal((await http().get('/api/search?q=sut')).status, 401);
   });
+
+  it("shell: the frame's clients in the user's scope, the active one, unread count and plan; a new org gets its default client", async () => {
+    const frame = shaped(n.shell, (await get('/api/shell', admin)).body) as { email: string; canWrite: boolean; canManageTeam: boolean; clients: { name: string }[]; activeClient: { id: string } | null; unread: number | null; plan: { state: string } };
+    assert.equal(frame.email, admin.email);
+    assert.equal(frame.canWrite, true);
+    assert.equal(frame.canManageTeam, true);
+    assert.deepEqual(frame.clients.map((c) => c.name).sort(), ['Boshqa mijoz', 'Sut zavodi']);
+    assert.ok(frame.activeClient, 'an active client');
+    assert.equal(typeof frame.unread, 'number');
+    const narrow = shaped(n.shell, (await get('/api/shell', scoped)).body) as { clients: { name: string }[]; canManageTeam: boolean };
+    assert.deepEqual(narrow.clients.map((c) => c.name), ['Boshqa mijoz']);
+    assert.equal(narrow.canManageTeam, false);
+    const fresh = shaped(n.shell, (await get('/api/shell', stranger)).body) as { clients: unknown[]; activeClient: unknown };
+    assert.equal(fresh.clients.length, 1, 'the default client was created');
+    assert.ok(fresh.activeClient);
+    assert.equal((await http().get('/api/shell')).status, 401);
+  });
 });

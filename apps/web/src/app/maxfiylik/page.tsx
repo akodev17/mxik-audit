@@ -4,7 +4,7 @@ import { LEAD_FILE_RETENTION_DAYS } from '@/components/landing/config';
 import { LegalPage, Todo } from '@/components/landing/legal-page';
 
 /* Every factual sentence below was checked against code on 15.10.2026:
-   - form fields: Lead model (prisma/schema.prisma), src/app/actions/lead.ts;
+   - form fields: Lead model (prisma/schema.prisma), packages/domain/src/lead-submit.ts (POST /api/lead);
    - app data: User (scrypt hash, src/lib/password.ts), Catalog/CatalogItem
      (every original cell kept for export), AuditEvent (append-only);
    - cookie: iron-session `mxik_audit_session`, 7 days (src/lib/session.ts);

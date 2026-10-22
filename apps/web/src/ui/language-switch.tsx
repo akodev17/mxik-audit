@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
-import { setLocale } from '@/app/actions/locale';
+import { api } from '@/lib/api/browser';
 import { LOCALES, type Locale } from '@tasnivo/i18n/i18n';
 import { useI18n } from '@/lib/locale-client';
 import { Segmented } from './segmented';
@@ -22,7 +22,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
       options={LOCALES.map((l) => ({ value: l, label: NAMES[l], lang: l }))}
       value={locale}
       disabled={busy}
-      onChange={(l) => start(async () => { await setLocale(l); window.location.reload(); })}
+      onChange={(l) => start(async () => { await api.account.setLocale({ locale: l }).catch(() => undefined); window.location.reload(); })}
       className={className}
     />
   );
