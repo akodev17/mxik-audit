@@ -4,6 +4,7 @@ import { billingConfig } from '@/lib/billing/config';
 import { catalogPaid } from '@/lib/billing/orders';
 import { resolveCatalog } from '@/lib/catalogs';
 import { db } from '@/lib/db';
+import { demoExportRefusal } from '@/lib/demo-limits';
 import { build1cCsv, build1cXlsx, type OneCRow } from '@/lib/export-1c';
 import { baseName, contentDisposition } from '@/lib/export-filename';
 import { codeUnits, exportItems, exportPackaging, exportUnit } from '@/lib/export-rows';
@@ -43,6 +44,8 @@ export async function GET(request: Request) {
   if (billingConfig().requiredForExport && !(await catalogPaid(user.orgId, catalog.id))) {
     return NextResponse.json({ error: 'payment required' }, { status: 402 });
   }
+  const demoLimited = await demoExportRefusal(user.orgId);
+  if (demoLimited) return demoLimited;
   const mapping = StoredMap.safeParse(catalog.columnMap);
   if (!mapping.success) return NextResponse.json({ error: 'bad mapping' }, { status: 500 });
 

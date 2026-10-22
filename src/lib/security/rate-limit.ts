@@ -27,6 +27,11 @@ export const RULES = {
   signupIp: { kind: 'signup', limit: 8, windowMs: 60 * MINUTE },
   /** Public lead form submissions from one address. */
   leadIp: { kind: 'lead_ip', limit: 5, windowMs: 10 * MINUTE },
+  /** Demo access requests from one address, and for one mailbox (aliases counted as one). */
+  demoRequestIp: { kind: 'demo_req_ip', limit: 5, windowMs: 60 * MINUTE },
+  demoRequestEmail: { kind: 'demo_req_email', limit: 3, windowMs: 60 * MINUTE },
+  /** Demo link openings from one address, right or wrong. */
+  demoVerifyIp: { kind: 'demo_verify_ip', limit: 20, windowMs: 60 * MINUTE },
 } as const satisfies Record<string, Rule>;
 
 export const attemptKey = (key: string): string => keyedHash('auth-attempt', key);

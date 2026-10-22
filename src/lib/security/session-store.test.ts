@@ -45,9 +45,9 @@ describe('session records (database)', { skip }, () => {
     assert.equal(await isLive(sid, a.userId), false);
   });
 
-  it('a cookie without a record is accepted only for a demo', async () => {
+  it('a cookie without a record is accepted for no one, a demo included', async () => {
     assert.equal(await recordAccepted(undefined, a.userId, false), false);
-    assert.equal(await recordAccepted(undefined, a.userId, true), true);
+    assert.equal(await recordAccepted(undefined, a.userId, true), false);
     const sid = await createRecord(a.userId, a.orgId, 'with record');
     assert.equal(await recordAccepted(sid, a.userId, false), true);
   });

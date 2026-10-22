@@ -1,10 +1,19 @@
 // Server-side record of every signed-in browser, so a session can be listed and ended.
 import { db } from '../db.js';
+import { demoIdleMinutes } from '../demo-config.js';
 
 const TOUCH_EVERY_MS = 5 * 60_000;
 /** The cookie's lifetime; a record not seen for this long is dead too. */
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const MAX_IDLE_MS = SESSION_MAX_AGE_SECONDS * 1000;
+
+/** How long a record may sit unused, and how often "last seen" is refreshed. */
+type Limits = { maxIdleMs: number; touchMs: number };
+
+const DEFAULT_LIMITS: Limits = { maxIdleMs: MAX_IDLE_MS, touchMs: TOUCH_EVERY_MS };
+
+/** A demo ends after a short idle period (DEMO_IDLE_MINUTES), so its clock is refreshed every minute. */
+const demoLimits = (): Limits => ({ maxIdleMs: demoIdleMinutes() * 60_000, touchMs: 60_000 });
 
 export type SessionRow = { id: string; userAgent: string | null; createdAt: Date; lastSeenAt: Date };
 
@@ -14,18 +23,21 @@ export async function createRecord(userId: string, orgId: string, userAgent: str
 }
 
 /** True while the record exists, belongs to the user, is not revoked and was seen within the cookie lifetime. Refreshes "last seen" now and then. */
-export async function isLive(sid: string, userId: string, now = Date.now()): Promise<boolean> {
+export async function isLive(sid: string, userId: string, now = Date.now(), limits: Limits = DEFAULT_LIMITS): Promise<boolean> {
   const row = await db.userSession.findUnique({ where: { id: sid }, select: { userId: true, revokedAt: true, lastSeenAt: true } });
   if (!row || row.userId !== userId || row.revokedAt) return false;
   const idle = now - row.lastSeenAt.getTime();
-  if (idle > MAX_IDLE_MS) return false;
-  if (idle > TOUCH_EVERY_MS) await db.userSession.update({ where: { id: sid }, data: { lastSeenAt: new Date(now) } });
+  if (idle > limits.maxIdleMs) return false;
+  if (idle > limits.touchMs) await db.userSession.update({ where: { id: sid }, data: { lastSeenAt: new Date(now) } });
   return true;
 }
 
-/** A cookie is good when its record is live; only a demo may run without a record (older cookies must sign in again). */
+/**
+ * A cookie is good when its record is live. A demo needs one too, and its idle limit is the short demo one:
+ * nothing a browser sends can keep a demo open past DEMO_IDLE_MINUTES without activity.
+ */
 export async function recordAccepted(sid: string | undefined, userId: string, demoOrg: boolean, now = Date.now()): Promise<boolean> {
-  return sid ? isLive(sid, userId, now) : demoOrg;
+  return sid ? isLive(sid, userId, now, demoOrg ? demoLimits() : DEFAULT_LIMITS) : false;
 }
 
 export async function listSessions(userId: string, now = Date.now()): Promise<SessionRow[]> {
