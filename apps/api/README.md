@@ -58,7 +58,8 @@ src/auth-core/           SessionService + guards (global module): SessionGuard, 
                          ApiKeyGuard + RateLimitStore, CronGuard, CsrfGuard
 src/http/                ApiError, exception filter, ZodValidationPipe, @CurrentUser(), @Locale(),
                          @SkipCsrf(), LocaleInterceptor, security-header and request-log middleware
-src/health/, src/auth/   the Wave 1a endpoints
+src/health/              GET /api/health
+src/auth/, src/account/, src/team/   endpoints.auth / .account / .team (W2a; route list below)
 test/unit/, test/e2e/    node:test + supertest (picked up by the root `npm test`)
 ```
 
@@ -73,12 +74,16 @@ test/unit/, test/e2e/    node:test + supertest (picked up by the root `npm test`
 - **Sign-in** (`POST /api/auth/sign-in`, `{ email, password, next? }`): the web sign-in action's
   rules — DB-backed limits per address (`X-Real-IP`/`X-Forwarded-For` as in domain `clientIp`, the
   socket address without a proxy) and per e-mail, the same messages in the request's language,
-  `safeNext`, address confirmation when SMTP is on. The session itself is
-  `@tasnivo/domain/security/sign-in` (`openSession`), shared with the web app. Answers
-  `{ ok: true, next, twoFactor }`; with two-factor on `next` is `/sign-in/2fa` and the cookie holds
-  the pending state only. Errors: `401 invalid_credentials`, `403 unverified` (+ `unverified: true`),
-  `429 rate_limited` with `Retry-After`. The user's saved language is restored into `mxik_locale`.
-- **Sign-out** (`POST /api/auth/sign-out`) ends the session record and clears the cookie.
+  `safeNext`, address confirmation when SMTP is on — all of it `@tasnivo/domain/security/auth-forms`
+  `signInForm`, which the web action calls too. Answers the contract's shape (W2a): `{ redirect }`
+  on success (`/sign-in/2fa` while a code is due, the cookie then holding the pending state only),
+  else `200 { error, unverified? }` with the form's message (wrong password, rate limit, unconfirmed
+  address), as the action did. The user's saved language is restored into `mxik_locale`.
+- **Sign-out** (`POST /api/auth/sign-out`) ends the session record, clears the cookie and answers
+  `{ redirect: '/sign-in' }`.
+- **Roles and demo** (`AccessGuard`, applied by `Route()` after `SessionGuard`): the registry
+  entry's `role` (`writer`, `admin`) and `noDemo` → `403 forbidden` / `403 demo` with
+  `ta.firmX.errors.forbidden` in the request's language.
 - **CSRF** (global `CsrfGuard`): every non-GET/HEAD/OPTIONS first-party request needs
   `X-Requested-With: tasnivo`, and an `Origin`, when sent, must equal `NEXT_PUBLIC_SITE_URL`'s origin
   (not checked while that is unset). `/api/v1/*` is exempt; so is anything marked `@SkipCsrf()` —
@@ -137,6 +142,66 @@ arguments; domain code must not read cookies or headers. Every route states its 
 callback's own signature check + `@SkipCsrf()`). Every body/query goes through
 `ZodValidationPipe`. Inject with `@Inject(...)`. Add a supertest e2e test that skips without the
 database (`test/helpers.ts`: `dbSkipReason`, `startApp`, `makeUser`).
+
+### From the registry: `Route()` (W2a)
+
+With `@tasnivo/contracts`, a handler takes everything from its registry entry
+(`src/http/route.ts`): `@Route(endpoints.team.removeMember)` on a method of an `@ApiTags('team')
+@Controller()` class sets the method and path (`expressPath`, minus the global `/api`), `HttpCode`
+(200 unless the entry says otherwise), `SessionGuard` + `AccessGuard` for `auth: 'session'`
+(`{ session: 'manual' }` when the handler reads the cookie itself: a closed org's page, a browser
+callback that redirects to sign-in instead of answering 401), `@SkipCsrf()` for the entries the
+registry exempts, and the Swagger operation generated from the entry's zod schemas with the
+contracts' `SchemaConverter`. JSON answers go through `JsonAnswerInterceptor`, so `null`, `true`,
+a number or a string leave as JSON (Nest's Express adapter would send them as text or nothing).
+Parse with the entry's own schemas: `@Body(new ZodValidationPipe(e.body))`,
+`@Param(new ZodValidationPipe(e.params))`. Form logic that a server action embedded lives in the
+domain (`security/auth-forms`, `security/account-security`, `team-forms`, `account-settings`,
+`telegram/login-callbacks`) and the action calls the same function.
+
+## Routes: auth, account, team (W2a)
+
+Every operation of `endpoints.auth`, `endpoints.account` and `endpoints.team`; the registry entry
+names the action or route it replaces. Session routes need the cookie; "admin" and "no demo" are
+`AccessGuard` refusals (403). Redirect routes answer `307` with a relative `Location`.
+
+| Route | Auth | Answers |
+|---|---|---|
+| `GET /api/auth/me` | session | `CurrentUser` |
+| `GET /api/auth/config` | public | `{ telegramBot, mailEnabled }` |
+| `POST /api/auth/sign-in` | public | `{ redirect }` or `{ error, unverified?, info? }`; sets the session and `mxik_locale` cookies |
+| `POST /api/auth/sign-out` | public | `{ redirect: '/sign-in' }`; clears the cookie |
+| `POST /api/auth/sign-up` | public | `{ redirect }` (signed in) or `{ error?, checkEmail? }` |
+| `POST /api/auth/confirmation/resend` | public | `{ info }` whatever happened, or `{ error }` (rate limit) |
+| `GET /api/auth/verify/{token}` | public | 307 to the landing page (signed in) or `/sign-in?error=verify` |
+| `POST /api/auth/password/forgot` | public | `{ sent: true }` or `{ error }` |
+| `GET /api/auth/password/reset/{token}` | public | `{ email \| null, passwordMin }` |
+| `POST /api/auth/password/reset/{token}` | public | `{ redirect: '/sign-in?notice=reset_done' }` or `{ error }` |
+| `POST /api/auth/password/change` | session, no demo | `{ done }` or `{ error }`; other sessions end |
+| `POST /api/auth/2fa/submit` | public (pending cookie) | `{ redirect }` or `{ error }` |
+| `GET /api/auth/2fa` | session | `{ enabled, recoveryLeft }` |
+| `POST /api/auth/2fa/start` · `finish` · `off` · `recovery-codes` | session, no demo | setup or `null`; recovery codes or `null`; `true`/`false` |
+| `GET /api/auth/security` | session, no demo | Telegram availability, password rules |
+| `GET /api/auth/sessions` · `DELETE /api/auth/sessions/{sid}` · `POST /api/auth/sessions/end-others` | session (no demo to end) | rows, this browser first; `true`/`false`; how many ended |
+| `GET /api/auth/telegram` | public (widget signature) | 307 to the landing page or `/sign-in?error=telegram_*` |
+| `POST /api/auth/telegram/bind` · `DELETE` | session, no demo | one-time state or `null`; `true`/`false` |
+| `GET /api/auth/telegram/bind/{state}` | session (manual) | 307 to `/settings?tg=bound\|taken\|error#telegram-sign-in` or `/sign-in` |
+| `GET /api/account` | admin | profile, branding (logo as data: URL), retention |
+| `GET /api/config` | public | upload cap, API and plan limits, retention choices, origin |
+| `POST /api/account/branding` | admin, no demo | multipart `brandName`, `removeLogo`, `logo` (PNG/JPEG ≤ 300 KB by content) → `{ saved }` or `{ error }` |
+| `PUT /api/account/retention` | admin, no demo | `true`/`false` |
+| `POST /api/account/close` | admin, no demo | `{ redirect: '/sign-in?error=closed' }` (signed out) or `{ error }` |
+| `GET /api/account/closed` · `POST /api/account/reopen` | session of a closed org (manual) | `{ purgeOn, canReopen }`; `{ redirect }` |
+| `GET /api/account/export` | admin, no demo | the account zip |
+| `PUT /api/account/locale` · `theme` · `sidebar` | public | `{ ok: true }`; the web app's cookies (and the saved language) |
+| `GET /api/account/telegram` · `POST …/telegram/code` · `DELETE …/telegram/{linkId}` | admin (no demo for the code) | chats; `{ ok, code, minutes }`; `{ ok }` |
+| `POST /api/telegram/webhook` | Telegram secret header | grammy; 404 without a bot token, 503 without the webhook secret |
+| `GET /api/account/api-keys` · `POST` · `DELETE …/{keyId}` | admin (no demo to create) | keys and usage; `{ token }` or `{ error }`; `true`/`false` |
+| `GET /api/activity` | session | the audit log page, the pickers, the filters as applied |
+| `GET /api/team` | session | members, invites, clients, seats (empty unless an admin of a real org) |
+| `POST /api/team/invites` · `POST …/{inviteId}/resend` · `DELETE …/{inviteId}` | admin, no demo | `InviteState`; `{ ok }` or `{ ok: false, error }` |
+| `PATCH` · `DELETE /api/team/members/{userId}` | admin, no demo | `{ ok }` or `{ ok: false, error }` |
+| `GET /api/invites/{token}` · `POST …/join` | public | `{ orgName, role, email }` or `null`; `{ redirect: '/catalogs' }` (signed in) or `{ error }` |
 
 ## Tests
 

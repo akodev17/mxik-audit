@@ -40,7 +40,7 @@ describe('round trips', () => {
     roundTrip(E.account.createApiKey.response, { token: 'mxk_abc' }, 'key token');
     roundTrip(E.account.createApiKey.response, { error: 'limit' }, 'key refused');
     roundTrip(E.account.apiKeys.response, {
-      keys: [{ id: 'k1', name: '1C', prefix: 'mxk_ab12', createdAt: AT, lastUsedAt: null, revokedAt: null, checksThisMonth: 12, createdBy: 'a@b.uz' }],
+      keys: [{ id: 'k1', name: '1C', prefix: 'mxk_ab12', createdAt: AT, lastUsedAt: null, revokedAt: null, checksThisMonth: 12, createdBy: 'a@b.uz', creatorRemoved: false }],
       maxActive: 10, usage: { checks: 12, requests: 40 }, monthlyCap: 500, ratePerMinute: 60,
     }, 'api keys');
     roundTrip(E.account.setTheme.response, { ok: false, error: 'invalid' }, 'theme refused');

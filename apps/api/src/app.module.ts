@@ -7,9 +7,18 @@ import { ConfigModule } from './config/config.module';
 import { HealthModule } from './health/health.module';
 import { ApiExceptionFilter } from './http/exception.filter';
 import { LocaleInterceptor } from './http/locale.interceptor';
+import { AccountModule } from './account/account.module';
+import { TeamModule } from './team/team.module';
 
 @Module({
-  imports: [ConfigModule, AuthCoreModule, HealthModule, AuthModule],
+  imports: [
+    ConfigModule,
+    AuthCoreModule,
+    HealthModule,
+    AuthModule,
+    AccountModule,
+    TeamModule,
+  ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_INTERCEPTOR, useClass: LocaleInterceptor },

@@ -1,69 +1,213 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiBody, ApiCookieAuth, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+// endpoints.auth: sign-in and sign-up, password, two-factor, sessions, e-mail confirmation and
+// Telegram sign-in. Thin: each handler parses with the registry's schemas and calls the same
+// @tasnivo/domain function as the web app's server action or route handler it replaces.
+import { Body, Controller, Inject, Param, Req, Res } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { serialize } from 'cookie';
+import { endpoints, type ResponseOf } from '@tasnivo/contracts';
+import { mailEnabled } from '@tasnivo/domain/mailer';
+import {
+  changePasswordForm, finishTwoFactor, newRecoveryCodes, securityExtras, startTelegramBind, startTwoFactor, turnOffTwoFactor,
+} from '@tasnivo/domain/security/account-security';
+import {
+  forgotPasswordForm, resendConfirmationForm, resetPasswordForm, signInForm, twoFactorForm, verifyEmailLink,
+} from '@tasnivo/domain/security/auth-forms';
+import { deviceLabel } from '@tasnivo/domain/security/device';
+import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
+import { resetTarget } from '@tasnivo/domain/security/password-reset';
+import { orderSessions } from '@tasnivo/domain/security/session-order';
+import { endRecord, listSessions, revokeOthers, revokeSession } from '@tasnivo/domain/security/session-store';
+import { twoFactorState } from '@tasnivo/domain/security/two-factor';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
+import { signUpForm } from '@tasnivo/domain/signup';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
+import { unbindTelegram } from '@tasnivo/domain/telegram/identity';
+import { telegramBindCallback, telegramSignIn } from '@tasnivo/domain/telegram/login-callbacks';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
-import { LOCALE_COOKIE } from '@tasnivo/i18n/locale';
-import { SessionGuard } from '../auth-core/session.guard';
-import { SessionService, setCookie } from '../auth-core/session.service';
+import { i18nFor } from '@tasnivo/i18n/locale';
+import { setLocaleCookie } from '../account/prefs';
+import { SessionService } from '../auth-core/session.service';
 import { CurrentUser, Locale } from '../http/decorators';
-import { clientIp, header, type ApiRequest } from '../http/request';
+import { queryPairs, requestFacts } from '../http/facts';
+import type { ApiRequest } from '../http/request';
+import { Route } from '../http/route';
 import { ZodValidationPipe } from '../http/zod-validation.pipe';
-import { AuthService } from './auth.service';
-import { errorSchema, meResponseSchema, SignInBody, signInBodySchema, signInResponseSchema, type SignInResponse } from './dto';
 
-const LOCALE_MAX_AGE = 60 * 60 * 24 * 365;
-const csrfHeader = { name: 'X-Requested-With', required: true, description: 'Must be "tasnivo" (CSRF check).' };
+const e = endpoints.auth;
+
+type SignInBody = { email: string; password: string; next?: string };
+type Answer<K extends keyof typeof e> = ResponseOf<(typeof e)[K]>;
+
+/** A browser navigation: relative Location, method kept (307), as the web app's redirectTo did. */
+function go(res: Response, path: string): void {
+  res.redirect(307, path);
+}
 
 @ApiTags('auth')
-@Controller('auth')
+@Controller()
 export class AuthController {
-  constructor(
-    @Inject(AuthService) private readonly auth: AuthService,
-    @Inject(SessionService) private readonly sessions: SessionService,
-  ) {}
+  constructor(@Inject(SessionService) private readonly sessions: SessionService) {}
 
-  @Post('sign-in')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Email and password. Sets the session cookie, or a pending two-factor state (next = /sign-in/2fa).' })
-  @ApiHeader(csrfHeader)
-  @ApiBody({ schema: signInBodySchema })
-  @ApiResponse({ status: 200, schema: signInResponseSchema })
-  @ApiResponse({ status: 401, description: 'invalid_credentials', schema: errorSchema })
-  @ApiResponse({ status: 403, description: 'unverified (address not confirmed; body also has unverified: true) or csrf', schema: errorSchema })
-  @ApiResponse({ status: 429, description: 'rate_limited (per address and per e-mail); Retry-After in seconds', schema: errorSchema })
+  @Route(e.me)
+  me(@CurrentUser() user: User): Answer<'me'> {
+    return user;
+  }
+
+  @Route(e.config)
+  config(): Answer<'config'> {
+    const tg = telegramConfig();
+    return { telegramBot: tg.enabled && tg.username ? tg.username : null, mailEnabled: mailEnabled() };
+  }
+
+  @Route(e.signIn)
   async signIn(
-    @Body(new ZodValidationPipe(SignInBody)) body: SignInBody,
+    @Body(new ZodValidationPipe(e.signIn.body)) body: SignInBody,
     @Req() req: ApiRequest,
     @Res({ passthrough: true }) res: Response,
-    @Locale() locale: LocaleCode,
-  ): Promise<SignInResponse> {
+  ): Promise<Answer<'signIn'>> {
     const session = await this.sessions.forSignIn(req, res);
-    const done = await this.auth.signIn(body, { ip: clientIp(req), userAgent: header(req, 'user-agent'), locale, session });
-    if (done.locale) setCookie(res, LOCALE_COOKIE, serialize(LOCALE_COOKIE, done.locale, { maxAge: LOCALE_MAX_AGE, path: '/', sameSite: 'lax' }));
-    return { ok: true, next: done.next, twoFactor: done.twoFactor };
+    return signInForm(session, body, { ...requestFacts(req), rememberLocale: (locale) => setLocaleCookie(res, locale) });
   }
 
-  @Post('sign-out')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Ends this browser\'s session record and clears the cookie. Succeeds without a session too.' })
-  @ApiHeader(csrfHeader)
-  @ApiResponse({ status: 200, schema: { type: 'object', properties: { ok: { type: 'boolean' }, next: { type: 'string' } } } })
-  async signOut(@Req() req: ApiRequest, @Res({ passthrough: true }) res: Response): Promise<{ ok: true; next: string }> {
+  @Route(e.resendConfirmation)
+  resendConfirmation(@Body(new ZodValidationPipe(e.resendConfirmation.body)) body: { email: string; password: string }, @Req() req: ApiRequest): Promise<Answer<'resendConfirmation'>> {
+    return resendConfirmationForm(body, requestFacts(req));
+  }
+
+  @Route(e.forgotPassword)
+  forgotPassword(@Body(new ZodValidationPipe(e.forgotPassword.body)) body: { email: string }, @Req() req: ApiRequest): Promise<Answer<'forgotPassword'>> {
+    return forgotPasswordForm(body.email, requestFacts(req));
+  }
+
+  @Route(e.resetTarget)
+  async resetTarget(@Param(new ZodValidationPipe(e.resetTarget.params)) { token }: { token: string }): Promise<Answer<'resetTarget'>> {
+    return { email: await resetTarget(token), passwordMin: MIN_PASSWORD };
+  }
+
+  @Route(e.resetPassword)
+  resetPassword(
+    @Param(new ZodValidationPipe(e.resetPassword.params)) { token }: { token: string },
+    @Body(new ZodValidationPipe(e.resetPassword.body)) body: { password: string; repeat: string },
+    @Locale() locale: LocaleCode,
+  ): Promise<Answer<'resetPassword'>> {
+    return resetPasswordForm(token, body, locale);
+  }
+
+  @Route(e.changePassword)
+  async changePassword(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(e.changePassword.body)) body: { current: string; next: string },
+    @Req() req: ApiRequest,
+    @Locale() locale: LocaleCode,
+  ): Promise<Answer<'changePassword'>> {
+    return changePasswordForm(user, body, (await this.sessions.read(req)).sid ?? null, locale);
+  }
+
+  @Route(e.signUp)
+  async signUp(
+    @Body(new ZodValidationPipe(e.signUp.body)) body: { email: string; password: string; firm: string },
+    @Req() req: ApiRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Answer<'signUp'>> {
+    return signUpForm(await this.sessions.forSignIn(req, res), body, requestFacts(req));
+  }
+
+  /** Works without a session too. */
+  @Route(e.signOut)
+  async signOut(@Req() req: ApiRequest, @Res({ passthrough: true }) res: Response): Promise<Answer<'signOut'>> {
     const { sid } = await this.sessions.read(req);
-    await this.auth.signOut(sid);
+    if (sid) await endRecord(sid);
     this.sessions.clear(res);
-    return { ok: true, next: '/sign-in' };
+    return { redirect: '/sign-in' };
   }
 
-  @Get('me')
-  @UseGuards(SessionGuard)
-  @ApiCookieAuth('session')
-  @ApiOperation({ summary: 'The signed-in user, the org, role, client scope and interface language.' })
-  @ApiResponse({ status: 200, schema: meResponseSchema })
-  @ApiResponse({ status: 401, description: 'unauthorized', schema: errorSchema })
-  me(@CurrentUser() user: User, @Locale() locale: LocaleCode) {
-    return this.auth.me(user, locale);
+  @Route(e.verifyEmail)
+  async verifyEmail(@Param(new ZodValidationPipe(e.verifyEmail.params)) { token }: { token: string }, @Req() req: ApiRequest, @Res() res: Response): Promise<void> {
+    const session = await this.sessions.forSignIn(req, res);
+    go(res, await verifyEmailLink(session, token, requestFacts(req).userAgent));
+  }
+
+  @Route(e.twoFactorSubmit)
+  async twoFactorSubmit(
+    @Body(new ZodValidationPipe(e.twoFactorSubmit.body)) body: { code: string },
+    @Req() req: ApiRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Answer<'twoFactorSubmit'>> {
+    return twoFactorForm(await this.sessions.forSignIn(req, res), body.code, requestFacts(req));
+  }
+
+  @Route(e.twoFactorState)
+  twoFactorState(@CurrentUser() user: User): Promise<Answer<'twoFactorState'>> {
+    return twoFactorState(user.userId);
+  }
+
+  @Route(e.twoFactorStart)
+  twoFactorStart(@CurrentUser() user: User): Promise<Answer<'twoFactorStart'>> {
+    return startTwoFactor(user);
+  }
+
+  @Route(e.twoFactorFinish)
+  twoFactorFinish(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.twoFactorFinish.body)) body: { code: string }): Promise<Answer<'twoFactorFinish'>> {
+    return finishTwoFactor(user, body.code);
+  }
+
+  @Route(e.twoFactorOff)
+  twoFactorOff(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.twoFactorOff.body)) body: { code: string }): Promise<Answer<'twoFactorOff'>> {
+    return turnOffTwoFactor(user, body.code);
+  }
+
+  @Route(e.recoveryCodes)
+  recoveryCodes(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.recoveryCodes.body)) body: { code: string }): Promise<Answer<'recoveryCodes'>> {
+    return newRecoveryCodes(user, body.code);
+  }
+
+  @Route(e.security)
+  security(@CurrentUser() user: User): Promise<Answer<'security'>> {
+    return securityExtras(user);
+  }
+
+  /** Live sessions, this browser first, then the most recently active; the device label in the viewer's language. */
+  @Route(e.sessions)
+  async list(@CurrentUser() user: User, @Req() req: ApiRequest, @Locale() locale: LocaleCode): Promise<Answer<'sessions'>> {
+    const [rows, { sid }] = await Promise.all([listSessions(user.userId), this.sessions.read(req)]);
+    const unknown = i18nFor(locale).ta.security.unknownDevice;
+    return orderSessions(rows, sid).map((s) => ({
+      id: s.id, userAgent: s.userAgent, device: deviceLabel(s.userAgent) ?? unknown, current: s.id === sid,
+      createdAt: s.createdAt.toISOString(), lastSeenAt: s.lastSeenAt.toISOString(),
+    }));
+  }
+
+  @Route(e.endSession)
+  endSession(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.endSession.params)) { sid }: { sid: string }): Promise<Answer<'endSession'>> {
+    return revokeSession(user, sid);
+  }
+
+  @Route(e.endOtherSessions)
+  async endOtherSessions(@CurrentUser() user: User, @Req() req: ApiRequest): Promise<Answer<'endOtherSessions'>> {
+    return revokeOthers(user, (await this.sessions.read(req)).sid ?? null);
+  }
+
+  @Route(e.telegramLogin)
+  async telegramLogin(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
+    const session = await this.sessions.forSignIn(req, res);
+    go(res, await telegramSignIn(session, queryPairs(req), requestFacts(req)));
+  }
+
+  @Route(e.telegramBindStart)
+  async telegramBindStart(@Req() req: ApiRequest, @Res({ passthrough: true }) res: Response): Promise<Answer<'telegramBindStart'>> {
+    return startTelegramBind(await this.sessions.forSignIn(req, res));
+  }
+
+  /** A browser callback: without a session it goes to sign in instead of answering 401. */
+  @Route(e.telegramBind, { session: 'manual' })
+  async telegramBind(@Param(new ZodValidationPipe(e.telegramBind.params)) { state }: { state: string }, @Req() req: ApiRequest, @Res() res: Response): Promise<void> {
+    const user = await this.sessions.currentUser(req);
+    const session = await this.sessions.forSignIn(req, res);
+    go(res, await telegramBindCallback(session, user, state, queryPairs(req)));
+  }
+
+  @Route(e.telegramUnbind)
+  telegramUnbind(@CurrentUser() user: User): Promise<Answer<'telegramUnbind'>> {
+    return unbindTelegram(user);
   }
 }

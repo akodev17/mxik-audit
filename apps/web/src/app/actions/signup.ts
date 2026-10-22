@@ -1,28 +1,24 @@
 'use server';
 
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { formText } from '@tasnivo/domain/form';
-import { getI18n } from '@/lib/locale';
-import { clientIp } from '@tasnivo/domain/security/client-ip';
-import { hit, minutesOf, RULES } from '@tasnivo/domain/security/rate-limit';
-import { openSession } from '@/lib/security/sign-in';
-import { createAccount } from '@tasnivo/domain/signup';
+import { signUpForm } from '@tasnivo/domain/signup';
+import { requestFacts } from '@/lib/request-facts';
+import { getSession } from '@/lib/session';
 
 export type SignUpState = { error?: string; checkEmail?: boolean };
 
 /**
  * Public signup: opens a 14-day trial org. With SMTP configured the address must be confirmed
  * first, and an address that is already registered gets the same "check your e-mail" answer.
+ * The rules are @tasnivo/domain/signup signUpForm, shared with the API.
  */
 export async function signUp(_prev: SignUpState, form: FormData): Promise<SignUpState> {
-  const { ta, locale } = await getI18n();
-  const verdict = await hit(RULES.signupIp, clientIp(await headers()));
-  if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
-  const result = await createAccount({ email: formText(form, 'email'), password: formText(form, 'password'), firmName: formText(form, 'firm'), locale });
-  if (!result.ok) return 'mailed' in result ? { checkEmail: true } : { error: ta.msg.account[result.error] };
-  if (result.account.needsVerification) return { checkEmail: true };
-
-  const next = await openSession({ id: result.account.userId, orgId: result.account.orgId, email: result.account.email }, { via: 'signup', landing: '/dashboard' });
-  redirect(next ?? '/sign-in');
+  const result = await signUpForm(
+    await getSession(),
+    { email: formText(form, 'email'), password: formText(form, 'password'), firm: formText(form, 'firm') },
+    await requestFacts(),
+  );
+  if ('redirect' in result) redirect(result.redirect);
+  return result;
 }

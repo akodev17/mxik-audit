@@ -16,7 +16,10 @@ export const ApiKeyRow = z.object({
   lastUsedAt: IsoDateTime.nullable(),
   revokedAt: IsoDateTime.nullable(),
   checksThisMonth: z.number().int(),
+  /** The creator's e-mail; null when unknown or the creator has left the team. */
   createdBy: z.string().nullable(),
+  /** The key was made by a member who has since left the team. */
+  creatorRemoved: z.boolean(),
 });
 
 const Limits = z.object({ clients: z.number().int().nullable(), rowsPerMonth: z.number().int().nullable(), seats: z.number().int().nullable() });
@@ -41,7 +44,7 @@ export const ACTIVITY_CATEGORIES = ['all', 'decisions', 'uploads', 'exports', 's
 
 export const account = defineModule('account', {
   get: endpoint({
-    method: 'GET', path: '/api/account', auth: 'session', role: 'any',
+    method: 'GET', path: '/api/account', auth: 'session', role: 'admin',
     summary: 'Organisation profile, branding and data settings',
     responds: 'json',
     response: z.object({
@@ -55,7 +58,7 @@ export const account = defineModule('account', {
       retentionChoices: z.array(z.number().int()),
     }),
     replaces: ['page:(app)/settings#account', 'page:(app)/settings#data'],
-    provisional: 'account-tab.tsx and data-tab.tsx select these columns from db.organization today',
+    notes: 'Shape confirmed in W2; until W3 account-tab.tsx and data-tab.tsx select these columns from db.organization.',
   }),
   config: endpoint({
     method: 'GET', path: '/api/config', auth: 'public',
@@ -70,7 +73,7 @@ export const account = defineModule('account', {
       origin: z.string().nullable(),
     }),
     replaces: ['page:api-docs', 'page:yordam/[[...path]]'],
-    provisional: 'the help and API docs pages read apiConfig(), planLimits(), MAX_UPLOAD_BYTES directly today',
+    notes: 'Shape confirmed in W2; until W3 the help and API docs pages read apiConfig(), planLimits(), MAX_UPLOAD_BYTES directly.',
   }),
   saveBranding: endpoint({
     method: 'POST', path: '/api/account/branding', auth: 'session', role: 'admin', noDemo: true,
@@ -102,8 +105,7 @@ export const account = defineModule('account', {
     summary: 'For the closed-account page: when the data is purged and whether this user may reopen',
     responds: 'json', response: z.object({ purgeOn: IsoDateTime.nullable(), canReopen: z.boolean() }),
     replaces: ['page:account-deleted'],
-    provisional: 'account-deleted/page.tsx reads purgeDate() and the session record directly',
-    notes: 'The session belongs to a closed org: the guard must accept it here (isLive), unlike everywhere else.',
+    notes: 'The session belongs to a closed org: the guard must accept it here (isLive), unlike everywhere else. 401 without a live session record; purgeOn is null while the account is open. Shape confirmed in W2; account-deleted/page.tsx reads purgeDate() and the session record directly until W3.',
   }),
   reopen: endpoint({
     method: 'POST', path: '/api/account/reopen', auth: 'session', role: 'admin',
@@ -150,7 +152,7 @@ export const account = defineModule('account', {
       links: z.array(z.object({ id: z.string(), username: z.string().nullable(), createdAt: IsoDateTime, linkedBy: z.string().nullable() })),
     }),
     replaces: ['page:(app)/settings#integrations'],
-    provisional: 'integrations-tab.tsx queries db.telegramLink and maps linkedBy to an e-mail itself',
+    notes: 'Shape confirmed in W2; until W3 integrations-tab.tsx queries db.telegramLink and maps linkedBy to an e-mail itself.',
   }),
   telegramCode: endpoint({
     method: 'POST', path: '/api/account/telegram/code', auth: 'session', role: 'admin', noDemo: true,
@@ -186,7 +188,7 @@ export const account = defineModule('account', {
       ratePerMinute: z.number().int(),
     }),
     replaces: ['page:(app)/settings#integrations'],
-    provisional: 'integrations-tab.tsx combines listApiKeys, usageThisMonth, planStatus and apiConfig itself',
+    notes: 'Shape confirmed in W2; until W3 integrations-tab.tsx combines listApiKeys, usageThisMonth, planStatus and apiConfig itself.',
   }),
   createApiKey: endpoint({
     method: 'POST', path: '/api/account/api-keys', auth: 'session', role: 'admin', noDemo: true,
@@ -223,8 +225,17 @@ export const account = defineModule('account', {
       pageSize: z.number().int(),
       clients: z.array(z.object({ id: z.string(), name: z.string() })),
       users: z.array(z.object({ id: z.string(), email: z.string() })),
+      /** The filters as applied: days as YYYY-MM-DD, a client or member outside the viewer's reach dropped. */
+      applied: z.object({
+        clientId: z.string().nullable(), userId: z.string().nullable(), category: z.enum(ACTIVITY_CATEGORIES),
+        from: z.string().nullable(), to: z.string().nullable(), page: z.number().int(),
+      }),
+      /** A typed day could not be read and was dropped. */
+      unreadable: z.boolean(),
+      /** The range was given in reverse and swapped. */
+      swapped: z.boolean(),
     }),
     replaces: ['page:(app)/activity'],
-    provisional: 'activity/page.tsx also loads the client and user pickers with db.client/db.user; groupDecisions stays in the web',
+    notes: 'Shape confirmed in W2; until W3 activity/page.tsx also loads the client and user pickers with db.client/db.user; groupDecisions stays in the web.',
   }),
 });

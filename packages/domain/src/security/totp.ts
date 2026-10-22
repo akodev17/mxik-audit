@@ -31,7 +31,8 @@ export const newSecret = (): string => base32Encode(randomBytes(20));
 
 export const stepOf = (now = Date.now()): number => Math.floor(now / 1000 / STEP_SECONDS);
 
-function codeAt(secret: string, step: number): string {
+/** The code an authenticator shows for a step (exported for tests). */
+export function codeAt(secret: string, step: number): string {
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(step));
   const mac = createHmac('sha1', base32Decode(secret)).update(counter).digest();
