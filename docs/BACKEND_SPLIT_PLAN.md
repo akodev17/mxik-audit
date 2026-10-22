@@ -275,3 +275,49 @@ domain as a dependency). `packages/db/prisma/seed.ts` imports domain's `load-env
 **Not changed:** matching/audit logic, the schema and migrations, `scripts/` names (all root
 `npm run` names kept), docker-compose services. The web app still imports @tasnivo/domain and
 @tasnivo/db directly; the ESLint ban from section 3 comes in W3.
+
+## Wave 3c result: review workspace, dictionary, queue, dashboard, notifications (23 Oct 2026)
+
+These areas now read and write through `@tasnivo/api-client` (branch `claude/w3c-web-workspace-ce3bbf`).
+- **Workspace grid** (`catalogs/[id]`, the grid half): page.tsx reads the default view, `catalogs.summary`,
+  `workspace.counts` and the first `workspace.rows` page (with `row` for queue links) through `serverApi()`.
+  `workspace.tsx` keeps rows in a `useInfiniteQuery` (key `['catalog', id, 'rows', filterKey]`) and summary/counts in
+  queries, all seeded from the server render (`staleTime: Infinity`, `gcTime: 0`). `use-decisions.ts` patches the
+  rows cache optimistically and rolls back as before. A change to many rows invalidates summary and counts
+  (`recount()`) instead of calling `router.refresh()`. The drawer (`workspace.rowDetail`, cancelled on j/k), comments,
+  saved views and code lookup (`useCodeLookup`) are queries; every write calls `api.*` wrapped in `serverChange()`,
+  so W3d's router-cache refresh-on-next-navigation still works. The filter sent to the API is `apiFilter()`
+  (lib/workspace-url.ts, the web copy of the domain's filter/view helpers, with parity tests). `apiFilter()` also
+  fixes the old case where `?source=…&dec=pending` loaded later pages as `dec=all`.
+- **Dictionary**: page + `DictionaryView` (query `['dictionary', …]`, invalidated by edit and delete); the settings
+  toggle (`settings/dictionary-setting.tsx`) calls `dictionary.setAutoAccept`.
+- **Notifications page**: `NoticeList` + `useNotices` (key `['notifications', 'list', …]`); "mark read" and
+  "mark all read" invalidate `['notifications']` (W3d's bell can share the prefix).
+- **Queue**: one `workspace.queue` read (queue-params.ts holds the web copies of readQueueFilter, workspaceHref and
+  withQuery, with parity tests). **Dashboard**: one `workspace.dashboard` + `billing.plan` read (dashboard-data.ts
+  turns the ISO dates back into Date for the existing components). Closing a task calls `reminders.finishTask`,
+  hides the task at once and still calls `router.refresh()`: the totals (overdue checks) are part of the one
+  server read.
+- **Deleted actions:** review, workspace, bulk, comments, views, feedback, barcode-name, dictionary, and
+  `reminders.ts#finishTask`. `reminders.ts#saveSchedule` stays: `clients/[id]/schedule-form.tsx` (W3d) uses it.
+  shell.ts (notifications preview/mark read, used by the bell) is W3d's.
+- **Session in pages:** `lib/require-me.ts` (`requireMe()` on W3a's `signedIn()`, plus `canWrite`/`isAdminRole`).
+
+Seams:
+- `catalogs/[id]/page.tsx` is shared with W3b: W3b owns the top (catalog header read), W3c the grid half. At
+  merge, the grid half should use W3b's `catalog.client.id`, `catalog.exportLocked` and `user` (auth.me). Both
+  branches changed money-at-risk.tsx to `workspace.moneyAtRisk`; the two versions are equivalent.
+- notifications/notice-actions.tsx is also listed by W3d; W3c's version (query invalidation) is the one that fits
+  the page.
+
+For W4:
+- Files left out of MIGRATED_WEB_PATHS, because they still use pure domain/core helpers:
+  - the dashboard's presentational parts: work-queue (arrangeQueue …), client-stats rowProgress/attentionReasons
+    (that module also imports the db), client-attention, client-kpi, activity-groups, billing/limits;
+  - `catalogs/[id]/unit-label.ts` (`@tasnivo/core` unit tables);
+  - `catalogs/[id]/page.tsx` until W3b's half lands.
+  Move those helpers into apps/web or contracts, then make the rule repo-wide.
+- The dashboard is still one server read refreshed with `router.refresh()` after a task closes. A client query for
+  the totals would remove that last refresh.
+- The web copies (workspace-url.ts, queue-params.ts, dictionary-params.ts) are tested against the domain. Drop the
+  tests and keep the copies when the web stops depending on @tasnivo/domain.

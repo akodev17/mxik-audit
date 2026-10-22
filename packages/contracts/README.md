@@ -230,7 +230,7 @@ the repository root. Ticks are kept.
 | [ ] | [ ] | action `catalog.ts#retryCatalogAudit` | `catalogs.retry` | `POST /api/catalogs/{catalogId}/retry` | session (writer) |
 | [ ] | [ ] | action `catalog.ts#removeCatalog` | `catalogs.remove` | `DELETE /api/catalogs/{catalogId}` | session (writer) |
 | [ ] | [ ] | page `(app)/catalogs/[id]` | `catalogs.get` ⚠ | `GET /api/catalogs/{catalogId}` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]#summary` | `catalogs.summary` | `GET /api/catalogs/{catalogId}/summary` | session (any) |
+| [ ] | [x] | page `(app)/catalogs/[id]#summary` | `catalogs.summary` | `GET /api/catalogs/{catalogId}/summary` | session (any) |
 | [ ] | [ ] | page `(app)/catalogs/[id]/diff#candidates` | `catalogs.versions` | `GET /api/catalogs/{catalogId}/versions` | session (any) |
 | [ ] | [ ] | page `(app)/catalogs/[id]/diff` | `catalogs.diff` | `GET /api/catalogs/{catalogId}/diff` | session (any) |
 | [ ] | [ ] | page `(app)/catalogs/[id]/report` | `catalogs.report` ⚠ | `GET /api/catalogs/{catalogId}/report` | session (any) |
@@ -249,43 +249,43 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | action `workspace.ts#loadRows` | `workspace.rows` | `GET /api/catalogs/{catalogId}/rows` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]#rows` | `workspace.rows` | `GET /api/catalogs/{catalogId}/rows` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]#counts` | `workspace.counts` | `GET /api/catalogs/{catalogId}/counts` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]#moneyAtRisk` | `workspace.moneyAtRisk` | `GET /api/catalogs/{catalogId}/money-at-risk` | session (any) |
-| [ ] | [ ] | action `workspace.ts#loadRowDetail` | `workspace.rowDetail` | `GET /api/findings/{findingId}` | session (any) |
-| [ ] | [ ] | action `review.ts#decide` | `workspace.decide` | `POST /api/findings/{findingId}/decision` | session (writer) |
-| [ ] | [ ] | action `review.ts#decideGroup` | `workspace.decideGroup` | `POST /api/decisions/group` | session (writer) |
-| [ ] | [ ] | action `review.ts#splitRow` | `workspace.split` | `POST /api/findings/{findingId}/split` | session (writer) |
-| [ ] | [ ] | action `review.ts#acceptAllAbove` | `workspace.acceptSure` | `POST /api/catalogs/{catalogId}/accept-sure` | session (writer) |
-| [ ] | [ ] | action `review.ts#previewSure` | `workspace.previewSure` | `POST /api/catalogs/{catalogId}/accept-sure/preview` | session (writer) |
-| [ ] | [ ] | action `review.ts#undo` | `workspace.undo` | `POST /api/decisions/undo` | session (writer) |
-| [ ] | [ ] | action `bulk.ts#bulkDryRun` | `workspace.bulkPreview` | `POST /api/catalogs/{catalogId}/bulk/preview` | session (writer) |
-| [ ] | [ ] | action `bulk.ts#bulkAction` | `workspace.bulkApply` | `POST /api/catalogs/{catalogId}/bulk` | session (writer) |
-| [ ] | [ ] | action `bulk.ts#undoBulkFlag` | `workspace.bulkUndoFlags` | `POST /api/bulk-events/{eventId}/undo-flags` | session (writer) |
-| [ ] | [ ] | action `comments.ts#loadComments` | `workspace.comments` | `GET /api/findings/{findingId}/comments` | session (any) |
-| [ ] | [ ] | action `comments.ts#postComment` | `workspace.postComment` | `POST /api/findings/{findingId}/comments` | session (writer) |
-| [ ] | [ ] | action `comments.ts#changeFlag` | `workspace.setFlag` | `PUT /api/findings/{findingId}/flag` | session (writer) |
-| [ ] | [ ] | action `views.ts#viewsList` | `workspace.views` | `GET /api/views` | session (any) |
-| [ ] | [ ] | action `views.ts#viewsSave` | `workspace.saveView` | `POST /api/views` | session (writer, no demo) |
-| [ ] | [ ] | action `views.ts#viewsRemove` | `workspace.removeView` | `DELETE /api/views/{viewId}` | session (writer) |
-| [ ] | [ ] | action `views.ts#viewsDefault` | `workspace.setDefaultView` | `PUT /api/views/default` | session (writer) |
-| [ ] | [ ] | action `review.ts#lookupCodes` | `workspace.lookupCodes` | `GET /api/codes/search` | session (any) |
-| [ ] | [ ] | action `review.ts#newCodeRequest` | `workspace.newCodeRequest` | `GET /api/findings/{findingId}/code-request` | session (any) |
-| [ ] | [ ] | action `feedback.ts#reportWrongSuggestion` | `workspace.wrongSuggestion` | `POST /api/findings/{findingId}/wrong-suggestion` | session (writer) |
-| [ ] | [ ] | action `barcode-name.ts#fillNameFromBarcode` | `workspace.nameFromBarcode` | `POST /api/findings/{findingId}/name-from-barcode` | session (writer) |
-| [ ] | [ ] | page `(app)/queue` | `workspace.queue` | `GET /api/queue` | session (any) |
-| [ ] | [ ] | page `(app)/dashboard` | `workspace.dashboard` | `GET /api/dashboard` | session (any) |
+| [ ] | [x] | action `workspace.ts#loadRows` | `workspace.rows` | `GET /api/catalogs/{catalogId}/rows` | session (any) |
+| [ ] | [x] | page `(app)/catalogs/[id]#rows` | `workspace.rows` | `GET /api/catalogs/{catalogId}/rows` | session (any) |
+| [ ] | [x] | page `(app)/catalogs/[id]#counts` | `workspace.counts` | `GET /api/catalogs/{catalogId}/counts` | session (any) |
+| [ ] | [x] | page `(app)/catalogs/[id]#moneyAtRisk` | `workspace.moneyAtRisk` | `GET /api/catalogs/{catalogId}/money-at-risk` | session (any) |
+| [ ] | [x] | action `workspace.ts#loadRowDetail` | `workspace.rowDetail` | `GET /api/findings/{findingId}` | session (any) |
+| [ ] | [x] | action `review.ts#decide` | `workspace.decide` | `POST /api/findings/{findingId}/decision` | session (writer) |
+| [ ] | [x] | action `review.ts#decideGroup` | `workspace.decideGroup` | `POST /api/decisions/group` | session (writer) |
+| [ ] | [x] | action `review.ts#splitRow` | `workspace.split` | `POST /api/findings/{findingId}/split` | session (writer) |
+| [ ] | [x] | action `review.ts#acceptAllAbove` | `workspace.acceptSure` | `POST /api/catalogs/{catalogId}/accept-sure` | session (writer) |
+| [ ] | [x] | action `review.ts#previewSure` | `workspace.previewSure` | `POST /api/catalogs/{catalogId}/accept-sure/preview` | session (writer) |
+| [ ] | [x] | action `review.ts#undo` | `workspace.undo` | `POST /api/decisions/undo` | session (writer) |
+| [ ] | [x] | action `bulk.ts#bulkDryRun` | `workspace.bulkPreview` | `POST /api/catalogs/{catalogId}/bulk/preview` | session (writer) |
+| [ ] | [x] | action `bulk.ts#bulkAction` | `workspace.bulkApply` | `POST /api/catalogs/{catalogId}/bulk` | session (writer) |
+| [ ] | [x] | action `bulk.ts#undoBulkFlag` | `workspace.bulkUndoFlags` | `POST /api/bulk-events/{eventId}/undo-flags` | session (writer) |
+| [ ] | [x] | action `comments.ts#loadComments` | `workspace.comments` | `GET /api/findings/{findingId}/comments` | session (any) |
+| [ ] | [x] | action `comments.ts#postComment` | `workspace.postComment` | `POST /api/findings/{findingId}/comments` | session (writer) |
+| [ ] | [x] | action `comments.ts#changeFlag` | `workspace.setFlag` | `PUT /api/findings/{findingId}/flag` | session (writer) |
+| [ ] | [x] | action `views.ts#viewsList` | `workspace.views` | `GET /api/views` | session (any) |
+| [ ] | [x] | action `views.ts#viewsSave` | `workspace.saveView` | `POST /api/views` | session (writer, no demo) |
+| [ ] | [x] | action `views.ts#viewsRemove` | `workspace.removeView` | `DELETE /api/views/{viewId}` | session (writer) |
+| [ ] | [x] | action `views.ts#viewsDefault` | `workspace.setDefaultView` | `PUT /api/views/default` | session (writer) |
+| [ ] | [x] | action `review.ts#lookupCodes` | `workspace.lookupCodes` | `GET /api/codes/search` | session (any) |
+| [ ] | [x] | action `review.ts#newCodeRequest` | `workspace.newCodeRequest` | `GET /api/findings/{findingId}/code-request` | session (any) |
+| [ ] | [x] | action `feedback.ts#reportWrongSuggestion` | `workspace.wrongSuggestion` | `POST /api/findings/{findingId}/wrong-suggestion` | session (writer) |
+| [ ] | [x] | action `barcode-name.ts#fillNameFromBarcode` | `workspace.nameFromBarcode` | `POST /api/findings/{findingId}/name-from-barcode` | session (writer) |
+| [ ] | [x] | page `(app)/queue` | `workspace.queue` | `GET /api/queue` | session (any) |
+| [ ] | [x] | page `(app)/dashboard` | `workspace.dashboard` | `GET /api/dashboard` | session (any) |
 
 ### dictionary
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `(app)/dictionary` | `dictionary.list` | `GET /api/dictionary` | session (any) |
-| [ ] | [ ] | action `dictionary.ts#acceptDictionary` | `dictionary.acceptForCatalog` | `POST /api/catalogs/{catalogId}/dictionary/accept` | session (writer) |
-| [ ] | [ ] | action `dictionary.ts#updateMapping` | `dictionary.update` | `PATCH /api/dictionary/{entryId}` | session (writer) |
-| [ ] | [ ] | action `dictionary.ts#deleteMapping` | `dictionary.remove` | `DELETE /api/dictionary/{entryId}` | session (writer) |
-| [ ] | [ ] | action `dictionary.ts#setDictAutoAccept` | `dictionary.setAutoAccept` | `PUT /api/dictionary/auto-accept` | session (admin) |
+| [ ] | [x] | page `(app)/dictionary` | `dictionary.list` | `GET /api/dictionary` | session (any) |
+| [ ] | [x] | action `dictionary.ts#acceptDictionary` | `dictionary.acceptForCatalog` | `POST /api/catalogs/{catalogId}/dictionary/accept` | session (writer) |
+| [ ] | [x] | action `dictionary.ts#updateMapping` | `dictionary.update` | `PATCH /api/dictionary/{entryId}` | session (writer) |
+| [ ] | [x] | action `dictionary.ts#deleteMapping` | `dictionary.remove` | `DELETE /api/dictionary/{entryId}` | session (writer) |
+| [ ] | [x] | action `dictionary.ts#setDictAutoAccept` | `dictionary.setAutoAccept` | `PUT /api/dictionary/auto-accept` | session (admin) |
 
 ### imports
 
@@ -324,14 +324,14 @@ the repository root. Ticks are kept.
 |---|---|---|---|---|---|
 | [ ] | [ ] | page `(app)/clients/[id]#schedule` | `reminders.schedule` | `GET /api/clients/{clientId}/reminder` | session (any) |
 | [ ] | [ ] | action `reminders.ts#saveSchedule` | `reminders.saveSchedule` | `PUT /api/clients/{clientId}/reminder` | session (writer, no demo) |
-| [ ] | [ ] | page `(app)/dashboard#tasks` | `reminders.tasks` | `GET /api/reminders/tasks` | session (any) |
-| [ ] | [ ] | action `reminders.ts#finishTask` | `reminders.finishTask` | `POST /api/reminders/tasks/{taskId}/done` | session (writer, no demo) |
+| [ ] | [x] | page `(app)/dashboard#tasks` | `reminders.tasks` | `GET /api/reminders/tasks` | session (any) |
+| [ ] | [x] | action `reminders.ts#finishTask` | `reminders.finishTask` | `POST /api/reminders/tasks/{taskId}/done` | session (writer, no demo) |
 
 ### notifications
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `(app)/notifications` | `notifications.list` | `GET /api/notifications` | session (any) |
+| [ ] | [x] | page `(app)/notifications` | `notifications.list` | `GET /api/notifications` | session (any) |
 | [ ] | [ ] | action `shell.ts#notificationsPreview` | `notifications.preview` | `GET /api/notifications/preview` | session (any) |
 | [ ] | [ ] | action `shell.ts#markNotificationsRead` | `notifications.markRead` | `POST /api/notifications/read` | session (any) |
 | [ ] | [ ] | action `shell.ts#markAllNotificationsRead` | `notifications.markAllRead` | `POST /api/notifications/read-all` | session (any) |

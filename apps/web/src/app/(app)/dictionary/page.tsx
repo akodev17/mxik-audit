@@ -1,6 +1,6 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
-import { canWrite, requireMe } from '@/lib/api/me';
+import { canWrite, requireMe } from '@/lib/require-me';
 import { serverApi } from '@/lib/api/server';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';

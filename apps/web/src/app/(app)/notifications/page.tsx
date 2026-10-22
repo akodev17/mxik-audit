@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getI18n } from '@/lib/locale';
-import { requireMe } from '@/lib/api/me';
+import { requireMe } from '@/lib/require-me';
 import { serverApi } from '@/lib/api/server';
 import { Page } from '@/ui/page';
 import { MarkAllReadButton } from './notice-actions';

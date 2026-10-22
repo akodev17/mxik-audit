@@ -7,7 +7,7 @@ import { securityHeaders } from '@tasnivo/domain/security/headers';
 
 const config: NextConfig = {
   // The workspace packages are TypeScript source (package.json "exports" point at .ts files).
-  transpilePackages: ['@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n', '@tasnivo/contracts', '@tasnivo/api-client'],
+  transpilePackages: ['@tasnivo/api-client', '@tasnivo/contracts', '@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n'],
   // The dev overlay badge would appear in the landing page screenshots.
   devIndicators: false,
   // exceljs and pg must run on the server, never be bundled for the browser. bullmq and ioredis load
@@ -26,19 +26,22 @@ const config: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders() }];
   },
-  // Until Caddy sends /api/* to the API (or NEXT_PUBLIC_API_URL points the browser at it), the web
-  // server passes API calls through. afterFiles: the web's own /api route handlers still win.
-  async rewrites() {
-    if (process.env.NEXT_PUBLIC_API_URL) return [];
-    const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
-    return { beforeFiles: [], afterFiles: [{ source: '/api/:path*', destination: `${api}/api/:path*` }], fallback: [] };
-  },
   // The habitual addresses land on the real sign-in page instead of a 404.
   async redirects() {
     return [
       { source: '/login', destination: '/sign-in', permanent: true },
       { source: '/signin', destination: '/sign-in', permanent: true },
+      // Confirmation e-mails sent before the API took the link over point at /verify/<token>.
+      { source: '/verify/:token', destination: '/api/auth/verify/:token', permanent: false },
     ];
+  },
+  // Development and single-origin setups without Caddy: /api/* that no Next route handler answers
+  // goes to the API (afterFiles, so the handlers not moved yet keep winning until they are deleted).
+  // With NEXT_PUBLIC_API_URL set the browser calls the API itself and nothing is rewritten.
+  async rewrites() {
+    if (process.env.NEXT_PUBLIC_API_URL) return [];
+    const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+    return { beforeFiles: [], afterFiles: [{ source: '/api/:path*', destination: `${api}/api/:path*` }], fallback: [] };
   },
   webpack: (webpackConfig) => {
     // packages/* are also run directly by tsx (scripts, eval, tests),

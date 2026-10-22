@@ -1,10 +1,12 @@
 'use client';
 
-import type { MatchStage } from '@tasnivo/core/match/types';
+import type { MATCH_STAGES } from '@tasnivo/contracts';
 import { useI18n } from '@/lib/locale-client';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { suggestionLabel } from '@/ui/labels';
 import { CellChip } from './cell-chip';
+
+type MatchStage = (typeof MATCH_STAGES)[number];
 
 /** `short`: the grid's narrow "Moslik" column, where the band name alone fits ("Yuqori"). */
 type Props = { confidence: number | null; stage: MatchStage | null; show: boolean; short?: boolean };

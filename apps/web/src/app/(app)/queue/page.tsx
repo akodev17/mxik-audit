@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { fmtNumber } from '@tasnivo/i18n/format';
-import { canWrite, isAdminRole, requireMe } from '@/lib/api/me';
+import { canWrite, isAdminRole, requireMe } from '@/lib/require-me';
 import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
 import { ButtonLink } from '@/ui/button';

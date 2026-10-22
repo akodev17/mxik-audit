@@ -1,24 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { canWrite, isAdminRole } from '@tasnivo/domain/access';
-import { activityPage } from '@tasnivo/domain/activity';
 import { groupDecisions } from '@tasnivo/domain/activity-groups';
 import { rowProgress } from '@tasnivo/domain/client-stats';
 import { parseQueueParams, type QueueFilter, type QueueSort } from '@tasnivo/domain/work-queue';
-import { dashboard } from '@tasnivo/domain/dashboard';
+import { canWrite, isAdminRole, requireMe } from '@/lib/require-me';
 import { getI18n } from '@/lib/locale';
-import { onboardingSteps } from '@tasnivo/domain/onboarding';
-import { planStatus } from '@/lib/plan';
-import { openTasks } from '@tasnivo/domain/reminders';
-import { openReviews, reviewCounts } from '@tasnivo/domain/review-assignments';
-import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
 import { TabPanels, type TabPanel } from '@/ui/tab-panels';
 import { ActivityFeed } from '../activity/activity-feed';
 import { AccountantFilter } from './accountant-filter';
 import { Changes } from './changes';
+import { dashboardData } from './dashboard-data';
 import { IssueChart } from './issue-chart';
 import { Onboarding } from './onboarding';
 import { Summary } from './summary';
@@ -39,25 +32,16 @@ const REGION = 'px-5 py-6 sm:px-8';
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string; qf?: string; qs?: string; rv?: string }> }) {
   const { ta } = await getI18n();
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireMe();
   const sp = await searchParams;
   const admin = isAdminRole(user);
   const home = ta.firmX.home;
   const view = parseQueueParams(sp);
 
   const mineOnly = sp.rv === 'mine';
-  const [data, allTasks, steps, recent, plan, reviews, reviewTotals] = await Promise.all([
-    dashboard(user, admin ? sp.accountant ?? null : null),
-    openTasks(user.orgId, user.clientIds),
-    onboardingSteps(user),
-    activityPage(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: 40 }),
-    planStatus(user.orgId),
-    openReviews(user, { mineOnly }),
-    reviewCounts(user),
-  ]);
-  const shown = new Set(data.clients.map((c) => c.id));
-  const tasks = allTasks.filter((x) => shown.has(x.clientId));
+  const { data, plan } = await dashboardData(sp);
+  const { tasks, onboarding: steps, reviews: { open: reviews, counts: reviewTotals } } = data;
+  const recent = { rows: data.activity };
   const { totals } = data;
   const accountantQuery = data.selected ? `accountant=${encodeURIComponent(data.selected.id)}` : '';
   const queueHref = (extra = ''): string => {
@@ -153,7 +137,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <h2 className="mb-4 text-[1.125rem] font-medium leading-6">{ta.reminders.tasks}</h2>
                 <Tasks
                   canWrite={canAct}
-                  items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn.toISOString(), overdue: x.overdue }))}
+                  items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn, overdue: x.overdue }))}
                 />
               </div>
             ) : null}

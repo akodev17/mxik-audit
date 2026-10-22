@@ -1,22 +1,18 @@
-// The signed-in user as the API sees them (GET /api/auth/me), read once per server render.
-// No session sends the browser to sign-in, as currentUser() + redirect did; any other failure
-// reaches the error page.
-import { isApiError } from '@tasnivo/api-client';
-import { redirect } from 'next/navigation';
+// The signed-in user as the API sees it, for server components: once per render (React cache), so
+// the metadata, the page and the parts it renders share one call. Null when the API answers 401.
 import { cache } from 'react';
+import { isApiError, type OutputOf } from '@tasnivo/api-client';
+import type { endpoints } from '@tasnivo/contracts';
 import { serverApi } from './server';
 
-export const requireMe = cache(async () => {
+export type Me = OutputOf<typeof endpoints.auth.me>;
+export type Role = Me['role'];
+
+export const signedIn = cache(async (): Promise<Me | null> => {
   try {
     return await serverApi().auth.me();
   } catch (error) {
-    if (isApiError(error) && error.status === 401) redirect('/sign-in');
+    if (isApiError(error) && error.status === 401) return null;
     throw error;
   }
 });
-
-type Role = Awaited<ReturnType<typeof requireMe>>['role'];
-
-/** Admins and accountants change data; viewers only read (domain access.ts canWrite). */
-export const canWrite = (me: { role: Role }): boolean => me.role === 'admin' || me.role === 'accountant';
-export const isAdminRole = (me: { role: Role }): boolean => me.role === 'admin';
