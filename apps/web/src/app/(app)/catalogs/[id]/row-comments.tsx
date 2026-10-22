@@ -1,8 +1,9 @@
 'use client';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { changeFlag, loadComments, postComment } from '@/app/actions/comments';
-import type { CommentView } from '@tasnivo/domain/comments';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { fmtDateTime } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
@@ -11,6 +12,7 @@ import { Spinner } from '@/ui/spinner';
 import { Textarea } from '@/ui/textarea';
 import { useToast } from '@/ui/toast';
 import { serverChange } from '@/ui/shell/router-cache';
+import type { CommentView } from './ws-types';
 
 type Props = {
   findingId: string;
@@ -23,31 +25,32 @@ type Props = {
 export function RowComments({ findingId, flag, readOnly, onChange }: Props) {
   const { ta, locale } = useI18n();
   const toast = useToast();
-  const [items, setItems] = useState<CommentView[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const queryClient = useQueryClient();
+  const thread = useQuery({
+    queryKey: ['finding', findingId, 'comments'],
+    queryFn: ({ signal }) => api.workspace.comments({ findingId }, { signal }),
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+  const items = thread.data ?? null;
+  const failed = thread.isError;
   const [text, setText] = useState('');
   const [current, setCurrent] = useState(flag);
   const [busy, setBusy] = useState<'send' | 'flag' | null>(null);
 
-  useEffect(() => {
-    let live = true;
-    setItems(null);
-    setFailed(false);
-    loadComments(findingId).then((c) => { if (live) setItems(c); }).catch(() => { if (live) setFailed(true); });
-    return () => { live = false; };
-  }, [findingId]);
   useEffect(() => setCurrent(flag), [flag]);
 
   async function send(): Promise<void> {
     setBusy('send');
     try {
-      const updated = await serverChange(postComment({ findingId, body: text }));
+      const updated = await serverChange(api.workspace.postComment({ findingId, body: text }));
       if (!updated) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
-      setItems(updated);
+      queryClient.setQueryData<CommentView[]>(['finding', findingId, 'comments'], updated);
       setText('');
       onChange(updated.length, current);
-    } catch {
-      toast(ta.wsX.toast.network, { tone: 'error' });
+    } catch (error) {
+      toast(isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed, { tone: 'error' });
     } finally {
       setBusy(null);
     }
@@ -57,11 +60,11 @@ export function RowComments({ findingId, flag, readOnly, onChange }: Props) {
     const value = current === next ? null : next;
     setBusy('flag');
     try {
-      if (!(await serverChange(changeFlag({ findingId, flag: value })))) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
+      if (!(await serverChange(api.workspace.setFlag({ findingId, flag: value })))) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
       setCurrent(value);
       onChange(items?.length ?? 0, value);
-    } catch {
-      toast(ta.wsX.toast.network, { tone: 'error' });
+    } catch (error) {
+      toast(isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed, { tone: 'error' });
     } finally {
       setBusy(null);
     }

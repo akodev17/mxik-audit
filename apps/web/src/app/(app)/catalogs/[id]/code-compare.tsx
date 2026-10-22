@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import type { CodeView } from '@tasnivo/domain/row-detail';
+import type { CodeView } from './ws-types';
 import { cx } from '@/ui/cx';
 
 /** Index of the first of the five blocks where two codes differ; -1 when equal. */

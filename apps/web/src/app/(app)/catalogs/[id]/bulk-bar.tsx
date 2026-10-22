@@ -1,15 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { bulkDryRun, type BulkActionInput, type DryRunResult } from '@/app/actions/bulk';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { filterQuery, type WsFilter } from '@tasnivo/domain/workspace-filter';
+import { apiFilter, type WsFilter } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import { ConfirmDialog, type ConfirmResult } from '@/ui/confirm-dialog';
 import { CodeSearch } from './code-search';
 import { needsBulkConfirm } from './bulk-confirm';
 import { count } from './ws-text';
+import type { BulkActionInput, DryRunResult } from './ws-types';
 
 type Picked = { code: string; name: string };
 
@@ -40,7 +42,7 @@ type Pending = { action: BulkActionInput; picked?: Picked; preview: DryRunResult
  * and whether the per-action cap cuts it short.
  */
 export function BulkBar(p: Props) {
-  const { ta, locale } = useI18n();
+  const { t, ta, locale } = useI18n();
   const b = ta.wsX.bulk;
   const [assigning, setAssigning] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -48,10 +50,13 @@ export function BulkBar(p: Props) {
   const start = (action: BulkActionInput, picked?: Picked): void => {
     if (!needsBulkConfirm({ allFiltered: p.allFiltered, selected: p.count, everyLoaded: p.everyLoaded })) { void p.onRun(action, picked); return; }
     setPending({ action, picked, preview: null });
-    const target = p.allFiltered ? { filter: filterQuery(p.filter) } : { ids: [...p.ids] };
-    bulkDryRun({ catalogId: p.catalogId, target, action })
+    const target = p.allFiltered ? { filter: apiFilter(p.filter) } : { ids: [...p.ids] };
+    api.workspace.bulkPreview({ catalogId: p.catalogId, target, action })
       .then((preview) => setPending((cur) => (cur && cur.action === action ? { ...cur, preview } : cur)))
-      .catch(() => setPending((cur) => (cur && cur.action === action ? { ...cur, preview: { ok: false, error: ta.wsX.toast.network } } : cur)));
+      .catch((error: unknown) => {
+        const message = isNetworkFailure(error) ? ta.wsX.toast.network : t.errorGeneric;
+        setPending((cur) => (cur && cur.action === action ? { ...cur, preview: { ok: false, error: message } } : cur));
+      });
   };
 
   const kind = pending?.action.kind === 'flag' ? 'flag' : pending?.action.kind ?? 'accept';

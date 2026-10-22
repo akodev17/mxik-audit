@@ -1,7 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/locale-client';
-import type { Signal } from '@tasnivo/domain/row-signals';
+import type { Signal } from './ws-types';
 import { Badge } from '@/ui/badge';
 import { cx } from '@/ui/cx';
 

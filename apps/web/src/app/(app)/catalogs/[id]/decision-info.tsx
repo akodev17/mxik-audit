@@ -1,10 +1,10 @@
 'use client';
 
-import { decisionSourceLabel, isAutomatic } from '@tasnivo/domain/decision-source';
+import { decisionSourceLabel, isAutomatic } from '@/lib/workspace-url';
 import { fmtDateTime } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { RowDetail } from '@tasnivo/domain/row-detail';
-import type { GridRow } from '@tasnivo/domain/workspace-rows';
+import type { RowDetail } from './ws-types';
+import type { GridRow } from './ws-types';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { decisionText } from './ws-text';
 

@@ -1,46 +1,51 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
-import { decide, decideGroup, undo, type DecideResult } from '@/app/actions/review';
-import { undoBulkFlag } from '@/app/actions/bulk';
-import { readDecisionSource } from '@tasnivo/domain/decision-source';
+import { useCallback, useRef } from 'react';
 import { fmtDateTime } from '@tasnivo/i18n/format';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@tasnivo/domain/workspace-rows';
+import { readDecisionSource } from '@/lib/workspace-url';
 import { useToast } from '@/ui/toast';
 import { count, shortName, skippedText } from './ws-text';
+import type { DecideResult, GridRow, UndoTarget } from './ws-types';
 import { serverChange } from '@/ui/shell/router-cache';
+
+export type { UndoTarget };
 
 const isRisky = (r: GridRow): boolean => r.severity === 'high' || r.severity === 'medium';
 
 type Chosen = { code: string; name: string | null };
 type Decision = 'accepted' | 'rejected';
-export type UndoTarget = { eventId: string; findingId?: string } | { lastInCatalog: string } | { reopen: string };
 type ManyApplied = { ids: readonly string[]; eventId: string | null; decision: Decision; code?: string | null; name?: string | null; source: GridRow['decisionSource'] };
+/** Changes every loaded row (in the rows query's cache): the grid's single source of row state. */
+export type MapRows = (fn: (r: GridRow) => GridRow) => void;
 
 const PENDING = { decision: 'pending', chosenMxik: null, chosenName: null, decisionEventId: null, decisionSource: null } as const;
 
 /**
- * Row state with optimistic decisions. Every server call is wrapped so a
- * failure or a thrown action puts the row back and says so; a row someone
- * else decided meanwhile is replaced with the server's state.
+ * Row state with optimistic decisions, kept in the rows query's cache. Every API call is wrapped
+ * so a failure or a refused call puts the row back and says so; a row someone else decided
+ * meanwhile is replaced with the server's state.
  */
-export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => void, announce: (text: string) => void, onManyChanged: () => void) {
+export function useDecisions(rows: GridRow[], mapRows: MapRows, onReviewed: (delta: number) => void, announce: (text: string) => void, onManyChanged: () => void) {
   const { ta, locale } = useI18n();
   const x = ta.wsX.toast;
   const toast = useToast();
-  const [rows, setRows] = useState<GridRow[]>(initial);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
   const patch = useCallback((ids: ReadonlySet<string>, fn: (r: GridRow) => GridRow) => {
-    setRows((cur) => cur.map((r) => (ids.has(r.findingId) ? fn(r) : r)));
-  }, []);
+    mapRows((r) => (ids.has(r.findingId) ? fn(r) : r));
+  }, [mapRows]);
+
+  /** A refused call (4xx) reads as "failed", no answer at all as the network message. */
+  const failed = useCallback((error: unknown): string => (isNetworkFailure(error) ? x.network : x.failed), [x]);
 
   /** Reverts a decision event, or the user's own latest one; returns the first reverted finding id. */
   const revert = useCallback(async (target: UndoTarget): Promise<string | null> => {
     try {
-      const result = await serverChange(undo(target));
+      const result = await serverChange(api.workspace.undo(target));
       if (!result.ok) { toast(result.error, { tone: 'error' }); return null; }
       const ids = new Set(result.findingIds);
       const risky = rowsRef.current.filter((r) => ids.has(r.findingId) && isRisky(r) && r.decision !== 'pending').length;
@@ -54,11 +59,11 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
       toast(message);
       announce(message);
       return result.row?.findingId ?? result.findingIds[0] ?? null;
-    } catch {
-      toast(x.network, { tone: 'error' });
+    } catch (error) {
+      toast(failed(error), { tone: 'error' });
       return null;
     }
-  }, [announce, locale, onManyChanged, onReviewed, patch, toast, x]);
+  }, [announce, failed, locale, onManyChanged, onReviewed, patch, toast, x]);
 
   /** Puts the server's decision on a row someone else decided, and names who. */
   const adoptServer = useCallback((row: GridRow, conflict: Extract<DecideResult, { code: 'already_decided' }>) => {
@@ -93,10 +98,10 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
 
     let result: DecideResult;
     try {
-      result = await serverChange(decide({ findingId, decision, chosenMxik: chosen?.code ?? null }));
-    } catch {
+      result = await serverChange(api.workspace.decide({ findingId, decision, chosenMxik: chosen?.code ?? null }));
+    } catch (error) {
       rollback();
-      toast(x.network, { tone: 'error' });
+      toast(failed(error), { tone: 'error' });
       return false;
     }
     if (!result.ok) {
@@ -117,13 +122,13 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     toast(message, { action: { label: ta.wsX.act.undo, run: () => { void revert({ eventId, findingId }); } } });
     announce(message);
     return true;
-  }, [adoptServer, announce, failureText, onReviewed, patch, revert, ta, toast, x]);
+  }, [adoptServer, announce, failed, failureText, onReviewed, patch, revert, ta, toast, x]);
 
   /** Applies a many-row result the server already committed. Returns the risky rows changed. */
   const applyMany = useCallback(({ ids, eventId, decision, code, name, source }: ManyApplied): number => {
     const set = new Set(ids);
     const risky = rowsRef.current.filter((r) => set.has(r.findingId) && r.decision === 'pending' && isRisky(r)).length;
-    setRows((cur) => cur.map((r) => {
+    mapRows((r) => {
       if (!set.has(r.findingId) || r.decision !== 'pending') return r;
       const fallback = r.mode === 'confirm' ? { c: r.currentMxik, n: r.currentName } : { c: r.suggestedMxik, n: r.suggestedName };
       return {
@@ -131,11 +136,11 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
         chosenMxik: decision === 'accepted' ? (code ?? fallback.c) : null,
         chosenName: decision === 'accepted' ? (code ? (name ?? null) : fallback.n) : null,
       };
-    }));
+    });
     onReviewed(risky);
     onManyChanged();
     return risky;
-  }, [onManyChanged, onReviewed]);
+  }, [mapRows, onManyChanged, onReviewed]);
 
   /** Offers one Undo for a many-row event and reports what was skipped. */
   const reportMany = useCallback((result: { count: number; eventId: string | null; skipped: Parameters<typeof skippedText>[0] }) => {
@@ -151,22 +156,14 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
     const targets = group.filter((r) => r.decision === 'pending');
     if (targets.length === 0) return;
     try {
-      const result = await serverChange(decideGroup({ findingIds: targets.map((r) => r.findingId), decision }));
+      const result = await serverChange(api.workspace.decideGroup({ findingIds: targets.map((r) => r.findingId), decision }));
       if (!result.ok) { toast(result.error, { tone: 'error' }); return; }
       applyMany({ ids: result.ids, eventId: result.eventId, decision, source: 'group' });
       reportMany(result);
-    } catch {
-      toast(x.network, { tone: 'error' });
+    } catch (error) {
+      toast(failed(error), { tone: 'error' });
     }
-  }, [applyMany, reportMany, toast, x]);
-
-  /** Appends a freshly loaded page; rows already known keep their local state. */
-  const append = useCallback((more: GridRow[]) => {
-    setRows((cur) => {
-      const known = new Set(cur.map((r) => r.findingId));
-      return [...cur, ...more.filter((r) => !known.has(r.findingId))];
-    });
-  }, []);
+  }, [applyMany, failed, reportMany, toast]);
 
   /** Keeps the grid's comment count and flag in step with the drawer. */
   const setCommentMeta = useCallback((findingId: string, comments: number, flag: string | null) => {
@@ -183,20 +180,20 @@ export function useDecisions(initial: GridRow[], onReviewed: (delta: number) => 
       action: {
         label: ta.wsX.act.undo,
         run: () => {
-          void undoBulkFlag(eventId).then((result) => {
+          void serverChange(api.workspace.bulkUndoFlags({ eventId })).then((result) => {
             if (!result.ok) { toast(result.error, { tone: 'error' }); return; }
             patch(new Set(result.findingIds), (r) => ({ ...r, flag: result.flags[r.findingId] ?? before.get(r.findingId) ?? null }));
             toast(count(locale, x.flagsRestored, result.findingIds.length));
-          }).catch(() => toast(x.network, { tone: 'error' }));
+          }).catch((error: unknown) => toast(failed(error), { tone: 'error' }));
         },
       },
     });
-  }, [locale, patch, ta, toast, x]);
+  }, [failed, locale, patch, ta, toast, x]);
 
   /** Marks a row as taken out of its group. */
   const ungroup = useCallback((findingId: string) => {
     patch(new Set([findingId]), (r) => ({ ...r, groupKey: null }));
   }, [patch]);
 
-  return { rows, apply, applyGroup, applyMany, reportMany, revert, append, flagMany, setCommentMeta, ungroup };
+  return { apply, applyGroup, applyMany, reportMany, revert, flagMany, setCommentMeta, ungroup };
 }

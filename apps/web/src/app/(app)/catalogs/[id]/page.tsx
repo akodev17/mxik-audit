@@ -7,11 +7,8 @@ import { resolveClient } from '@tasnivo/domain/clients';
 import { canWrite, catalogScope, isAdminRole } from '@tasnivo/domain/access';
 import { db } from '@tasnivo/db';
 import { currentUser, inDemoOrg, type CurrentUser } from '@/lib/session';
-import { defaultView } from '@tasnivo/domain/views';
-import { readHidden, viewQuery } from '@tasnivo/domain/view-params';
-import { decodeCursor, workspaceChipCounts, workspaceCount, workspacePageIds, workspaceSummary } from '@tasnivo/domain/workspace';
-import { filterKey, readFilter } from '@tasnivo/domain/workspace-filter';
-import { gridRows } from '@tasnivo/domain/workspace-rows';
+import { serverApi } from '@/lib/api/server';
+import { apiFilter, filterKey, readFilter, readHidden, viewQuery } from '@/lib/workspace-url';
 import { CatalogStatus } from '@/ui/catalog-status';
 import { MoneyAtRisk } from './money-at-risk';
 import { Workspace } from './workspace';
@@ -31,8 +28,6 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return { title: `${catalog?.filename ?? ta.shellX.notFound.title} — ${t.appName}` };
 }
 
-const FIRST_PAGE = 120;
-
 type SearchParams = {
   type?: string; q?: string; pending?: string; dec?: string; flag?: string; comments?: string; sort?: string; source?: string;
   v?: string; density?: string; grouped?: string; cols?: string;
@@ -45,7 +40,7 @@ export default async function CatalogWorkspacePage({ params, searchParams }: Par
   if (!user) redirect('/sign-in');
   const { id } = await params;
   const sp = await searchParams;
-  const { ta, locale } = await getI18n();
+  const { ta } = await getI18n();
 
   // An id that is not this org's is indistinguishable from one that does not exist.
   const catalog = await visibleCatalog(id, user);
@@ -64,41 +59,40 @@ export default async function CatalogWorkspacePage({ params, searchParams }: Par
     );
   }
 
+  // The grid's data comes from the API (the header above still reads its own).
+  const api = serverApi();
   // A bare URL opens the user's default view, if they saved one.
   if (Object.keys(sp).length === 0) {
-    const preferred = await defaultView(user);
+    const preferred = (await api.workspace.views()).find((v) => v.isDefault);
     if (preferred) redirect(`/catalogs/${catalog.id}?${viewQuery(preferred.params)}`);
   }
   const filter = readFilter(sp);
   const writer = canWrite(user);
-  const [summary, chips, count, page, locked] = await Promise.all([
-    workspaceSummary(catalog.id, catalog.rowCount),
-    workspaceChipCounts(catalog.id, filter),
-    workspaceCount(catalog.id, filter),
-    workspacePageIds(catalog.id, filter, decodeCursor(null), FIRST_PAGE),
+  // A linked finding not on the first page leads the list; the API keeps it to this catalogue.
+  const wanted = typeof sp.row === 'string' && sp.row.length > 0 && sp.row.length <= 64 ? sp.row : null;
+  const query = { catalogId: catalog.id, ...apiFilter(filter) };
+  const [summary, counts, page, locked] = await Promise.all([
+    api.catalogs.summary({ catalogId: catalog.id }),
+    api.workspace.counts(query),
+    api.workspace.rows({ ...query, ...(wanted ? { row: wanted } : {}) }),
     exportLocked(user.orgId, catalog.id),
   ]);
-  // A linked finding not on the first page leads the list; gridRows keeps it to this catalogue.
-  const wanted = typeof sp.row === 'string' && sp.row.length > 0 && sp.row.length <= 64 ? sp.row : null;
-  const ids = wanted && !page.ids.includes(wanted) ? [wanted, ...page.ids] : page.ids;
-  const rows = await gridRows(user.orgId, catalog.id, ids, locale);
-  const focusRow = wanted && rows.some((r) => r.findingId === wanted) ? wanted : null;
+  if (!page) notFound();
+  const focusRow = wanted && page.rows.some((r) => r.findingId === wanted) ? wanted : null;
 
   return (
     <div className="flex min-h-full flex-col md:h-full">
       <WorkspaceHeader {...header} canShare={writer} viewer={user} />
       <Suspense fallback={null}>
-        <MoneyAtRisk catalogId={catalog.id} columnMap={catalog.columnMap} />
+        <MoneyAtRisk catalogId={catalog.id} />
       </Suspense>
       <Workspace
         key={`${catalog.id}|${filterKey(filter)}`}
         catalogId={catalog.id}
         clientId={client.id}
         summary={summary}
-        chips={chips}
-        initialRows={rows}
-        initialNext={page.next}
-        count={count}
+        counts={counts}
+        firstPage={page}
         filter={filter}
         focusRow={focusRow}
         hintKey={user.demo ? `mxik.hint.${user.orgId}` : null}

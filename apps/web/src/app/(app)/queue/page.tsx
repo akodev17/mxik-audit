@@ -1,20 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { canWrite, clientScope, isAdminRole } from '@tasnivo/domain/access';
-import { accountantOptions } from '@tasnivo/domain/dashboard';
-import { db } from '@tasnivo/db';
 import { fmtNumber } from '@tasnivo/i18n/format';
+import { canWrite, isAdminRole, requireMe } from '@/lib/api/me';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { withQuery } from '@tasnivo/domain/query-string';
-import { decodeQueueCursor, queuePage, readQueueFilter } from '@tasnivo/domain/queue';
-import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { QueueFilters } from './filters';
 import { QueueList } from './queue-list';
+import { queueQuery, readQueueFilter, withQuery } from './queue-params';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
@@ -25,18 +21,15 @@ type Params = { client?: string; type?: string; severity?: string; flag?: string
 
 export default async function QueuePage({ searchParams }: { searchParams: Promise<Params> }) {
   const { locale, ta } = await getI18n();
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireMe();
   const sp = await searchParams;
   const q = ta.firmX.queue;
   const filter = readQueueFilter(sp);
   if (!isAdminRole(user)) filter.accountantId = null;
 
-  const [clients, people, page] = await Promise.all([
-    db.client.findMany({ where: { orgId: user.orgId, archivedAt: null, ...clientScope(user) }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    isAdminRole(user) ? accountantOptions(user.orgId) : Promise.resolve([]),
-    queuePage(user, filter, decodeQueueCursor(sp.after)),
-  ]);
+  const page = await serverApi().workspace.queue(queueQuery(filter, sp.after));
+  const { clients } = page;
+  const people = page.accountants ?? [];
   const fmt = (n: number): string => fmtNumber(locale, n);
   const filters: Params = Object.fromEntries(Object.entries(sp).filter(([key]) => key !== 'after'));
   const active = Object.values(filters).some(Boolean);

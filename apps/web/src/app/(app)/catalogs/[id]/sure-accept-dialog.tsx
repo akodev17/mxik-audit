@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { acceptAllAbove, previewSure, type ManyOutcome, type SurePreviewResult } from '@/app/actions/review';
-import { BANDS } from '@tasnivo/core/match/score';
+import { endpoints } from '@tasnivo/contracts';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { filterQuery, type WsFilter } from '@tasnivo/domain/workspace-filter';
+import { apiFilter, type WsFilter } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import { Dialog } from '@/ui/dialog';
 import { IconError } from '@/ui/icons';
@@ -14,6 +15,7 @@ import { Spinner } from '@/ui/spinner';
 import { typeLabels } from '@/ui/labels';
 import { count, skippedText } from './ws-text';
 import { serverChange } from '@/ui/shell/router-cache';
+import type { ManyOutcome, SurePreviewResult } from './ws-types';
 
 type Props = {
   open: boolean;
@@ -27,6 +29,9 @@ type Props = {
 
 type Scope = 'catalogue' | 'filter';
 
+/** The high band, the only one bulk accept is for (the API refuses anything lower). */
+const SURE_MIN = endpoints.workspace.acceptSure.body.shape.minConfidence.minValue ?? 1;
+
 /** Confirms "accept all high-match": scope, counts by type, what will be skipped; one undoable event. */
 export function SureAcceptDialog({ open, catalogId, filter, filterNarrows, onClose, onDone }: Props) {
   const { t, ta, locale } = useI18n();
@@ -35,7 +40,7 @@ export function SureAcceptDialog({ open, catalogId, filter, filterNarrows, onClo
   const [preview, setPreview] = useState<SurePreviewResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const filterArg = scope === 'filter' ? filterQuery(filter) : null;
+  const filterArg = scope === 'filter' ? apiFilter(filter) : null;
   const filterKey = JSON.stringify(filterArg);
 
   useEffect(() => {
@@ -43,7 +48,7 @@ export function SureAcceptDialog({ open, catalogId, filter, filterNarrows, onClo
     let live = true;
     setPreview(null);
     setError(null);
-    previewSure({ catalogId, filter: filterArg })
+    api.workspace.previewSure({ catalogId, filter: filterArg })
       .then((p) => { if (live) setPreview(p); })
       .catch(() => { if (live) setPreview({ ok: false, error: s.loadFailed }); });
     return () => { live = false; };
@@ -54,12 +59,12 @@ export function SureAcceptDialog({ open, catalogId, filter, filterNarrows, onClo
     setBusy(true);
     setError(null);
     try {
-      const result = await serverChange(acceptAllAbove({ catalogId, minConfidence: BANDS.high, filter: filterArg }));
+      const result = await serverChange(api.workspace.acceptSure({ catalogId, minConfidence: SURE_MIN, filter: filterArg }));
       if (!result.ok) { setError(result.error); return; }
       onDone(result);
       onClose();
-    } catch {
-      setError(ta.wsX.toast.network);
+    } catch (error) {
+      setError(isNetworkFailure(error) ? ta.wsX.toast.network : t.errorGeneric);
     } finally {
       setBusy(false);
     }

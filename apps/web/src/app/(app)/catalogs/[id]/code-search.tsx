@@ -1,12 +1,12 @@
 'use client';
 
-import { forwardRef, useEffect, useState } from 'react';
-import { lookupCodes, type ClassifierHit } from '@/app/actions/review';
+import { forwardRef, useState } from 'react';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
 import { Input } from '@/ui/input';
 import { Spinner } from '@/ui/spinner';
+import { useCodeLookup } from './code-lookup';
 
 type Props = { disabled: boolean; onPick: (code: string, name: string) => void };
 
@@ -14,22 +14,7 @@ type Props = { disabled: boolean; onPick: (code: string, name: string) => void }
 export const CodeSearch = forwardRef<HTMLInputElement, Props>(function CodeSearch({ disabled, onPick }, ref) {
   const { ta } = useI18n();
   const [query, setQuery] = useState('');
-  const [hits, setHits] = useState<ClassifierHit[] | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    if (query.trim().length < 2) { setHits(null); setFailed(false); return; }
-    let live = true;
-    setBusy(true);
-    const timer = setTimeout(() => {
-      lookupCodes(query)
-        .then((h) => { if (live) { setHits(h); setFailed(false); } })
-        .catch(() => { if (live) setFailed(true); })
-        .finally(() => { if (live) setBusy(false); });
-    }, 250);
-    return () => { live = false; clearTimeout(timer); };
-  }, [query]);
+  const { hits, busy, failed } = useCodeLookup(query, 250);
 
   return (
     <div>

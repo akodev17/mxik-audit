@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { lookupCodes, type ClassifierHit } from '@/app/actions/review';
 import { useI18n } from '@/lib/locale-client';
 import { CodeChip } from '@/ui/code-chip';
 import { Portal } from '@/ui/portal';
 import { Spinner } from '@/ui/spinner';
+import { useCodeLookup } from './code-lookup';
 
 type Props = { onPick: (code: string, name: string) => void; onCancel: () => void };
 type Box = { left: number; top: number; width: number };
@@ -18,27 +18,17 @@ type Box = { left: number; top: number; width: number };
 export function InlineCodePicker({ onPick, onCancel }: Props) {
   const { ta } = useI18n();
   const [query, setQuery] = useState('');
-  const [hits, setHits] = useState<ClassifierHit[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const lookup = useCodeLookup(query, 200);
+  const { busy, failed } = lookup;
+  const hits = lookup.hits ?? [];
   const [cursor, setCursor] = useState(0);
   const [box, setBox] = useState<Box | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
 
   useEffect(() => { input.current?.focus(); }, []);
-  useEffect(() => {
-    if (query.trim().length < 2) { setHits([]); setFailed(false); return; }
-    let live = true;
-    setBusy(true);
-    const timer = setTimeout(() => {
-      lookupCodes(query)
-        .then((h) => { if (live) { setHits(h); setCursor(0); setFailed(false); } })
-        .catch(() => { if (live) setFailed(true); })
-        .finally(() => { if (live) setBusy(false); });
-    }, 200);
-    return () => { live = false; clearTimeout(timer); };
-  }, [query]);
+  // New hits start at the top.
+  useEffect(() => { setCursor(0); }, [lookup.hits]);
 
   useLayoutEffect(() => {
     const place = (): void => {

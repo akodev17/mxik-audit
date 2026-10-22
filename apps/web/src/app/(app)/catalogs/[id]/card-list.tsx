@@ -3,7 +3,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@tasnivo/domain/workspace-rows';
+import type { GridRow } from './ws-types';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { cx } from '@/ui/cx';
 import { typeLabels, typeTone } from '@/ui/labels';

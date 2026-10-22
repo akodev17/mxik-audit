@@ -7,7 +7,7 @@ import { securityHeaders } from '@tasnivo/domain/security/headers';
 
 const config: NextConfig = {
   // The workspace packages are TypeScript source (package.json "exports" point at .ts files).
-  transpilePackages: ['@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n'],
+  transpilePackages: ['@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n', '@tasnivo/contracts', '@tasnivo/api-client'],
   // The dev overlay badge would appear in the landing page screenshots.
   devIndicators: false,
   // exceljs and pg must run on the server, never be bundled for the browser. bullmq and ioredis load
@@ -25,6 +25,13 @@ const config: NextConfig = {
   // CSP, nosniff, referrer and permissions policies on every route; HSTS in production only.
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders() }];
+  },
+  // Until Caddy sends /api/* to the API (or NEXT_PUBLIC_API_URL points the browser at it), the web
+  // server passes API calls through. afterFiles: the web's own /api route handlers still win.
+  async rewrites() {
+    if (process.env.NEXT_PUBLIC_API_URL) return [];
+    const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+    return { beforeFiles: [], afterFiles: [{ source: '/api/:path*', destination: `${api}/api/:path*` }], fallback: [] };
   },
   // The habitual addresses land on the real sign-in page instead of a 404.
   async redirects() {
