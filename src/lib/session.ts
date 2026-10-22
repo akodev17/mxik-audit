@@ -69,9 +69,11 @@ export type CurrentUser = {
 const loadAccess = cache(async (userId: string, orgId: string): Promise<{ role: Role; clientIds: string[] | null; demoOrg: boolean } | null> => {
   const user = await db.user.findFirst({
     where: { id: userId, orgId, org: { deletedAt: null } },
-    select: { role: true, assignments: { select: { clientId: true } }, org: { select: { kind: true } } },
+    select: { role: true, assignments: { select: { clientId: true } }, org: { select: { kind: true, expiresAt: true } } },
   });
   if (!user) return null;
+  // A demo is over at its fixed end, whatever the cookie says; the purge job only tidies up afterwards.
+  if (user.org.kind === 'demo' && (!user.org.expiresAt || user.org.expiresAt <= new Date())) return null;
   const assigned = user.assignments.map((a) => a.clientId);
   return { role: user.role, clientIds: user.role === 'admin' || assigned.length === 0 ? null : assigned, demoOrg: user.org.kind === 'demo' };
 });

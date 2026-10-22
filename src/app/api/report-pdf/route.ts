@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
+import { demoExportRefusal } from '@/lib/demo-limits';
 import { baseName, contentDisposition } from '@/lib/export-filename';
 import { getI18n } from '@/lib/locale';
 import { reportPdfData } from '@/lib/pdf/report-data';
@@ -23,6 +24,8 @@ export async function GET(request: Request) {
   // Another org's catalogue is the same 404 as a missing one.
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   if (catalog.status !== 'ready') return NextResponse.json({ error: 'audit not finished' }, { status: 409 });
+  const demoLimited = await demoExportRefusal(user.orgId);
+  if (demoLimited) return demoLimited;
   const data = await reportPdfData(user.orgId, catalogId);
   if (!data) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   const { locale, ta } = await getI18n();

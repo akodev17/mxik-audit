@@ -83,7 +83,8 @@ export function AppFrame({ shell, children }: Props) {
             <TasnivoMark className="size-7 text-fg" />
           </Link>
           <TopNav canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
-          <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 px-2 sm:gap-2 sm:px-4">
+          {/* Shrinkable, so on a phone a long client name truncates instead of pushing the account menu off-screen. */}
+          <div className="ml-auto flex min-w-0 items-center gap-1 px-2 sm:gap-2 sm:px-4">
             {/* It reads the query (useSearchParams); the boundary keeps any static render of the frame valid. */}
             <Suspense fallback={null}>
               <ClientSwitcher clients={shell.clients} active={shell.activeClient} canAdd={shell.canWrite && !shell.demo} />

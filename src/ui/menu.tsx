@@ -22,6 +22,8 @@ export type MenuItem = {
   /** Destructive items are red and should open a ConfirmDialog. */
   tone?: 'default' | 'danger';
   disabled?: boolean;
+  /** A link item for the page being shown (navigation overflow): aria-current and medium weight. */
+  current?: boolean;
 };
 
 type Props = {
@@ -33,6 +35,8 @@ type Props = {
   variant?: ButtonVariant;
   size?: ButtonSize;
   align?: 'start' | 'end';
+  /** Replaces the button styling of a text trigger, for a menu that sits in a row of other controls (header tabs). */
+  triggerClassName?: string;
 };
 
 /**
@@ -40,7 +44,7 @@ type Props = {
  * items; Escape closes and returns focus to the button; Tab closes and moves on. The list opens
  * below the button, flips above it when there is no room and shifts to stay inside the viewport.
  */
-export function Menu({ label, items, icon, iconOnly = false, variant = 'secondary', size = 'md', align = 'start' }: Props) {
+export function Menu({ label, items, icon, iconOnly = false, variant = 'secondary', size = 'md', align = 'start', triggerClassName }: Props) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const root = useRef<HTMLDivElement>(null);
@@ -102,7 +106,7 @@ export function Menu({ label, items, icon, iconOnly = false, variant = 'secondar
       aria-label={iconOnly ? label : undefined}
       onClick={() => (open ? close(false) : openAt('first'))}
       onKeyDown={onTriggerKey}
-      className={iconOnly ? iconButtonClass(variant === 'secondary' ? 'ghost' : variant, size) : buttonClass(variant, size)}
+      className={iconOnly ? iconButtonClass(variant === 'secondary' ? 'ghost' : variant, size) : (triggerClassName ?? buttonClass(variant, size))}
     >
       {icon}
       {iconOnly ? null : label}
@@ -115,6 +119,7 @@ export function Menu({ label, items, icon, iconOnly = false, variant = 'secondar
     item.description ? 'items-start' : 'items-center',
     'focus:bg-surface focus-visible:outline-offset-[-2px] aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
     item.tone === 'danger' ? 'text-danger-ink focus:bg-danger-tint' : 'text-fg',
+    item.current && 'font-medium',
   );
   // Descriptions wrap, so a menu that has them gets a narrower cap than one-line menus.
   const described = items.some((item) => item.description);
@@ -160,7 +165,7 @@ export function Menu({ label, items, icon, iconOnly = false, variant = 'secondar
               </>
             );
             if (item.href && !item.disabled) {
-              return <Link key={i} href={item.href} {...common} onClick={() => select(item)}>{body}</Link>;
+              return <Link key={i} href={item.href} {...common} aria-current={item.current ? 'page' : undefined} onClick={() => select(item)}>{body}</Link>;
             }
             return (
               <button key={i} type="button" {...common} onClick={() => { if (!item.disabled) select(item); }}>

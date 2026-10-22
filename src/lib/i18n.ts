@@ -181,6 +181,15 @@ export type Dict = {
   demoStart: string;
   demoUnavailable: string;
   demoUploadDisabled: string;
+  demoAccess: {
+    name: string; company: string; email: string; emailHint: string; useCase: string;
+    uses: { own_company: string; clients: string; evaluation: string; other: string };
+    submit: string; sentTitle: string; sentBody: (email: string, minutes: number) => string; sentSpam: string; another: string;
+    verifyTitle: string; verifyHello: (name: string) => string; verifyBody: (hours: number, idleMinutes: number) => string; open: string;
+    invalidTitle: string; invalidBody: string; requestNew: string;
+    errors: { invalid: string; email: string; disposable: string; rate: string; limit: string; link: string };
+    mail: { subject: string; body: (link: string, minutes: number) => string };
+  };
 
   // upload
   uploadTitle: string;
@@ -413,15 +422,57 @@ export const uz: Dict = {
   adminPipeline: 'Taklif tizimi holati (faqat administratorga koʻrinadi)',
 
   demoTitle: 'Demoni sinab koʻrish',
-  demoIntro: 'Roʻyxatdan oʻtmasdan, namuna katalog ustida dasturning toʻliq ishini koʻring: risk hisoboti, takliflarni koʻrib chiqish va tuzatilgan faylni yuklab olish.',
+  demoIntro: 'Ish e-pochtangizni tasdiqlang — namuna katalog ustida dasturning toʻliq ishini koʻrasiz: risk hisoboti, takliflarni koʻrib chiqish va tuzatilgan faylni yuklab olish. Tasdiqlash havolasi e-pochtaga yuboriladi, parol kerak emas.',
   demoPoints: [
     'Katalog oʻylab topilgan: real kompaniya maʼlumotlari ishlatilmagan.',
     'Har bir tashrif oʻz nusxasini oladi — qarorlaringizni boshqalar koʻrmaydi.',
     'Demo rejimida fayl yuklash oʻchirilgan.',
+    'Demo 24 soatdan keyin yoki 30 daqiqa faolsizlikdan soʻng yopiladi.',
   ],
   demoStart: 'Demoni boshlash',
   demoUnavailable: 'Demo hozircha tayyor emas. Birozdan soʻng qayta urinib koʻring.',
   demoUploadDisabled: 'Demo rejimida fayl yuklash oʻchirilgan. Oʻz katalogingizni tekshirish uchun bosh sahifadagi forma orqali yuboring.',
+  demoAccess: {
+    name: 'Ismingiz',
+    company: 'Kompaniya',
+    email: 'Ish e-pochtasi',
+    emailHint: 'Demo havolasi shu manzilga yuboriladi.',
+    useCase: 'Demoni nima uchun koʻrmoqchisiz?',
+    uses: {
+      own_company: 'Oʻz kompaniyamning katalogi uchun',
+      clients: 'Mijozlarimning kataloglari uchun',
+      evaluation: 'Dasturni baholash uchun',
+      other: 'Boshqa maqsadda',
+    },
+    submit: 'Demo havolasini yuborish',
+    sentTitle: 'E-pochtangizni tekshiring',
+    sentBody: (email, minutes) => `Demoga kirish havolasini ${email} manziliga yubordik. U ${minutes} daqiqa amal qiladi va bir marta ishlaydi.`,
+    sentSpam: 'Xat kelmasa, “Spam” papkasini tekshiring.',
+    another: 'Boshqa manzilga yuborish',
+    verifyTitle: 'Demoga kirish',
+    verifyHello: (name) => `${name}, demo tayyor.`,
+    verifyBody: (hours, idle) => `Demo ${hours} soatdan keyin yoki ${idle} daqiqa faolsizlikdan soʻng yopiladi. Maʼlumotlar oʻylab topilgan, qarorlaringizni boshqalar koʻrmaydi.`,
+    open: 'Demoni ochish',
+    invalidTitle: 'Havola ishlamaydi',
+    invalidBody: 'Havola allaqachon ishlatilgan yoki muddati tugagan. Yangisini soʻrang.',
+    requestNew: 'Yangi havola soʻrash',
+    errors: {
+      invalid: 'Ism, kompaniya va maqsadni toʻldiring.',
+      email: 'E-pochta manzilini toʻgʻri kiriting.',
+      disposable: 'Vaqtinchalik e-pochta xizmatlari qabul qilinmaydi. Ish e-pochtangizdan foydalaning.',
+      rate: 'Soʻrovlar juda koʻp. Birozdan soʻng qayta urinib koʻring.',
+      limit: 'Bu manzil uchun bugungi demolar soni tugadi. Ertaga qayta urinib koʻring.',
+      link: 'Havola ishlatilgan yoki muddati tugagan. Yangisini soʻrang.',
+    },
+    mail: {
+      subject: 'Tasnivo demosiga kirish havolasi',
+      body: (link, minutes) => `Tasnivo demosiga kirish uchun havolani oching (${minutes} daqiqa amal qiladi, bir marta ishlaydi):
+
+${link}
+
+Agar demo soʻramagan boʻlsangiz, bu xatga eʼtibor bermang.`,
+    },
+  },
 
   uploadTitle: 'Katalogni yuklash',
   uploadHint: 'Excel (.xlsx) yoki CSV fayl. Sarlavha qatori avtomatik aniqlanadi; ustunlarni keyingi qadamda tasdiqlaysiz.',

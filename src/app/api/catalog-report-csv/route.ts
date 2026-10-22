@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { catalogScope } from '@/lib/access';
 import { db } from '@/lib/db';
+import { demoExportRefusal } from '@/lib/demo-limits';
 import { baseName, contentDisposition } from '@/lib/export-filename';
 import { getI18n } from '@/lib/locale';
 import { reportPdfData } from '@/lib/pdf/report-data';
@@ -19,6 +20,8 @@ export async function GET(request: Request) {
   const catalog = await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(user) }, select: { id: true, status: true, clientId: true } });
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   if (catalog.status !== 'ready') return NextResponse.json({ error: 'audit not finished' }, { status: 409 });
+  const demoLimited = await demoExportRefusal(user.orgId);
+  if (demoLimited) return demoLimited;
   const data = await reportPdfData(user.orgId, catalog.id);
   if (!data) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   const { t, ta } = await getI18n();

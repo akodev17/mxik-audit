@@ -259,6 +259,29 @@ model DemoVisit {
   @@map("demo_visit")
 }
 
+/// A request for demo access. The link e-mailed to `email` (only its hash is stored) opens a throwaway demo org once.
+model DemoRequest {
+  id         String    @id @default(cuid())
+  /// As typed, lower-cased: where the link goes.
+  email      String
+  /// The address with provider aliases removed (dots and +tags), so one mailbox cannot be many demos.
+  emailKey   String
+  name       String
+  company    String
+  /// One of a fixed list of intended uses.
+  useCase    String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  /// The demo org the link opened; no relation, the org is purged when the demo ends.
+  orgId      String?
+  createdAt  DateTime  @default(now())
+
+  @@index([emailKey, createdAt])
+  @@index([createdAt])
+  @@map("demo_request")
+}
+
 model User {
   id           String   @id @default(cuid())
   orgId        String

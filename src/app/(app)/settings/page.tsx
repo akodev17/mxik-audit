@@ -3,14 +3,13 @@ import { redirect } from 'next/navigation';
 import { getI18n } from '@/lib/locale';
 import { currentUser, inDemoOrg } from '@/lib/session';
 import { Page } from '@/ui/page';
-import { Tabs } from '@/ui/tabs';
 import { AccountTab } from './account-tab';
 import { DataTab } from './data-tab';
 import { IntegrationsTab } from './integrations-tab';
 import { LegacyHash } from './legacy-hash';
 import { PlanTab } from './plan-tab';
 import { SecurityTab } from './security-tab';
-import { TabStrip } from './tab-strip';
+import { SectionNav } from './section-nav';
 import { chooseTab, tabHref, visibleTabs, type SettingsTab } from './tabs';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -37,19 +36,21 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   const label = (id: SettingsTab): string => s.tabs[id];
 
   return (
-    <Page title={t.settingsTitle}>
+    <Page title={t.settingsTitle} wide>
       <LegacyHash />
-      <TabStrip label={s.tabs.label}>
-        <Tabs items={visible.map((id) => ({ href: tabHref(id), label: label(id), active: id === tab }))} />
-      </TabStrip>
-      {refused ? <p role="status" className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-small text-muted">{s.adminOnly(label(refused))}</p> : null}
-      {demo ? <p className="mt-4 text-small text-muted">{s.demoOnly}</p> : null}
-      <div className="mt-6">
-        {tab === 'account' ? <AccountTab user={user} demo={demo} /> : null}
-        {tab === 'security' ? <SecurityTab user={user} /> : null}
-        {tab === 'plan' ? <PlanTab user={user} demo={demo} /> : null}
-        {tab === 'integrations' ? <IntegrationsTab user={user} /> : null}
-        {tab === 'data' ? <DataTab user={user} /> : null}
+      <div className="md:grid md:grid-cols-[12rem_minmax(0,1fr)] md:gap-8 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
+        <SectionNav label={s.tabs.label} items={visible.map((id) => ({ href: tabHref(id), label: label(id), active: id === tab }))} />
+        <div className="mt-6 min-w-0 max-w-4xl space-y-4 md:mt-0">
+          {refused ? <p role="status" className="rounded-md border border-line bg-surface px-3 py-2 text-small text-muted">{s.adminOnly(label(refused))}</p> : null}
+          {demo ? <p className="text-small text-muted">{s.demoOnly}</p> : null}
+          <div>
+            {tab === 'account' ? <AccountTab user={user} demo={demo} /> : null}
+            {tab === 'security' ? <SecurityTab user={user} /> : null}
+            {tab === 'plan' ? <PlanTab user={user} demo={demo} /> : null}
+            {tab === 'integrations' ? <IntegrationsTab user={user} /> : null}
+            {tab === 'data' ? <DataTab user={user} /> : null}
+          </div>
+        </div>
       </div>
     </Page>
   );

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { resolveCatalog } from '@/lib/catalogs';
+import { demoExportRefusal } from '@/lib/demo-limits';
 import { diffCsv } from '@/lib/diff-csv';
 import { baseName, contentDisposition } from '@/lib/export-filename';
 import { getI18n } from '@/lib/locale';
@@ -22,6 +23,8 @@ export async function GET(request: Request) {
   const catalog = id ? await resolveCatalog(user.orgId, id, null, user.clientIds) : null;
   if (!catalog) return NextResponse.json({ error: 'no catalog' }, { status: 404 });
   if (catalog.status !== 'ready') return NextResponse.json({ error: 'audit not finished' }, { status: 409 });
+  const demoLimited = await demoExportRefusal(user.orgId);
+  if (demoLimited) return demoLimited;
   const against = url.searchParams.get('with') || undefined;
   const diff = await versionDiff(user.orgId, catalog.id, against, { limit: Number.MAX_SAFE_INTEGER, offset: 0 });
   if (!diff) return NextResponse.json({ error: 'nothing to compare' }, { status: 404 });
