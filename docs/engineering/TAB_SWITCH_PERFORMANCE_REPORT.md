@@ -347,12 +347,19 @@ the cache, not the output, and it is not on the branch.
    Next's minimum for `static`). Either drop intent prefetch for the queue and
    dashboard (the two live lists), or call `router.refresh()` after a cache hit
    on those two.
-4. **Same type mismatch elsewhere (follow-up, not tab switching):**
+4. **Same type mismatch elsewhere (not tab switching): fixed 2026-10-22.**
    `code = ANY(${list})` against `mxik_code.code` with a `text[]` parameter
-   seq-scans the classifier: **236 ms vs 0.05 ms** with `::bpchar[]`
-   (`EXPLAIN ANALYZE`, two codes). Sites: `src/lib/decide-many.ts:37` (group
-   and bulk decisions), `src/lib/dictionary.ts:163`, `src/lib/export-rows.ts:26`,
-   `src/lib/versions.ts:85`.
+   seq-scanned the classifier. The parameter is now cast with `::bpchar[]` (no
+   length, so a longer value is never truncated into a match). `EXPLAIN
+   ANALYZE` with the seed data's own lists, same rows found either way: 41
+   dictionary codes **528 → 0.35 ms**, 200 catalogue codes **1,259 → 1.5 ms**;
+   through Prisma `liveCodeSet` 1.0 ms and `codeUnits` 2.4 ms. Sites:
+   `src/lib/dictionary.ts:163` (`bb544a5`), `src/lib/export-rows.ts:26`
+   (`dc214f3`), `src/lib/decide-many.ts:37`, group and bulk decisions
+   (`07d7be7`), `src/lib/versions.ts:85` (`8966be0`). Left alone: the
+   classifier load and embedding scripts in `scripts/`, which join
+   `mxik_code` to their own staging tables (`m.code = v.code`), not to text
+   parameters.
 5. **Index proposal (not applied; needs the owner).** No query on the seed data
    is over 20 ms after §4.1, so no index is needed today. One lookup will grow
    with use, since every decision writes an audit event and the only index is
