@@ -234,6 +234,23 @@ actions and route handlers call the same functions.
 Another org's catalogue or list, or another client's for a scoped accountant, is 404 everywhere.
 The PDF fonts come from `node_modules/dejavu-fonts-ttf` in the working directory or the nearest
 folder above it (`fontDir()` in `@tasnivo/domain/pdf/report-pdf`).
+## Routes: workspace, dictionary, reminders, notifications (Wave 2)
+Under `/api`, each from its `@tasnivo/contracts` entry with `@Route` (method, path, status, SessionGuard +
+AccessGuard for the role and `noDemo`, Swagger, and JsonAnswerInterceptor: a `null`, boolean or string answer
+goes out as JSON, where Nest alone would send an empty body or text/html). Role in brackets; a refusal by
+role is `403 forbidden`, by demo `403 demo`.
+- **workspace**: `GET /catalogs/{catalogId}/rows` (any), `GET /catalogs/{catalogId}/counts` (any), `GET /catalogs/{catalogId}/money-at-risk` (any), `GET /findings/{findingId}` (any), `POST /findings/{findingId}/decision` (writer), `POST /decisions/group` (writer), `POST /findings/{findingId}/split` (writer), `POST /catalogs/{catalogId}/accept-sure` (writer), `POST /catalogs/{catalogId}/accept-sure/preview` (writer), `POST /decisions/undo` (writer), `POST /catalogs/{catalogId}/bulk/preview` (writer), `POST /catalogs/{catalogId}/bulk` (writer), `POST /bulk-events/{eventId}/undo-flags` (writer), `GET /findings/{findingId}/comments` (any), `POST /findings/{findingId}/comments` (writer), `PUT /findings/{findingId}/flag` (writer), `GET /views` (any), `POST /views` (writer, no demo), `DELETE /views/{viewId}` (writer), `PUT /views/default` (writer), `GET /codes/search` (any), `GET /findings/{findingId}/code-request` (any), `POST /findings/{findingId}/wrong-suggestion` (writer), `POST /findings/{findingId}/name-from-barcode` (writer), `GET /queue` (any), `GET /dashboard` (any)
+- **dictionary**: `GET /dictionary` (any), `POST /catalogs/{catalogId}/dictionary/accept` (writer), `PATCH /dictionary/{entryId}` (writer), `DELETE /dictionary/{entryId}` (writer), `PUT /dictionary/auto-accept` (admin)
+- **reminders**: `GET /clients/{clientId}/reminder` (any), `PUT /clients/{clientId}/reminder` (writer, no demo), `GET /reminders/tasks` (any), `POST /reminders/tasks/{taskId}/done` (writer, no demo)
+- **notifications**: `GET /notifications` (any), `GET /notifications/preview` (any), `POST /notifications/read` (any), `POST /notifications/read-all` (any), `GET /search` (any)
+The controllers call the same `@tasnivo/domain` functions as the web's server actions and pages
+(`workspace-ops`, `dictionary-ops`, `reminder-ops`, `shell-ops`, `overview`, `code-lookup`, `money-at-risk`),
+so answers, error texts and access rules are the actions'. Grid rows and their cursor are the workspace
+page's byte for byte (`test/e2e/workspace.test.ts` compares them with `gridRows`). `GET /codes/search` uses
+`ClassifierSearchService`: one candidate store per process on the injected pg pool and the shared embedding
+provider, set up on first use (the API boots without the classifier) and again every 5 minutes;
+`503 classifier_unavailable` while the classifier tables cannot be read or hold no live code. The
+classifier banner needs no route of its own: `GET /api/health` answers its fields.
 
 ## Tests
 

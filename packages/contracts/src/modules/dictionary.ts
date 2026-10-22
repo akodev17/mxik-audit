@@ -39,7 +39,6 @@ export const dictionary = defineModule('dictionary', {
       available: z.boolean(),
     }),
     replaces: ['page:(app)/dictionary'],
-    provisional: 'dictionary/page.tsx queries db.firmMapping and joins codeDetails and approverEmails itself',
   }),
   acceptForCatalog: endpoint({
     method: 'POST', path: '/api/catalogs/{catalogId}/dictionary/accept', auth: 'session', role: 'writer',

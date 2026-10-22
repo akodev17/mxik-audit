@@ -25,6 +25,14 @@ import { ShareModule } from './share/share.module';
     CatalogsModule,
     ImportsModule,
     ShareModule,
+import { WorkspaceModule } from './workspace/workspace.module';
+import { DictionaryModule } from './dictionary/dictionary.module';
+import { RemindersModule } from './reminders/reminders.module';
+import { NotificationsModule } from './notifications/notifications.module';
+    WorkspaceModule,
+    DictionaryModule,
+    RemindersModule,
+    NotificationsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },
