@@ -18,6 +18,7 @@ import { gate, previewGate } from '@/lib/plan';
 import { discardEarlierPreviews } from '@/lib/preview-sweep';
 import { getSession, type CurrentUser } from '@/lib/session';
 import { parseErrorCode, parseUpload } from '@/lib/spreadsheet';
+import { hasUploadExtension } from '@/lib/upload-file-types';
 import { uploadPreview, discardUpload as discardStored, type UploadPreview } from '@/lib/upload-preview';
 
 export type PreviewResult = { ok: true; preview: UploadPreview } | { ok: false; error: string };
@@ -55,7 +56,10 @@ export async function previewUpload(form: FormData): Promise<PreviewResult> {
   if (await isDemoOrg(user.orgId)) return { ok: false, error: t.demoUploadDisabled };
 
   const file = form.get('file');
-  if (!(file instanceof File) || file.size === 0) return { ok: false, error: e.none };
+  if (!(file instanceof File)) return { ok: false, error: e.none };
+  // By name as the picker filters; the parser still goes by content for the accepted types.
+  if (!hasUploadExtension(file.name)) return { ok: false, error: e.fileType };
+  if (file.size === 0) return { ok: false, error: e.zeroBytes };
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: e.tooBig };
 
   const requested = form.get('clientId');

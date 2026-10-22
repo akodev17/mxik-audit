@@ -5,6 +5,7 @@ import { commitUpload, discardUpload, previewUpload } from '@/app/actions/catalo
 import type { ColumnMap } from '@/lib/column-map';
 import type { ImportDiagnostics } from '@/lib/import-diagnostics';
 import { useI18n } from '@/lib/locale-client';
+import { hasUploadExtension } from '@/lib/upload-file-types';
 import type { UploadPreview } from '@/lib/upload-preview';
 import type { CompletionSummary } from '@/lib/upload-progress';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
@@ -69,6 +70,8 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
   const preview = state.step === 'check' || state.step === 'map' || state.step === 'confirm' ? state.preview : null;
 
   const readFile = (file: File): void => {
+    // A dropped file skips the picker's filter; refuse other types before sending anything.
+    if (!hasUploadExtension(file.name)) { setError(x.errors.fileType); return; }
     const form = new FormData();
     form.set('file', file);
     form.set('clientId', clientId);
