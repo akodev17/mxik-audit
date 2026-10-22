@@ -9,9 +9,7 @@ const untick = (text: string) => text.replace(/\[x\]/g, '[ ]');
 describe('README checklist', () => {
   it('is what src/checklist.ts generates (run it with --write after changing the registry)', () => {
     // Windows checkouts convert the file to CRLF; the generator always emits LF.
-    const current = checklistOf(readFileSync(README, 'utf8').replace(/
-/g, '
-'));
+    const current = checklistOf(readFileSync(README, 'utf8').replace(/\r\n/g, '\n'));
     assert.ok(current, 'the checklist markers are missing from README.md');
     assert.equal(untick(current), untick(renderChecklist()));
   });
