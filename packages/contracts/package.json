@@ -1,0 +1,22 @@
+{
+  "name": "@tasnivo/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zod request/response schemas, paths and auth of every API endpoint, and the OpenAPI document built from them. Depends on zod only, so the browser can import it.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.19.3",
+    "@tasnivo/db": "*",
+    "@tasnivo/domain": "*"
+  }
+}
