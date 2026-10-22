@@ -1,3 +1,6 @@
+import type { Instrumentation } from 'next';
+import { requestErrorLine } from './lib/request-error-log';
+
 // Runs once when the server starts. A catalogue still marked "analyzing" whose
 // heartbeat has stopped lost its worker with the previous process, so its audit
 // is resumed from the last fully audited row.
@@ -9,3 +12,9 @@ export async function register(): Promise<void> {
     await resumeStaleAudits(STARTUP_STALE_MS).catch(() => undefined);
   }
 }
+
+// Every server error that reaches an error page, in every environment: the
+// page shows users only a generic message (and the digest in development).
+export const onRequestError: Instrumentation.onRequestError = (error, request, context) => {
+  console.error(requestErrorLine(error, request, context), error instanceof Error ? error.stack ?? '' : '');
+};

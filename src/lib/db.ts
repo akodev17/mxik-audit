@@ -1,6 +1,17 @@
 // Single Prisma client. Next dev reloads modules, so cache it on globalThis to
 // avoid exhausting Postgres connections across hot reloads.
 import { PrismaClient } from '@prisma/client';
+import { findingTypeFallback } from './finding-type-extension.js';
+
+/**
+ * Reads survive a finding type the generated client does not know
+ * (finding-type-extension.ts). That extension only hooks queries and changes no
+ * signature, so the client keeps the plain PrismaClient type, which is what
+ * Prisma.TransactionClient parameters across the code expect.
+ */
+function createClient(): PrismaClient {
+  return new PrismaClient().$extends(findingTypeFallback) as unknown as PrismaClient;
+}
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -38,7 +49,8 @@ function withQueryLog(client: PrismaClient): PrismaClient {
   }) as unknown as PrismaClient;
 }
 
-const create = (): PrismaClient => (process.env['PRISMA_LOG'] === '1' ? withQueryLog(new PrismaClient()) : new PrismaClient());
+/** The fallback-extended client, wrapped in the query log only when PRISMA_LOG=1. */
+const create = (): PrismaClient => (process.env['PRISMA_LOG'] === '1' ? withQueryLog(createClient()) : createClient());
 
 export const db = globalForPrisma.prisma ?? create();
 

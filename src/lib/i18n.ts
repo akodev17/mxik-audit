@@ -115,6 +115,8 @@ export type Dict = {
   typePrivilegeCode: string;
   typePrivilegeOpportunity: string;
   typeRestricted: string;
+  /** A finding type this build does not know yet (src/lib/finding-type.ts). */
+  typeOther: string;
   purchasesNav: string;
   purchasesTitle: string;
   purchasesHint: string;
@@ -364,6 +366,7 @@ export const uz: Dict = {
   typePrivilegeCode: 'Imtiyozli kod',
   typePrivilegeOpportunity: 'Imtiyoz imkoniyati',
   typeRestricted: 'EHFda cheklangan kod',
+  typeOther: 'Boshqa turdagi muammo',
   purchasesNav: 'Kirim (xaridlar)',
   purchasesTitle: 'Kirim (xaridlar)',
   purchasesHint: 'Mijozning xaridlar roʻyxatini yuklang: kirim EHF eksporti yoki istalgan Excel/CSV roʻyxat. Katalogdagi kodlar xaridlardagi MXIK kodlari (va oʻlchov birligi) bilan solishtiriladi.',

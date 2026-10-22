@@ -239,6 +239,17 @@ while a dev server has the engine loaded. The TypeScript client is still
 written; the engine binary does not change with the schema. Restart the dev
 server to pick up new fields.
 
+A checkout (or worktree) whose generated client is older than the database it
+points at sees the database's newer enum values as errors: Prisma refuses a
+read with `Value 'X' not found in enum 'FindingType'`. Finding reads survive
+this (src/lib/finding-type-extension.ts: the type is read as text and shown as
+"OTHER", with a `[db] finding_type holds a value…` warning in the server log),
+but other enums and new columns do not. Run `npx prisma generate` in that
+checkout after pulling a migration someone else applied. In development the
+error page shows the error message and digest; in every environment the
+server logs each page error as `[request-error] <method> <path> route=…
+digest=…` (src/instrumentation.ts).
+
 ## Layout
 
 ```

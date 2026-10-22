@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import type { MatchStage } from '../core/match/types';
 import { resolveUnit } from '../core/normalize/units';
 import { db } from './db';
+import { readFindingType } from './finding-type';
 import { localDate } from './reminder-dates';
 import { FINDING_TYPES, type WsType } from './workspace';
 
@@ -194,7 +195,7 @@ export async function queuePage(user: QueueViewer, f: QueueFilter, cursor: Queue
       ? encodeQueueCursor({ s: last.sev, n: last.client_name, c: last.client_id, r: last.row_index, i: last.finding_id })
       : null,
     rows: page.map((r) => ({
-      findingId: r.finding_id, rowIndex: r.row_index, rawName: r.raw_name, unit: r.unit, type: r.type, severity: r.severity,
+      findingId: r.finding_id, rowIndex: r.row_index, rawName: r.raw_name, unit: r.unit, type: readFindingType(r.type), severity: r.severity,
       existingMxik: r.existing_mxik, suggestedMxik: r.suggested_mxik, confidence: r.confidence, stage: readStage(r.stage),
       unitFix: r.type === 'UNIT_CONFLICT' ? unitFixOf(r.unit, r.code_units) : null,
       askClient: r.flag === 'ask_client', comments: r.comments, catalogId: r.catalog_id, catalogName: r.catalog_name,

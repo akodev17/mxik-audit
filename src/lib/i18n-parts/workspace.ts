@@ -59,6 +59,7 @@ export const uz = {
       PRIVILEGE_CODE: 'Kod tasniflagichda soliq imtiyozi bilan bogʻlangan.',
       PRIVILEGE_OPPORTUNITY: 'Taklif etilgan kod soliq imtiyozi bilan bogʻlangan, hozirgi kod esa yoʻq.',
       RESTRICTED: 'Kod EHFda foydalanish cheklanadigan umumiy MXIK kodlari roʻyxatida.',
+      OTHER: 'Boshqa turdagi tekshiruv natijasi; sababi quyida yozilgan.',
     } as Record<string, string>,
     /** What "Kod toʻgʻri" records for each confirming check. */
     confirmMeans: {
@@ -443,6 +444,7 @@ export const ru: typeof uz = {
       PRIVILEGE_CODE: 'В классификаторе код связан с налоговой льготой.',
       PRIVILEGE_OPPORTUNITY: 'Предложенный код связан с налоговой льготой, а текущий — нет.',
       RESTRICTED: 'Код входит в перечень общих ИКПУ, применение которых в ЭСФ ограничивается.',
+      OTHER: 'Результат проверки другого типа; причина указана ниже.',
     },
     confirmMeans: {
       UNIT_CONFLICT: 'Код не меняется. В экспорте единица измерения заменяется на привязанную к коду.',

@@ -5,6 +5,7 @@ import { codeDetails } from '../code-details.js';
 import { db } from '../db.js';
 import { isAutomatic, readDecisionSource, type DecisionSource } from '../decision-source.js';
 import { effectiveRow } from '../export-effective.js';
+import { findingTypeCounts } from '../finding-type-counts.js';
 import { readImportMeta } from '../import-diagnostics.js';
 import { readPipelineMeta, type PipelineMeta } from '../pipeline-meta.js';
 import { RISKY_FINDING, RISKY_ITEM } from '../risk.js';
@@ -66,6 +67,8 @@ export type ReportPdfData = {
 };
 
 const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED'];
+/** Position in TYPE_ORDER; a type it does not name (OTHER) goes last. */
+const typeRank = (type: string) => (TYPE_ORDER.includes(type) ? TYPE_ORDER.indexOf(type) : TYPE_ORDER.length);
 const AUTOMATIC: DecisionSource[] = ['carry_over', 'dictionary_auto'];
 
 export async function reportPdfData(orgId: string, catalogId: string): Promise<ReportPdfData | null> {
@@ -81,7 +84,7 @@ export async function reportPdfData(orgId: string, catalogId: string): Promise<R
   const inCatalog = { item: { catalogId }, ...RISKY_FINDING };
 
   const [byType, riskyItems, markingRows, snapshot, findings, suggested, decided, automatic, purchaseCodes] = await Promise.all([
-    db.finding.groupBy({ by: ['type'], where: inCatalog, _count: { _all: true } }),
+    findingTypeCounts(catalogId, { risky: true }),
     db.catalogItem.findMany({
       where: { catalogId, ...RISKY_ITEM },
       select: { existingMxik: true, findings: { select: { severity: true, decision: true, chosenMxik: true, decidedAt: true } } },
@@ -111,7 +114,7 @@ export async function reportPdfData(orgId: string, catalogId: string): Promise<R
   ]);
   const emails = new Map(users.map((u) => [u.id, u.email]));
   const named = (code: string | null): Coded | null => (code ? { code, name: details.get(code)?.name ?? null } : null);
-  const detected = byType.reduce((n, b) => n + b._count._all, 0);
+  const detected = byType.reduce((n, b) => n + b.count, 0);
   const meta = readImportMeta(catalog.importMeta);
   const reviews = riskyItems.map((item) => effectiveRow(item.existingMxik, item.findings).review);
   const riskyRows = riskyItems.length;
@@ -127,9 +130,7 @@ export async function reportPdfData(orgId: string, catalogId: string): Promise<R
     classifierDate: snapshot?.takenAt ?? null,
     totalRows: catalog.rowCount,
     riskyRows,
-    byType: byType
-      .map((r) => ({ type: r.type, count: r._count._all }))
-      .sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)),
+    byType: byType.sort((a, b) => typeRank(a.type) - typeRank(b.type)),
     markingRows,
     rows: shown.map((f) => {
       const source = readDecisionSource(f.decisionSource);

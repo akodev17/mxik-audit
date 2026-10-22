@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { pendingAudits, type PendingAudit } from './client-attention';
 import { attentionReasons, clientStats, type ClientStats } from './client-stats';
 import { db } from './db';
+import { readFindingType } from './finding-type';
 
 export type Totals = {
   clients: number;
@@ -43,7 +44,11 @@ export async function pendingByType(catalogIds: string[]): Promise<TypeCount[]> 
     FROM finding f JOIN catalog_item i ON i.id = f."itemId"
     WHERE i."catalogId" = ANY(${catalogIds}) AND f.decision = 'pending'::decision AND f.severity IN ('high'::severity, 'medium'::severity)
     GROUP BY f.type ORDER BY findings DESC, type ASC`);
-  return rows;
+  // A type this build does not know is one OTHER entry, after the known ones.
+  const known = rows.filter((r) => readFindingType(r.type) !== 'OTHER');
+  const other = rows.filter((r) => readFindingType(r.type) === 'OTHER');
+  if (other.length === 0) return rows;
+  return [...known, { type: 'OTHER', findings: other.reduce((n, r) => n + r.findings, 0), rows: other.reduce((n, r) => n + r.rows, 0) }];
 }
 
 export type Change = {

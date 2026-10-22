@@ -1,6 +1,7 @@
 // The JSON shapes the API answers with, one function per shape. The OpenAPI schemas list
 // the same keys; src/lib/api/openapi.test.ts compares them.
 import { readDecisionSource } from '../decision-source';
+import { readFindingType } from '../finding-type';
 
 type CatalogRow = {
   id: string; filename: string; clientId: string | null; createdAt: Date;
@@ -34,7 +35,8 @@ export function findingOut(f: FindingRow) {
     barcode: f.item.barcode,
     unit: f.item.unit,
     currentMxik: f.item.existingMxik,
-    type: f.type,
+    // A type this build does not know is "OTHER" (FINDING_FIELDS.type).
+    type: readFindingType(f.type),
     severity: f.severity,
     suggestedMxik: f.suggestedMxik,
     confidence: f.confidence,

@@ -3,6 +3,7 @@ import { PAGE, pageLimit } from '@/lib/api/contract';
 import { recordUsage } from '@/lib/api/limits';
 import { crashed, enter, failure } from '@/lib/api/respond';
 import { findingOut, reportOut } from '@/lib/api/serialize';
+import { findingTypeCounts } from '@/lib/finding-type-counts';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return reply(failure(OP, 'invalid_request', 'Unknown cursor: pass nextCursor from the previous page.'));
     }
     const [byType, rows] = await Promise.all([
-      db.finding.groupBy({ by: ['type'], where, _count: { _all: true } }),
+      findingTypeCounts(catalog.id),
       db.finding.findMany({
         where, take: limit + 1, orderBy: [{ item: { rowIndex: 'asc' } }, { id: 'asc' }],
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -43,7 +44,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       status: 200,
       body: reportOut({
         catalog,
-        summary: Object.fromEntries(byType.map((g) => [g.type, g._count._all])),
+        summary: Object.fromEntries(byType.map((g) => [g.type, g.count])),
         findings: page.map(findingOut),
         nextCursor: rows.length > limit ? page[page.length - 1]?.id ?? null : null,
       }),
