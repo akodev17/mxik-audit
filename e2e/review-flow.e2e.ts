@@ -216,30 +216,33 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     const select = (label: string) => main(page).getByLabel(label);
     assert.ok((await mainText(page)).includes(m.guessed), 'the mapping is presented as a guess to check');
 
-    // The heuristics read "Tovar guruhi" (product group) as the name column: the reviewer has to fix it.
-    assert.equal(await select(fields.name).inputValue(), '0', 'guessed name column is "Tovar guruhi"');
+    // "Nomi" is guessed as the name column although "Tovar guruhi" (product group) also mentions "tovar".
+    assert.equal(await select(fields.name).inputValue(), '1', 'guessed name column is "Nomi", not "Tovar guruhi"');
     assert.equal(await select(fields.mxik).inputValue(), '2', 'MXIK kodi');
     assert.equal(await select(fields.unit).inputValue(), '3', 'Oʻlchov birligi');
     assert.equal(await select(fields.price).inputValue(), '4', 'Narxi');
     assert.equal(await select(fields.barcode).inputValue(), '-1', 'no barcode column');
 
-    // The reviewer corrects the name column, then waits for the diagnostics to refresh.
+    // The reviewer tries "Tovar guruhi" as the name column, waiting for the diagnostics to refresh.
     const settle = async (): Promise<string> => {
       await enabled(page, m.next);
       await page.waitForTimeout(2_000);
       await enabled(page, m.next);
       return select(fields.name).inputValue();
     };
-    await select(fields.name).selectOption('1');
+    await select(fields.name).selectOption('0');
     const afterFirstChange = await settle();
     // Product bug, reported: the first mapping change after the file is read is undone about half a
     // second later, when the wizard re-mounts on the URL it rewrote. A reviewer who notices redoes it.
-    const reverted = afterFirstChange !== '1';
+    const reverted = afterFirstChange !== '0';
     if (reverted) {
       t.diagnostic('the name column fell back to the guess after the first change; choosing it again');
-      await select(fields.name).selectOption('1');
-      assert.equal(await settle(), '1', 'a second correction sticks');
+      await select(fields.name).selectOption('0');
+      assert.equal(await settle(), '0', 'a second change sticks');
     }
+    // Group names are not product names: the reviewer puts "Nomi" back.
+    await select(fields.name).selectOption('1');
+    assert.equal(await settle(), '1', 'name column is "Nomi" again');
 
     // Choosing the name column for MXIK as well is flagged as a duplicate and blocks the next step.
     await select(fields.mxik).selectOption('1');
@@ -259,7 +262,7 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     await main(page).getByRole('button', { name: TA.importX.confirm.start, exact: true }).click();
     await main(page).getByRole('heading', { name: TA.importX.processing.title }).or(main(page).getByRole('heading', { name: TA.importX.done.title })).waitFor();
 
-    assert.equal(reverted, false, 'the first column correction must stay: it was silently reset to the guessed column (upload wizard re-mounted after the first diagnostics call)');
+    assert.equal(reverted, false, 'the first column change must stay: it was silently reset to the guessed column (upload wizard re-mounted after the first diagnostics call)');
   });
 
   test('5 the import becomes a workspace once the audit finishes', { timeout: AUDIT_TIMEOUT + 120_000 }, async (t) => {
@@ -512,7 +515,7 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
 
     await main(page).getByRole('heading', { name: m.title }).waitFor();
     assert.ok((await mainText(page)).includes(m.remembered.client), 'the mapping is remembered from the client\'s last file');
-    assert.equal(await main(page).getByLabel(TA.importX.fields.name).inputValue(), '1', 'the corrected name column is remembered');
+    assert.equal(await main(page).getByLabel(TA.importX.fields.name).inputValue(), '1', 'the name column is remembered');
     await enabled(page, m.next);
     await main(page).getByRole('button', { name: m.next, exact: true }).click();
     await main(page).getByRole('heading', { name: TA.importX.confirm.title }).waitFor();
