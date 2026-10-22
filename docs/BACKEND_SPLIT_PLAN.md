@@ -283,7 +283,11 @@ purchases, cheque/sales imports, schedule and activity), the app shell, the bill
 the demo pages, the landing lead form, the admin pages and /api-docs read and write through
 `@tasnivo/api-client` only (`MIGRATED_WEB_PATHS` in `apps/web/eslint.migrated.mjs` enforces it).
 
-- **Shared scaffolding (temporary copies; W3a's versions win at merge):** `src/lib/api/browser.ts`
+- **Shared scaffolding: W3a's files, taken from its branch unchanged** (lint rule: no @tasnivo/domain,
+  @tasnivo/core or @tasnivo/db in migrated files, types included). Db-free helpers the W3d pages need are
+  web-local copies in `src/lib/pure/` (access, query-string, relative-day, reminder-dates, client-kpi,
+  activity-groups, constants) checked against their originals by `lib/pure/pure.test.ts`; shapes come from
+  `@tasnivo/contracts` (`lib/pure/types.ts`). Before that, W3d had written its own copies: `src/lib/api/browser.ts`
   (`api`), `src/lib/api/server.ts` (`serverApi()`), `src/ui/query-provider.tsx` in the root layout,
   the `/api/:path*` afterFiles rewrite to `API_INTERNAL_URL` when `NEXT_PUBLIC_API_URL` is empty
   (Next bakes rewrites in at build time: build with the `API_INTERNAL_URL` it will run with), and the
@@ -308,6 +312,9 @@ the demo pages, the landing lead form, the admin pages and /api-docs read and wr
   and `saveSchedule` from `reminders.ts`; route handlers `api/admin/metrics`, `api/doc-template`,
   `api/purchase-template`; `lib/shell-data.ts`.
 - **e2e:** `E2E_CHANNEL=msedge` runs the suite with an installed browser.
+
+**At the W3a + W3d merge:** delete `app/api/sign-out/route.ts`, `lib/security/redirect.ts` and
+`lib/security/sign-in.ts` (with both branches in, nothing uses them; on W3d's branch alone W3a's pages still do).
 
 **Left for W4 (still used outside W3d's files):** `lib/guard.ts`, `lib/session.ts` (`currentUser`),
 `lib/plan.ts`, `lib/demo.ts`, `lib/locale.ts` (`getI18n` stays for server components; only its
