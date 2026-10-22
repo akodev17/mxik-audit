@@ -103,7 +103,9 @@ export function Workspace(props: WorkspaceProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [sureOpen, setSureOpen] = useState(false);
   const anchor = useRef<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // State rather than a ref: the grid's virtualizer reads it in its own layout effect, which runs
+  // before this parent's ref is attached, and a state update re-renders the grid once it exists.
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -120,7 +122,7 @@ export function Workspace(props: WorkspaceProps) {
     try { setHidden(readHidden(localStorage.getItem(COLUMNS_KEY))); } catch { /* storage blocked */ }
   }, [hiddenKey]);
 
-  const gridWidth = useWidth(scrollRef);
+  const gridWidth = useWidth(scrollEl);
   const openRow = openId ? rows.find((r) => r.findingId === openId) ?? null : null;
   // With the drawer beside it the grid drops optional columns rather than scroll under the sticky decision column.
   const besideDrawer = openRow !== null && !phone;
@@ -431,7 +433,7 @@ export function Workspace(props: WorkspaceProps) {
     body = (
       <Grid
         entries={entries} total={grouped ? null : props.count} activeIndex={activeIndex} compact={compact} expanded={expanded}
-        hasMore={next !== null && !loadFailed} scrollRef={scrollRef} gridRef={gridRef} handlers={handlers} readOnly={readOnly}
+        hasMore={next !== null && !loadFailed} scrollEl={scrollEl} gridRef={gridRef} handlers={handlers} readOnly={readOnly}
         selected={selected} allChecked={allChecked} editingId={editingId} layout={layout}
       />
     );
@@ -466,7 +468,7 @@ export function Workspace(props: WorkspaceProps) {
         />
       ) : null}
       <div
-        ref={scrollRef}
+        ref={setScrollEl}
         className={cx('relative md:min-h-0 md:flex-1 md:overflow-auto', drawerOpen && 'lg:mr-(--drawer-width)')}
       >
         {body}
