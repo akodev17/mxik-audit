@@ -67,6 +67,7 @@ export function FeedbackSection() {
         <Row label="Tooltip">
           <Tooltip content="Kod 17 raqamdan iborat"><Button size="sm">Hover yoki focus</Button></Tooltip>
           <Tooltip content="Pastda" side="bottom"><Button size="sm">Pastda</Button></Tooltip>
+          <Tooltip content="Oʻngda (rail)" side="right"><Button size="sm">Oʻngda</Button></Tooltip>
         </Row>
         <Row label="Progress / Spinner">
           <div className="grid w-full max-w-xl gap-3 sm:grid-cols-2">
@@ -119,8 +120,8 @@ export function NavigationSection() {
   const groups = useNav(true, true);
   return (
     <Block id="navigation" title="Navigation" hint="Desktop navigation is the header tabs plus the icon rail. Below md the same destinations open in a drawer, shown here as grouped NavLinks (raised pill for the current page). Links only switch the sample state.">
-      <Sub title="App header and left sidebar" note="Two permanent parts of the layout from md: the header (brand, section tabs, client, search, account) and the left sidebar (notifications, help, upload) with a border on its right edge. Below md the same destinations open in a drawer.">
-        <div className="hidden overflow-hidden rounded-ctl border border-line md:block">
+      <Sub title="App header and left sidebar" note="Two permanent parts of the layout from md: the header (brand, section tabs, client, search, account) and the left sidebar (notifications, help, upload) with a border on its right edge; its tooltips open to the right. Tabs that do not fit move into the Yana menu at the end of the row. Below md the same destinations open in a drawer.">
+        <div className="hidden rounded-ctl border border-line md:block">
           <div className="flex h-16 border-b border-line">
             <span className="grid w-16 shrink-0 place-items-center border-r border-line"><TasnivoMark className="size-7 text-fg" /></span>
             <TopNav canWrite canTeam activePath="/clients" />

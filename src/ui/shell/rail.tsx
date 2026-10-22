@@ -16,7 +16,7 @@ const CURRENT = 'bg-surface text-fg';
 
 function RailLink({ href, label, active, children, className }: { href: string; label: string; active: boolean; children: ReactNode; className?: string }) {
   return (
-    <Tooltip content={label} side="bottom" describe={false}>
+    <Tooltip content={label} side="right" describe={false}>
       <Link href={href} aria-label={label} aria-current={active ? 'page' : undefined} className={cx(ICON, active ? CURRENT : IDLE, className)}>
         {children}
       </Link>
@@ -26,7 +26,7 @@ function RailLink({ href, label, active, children, className }: { href: string; 
 
 /**
  * The left sidebar (from md; a permanent part of the layout, below md the same destinations open in the
- * drawer). It carries the utilities that are not header tabs: notifications and help at the top, and
+ * drawer). It carries the utilities that are not header tabs: notifications, help and settings at the top, and
  * "upload a catalogue" at the bottom for people who may upload. Icons share one size and hover state,
  * each has a text name and a tooltip, and the border on its right edge separates it from the page.
  */
@@ -38,11 +38,12 @@ export function Rail({ canWrite, canTeam, canUpload, unread, activePath }: {
   const pathname = activePath ?? current;
   const items = useNav(canWrite, canTeam).flatMap((g) => g.items);
   const help = items.find((i) => i.key === 'help');
+  const settings = items.find((i) => i.key === 'settings');
   // Not in a demo: uploading is switched off there, and a shortcut to a dead end is worse than none.
   const upload = canUpload ? items.find((i) => i.key === 'upload') : undefined;
   const bell = ta.shellX.bell.title;
   return (
-    <nav aria-label={ta.shellX.nav.label} className="no-print hidden w-16 shrink-0 flex-col items-center justify-between border-r border-line bg-base py-4 md:flex">
+    <nav aria-label={ta.shellX.nav.utilities} className="no-print hidden w-16 shrink-0 flex-col items-center justify-between border-r border-line bg-base py-4 md:flex">
       <ul className="flex flex-col items-center gap-2">
         <li>
           <RailLink href="/notifications" label={bell} active={isActive(pathname, '/notifications')}>
@@ -52,6 +53,7 @@ export function Rail({ canWrite, canTeam, canUpload, unread, activePath }: {
           </RailLink>
         </li>
         {help ? <li><RailLink href={help.href} label={help.label} active={isActive(pathname, help.href)}>{help.icon}</RailLink></li> : null}
+        {settings ? <li><RailLink href={settings.href} label={settings.label} active={isActive(pathname, settings.href)}>{settings.icon}</RailLink></li> : null}
       </ul>
       {upload ? (
         <RailLink href={upload.href} label={upload.label} active={isActive(pathname, upload.href)} className="border border-line-strong bg-raised shadow-sm">

@@ -4,7 +4,7 @@ import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type 
 import { cx } from './cx';
 import { useEscape } from './overlay';
 
-type Side = 'top' | 'bottom';
+type Side = 'top' | 'bottom' | 'right';
 type Align = 'start' | 'center' | 'end';
 type TriggerProps = { 'aria-describedby'?: string };
 
@@ -12,14 +12,16 @@ type Props = {
   content: ReactNode;
   /** One focusable element: a button, link or input. */
   children: ReactElement<TriggerProps>;
+  /** "right" is for triggers stacked in a column (the rail): above or below, the bubble would cover a neighbour. */
   side?: Side;
+  /** Horizontal alignment for top and bottom; a right-side bubble is always centred vertically. */
   align?: Align;
   /** False when the trigger is already labelled by the same text (icon buttons): the tooltip is then visual only. */
   describe?: boolean;
 };
 
 // Padding, not margin, separates the bubble from the trigger, so the pointer can cross onto it.
-const SIDE: Record<Side, string> = { top: 'bottom-full pb-1.5', bottom: 'top-full pt-1.5' };
+const SIDE: Record<Side, string> = { top: 'bottom-full pb-1.5', bottom: 'top-full pt-1.5', right: 'left-full top-1/2 -translate-y-1/2 pl-1.5' };
 const ALIGN: Record<Align, string> = { start: 'left-0', center: 'left-1/2 -translate-x-1/2', end: 'right-0' };
 const HOVER_DELAY_MS = 300;
 
@@ -66,7 +68,7 @@ export function Tooltip({ content, children, side = 'top', align = 'center', des
   return (
     <span className="relative inline-flex" onPointerEnter={onPointerEnter} onPointerLeave={hide} onFocus={onFocus} onBlur={hide}>
       {trigger}
-      <span role="tooltip" id={id} hidden={!open} className={cx('absolute z-dropdown w-max max-w-64', SIDE[side], ALIGN[align])}>
+      <span role="tooltip" id={id} hidden={!open} className={cx('absolute z-dropdown w-max max-w-64', SIDE[side], side !== 'right' && ALIGN[align])}>
         <span className="block rounded-sm bg-fg px-2 py-1 text-micro font-medium text-inverse shadow-pop motion-safe:animate-fade-in">
           {content}
         </span>

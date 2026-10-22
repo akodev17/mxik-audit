@@ -21,6 +21,8 @@ export const uz = {
     skip: 'Asosiy mazmunga oʻtish',
     nav: {
       label: 'Asosiy menyu',
+      utilities: 'Qoʻshimcha menyu',
+      more: 'Yana',
       home: 'Tasnivo: bosh sahifa',
       work: 'Ish',
       clients: 'Mijozlar va kataloglar',
@@ -182,6 +184,8 @@ export const ru: typeof uz = {
     skip: 'Перейти к основному содержимому',
     nav: {
       label: 'Главное меню',
+      utilities: 'Дополнительное меню',
+      more: 'Ещё',
       home: 'Tasnivo: главная',
       work: 'Работа',
       clients: 'Клиенты и каталоги',

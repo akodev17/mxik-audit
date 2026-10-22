@@ -50,10 +50,11 @@ export function StatRow({ items, label, size = 'md', bare = false }: { items: St
             <span className="mt-1.5 block min-h-8 text-micro text-muted">{item.hint}</span>
           </>
         );
+        const cell = 'flex h-full min-w-0 flex-col items-center px-3 py-4 text-center lg:px-5';
         // Two columns on a phone: the second column gets a rule on its left, the second row one on top.
-        const cell = cx('flex h-full min-w-0 flex-col items-center px-3 py-4 text-center lg:px-5', i % 2 === 1 && 'max-lg:border-l max-lg:border-line', i >= 2 && 'max-lg:border-t max-lg:border-line');
+        // The rules sit on the list item, not the rounded link, so they stay straight to their ends.
         return (
-          <li key={item.key} className="min-w-0">
+          <li key={item.key} className={cx('min-w-0', i % 2 === 1 && 'max-lg:border-l max-lg:border-line', i >= 2 && 'max-lg:border-t max-lg:border-line')}>
             {item.href
               ? <Link href={item.href} className={cx(cell, 'group/cell rounded-ctl transition-colors duration-(--duration-fast) hover:bg-surface')}>{body}</Link>
               : <div className={cell}>{body}</div>}

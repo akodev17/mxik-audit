@@ -8,7 +8,7 @@ import { shortcutLabel } from './shortcuts';
 
 const noop = (): (() => void) => () => undefined;
 
-/** Header trigger of the command palette; shows the shortcut from md up, an icon below. */
+/** Header trigger of the command palette: a search field with the shortcut from xl up, an icon below (the header tabs need the room). */
 export function SearchButton({ onOpen, expanded, controls }: { onOpen: () => void; expanded: boolean; controls?: string }) {
   const { ta } = useI18n();
   // The platform is only known in the browser; the server renders the Ctrl form.
@@ -22,11 +22,11 @@ export function SearchButton({ onOpen, expanded, controls }: { onOpen: () => voi
       aria-controls={controls}
       aria-keyshortcuts="Control+K Meta+K /"
       aria-label={ta.shellX.search.button}
-      className="flex h-control-md shrink-0 items-center gap-2 rounded-ctl px-2 text-data text-muted transition-colors duration-(--duration-fast) hover:bg-surface hover:text-fg lg:w-64 lg:bg-surface lg:px-3"
+      className="flex h-control-md shrink-0 items-center gap-2 rounded-ctl px-2 text-data text-muted transition-colors duration-(--duration-fast) hover:bg-surface hover:text-fg xl:w-64 xl:bg-surface xl:px-3"
     >
       <IconSearch size={18} />
-      <span className="hidden lg:inline">{ta.shellX.search.button}</span>
-      <span className="ml-auto hidden lg:inline-flex"><Kbd>{shortcut}</Kbd></span>
+      <span className="hidden xl:inline">{ta.shellX.search.button}</span>
+      <span className="ml-auto hidden xl:inline-flex"><Kbd>{shortcut}</Kbd></span>
     </button>
   );
 }

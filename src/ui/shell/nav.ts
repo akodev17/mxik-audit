@@ -37,7 +37,19 @@ export function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-const CLIENT_PAGE = /^\/clients\/([^/]+)/;
+/**
+ * How many header tabs fit in `available` px, in order: all of them when they fit, otherwise as many
+ * as fit beside the "more" button (`more` px) that lists the rest. `gap` is the space between items.
+ */
+export function fittingTabs(widths: readonly number[], available: number, more: number, gap: number): number {
+  const row = (n: number): number => widths.slice(0, n).reduce((sum, w) => sum + w, 0) + Math.max(0, n - 1) * gap;
+  if (row(widths.length) <= available) return widths.length;
+  let n = widths.length - 1;
+  while (n > 0 && row(n) + gap + more > available) n -= 1;
+  return n;
+}
+
+const CLIENT_PAGE =/^\/clients\/([^/]+)/;
 const CATALOG_PAGE = /^\/catalogs\/[^/]+/;
 /** Lists that filter by a `client` query parameter. */
 const CLIENT_LISTS = ['/queue', '/activity', '/catalogs'];

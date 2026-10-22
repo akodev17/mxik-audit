@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { helpHref, isActive, navGroups, switcherScope, switchTarget } from './nav';
+import { fittingTabs, helpHref, isActive, navGroups, switcherScope, switchTarget } from './nav';
 import { paletteCommands } from './palette-model';
 import { parseSidebar } from './prefs';
 
@@ -22,6 +22,16 @@ describe('shell navigation', () => {
     assert.equal(withTeam[withTeam.indexOf('/clients') + 1], '/team');
     assert.ok(paletteCommands({ canWrite: true, canTeam: true, locale: 'uz', clientCount: 1 }).some((c) => c.key === 'team'));
     assert.ok(!paletteCommands({ canWrite: true, locale: 'uz', clientCount: 1 }).some((c) => c.key === 'team'));
+  });
+
+  it('fits as many header tabs as the row holds and moves the rest behind the more button', () => {
+    const widths = [97, 67, 71, 63, 87, 62, 88, 91]; // the Uzbek tab row: 626 px of tabs, 640 with 2 px gaps
+    assert.equal(fittingTabs(widths, 805, 70, 2), 8, 'wide header: every tab, no more button');
+    assert.equal(fittingTabs(widths, 600, 70, 2), 6, 'the more button takes room too');
+    // 1024 px window, 389 px for the row: the bug hid four tabs behind an invisible scroller.
+    assert.equal(fittingTabs(widths, 389, 70, 2), 4);
+    assert.equal(fittingTabs(widths, 60, 70, 2), 0, 'no room: everything in the menu');
+    assert.equal(fittingTabs([], 300, 70, 2), 0);
   });
 
   it('marks a section active on its own path and below it only', () => {
