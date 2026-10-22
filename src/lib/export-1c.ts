@@ -12,12 +12,14 @@ export type OneCRow = {
   unit: string;
   barcode: string;
   auditStatus: string;
+  /** When EHF stops accepting the code, as text; empty when it is not restricted. */
+  restricted?: string;
 };
 
-/** Column titles in the requester's language: name, code, unit, barcode, status. */
-export type OneCHeaders = readonly [string, string, string, string, string];
+/** Column titles in the requester's language: name, code, unit, barcode, status, EHF restriction. */
+export type OneCHeaders = readonly [string, string, string, string, string, string];
 
-export const ONE_C_HEADERS_RU: OneCHeaders = ['Наименование', 'ИКПУ', 'Единица измерения', 'Штрихкод', 'Статус аудита'];
+export const ONE_C_HEADERS_RU: OneCHeaders = ['Наименование', 'ИКПУ', 'Единица измерения', 'Штрихкод', 'Статус аудита', 'Ограничение в ЭСФ'];
 
 const BOM = String.fromCharCode(0xfeff);
 const EOL = '\r\n';
@@ -27,7 +29,7 @@ function field(value: string): string {
   return /[";\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-const cellsOf = (r: OneCRow): string[] => [r.name, r.mxik, r.unit, r.barcode, r.auditStatus];
+const cellsOf = (r: OneCRow): string[] => [r.name, r.mxik, r.unit, r.barcode, r.auditStatus, r.restricted ?? ''];
 
 export function build1cCsv(rows: readonly OneCRow[], headers: OneCHeaders = ONE_C_HEADERS_RU): Buffer {
   const lines = [[...headers], ...rows.map(cellsOf)].map((cells) => cells.map(field).join(';'));
@@ -41,7 +43,7 @@ export async function build1cXlsx(rows: readonly OneCRow[], headers: OneCHeaders
   workbook.creator = 'Tasnivo';
   const sheet = workbook.addWorksheet('1C');
   sheet.columns = [
-    { width: 48 }, { width: 22, style: { numFmt: '@' } }, { width: 18 }, { width: 18, style: { numFmt: '@' } }, { width: 26 },
+    { width: 48 }, { width: 22, style: { numFmt: '@' } }, { width: 18 }, { width: 18, style: { numFmt: '@' } }, { width: 26 }, { width: 26 },
   ];
   sheet.addRow([...headers].map(formulaSafe)).font = { bold: true };
   for (const row of rows) sheet.addRow(cellsOf(row).map(formulaSafe));

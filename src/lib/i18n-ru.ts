@@ -99,6 +99,7 @@ export const ru: Dict = {
   typeNotPurchased: 'Нет в закупках',
   typePrivilegeCode: 'Код с льготой',
   typePrivilegeOpportunity: 'Возможность льготы',
+  typeRestricted: 'Код ограничен в ЭСФ',
   purchasesNav: 'Приход (закупки)',
   purchasesTitle: 'Приход (закупки)',
   purchasesHint: 'Загрузите список закупок клиента: экспорт прихода из ЭСФ или любой список Excel/CSV. Коды в каталоге сверяются с кодами ИКПУ в закупках (и единицей измерения).',

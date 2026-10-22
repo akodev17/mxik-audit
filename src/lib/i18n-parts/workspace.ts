@@ -58,6 +58,7 @@ export const uz = {
       NOT_PURCHASED: 'Kod mijozning xaridlar roʻyxatida topilmadi.',
       PRIVILEGE_CODE: 'Kod tasniflagichda soliq imtiyozi bilan bogʻlangan.',
       PRIVILEGE_OPPORTUNITY: 'Taklif etilgan kod soliq imtiyozi bilan bogʻlangan, hozirgi kod esa yoʻq.',
+      RESTRICTED: 'Kod EHFda foydalanish cheklanadigan umumiy MXIK kodlari roʻyxatida.',
     } as Record<string, string>,
     /** What "Kod toʻgʻri" records for each confirming check. */
     confirmMeans: {
@@ -78,6 +79,10 @@ export const uz = {
       privilegeMismatch: 'Kod tovar nomiga mos kelmaydi: imtiyoz asossiz qoʻllanishi mumkin, tekshiring.',
       privilegeCheck: 'Tovar shu kodga haqiqatan mosligini va imtiyoz shartlarini tekshiring.',
       opportunityCheck: 'Imtiyoz shartlari va amal qilish muddatini mutaxassis bilan tekshiring.',
+      restricted: (code: string, date: string, inForce: boolean) => (inForce
+        ? `${date} dan ${code} kodidan EHFda foydalanish cheklangan. Uni batafsil kodga almashtiring.`
+        : `${date} dan ${code} kodidan EHFda foydalanish cheklanadi. Uni oldindan batafsil kodga almashtiring.`),
+      restrictedNone: 'Tasniflagichda bu pozitsiyaning batafsil kodi topilmadi: mkinfo.uz shaxsiy kabineti orqali batafsil kod soʻrang.',
       privileges: 'Bogʻlangan imtiyozlar',
     },
     act: {
@@ -430,6 +435,7 @@ export const ru: typeof uz = {
       NOT_PURCHASED: 'Код не найден в списке закупок клиента.',
       PRIVILEGE_CODE: 'В классификаторе код связан с налоговой льготой.',
       PRIVILEGE_OPPORTUNITY: 'Предложенный код связан с налоговой льготой, а текущий — нет.',
+      RESTRICTED: 'Код входит в перечень общих ИКПУ, применение которых в ЭСФ ограничивается.',
     },
     confirmMeans: {
       UNIT_CONFLICT: 'Код не меняется. В экспорте единица измерения заменяется на привязанную к коду.',
@@ -448,6 +454,10 @@ export const ru: typeof uz = {
       privilegeMismatch: 'Код не соответствует названию товара: льгота может применяться без оснований, проверьте.',
       privilegeCheck: 'Проверьте, что товар действительно соответствует коду и условиям льготы.',
       opportunityCheck: 'Условия льготы и срок её действия проверьте со специалистом.',
+      restricted: (code, date, inForce) => (inForce
+        ? `С ${date} применение кода ${code} в ЭСФ ограничено. Замените его детализированным кодом.`
+        : `С ${date} применение кода ${code} в ЭСФ будет ограничено. Замените его детализированным кодом заранее.`),
+      restrictedNone: 'В классификаторе нет детализированного кода этой позиции: запросите его через личный кабинет на mkinfo.uz.',
       privileges: 'Связанные льготы',
     },
     act: {

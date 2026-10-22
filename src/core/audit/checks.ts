@@ -1,4 +1,4 @@
-// The five checks, as pure functions over an already-resolved row.
+// The checks, as pure functions over an already-resolved row.
 //
 // ARCHIVED is not a separate type: no source exposes deprecation status
 // (docs/gate0-report.md §3) and the remedy is identical to NOT_FOUND, so a
@@ -9,7 +9,7 @@ import { vetoEvidence, type MatchEvidence } from '../match/evidence.js';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 
 export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED'
-  | 'PRIVILEGE_CODE' | 'PRIVILEGE_OPPORTUNITY';
+  | 'PRIVILEGE_CODE' | 'PRIVILEGE_OPPORTUNITY' | 'RESTRICTED';
 /** "info" findings are shown but never counted as risk. */
 export type Severity = 'high' | 'medium' | 'info';
 
@@ -23,7 +23,22 @@ export const MISMATCH_THRESHOLD = 0.6;
  * shop name scores low against its own generic base code, and flagging that as
  * a mismatch was wrong two times in three.
  */
-const POSITION_DIGITS = 8;
+export const POSITION_DIGITS = 8;
+
+/** A restriction this close, or already in force, is high severity; further out, medium. */
+export const RESTRICTED_HIGH_DAYS = 90;
+
+/**
+ * A generalized code EHF refuses from `effectiveFrom` on (restricted_code),
+ * resolved by the runner for the row's code or, on a MISSING row, for the
+ * suggested one.
+ */
+export type Restriction = {
+  code: string;
+  effectiveFrom: Date;
+  /** Detailed codes of the same position, best first; empty when the position has none. */
+  replacements: readonly ScoredCandidate[];
+};
 
 export type ResolvedRow = {
   /** The row's own code, exactly as the catalogue had it (may be junk). */
@@ -40,6 +55,8 @@ export type ResolvedRow = {
   suggestions: readonly ScoredCandidate[];
   /** The reranker judged that none of the retrieved codes fits the row (so there are no suggestions). */
   vetoed?: boolean;
+  /** Set when the row's code (MISSING: the best suggestion) is on the restricted list. */
+  restriction?: Restriction | null;
 };
 
 export type Finding = {
@@ -59,6 +76,8 @@ export type Finding = {
   wasRetired: boolean;
   /** Why the suggested code was proposed; null when nothing was suggested. */
   evidence: MatchEvidence | null;
+  /** RESTRICTED only: the restricted code and the date EHF stops accepting it. */
+  restriction?: { code: string; effectiveFrom: Date };
 };
 
 /** Normalizes whatever the spreadsheet had into a code or nothing. */
@@ -79,14 +98,47 @@ function alternativesOf(suggestions: readonly ScoredCandidate[]): Finding['alter
   }));
 }
 
+/** dd.mm.yyyy of a date-only value, as the official list states it. */
+export function restrictionDate(date: Date): string {
+  const iso = date.toISOString();
+  return `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+}
+
+/** high when the restriction is in force or starts within RESTRICTED_HIGH_DAYS of `today`. */
+export function restrictionSeverity(effectiveFrom: Date, today: Date): Severity {
+  return effectiveFrom.getTime() <= today.getTime() + RESTRICTED_HIGH_DAYS * 86_400_000 ? 'high' : 'medium';
+}
+
+/** RESTRICTED: replace the generalized code with a detailed code of its position, or request one. */
+export function restrictedFinding(r: Restriction, today: Date): Finding {
+  const best = r.replacements[0];
+  const date = restrictionDate(r.effectiveFrom);
+  const when = r.effectiveFrom.getTime() <= today.getTime() ? `${date} dan EHFda cheklangan` : `${date} dan EHFda cheklanadi`;
+  return {
+    type: 'RESTRICTED',
+    severity: restrictionSeverity(r.effectiveFrom, today),
+    suggestedMxik: best?.candidate.code ?? null,
+    confidence: best?.confidence ?? null,
+    alternatives: alternativesOf(r.replacements),
+    reason: best
+      ? `${r.code} umumiy kodi ${when}: uni batafsil kodga almashtiring. Taklif: ${best.candidate.code}.`
+      : `${r.code} umumiy kodi ${when}: tasniflagichda bu pozitsiyaning batafsil kodi yoʻq, mkinfo.uz orqali batafsil kod soʻrang.`,
+    wasRetired: false,
+    evidence: best?.evidence ?? null,
+    restriction: { code: r.code, effectiveFrom: r.effectiveFrom },
+  };
+}
+
 /**
  * Runs every applicable check. A row can produce more than one finding: a valid
  * code can simultaneously be a poor name match and carry the wrong unit.
  * MISSING and NOT_FOUND are mutually exclusive, and the two medium checks only
- * apply once the code is known to be valid.
+ * apply once the code is known to be valid. RESTRICTED is independent of all of
+ * them: a restricted code can be valid, retired or a poor match as well.
  */
-export function runChecks(row: ResolvedRow): Finding[] {
+export function runChecks(row: ResolvedRow, today: Date = new Date()): Finding[] {
   const findings: Finding[] = [];
+  const restricted = row.restriction ? [restrictedFinding(row.restriction, today)] : [];
   const best = row.suggestions[0];
   const code = readCode(row.existingMxik);
   // With no suggestion, a veto is itself the evidence worth storing.
@@ -107,7 +159,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
       wasRetired: false,
       evidence: bestEvidence,
     });
-    return findings;
+    return [...findings, ...restricted];
   }
 
   // ---------------------------------------------------------------- NOT_FOUND
@@ -124,7 +176,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
       wasRetired: row.existing.retired,
       evidence: bestEvidence,
     });
-    return findings;
+    return [...findings, ...restricted];
   }
 
   const existing = row.existing.candidate;
@@ -171,7 +223,7 @@ export function runChecks(row: ResolvedRow): Finding[] {
     });
   }
 
-  return findings;
+  return [...findings, ...restricted];
 }
 
 export type Summary = {
@@ -184,7 +236,7 @@ export type Summary = {
 export function summarize(perRow: readonly Finding[][], totalRows: number): Summary {
   const byType: Record<FindingType, number> = {
     MISSING: 0, NOT_FOUND: 0, MISMATCH: 0, UNIT_CONFLICT: 0, NOT_PURCHASED: 0,
-    PRIVILEGE_CODE: 0, PRIVILEGE_OPPORTUNITY: 0,
+    PRIVILEGE_CODE: 0, PRIVILEGE_OPPORTUNITY: 0, RESTRICTED: 0,
   };
   let riskyRows = 0;
   for (const findings of perRow) {

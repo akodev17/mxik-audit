@@ -114,6 +114,7 @@ export type Dict = {
   typeNotPurchased: string;
   typePrivilegeCode: string;
   typePrivilegeOpportunity: string;
+  typeRestricted: string;
   purchasesNav: string;
   purchasesTitle: string;
   purchasesHint: string;
@@ -353,6 +354,7 @@ export const uz: Dict = {
   typeNotPurchased: 'Xaridlarda yoʻq',
   typePrivilegeCode: 'Imtiyozli kod',
   typePrivilegeOpportunity: 'Imtiyoz imkoniyati',
+  typeRestricted: 'EHFda cheklangan kod',
   purchasesNav: 'Kirim (xaridlar)',
   purchasesTitle: 'Kirim (xaridlar)',
   purchasesHint: 'Mijozning xaridlar roʻyxatini yuklang: kirim EHF eksporti yoki istalgan Excel/CSV roʻyxat. Katalogdagi kodlar xaridlardagi MXIK kodlari (va oʻlchov birligi) bilan solishtiriladi.',

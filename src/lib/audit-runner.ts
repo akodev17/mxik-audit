@@ -7,7 +7,8 @@ import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv } from '../core/embed/index.js';
 import { matchProduct, timed, type DisableableStage, type StageTimer } from '../core/match/pipeline.js';
 import { lexicalQuery } from '../core/match/query.js';
-import { rerankFromEnv } from '../core/match/rerank.js';
+import { NoopRerankProvider, rerankFromEnv } from '../core/match/rerank.js';
+import { PositionStore } from '../core/match/position-store.js';
 import type { DictionaryLookup } from '../core/match/dictionary.js';
 import { loadDictionary } from './dictionary.js';
 import {
@@ -19,7 +20,9 @@ import { PROMPT_VERSION } from '../core/match/rerank-prompt.js';
 import { lexicalStrictThresholdFromEnv, PostgresCandidateStore } from '../core/match/store.js';
 import { checkVectorReadiness, type VectorColumn, type VectorReadiness } from '../core/match/vector-readiness.js';
 import { normalizeName } from '../core/normalize/index.js';
-import { readCode, runChecks, type Finding, type ResolvedRow } from '../core/audit/checks.js';
+import {
+  POSITION_DIGITS, readCode, runChecks, type Finding, type ResolvedRow, type Restriction,
+} from '../core/audit/checks.js';
 import type { RerankGate } from '../core/match/rerank-config.js';
 import type {
   EmbeddingProvider, RerankOutcome, RerankProvider, RerankUsage, ScoredCandidate, VectorOutcome,
@@ -102,7 +105,15 @@ export type AuditContext = {
   /** Providers as configured for this run, for Catalog.pipelineMeta. */
   setup?: PipelineSetup | undefined;
   degradedReasons: string[];
+  /** restricted_code: generalized codes EHF refuses, with the date. Absent = no RESTRICTED check. */
+  restricted?: ReadonlyMap<string, Date> | undefined;
 };
+
+/** The restricted list, small enough to hold per audit. An unmigrated database has none. */
+export async function loadRestricted(): Promise<Map<string, Date>> {
+  const rows = await db.restrictedCode.findMany({ select: { code: true, effectiveFrom: true } }).catch(() => []);
+  return new Map(rows.map((r) => [r.code, r.effectiveFrom]));
+}
 
 /** The vector stage's state for the configured provider, on the shared pool. */
 export async function vectorReadiness(): Promise<VectorReadiness> {
@@ -136,7 +147,8 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   const dictionary = await loadDictionary(orgId).catch(() => undefined);
   const disabledStages = readiness.usable ? undefined : new Set<DisableableStage>(['vector']);
   const vectorColumns = readiness.stored?.columns;
-  return { store, embedder, reranker, gate, dictionary, timer, disabledStages, vectorColumns, setup, degradedReasons };
+  const restricted = await loadRestricted();
+  return { store, embedder, reranker, gate, dictionary, timer, disabledStages, vectorColumns, setup, degradedReasons, restricted };
 }
 
 export type AuditableItem = {
@@ -199,12 +211,20 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     if (found) suggestions = [...suggestions, found];
   }
 
+  // The row's own code, or on a MISSING row the code it would be given.
+  const restrictedCode = code ?? suggestions[0]?.candidate.code ?? null;
+  const effectiveFrom = restrictedCode ? ctx.restricted?.get(restrictedCode) : undefined;
+  const restriction: Restriction | null = restrictedCode && effectiveFrom
+    ? { code: restrictedCode, effectiveFrom, replacements: await timed(timer, 'restricted', () => replacementsFor(item, restrictedCode, match.candidates, ctx)) }
+    : null;
+
   const findings = runChecks({
     existingMxik: item.existingMxik,
     unit: item.unit,
     existing,
     suggestions,
     vetoed: match.veto !== null,
+    restriction,
   });
 
   // Marking follows the classifier's own flag on the row's code or on a code we suggest.
@@ -216,6 +236,36 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     match: { rerank: match.rerank, vector: match.vector },
   };
 }
+
+const REPLACEMENTS = 5;
+
+/**
+ * Detailed codes that can replace a restricted generalized one: the non-base,
+ * unrestricted codes of its 8-digit position, best first. The row's own
+ * ranking comes first (it had every stage, the reranker included); the normal
+ * pipeline then ranks the rest of the position, which retrieval over the whole
+ * classifier rarely reaches when the row's name is the generalized code's name.
+ */
+async function replacementsFor(
+  item: AuditableItem, restrictedCode: string, ranked: readonly ScoredCandidate[], ctx: AuditContext,
+): Promise<ScoredCandidate[]> {
+  const position = restrictedCode.slice(0, POSITION_DIGITS);
+  const usable = (c: ScoredCandidate): boolean => c.candidate.code.startsWith(position)
+    && !c.candidate.isBase && !(ctx.restricted?.has(c.candidate.code) ?? false);
+  const out = ranked.filter(usable).slice(0, REPLACEMENTS);
+  const excluded = [...(ctx.restricted?.keys() ?? [])].filter((c) => c.startsWith(position));
+  const scoped = new PositionStore(pool, position, excluded);
+  if (out.length >= REPLACEMENTS || (await scoped.size()) === 0) return out;
+  // No reranker here: the LLM already judged the row once, in the main pass.
+  const rest = await matchProduct({ rawName: item.rawName, unit: item.unit }, {
+    store: scoped, embedder: ctx.embedder, reranker: new NoopRerankProvider('restricted replacement'),
+    disabledStages: SCOPED_OFF, topK: REPLACEMENTS,
+  });
+  const seen = new Set(out.map((c) => c.candidate.code));
+  return [...out, ...rest.candidates.filter((c) => usable(c) && !seen.has(c.candidate.code))].slice(0, REPLACEMENTS);
+}
+
+const SCOPED_OFF: ReadonlySet<DisableableStage> = new Set(['barcode', 'vector']);
 
 /** Finding rows ready for createMany. */
 export function findingData(itemId: string, findings: readonly Finding[], snapshotId: number | null = null) {
@@ -230,6 +280,8 @@ export function findingData(itemId: string, findings: readonly Finding[], snapsh
     wasRetired: f.wasRetired,
     evidence: f.evidence ?? undefined,
     snapshotId,
+    restrictedMxik: f.restriction?.code ?? null,
+    restrictedFrom: f.restriction?.effectiveFrom ?? null,
   }));
 }
 
