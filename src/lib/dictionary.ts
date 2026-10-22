@@ -160,7 +160,7 @@ export async function loadDictionary(orgId: string): Promise<DictionaryLookup & 
     select: { id: true, kind: true, key: true, code: true, uses: true, confirmations: true },
   });
   const live = rows.length === 0 ? new Set<string>() : new Set((await db.$queryRaw<{ code: string }[]>`
-    SELECT code FROM mxik_code WHERE code = ANY(${[...new Set(rows.map((r) => r.code))]}) AND "retiredAt" IS NULL`).map((r) => r.code.trim()));
+    SELECT code FROM mxik_code WHERE code = ANY(${[...new Set(rows.map((r) => r.code))]}::bpchar[]) AND "retiredAt" IS NULL`).map((r) => r.code.trim()));
   const gone = rows.filter((r) => !live.has(r.code));
   if (gone.length > 0) await db.firmMapping.updateMany({ where: { id: { in: gone.map((r) => r.id) } }, data: { staleAt: new Date() } });
 
