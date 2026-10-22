@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getI18n } from '@/lib/locale';
-import { currentUser, inDemoOrg } from '@/lib/session';
+import { signedIn } from '@/lib/api/me';
 import { Page } from '@/ui/page';
 import { AccountTab } from './account-tab';
 import { DataTab } from './data-tab';
@@ -21,7 +21,7 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Search }) {
   const { t, ta } = await getI18n();
-  const user = await currentUser();
+  const user = await signedIn();
   if (!user) redirect('/sign-in');
   const params = await searchParams;
   // Team management moved to its own page; old links and bookmarks land there.
@@ -29,7 +29,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   // The Telegram sign-in binding comes back to /settings?tg=…: keep the result, open the tab it belongs to.
   if (typeof params['tg'] === 'string' && params['tab'] === undefined) redirect(`/settings?tab=security&tg=${encodeURIComponent(params['tg'])}`);
 
-  const demo = await inDemoOrg(user);
+  const demo = user.demo;
   const visible = visibleTabs(user.role, demo);
   const { tab, refused } = chooseTab({ tab: params['tab'], tg: params['tg'] }, visible);
   const s = ta.setX;
@@ -45,8 +45,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
           {demo ? <p className="text-small text-muted">{s.demoOnly}</p> : null}
           <div>
             {tab === 'account' ? <AccountTab user={user} demo={demo} /> : null}
-            {tab === 'security' ? <SecurityTab user={user} /> : null}
-            {tab === 'plan' ? <PlanTab user={user} demo={demo} /> : null}
+            {tab === 'security' ? <SecurityTab /> : null}
+            {tab === 'plan' ? <PlanTab user={user} /> : null}
             {tab === 'integrations' ? <IntegrationsTab user={user} /> : null}
             {tab === 'data' ? <DataTab user={user} /> : null}
           </div>

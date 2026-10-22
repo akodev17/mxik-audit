@@ -1,9 +1,9 @@
 import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { safeNext } from '@tasnivo/domain/security/safe-next';
-import { currentUser } from '@/lib/session';
-import { telegramConfig } from '@tasnivo/domain/telegram/config';
+import { signedIn } from '@/lib/api/me';
+import { serverApi } from '@/lib/api/server';
+import { safeNext } from '@/lib/safe-next';
 import { TelegramLogin } from '@/ui/telegram-login';
 import { SignInForm } from './sign-in-form';
 
@@ -13,8 +13,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const { t, ta } = await getI18n();
   const { error, notice, next } = await searchParams;
   const landing = safeNext(next);
-  if (await currentUser()) redirect(landing ?? '/dashboard');
-  const tg = telegramConfig();
+  if (await signedIn()) redirect(landing ?? '/dashboard');
+  const { telegramBot } = await serverApi().auth.config();
   const problem = error ? ta.secX.notices[error] ?? ta.msg.notices[error] ?? null : null;
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
@@ -25,7 +25,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       <p className="mb-6 mt-1 text-sm text-muted">{t.tagline}</p>
       <SignInForm notice={problem} info={notice ? ta.secX.info[notice] ?? null : null} next={landing} offerResend={error === 'verify'} />
       <p className="mt-3 text-center text-sm"><Link href="/sign-in/forgot" className="text-brand hover:underline">{ta.secX.forgotLink}</Link></p>
-      {tg.enabled && tg.username ? <div className="mt-5 text-center"><TelegramLogin bot={tg.username} /></div> : null}
+      {telegramBot ? <div className="mt-5 text-center"><TelegramLogin bot={telegramBot} /></div> : null}
       <p className="mt-6 text-center text-sm text-muted">{ta.signup.noAccount} <Link href="/sign-up" className="font-medium text-brand hover:underline">{ta.signup.create}</Link></p>
     </main>
   );

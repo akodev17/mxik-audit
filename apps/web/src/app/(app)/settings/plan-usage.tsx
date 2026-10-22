@@ -1,21 +1,18 @@
-import { WARN_AT } from '@tasnivo/domain/billing/limits';
+import type { OutputOf } from '@tasnivo/api-client';
+import type { endpoints } from '@tasnivo/contracts';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import type { PlanStatus } from '@/lib/plan';
 import { StatusChip, StatusIcon, type Tone } from '@/ui/badge';
 import { Progress } from '@/ui/progress';
+import { meterTone } from './plan-meter';
 
+export type PlanStatus = OutputOf<typeof endpoints.billing.plan>['status'];
 type Meter = { key: 'clients' | 'rowsPerMonth' | 'seats' | 'apiChecks'; used: number; cap: number | null };
 
 const STATE_TONE: Record<PlanStatus['state'], Tone> = { unlimited: 'neutral', trial: 'info', firm: 'good', expired: 'danger' };
 
-function meterTone(used: number, cap: number): 'brand' | 'warn' | 'danger' {
-  if (used >= cap) return 'danger';
-  return used >= cap * WARN_AT ? 'warn' : 'brand';
-}
-
 /** The plan's state in one line (no repeated label), then usage against each limit. */
-export async function PlanUsage({ status, until, apiChecks }: { status: PlanStatus; until: Date | null; apiChecks: { used: number; cap: number | null } }) {
+export async function PlanUsage({ status, until, apiChecks }: { status: PlanStatus; until: string | null; apiChecks: { used: number; cap: number | null } }) {
   const { locale, ta } = await getI18n();
   const s = ta.setX.plan;
   const n = (v: number): string => fmtNumber(locale, v);

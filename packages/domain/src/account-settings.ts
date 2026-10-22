@@ -9,7 +9,7 @@ import { i18nFor } from '@tasnivo/i18n/locale';
 import { createApiKey, listApiKeys, MAX_ACTIVE_KEYS, type ApiKeyView } from './api/keys.js';
 import { apiConfig, monthlyCheckCap, usageThisMonth } from './api/limits.js';
 import { planStatus } from './plan.js';
-import { RETENTION_CHOICES } from './security/account.js';
+import { deleteAfterDays, RETENTION_CHOICES } from './security/account.js';
 import { buildAccountExport } from './security/export.js';
 import type { CurrentUser } from './session.js';
 import { telegramConfig } from './telegram/config.js';
@@ -106,6 +106,7 @@ export async function accountSettings(orgId: string) {
     rawRetentionDays: org.rawRetentionDays,
     rawRetentionSince: org.rawRetentionSince,
     retentionChoices: [...RETENTION_CHOICES],
+    closeAfterDays: deleteAfterDays(),
   };
 }
 

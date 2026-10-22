@@ -1,33 +1,34 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { removeMember } from '@/app/actions/team';
+import { api } from '@/lib/api/browser';
+import type { Role } from '@/lib/api/me';
 import { useI18n } from '@/lib/locale-client';
-import type { Role } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
+import { Section } from '@/ui/page';
 import { useToast } from '@/ui/toast';
 import type { ClientOption } from './access-fields';
 import { MemberDialog } from './member-dialog';
+import { useRefreshTeam, useTeam, type Team } from './team-data';
 
 export type Member = { id: string; email: string; role: Role; clientIds: string[]; you: boolean };
 
 function MemberRow({ member, clients, adminCount }: { member: Member; clients: readonly ClientOption[]; adminCount: number }) {
   const { ta } = useI18n();
   const s = ta.setX.team;
-  const router = useRouter();
   const toast = useToast();
+  const refresh = useRefreshTeam();
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const access = member.role === 'admin' || member.clientIds.length === 0 ? s.accessAll : s.accessCount(member.clientIds.length);
 
   const remove = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    const result = await removeMember(member.id);
+    const result = await api.team.removeMember({ userId: member.id }).catch(() => ({ ok: false as const, error: s.errors.invalid }));
     if (!result.ok) return result;
     toast(s.removed(member.email));
-    router.refresh();
+    await refresh();
     return { ok: true };
   };
 
@@ -73,5 +74,18 @@ export function TeamMembers({ members, clients }: { members: Member[]; clients: 
         {members.map((m) => <MemberRow key={m.id} member={m} clients={clients} adminCount={adminCount} />)}
       </ul>
     </div>
+  );
+}
+
+/** The members section of the team page, with its count; `you` is the signed-in user's id. */
+export function MembersSection({ initial, you }: { initial: Team; you: string }) {
+  const { ta } = useI18n();
+  const s = ta.setX.team;
+  const team = useTeam(initial);
+  const members = team.members.map((m) => ({ ...m, you: m.id === you }));
+  return (
+    <Section title={s.title} hint={s.memberCount(members.length)}>
+      <TeamMembers members={members} clients={team.clients} />
+    </Section>
   );
 }

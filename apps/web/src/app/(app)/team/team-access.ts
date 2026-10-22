@@ -1,5 +1,5 @@
 // Client access as an explicit choice, and what a change would widen. Pure; the server re-checks everything.
-import type { Role } from '@/lib/session';
+import type { Role } from '@/lib/api/me';
 
 export type ClientAccess = 'all' | 'selected';
 export type AccessDraft = { role: Role; access: ClientAccess; clientIds: string[] };

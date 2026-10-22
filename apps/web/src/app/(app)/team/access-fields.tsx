@@ -2,7 +2,7 @@
 
 import { useId } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import type { Role } from '@/lib/session';
+import type { Role } from '@/lib/api/me';
 import { Checkbox } from '@/ui/checkbox';
 import { Segmented } from '@/ui/segmented';
 import { Select } from '@/ui/select';

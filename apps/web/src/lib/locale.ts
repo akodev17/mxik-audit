@@ -6,8 +6,6 @@ import { appDict } from '@tasnivo/i18n/i18n-app';
 import { dict, type Locale } from '@tasnivo/i18n/i18n';
 import { LOCALE_COOKIE, parseLocale, type I18n } from '@tasnivo/i18n/locale';
 
-export { formatTag, i18nFor, LOCALE_COOKIE, parseLocale, type I18n } from '@tasnivo/i18n/locale';
-
 export async function getLocale(): Promise<Locale> {
   return parseLocale((await cookies()).get(LOCALE_COOKIE)?.value);
 }

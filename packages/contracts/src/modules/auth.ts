@@ -153,6 +153,13 @@ export const auth = defineModule('auth', {
     replaces: ['action:security.ts#submitTwoFactor'],
     notes: 'Reads the pending sign-in from the session cookie; locked or expired → redirect to /sign-in?error=2fa_locked|2fa_expired.',
   }),
+  twoFactorPending: endpoint({
+    method: 'GET', path: '/api/auth/2fa/pending', auth: 'public',
+    summary: 'Whether this browser has a sign-in waiting for its second step',
+    responds: 'json', response: z.object({ pending: z.boolean() }),
+    replaces: ['page:sign-in/2fa'],
+    notes: 'The 2FA page sends a browser without a pending sign-in back to /sign-in (hasPending).',
+  }),
   twoFactorState: endpoint({
     method: 'GET', path: '/api/auth/2fa', auth: 'session', role: 'any',
     summary: 'Whether two-factor is on and how many recovery codes are left',

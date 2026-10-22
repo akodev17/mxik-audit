@@ -15,6 +15,7 @@ import {
 import { deviceLabel } from '@tasnivo/domain/security/device';
 import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
 import { resetTarget } from '@tasnivo/domain/security/password-reset';
+import { hasPending } from '@tasnivo/domain/security/sign-in';
 import { orderSessions } from '@tasnivo/domain/security/session-order';
 import { endRecord, listSessions, revokeOthers, revokeSession } from '@tasnivo/domain/security/session-store';
 import { twoFactorState } from '@tasnivo/domain/security/two-factor';
@@ -134,6 +135,11 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<Answer<'twoFactorSubmit'>> {
     return twoFactorForm(await this.sessions.forSignIn(req, res), body.code, requestFacts(req));
+  }
+
+  @Route(e.twoFactorPending)
+  async twoFactorPending(@Req() req: ApiRequest): Promise<Answer<'twoFactorPending'>> {
+    return { pending: hasPending(await this.sessions.read(req)) };
   }
 
   @Route(e.twoFactorState)

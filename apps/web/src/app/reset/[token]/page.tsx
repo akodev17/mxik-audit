@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
-import { resetTarget } from '@tasnivo/domain/security/password-reset';
 import { EmptyState } from '@/ui/empty-state';
 import { ResetForm } from './reset-form';
 
@@ -15,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ResetPage({ params }: { params: Promise<{ token: string }> }) {
   const { t, ta } = await getI18n();
   const { token } = await params;
-  const email = await resetTarget(token);
+  const { email, passwordMin } = await serverApi().auth.resetTarget({ token });
   if (!email) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
@@ -30,7 +29,7 @@ export default async function ResetPage({ params }: { params: Promise<{ token: s
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
       <p className="text-xl font-bold tracking-tight">{t.appName}</p>
       <p className="mb-6 mt-1 text-sm text-muted">{ta.secX.reset.intro(email)}</p>
-      <ResetForm token={token} min={MIN_PASSWORD} />
+      <ResetForm token={token} min={passwordMin} />
     </main>
   );
 }

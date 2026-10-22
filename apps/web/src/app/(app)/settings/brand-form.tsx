@@ -1,28 +1,57 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState } from 'react';
-import { saveBranding, type BrandState } from '@/app/actions/settings';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import type { OutputOf } from '@tasnivo/api-client';
+import type { endpoints } from '@tasnivo/contracts';
+import { api } from '@/lib/api/browser';
+import { queryKey, useSeededQuery } from '@/lib/api/query';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { Field, Input } from '@/ui/input';
 
-type Props = { brandName: string; orgName: string; logoUrl: string | null };
+/** GET /api/account: profile, branding and data settings, shared by the account and data tabs. */
+export type Account = OutputOf<typeof endpoints.account.get>;
+type BrandState = OutputOf<typeof endpoints.account.saveBranding>;
 
 /** Firm name and logo printed on client PDF reports. The file picker is our own button, in the UI's language. */
-export function BrandForm({ brandName, orgName, logoUrl }: Props) {
+export function BrandForm({ initial }: { initial: Account }) {
   const { t, ta } = useI18n();
   const s = ta.setX.account;
-  const [state, action, pending] = useActionState<BrandState, FormData>(saveBranding, {});
+  const queryClient = useQueryClient();
+  const { data: { brandName, name: orgName, logoUrl } } = useSeededQuery(api.account.get, initial);
+  const [state, setState] = useState<BrandState>({});
+  // A new key after every save gives fresh inputs (the saved name, no file, the box unticked).
+  const [round, setRound] = useState(0);
   const file = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  // A saved form is reset by React, file input included.
   useEffect(() => setFileName(null), [state]);
 
+  const save = useMutation({
+    mutationFn: (form: FormData) => api.account.saveBranding(form),
+    onSuccess: async (answer) => {
+      if (answer.saved) await queryClient.invalidateQueries({ queryKey: queryKey(api.account.get) });
+      setState(answer);
+    },
+    onError: () => setState({ error: t.errorGeneric }),
+    onSettled: () => setRound((n) => n + 1),
+  });
+  const pending = save.isPending;
+
+  const submit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    if (pending) return;
+    const form = new FormData(e.currentTarget);
+    const logo = form.get('logo');
+    if (logo instanceof File && logo.size === 0) form.delete('logo');
+    save.mutate(form);
+  };
+
   return (
-    <form action={action} className="max-w-md space-y-4">
+    <form key={round} onSubmit={submit} className="max-w-md space-y-4">
       <Field label={t.brandName}>
-        <Input name="brandName" defaultValue={brandName} placeholder={orgName} maxLength={120} />
+        <Input name="brandName" defaultValue={brandName ?? ''} placeholder={orgName} maxLength={120} />
       </Field>
       <div className="relative">
         <p className="mb-1 text-small font-medium">{t.brandLogo}</p>

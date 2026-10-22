@@ -1,7 +1,6 @@
-import { isAdminRole } from '@tasnivo/domain/access';
-import { db } from '@tasnivo/db';
+import type { Me } from '@/lib/api/me';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import type { CurrentUser } from '@/lib/session';
 import { Input } from '@/ui/input';
 import { LanguageSwitch } from '@/ui/language-switch';
 import { Section } from '@/ui/page';
@@ -10,13 +9,10 @@ import { DictionarySetting } from './dictionary-setting';
 import { ThemeSetting } from './theme-setting';
 
 /** Email, role and client access, language and theme; PDF branding and the dictionary setting for admins. */
-export async function AccountTab({ user, demo }: { user: CurrentUser; demo: boolean }) {
+export async function AccountTab({ user, demo }: { user: Me; demo: boolean }) {
   const { t, ta } = await getI18n();
   const s = ta.setX.account;
-  const org = isAdminRole(user) && !demo
-    ? await db.organization.findUniqueOrThrow({ where: { id: user.orgId }, select: { name: true, brandName: true, logoData: true, logoMime: true, dictAutoAccept: true } })
-    : null;
-  const logoUrl = org?.logoData && org.logoMime ? `data:${org.logoMime};base64,${Buffer.from(org.logoData).toString('base64')}` : null;
+  const org = user.role === 'admin' && !demo ? await serverApi().account.get() : null;
 
   return (
     <>
@@ -57,13 +53,13 @@ export async function AccountTab({ user, demo }: { user: CurrentUser; demo: bool
 
       {org ? (
         <Section title={t.brandSection} hint={t.brandHint}>
-          <BrandForm brandName={org.brandName ?? ''} orgName={org.name} logoUrl={logoUrl} />
+          <BrandForm initial={org} />
         </Section>
       ) : null}
 
       {org ? (
         <Section title={ta.dict.autoTitle}>
-          <DictionarySetting initial={org.dictAutoAccept} />
+          <DictionarySetting initial={org} />
         </Section>
       ) : null}
     </>

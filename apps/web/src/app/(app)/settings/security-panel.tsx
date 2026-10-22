@@ -1,18 +1,24 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState, type FormEvent } from 'react';
+import type { OutputOf } from '@tasnivo/api-client';
+import type { endpoints } from '@tasnivo/contracts';
+import { api } from '@/lib/api/browser';
+import { formFields } from '@/lib/api/follow';
+import { queryKey, useSeededQuery } from '@/lib/api/query';
 import { useI18n } from '@/lib/locale-client';
-import { useRouter } from 'next/navigation';
-import { useActionState, useCallback, useEffect, useState, useTransition } from 'react';
-import {
-  changePassword, finishTwoFactor, newRecoveryCodes, securityExtras, startTelegramBind, startTwoFactor, stopTelegramLogin,
-  turnOffTwoFactor, type PasswordState, type SecurityExtras,
-} from '@/app/actions/security';
-import type { QrPath } from '@tasnivo/domain/security/qr';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
 import { Section } from '@/ui/page';
 import { TelegramLogin } from '@/ui/telegram-login';
-import { SessionList, type SessionItem } from './session-list';
+import { SessionList } from './session-list';
+
+type TwoFactorState = OutputOf<typeof endpoints.auth.twoFactorState>;
+type SecurityExtras = NonNullable<OutputOf<typeof endpoints.auth.security>>;
+type Setup = NonNullable<OutputOf<typeof endpoints.auth.twoFactorStart>>;
+type QrPath = Setup['qr'];
+type PasswordState = OutputOf<typeof endpoints.auth.changePassword>;
 
 function RecoveryCodes({ codes }: { codes: string[] }) {
   const { ta } = useI18n();
@@ -35,35 +41,42 @@ function QrCode({ qr, label }: { qr: QrPath; label: string }) {
   );
 }
 
-function TwoFactor({ enabled, recoveryLeft }: { enabled: boolean; recoveryLeft: number }) {
+type CodeJob = 'finish' | 'off' | 'regenerate';
+
+function TwoFactor({ initial }: { initial: TwoFactorState }) {
   const { ta } = useI18n();
-  const router = useRouter();
-  const [setup, setSetup] = useState<{ secret: string; uri: string; qr: QrPath } | null>(null);
+  const queryClient = useQueryClient();
+  const { data: { enabled, recoveryLeft } } = useSeededQuery(api.auth.twoFactorState, initial);
+  const [setup, setSetup] = useState<Setup | null>(null);
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState<string[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [busy, start] = useTransition();
+  const refresh = (): Promise<void> => queryClient.invalidateQueries({ queryKey: queryKey(api.auth.twoFactorState) });
 
-  const finish = (): void => start(async () => {
-    const result = await finishTwoFactor(code);
-    setFailed(result === null);
-    if (result) { setCodes(result); setSetup(null); setCode(''); router.refresh(); }
+  const begin = useMutation({ mutationFn: () => api.auth.twoFactorStart(), onSuccess: setSetup });
+  const withCode = useMutation({
+    mutationFn: async (job: CodeJob): Promise<string[] | boolean | null> => {
+      if (job === 'finish') return api.auth.twoFactorFinish({ code });
+      if (job === 'off') return api.auth.twoFactorOff({ code });
+      return api.auth.recoveryCodes({ code });
+    },
+    onSuccess: async (result, job) => {
+      const ok = result !== null && result !== false;
+      setFailed(!ok);
+      if (!ok) return;
+      setCode('');
+      if (job === 'finish') setSetup(null);
+      setCodes(Array.isArray(result) ? result : null);
+      await refresh();
+    },
+    onError: () => setFailed(true),
   });
-  const off = (): void => start(async () => {
-    const ok = await turnOffTwoFactor(code);
-    setFailed(!ok);
-    if (ok) { setCode(''); setCodes(null); router.refresh(); }
-  });
-  const regenerate = (): void => start(async () => {
-    const result = await newRecoveryCodes(code);
-    setFailed(result === null);
-    if (result) { setCodes(result); setCode(''); router.refresh(); }
-  });
+  const busy = begin.isPending || withCode.isPending;
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted">{enabled ? ta.security.twoFactorOn(recoveryLeft) : ta.security.twoFactorOff}</p>
-      {!enabled && !setup ? <Button variant="secondary" disabled={busy} onClick={() => start(async () => setSetup(await startTwoFactor()))}>{ta.security.enable}</Button> : null}
+      {!enabled && !setup ? <Button variant="secondary" disabled={busy} onClick={() => begin.mutate()}>{ta.security.enable}</Button> : null}
       {setup ? (
         <div className="max-w-xl space-y-2">
           <p className="text-sm">{ta.security.setupHint}</p>
@@ -73,7 +86,7 @@ function TwoFactor({ enabled, recoveryLeft }: { enabled: boolean; recoveryLeft: 
           <p className="text-sm"><a href={setup.uri} className="text-brand hover:underline">{ta.security.uri}</a></p>
           <div className="flex gap-2">
             <Input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder={ta.security.codeLabel} aria-label={ta.security.codeLabel} />
-            <Button variant="primary" disabled={busy || code.trim().length < 6} onClick={finish}>{ta.security.confirm}</Button>
+            <Button variant="primary" disabled={busy || code.trim().length < 6} onClick={() => withCode.mutate('finish')}>{ta.security.confirm}</Button>
           </div>
         </div>
       ) : null}
@@ -82,8 +95,8 @@ function TwoFactor({ enabled, recoveryLeft }: { enabled: boolean; recoveryLeft: 
           <p className="text-xs text-muted">{ta.security.disableHint}</p>
           <div className="flex flex-wrap gap-2">
             <Input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" maxLength={32} placeholder={ta.security.codeLabel} aria-label={ta.security.codeLabel} className="max-w-48" />
-            <Button variant="secondary" disabled={busy || code.trim().length < 6} onClick={regenerate}>{ta.security.regenerate}</Button>
-            <Button variant="ghost" disabled={busy || code.trim().length < 6} onClick={off}>{ta.security.disable}</Button>
+            <Button variant="secondary" disabled={busy || code.trim().length < 6} onClick={() => withCode.mutate('regenerate')}>{ta.security.regenerate}</Button>
+            <Button variant="ghost" disabled={busy || code.trim().length < 6} onClick={() => withCode.mutate('off')}>{ta.security.disable}</Button>
           </div>
         </div>
       ) : null}
@@ -95,14 +108,26 @@ function TwoFactor({ enabled, recoveryLeft }: { enabled: boolean; recoveryLeft: 
 
 function PasswordChange({ min }: { min: number }) {
   const { t, ta } = useI18n();
-  const router = useRouter();
-  const [state, action, pending] = useActionState<PasswordState, FormData>(async (prev, form) => {
-    const next = await changePassword(prev, form);
-    if (next.done) router.refresh();
-    return next;
-  }, {});
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<PasswordState>({});
+  const change = useMutation({
+    mutationFn: (body: { current: string; next: string }) => api.auth.changePassword(body),
+    onSuccess: async (answer) => {
+      // Every other session ended: the list below shows only this one now.
+      if (answer.done) await queryClient.invalidateQueries({ queryKey: queryKey(api.auth.sessions) });
+      setState(answer);
+    },
+    onError: () => setState({ error: ta.security.failed }),
+  });
+  const submit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    if (change.isPending) return;
+    const form = e.currentTarget;
+    const fields = formFields(form);
+    change.mutate({ current: fields['current'] ?? '', next: fields['next'] ?? '' }, { onSettled: () => form.reset() });
+  };
   return (
-    <form action={action} className="max-w-md space-y-3">
+    <form onSubmit={submit} className="max-w-md space-y-3">
       <Field label={ta.secX.password.current}>
         <Input name="current" type="password" required autoComplete="current-password" maxLength={200} />
       </Field>
@@ -111,7 +136,7 @@ function PasswordChange({ min }: { min: number }) {
       </Field>
       {state.error ? <p role="alert" className="text-sm text-danger">{state.error}</p> : null}
       {state.done ? <p role="status" className="text-sm text-good">{state.done}</p> : null}
-      <Button type="submit" variant="secondary" disabled={pending}>{pending ? t.loading : ta.secX.password.submit}</Button>
+      <Button type="submit" variant="secondary" disabled={change.isPending}>{change.isPending ? t.loading : ta.secX.password.submit}</Button>
     </form>
   );
 }
@@ -120,25 +145,28 @@ function TelegramSignIn({ info, result, onChange }: { info: SecurityExtras['tele
   const { ta } = useI18n();
   const s = ta.secX.telegram;
   const [bindState, setBindState] = useState<string | null>(null);
-  const [busy, start] = useTransition();
-  if (!info.bot) return null;
-  const connect = (): void => start(async () => {
-    const state = await startTelegramBind();
-    if (state) setBindState(state);
-    else onChange('error');
+  // Runs in the browser: the one-time state is kept in this browser's session cookie for the widget's callback.
+  const connect = useMutation({
+    mutationFn: () => api.auth.telegramBindStart().catch(() => null),
+    onSuccess: (state) => { if (state) setBindState(state); else onChange('error'); },
   });
-  const disconnect = (): void => start(async () => onChange((await stopTelegramLogin()) ? 'unbound' : 'error'));
+  const disconnect = useMutation({
+    mutationFn: () => api.auth.telegramUnbind().catch(() => false),
+    onSuccess: (ok) => onChange(ok ? 'unbound' : 'error'),
+  });
+  const busy = connect.isPending || disconnect.isPending;
+  if (!info.bot) return null;
   return (
     <div className="max-w-xl space-y-2">
       <p className="text-sm text-muted">{info.bound ? s.bound : s.unbound}</p>
       <p className="text-xs text-muted">{s.separate}</p>
       {result ? <p role="status" className={`text-sm ${result === 'bound' || result === 'unbound' ? 'text-good' : 'text-danger'}`}>{s.result[result] ?? s.result['error']}</p> : null}
-      {info.bound && info.canUnbind ? <Button variant="ghost" disabled={busy} onClick={disconnect}>{s.disconnect}</Button> : null}
-      {!info.bound && !bindState ? <Button variant="secondary" disabled={busy} onClick={connect}>{s.connect}</Button> : null}
+      {info.bound && info.canUnbind ? <Button variant="ghost" disabled={busy} onClick={() => disconnect.mutate()}>{s.disconnect}</Button> : null}
+      {!info.bound && !bindState ? <Button variant="secondary" disabled={busy} onClick={() => connect.mutate()}>{s.connect}</Button> : null}
       {!info.bound && bindState ? (
         <div className="space-y-2">
           <p className="text-sm">{s.connectHint}</p>
-          <TelegramLogin bot={info.bot} authUrl={`/api/auth/telegram/bind/${bindState}`} />
+          <TelegramLogin bot={info.bot} authUrl={api.auth.telegramBind.url({ state: bindState })} />
         </div>
       ) : null}
     </div>
@@ -159,24 +187,25 @@ function useBindResult(): [string | null, (result: string) => void] {
   return [result, setResult];
 }
 
-type Props = {
-  enabled: boolean; recoveryLeft: number; sessions: SessionItem[];
-  /** Password and Telegram state; loaded by the panel itself when the page does not pass it. */
-  extras?: SecurityExtras | null;
+type Initial = {
+  twoFactor: TwoFactorState;
+  sessions: OutputOf<typeof endpoints.auth.sessions>;
+  /** Password and Telegram state; null for a demo (the API refuses it there). */
+  extras: OutputOf<typeof endpoints.auth.security>;
 };
 
-export function SecurityPanel({ enabled, recoveryLeft, sessions, extras: given = null }: Props) {
+export function SecurityPanel({ initial }: { initial: Initial }) {
   const { ta } = useI18n();
-  const [extras, setExtras] = useState<SecurityExtras | null>(given);
+  const queryClient = useQueryClient();
+  const { data: extras } = useSeededQuery(api.auth.security, initial.extras);
   const [tgResult, setTgResult] = useBindResult();
-  const reload = useCallback((): void => { void securityExtras().then(setExtras); }, []);
-  useEffect(() => {
-    if (!given) reload();
-  }, [given, reload]);
-  const onTelegramChange = (result: string): void => { setTgResult(result); reload(); };
+  const onTelegramChange = (result: string): void => {
+    setTgResult(result);
+    void queryClient.invalidateQueries({ queryKey: queryKey(api.auth.security) });
+  };
   return (
     <>
-      <Section title={ta.security.twoFactor}><TwoFactor enabled={enabled} recoveryLeft={recoveryLeft} /></Section>
+      <Section title={ta.security.twoFactor}><TwoFactor initial={initial.twoFactor} /></Section>
       {extras?.passwordChangeable ? (
         <Section title={ta.secX.password.title} hint={ta.secX.password.hint}><PasswordChange min={extras.passwordMin} /></Section>
       ) : null}
@@ -186,7 +215,7 @@ export function SecurityPanel({ enabled, recoveryLeft, sessions, extras: given =
           <Section title={ta.secX.telegram.title}><TelegramSignIn info={extras.telegram} result={tgResult} onChange={onTelegramChange} /></Section>
         </div>
       ) : null}
-      <Section title={ta.security.sessions} hint={ta.security.sessionsHint}><SessionList sessions={sessions} /></Section>
+      <Section title={ta.security.sessions} hint={ta.security.sessionsHint}><SessionList initial={initial.sessions} /></Section>
     </>
   );
 }

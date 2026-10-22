@@ -1,8 +1,8 @@
 'use client';
 
-import { useTransition } from 'react';
-import { setLocale } from '@/app/actions/locale';
+import { useMutation } from '@tanstack/react-query';
 import { LOCALES, type Locale } from '@tasnivo/i18n/i18n';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Segmented } from './segmented';
 
@@ -15,14 +15,17 @@ const NAMES: Record<Locale, string> = { uz: 'Oʻzbekcha', ru: 'Русский' }
  */
 export function LanguageSwitch({ className }: { className?: string }) {
   const { locale, ta } = useI18n();
-  const [busy, start] = useTransition();
+  const change = useMutation({
+    mutationFn: (l: Locale) => api.account.setLocale({ locale: l }),
+    onSuccess: () => window.location.reload(),
+  });
   return (
     <Segmented<Locale>
       label={ta.shell.language}
       options={LOCALES.map((l) => ({ value: l, label: NAMES[l], lang: l }))}
       value={locale}
-      disabled={busy}
-      onChange={(l) => start(async () => { await setLocale(l); window.location.reload(); })}
+      disabled={change.isPending}
+      onChange={(l) => change.mutate(l)}
       className={className}
     />
   );

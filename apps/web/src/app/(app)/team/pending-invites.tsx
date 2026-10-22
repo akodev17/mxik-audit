@@ -1,39 +1,43 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { resendInvite, revokeInvite } from '@/app/actions/team';
+import { fmtDate } from '@tasnivo/i18n/format';
+import { api } from '@/lib/api/browser';
+import type { Role } from '@/lib/api/me';
 import { useI18n } from '@/lib/locale-client';
-import type { Role } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { useToast } from '@/ui/toast';
+import { useRefreshTeam, useTeam, type Team } from './team-data';
 
 export type PendingInvite = { id: string; email: string | null; role: Role; clients: number; expires: string; expired: boolean };
+
+type Answer = { ok: true } | { ok: false; error: string };
 
 function InviteRow({ invite, mailOn }: { invite: PendingInvite; mailOn: boolean }) {
   const { ta } = useI18n();
   const s = ta.setX.team;
-  const router = useRouter();
   const toast = useToast();
+  const refresh = useRefreshTeam();
   const [open, setOpen] = useState(false);
   const [resending, setResending] = useState(false);
   const who = invite.email ?? s.pending.noEmail;
+  const failed = (): Answer => ({ ok: false, error: s.errors.invalid });
 
-  const revoke = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    const result = await revokeInvite(invite.id);
+  const revoke = async (): Promise<Answer> => {
+    const result = await api.team.revokeInvite({ inviteId: invite.id }).catch(failed);
     if (!result.ok) return result;
     toast(s.pending.revoked);
-    router.refresh();
+    await refresh();
     return { ok: true };
   };
 
-  const resend = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    const result = await resendInvite(invite.id);
+  const resend = async (): Promise<Answer> => {
+    const result = await api.team.resendInvite({ inviteId: invite.id }).catch(failed);
     if (!result.ok) return result;
     toast(s.pending.resent(who));
-    router.refresh();
+    await refresh();
     return { ok: true };
   };
 
@@ -67,12 +71,19 @@ function InviteRow({ invite, mailOn }: { invite: PendingInvite; mailOn: boolean 
   );
 }
 
-export function PendingInvites({ invites, mailOn }: { invites: PendingInvite[]; mailOn: boolean }) {
-  const { ta } = useI18n();
+export function PendingInvites({ initial }: { initial: Team }) {
+  const { locale, ta } = useI18n();
+  const team = useTeam(initial);
+  // Compared with the clock when the list was read, so the server's and the browser's render agree.
+  const [now] = useState(() => Date.now());
+  const invites: PendingInvite[] = team.invites.map((i) => ({
+    id: i.id, email: i.email, role: i.role, clients: i.clientIds.length,
+    expires: fmtDate(locale, i.expiresAt), expired: Date.parse(i.expiresAt) <= now,
+  }));
   if (invites.length === 0) return <p className="text-small text-muted">{ta.setX.team.pending.none}</p>;
   return (
     <ul className="divide-y divide-line overflow-hidden rounded-ctl border border-line bg-raised">
-      {invites.map((i) => <InviteRow key={i.id} invite={i} mailOn={mailOn} />)}
+      {invites.map((i) => <InviteRow key={i.id} invite={i} mailOn={team.mailEnabled} />)}
     </ul>
   );
 }

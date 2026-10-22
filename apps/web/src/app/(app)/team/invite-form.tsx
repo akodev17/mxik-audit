@@ -1,8 +1,11 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useActionState, useEffect, useState } from 'react';
-import { inviteMember, type InviteState } from '@/app/actions/team';
+import { useEffect, useState, type FormEvent } from 'react';
+import type { InputOf, OutputOf } from '@tasnivo/api-client';
+import type { endpoints } from '@tasnivo/contracts';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { CopyField } from '@/ui/copy-field';
@@ -10,21 +13,47 @@ import { Field, Input } from '@/ui/input';
 import { Segmented } from '@/ui/segmented';
 import { AccessFields, type ClientOption } from './access-fields';
 import { draftError, type AccessDraft } from './team-access';
+import { useRefreshTeam } from './team-data';
 
 type Kind = 'email' | 'link';
 type Props = { clients: ClientOption[]; mailOn: boolean; days: number; blocked: string | null };
+type InviteState = OutputOf<typeof endpoints.team.invite>;
+type InviteBody = InputOf<typeof endpoints.team.invite>;
 
 const START: AccessDraft = { role: 'accountant', access: 'all', clientIds: [] };
 
+/** The form's fields as the API takes them (the same names the server action read). */
+function bodyOf(form: HTMLFormElement): InviteBody {
+  const data = new FormData(form);
+  const text = (name: string): string | undefined => {
+    const value = data.get(name);
+    return typeof value === 'string' ? value : undefined;
+  };
+  return {
+    role: text('role') ?? '', kind: text('kind') ?? '', access: text('access'), email: text('email'),
+    clientIds: data.getAll('clientIds').filter((v): v is string => typeof v === 'string'),
+  };
+}
+
 /** Email-bound invites by default; a link without an address only on purpose. */
 export function InviteForm({ clients, mailOn, days, blocked }: Props) {
-  const { ta } = useI18n();
+  const { t, ta } = useI18n();
   const s = ta.setX.team;
-  const [state, action, pending] = useActionState<InviteState, FormData>(inviteMember, {});
+  const refresh = useRefreshTeam();
+  const [state, setState] = useState<InviteState>({});
   const [kind, setKind] = useState<Kind>('email');
   const [email, setEmail] = useState('');
   const [draft, setDraft] = useState<AccessDraft>(START);
   const [checked, setChecked] = useState(false);
+  const invite = useMutation({
+    mutationFn: (body: InviteBody) => api.team.invite(body),
+    onSuccess: async (answer) => {
+      setState(answer);
+      if (answer.url) await refresh();
+    },
+    onError: () => setState({ error: t.errorGeneric }),
+  });
+  const pending = invite.isPending;
 
   // A created invite clears the form for the next one.
   useEffect(() => {
@@ -44,13 +73,16 @@ export function InviteForm({ clients, mailOn, days, blocked }: Props) {
     );
   }
 
+  const submit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    setChecked(true);
+    if (draftError(draft) || pending) return;
+    invite.mutate(bodyOf(e.currentTarget));
+  };
+
   return (
     <div className="max-w-xl space-y-4">
-      <form
-        action={action}
-        onSubmit={(e) => { setChecked(true); if (draftError(draft)) e.preventDefault(); }}
-        className="space-y-4" noValidate
-      >
+      <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="space-y-1.5">
           <p className="text-small font-medium">{s.invite.kind}</p>
           <Segmented<Kind>

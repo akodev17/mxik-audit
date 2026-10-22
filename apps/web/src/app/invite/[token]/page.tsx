@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cache } from 'react';
-import { readInvite } from '@tasnivo/domain/invites';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
 import { EmptyState } from '@/ui/empty-state';
 import { JoinForm } from './join-form';
 
 type Params = { params: Promise<{ token: string }> };
 
-const invitation = cache(readInvite);
+const invitation = cache((token: string) => serverApi().team.readInvite({ token }));
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { t, ta } = await getI18n();
