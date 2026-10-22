@@ -387,14 +387,17 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
   };
 }
 
-/** Classifier lookup for the Review screen's "pick another code" box. */
-export async function searchClassifier(query: string, limit = 10) {
-  const configured = embeddingProviderFromEnv();
-  const readiness = await checkVectorReadiness(pool, configured);
-  const store = new PostgresCandidateStore(pool, {
+/** The candidate store the "pick another code" search queries, set up as audits set theirs up. */
+export async function classifierSearchStore(on: Pool = pool, configured: EmbeddingProvider = embeddingProviderFromEnv()): Promise<PostgresCandidateStore> {
+  const readiness = await checkVectorReadiness(on, configured);
+  return new PostgresCandidateStore(on, {
     exactVectorScan: !readiness.embedder.semantic,
     vectorEnabled: readiness.usable,
   });
+}
+
+/** Lexical and full-text hits for a query, merged by code, best first. */
+export async function searchClassifierIn(store: PostgresCandidateStore, query: string, limit = 10) {
   const normalized = normalizeName(query);
   const key = lexicalQuery(normalized.queryKey || normalized.matchKey);
   if (!key) return [];
@@ -407,6 +410,11 @@ export async function searchClassifier(query: string, limit = 10) {
     if (!seen.has(hit.candidate.code)) seen.set(hit.candidate.code, hit);
   }
   return [...seen.values()].slice(0, limit).map((h) => h.candidate);
+}
+
+/** Classifier lookup for the Review screen's "pick another code" box. */
+export async function searchClassifier(query: string, limit = 10) {
+  return searchClassifierIn(await classifierSearchStore(), query, limit);
 }
 
 export async function lookupCode(code: string) {

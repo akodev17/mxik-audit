@@ -1,23 +1,14 @@
 // Sales of risky rows, when the file had a sales column: an estimate from the
 // file's own numbers, labelled as one. No fine or penalty figure is shown here.
-import { ColumnMapSchema } from '@tasnivo/domain/column-map';
-import { db } from '@tasnivo/db';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { RISKY_ITEM } from '@tasnivo/domain/risk';
+import { moneyAtRisk } from '@tasnivo/domain/money-at-risk';
 
 export async function MoneyAtRisk({ catalogId, columnMap }: { catalogId: string; columnMap: unknown }) {
   const { t, locale } = await getI18n();
-  const mapping = ColumnMapSchema.safeParse(columnMap);
-  if (!mapping.success || mapping.data.sales < 0) return null;
-
-  const [risky, total] = await Promise.all([
-    db.catalogItem.aggregate({ where: { catalogId, ...RISKY_ITEM }, _sum: { salesAmount: true } }),
-    db.catalogItem.aggregate({ where: { catalogId }, _sum: { salesAmount: true } }),
-  ]);
-  const riskySum = Number(risky._sum.salesAmount ?? 0);
-  const totalSum = Number(total._sum.salesAmount ?? 0);
-  if (totalSum <= 0) return null;
+  const sums = await moneyAtRisk(catalogId, columnMap);
+  if (!sums) return null;
+  const { risky: riskySum, total: totalSum } = sums;
   const share = fmtNumber(locale, (riskySum / totalSum) * 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
   return (

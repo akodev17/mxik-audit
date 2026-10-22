@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@tasnivo/contracts": "*",
     "@tasnivo/db": "*",
     "@tasnivo/domain": "*",
     "@tasnivo/i18n": "*",

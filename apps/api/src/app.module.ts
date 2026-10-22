@@ -7,9 +7,19 @@ import { ConfigModule } from './config/config.module';
 import { HealthModule } from './health/health.module';
 import { ApiExceptionFilter } from './http/exception.filter';
 import { LocaleInterceptor } from './http/locale.interceptor';
+import { WorkspaceModule } from './workspace/workspace.module';
+import { DictionaryModule } from './dictionary/dictionary.module';
+import { RemindersModule } from './reminders/reminders.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
-  imports: [ConfigModule, AuthCoreModule, HealthModule, AuthModule],
+  imports: [
+    ConfigModule, AuthCoreModule, HealthModule, AuthModule,
+    WorkspaceModule,
+    DictionaryModule,
+    RemindersModule,
+    NotificationsModule,
+  ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_INTERCEPTOR, useClass: LocaleInterceptor },

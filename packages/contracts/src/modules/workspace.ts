@@ -165,10 +165,14 @@ export const workspace = defineModule('workspace', {
     method: 'GET', path: '/api/catalogs/{catalogId}/rows', auth: 'session', role: 'any',
     summary: 'The next page of grid rows for a filter (120 per page)',
     params: CatalogPath,
-    query: FilterInput.extend({ cursor: z.string().max(400).default('') }),
+    query: FilterInput.extend({
+      cursor: z.string().max(400).default(''),
+      /** First page only: a finding to lead the list when it is not on it (the queue's `?row=` link), as page.tsx does. */
+      row: z.string().min(1).max(64).optional(),
+    }),
     responds: 'json', response: z.object({ rows: z.array(GridRow), next: z.string().nullable() }).nullable(),
     replaces: ['action:workspace.ts#loadRows', 'page:(app)/catalogs/[id]#rows'],
-    notes: 'The filter travels as the URL-shaped strings of FilterInput, read by readFilter on the server.',
+    notes: 'The filter travels as the URL-shaped strings of FilterInput, read by readFilter on the server. 120 rows per page, the first page included; the cursor is the same base64url keyset the page uses, byte-for-byte.',
   }),
   counts: endpoint({
     method: 'GET', path: '/api/catalogs/{catalogId}/counts', auth: 'session', role: 'any',
@@ -177,6 +181,14 @@ export const workspace = defineModule('workspace', {
     query: FilterInput,
     responds: 'json', response: z.object({ count: z.number().int(), chips: z.object({ all: z.number().int(), byType: z.record(z.number().int()), marking: z.number().int() }) }),
     replaces: ['page:(app)/catalogs/[id]#counts'],
+  }),
+  moneyAtRisk: endpoint({
+    method: 'GET', path: '/api/catalogs/{catalogId}/money-at-risk', auth: 'session', role: 'any',
+    summary: 'Sales of risky rows and of every row, when the file had a sales column; null otherwise',
+    params: CatalogPath,
+    responds: 'json', response: z.object({ risky: z.number(), total: z.number() }).nullable(),
+    replaces: ['page:(app)/catalogs/[id]#moneyAtRisk'],
+    notes: 'money-at-risk.tsx: null when the mapping has no sales column or the sales add up to nothing; the page formats the share.',
   }),
   rowDetail: endpoint({
     method: 'GET', path: '/api/findings/{findingId}', auth: 'session', role: 'any',
@@ -373,12 +385,11 @@ export const workspace = defineModule('workspace', {
       accountants: z.array(AccountantOption.extend({ clientIds: z.array(z.string()) })).nullable(),
     }),
     replaces: ['page:(app)/queue'],
-    provisional: 'queue/page.tsx adds the client and accountant pickers itself',
   }),
   dashboard: endpoint({
     method: 'GET', path: '/api/dashboard', auth: 'session', role: 'any',
     summary: 'The dashboard: clients and totals, changes, workload, tasks, reviews, onboarding, recent activity',
-    query: z.object({ accountant: ShortId.optional() }),
+    query: z.object({ accountant: ShortId.optional(), /** The reviews tab: only reviews assigned to the user. */ rv: z.enum(['mine']).optional() }),
     responds: 'json',
     response: z.object({
       clients: z.array(ClientStats),
@@ -403,6 +414,5 @@ export const workspace = defineModule('workspace', {
       role: z.enum(ROLES),
     }),
     replaces: ['page:(app)/dashboard'],
-    provisional: 'dashboard/page.tsx combines dashboard(), onboardingSteps, openTasks, openReviews, reviewCounts and activityPage itself; the Map of pending audits becomes a record',
   }),
 });
