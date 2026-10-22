@@ -1,9 +1,9 @@
 import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { safeNext } from '@/lib/security/safe-next';
+import { safeNext } from '@tasnivo/domain/security/safe-next';
 import { currentUser } from '@/lib/session';
-import { telegramConfig } from '@/lib/telegram/config';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
 import { TelegramLogin } from '@/ui/telegram-login';
 import { SignInForm } from './sign-in-form';
 

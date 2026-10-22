@@ -1,10 +1,10 @@
 // Self-serve accounts: an org on the 14-day trial plus its first admin, and
 // email confirmation when SMTP is configured.
 import { absoluteUrl } from './app-url.js';
-import { appDict } from './i18n-app.js';
-import type { Locale } from './i18n.js';
+import { appDict } from '@tasnivo/i18n/i18n-app';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import { TRIAL_DAYS } from './billing/limits.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { mailEnabled, sendMail } from './mailer.js';
 import { hashPassword } from './password.js';
 import { MIN_PASSWORD } from './security/password-check.js';

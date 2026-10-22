@@ -2,8 +2,8 @@
 // fixed (severity rank, least confident first, row number), so deciding a row
 // never shifts the pages that have not loaded yet.
 import { Prisma } from '@prisma/client';
-import { db } from './db';
-import { mergeTypeCounts } from './finding-type';
+import { db } from '@tasnivo/db';
+import { mergeTypeCounts } from '@tasnivo/db/finding-type';
 import { findingTypeCounts } from './finding-type-counts';
 import { RISKY_FINDING, RISKY_ITEM } from './risk';
 import { sureBandSql } from './sure-band';

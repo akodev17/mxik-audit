@@ -1,6 +1,6 @@
 // Telegram sign-in identity. A person binds their own Telegram account in Settings → Security
 // while signed in; only that binding signs anyone in. Notification chats (telegram_link) never do.
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { isReservedEmail, telegramEmail } from '../security/reserved-email.js';
 
 type Who = { id: string; orgId: string; email: string };

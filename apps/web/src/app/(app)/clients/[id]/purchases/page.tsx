@@ -1,12 +1,12 @@
 import { getI18n } from '@/lib/locale';
 import { notFound, redirect } from 'next/navigation';
 import { Notice } from '@/app/(app)/upload/notice';
-import { canSeeClient, canWrite } from '@/lib/access';
-import { StoredAttrs } from '@/lib/catalog-import';
-import { ownedClient } from '@/lib/clients';
-import { db } from '@/lib/db';
-import { fmtDate, fmtNumber } from '@/lib/format';
-import { guessPurchaseMap, PurchaseMapSchema, readListMeta, SAMPLE_ROWS } from '@/lib/purchases';
+import { canSeeClient, canWrite } from '@tasnivo/domain/access';
+import { StoredAttrs } from '@tasnivo/domain/catalog-import';
+import { ownedClient } from '@tasnivo/domain/clients';
+import { db } from '@tasnivo/db';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
+import { guessPurchaseMap, PurchaseMapSchema, readListMeta, SAMPLE_ROWS } from '@tasnivo/domain/purchases';
 import { currentUser } from '@/lib/session';
 import { StatusChip } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';

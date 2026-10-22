@@ -3,10 +3,10 @@
 // is append-only, so its events stay (pointing at a catalogue that no longer
 // exists) and a tombstone event records the deletion.
 import { Prisma } from '@prisma/client';
-import { normalizeName } from '../core/normalize/index.js';
-import { rerankCacheKey } from '../core/match/rerank-cache.js';
+import { normalizeName } from '@tasnivo/core/normalize/index';
+import { rerankCacheKey } from '@tasnivo/core/match/rerank-cache';
 import { catalogScope } from './access.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
 import { RISKY_ITEM } from './risk.js';
 import { mayWrite } from './write-access.js';

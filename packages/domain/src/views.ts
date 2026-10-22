@@ -1,6 +1,6 @@
 // Saved views: per user, named, one default. Only people who may write save,
 // remove or change them; everyone can list and open their own.
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { ViewParams } from './view-params';
 import { mayWrite, type RoleCarrier } from './write-access';
 

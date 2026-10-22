@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { ru, uz } from '@/lib/i18n-parts/shell';
+import { ru, uz } from '@tasnivo/i18n/i18n-parts/shell';
 
 // Replaces the root layout, so neither the stylesheet nor the language cookie can be relied on:
 // inline styles with system colours (they follow the OS theme) and both languages at once.

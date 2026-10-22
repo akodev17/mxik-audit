@@ -1,6 +1,6 @@
 // One-time use of a signed value (a Telegram login hash): the first request wins, a replay is refused.
 import { randomBytes } from 'node:crypto';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { attemptKey } from './rate-limit.js';
 
 /** Kinds backed by the partial unique index auth_attempt_once_key. */

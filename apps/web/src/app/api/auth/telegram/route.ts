@@ -4,17 +4,17 @@
 // existed (deliberate self-serve signup), and that account is bound to it.
 import { randomBytes } from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import { clientIp } from '@/lib/security/client-ip';
-import { hit, RULES } from '@/lib/security/rate-limit';
+import { db } from '@tasnivo/db';
+import { clientIp } from '@tasnivo/domain/security/client-ip';
+import { hit, RULES } from '@tasnivo/domain/security/rate-limit';
 import { redirectTo } from '@/lib/security/redirect';
-import { telegramEmail } from '@/lib/security/reserved-email';
-import { claimOnce } from '@/lib/security/replay';
+import { telegramEmail } from '@tasnivo/domain/security/reserved-email';
+import { claimOnce } from '@tasnivo/domain/security/replay';
 import { openSession } from '@/lib/security/sign-in';
-import { createAccount } from '@/lib/signup';
-import { telegramConfig } from '@/lib/telegram/config';
-import { loginTarget } from '@/lib/telegram/identity';
-import { verifyTelegramLogin, type TelegramLoginData } from '@/lib/telegram/login';
+import { createAccount } from '@tasnivo/domain/signup';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
+import { loginTarget } from '@tasnivo/domain/telegram/identity';
+import { verifyTelegramLogin, type TelegramLoginData } from '@tasnivo/domain/telegram/login';
 
 export const dynamic = 'force-dynamic';
 

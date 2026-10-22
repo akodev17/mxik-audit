@@ -2,7 +2,7 @@
 // unknown history, and which point at a code the classifier has since retired. Read-only and tenant-scoped:
 // every query starts from the org id, and approvers are looked up inside the same org.
 import type { Prisma } from '@prisma/client';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 export const DICT_FILTERS = ['all', 'confirmed', 'unverified', 'stale'] as const;
 export type DictFilter = (typeof DICT_FILTERS)[number];

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SUPPORT_EXTERNAL, SUPPORT_URL } from '@/components/landing/config';
 import { getI18n } from '@/lib/locale';
-import { mailEnabled } from '@/lib/mailer';
+import { mailEnabled } from '@tasnivo/domain/mailer';
 import { ButtonLink } from '@/ui/button';
 import { ForgotForm } from './forgot-form';
 

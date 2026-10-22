@@ -2,8 +2,8 @@
 // A Prisma groupBy on the enum column fails outright when the database holds a
 // value the generated client does not know; this counts it as OTHER instead.
 import { Prisma } from '@prisma/client';
-import { db } from './db.js';
-import { mergeTypeCounts, type FindingTypeCount } from './finding-type.js';
+import { db } from '@tasnivo/db';
+import { mergeTypeCounts, type FindingTypeCount } from '@tasnivo/db/finding-type';
 import { RISKY_SEVERITIES } from './risk.js';
 
 /** Every finding of the catalogue, or only the risky ones (severity high or medium). */

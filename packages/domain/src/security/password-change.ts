@@ -1,5 +1,5 @@
 // A signed-in user changes their password: the current one is required, other sessions end.
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { hashPassword, verifyPassword } from '../password.js';
 import { passwordAcceptable } from './password-check.js';
 import { endUserSessions } from './session-store.js';

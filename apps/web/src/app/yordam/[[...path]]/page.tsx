@@ -9,7 +9,7 @@ import { CONTAINER } from '@/components/landing/container';
 import { LandingShell } from '@/components/landing/shell';
 import {
   findArticle, HELP_ARTICLES, HELP_COPY, HELP_LANG_NAMES, HELP_LANG_PARAM, headingId, helpHeadings, helpPath, type HelpHeading, type HelpLang,
-} from '@/lib/help';
+} from '@tasnivo/domain/help';
 import { helpBody } from '@/lib/help-mdx';
 import { getLocale } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
@@ -64,7 +64,7 @@ function H2({ children }: { children?: ReactNode }) {
 }
 
 async function articleSource(lang: HelpLang, slug: string): Promise<string> {
-  return readFile(path.join(process.cwd(), 'src', 'content', 'yordam', lang, `${slug}.mdx`), 'utf8');
+  return readFile(path.join(process.cwd(), 'apps', 'web', 'src', 'content', 'yordam', lang, `${slug}.mdx`), 'utf8');
 }
 
 const ARTICLE_STYLE = 'space-y-4 text-[17px] leading-relaxed [&_h2]:mt-10 [&_h2]:text-[24px] [&_li]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-lp-brand [&_a]:underline [&_code]:rounded [&_code]:bg-lp-surface [&_code]:px-1';

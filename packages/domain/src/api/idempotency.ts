@@ -3,7 +3,7 @@
 // so they can be retried with the same key. Rows live 24 hours; the daily job prunes them.
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { db } from '../db';
+import { db } from '@tasnivo/db';
 import { HEADERS, IDEMPOTENCY } from './contract';
 import type { Outcome } from './respond';
 

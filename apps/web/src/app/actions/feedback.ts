@@ -2,8 +2,8 @@
 
 import { z } from 'zod';
 import { writer } from '@/lib/guard';
-import { recordWrongSuggestion } from '@/lib/suggestion-feedback';
-import { WRONG_REASONS } from '@/lib/wrong-reasons';
+import { recordWrongSuggestion } from '@tasnivo/domain/suggestion-feedback';
+import { WRONG_REASONS } from '@tasnivo/domain/wrong-reasons';
 
 const Input = z.object({
   findingId: z.string().min(1),

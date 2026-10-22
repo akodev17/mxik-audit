@@ -2,9 +2,9 @@
 // org and the user's clients), its client, and the switcher options for that
 // client's catalogues.
 import { notFound } from 'next/navigation';
-import { resolveVisibleClient } from './active-client';
-import { listCatalogs, resolveCatalog } from './catalogs';
-import { resolveClient } from './clients';
+import { resolveVisibleClient } from '@tasnivo/domain/active-client';
+import { listCatalogs, resolveCatalog } from '@tasnivo/domain/catalogs';
+import { resolveClient } from '@tasnivo/domain/clients';
 import type { CurrentUser } from './session';
 
 export async function catalogForPage(user: Pick<CurrentUser, 'orgId' | 'clientId' | 'clientIds'>, requested: string | undefined) {

@@ -1,7 +1,7 @@
 // Rows of an audited catalogue as the exports write them: original cells, the
 // effective code and review state per row, and the unit and packaging an
 // accepted code binds. Server-only; one query for all accepted codes.
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { effectiveRow, type EffectiveRow } from './export-effective.js';
 import { StoredAttrs } from './catalog-import.js';
 

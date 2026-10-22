@@ -1,10 +1,10 @@
 // The PDF behind a share link, when the link allows it.
 import { NextResponse } from 'next/server';
-import { baseName, contentDisposition } from '@/lib/export-filename';
+import { baseName, contentDisposition } from '@tasnivo/domain/export-filename';
 import { getI18n } from '@/lib/locale';
-import { reportPdfData } from '@/lib/pdf/report-data';
-import { buildReportPdf } from '@/lib/pdf/report-pdf';
-import { resolveShare } from '@/lib/share';
+import { reportPdfData } from '@tasnivo/domain/pdf/report-data';
+import { buildReportPdf } from '@tasnivo/domain/pdf/report-pdf';
+import { resolveShare } from '@tasnivo/domain/share';
 
 export const dynamic = 'force-dynamic';
 

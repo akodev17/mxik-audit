@@ -1,10 +1,10 @@
 // Words for one activity log entry, shared by the log, the dashboard and the client page.
-import type { ActivityRow } from '@/lib/activity';
-import type { ActivityEntry } from '@/lib/activity-groups';
-import { SYSTEM_DECISION_ACTIONS } from '@/lib/decision-source';
-import { fmtNumber } from '@/lib/format';
-import type { Locale } from '@/lib/i18n';
-import type { AppDict } from '@/lib/i18n-app';
+import type { ActivityRow } from '@tasnivo/domain/activity';
+import type { ActivityEntry } from '@tasnivo/domain/activity-groups';
+import { SYSTEM_DECISION_ACTIONS } from '@tasnivo/domain/decision-source';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
 
 const SYSTEM: readonly string[] = SYSTEM_DECISION_ACTIONS;
 

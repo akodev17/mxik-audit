@@ -1,10 +1,10 @@
 'use client';
 
-import type { ImportDiagnostics } from '@/lib/import-diagnostics';
-import { fmtNumber } from '@/lib/format';
+import type { ImportDiagnostics } from '@tasnivo/domain/import-diagnostics';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { fileLine } from '@/lib/sheet-shape';
-import type { ParseMeta } from '@/lib/spreadsheet';
+import { fileLine } from '@tasnivo/domain/sheet-shape';
+import type { ParseMeta } from '@tasnivo/domain/spreadsheet';
 import { Spinner } from '@/ui/spinner';
 import { Notice } from './notice';
 

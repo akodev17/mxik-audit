@@ -1,6 +1,6 @@
 // Unit and packaging advice for one row. Pure: it only suggests, nothing is written.
-import { normalizeName } from '../core/normalize/index.js';
-import { resolveUnit } from '../core/normalize/units.js';
+import { normalizeName } from '@tasnivo/core/normalize/index';
+import { resolveUnit } from '@tasnivo/core/normalize/units';
 
 export type UnitAdvice = {
   /** Unit the row's code is bound to, when the row's own unit contradicts it. */

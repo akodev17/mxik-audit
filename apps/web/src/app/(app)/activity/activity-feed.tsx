@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import type { ActivityEntry } from '@/lib/activity-groups';
-import { fmtDateTime } from '@/lib/format';
+import type { ActivityEntry } from '@tasnivo/domain/activity-groups';
+import { fmtDateTime } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { RowList } from '@/ui/row-list';
 import { actorText, catalogText, entryHead, entryTitle } from './entry-text';

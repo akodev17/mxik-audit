@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { deleteMapping, updateMapping } from '@/app/actions/dictionary';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Badge, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';

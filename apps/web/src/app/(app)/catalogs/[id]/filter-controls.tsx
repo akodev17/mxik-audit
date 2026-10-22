@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import { DECISION_FILTERS, FLAG_FILTERS, type WsFilter } from '@/lib/workspace-filter';
+import { DECISION_FILTERS, FLAG_FILTERS, type WsFilter } from '@tasnivo/domain/workspace-filter';
 import { Checkbox } from '@/ui/checkbox';
 import { cx } from '@/ui/cx';
 import { Select } from '@/ui/select';

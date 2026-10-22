@@ -5,7 +5,7 @@
 // reach (API keys and linked chats are admin-only features).
 // Every function re-checks that the actor is an admin; the server action guard is the first layer.
 import type { Prisma } from '@prisma/client';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import type { Role } from './session';
 
 type Actor = { userId: string; orgId: string; role: Role };

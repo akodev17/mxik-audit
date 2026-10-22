@@ -1,7 +1,7 @@
 // What changed between two versions of a client's catalogue, from a pairing of
 // their rows (src/core/match/version-pairs.ts decides identity; nothing here
 // loosens it). Pure.
-import { unchanged, type Pairing, type VersionItem } from '../core/match/version-pairs.js';
+import { unchanged, type Pairing, type VersionItem } from '@tasnivo/core/match/version-pairs';
 
 export type DiffNote = 'name' | 'unit' | 'code' | 'barcode' | 'identity' | 'classifier' | 'nowRisky' | 'nowSafe';
 /** How a row was matched to the previous version: barcode and name+unit are exact keys, "row" is the same position with the same words, an approximate match. */

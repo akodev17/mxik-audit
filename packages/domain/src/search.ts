@@ -1,11 +1,11 @@
 // Global search behind the command palette: clients, catalogues, products of each visible
 // client's latest audited catalogue, and classifier codes. Every query is scoped to the user.
 import { Prisma, type CatalogStatus, type Severity, type Decision, type FindingType } from '@prisma/client';
-import { matchKeyOf } from '../core/normalize/index.js';
+import { matchKeyOf } from '@tasnivo/core/normalize/index';
 import { catalogScope, clientScope } from './access.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { isAutomatic, readDecisionSource } from './decision-source.js';
-import type { Locale } from './i18n.js';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import type { CurrentUser } from './session.js';
 
 export type SearchUser = Pick<CurrentUser, 'orgId' | 'clientIds'>;

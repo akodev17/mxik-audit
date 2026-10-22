@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { workspaceHref, type QueueRow } from '@/lib/queue';
+import { workspaceHref, type QueueRow } from '@tasnivo/domain/queue';
 import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';

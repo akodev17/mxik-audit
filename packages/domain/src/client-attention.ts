@@ -2,7 +2,7 @@
 // yet, or a catalogue whose audit failed, is still running or never started.
 // client-stats only knows "no audited catalogue"; this reads which case it is.
 import { attentionReasons, type ClientStats, type Reason } from './client-stats';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 
 export type PendingAudit = 'failed' | 'analyzing' | 'uploaded';
 export type AttentionReason = Reason | { kind: PendingAudit; count: number };

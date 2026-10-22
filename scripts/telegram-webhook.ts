@@ -1,9 +1,9 @@
 // Points Telegram at this deployment's webhook (APP_URL + /api/telegram/webhook)
 // with TELEGRAM_WEBHOOK_SECRET. Run once after deploy: npm run telegram:webhook
 // "--delete" removes it again (e.g. before switching to polling).
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { Api } from 'grammy';
-import { telegramConfig } from '../src/lib/telegram/config.js';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
 
 const config = telegramConfig();
 if (!config.token) throw new Error('TELEGRAM_BOT_TOKEN is not set');

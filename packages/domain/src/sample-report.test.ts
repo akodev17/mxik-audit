@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, describe, it } from 'node:test';
 import { Pool } from 'pg';
-import { SAMPLE_ROWS } from '../../scripts/landing-sample/catalog.js';
+import { SAMPLE_ROWS } from '../../../scripts/landing-sample/catalog.js';
 import { SAMPLE_REPORT } from './sample-report.generated.js';
 
 const TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'] as const;

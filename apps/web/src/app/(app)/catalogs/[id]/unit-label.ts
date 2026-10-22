@@ -1,9 +1,9 @@
 // Classifier units and packaging in the viewer's language. Pure. The official
 // unit table is Uzbek (Latin and Cyrillic); Russian readers get the usual
 // Russian abbreviation where there is one, otherwise the Cyrillic form.
-import { latinToCyrillic } from '@/core/normalize/script';
-import { resolveUnit } from '@/core/normalize/units';
-import type { Locale } from '@/lib/i18n';
+import { latinToCyrillic } from '@tasnivo/core/normalize/script';
+import { resolveUnit } from '@tasnivo/core/normalize/units';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 /** Official Latin unit name -> Russian. */
 const RU: Record<string, string> = {

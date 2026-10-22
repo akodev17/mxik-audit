@@ -3,8 +3,8 @@
 // the live classifier so an archived code is never suggested.
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
-import { dictionaryKeys, type DictionaryEntry, type DictionaryKeys, type DictionaryLookup } from '../core/match/dictionary.js';
-import { db } from './db.js';
+import { dictionaryKeys, type DictionaryEntry, type DictionaryKeys, type DictionaryLookup } from '@tasnivo/core/match/dictionary';
+import { db } from '@tasnivo/db';
 import { mayWrite, type RoleCarrier } from './write-access.js';
 
 export type Learnable = { rawName: string; unit: string | null; barcode: string | null; code: string };

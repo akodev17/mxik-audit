@@ -1,9 +1,9 @@
 // Findings as screens show them: each code with its classifier meaning, and the
 // evidence behind the suggestion. One details query for the whole page.
-import { evidenceFor, readEvidence, type MatchEvidence } from '../core/match/evidence.js';
-import { groupKeyOf } from '../core/match/group-key.js';
+import { evidenceFor, readEvidence, type MatchEvidence } from '@tasnivo/core/match/evidence';
+import { groupKeyOf } from '@tasnivo/core/match/group-key';
 import { codeDetails, toCodeInfo, type CodeDetail, type CodeInfo } from './code-details.js';
-import type { Locale } from './i18n.js';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 export type Alternative = {
   code: string;

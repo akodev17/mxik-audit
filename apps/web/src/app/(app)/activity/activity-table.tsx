@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { ActivityRow } from '@/lib/activity';
-import type { ActivityEntry } from '@/lib/activity-groups';
-import { fmtDateTime, isoDay } from '@/lib/format';
+import type { ActivityRow } from '@tasnivo/domain/activity';
+import type { ActivityEntry } from '@tasnivo/domain/activity-groups';
+import { fmtDateTime, isoDay } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Table, Td, Th } from '@/ui/table';
 import { actionText, actorText, catalogText, entryHead, entryTitle } from './entry-text';

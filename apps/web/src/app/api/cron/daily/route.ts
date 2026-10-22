@@ -2,7 +2,7 @@
 // retention). Protected by CRON_SECRET; disabled when the secret is unset.
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { runDailyJobs } from '@/lib/daily';
+import { runDailyJobs } from '@tasnivo/domain/daily';
 
 export const dynamic = 'force-dynamic';
 

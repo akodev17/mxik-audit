@@ -4,7 +4,7 @@
 // already carry are added — a reviewer's earlier decisions are never undone.
 import type { ClassifierChangeKind } from '@prisma/client';
 import { auditContext, checkItem, findingData, type AuditContext } from './audit-runner.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { orgLocale } from './org-locale.js';
 import { updateBody, updateTitle, type UpdateCounts } from './notification-text.js';
 import { notify } from './notifications.js';

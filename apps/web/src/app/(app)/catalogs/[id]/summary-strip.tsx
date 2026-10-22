@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { ChipCounts, WsSummary } from '@/lib/workspace';
-import { FINDING_TYPES } from '@/lib/workspace-filter';
+import type { ChipCounts, WsSummary } from '@tasnivo/domain/workspace';
+import { FINDING_TYPES } from '@tasnivo/domain/workspace-filter';
 import { Badge } from '@/ui/badge';
 import { cx } from '@/ui/cx';
 import { typeLabels } from '@/ui/labels';

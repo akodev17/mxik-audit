@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 import { reopenAccount } from '@/app/actions/security';
-import { db } from '@/lib/db';
-import { fmtDate } from '@/lib/format';
+import { db } from '@tasnivo/db';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { purgeDate } from '@/lib/security/account';
-import { isLive } from '@/lib/security/session-store';
+import { purgeDate } from '@tasnivo/domain/security/account';
+import { isLive } from '@tasnivo/domain/security/session-store';
 import { getSession } from '@/lib/session';
 import { Button } from '@/ui/button';
 

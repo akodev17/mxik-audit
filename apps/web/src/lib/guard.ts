@@ -1,5 +1,5 @@
 // Entry points for server actions: signed in, with the right role.
-import { canWrite, isAdminRole } from './access';
+import { canWrite, isAdminRole } from '@tasnivo/domain/access';
 import { currentUser, type CurrentUser } from './session';
 
 /** A signed-in user who may change data (admin or accountant). */

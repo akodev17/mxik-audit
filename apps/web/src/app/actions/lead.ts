@@ -1,13 +1,13 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { db } from '@/lib/db';
-import { isHoneypotFilled, LEAD_LIMITS, parseContact } from '@/lib/lead-guard';
-import { leadFilenameOk, parseLeadText } from '@/lib/lead-input';
-import { clientIp } from '@/lib/security/client-ip';
-import { hit, minutesOf, RULES } from '@/lib/security/rate-limit';
-import { looksLikeZip, zipWithinLimits } from '@/lib/security/zip-guard';
-import { parseUpload } from '@/lib/spreadsheet';
+import { db } from '@tasnivo/db';
+import { isHoneypotFilled, LEAD_LIMITS, parseContact } from '@tasnivo/domain/lead-guard';
+import { leadFilenameOk, parseLeadText } from '@tasnivo/domain/lead-input';
+import { clientIp } from '@tasnivo/domain/security/client-ip';
+import { hit, minutesOf, RULES } from '@tasnivo/domain/security/rate-limit';
+import { looksLikeZip, zipWithinLimits } from '@tasnivo/domain/security/zip-guard';
+import { parseUpload } from '@tasnivo/domain/spreadsheet';
 
 // A sample file is enough for a lead; a smaller cap keeps an anonymous form from loading the server.
 const MAX_BYTES = 5 * 1024 * 1024;

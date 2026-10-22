@@ -1,7 +1,7 @@
 // The language an org's background messages (Telegram, stored notifications) use:
 // its oldest admin's saved choice, else the default.
-import { db } from './db.js';
-import { parseLocale, type Locale } from './i18n.js';
+import { db } from '@tasnivo/db';
+import { parseLocale, type Locale } from '@tasnivo/i18n/i18n';
 
 export async function orgLocale(orgId: string): Promise<Locale> {
   const admin = await db.user.findFirst({

@@ -8,7 +8,7 @@ import { HEARTBEAT_MS } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
 import { catalogScope } from './access.js';
 import { isOrgWriter } from './actor-role.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { isDemoOrg } from './demo.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { auditReadyText } from './notification-text.js';

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { reportWrongSuggestion } from '@/app/actions/feedback';
 import { useI18n } from '@/lib/locale-client';
-import { WRONG_REASONS } from '@/lib/wrong-reasons';
+import { WRONG_REASONS } from '@tasnivo/domain/wrong-reasons';
 import { Button } from '@/ui/button';
 import { Textarea } from '@/ui/textarea';
 import { useToast } from '@/ui/toast';

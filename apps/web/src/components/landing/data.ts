@@ -1,5 +1,5 @@
-import { fmtNumber } from '@/lib/format';
-import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import { SAMPLE_REPORT } from '@tasnivo/domain/sample-report.generated';
 import { LEAD_FILE_RETENTION_DAYS } from './config';
 
 /** Whole numbers as the app writes them ("438 925"). Not Intl 'uz-UZ': browsers and Node

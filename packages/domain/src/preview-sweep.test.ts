@@ -4,7 +4,7 @@ import { after, before, describe, it } from 'node:test';
 import { applyMapping, storeCatalog } from './catalog-import.js';
 import { defaultClient } from './clients.js';
 import type { ColumnMap } from './column-map.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { planStatus, previewCap, previewGate, PREVIEW_ROWS_UNCAPPED } from './plan.js';
 import { discardEarlierPreviews, sweepExpiredPreviews } from './preview-sweep.js';
 import { parseUpload } from './spreadsheet.js';

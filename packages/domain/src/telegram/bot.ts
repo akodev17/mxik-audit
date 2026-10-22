@@ -3,12 +3,12 @@
 // serve the webhook route and the long-polling dev script.
 import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { startAudit } from '../audit-jobs.js';
-import { appDict } from '../i18n-app.js';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { gate } from '../plan.js';
 import { applyMapping, mappingFor, MAX_UPLOAD_BYTES, storeCatalog } from '../catalog-import.js';
 import { activeOwnedClient, defaultClient } from '../clients.js';
-import { db } from '../db.js';
-import { dict, type Dict } from '../i18n.js';
+import { db } from '@tasnivo/db';
+import { dict, type Dict } from '@tasnivo/i18n/i18n';
 import { orgLocale } from '../org-locale.js';
 import { parseUpload } from '../spreadsheet.js';
 import type { TelegramConfig } from './config.js';

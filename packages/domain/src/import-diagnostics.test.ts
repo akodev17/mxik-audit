@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { readCode } from '../core/audit/checks.js';
+import { readCode } from '@tasnivo/core/audit/checks';
 import { importDiagnostics, readImportMeta } from './import-diagnostics.js';
 
 const MAP = { name: 0, barcode: 1, mxik: 2, unit: 3, price: 4, sales: -1 };

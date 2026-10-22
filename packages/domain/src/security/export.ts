@@ -2,10 +2,9 @@
 // The README and the sheet headers are in the reader's language; JSON keys stay stable.
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
-import { db } from '../db';
-import type { Locale } from '../i18n';
-import { appDict } from '../i18n-app';
-import { getLocale } from '../locale';
+import { db } from '@tasnivo/db';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 
 type ExportWords = ReturnType<typeof appDict>['setX']['data']['file'];
 
@@ -39,18 +38,13 @@ async function catalogSheet(catalogId: string, words: ExportWords): Promise<Buff
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-/** The request's language when the caller does not say; Uzbek outside a request. */
-async function exportLocale(given: Locale | undefined): Promise<Locale> {
-  if (given) return given;
-  try {
-    return await getLocale();
-  } catch {
-    return 'uz';
-  }
+/** The caller's language (the web route passes the request's); Uzbek when the caller does not say. */
+function exportLocale(given: Locale | undefined): Locale {
+  return given ?? 'uz';
 }
 
 export async function buildAccountExport(orgId: string, locale?: Locale): Promise<Buffer> {
-  const words = appDict(await exportLocale(locale)).setX.data.file;
+  const words = appDict(exportLocale(locale)).setX.data.file;
   const [org, clients, users, catalogs, dictionary, events] = await Promise.all([
     db.organization.findUniqueOrThrow({ where: { id: orgId }, select: { name: true, brandName: true, createdAt: true, rawRetentionDays: true } }),
     db.client.findMany({ where: { orgId }, select: { id: true, name: true, activity: true, createdAt: true } }),

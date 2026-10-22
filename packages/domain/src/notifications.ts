@@ -1,7 +1,7 @@
 // In-app notifications, scoped by org and by the user's clients, also sent to the
 // org's linked Telegram chats when the bot is configured. Read state is per user.
 import type { Prisma } from '@prisma/client';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import type { CurrentUser } from './session.js';
 
 export type NewNotification = {

@@ -2,7 +2,7 @@
 // last update ended. Read by /api/health, the stale banner and the daily job.
 import { ageInDays, bannerReasons, resolveLastUpdate, type BannerReason, type LastUpdate } from './classifier-freshness.js';
 import { readUpdateStatus } from './classifier-status.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 export type ClassifierState = {
   takenAt: Date | null;

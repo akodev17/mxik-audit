@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { MIN_PASSWORD } from '../../lib/security/password-check.js';
+import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
 import { checkCredentials, hasIssues, MIN_PASSWORD_LENGTH } from './credentials-check.js';
 
 describe('sign-in and sign-up field checks', () => {

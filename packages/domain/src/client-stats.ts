@@ -2,7 +2,7 @@
 // A risky row is "open" while it still has a pending high or medium finding;
 // progress is counted in rows, so a row with two findings is one row to review.
 import { Prisma } from '@prisma/client';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { localDate } from './reminder-dates';
 
 export type ClientStats = {

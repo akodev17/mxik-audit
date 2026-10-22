@@ -1,11 +1,11 @@
 'use server';
 
 import { z } from 'zod';
-import { bulkApply, bulkPreview, undoFlags, type BulkPreview, type BulkTarget, type FlagUndo } from '@/lib/bulk';
-import type { Skipped } from '@/lib/decide-many';
+import { bulkApply, bulkPreview, undoFlags, type BulkPreview, type BulkTarget, type FlagUndo } from '@tasnivo/domain/bulk';
+import type { Skipped } from '@tasnivo/domain/decide-many';
 import { writer } from '@/lib/guard';
 import { getI18n } from '@/lib/locale';
-import { FilterInput, readFilter } from '@/lib/workspace-filter';
+import { FilterInput, readFilter } from '@tasnivo/domain/workspace-filter';
 
 const Target = z.union([
   z.object({ ids: z.array(z.string().min(1)).min(1).max(20_000) }),

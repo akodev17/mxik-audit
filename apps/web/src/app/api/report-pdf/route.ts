@@ -1,13 +1,13 @@
 // Report PDF of one of the org's audited catalogues: internal (with who decided)
 // or client-facing (?audience=client). ?download=1 sends it as an attachment.
 import { NextResponse } from 'next/server';
-import { catalogScope } from '@/lib/access';
-import { db } from '@/lib/db';
+import { catalogScope } from '@tasnivo/domain/access';
+import { db } from '@tasnivo/db';
 import { demoExportRefusal } from '@/lib/demo-limits';
-import { baseName, contentDisposition } from '@/lib/export-filename';
+import { baseName, contentDisposition } from '@tasnivo/domain/export-filename';
 import { getI18n } from '@/lib/locale';
-import { reportPdfData } from '@/lib/pdf/report-data';
-import { buildReportPdf, type PdfAudience } from '@/lib/pdf/report-pdf';
+import { reportPdfData } from '@tasnivo/domain/pdf/report-data';
+import { buildReportPdf, type PdfAudience } from '@tasnivo/domain/pdf/report-pdf';
 import { currentUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';

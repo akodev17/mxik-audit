@@ -25,7 +25,7 @@ type Demo = { headers: string[]; rows: string[][] };
 
 /** The invented demo catalogue (prisma/demo-catalog.json), repeated as numbered batches up to `n` rows. */
 function bigCatalogue(n: number): { headers: string[]; rows: Cell[][] } {
-  const demo = JSON.parse(readFileSync(new URL('../prisma/demo-catalog.json', import.meta.url), 'utf8')) as Demo;
+  const demo = JSON.parse(readFileSync(new URL('../../../packages/db/prisma/demo-catalog.json', import.meta.url), 'utf8')) as Demo;
   const rows: Cell[][] = [];
   for (let i = 0; i < n; i++) {
     const base = demo.rows[i % demo.rows.length] ?? [];

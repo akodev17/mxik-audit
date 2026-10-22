@@ -1,7 +1,7 @@
 // Who may see cross-org numbers (platform operators). Three things must all hold: the
 // user.platformAdmin flag, set by hand in the database (DEPLOY.md 7g); the address listed
 // in ADMIN_EMAILS; and that address confirmed. Nothing inside the app can grant it.
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 /** True when `email` is listed in ADMIN_EMAILS (comma-separated, case-insensitive). One factor only; use isPlatformAdmin. */
 export function isAdmin(email: string | null | undefined, env: Record<string, string | undefined> = process.env): boolean {

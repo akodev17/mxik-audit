@@ -6,7 +6,7 @@ import { applyPurchases, uploadPurchases, type ListPreview } from '@/app/actions
 import { Dropzone } from '@/app/(app)/upload/dropzone';
 import { Notice } from '@/app/(app)/upload/notice';
 import { useI18n } from '@/lib/locale-client';
-import type { PurchaseMap } from '@/lib/purchases';
+import type { PurchaseMap } from '@tasnivo/domain/purchases';
 import { useToast } from '@/ui/toast';
 import { ListMapper, type MapperField } from './list-mapper';
 

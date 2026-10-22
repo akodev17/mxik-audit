@@ -4,17 +4,17 @@
 // search's top-1 where none is pinned, and resolved.txt records which was used
 // so a human can check it.
 // Run: npm run make:demo-catalog
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { HashingEmbeddingProvider } from '../src/core/embed/index.js';
-import { matchProduct } from '../src/core/match/pipeline.js';
-import { NoopRerankProvider } from '../src/core/match/rerank.js';
-import { hierarchyPath } from '../src/core/match/rules.js';
-import { PostgresCandidateStore } from '../src/core/match/store.js';
-import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
-import { unitsCompatible } from '../src/core/normalize/units.js';
-import type { MxikCandidate } from '../src/core/match/types.js';
+import { HashingEmbeddingProvider } from '@tasnivo/core/embed/index';
+import { matchProduct } from '@tasnivo/core/match/pipeline';
+import { NoopRerankProvider } from '@tasnivo/core/match/rerank';
+import { hierarchyPath } from '@tasnivo/core/match/rules';
+import { PostgresCandidateStore } from '@tasnivo/core/match/store';
+import { checkVectorReadiness } from '@tasnivo/core/match/vector-readiness';
+import { unitsCompatible } from '@tasnivo/core/normalize/units';
+import type { MxikCandidate } from '@tasnivo/core/match/types';
 import { makeRng } from '../eval/noise.js';
 import { CODES as OVERRIDES, PRODUCTS } from './demo/products.js';
 import { SAMPLE_HEADERS, SAMPLE_MAPPING, SAMPLE_ROWS } from './landing-sample/catalog.js';
@@ -147,7 +147,7 @@ const cells: string[][] = [
   ...rows.map((r) => [r.name, r.barcode, r.code, r.unit, String((Math.floor(rng() * 200) + 1) * 500)]),
 ];
 
-writeFileSync('prisma/demo-catalog.json', JSON.stringify({
+writeFileSync('packages/db/prisma/demo-catalog.json', JSON.stringify({
   note: 'Invented demo catalogue for demo mode. Built by `npm run make:demo-catalog`: the landing sample (scripts/landing-sample/catalog.ts) followed by the product lines in scripts/demo/products.ts. No real company data.',
   filename: 'Demo_Savdo_1C_eksport.xlsx',
   headers: [...SAMPLE_HEADERS],
@@ -162,5 +162,5 @@ writeFileSync('prisma/demo-catalog.json', JSON.stringify({
 }, null, 2) + '\n');
 
 console.log(`resolved ${resolved.length}/${PRODUCTS.length} product lines -> scripts/demo/resolved.txt`);
-console.log(`wrote ${cells.length} rows -> prisma/demo-catalog.json`);
+console.log(`wrote ${cells.length} rows -> packages/db/prisma/demo-catalog.json`);
 await pool.end();

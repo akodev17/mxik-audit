@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { appDict } from '@/lib/i18n-app';
-import type { ReasonFacts } from '@/lib/row-detail-parts';
+import { appDict } from '@tasnivo/i18n/i18n-app';
+import type { ReasonFacts } from '@tasnivo/domain/row-detail-parts';
 import { reasonLines } from './reason-text.js';
 import { unitLabel } from './unit-label.js';
 

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { openRowsHint, reviewedShare } from './client-kpi.js';
-import { fmtPercent } from './format.js';
-import { ru, uz } from './i18n-parts/firm.js';
+import { fmtPercent } from '@tasnivo/i18n/format';
+import { ru, uz } from '@tasnivo/i18n/i18n-parts/firm';
 
 describe('KPI tile hints', () => {
   it('names findings only when some rows carry several', () => {

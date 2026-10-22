@@ -1,7 +1,7 @@
-import type { AttentionReason } from '@/lib/client-attention';
-import { fmtNumber } from '@/lib/format';
-import type { Locale } from '@/lib/i18n';
-import type { AppDict } from '@/lib/i18n-app';
+import type { AttentionReason } from '@tasnivo/domain/client-attention';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import { StatusChip, StatusIcon, type Tone } from '@/ui/badge';
 
 export function reasonText(r: AttentionReason, ta: AppDict, locale: Locale): string {

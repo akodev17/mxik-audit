@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { retryCatalogAudit } from '@/app/actions/catalog';
 import { useI18n } from '@/lib/locale-client';
-import type { CompletionSummary, UploadProgress } from '@/lib/upload-progress';
+import type { CompletionSummary, UploadProgress } from '@tasnivo/domain/upload-progress';
 import { Button, ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Progress } from '@/ui/progress';

@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { clientAttention, type PendingAudit } from '@/lib/client-attention';
-import { rowProgress, type ClientStats } from '@/lib/client-stats';
-import { fmtDate, fmtNumber } from '@/lib/format';
+import { clientAttention, type PendingAudit } from '@tasnivo/domain/client-attention';
+import { rowProgress, type ClientStats } from '@tasnivo/domain/client-stats';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { QUEUE_FILTERS, QUEUE_SORTS, arrangeQueue, queueFilterCounts, workQueue, type QueueEntry, type QueueFilter, type QueueSort } from '@/lib/work-queue';
+import { QUEUE_FILTERS, QUEUE_SORTS, arrangeQueue, queueFilterCounts, workQueue, type QueueEntry, type QueueFilter, type QueueSort } from '@tasnivo/domain/work-queue';
 import { cx } from '@/ui/cx';
 import { ButtonLink } from '@/ui/button';
 import { IconSuccess } from '@/ui/icons';

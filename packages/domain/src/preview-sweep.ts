@@ -2,7 +2,7 @@
 // allowance, so they must not pile up: a user's next upload replaces their
 // earlier open preview, and the daily job deletes any preview older than
 // 48 hours. Every deletion is logged as catalog.upload_discarded. Server-only.
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 export const PREVIEW_TTL_HOURS = 48;
 const HOUR = 3_600_000;

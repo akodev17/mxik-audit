@@ -3,7 +3,7 @@
 // GetStatement. Amounts are in tiyin; the account field is "order_id".
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import type { PaymeConfig } from './config.js';
 import { cancelOrder, markPaid } from './orders.js';
 

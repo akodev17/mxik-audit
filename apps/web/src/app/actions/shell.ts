@@ -2,10 +2,10 @@
 
 import { cookies } from 'next/headers';
 import { z } from 'zod';
-import { switchableClient } from '@/lib/active-client';
+import { switchableClient } from '@tasnivo/domain/active-client';
 import { getLocale } from '@/lib/locale';
-import { listNotifications, markAllRead, markRead, unreadCount, type NoticeView } from '@/lib/notifications';
-import { search, type SearchResults } from '@/lib/search';
+import { listNotifications, markAllRead, markRead, unreadCount, type NoticeView } from '@tasnivo/domain/notifications';
+import { search, type SearchResults } from '@tasnivo/domain/search';
 import { currentUser, getSession } from '@/lib/session';
 import { PREF_COOKIE_OPTIONS, SIDEBAR_COOKIE } from '@/ui/shell/prefs';
 import { THEME_COOKIE, THEMES } from '@/ui/theme';

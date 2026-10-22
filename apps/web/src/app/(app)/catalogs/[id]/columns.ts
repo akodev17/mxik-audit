@@ -3,7 +3,7 @@
 // is narrower than its columns. Chip tracks fit the uz/ru labels (the match
 // column shows short band names; a longer label ends in an ellipsis, its full
 // text in the title); code tracks fit a 17-digit mono code and its padding.
-import type { OptionalColumn } from '@/lib/view-params';
+import type { OptionalColumn } from '@tasnivo/domain/view-params';
 
 export type ColumnKey = 'select' | 'no' | 'product' | OptionalColumn | 'decision';
 

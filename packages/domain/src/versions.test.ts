@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient } from './firm-test-fixtures.js';
 import { storeDocList } from './docs.js';
 import { storePurchaseList } from './purchases.js';

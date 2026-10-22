@@ -1,13 +1,13 @@
 // Grid rows: lean, JSON-safe, with just the names the grid prints.
-import { groupKeyOf } from '../core/match/group-key.js';
-import { readEvidence } from '../core/match/evidence.js';
-import type { MatchStage } from '../core/match/types.js';
+import { groupKeyOf } from '@tasnivo/core/match/group-key';
+import { readEvidence } from '@tasnivo/core/match/evidence';
+import type { MatchStage } from '@tasnivo/core/match/types';
 import { commentCounts } from './comments';
 import { codeDetails, type CodeDetail } from './code-details';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { readDecisionSource, type DecisionSource } from './decision-source';
 import { decisionMode, noSuggestion, type DecisionMode } from './finding-kinds';
-import type { Locale } from './i18n';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 export type CodeState = 'ok' | 'archived' | 'unknown';
 

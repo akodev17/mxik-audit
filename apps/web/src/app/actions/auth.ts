@@ -5,16 +5,16 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LOCALE_COOKIE } from '@/lib/locale';
 import { z } from 'zod';
-import { db } from '@/lib/db';
-import { formText } from '@/lib/form';
-import { mailEnabled } from '@/lib/mailer';
-import { clientIp } from '@/lib/security/client-ip';
-import { MIN_PASSWORD, passwordMatches } from '@/lib/security/password-check';
-import { requestReset, resetPassword } from '@/lib/security/password-reset';
-import { clearAttempts, hit, minutesOf, RULES } from '@/lib/security/rate-limit';
-import { safeNext } from '@/lib/security/safe-next';
+import { db } from '@tasnivo/db';
+import { formText } from '@tasnivo/domain/form';
+import { mailEnabled } from '@tasnivo/domain/mailer';
+import { clientIp } from '@tasnivo/domain/security/client-ip';
+import { MIN_PASSWORD, passwordMatches } from '@tasnivo/domain/security/password-check';
+import { requestReset, resetPassword } from '@tasnivo/domain/security/password-reset';
+import { clearAttempts, hit, minutesOf, RULES } from '@tasnivo/domain/security/rate-limit';
+import { safeNext } from '@tasnivo/domain/security/safe-next';
 import { openSession } from '@/lib/security/sign-in';
-import { resendVerification } from '@/lib/security/verification';
+import { resendVerification } from '@tasnivo/domain/security/verification';
 
 const Credentials = z.object({
   email: z.string().email().max(200),

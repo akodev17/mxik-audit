@@ -2,9 +2,9 @@
 // product name for that barcode. Suggest only; the name changes when a user
 // accepts. Only a barcode that identifies a product (valid GTIN check digit,
 // not a restricted in-store range) may offer a name.
-import { identifyingBarcode, normalizeName } from '../core/normalize/index.js';
+import { identifyingBarcode, normalizeName } from '@tasnivo/core/normalize/index';
 import { catalogScope } from './access';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { mayWrite, type RoleCarrier } from './write-access';
 
 export type NameFromBarcode = { name: string; code: string };

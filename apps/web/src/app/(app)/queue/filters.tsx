@@ -1,5 +1,5 @@
-import type { QueueFilter } from '@/lib/queue';
-import { FINDING_TYPES } from '@/lib/workspace';
+import type { QueueFilter } from '@tasnivo/domain/queue';
+import { FINDING_TYPES } from '@tasnivo/domain/workspace';
 import { getI18n } from '@/lib/locale';
 import { typeLabels } from '@/ui/labels';
 import { Select } from '@/ui/select';

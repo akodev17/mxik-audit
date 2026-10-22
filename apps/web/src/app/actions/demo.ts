@@ -3,11 +3,11 @@
 import { getI18n } from '@/lib/locale';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/db';
-import { claimDemoAccess, DEMO_LIMITS, requestDemoAccess, type RequestFailure } from '@/lib/demo-access';
-import { clientIp } from '@/lib/security/client-ip';
-import { hit, RULES } from '@/lib/security/rate-limit';
-import { createRecord, endRecord } from '@/lib/security/session-store';
+import { db } from '@tasnivo/db';
+import { claimDemoAccess, DEMO_LIMITS, requestDemoAccess, type RequestFailure } from '@tasnivo/domain/demo-access';
+import { clientIp } from '@tasnivo/domain/security/client-ip';
+import { hit, RULES } from '@tasnivo/domain/security/rate-limit';
+import { createRecord, endRecord } from '@tasnivo/domain/security/session-store';
 import { clearPending } from '@/lib/security/sign-in';
 import { getSession } from '@/lib/session';
 

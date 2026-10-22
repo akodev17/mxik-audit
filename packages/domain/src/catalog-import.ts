@@ -3,11 +3,11 @@
 // the Telegram bot and the public API. Server-only.
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { readCode } from '../core/audit/checks.js';
-import { normalizeName } from '../core/normalize/index.js';
+import { readCode } from '@tasnivo/core/audit/checks';
+import { normalizeName } from '@tasnivo/core/normalize/index';
 import { parseAmount } from './amount.js';
 import { mappingIssues, type ColumnField, type ColumnMap } from './column-map.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { importDiagnostics, type ImportMeta } from './import-diagnostics.js';
 import { suggestMapping, type FieldSource, type MemorySource } from './mapping-memory.js';
 import type { ParseResult } from './spreadsheet.js';

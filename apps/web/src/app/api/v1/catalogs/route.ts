@@ -1,14 +1,14 @@
-import { startAudit } from '@/lib/audit-jobs';
-import { applyMapping, mappingFor, MAX_UPLOAD_BYTES, storeCatalog } from '@/lib/catalog-import';
-import { ownedClient, resolveClient } from '@/lib/clients';
-import { db } from '@/lib/db';
+import { startAudit } from '@tasnivo/domain/audit-jobs';
+import { applyMapping, mappingFor, MAX_UPLOAD_BYTES, storeCatalog } from '@tasnivo/domain/catalog-import';
+import { ownedClient, resolveClient } from '@tasnivo/domain/clients';
+import { db } from '@tasnivo/db';
 import { gate } from '@/lib/plan';
-import { HEADERS, PAGE, pageLimit } from '@/lib/api/contract';
-import { fingerprint, idempotent, readIdempotencyKey } from '@/lib/api/idempotency';
-import { recordUsage } from '@/lib/api/limits';
+import { HEADERS, PAGE, pageLimit } from '@tasnivo/domain/api/contract';
+import { fingerprint, idempotent, readIdempotencyKey } from '@tasnivo/domain/api/idempotency';
+import { recordUsage } from '@tasnivo/domain/api/limits';
 import { crashed, enter, failure, type Outcome } from '@/lib/api/respond';
-import { catalogOut, uploadOut } from '@/lib/api/serialize';
-import { parseUpload } from '@/lib/spreadsheet';
+import { catalogOut, uploadOut } from '@tasnivo/domain/api/serialize';
+import { parseUpload } from '@tasnivo/domain/spreadsheet';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;

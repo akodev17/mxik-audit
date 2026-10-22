@@ -2,7 +2,7 @@
 // privilege's legal text reads, and the facts a check's explanation is built
 // from (rendered in the viewer's language, never the audit's stored prose).
 
-import { restrictionDate } from '../core/audit/checks';
+import { restrictionDate } from '@tasnivo/core/audit/checks';
 
 /** Split points of the 17-digit code: guruh, sinf, pozitsiya, subpozitsiya, brend/atribut. */
 export const LEVEL_SPLITS = [3, 5, 8, 11, 17] as const;

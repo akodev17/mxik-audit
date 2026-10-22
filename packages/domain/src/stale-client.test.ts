@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 import { FindingType, Prisma, PrismaClient } from '@prisma/client';
-import { findingTypeFallback, isUnknownFindingType, withoutFindingType } from './finding-type-extension.js';
+import { findingTypeFallback, isUnknownFindingType, withoutFindingType } from '@tasnivo/db/finding-type-extension';
 import { RISKY_FINDING } from './risk.js';
 
 const FUTURE = 'FUTURE_CHECK';
@@ -48,7 +48,7 @@ const bare = new PrismaClient().$extends(enumFailure);
 // the failing read, and its text read goes through the fake value.
 (globalThis as { prisma?: unknown }).prisma = new PrismaClient().$extends(futureText).$extends(findingTypeFallback).$extends(enumFailure);
 
-const { db } = await import('./db.js');
+const { db } = await import('@tasnivo/db');
 const { dbSkipReason } = await import('./test-fixtures.js');
 const { catalogList } = await import('./catalogs.js');
 const { dashboard } = await import('./dashboard.js');

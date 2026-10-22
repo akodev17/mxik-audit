@@ -3,10 +3,10 @@
 import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/db';
-import type { Skipped } from '@/lib/decide-many';
-import { editMapping, removeMapping } from '@/lib/dictionary';
-import { acceptDictionaryButton } from '@/lib/dictionary-button';
+import { db } from '@tasnivo/db';
+import type { Skipped } from '@tasnivo/domain/decide-many';
+import { editMapping, removeMapping } from '@tasnivo/domain/dictionary';
+import { acceptDictionaryButton } from '@tasnivo/domain/dictionary-button';
 import { admin, writer } from '@/lib/guard';
 
 export type AcceptDictResult = { ok: true; count: number; eventId: string | null; ids: string[]; skipped: Skipped } | { ok: false; error: string };

@@ -5,8 +5,8 @@
 import { Prisma } from '@prisma/client';
 import { pendingAudits, type PendingAudit } from './client-attention';
 import { attentionReasons, clientStats, type ClientStats } from './client-stats';
-import { db } from './db';
-import { readFindingType } from './finding-type';
+import { db } from '@tasnivo/db';
+import { readFindingType } from '@tasnivo/db/finding-type';
 
 export type Totals = {
   clients: number;

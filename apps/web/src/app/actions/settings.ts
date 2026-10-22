@@ -3,11 +3,11 @@
 import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/db';
+import { db } from '@tasnivo/db';
 import { isDemoOrg } from '@/lib/demo';
 import { admin } from '@/lib/guard';
-import { telegramConfig } from '@/lib/telegram/config';
-import { createLinkCode, LINK_CODE_TTL_MS, unlink } from '@/lib/telegram/linking';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
+import { createLinkCode, LINK_CODE_TTL_MS, unlink } from '@tasnivo/domain/telegram/linking';
 
 const LOGO_MAX_BYTES = 300 * 1024;
 

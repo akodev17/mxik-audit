@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { finishTask } from '@/app/actions/reminders';
-import { fmtDate } from '@/lib/format';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';

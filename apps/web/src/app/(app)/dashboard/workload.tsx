@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import type { WorkloadRow } from '@/lib/dashboard';
-import { fmtDate, fmtNumber } from '@/lib/format';
+import type { WorkloadRow } from '@tasnivo/domain/dashboard';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Table, Td, Th } from '@/ui/table';
 

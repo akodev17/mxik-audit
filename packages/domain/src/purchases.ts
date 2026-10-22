@@ -3,11 +3,11 @@
 // check never touches a decided finding, and a list without a single valid
 // code is never used (it would flag every sold row as not purchased).
 import { z } from 'zod';
-import { buildPurchaseIndex, checkPurchased } from '../core/audit/purchases.js';
-import { readCode } from '../core/audit/checks.js';
+import { buildPurchaseIndex, checkPurchased } from '@tasnivo/core/audit/purchases';
+import { readCode } from '@tasnivo/core/audit/checks';
 import { canSeeClient } from './access.js';
 import { findingData } from './audit-runner.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { effectiveCode } from './export-effective.js';
 import type { ParseResult } from './spreadsheet.js';
 import { mayWrite, type RoleCarrier } from './write-access.js';

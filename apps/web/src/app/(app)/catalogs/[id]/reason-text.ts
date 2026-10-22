@@ -1,7 +1,7 @@
 // What a check found, in the viewer's language, from the finding's data. Pure.
 // The audit's stored sentence is Uzbek prose and is never the explanation.
-import type { AppDict } from '@/lib/i18n-app';
-import type { ReasonFacts } from '@/lib/row-detail-parts';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
+import type { ReasonFacts } from '@tasnivo/domain/row-detail-parts';
 
 type Input = { type: string; facts: ReasonFacts; noSuggestion: boolean };
 

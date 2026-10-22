@@ -1,7 +1,7 @@
 // The link in the confirmation email: confirms the address and signs the user in.
 import { redirectTo } from '@/lib/security/redirect';
 import { openSession } from '@/lib/security/sign-in';
-import { confirmEmail } from '@/lib/security/verification';
+import { confirmEmail } from '@tasnivo/domain/security/verification';
 
 export const dynamic = 'force-dynamic';
 

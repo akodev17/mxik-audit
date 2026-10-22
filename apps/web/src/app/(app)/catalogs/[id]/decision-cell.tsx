@@ -1,8 +1,8 @@
 'use client';
 
-import { isAutomatic } from '@/lib/decision-source';
+import { isAutomatic } from '@tasnivo/domain/decision-source';
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { decisionText } from './ws-text';

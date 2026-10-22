@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { absoluteUrl } from './app-url';
 import { canWrite, catalogScope } from './access';
 import type { Role } from './session';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { orgActive } from './security/org-active';
 
 const hash = (token: string): string => createHash('sha256').update(token).digest('hex');

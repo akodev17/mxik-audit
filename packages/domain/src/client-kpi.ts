@@ -1,7 +1,7 @@
 // Hints under the "open risky rows" and "reviewed" tiles. A hint says something new, never the
 // tile's value again, and keeps the tile's unit (rows) unless it names the other one.
-import { fmtNumber, fmtPercent } from './format.js';
-import type { Locale } from './i18n.js';
+import { fmtNumber, fmtPercent } from '@tasnivo/i18n/format';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 export type KpiWords = {
   share: (pct: string) => string;

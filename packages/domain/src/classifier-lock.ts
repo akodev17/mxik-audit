@@ -1,7 +1,7 @@
 // The Postgres advisory lock that keeps classifier updates to one at a time.
 // scripts/update-classifier.ts takes it for the whole run; the daily route only
 // looks at it (pg_locks), so a running update is seen without touching it.
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 export const CLASSIFIER_LOCK_KEY = 727_001;
 

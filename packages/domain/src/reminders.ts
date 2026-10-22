@@ -2,9 +2,9 @@
 // Telegram message to the accountant responsible. Run from the daily cron.
 import { canSeeClient } from './access.js';
 import { appLink, telegramConfig } from './telegram/config.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import type { Result } from './decisions.js';
-import { appDict } from './i18n-app.js';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { orgLocale } from './org-locale.js';
 import { localDate, nextReminderDate, skipsThisMonth } from './reminder-dates.js';
 import { mayWrite, type RoleCarrier } from './write-access.js';

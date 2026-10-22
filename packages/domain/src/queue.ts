@@ -2,10 +2,10 @@
 // catalogue of every client the user may see (archived clients left out), in a
 // fixed order (high first, then client, then row) with keyset pages.
 import { Prisma } from '@prisma/client';
-import type { MatchStage } from '../core/match/types';
-import { resolveUnit } from '../core/normalize/units';
-import { db } from './db';
-import { readFindingType } from './finding-type';
+import type { MatchStage } from '@tasnivo/core/match/types';
+import { resolveUnit } from '@tasnivo/core/normalize/units';
+import { db } from '@tasnivo/db';
+import { readFindingType } from '@tasnivo/db/finding-type';
 import { localDate } from './reminder-dates';
 import { FINDING_TYPES, type WsType } from './workspace';
 

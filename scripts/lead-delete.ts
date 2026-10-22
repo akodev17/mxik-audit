@@ -2,9 +2,9 @@
 // Run: npm run lead:delete -- <leadId>          erase the uploaded file only
 //      npm run lead:delete -- <leadId> --all    delete the whole lead, contact included
 //      npm run lead:delete -- --list            recent leads, newest first
-import '../src/lib/load-env.js';
-import { db } from '../src/lib/db.js';
-import { deleteLead } from '../src/lib/retention.js';
+import '@tasnivo/domain/load-env';
+import { db } from '@tasnivo/db';
+import { deleteLead } from '@tasnivo/domain/retention';
 
 const args = process.argv.slice(2);
 

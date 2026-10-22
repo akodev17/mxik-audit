@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
-import { telegramConfig } from '@/lib/telegram/config';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
 import { TelegramLogin } from '@/ui/telegram-login';
 import { SignUpForm } from './sign-up-form';
 

@@ -3,8 +3,8 @@
 import { z } from 'zod';
 import { writer } from '@/lib/guard';
 import { currentUser } from '@/lib/session';
-import { listViews, removeView, saveView, setDefaultView, type ViewRow } from '@/lib/views';
-import { ViewParams } from '@/lib/view-params';
+import { listViews, removeView, saveView, setDefaultView, type ViewRow } from '@tasnivo/domain/views';
+import { ViewParams } from '@tasnivo/domain/view-params';
 
 export type ViewsResult = { ok: true; views: ViewRow[] } | { ok: false; views: ViewRow[] };
 

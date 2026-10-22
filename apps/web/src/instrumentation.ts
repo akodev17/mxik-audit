@@ -1,5 +1,5 @@
 import type { Instrumentation } from 'next';
-import { requestErrorLine } from './lib/request-error-log';
+import { requestErrorLine } from '@tasnivo/domain/request-error-log';
 
 // Runs once when the server starts. A catalogue still marked "analyzing" whose
 // heartbeat has stopped lost its worker with the previous process, so its audit
@@ -7,7 +7,7 @@ import { requestErrorLine } from './lib/request-error-log';
 export async function register(): Promise<void> {
   // Next's documented shape: an early return does not reliably keep pg out of the edge bundle.
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { resumeStaleAudits, STARTUP_STALE_MS } = await import('./lib/audit-jobs');
+    const { resumeStaleAudits, STARTUP_STALE_MS } = await import('@tasnivo/domain/audit-jobs');
     // A database that is not up yet must not stop the server from starting.
     await resumeStaleAudits(STARTUP_STALE_MS).catch(() => undefined);
   }

@@ -2,7 +2,7 @@
 // upload flow maps whatever columns the user's file really has.
 import ExcelJS from 'exceljs';
 import { NextResponse } from 'next/server';
-import { contentDisposition } from '@/lib/export-filename';
+import { contentDisposition } from '@tasnivo/domain/export-filename';
 import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 

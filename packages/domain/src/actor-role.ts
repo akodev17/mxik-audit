@@ -2,7 +2,7 @@
 // a role passed in by a caller can be stale (the member was demoted or removed since).
 import type { Prisma, UserRole } from '@prisma/client';
 import { canWrite, isAdminRole } from './access.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 type Reader = Pick<Prisma.TransactionClient, 'user'>;
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { defaultClient } from './clients.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { deleteDocList, storeDocList } from './docs.js';
 import { applyPurchaseMap, deletePurchaseList, runPurchaseCheck, setClientActivity, storePurchaseList } from './purchases.js';
 import { parseUpload } from './spreadsheet.js';

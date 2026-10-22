@@ -3,8 +3,8 @@
 // altogether (see isDemoOrg in the upload actions), so nothing is processed for them either.
 import { NextResponse } from 'next/server';
 import { isDemoOrg } from './demo.js';
-import { demoMaxExports } from './demo-config.js';
-import { hit } from './security/rate-limit.js';
+import { demoMaxExports } from '@tasnivo/domain/demo-config';
+import { hit } from '@tasnivo/domain/security/rate-limit';
 
 /**
  * A 429 response when this demo has used up its downloads; null for any other org and while there are some left.

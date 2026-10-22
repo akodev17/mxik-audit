@@ -1,9 +1,9 @@
 // Reports which providers the current environment selects, without calling them.
 // Run: npm run check:providers
-import '../src/lib/load-env.js'; // must precede anything reading process.env
-import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { rerankProviderFromEnv } from '../src/core/match/rerank.js';
-import { rerankConfigFromEnv } from '../src/core/match/rerank-config.js';
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { rerankProviderFromEnv } from '@tasnivo/core/match/rerank';
+import { rerankConfigFromEnv } from '@tasnivo/core/match/rerank-config';
 
 const embedder = embeddingProviderFromEnv();
 const reranker = rerankProviderFromEnv();

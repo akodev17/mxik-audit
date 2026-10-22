@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { shareCreate, shareList, shareRevoke, type ShareRow } from '@/app/actions/share';
-import { fmtDate } from '@/lib/format';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';

@@ -1,9 +1,9 @@
 // Small text helpers for the workspace: counts, names in toasts, skipped reports. Pure.
-import type { Skipped } from '@/lib/decide-many';
-import { fmtNumber } from '@/lib/format';
-import type { Locale } from '@/lib/i18n';
-import type { AppDict } from '@/lib/i18n-app';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { Skipped } from '@tasnivo/domain/decide-many';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 
 type CountFn = (n: string, k: number) => string;
 

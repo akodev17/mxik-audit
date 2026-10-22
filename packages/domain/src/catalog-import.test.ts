@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import { applyMapping, storeCatalog } from './catalog-import.js';
 import { defaultClient } from './clients.js';
 import type { ColumnMap } from './column-map.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { usageOf } from './plan.js';
 import { parseUpload } from './spreadsheet.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';

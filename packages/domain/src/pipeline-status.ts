@@ -3,13 +3,13 @@
 // The vector line reuses the audit's own readiness check, so a substituted
 // non-semantic stand-in is reported as degraded, as the audit treats it.
 import { Prisma } from '@prisma/client';
-import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
-import type { VectorReadiness } from '../core/match/vector-readiness.js';
+import { rerankConfigFromEnv } from '@tasnivo/core/match/rerank-config';
+import type { VectorReadiness } from '@tasnivo/core/match/vector-readiness';
 import { vectorReadiness } from './audit-runner.js';
-import { db } from './db.js';
-import { fmtDateTime, fmtNumber } from './format.js';
-import type { Locale } from './i18n.js';
-import { appDict, type AppDict } from './i18n-app.js';
+import { db } from '@tasnivo/db';
+import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import { appDict, type AppDict } from '@tasnivo/i18n/i18n-app';
 import { readPipelineMeta, type PipelineMeta } from './pipeline-meta.js';
 
 export type StatusLine = { label: string; value: string; ok: boolean };

@@ -3,7 +3,7 @@
 // which keeps each notification single. Authorization lives here, behind the action guards.
 import { Prisma } from '@prisma/client';
 import { canSeeClient } from './access.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { orgLocale } from './org-locale.js';
 import { reviewAssignedText, reviewCompletedText } from './notification-text.js';
 import { notify } from './notifications.js';

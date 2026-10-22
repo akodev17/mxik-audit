@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { isAuditRunning, resumeStaleAudits, retryAudit, startAudit, STARTUP_STALE_MS } from './audit-jobs.js';
 import { auditCatalog } from './audit-runner.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';
 
 const skip = await dbSkipReason();

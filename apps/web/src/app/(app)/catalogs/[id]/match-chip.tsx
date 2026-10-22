@@ -1,6 +1,6 @@
 'use client';
 
-import type { MatchStage } from '@/core/match/types';
+import type { MatchStage } from '@tasnivo/core/match/types';
 import { useI18n } from '@/lib/locale-client';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { suggestionLabel } from '@/ui/labels';

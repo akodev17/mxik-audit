@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { checkProducts, CheckItemSchema } from '@/lib/api/check';
-import { HEADERS } from '@/lib/api/contract';
-import { fingerprint, idempotent, readIdempotencyKey } from '@/lib/api/idempotency';
-import { checkAllowance, apiConfig, recordUsage } from '@/lib/api/limits';
+import { checkProducts, CheckItemSchema } from '@tasnivo/domain/api/check';
+import { HEADERS } from '@tasnivo/domain/api/contract';
+import { fingerprint, idempotent, readIdempotencyKey } from '@tasnivo/domain/api/idempotency';
+import { checkAllowance, apiConfig, recordUsage } from '@tasnivo/domain/api/limits';
 import { crashed, enter, failure, type Outcome } from '@/lib/api/respond';
 
 export const dynamic = 'force-dynamic';

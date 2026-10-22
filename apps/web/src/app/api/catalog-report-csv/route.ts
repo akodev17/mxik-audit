@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { catalogScope } from '@/lib/access';
-import { db } from '@/lib/db';
+import { catalogScope } from '@tasnivo/domain/access';
+import { db } from '@tasnivo/db';
 import { demoExportRefusal } from '@/lib/demo-limits';
-import { baseName, contentDisposition } from '@/lib/export-filename';
+import { baseName, contentDisposition } from '@tasnivo/domain/export-filename';
 import { getI18n } from '@/lib/locale';
-import { reportPdfData } from '@/lib/pdf/report-data';
-import { reportCsv } from '@/lib/report-csv';
+import { reportPdfData } from '@tasnivo/domain/pdf/report-data';
+import { reportCsv } from '@tasnivo/domain/report-csv';
 import { currentUser } from '@/lib/session';
 import { typeLabels } from '@/ui/labels';
 

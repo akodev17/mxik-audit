@@ -1,9 +1,9 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 import { Button } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { IconChevron } from '@/ui/icons';

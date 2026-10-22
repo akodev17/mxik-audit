@@ -1,22 +1,12 @@
 // One error shape and one entry guard for every /api/v1 route. Every response after the key is
 // known carries the key's rate-limit headers, success or error.
 import { NextResponse } from 'next/server';
-import { ERROR_STATUS, HEADERS, type ErrorBody, type ErrorOf, type OperationId } from './contract';
-import { authenticate, type ApiCaller } from './keys';
-import { takeRate, type RateResult } from './limits';
+import { HEADERS, type OperationId } from '@tasnivo/domain/api/contract';
+import { authenticate, type ApiCaller } from '@tasnivo/domain/api/keys';
+import { takeRate, type RateResult } from '@tasnivo/domain/api/limits';
+import { failure, rateHeaders, type Outcome } from '@tasnivo/domain/api/respond';
 
-/** A response before headers: what a handler decided, and what idempotency stores. */
-export type Outcome = { status: number; body: unknown };
-
-/** An error this operation is documented to return. */
-export function failure<O extends OperationId>(_op: O, code: ErrorOf<O>, message: string): Outcome {
-  const body: ErrorBody = { error: { code, message } };
-  return { status: ERROR_STATUS[code], body };
-}
-
-export function rateHeaders(rate: RateResult): Record<string, string> {
-  return { [HEADERS.limit]: String(rate.limit), [HEADERS.remaining]: String(rate.remaining) };
-}
+export { failure, rateHeaders, type Outcome } from '@tasnivo/domain/api/respond';
 
 export function send(outcome: Outcome, headers: Record<string, string> = {}): NextResponse {
   return NextResponse.json(outcome.body, { status: outcome.status, headers });

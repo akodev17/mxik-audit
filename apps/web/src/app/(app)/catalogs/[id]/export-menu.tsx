@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { filenameFromDisposition } from '@/lib/export-filename';
+import { filenameFromDisposition } from '@tasnivo/domain/export-filename';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { IconDownload } from '@/ui/icons';

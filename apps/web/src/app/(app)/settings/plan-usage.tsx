@@ -1,5 +1,5 @@
-import { WARN_AT } from '@/lib/billing/limits';
-import { fmtDate, fmtNumber } from '@/lib/format';
+import { WARN_AT } from '@tasnivo/domain/billing/limits';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import type { PlanStatus } from '@/lib/plan';
 import { StatusChip, StatusIcon, type Tone } from '@/ui/badge';

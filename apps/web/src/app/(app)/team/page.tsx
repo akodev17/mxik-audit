@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { isAdminRole } from '@/lib/access';
-import { db } from '@/lib/db';
-import { fmtDate } from '@/lib/format';
-import { INVITE_DAYS } from '@/lib/invites';
+import { isAdminRole } from '@tasnivo/domain/access';
+import { db } from '@tasnivo/db';
+import { fmtDate } from '@tasnivo/i18n/format';
+import { INVITE_DAYS } from '@tasnivo/domain/invites';
 import { getI18n } from '@/lib/locale';
-import { mailEnabled } from '@/lib/mailer';
+import { mailEnabled } from '@tasnivo/domain/mailer';
 import { allows, planStatus } from '@/lib/plan';
 import { currentUser, inDemoOrg } from '@/lib/session';
 import { EmptyState } from '@/ui/empty-state';

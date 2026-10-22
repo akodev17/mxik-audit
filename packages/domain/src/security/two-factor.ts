@@ -1,6 +1,6 @@
 // Two-factor sign-in: set up an authenticator, confirm it, recovery codes, check a login code.
 import { createHash, randomBytes } from 'node:crypto';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { keyedHash } from './secret.js';
 import { matchStep, newSecret, openSecret, otpauthUri, sealSecret } from './totp.js';
 

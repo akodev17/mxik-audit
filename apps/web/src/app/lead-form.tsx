@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { submitLead, type LeadState } from '@/app/actions/lead';
-import { HONEYPOT_FIELD, LEAD_LIMITS } from '@/lib/lead-guard';
+import { HONEYPOT_FIELD, LEAD_LIMITS } from '@tasnivo/domain/lead-guard';
 
 export function LeadForm() {
   const [state, action, pending] = useActionState<LeadState, FormData>(submitLead, {});

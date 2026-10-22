@@ -3,23 +3,23 @@
 import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { canSeeClient, catalogScope } from '@/lib/access';
-import { resolveVisibleClient } from '@/lib/active-client';
-import { retryAudit, startAudit } from '@/lib/audit-jobs';
-import { applyMapping, MAX_UPLOAD_BYTES, storedRows, storeCatalog } from '@/lib/catalog-import';
-import { deleteCatalog } from '@/lib/catalogs';
-import { ColumnMapSchema, mappingIssues, type MappingIssue } from '@/lib/column-map';
-import { db } from '@/lib/db';
+import { canSeeClient, catalogScope } from '@tasnivo/domain/access';
+import { resolveVisibleClient } from '@tasnivo/domain/active-client';
+import { retryAudit, startAudit } from '@tasnivo/domain/audit-jobs';
+import { applyMapping, MAX_UPLOAD_BYTES, storedRows, storeCatalog } from '@tasnivo/domain/catalog-import';
+import { deleteCatalog } from '@tasnivo/domain/catalogs';
+import { ColumnMapSchema, mappingIssues, type MappingIssue } from '@tasnivo/domain/column-map';
+import { db } from '@tasnivo/db';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
-import { importDiagnostics, type ImportDiagnostics } from '@/lib/import-diagnostics';
-import { suggestMapping } from '@/lib/mapping-memory';
+import { importDiagnostics, type ImportDiagnostics } from '@tasnivo/domain/import-diagnostics';
+import { suggestMapping } from '@tasnivo/domain/mapping-memory';
 import { gate, previewGate } from '@/lib/plan';
-import { discardEarlierPreviews } from '@/lib/preview-sweep';
+import { discardEarlierPreviews } from '@tasnivo/domain/preview-sweep';
 import { getSession, type CurrentUser } from '@/lib/session';
-import { parseErrorCode, parseUpload } from '@/lib/spreadsheet';
-import { hasUploadExtension } from '@/lib/upload-file-types';
-import { uploadPreview, discardUpload as discardStored, type UploadPreview } from '@/lib/upload-preview';
+import { parseErrorCode, parseUpload } from '@tasnivo/domain/spreadsheet';
+import { hasUploadExtension } from '@tasnivo/domain/upload-file-types';
+import { uploadPreview, discardUpload as discardStored, type UploadPreview } from '@tasnivo/domain/upload-preview';
 
 export type PreviewResult = { ok: true; preview: UploadPreview } | { ok: false; error: string };
 

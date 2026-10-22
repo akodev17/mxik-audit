@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cache } from 'react';
-import { readInvite } from '@/lib/invites';
+import { readInvite } from '@tasnivo/domain/invites';
 import { getI18n } from '@/lib/locale';
 import { EmptyState } from '@/ui/empty-state';
 import { JoinForm } from './join-form';

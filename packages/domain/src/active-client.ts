@@ -1,7 +1,7 @@
 // The client the app works on for this user: the remembered one when the user may still see it,
 // otherwise the first client in the user's scope. Archived clients are never active.
 import { canSeeClient, clientScope } from './access';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import type { CurrentUser } from './session';
 
 export type VisibleClient = { id: string; name: string; isDefault: boolean };

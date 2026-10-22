@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient, makeClientCatalog, makePerson, type Person } from './firm-test-fixtures.js';
 import { auditReadyText, reviewAssignedText, reviewCompletedText } from './notification-text.js';
 import { latestPerClient, listNotifications, markAllRead, notify, unreadCount } from './notifications.js';

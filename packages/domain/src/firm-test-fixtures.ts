@@ -3,7 +3,7 @@
 // dropOrgs removes it all.
 import { randomBytes } from 'node:crypto';
 import type { Decision, FindingType, Severity, UserRole } from '@prisma/client';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 const tag = (): string => randomBytes(4).toString('hex');
 

@@ -20,7 +20,7 @@ describe('progressPercent', () => {
   });
 });
 
-const css = readFileSync(path.join(process.cwd(), 'src', 'styles', 'app-tokens.css'), 'utf8');
+const css = readFileSync(path.join(process.cwd(), 'apps', 'web', 'src', 'styles', 'app-tokens.css'), 'utf8');
 
 /** Colour tokens declared in the first rule whose header contains `marker`. */
 function tokens(marker: string): Map<string, string> {

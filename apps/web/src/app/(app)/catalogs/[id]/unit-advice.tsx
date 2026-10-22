@@ -1,7 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/locale-client';
-import type { UnitAdvice } from '@/lib/unit-advice';
+import type { UnitAdvice } from '@tasnivo/domain/unit-advice';
 import { containerLabel, packagingLabel, unitLabel } from './unit-label';
 
 /** Suggestions only: the unit the code is bound to and the packaging read from the name, in the viewer's language. */

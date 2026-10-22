@@ -2,9 +2,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { isOrgAdmin } from './actor-role';
 import { absoluteUrl } from './app-url';
-import { appDict } from './i18n-app';
-import type { Locale } from './i18n';
-import { db } from './db';
+import { appDict } from '@tasnivo/i18n/i18n-app';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import { db } from '@tasnivo/db';
 import { mailEnabled, sendMail } from './mailer';
 import { orgLocale } from './org-locale';
 import { hashPassword } from './password';

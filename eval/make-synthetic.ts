@@ -3,10 +3,10 @@
 // Names come from the classifier itself, so these cases OVERESTIMATE accuracy
 // on real catalogues; they test robustness to noise, not real-world recall.
 // Run: npm run eval:synthetic [-- --count 200 --seed 20261015]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { matchKeyOf } from '../src/core/normalize/index.js';
+import { matchKeyOf } from '@tasnivo/core/normalize/index';
 import { toCsv } from './csv.js';
 import { makeRng, noisify } from './noise.js';
 

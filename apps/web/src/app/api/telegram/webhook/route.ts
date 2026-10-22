@@ -3,8 +3,8 @@
 // updates claiming to be a linked chat.
 import { webhookCallback } from 'grammy';
 import { NextResponse } from 'next/server';
-import { createBot } from '@/lib/telegram/bot';
-import { telegramConfig } from '@/lib/telegram/config';
+import { createBot } from '@tasnivo/domain/telegram/bot';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
 
 export const dynamic = 'force-dynamic';
 

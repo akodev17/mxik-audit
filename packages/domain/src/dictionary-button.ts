@@ -3,7 +3,7 @@
 // Same screening as every bulk decision (live codes, one code per row).
 import { catalogScope } from './access';
 import { decideMany, type ManyDone, type ManyTarget } from './decide-many';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import type { Actor, ManyResult } from './decisions';
 import { mayWrite } from './write-access';
 

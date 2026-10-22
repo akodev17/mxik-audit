@@ -2,32 +2,32 @@
 // then persists findings. Server-only.
 import { Pool } from 'pg';
 import { startHeartbeat } from './audit-heartbeat.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { runPool } from './work-pool.js';
-import { embeddingProviderFromEnv } from '../core/embed/index.js';
-import { matchProduct, timed, type DisableableStage, type StageTimer } from '../core/match/pipeline.js';
-import { lexicalQuery } from '../core/match/query.js';
-import { NoopRerankProvider, rerankFromEnv } from '../core/match/rerank.js';
-import { PositionStore } from '../core/match/position-store.js';
-import type { DictionaryLookup } from '../core/match/dictionary.js';
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { matchProduct, timed, type DisableableStage, type StageTimer } from '@tasnivo/core/match/pipeline';
+import { lexicalQuery } from '@tasnivo/core/match/query';
+import { NoopRerankProvider, rerankFromEnv } from '@tasnivo/core/match/rerank';
+import { PositionStore } from '@tasnivo/core/match/position-store';
+import type { DictionaryLookup } from '@tasnivo/core/match/dictionary';
 import { loadDictionary } from './dictionary.js';
 import {
   buildPipelineMeta, countMatch, emptyCounters, type ClassifierProvenance, type PipelineMeta, type PipelineSetup,
 } from './pipeline-meta.js';
-import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
-import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
-import { PROMPT_VERSION } from '../core/match/rerank-prompt.js';
-import { lexicalStrictThresholdFromEnv, PostgresCandidateStore } from '../core/match/store.js';
-import { checkVectorReadiness, type VectorColumn, type VectorReadiness } from '../core/match/vector-readiness.js';
-import { normalizeName } from '../core/normalize/index.js';
+import { PostgresRerankCache } from '@tasnivo/core/match/rerank-cache-pg';
+import { rerankConfigFromEnv } from '@tasnivo/core/match/rerank-config';
+import { PROMPT_VERSION } from '@tasnivo/core/match/rerank-prompt';
+import { lexicalStrictThresholdFromEnv, PostgresCandidateStore } from '@tasnivo/core/match/store';
+import { checkVectorReadiness, type VectorColumn, type VectorReadiness } from '@tasnivo/core/match/vector-readiness';
+import { normalizeName } from '@tasnivo/core/normalize/index';
 import {
   POSITION_DIGITS, readCode, runChecks, type Finding, type ResolvedRow, type Restriction,
-} from '../core/audit/checks.js';
-import { markingRequired } from '../core/audit/marking.js';
-import type { RerankGate } from '../core/match/rerank-config.js';
+} from '@tasnivo/core/audit/checks';
+import { markingRequired } from '@tasnivo/core/audit/marking';
+import type { RerankGate } from '@tasnivo/core/match/rerank-config';
 import type {
   EmbeddingProvider, RerankOutcome, RerankProvider, RerankUsage, ScoredCandidate, VectorOutcome,
-} from '../core/match/types.js';
+} from '@tasnivo/core/match/types';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 

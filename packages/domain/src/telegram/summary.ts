@@ -1,7 +1,7 @@
 // The audit summary a catalogue sent through the bot gets back. Counts only
 // risky findings, by type, the same way the report does.
-import { db } from '../db.js';
-import type { Dict } from '../i18n.js';
+import { db } from '@tasnivo/db';
+import type { Dict } from '@tasnivo/i18n/i18n';
 import { findingTypeCounts } from '../finding-type-counts.js';
 import { RISKY_ITEM } from '../risk.js';
 

@@ -1,5 +1,5 @@
-import type { AccountantOption } from '@/lib/dashboard';
-import { fmtNumber } from '@/lib/format';
+import type { AccountantOption } from '@tasnivo/domain/dashboard';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Button } from '@/ui/button';
 import { Select } from '@/ui/select';

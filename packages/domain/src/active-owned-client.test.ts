@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { activeOwnedClient, ownedClient } from './clients.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient } from './firm-test-fixtures.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 

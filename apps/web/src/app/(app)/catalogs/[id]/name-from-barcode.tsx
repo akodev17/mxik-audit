@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { fillNameFromBarcode } from '@/app/actions/barcode-name';
-import type { NameFromBarcode } from '@/lib/barcode-name';
+import type { NameFromBarcode } from '@tasnivo/domain/barcode-name';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { useToast } from '@/ui/toast';

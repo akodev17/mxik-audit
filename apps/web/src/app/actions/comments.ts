@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { addComment, listComments, setFlag, type CommentView } from '@/lib/comments';
+import { addComment, listComments, setFlag, type CommentView } from '@tasnivo/domain/comments';
 import { writer } from '@/lib/guard';
 import { currentUser } from '@/lib/session';
 

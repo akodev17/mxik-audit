@@ -1,7 +1,7 @@
 // Payme Merchant API endpoint (JSON-RPC). 404 while Payme is not configured.
 import { NextResponse } from 'next/server';
-import { billingConfig } from '@/lib/billing/config';
-import { handlePayme, PAYME_ERRORS, paymeAuthorized } from '@/lib/billing/payme';
+import { billingConfig } from '@tasnivo/domain/billing/config';
+import { handlePayme, PAYME_ERRORS, paymeAuthorized } from '@tasnivo/domain/billing/payme';
 
 export const dynamic = 'force-dynamic';
 

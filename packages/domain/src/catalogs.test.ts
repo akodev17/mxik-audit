@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { rerankCacheKey } from '../core/match/rerank-cache.js';
-import { normalizeName } from '../core/normalize/index.js';
+import { rerankCacheKey } from '@tasnivo/core/match/rerank-cache';
+import { normalizeName } from '@tasnivo/core/normalize/index';
 import { catalogList, deleteCatalog, listCatalogs, resolveCatalog } from './catalogs.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { recordDecision } from './decisions.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from './test-fixtures.js';
 

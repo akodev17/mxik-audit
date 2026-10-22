@@ -5,11 +5,11 @@ import { describe, it } from 'node:test';
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { liveComponents } from '@/app/yordam/[[...path]]/live-config';
-import { HELP_ARTICLES, headingId, helpHeadings, type HelpLang } from './help';
+import { HELP_ARTICLES, headingId, helpHeadings, type HelpLang } from '@tasnivo/domain/help';
 import { helpBody } from './help-mdx';
 
 const LANGS: HelpLang[] = ['uz', 'ru'];
-const source = (lang: HelpLang, slug: string): Promise<string> => readFile(path.join(process.cwd(), 'src', 'content', 'yordam', lang, `${slug}.mdx`), 'utf8');
+const source = (lang: HelpLang, slug: string): Promise<string> => readFile(path.join(process.cwd(), 'apps', 'web', 'src', 'content', 'yordam', lang, `${slug}.mdx`), 'utf8');
 
 async function render(lang: HelpLang, slug: string): Promise<string> {
   const Body = (await helpBody(lang, slug)) as (props: { components: Record<string, unknown> }) => ReactNode;

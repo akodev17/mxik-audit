@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { fmtDateTime, fmtNumber } from '@/lib/format';
+import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { listNotifications, NOTICE_GROUPS, unreadCount, type NoticeGroup } from '@/lib/notifications';
+import { listNotifications, NOTICE_GROUPS, unreadCount, type NoticeGroup } from '@tasnivo/domain/notifications';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';

@@ -1,5 +1,5 @@
 // Ordering and the "last active" wording of the sessions list. Pure, so it is tested without a database.
-import type { Locale } from '@/lib/i18n';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 type Session = { id: string; lastSeenAt: Date };
 

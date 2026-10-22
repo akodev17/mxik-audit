@@ -2,12 +2,12 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { formText } from '@/lib/form';
+import { formText } from '@tasnivo/domain/form';
 import { getI18n } from '@/lib/locale';
-import { clientIp } from '@/lib/security/client-ip';
-import { hit, minutesOf, RULES } from '@/lib/security/rate-limit';
+import { clientIp } from '@tasnivo/domain/security/client-ip';
+import { hit, minutesOf, RULES } from '@tasnivo/domain/security/rate-limit';
 import { openSession } from '@/lib/security/sign-in';
-import { createAccount } from '@/lib/signup';
+import { createAccount } from '@tasnivo/domain/signup';
 
 export type SignUpState = { error?: string; checkEmail?: boolean };
 

@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { diagnoseUpload } from '@/app/actions/catalog';
-import { COLUMN_FIELDS, mappingIssues, type ColumnField, type ColumnMap } from '@/lib/column-map';
-import type { ImportDiagnostics } from '@/lib/import-diagnostics';
-import { applyPreset, IMPORT_PRESETS } from '@/lib/import-presets';
+import { COLUMN_FIELDS, mappingIssues, type ColumnField, type ColumnMap } from '@tasnivo/domain/column-map';
+import type { ImportDiagnostics } from '@tasnivo/domain/import-diagnostics';
+import { applyPreset, IMPORT_PRESETS } from '@tasnivo/domain/import-presets';
 import { useI18n } from '@/lib/locale-client';
-import type { UploadPreview } from '@/lib/upload-preview';
+import type { UploadPreview } from '@tasnivo/domain/upload-preview';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { PreviewTable } from '@/ui/preview-table';

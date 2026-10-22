@@ -1,8 +1,8 @@
 // Click Prepare/Complete callback (one URL for both; "action" tells them
 // apart). 404 while Click is not configured.
 import { NextResponse } from 'next/server';
-import { billingConfig } from '@/lib/billing/config';
-import { CLICK_ERRORS, handleClick } from '@/lib/billing/click';
+import { billingConfig } from '@tasnivo/domain/billing/config';
+import { CLICK_ERRORS, handleClick } from '@tasnivo/domain/billing/click';
 
 export const dynamic = 'force-dynamic';
 

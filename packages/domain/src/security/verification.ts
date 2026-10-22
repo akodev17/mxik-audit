@@ -1,8 +1,8 @@
 // Confirming an e-mail address: the link, its check, and sending it again on request.
 import { absoluteUrl } from '../app-url.js';
-import { db } from '../db.js';
-import { appDict } from '../i18n-app.js';
-import type { Locale } from '../i18n.js';
+import { db } from '@tasnivo/db';
+import { appDict } from '@tasnivo/i18n/i18n-app';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import { mailEnabled, sendMail } from '../mailer.js';
 import { claimToken, issueToken } from './email-token.js';
 import { passwordMatches } from './password-check.js';

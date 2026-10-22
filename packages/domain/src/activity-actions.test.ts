@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { GROUPS } from './activity.js';
 import { SYSTEM_DECISION_ACTIONS } from './decision-source.js';
 import { DOC_KINDS } from './docs.js';
-import { appDict } from './i18n-app.js';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 
-const SRC = fileURLToPath(new URL('..', import.meta.url));
-const ROOTS = [join(SRC, 'lib'), join(SRC, 'app')];
+const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+const ROOTS = [join(ROOT, 'packages', 'domain', 'src'), join(ROOT, 'apps', 'web', 'src', 'lib'), join(ROOT, 'apps', 'web', 'src', 'app')];
 /** Never shown in the log (activity.ts filters it out). */
 const HIDDEN = new Set(['user.signed_in']);
 const NAME = /'([a-z0-9_]+\.[a-z0-9_]+)'/g;

@@ -1,4 +1,4 @@
-import { uz as importsUz } from '@/lib/i18n-parts/imports';
+import { uz as importsUz } from '@tasnivo/i18n/i18n-parts/imports';
 import { CONTAINER } from './container';
 import { CHECKS, STRICT_UNIT_PCT } from './data';
 

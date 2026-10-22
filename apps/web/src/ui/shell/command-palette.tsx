@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { searchEverything } from '@/app/actions/shell';
-import { fmtDate } from '@/lib/format';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { MIN_TEXT } from '@/lib/search-query';
-import type { ProductStatus, SearchResults } from '@/lib/search';
+import { MIN_TEXT } from '@tasnivo/domain/search-query';
+import type { ProductStatus, SearchResults } from '@tasnivo/domain/search';
 import { Badge, type Tone } from '../badge';
 import { Button } from '../button';
 import { cx } from '../cx';

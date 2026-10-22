@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { deleteLead, leadFileRetentionDays, purgeLeadFiles } from './retention.js';
 import { dbSkipReason } from './test-fixtures.js';
 

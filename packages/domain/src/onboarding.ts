@@ -2,7 +2,7 @@
 // it ticks itself off when the work is done anywhere in the app. A scoped
 // member's steps count only the clients they may open.
 import { clientScope } from './access';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { telegramConfig } from './telegram/config';
 
 export type StepKey = 'client' | 'upload' | 'review' | 'invite' | 'twoFactor' | 'telegram';

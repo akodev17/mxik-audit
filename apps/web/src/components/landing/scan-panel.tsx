@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { SampleCatalogRow, SampleCode } from '@/lib/sample-report.generated';
+import type { SampleCatalogRow, SampleCode } from '@tasnivo/domain/sample-report.generated';
 import { ButtonLink, TextLink } from './button';
 import { CodeBlocks } from './code-blocks';
 import { firstBlockDivergence } from './mxik-code';

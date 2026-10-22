@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { classifierHealth } from '@/lib/classifier-health';
-import { classifierState, type ClassifierState } from '@/lib/classifier-state';
-import { db } from '@/lib/db';
+import { classifierHealth } from '@tasnivo/domain/classifier-health';
+import { classifierState, type ClassifierState } from '@tasnivo/domain/classifier-state';
+import { db } from '@tasnivo/db';
 
 // Never cached: a load balancer or uptime check needs the live answer.
 export const dynamic = 'force-dynamic';

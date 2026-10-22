@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { catalogScope } from './access.js';
 import { codeDetails } from './code-details.js';
 import { ColumnMapSchema } from './column-map.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 const Original = z.object({ original: z.array(z.string()) });
 const Alternatives = z.array(z.object({ code: z.string() }).passthrough());

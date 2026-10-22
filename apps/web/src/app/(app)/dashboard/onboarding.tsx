@@ -1,5 +1,5 @@
 import { getI18n } from '@/lib/locale';
-import type { Step } from '@/lib/onboarding';
+import type { Step } from '@tasnivo/domain/onboarding';
 import { ButtonLink } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { IconCheck, IconChevronDown } from '@/ui/icons';

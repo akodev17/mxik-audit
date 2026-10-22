@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { setAccountantsAction } from '@/app/actions/clients';
-import type { AssignableAccountant } from '@/lib/client-lifecycle';
+import type { AssignableAccountant } from '@tasnivo/domain/client-lifecycle';
 import { useI18n } from '@/lib/locale-client';
 import { Button, ButtonLink } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';

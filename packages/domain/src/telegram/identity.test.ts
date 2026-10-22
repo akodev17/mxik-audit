@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { telegramEmail } from '../security/reserved-email.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from '../test-fixtures.js';
 import { bindTelegram, loginTarget, telegramBinding, unbindTelegram } from './identity.js';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 import { Badge } from '@/ui/badge';
 import { CodeCell } from './code-cell';
 

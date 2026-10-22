@@ -1,6 +1,6 @@
 // One-time links sent by e-mail. Only a hash of the token is stored; each token has one purpose.
 import { createHash, randomBytes } from 'node:crypto';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 
 export type TokenPurpose = 'verify' | 'reset';
 

@@ -2,7 +2,7 @@
 // Click posts form fields and signs them with MD5 over the merchant secret;
 // every request is verified, and every answer is idempotent for retries.
 import { createHash } from 'node:crypto';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { safeEqualText } from '../security/safe-equal.js';
 import type { ClickConfig } from './config.js';
 import { cancelOrder, markPaid } from './orders.js';

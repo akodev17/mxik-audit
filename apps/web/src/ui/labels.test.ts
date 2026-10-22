@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dict } from '../lib/i18n.js';
-import { appDict } from '../lib/i18n-app.js';
+import { dict } from '@tasnivo/i18n/i18n';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { confidenceView, suggestionLabel } from './labels.js';
 
 const t = dict('uz');

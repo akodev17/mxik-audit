@@ -2,7 +2,7 @@
 // Protected by CRON_SECRET; disabled when the secret is unset. See DEPLOY.md.
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { startClassifierUpdate } from '@/lib/classifier-start';
+import { startClassifierUpdate } from '@tasnivo/domain/classifier-start';
 
 export const dynamic = 'force-dynamic';
 

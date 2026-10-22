@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { listCatalogs, resolveCatalog } from './catalogs.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { recordDecision } from './decisions.js';
 import { isDemoOrg, purgeExpiredDemos, startDemoSession, type DemoSession } from './demo.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from './test-fixtures.js';

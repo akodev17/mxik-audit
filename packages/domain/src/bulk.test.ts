@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import type { FindingType } from '@prisma/client';
-import { dictionaryKeys } from '../core/match/dictionary.js';
+import { dictionaryKeys } from '@tasnivo/core/match/dictionary';
 import { bulkApply, bulkPreview } from './bulk.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';
 import { readFilter } from './workspace-filter.js';
 

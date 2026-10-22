@@ -2,7 +2,7 @@
 // layout works too: the columns are chosen after upload.
 import ExcelJS from 'exceljs';
 import { NextResponse } from 'next/server';
-import { contentDisposition } from '@/lib/export-filename';
+import { contentDisposition } from '@tasnivo/domain/export-filename';
 import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 

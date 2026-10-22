@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { appDict } from '../i18n-app.js';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 
 describe('account export wording', () => {
   it('has a README and one header per sheet column in both languages', () => {

@@ -1,10 +1,10 @@
 // The one place a browser becomes signed in: password, Telegram, e-mail link, new account or invite.
 // A user with two-factor on is held in a pending state until the code is entered.
 import { headers } from 'next/headers';
-import { db } from '../db';
+import { db } from '@tasnivo/db';
 import { getSession, type SessionData } from '../session';
-import { createRecord, endRecord } from './session-store';
-import { checkPendingCode } from './two-factor-attempts';
+import { createRecord, endRecord } from '@tasnivo/domain/security/session-store';
+import { checkPendingCode } from '@tasnivo/domain/security/two-factor-attempts';
 
 const PENDING_MS = 10 * 60_000;
 

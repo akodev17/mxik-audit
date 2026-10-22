@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient, makePerson, type Person } from './firm-test-fixtures.js';
 import { localDate, nextReminderDate, skipsThisMonth } from './reminder-dates.js';
 import { markDone, openTasks, reminderChats, setSchedule } from './reminders.js';

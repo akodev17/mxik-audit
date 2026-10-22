@@ -4,12 +4,12 @@
 // edits or deletes an old one. One row holds one accepted code: see
 // effective-code.ts for the rule.
 import { Prisma } from '@prisma/client';
-import { readEvidence } from '../core/match/evidence.js';
-import { BANDS } from '../core/match/score.js';
+import { readEvidence } from '@tasnivo/core/match/evidence';
+import { BANDS } from '@tasnivo/core/match/score';
 import { catalogScope } from './access.js';
 import { decideMany, liveCodeSet, screenTargets, type ManyDone, type ManyTarget, type Skipped } from './decide-many.js';
 import { confirms, learnKeys, learnQuietly, readMappingsBefore, restoreMappings, snapshotMappings, type LearnSource } from './dictionary.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { conflictingSibling } from './effective-code.js';
 import { acceptCode } from './finding-kinds.js';
 import { sureBandSql } from './sure-band.js';

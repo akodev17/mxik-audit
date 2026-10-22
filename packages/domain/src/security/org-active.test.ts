@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import { authenticate, createApiKey } from '../api/keys.js';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { createShareLink, resolveShare } from '../share.js';
 import { linkForChat } from '../telegram/linking.js';
 import { dbSkipReason, dropOrgs, makeCatalog, makeOrg, type TestActor } from '../test-fixtures.js';

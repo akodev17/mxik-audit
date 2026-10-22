@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import { archiveClient, deleteClient, renameClient, restoreClient, setClientAccountants } from './client-lifecycle.js';
 import { clientStats } from './client-stats.js';
 import { createClient, defaultClient } from './clients.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient, makeClientCatalog, makePerson, type Person } from './firm-test-fixtures.js';
 import { queuePage } from './queue.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';

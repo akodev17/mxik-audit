@@ -1,8 +1,8 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { peekDemoLink } from '@/lib/demo-access';
-import { demoIdleMinutes, demoTtlHours } from '@/lib/demo-config';
+import { peekDemoLink } from '@tasnivo/domain/demo-access';
+import { demoIdleMinutes, demoTtlHours } from '@tasnivo/domain/demo-config';
 import { ButtonLink } from '@/ui/button';
 import { OpenDemoButton } from './open-button';
 

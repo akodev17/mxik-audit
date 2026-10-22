@@ -1,5 +1,5 @@
-import { CATEGORIES, type Category } from '@/lib/activity';
-import { dayInputValue } from '@/lib/activity-dates';
+import { CATEGORIES, type Category } from '@tasnivo/domain/activity';
+import { dayInputValue } from '@tasnivo/domain/activity-dates';
 import { getI18n } from '@/lib/locale';
 import { Field, Input } from '@/ui/input';
 import { Select } from '@/ui/select';

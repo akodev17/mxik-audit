@@ -1,5 +1,5 @@
 // "3 kun oldin": how long ago a date was, counted in Tashkent calendar days. Pure.
-import { isoDay } from './format';
+import { isoDay } from '@tasnivo/i18n/format';
 
 /** Whole Tashkent calendar days from the date to now; 0 = today, never negative. */
 export function daysSince(value: Date, now = new Date()): number {

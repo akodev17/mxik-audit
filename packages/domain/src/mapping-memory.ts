@@ -3,7 +3,7 @@
 // used only when this file has a column of that name, so the label "remembered"
 // is never shown for a mapping that was in fact guessed.
 import { COLUMN_FIELDS, ColumnMapSchema, type ColumnField, type ColumnMap } from './column-map.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { guessMapping } from './mapping-guess.js';
 
 /** Field → the header name it was mapped to. */

@@ -1,7 +1,7 @@
-import { canWrite, isAdminRole } from '@/lib/access';
+import { canWrite, isAdminRole } from '@tasnivo/domain/access';
 import { getI18n } from '@/lib/locale';
-import { localDate } from '@/lib/reminder-dates';
-import { assignableMembers, reviewsFor } from '@/lib/review-assignments';
+import { localDate } from '@tasnivo/domain/reminder-dates';
+import { assignableMembers, reviewsFor } from '@tasnivo/domain/review-assignments';
 import type { CurrentUser } from '@/lib/session';
 import { ReviewControl, type ReviewState } from './review-control';
 

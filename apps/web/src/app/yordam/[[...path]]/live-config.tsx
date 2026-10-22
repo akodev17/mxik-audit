@@ -3,13 +3,13 @@
 // so an article never states a limit or a price the app does not use. MDX uses them as tags.
 // (The pragma lets the node:test run render it too; Next uses the automatic runtime anyway.)
 import type { ReactNode } from 'react';
-import { apiConfig } from '@/lib/api/limits';
-import { planLimits, TRIAL_DAYS, type Limits } from '@/lib/billing/limits';
-import { firmPlan } from '@/lib/billing/plans';
-import { fmtNumber } from '@/lib/format';
-import type { HelpLang } from '@/lib/help';
-import { pluralRu } from '@/lib/plural';
-import { deleteAfterDays, RETENTION_CHOICES } from '@/lib/security/account';
+import { apiConfig } from '@tasnivo/domain/api/limits';
+import { planLimits, TRIAL_DAYS, type Limits } from '@tasnivo/domain/billing/limits';
+import { firmPlan } from '@tasnivo/domain/billing/plans';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import type { HelpLang } from '@tasnivo/domain/help';
+import { pluralRu } from '@tasnivo/i18n/plural';
+import { deleteAfterDays, RETENTION_CHOICES } from '@tasnivo/domain/security/account';
 
 const COPY = {
   uz: {

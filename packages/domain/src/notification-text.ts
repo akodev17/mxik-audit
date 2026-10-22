@@ -1,7 +1,7 @@
 // Notification wording, shared by the app and Telegram. Pure. Notifications store
 // rendered text, so callers render it in the org's language (src/lib/org-locale.ts).
-import { fmtDate } from './format.js';
-import type { Locale } from './i18n.js';
+import { fmtDate } from '@tasnivo/i18n/format';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 export type UpdateCounts = {
   /** Distinct codes in the client's catalogue that the update archived. */

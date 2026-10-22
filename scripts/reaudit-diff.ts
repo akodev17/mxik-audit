@@ -8,13 +8,13 @@
 // Appends to docs/reaudit-results.json.
 // Run: npm run reaudit:diff [-- --catalog <id> ... --csv eval/real-metal.csv --label "..."]
 //      With no --catalog: the newest demo template, every customer catalogue with rows.
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import { parseCases } from '../eval/cases.js';
-import { auditContext, checkItem, type AuditableItem } from '../src/lib/audit-runner.js';
-import { db } from '../src/lib/db.js';
-import { bandOf } from '../src/core/match/score.js';
+import { auditContext, checkItem, type AuditableItem } from '@tasnivo/domain/audit-runner';
+import { db } from '@tasnivo/db';
+import { bandOf } from '@tasnivo/core/match/score';
 
 const RESULTS = 'docs/reaudit-results.json';
 /**
@@ -29,8 +29,8 @@ const LABEL = values('--label')[0] ?? 'reaudit diff';
 
 const Label = z.object({ intent: z.enum(['clean', 'missing', 'not_found', 'wrong_code', 'unit_conflict']), correctCode: z.string() }).nullable();
 const EXPECTED = { missing: 'MISSING', not_found: 'NOT_FOUND', wrong_code: 'MISMATCH', unit_conflict: 'UNIT_CONFLICT' } as const;
-const demoLabels = existsSync('prisma/demo-catalog.json')
-  ? z.object({ labels: z.array(Label) }).parse(JSON.parse(readFileSync('prisma/demo-catalog.json', 'utf8'))).labels
+const demoLabels = existsSync('packages/db/prisma/demo-catalog.json')
+  ? z.object({ labels: z.array(Label) }).parse(JSON.parse(readFileSync('packages/db/prisma/demo-catalog.json', 'utf8'))).labels
   : [];
 
 type RowFindings = { types: string[]; suggested: string | null; band: string | null };

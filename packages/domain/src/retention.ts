@@ -1,7 +1,7 @@
 // Lead-form file retention. Files sent through the landing form are kept only
 // until the free audit is delivered: erased after LEAD_FILE_RETENTION_DAYS, or
 // immediately on request. The lead row keeps when that happened.
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 export function leadFileRetentionDays(env: Record<string, string | undefined> = process.env): number {
   const n = Number(env['LEAD_FILE_RETENTION_DAYS']);

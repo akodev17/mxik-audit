@@ -4,10 +4,10 @@
 // names, pack sizes glued on, wrong units, dead codes, blank codes.
 //
 // Run: npm run seed
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { Pool } from 'pg';
 import { PrismaClient } from '@prisma/client';
-import { hashPassword } from '../src/lib/password.js';
+import { hashPassword } from '@tasnivo/domain/password';
 
 const db = new PrismaClient();
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';

@@ -2,7 +2,7 @@
 // single default client. Every query is scoped by org id; a client id alone
 // never reaches another org's data.
 import type { UserRole } from '@prisma/client';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
 
 export type ClientRef = { id: string; name: string; isDefault: boolean };

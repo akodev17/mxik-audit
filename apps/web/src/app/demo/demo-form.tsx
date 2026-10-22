@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import { requestDemo, type DemoState } from '@/app/actions/demo';
-import { DEMO_LIMITS, USE_CASES } from '@/lib/demo-access-fields';
+import { DEMO_LIMITS, USE_CASES } from '@tasnivo/domain/demo-access-fields';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';

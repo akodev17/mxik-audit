@@ -6,12 +6,12 @@ import { Page, Section } from '@/ui/page';
 import { Stat } from '@/ui/stat';
 import { StatusIcon } from '@/ui/badge';
 import { typeLabels } from '@/ui/labels';
-import { isPlatformAdmin } from '@/lib/admin';
-import { fmtDateTime, fmtNumber } from '@/lib/format';
-import type { Locale } from '@/lib/i18n';
+import { isPlatformAdmin } from '@tasnivo/domain/admin';
+import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import { currentUser } from '@/lib/session';
-import { pipelineStatus } from '@/lib/pipeline-status';
-import { tractionMetrics } from '@/lib/traction';
+import { pipelineStatus } from '@tasnivo/domain/pipeline-status';
+import { tractionMetrics } from '@tasnivo/domain/traction';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();

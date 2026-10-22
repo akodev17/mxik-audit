@@ -2,11 +2,11 @@
 // so only the platform admin page reads it. Demo and test orgs are left out.
 // The SQL returns stable keys; words are chosen per viewer language (keyText).
 import { Prisma } from '@prisma/client';
-import { CONFIDENCE_LABELS, type LabelKey } from '../core/match/confidence-labels';
+import { CONFIDENCE_LABELS, type LabelKey } from '@tasnivo/core/match/confidence-labels';
 import { formulaSafe } from './csv-safe';
-import { db } from './db';
-import { dict, type Locale } from './i18n';
-import { appDict } from './i18n-app';
+import { db } from '@tasnivo/db';
+import { dict, type Locale } from '@tasnivo/i18n/i18n';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 
 export type Dimension = 'stage' | 'label' | 'org' | 'week';
 export const DIMENSIONS: Dimension[] = ['stage', 'label', 'org', 'week'];
@@ -122,22 +122,14 @@ export const csvCell = (v: string | number | null): string => {
 
 const toCsv = (rows: (string | number | null)[][]): string => rows.map((cells) => cells.map(csvCell).join(',')).join('\n') + '\n';
 
-/** The viewer's language when the caller passes none; the CSV route runs inside a request. */
-async function requestLocale(): Promise<Locale> {
-  const { getLocale } = await import('./locale');
-  return getLocale();
-}
-
-/** Stable key first (for scripts), then the same row as the page words it. */
-export async function accuracyCsv(dim: Dimension, locale?: Locale): Promise<string> {
-  const lang = locale ?? await requestLocale();
+/** Stable key first (for scripts), then the same row as the page words it, in the viewer's language (the CSV route passes the request's). */
+export async function accuracyCsv(dim: Dimension, lang: Locale): Promise<string> {
   const rows = await accuracyBy(dim);
   const head = [dim, `${dim}_name`, 'accepted_unchanged', 'replaced', 'rejected', 'open', 'accept_rate'];
   return toCsv([head, ...rows.map((r) => [r.key, keyText(dim, r.key, lang), r.unchanged, r.replaced, r.rejected, r.open, r.rate === null ? '' : r.rate.toFixed(4)])]);
 }
 
-export async function reasonsCsv(locale?: Locale): Promise<string> {
-  const lang = locale ?? await requestLocale();
+export async function reasonsCsv(lang: Locale): Promise<string> {
   const rows = await db.suggestionFeedback.findMany({ orderBy: { createdAt: 'desc' }, take: 5000, select: { reason: true, stage: true, label: true, productName: true, suggestedMxik: true, note: true, createdAt: true } });
   const head = ['reason', 'reason_name', 'stage', 'label', 'label_name', 'product', 'suggested_code', 'note', 'date'];
   return toCsv([head, ...rows.map((r) => [

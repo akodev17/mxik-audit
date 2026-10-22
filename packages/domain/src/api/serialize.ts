@@ -1,7 +1,7 @@
 // The JSON shapes the API answers with, one function per shape. The OpenAPI schemas list
 // the same keys; src/lib/api/openapi.test.ts compares them.
 import { readDecisionSource } from '../decision-source';
-import { readFindingType } from '../finding-type';
+import { readFindingType } from '@tasnivo/db/finding-type';
 
 type CatalogRow = {
   id: string; filename: string; clientId: string | null; createdAt: Date;

@@ -3,8 +3,8 @@ import { describe, it } from 'node:test';
 import ExcelJS from 'exceljs';
 import { dateOnly, findingOut } from './api/serialize.js';
 import { build1cCsv, build1cXlsx, ONE_C_HEADERS_RU } from './export-1c.js';
-import { dict } from './i18n.js';
-import { appDict } from './i18n-app.js';
+import { dict } from '@tasnivo/i18n/i18n';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { parseRestrictedSheet, RESTRICTED_SOURCE_URL } from './restricted-list.js';
 import { buildExport } from './spreadsheet.js';
 

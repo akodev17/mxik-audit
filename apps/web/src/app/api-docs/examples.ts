@@ -1,6 +1,6 @@
 // Request and response samples for /api-docs. Responses use the real field names (the serializers'
 // shapes) with placeholder values: ids, codes and counts are illustrations, not data.
-import { HEADERS } from '@/lib/api/contract';
+import { HEADERS } from '@tasnivo/domain/api/contract';
 
 const json = (value: unknown): string => JSON.stringify(value, null, 2);
 const ID = 'cm1a2b3c4d5e6f7g8h9i0j';

@@ -3,7 +3,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, type RefObject } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 import { Checkbox } from '@/ui/checkbox';
 import { cx } from '@/ui/cx';
 import { cellPad, type ColumnKey, type Layout } from './columns';

@@ -3,7 +3,7 @@
 // against the development database without leaving anything behind.
 import { randomBytes } from 'node:crypto';
 import type { OrgKind } from '@prisma/client';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 /** Null when the database or the classifier is not there; tests then skip. */
 export async function dbSkipReason(): Promise<string | false> {

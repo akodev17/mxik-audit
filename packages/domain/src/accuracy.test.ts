@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { csvCell, keyText, labelWords, reasonText } from './accuracy.js';
-import { dict } from './i18n.js';
-import { appDict } from './i18n-app.js';
+import { dict } from '@tasnivo/i18n/i18n';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 
 describe('accuracy metrics', () => {
   it('words each label exactly as the app shows it, in both languages', () => {

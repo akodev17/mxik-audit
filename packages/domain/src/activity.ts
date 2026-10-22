@@ -2,7 +2,7 @@
 // events of the clients they may open; org-level events (team, billing,
 // security) are for admins, except a person's own.
 import { Prisma } from '@prisma/client';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 
 export const CATEGORIES = ['all', 'decisions', 'uploads', 'exports', 'share', 'clients', 'team', 'classifier', 'dictionary', 'other'] as const;
 export type Category = (typeof CATEGORIES)[number];

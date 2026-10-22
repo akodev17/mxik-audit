@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { acceptAllAbove, previewSure, type ManyOutcome, type SurePreviewResult } from '@/app/actions/review';
-import { BANDS } from '@/core/match/score';
-import { fmtNumber } from '@/lib/format';
+import { BANDS } from '@tasnivo/core/match/score';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { filterQuery, type WsFilter } from '@/lib/workspace-filter';
+import { filterQuery, type WsFilter } from '@tasnivo/domain/workspace-filter';
 import { Button } from '@/ui/button';
 import { Dialog } from '@/ui/dialog';
 import { IconError } from '@/ui/icons';

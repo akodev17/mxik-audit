@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { resolveCatalog } from '@/lib/catalogs';
+import { resolveCatalog } from '@tasnivo/domain/catalogs';
 import { demoExportRefusal } from '@/lib/demo-limits';
-import { diffCsv } from '@/lib/diff-csv';
-import { baseName, contentDisposition } from '@/lib/export-filename';
+import { diffCsv } from '@tasnivo/domain/diff-csv';
+import { baseName, contentDisposition } from '@tasnivo/domain/export-filename';
 import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
-import { versionDiff } from '@/lib/versions';
+import { versionDiff } from '@tasnivo/domain/versions';
 
 export const dynamic = 'force-dynamic';
 

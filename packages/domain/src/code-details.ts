@@ -1,7 +1,7 @@
 // What a 17-digit code means, for every screen that shows one: classifier name,
 // a short and a full hierarchy path, bound unit and flags. One query per page.
-import { db } from './db.js';
-import type { Locale } from './i18n.js';
+import { db } from '@tasnivo/db';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 export type CodeDetail = {
   code: string;

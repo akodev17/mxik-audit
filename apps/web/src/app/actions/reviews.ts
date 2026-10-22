@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
 import { getI18n } from '@/lib/locale';
-import { assignReview, completeReview, NOTE_MAX, type ReviewError } from '@/lib/review-assignments';
+import { assignReview, completeReview, NOTE_MAX, type ReviewError } from '@tasnivo/domain/review-assignments';
 
 export type ReviewActionResult = { ok: true; changed?: boolean } | { ok: false; error: string };
 

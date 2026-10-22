@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { db } from '@/lib/db';
+import { db } from '@tasnivo/db';
 import { LOCALE_COOKIE, parseLocale } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 

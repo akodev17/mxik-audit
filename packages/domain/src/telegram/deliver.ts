@@ -1,8 +1,8 @@
 // Outbound Telegram messages: notifications to every chat linked to the org,
 // and the audit summary to the chat that sent a file. No-ops when the bot is off.
 import { Api } from 'grammy';
-import { db } from '../db.js';
-import { dict } from '../i18n.js';
+import { db } from '@tasnivo/db';
+import { dict } from '@tasnivo/i18n/i18n';
 import { orgLocale } from '../org-locale.js';
 import { orgActive } from '../security/org-active.js';
 import { appLink, telegramConfig } from './config.js';

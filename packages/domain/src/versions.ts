@@ -1,8 +1,8 @@
 // Catalogue versions: carry a client's earlier decisions over to the new upload,
 // and describe what changed between the two.
 import type { Prisma } from '@prisma/client';
-import { pairVersions, unchanged, type Pairing } from '../core/match/version-pairs.js';
-import { db } from './db.js';
+import { pairVersions, unchanged, type Pairing } from '@tasnivo/core/match/version-pairs';
+import { db } from '@tasnivo/db';
 import { CARRIED_OVER_ACTION } from './decision-source.js';
 import { RISKY_FINDING } from './risk.js';
 import { diffParts, type DiffParts } from './version-diff.js';

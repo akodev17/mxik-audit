@@ -2,7 +2,7 @@
 // org. Only risky findings are listed, split into unresolved ones and ones a
 // person or the system decided; counts cover the whole catalogue.
 import { codeDetails } from '../code-details.js';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { isAutomatic, readDecisionSource, type DecisionSource } from '../decision-source.js';
 import { effectiveRow } from '../export-effective.js';
 import { findingTypeCounts } from '../finding-type-counts.js';

@@ -1,8 +1,8 @@
 import { getI18n } from '@/lib/locale';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { CatalogSummary } from '@/lib/catalogs';
-import { fmtDate, fmtNumber } from '@/lib/format';
+import type { CatalogSummary } from '@tasnivo/domain/catalogs';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { StatusChip, StatusIcon, type Tone } from './badge';
 import { ButtonLink } from './button';
 import { Table, Td, Th } from './table';

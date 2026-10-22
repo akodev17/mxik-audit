@@ -5,11 +5,11 @@ import { after, before, describe, it } from 'node:test';
 import { GET as reportRoute } from '@/app/api/v1/catalogs/[id]/report/route';
 import { GET as listRoute, POST as uploadRoute } from '@/app/api/v1/catalogs/route';
 import { POST as checkRoute } from '@/app/api/v1/check/route';
-import { db } from '../db.js';
-import { dbSkipReason, dropOrgs, makeCatalog, makeOrg, type TestActor } from '../test-fixtures.js';
-import { HEADERS, OPERATIONS, type OperationId } from './contract.js';
-import { createApiKey } from './keys.js';
-import { openApiSpec } from './openapi.js';
+import { db } from '@tasnivo/db';
+import { dbSkipReason, dropOrgs, makeCatalog, makeOrg, type TestActor } from '@tasnivo/domain/test-fixtures';
+import { HEADERS, OPERATIONS, type OperationId } from '@tasnivo/domain/api/contract';
+import { createApiKey } from '@tasnivo/domain/api/keys';
+import { openApiSpec } from '@tasnivo/domain/api/openapi';
 
 const skip = await dbSkipReason();
 const BASE = 'http://localhost/api/v1';

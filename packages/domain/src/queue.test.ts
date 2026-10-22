@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient, makeClientCatalog, makePerson } from './firm-test-fixtures.js';
 import { decodeQueueCursor, queuePage, readQueueFilter, unitFixOf, workspaceHref, type QueueFilter } from './queue.js';
 import { localDate } from './reminder-dates.js';

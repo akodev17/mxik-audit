@@ -3,9 +3,9 @@
 // the org's auto-accept setting, which is recorded as the system, not a person.
 // Same screening as every bulk decision: live codes only, one code per row.
 import { randomUUID } from 'node:crypto';
-import { readEvidence } from '../core/match/evidence.js';
-import { AUTO_ACCEPT_MIN_CONFIRMATIONS } from '../core/match/dictionary.js';
-import { db } from './db.js';
+import { readEvidence } from '@tasnivo/core/match/evidence';
+import { AUTO_ACCEPT_MIN_CONFIRMATIONS } from '@tasnivo/core/match/dictionary';
+import { db } from '@tasnivo/db';
 import { screenTargets } from './decide-many.js';
 import { AUTO_ACCEPTED_ACTION, type DecisionSource } from './decision-source.js';
 

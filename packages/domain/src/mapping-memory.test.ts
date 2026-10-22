@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { defaultClient } from './clients.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { guessMapping } from './mapping-guess.js';
 import { mergeSuggestion, resolveNamed, suggestMapping, toNamed } from './mapping-memory.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';

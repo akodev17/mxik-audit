@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import { auditCatalog } from './audit-runner.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
 import { learn, loadDictionary } from './dictionary.js';
 import { readPipelineMeta } from './pipeline-meta.js';

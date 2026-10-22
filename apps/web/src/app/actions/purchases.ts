@@ -3,13 +3,13 @@
 import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { canSeeClient } from '@/lib/access';
-import { MAX_UPLOAD_BYTES } from '@/lib/catalog-import';
+import { canSeeClient } from '@tasnivo/domain/access';
+import { MAX_UPLOAD_BYTES } from '@tasnivo/domain/catalog-import';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
 import { uploadsOpen } from '@/lib/plan';
-import { applyPurchaseMap, clientArchived, deletePurchaseList, PurchaseMapSchema, setClientActivity, storePurchaseList, type PurchaseMap } from '@/lib/purchases';
-import { parseErrorCode, parseUpload } from '@/lib/spreadsheet';
+import { applyPurchaseMap, clientArchived, deletePurchaseList, PurchaseMapSchema, setClientActivity, storePurchaseList, type PurchaseMap } from '@tasnivo/domain/purchases';
+import { parseErrorCode, parseUpload } from '@tasnivo/domain/spreadsheet';
 
 export type ListPreview = { listId: string; filename: string; headers: string[]; rows: string[][]; totalRows: number; totalSeen: number; truncated: boolean };
 export type PurchaseUploadResult = { ok: true; preview: ListPreview & { map: PurchaseMap } } | { ok: false; error: string };

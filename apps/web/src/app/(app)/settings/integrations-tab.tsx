@@ -1,12 +1,12 @@
-import { isAdminRole } from '@/lib/access';
-import { apiConfig, monthlyCheckCap, usageThisMonth } from '@/lib/api/limits';
-import { listApiKeys, MAX_ACTIVE_KEYS } from '@/lib/api/keys';
-import { db } from '@/lib/db';
-import { fmtDate, fmtNumber } from '@/lib/format';
+import { isAdminRole } from '@tasnivo/domain/access';
+import { apiConfig, monthlyCheckCap, usageThisMonth } from '@tasnivo/domain/api/limits';
+import { listApiKeys, MAX_ACTIVE_KEYS } from '@tasnivo/domain/api/keys';
+import { db } from '@tasnivo/db';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { planStatus } from '@/lib/plan';
 import type { CurrentUser } from '@/lib/session';
-import { telegramConfig } from '@/lib/telegram/config';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
 import { Section } from '@/ui/page';
 import { ApiKeysPanel } from './api-keys-panel';
 import { TelegramPanel } from './telegram-panel';

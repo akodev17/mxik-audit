@@ -2,7 +2,7 @@
 // rows audited so far with an estimate, a failure, or the completion summary.
 // Scoped to what the user may see. Server-only.
 import { catalogScope } from './access.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { readImportMeta } from './import-diagnostics.js';
 import { findingTypeCounts } from './finding-type-counts.js';
 import { RISKY_ITEM } from './risk.js';

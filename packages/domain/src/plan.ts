@@ -1,7 +1,7 @@
 // What an org may do right now: trial or firm limits, usage against them,
-// warnings at 80% and a paywall at 100% or when the trial has ended.
-import { cache } from 'react';
-import { db } from './db';
+// warnings at 80% and a paywall at 100% or when the trial has ended. The web app's
+// src/lib/plan.ts memoises planStatus once per render and builds its gates on that copy.
+import { db } from '@tasnivo/db';
 import { planLimits, WARN_AT, type LimitKey, type Limits } from './billing/limits';
 
 export type PlanState = 'unlimited' | 'trial' | 'firm' | 'expired';
@@ -38,8 +38,8 @@ export async function usageOf(orgId: string, now = new Date()): Promise<Usage> {
   return { clients, rowsPerMonth: rows._sum.rowCount ?? 0, seats: users + invites };
 }
 
-/** Once per render (React cache): the app frame and the page share it. Server actions read it each time. */
-export const planStatus = cache(async (orgId: string, now = new Date()): Promise<PlanStatus> => {
+/** Reads the plan and usage each call; the web app wraps it once per render (apps/web/src/lib/plan.ts). */
+export async function planStatus(orgId: string, now = new Date()): Promise<PlanStatus> {
   const [org, usage] = await Promise.all([
     db.organization.findUnique({ where: { id: orgId }, select: { kind: true, trialEndsAt: true, subscriptionUntil: true } }),
     usageOf(orgId, now),
@@ -65,7 +65,7 @@ export const planStatus = cache(async (orgId: string, now = new Date()): Promise
     warnings: capped.filter((k) => usage[k] >= (active[k] ?? Infinity) * WARN_AT),
     full: state === 'expired' ? KEYS : capped.filter((k) => usage[k] >= (active[k] ?? Infinity)),
   };
-});
+}
 
 export type Gate = { ok: true } | { ok: false; reason: 'expired' | LimitKey };
 
@@ -75,11 +75,6 @@ export function allows(status: PlanStatus, key: LimitKey, adding = 1): Gate {
   const cap = status.limits[key];
   if (cap === null) return { ok: true };
   return status.usage[key] + adding > cap ? { ok: false, reason: key } : { ok: true };
-}
-
-/** Checks a resource for an org straight from the database. */
-export async function gate(orgId: string, key: LimitKey, adding = 1): Promise<Gate> {
-  return allows(await planStatus(orgId), key, adding);
 }
 
 /** Cap on uncommitted preview rows when the plan sets no monthly row limit. */
@@ -93,29 +88,41 @@ export function previewCap(limits: Pick<Limits, 'rowsPerMonth'>): number {
 
 export type PreviewGate = { ok: true } | { ok: false; cap: number };
 
-/**
- * Whether `adding` more uncommitted rows still fit. Previews do not use the
- * monthly allowance, so without this cap uploading and never committing
- * would store rows without limit.
- */
-export async function previewGate(orgId: string, adding: number, now = new Date()): Promise<PreviewGate> {
-  const [status, open] = await Promise.all([
-    planStatus(orgId, now),
-    db.catalog.aggregate({
-      where: { orgId, status: 'uploaded', createdAt: { gte: new Date(now.getTime() - PREVIEW_WINDOW_MS) } },
-      _sum: { rowCount: true },
-    }),
-  ]);
-  const cap = previewCap(status.limits);
-  return (open._sum.rowCount ?? 0) + adding > cap ? { ok: false, cap } : { ok: true };
+/** The gates, over a given way of reading the plan status (the web app passes its once-per-render copy). */
+export function planGates(statusOf: (orgId: string, now?: Date) => Promise<PlanStatus>) {
+  /** Checks a resource for an org straight from the database. */
+  async function gate(orgId: string, key: LimitKey, adding = 1): Promise<Gate> {
+    return allows(await statusOf(orgId), key, adding);
+  }
+
+  /**
+   * Whether `adding` more uncommitted rows still fit. Previews do not use the
+   * monthly allowance, so without this cap uploading and never committing
+   * would store rows without limit.
+   */
+  async function previewGate(orgId: string, adding: number, now = new Date()): Promise<PreviewGate> {
+    const [status, open] = await Promise.all([
+      statusOf(orgId, now),
+      db.catalog.aggregate({
+        where: { orgId, status: 'uploaded', createdAt: { gte: new Date(now.getTime() - PREVIEW_WINDOW_MS) } },
+        _sum: { rowCount: true },
+      }),
+    ]);
+    const cap = previewCap(status.limits);
+    return (open._sum.rowCount ?? 0) + adding > cap ? { ok: false, cap } : { ok: true };
+  }
+
+  /**
+   * Purchase lists and cheque or sales lists do not use the monthly row
+   * allowance (they are not audited catalogues), but like every upload they are
+   * refused once the trial or the subscription has ended.
+   */
+  async function uploadsOpen(orgId: string): Promise<Gate> {
+    const status = await statusOf(orgId);
+    return status.state === 'expired' ? { ok: false, reason: 'expired' } : { ok: true };
+  }
+
+  return { gate, previewGate, uploadsOpen };
 }
 
-/**
- * Purchase lists and cheque or sales lists do not use the monthly row
- * allowance (they are not audited catalogues), but like every upload they are
- * refused once the trial or the subscription has ended.
- */
-export async function uploadsOpen(orgId: string): Promise<Gate> {
-  const status = await planStatus(orgId);
-  return status.state === 'expired' ? { ok: false, reason: 'expired' } : { ok: true };
-}
+export const { gate, previewGate, uploadsOpen } = planGates(planStatus);

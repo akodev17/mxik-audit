@@ -1,11 +1,11 @@
 // "Toʻgʻrilangan katalog" payment for this catalogue. Never a pretend checkout: when nothing can be
 // paid here it says exactly why (no provider, demo, or only an admin pays).
 import { getI18n } from '@/lib/locale';
-import { catalogPurchase } from '@/lib/billing/availability';
-import { billingConfig } from '@/lib/billing/config';
-import { catalogPaid } from '@/lib/billing/orders';
-import { catalogPlan } from '@/lib/billing/plans';
-import { fmtNumber } from '@/lib/format';
+import { catalogPurchase } from '@tasnivo/domain/billing/availability';
+import { billingConfig } from '@tasnivo/domain/billing/config';
+import { catalogPaid } from '@tasnivo/domain/billing/orders';
+import { catalogPlan } from '@tasnivo/domain/billing/plans';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { PayButtons } from '@/ui/pay-buttons';
 
 type Props = {

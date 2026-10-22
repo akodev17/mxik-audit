@@ -2,8 +2,8 @@
 // copies, the demo template and our own internal orgs (seed, perf, tests) are
 // excluded, so the figures can go into an accelerator application as they are.
 import { Prisma } from '@prisma/client';
-import { db } from './db.js';
-import { mergeTypeCounts } from './finding-type.js';
+import { db } from '@tasnivo/db';
+import { mergeTypeCounts } from '@tasnivo/db/finding-type';
 
 export type Traction = {
   generatedAt: Date;

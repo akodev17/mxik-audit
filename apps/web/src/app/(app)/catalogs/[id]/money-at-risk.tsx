@@ -1,10 +1,10 @@
 // Sales of risky rows, when the file had a sales column: an estimate from the
 // file's own numbers, labelled as one. No fine or penalty figure is shown here.
-import { ColumnMapSchema } from '@/lib/column-map';
-import { db } from '@/lib/db';
-import { fmtNumber } from '@/lib/format';
+import { ColumnMapSchema } from '@tasnivo/domain/column-map';
+import { db } from '@tasnivo/db';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { RISKY_ITEM } from '@/lib/risk';
+import { RISKY_ITEM } from '@tasnivo/domain/risk';
 
 export async function MoneyAtRisk({ catalogId, columnMap }: { catalogId: string; columnMap: unknown }) {
   const { t, locale } = await getI18n();

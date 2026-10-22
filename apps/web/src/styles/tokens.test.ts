@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { contrastRatio, parseColor, type Rgb } from './contrast';
 
-const css = readFileSync(path.join(process.cwd(), 'src', 'styles', 'app-tokens.css'), 'utf8');
+const css = readFileSync(path.join(process.cwd(), 'apps', 'web', 'src', 'styles', 'app-tokens.css'), 'utf8');
 
 /** Declarations of the first rule whose header contains `marker`, as name -> value. */
 function block(marker: string): Map<string, string> {

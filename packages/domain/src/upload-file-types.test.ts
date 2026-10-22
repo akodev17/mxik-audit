@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { hasUploadExtension, UPLOAD_ACCEPT, UPLOAD_EXTENSIONS } from './upload-file-types.js';
-import { ru, uz } from './i18n-parts/imports.js';
+import { ru, uz } from '@tasnivo/i18n/i18n-parts/imports';
 
 describe('upload file types', () => {
   it('accepts .xlsx, .xls and .csv in any case', () => {

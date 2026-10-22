@@ -1,5 +1,5 @@
-import { isAdminRole } from '@/lib/access';
-import { db } from '@/lib/db';
+import { isAdminRole } from '@tasnivo/domain/access';
+import { db } from '@tasnivo/db';
 import { getI18n } from '@/lib/locale';
 import type { CurrentUser } from '@/lib/session';
 import { Input } from '@/ui/input';

@@ -1,24 +1,11 @@
 // Display labels and tones for finding types and confidence, shared by every screen.
-import { confidenceLabel, labelKey, type ConfidenceLabel, type LabelKey } from '@/core/match/confidence-labels';
-import type { MatchStage } from '@/core/match/types';
-import type { Dict } from '@/lib/i18n';
-import type { AppDict } from '@/lib/i18n-app';
+import { confidenceLabel, labelKey, type ConfidenceLabel, type LabelKey } from '@tasnivo/core/match/confidence-labels';
+import type { MatchStage } from '@tasnivo/core/match/types';
+import type { Dict } from '@tasnivo/i18n/i18n';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import type { Tone } from './badge';
 
-/** Finding type names in the dictionary's language. */
-export function typeLabels(t: Dict): Record<string, string> {
-  return {
-    MISSING: t.typeMissing,
-    NOT_FOUND: t.typeNotFound,
-    MISMATCH: t.typeMismatch,
-    UNIT_CONFLICT: t.typeUnitConflict,
-    NOT_PURCHASED: t.typeNotPurchased,
-    PRIVILEGE_CODE: t.typePrivilegeCode,
-    PRIVILEGE_OPPORTUNITY: t.typePrivilegeOpportunity,
-    RESTRICTED: t.typeRestricted,
-    OTHER: t.typeOther,
-  };
-}
+export { typeLabels } from '@tasnivo/i18n/type-labels';
 
 /** Red for a wrong or absent code, amber for a doubtful one, grey for information. */
 export function typeTone(type: string, severity: string): Tone {

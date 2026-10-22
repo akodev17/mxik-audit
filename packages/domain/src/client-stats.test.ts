@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { attentionReasons, clientStats, rowProgress } from './client-stats.js';
 import { dashboard, dashboardTotals } from './dashboard.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient, makeClientCatalog, makePerson } from './firm-test-fixtures.js';
 import { localDate } from './reminder-dates.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';

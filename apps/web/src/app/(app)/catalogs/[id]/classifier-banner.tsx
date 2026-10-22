@@ -1,5 +1,5 @@
-import { classifierState } from '@/lib/classifier-state';
-import { fmtDate } from '@/lib/format';
+import { classifierState } from '@tasnivo/domain/classifier-state';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { IconAlert } from '@/ui/icons';
 

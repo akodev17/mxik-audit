@@ -1,10 +1,10 @@
 // What the app frame needs on every page: the user's visible clients, the active one, unread count, plan.
-import { canWrite, isAdminRole } from './access';
-import { resolveVisibleClient, visibleClients, type VisibleClient } from './active-client';
-import type { LimitKey } from './billing/limits';
-import { defaultClient } from './clients';
+import { canWrite, isAdminRole } from '@tasnivo/domain/access';
+import { resolveVisibleClient, visibleClients, type VisibleClient } from '@tasnivo/domain/active-client';
+import type { LimitKey } from '@tasnivo/domain/billing/limits';
+import { defaultClient } from '@tasnivo/domain/clients';
 import { planStatus, type PlanState } from './plan';
-import { unreadCount } from './notifications';
+import { unreadCount } from '@tasnivo/domain/notifications';
 import type { CurrentUser } from './session';
 
 export type ShellData = {

@@ -7,7 +7,7 @@ import {
   changePassword, finishTwoFactor, newRecoveryCodes, securityExtras, startTelegramBind, startTwoFactor, stopTelegramLogin,
   turnOffTwoFactor, type PasswordState, type SecurityExtras,
 } from '@/app/actions/security';
-import type { QrPath } from '@/lib/security/qr';
+import type { QrPath } from '@tasnivo/domain/security/qr';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
 import { Section } from '@/ui/page';

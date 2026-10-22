@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { fmtNumber } from '@/lib/format';
-import { helpPath } from '@/lib/help';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import { helpPath } from '@tasnivo/domain/help';
 import { TasnivoLogo } from '@/ui/logo';
-import { pluralRu } from '@/lib/plural';
+import { pluralRu } from '@tasnivo/i18n/plural';
 import { TELEGRAM_URL } from './config';
 import { CONTAINER } from './container';
 import { CANONICAL_UNITS, CATALOG_CODES, MARKED_CODES, SNAPSHOT, SUBPOSITIONS } from './data';

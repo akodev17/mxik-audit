@@ -1,7 +1,7 @@
 // "Nega bu kod?": stored match evidence as a short list of signals. Pure.
-import type { MatchEvidence } from '../core/match/evidence.js';
-import type { RuleKey } from '../core/match/rules.js';
-import type { AppDict } from './i18n-app.js';
+import type { MatchEvidence } from '@tasnivo/core/match/evidence';
+import type { RuleKey } from '@tasnivo/core/match/rules';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
 
 export type SignalTone = 'good' | 'warn' | 'bad' | 'neutral';
 export type Signal = {

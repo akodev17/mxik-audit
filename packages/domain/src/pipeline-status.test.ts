@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
-import { HashingEmbeddingProvider } from '../core/embed/index.js';
-import type { VectorReadiness } from '../core/match/vector-readiness.js';
-import type { EmbeddingProvider } from '../core/match/types.js';
-import { db } from './db.js';
-import { appDict } from './i18n-app.js';
+import { HashingEmbeddingProvider } from '@tasnivo/core/embed/index';
+import type { VectorReadiness } from '@tasnivo/core/match/vector-readiness';
+import type { EmbeddingProvider } from '@tasnivo/core/match/types';
+import { db } from '@tasnivo/db';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { buildPipelineMeta } from './pipeline-meta.js';
 import { lastAuditLine, vectorLine } from './pipeline-status.js';
 

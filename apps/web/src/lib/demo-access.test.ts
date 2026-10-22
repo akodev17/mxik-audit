@@ -3,13 +3,13 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
-import { db } from './db.js';
-import { claimDemoAccess, peekDemoLink, purgeDemoRequests, requestDemoAccess, type DemoMail } from './demo-access.js';
+import { db } from '@tasnivo/db';
+import { claimDemoAccess, peekDemoLink, purgeDemoRequests, requestDemoAccess, type DemoMail } from '@tasnivo/domain/demo-access';
 import { demoExportRefusal } from './demo-limits.js';
 import { isDemoOrg } from './demo.js';
-import { attemptKey } from './security/rate-limit.js';
-import { createRecord, recordAccepted } from './security/session-store.js';
-import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from './test-fixtures.js';
+import { attemptKey } from '@tasnivo/domain/security/rate-limit';
+import { createRecord, recordAccepted } from '@tasnivo/domain/security/session-store';
+import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from '@tasnivo/domain/test-fixtures';
 
 const skip = await dbSkipReason();
 const tag = (): string => randomBytes(4).toString('hex');

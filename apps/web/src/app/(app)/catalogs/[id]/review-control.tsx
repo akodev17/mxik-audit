@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { assignCatalogReview, finishCatalogReview } from '@/app/actions/reviews';
-import { fmtDate } from '@/lib/format';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';

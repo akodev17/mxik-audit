@@ -5,8 +5,8 @@
 // is no code (MISSING), digits of the wrong length a code the classifier will
 // not have (NOT_FOUND). Pure; computed on the server and stored on
 // Catalog.importMeta with the final mapping.
-import { attrsKey, normalizeName } from '../core/normalize/index.js';
-import { identifyingBarcode } from '../core/normalize/barcode.js';
+import { attrsKey, normalizeName } from '@tasnivo/core/normalize/index';
+import { identifyingBarcode } from '@tasnivo/core/normalize/barcode';
 import { readAmount } from './amount.js';
 import type { ColumnField, ColumnMap } from './column-map.js';
 import type { ParseMeta } from './spreadsheet.js';

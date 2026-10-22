@@ -1,6 +1,6 @@
 // Where a finding's decision came from (Finding.decisionSource), and the audit
 // actions of decisions nobody made by hand. Pure.
-import type { AppDict } from './i18n-app.js';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
 
 export const DECISION_SOURCES = ['manual', 'group', 'bulk', 'bulk_sure', 'dictionary', 'dictionary_auto', 'carry_over'] as const;
 export type DecisionSource = (typeof DECISION_SOURCES)[number];

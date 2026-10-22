@@ -1,7 +1,7 @@
 // The "accept all high-match suggestions" set, in one place: the button's count,
 // its preview and the action itself select exactly the same findings.
 import { Prisma } from '@prisma/client';
-import { BANDS } from '../core/match/score.js';
+import { BANDS } from '@tasnivo/core/match/score';
 
 /**
  * Pending code suggestions in the high band. Dictionary matches have their own

@@ -1,6 +1,6 @@
 // Per-key rate limit and the monthly check allowance of the org plan.
 // The numbers are config: API_RATE_PER_MINUTE and API_CHECKS_PER_MONTH_TRIAL / _FIRM.
-import { db } from '../db';
+import { db } from '@tasnivo/db';
 import { planStatus, type PlanState } from '../plan';
 import { monthKey } from './keys';
 

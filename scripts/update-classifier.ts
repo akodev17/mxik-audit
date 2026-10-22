@@ -14,16 +14,16 @@
 // old, by the daily cron; see DEPLOY.md. How a run ended is recorded in
 // data/classifier-update-status.json (src/lib/classifier-status.ts) for /api/health and the
 // stale-classifier banner; dry runs and runs refused by the lock record nothing.
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { Pool } from 'pg';
-import { ageInDays } from '../src/lib/classifier-freshness.js';
-import { acquireClassifierLock, releaseClassifierLock } from '../src/lib/classifier-lock.js';
-import { recheckAfterUpdate } from '../src/lib/classifier-recheck.js';
-import { latestSnapshot } from '../src/lib/classifier-state.js';
-import { writeUpdateStatus } from '../src/lib/classifier-status.js';
-import { db } from '../src/lib/db.js';
+import { ageInDays } from '@tasnivo/domain/classifier-freshness';
+import { acquireClassifierLock, releaseClassifierLock } from '@tasnivo/domain/classifier-lock';
+import { recheckAfterUpdate } from '@tasnivo/domain/classifier-recheck';
+import { latestSnapshot } from '@tasnivo/domain/classifier-state';
+import { writeUpdateStatus } from '@tasnivo/domain/classifier-status';
+import { db } from '@tasnivo/db';
 import { embedMissing } from './lib/embed-missing.js';
 import { loadClassifier } from './lib/load-classifier.js';
 

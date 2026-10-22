@@ -3,7 +3,7 @@
 // and a link (or code) stops working once the admin behind it is gone or demoted.
 import { randomInt } from 'node:crypto';
 import { isOrgAdmin } from '../actor-role.js';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { orgActive } from '../security/org-active.js';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

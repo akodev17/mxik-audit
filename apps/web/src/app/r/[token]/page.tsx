@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
-import { fmtDate, fmtNumber } from '@/lib/format';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { reportPdfData } from '@/lib/pdf/report-data';
-import { countView, resolveShare } from '@/lib/share';
+import { reportPdfData } from '@tasnivo/domain/pdf/report-data';
+import { countView, resolveShare } from '@tasnivo/domain/share';
 import { Badge } from '@/ui/badge';
 import { buttonClass } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';

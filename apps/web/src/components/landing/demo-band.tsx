@@ -1,4 +1,4 @@
-import { SAMPLE_REPORT } from '@/lib/sample-report.generated';
+import { SAMPLE_REPORT } from '@tasnivo/domain/sample-report.generated';
 import { DEMO_URL } from './config';
 import { CONTAINER } from './container';
 import { SAMPLE_FILENAME } from './data';

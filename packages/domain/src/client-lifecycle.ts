@@ -4,7 +4,7 @@
 import type { Prisma, UserRole } from '@prisma/client';
 import { deleteCatalog } from './catalogs.js';
 import { cleanClientName } from './clients.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 export type AdminActor = { orgId: string; userId: string; role: UserRole };
 

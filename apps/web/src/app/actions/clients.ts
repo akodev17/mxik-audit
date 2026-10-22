@@ -3,9 +3,9 @@
 import { getI18n } from '@/lib/locale';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { switchableClient } from '@/lib/active-client';
-import { archiveClient, deleteClient, renameClient, restoreClient, setClientAccountants, type Dependant, type LifecycleError } from '@/lib/client-lifecycle';
-import { createClient } from '@/lib/clients';
+import { switchableClient } from '@tasnivo/domain/active-client';
+import { archiveClient, deleteClient, renameClient, restoreClient, setClientAccountants, type Dependant, type LifecycleError } from '@tasnivo/domain/client-lifecycle';
+import { createClient } from '@tasnivo/domain/clients';
 import { isDemoOrg } from '@/lib/demo';
 import { gate } from '@/lib/plan';
 import { currentUser, getSession } from '@/lib/session';

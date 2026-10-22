@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { evidenceFor, vetoEvidence, type MatchEvidence } from '../core/match/evidence.js';
-import { appDict } from './i18n-app.js';
+import { evidenceFor, vetoEvidence, type MatchEvidence } from '@tasnivo/core/match/evidence';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { rowSignals } from './row-signals.js';
 
 const uz = appDict('uz');

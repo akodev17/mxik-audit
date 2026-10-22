@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadRowDetail } from '@/app/actions/workspace';
 import { useI18n } from '@/lib/locale-client';
-import type { RowDetail } from '@/lib/row-detail';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { RowDetail } from '@tasnivo/domain/row-detail';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 import { Button } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { Drawer } from '@/ui/drawer';

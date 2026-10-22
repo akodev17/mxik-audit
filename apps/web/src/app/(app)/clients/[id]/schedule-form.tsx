@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { saveSchedule } from '@/app/actions/reminders';
-import { fmtDate } from '@/lib/format';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { nextReminderDate, skipsThisMonth } from '@/lib/reminder-dates';
+import { nextReminderDate, skipsThisMonth } from '@tasnivo/domain/reminder-dates';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { Select } from '@/ui/select';

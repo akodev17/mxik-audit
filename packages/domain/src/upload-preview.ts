@@ -5,7 +5,7 @@ import { canWrite, catalogScope } from './access.js';
 import type { Role } from './session.js';
 import { StoredAttrs } from './catalog-import.js';
 import { COLUMN_FIELDS, ColumnMapSchema, type ColumnField, type ColumnMap } from './column-map.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { readImportMeta, type ImportDiagnostics } from './import-diagnostics.js';
 import type { FieldSource, MemorySource } from './mapping-memory.js';
 import type { ParseMeta } from './spreadsheet.js';

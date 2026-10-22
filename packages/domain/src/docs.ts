@@ -4,14 +4,14 @@
 // Every function is scoped by org and client; nothing here edits a catalogue.
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { buildPurchaseIndex, checkPurchased } from '../core/audit/purchases.js';
-import { readCode } from '../core/audit/checks.js';
-import { normalizeName } from '../core/normalize/index.js';
-import { resolveUnit } from '../core/normalize/units.js';
+import { buildPurchaseIndex, checkPurchased } from '@tasnivo/core/audit/purchases';
+import { readCode } from '@tasnivo/core/audit/checks';
+import { normalizeName } from '@tasnivo/core/normalize/index';
+import { resolveUnit } from '@tasnivo/core/normalize/units';
 import { canSeeClient } from './access.js';
 import { readAmount } from './amount.js';
 import { auditContext, checkItem } from './audit-runner.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { listMeta, type ListActor } from './purchases.js';
 import type { ParseResult } from './spreadsheet.js';
 import { mayWrite } from './write-access.js';

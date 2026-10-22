@@ -3,10 +3,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { decide, decideGroup, undo, type DecideResult } from '@/app/actions/review';
 import { undoBulkFlag } from '@/app/actions/bulk';
-import { readDecisionSource } from '@/lib/decision-source';
-import { fmtDateTime } from '@/lib/format';
+import { readDecisionSource } from '@tasnivo/domain/decision-source';
+import { fmtDateTime } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 import { useToast } from '@/ui/toast';
 import { count, shortName, skippedText } from './ws-text';
 import { serverChange } from '@/ui/shell/router-cache';

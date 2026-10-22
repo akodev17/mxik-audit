@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { appDict, type AppDict } from './i18n-app';
-import { DEFAULT_LOCALE, dict, type Dict, type Locale } from './i18n';
+import { appDict, type AppDict } from '@tasnivo/i18n/i18n-app';
+import { DEFAULT_LOCALE, dict, type Dict, type Locale } from '@tasnivo/i18n/i18n';
 
 type Value = { locale: Locale; t: Dict; ta: AppDict };
 

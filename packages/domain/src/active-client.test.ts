@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { resolveVisibleClient, switchableClient, visibleClients } from './active-client.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 
 const skip = await dbSkipReason();

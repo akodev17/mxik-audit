@@ -4,9 +4,9 @@
 // old one is dropped CONCURRENTLY and the new one takes its name. Only the
 // columns embedding_state records as filled are indexed.
 // Run: npm run vectors:reindex [-- --dry-run]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { Pool } from 'pg';
-import { readEmbeddingState } from '../src/core/match/vector-readiness.js';
+import { readEmbeddingState } from '@tasnivo/core/match/vector-readiness';
 import { HNSW_BUILD_SETTINGS, hnswIndexName, hnswIndexSql, HNSW_EF_CONSTRUCTION, HNSW_M, type VectorColumnName } from './lib/hnsw.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';

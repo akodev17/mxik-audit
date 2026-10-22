@@ -1,4 +1,4 @@
-import { SAMPLE_REPORT, type SampleCatalogRow } from '@/lib/sample-report.generated';
+import { SAMPLE_REPORT, type SampleCatalogRow } from '@tasnivo/domain/sample-report.generated';
 import { CodeBlocks } from './code-blocks';
 import { BLOCKS, firstBlockDivergence, splitBlocks } from './mxik-code';
 import { sentenceCase } from './workspace-model';

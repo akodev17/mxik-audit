@@ -1,7 +1,7 @@
 // Orders: created by a signed-in user, paid by a provider callback. Every
 // state change is checked against the current state, so a replayed callback
 // changes nothing.
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import type { Actor } from '../decisions.js';
 import { catalogPlan, planById } from './plans.js';
 

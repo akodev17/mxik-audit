@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { pairVersions, type VersionItem } from '../core/match/version-pairs.js';
+import { pairVersions, type VersionItem } from '@tasnivo/core/match/version-pairs';
 import { changedFields, diffParts } from './version-diff.js';
 
 let seq = 0;

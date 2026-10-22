@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, type RefObject } from 'react';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { RowDetail } from '@/lib/row-detail';
-import type { GridRow } from '@/lib/workspace-rows';
+import type { RowDetail } from '@tasnivo/domain/row-detail';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';

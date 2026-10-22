@@ -1,10 +1,10 @@
 // Audits an already-stored catalogue from the command line, so the seeded demo
 // can be analysed without going through the browser.
 // Run: npm run seed:audit <catalogId>
-import '../src/lib/load-env.js';
-import { formatLlmUsage } from '../src/core/match/rerank-usage.js';
-import { auditCatalog } from '../src/lib/audit-runner.js';
-import { db } from '../src/lib/db.js';
+import '@tasnivo/domain/load-env';
+import { formatLlmUsage } from '@tasnivo/core/match/rerank-usage';
+import { auditCatalog } from '@tasnivo/domain/audit-runner';
+import { db } from '@tasnivo/db';
 
 const catalogId = process.argv[2];
 if (!catalogId) {

@@ -1,11 +1,11 @@
-// Emits src/core/normalize/units.generated.ts from the portal's own unit
+// Emits packages/core/src/normalize/units.generated.ts from the portal's own unit
 // reference, so the canonical vocabulary is derived rather than invented.
 // Also reports how much of the export's free-text unit column the official
 // dictionary actually covers.
 // Run: npm run generate:units
 import { readFileSync, writeFileSync } from 'node:fs';
-import { cyrillicToLatin } from '../src/core/normalize/script.js';
-import { stripApostrophes } from '../src/core/normalize/apostrophe.js';
+import { cyrillicToLatin } from '@tasnivo/core/normalize/script';
+import { stripApostrophes } from '@tasnivo/core/normalize/apostrophe';
 
 type UnitsFile = {
   apiReference: { id: number; name: string }[];
@@ -54,7 +54,7 @@ export const OFFICIAL_UNITS: readonly OfficialUnit[] = ${JSON.stringify(official
 export const OFFICIAL_UNIT_IDS = new Set<number>(OFFICIAL_UNITS.map((u) => u.id));
 `;
 
-writeFileSync('src/core/normalize/units.generated.ts', body);
+writeFileSync('packages/core/src/normalize/units.generated.ts', body);
 
 console.log(`official units:            ${official.length}`);
 console.log(`export unit mentions:      ${(covered + uncovered).toLocaleString()}`);
@@ -64,4 +64,4 @@ console.log('\ntop uncovered export unit strings:');
 missing.slice(0, 20).forEach(([u, n]) => console.log(`  ${String(n).padStart(7)}  ${JSON.stringify(u)}`));
 console.log('\nsample transliterations (validates script.ts on real strings):');
 official.slice(0, 14).forEach((u) => console.log(`  ${String(u.id).padStart(4)}  ${u.cyrillic.padEnd(26)} -> ${u.latin}`));
-console.log('\nwrote src/core/normalize/units.generated.ts');
+console.log('\nwrote packages/core/src/normalize/units.generated.ts');

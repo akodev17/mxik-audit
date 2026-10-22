@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import type { CatalogListItem } from '@/lib/catalogs';
-import { fmtDateTime } from '@/lib/format';
+import type { CatalogListItem } from '@tasnivo/domain/catalogs';
+import { fmtDateTime } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { ButtonLink } from '@/ui/button';
 import { VisuallyHidden } from '@/ui/visually-hidden';

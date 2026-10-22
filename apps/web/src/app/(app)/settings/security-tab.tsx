@@ -1,9 +1,9 @@
 import { securityExtras } from '@/app/actions/security';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { deviceLabel } from '@/lib/security/device';
-import { listSessions } from '@/lib/security/session-store';
-import { twoFactorState } from '@/lib/security/two-factor';
+import { deviceLabel } from '@tasnivo/domain/security/device';
+import { listSessions } from '@tasnivo/domain/security/session-store';
+import { twoFactorState } from '@tasnivo/domain/security/two-factor';
 import { getSession, type CurrentUser } from '@/lib/session';
 import { SecurityPanel } from './security-panel';
 import { agoLabel, orderSessions } from './session-rows';

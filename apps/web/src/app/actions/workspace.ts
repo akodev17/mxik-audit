@@ -1,14 +1,14 @@
 'use server';
 
 import { z } from 'zod';
-import { catalogScope } from '@/lib/access';
-import { db } from '@/lib/db';
-import { rowDetail, type RowDetail } from '@/lib/row-detail';
+import { catalogScope } from '@tasnivo/domain/access';
+import { db } from '@tasnivo/db';
+import { rowDetail, type RowDetail } from '@tasnivo/domain/row-detail';
 import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
-import { decodeCursor, workspacePageIds } from '@/lib/workspace';
-import { FilterInput, readFilter } from '@/lib/workspace-filter';
-import { gridRows, type GridRow } from '@/lib/workspace-rows';
+import { decodeCursor, workspacePageIds } from '@tasnivo/domain/workspace';
+import { FilterInput, readFilter } from '@tasnivo/domain/workspace-filter';
+import { gridRows, type GridRow } from '@tasnivo/domain/workspace-rows';
 
 /** Full detail for the row drawer; null when the finding is not the user's to see. */
 export async function loadRowDetail(findingId: unknown): Promise<RowDetail | null> {

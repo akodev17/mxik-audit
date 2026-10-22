@@ -1,9 +1,9 @@
 // Runs the Telegram bot with long polling, for development or a server
 // without a public HTTPS URL. Audits started from the bot run in this process.
 // Run: npm run telegram:bot
-import '../src/lib/load-env.js'; // must precede anything reading process.env
-import { createBot } from '../src/lib/telegram/bot.js';
-import { telegramConfig } from '../src/lib/telegram/config.js';
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
+import { createBot } from '@tasnivo/domain/telegram/bot';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
 
 const config = telegramConfig();
 if (!config.enabled) {

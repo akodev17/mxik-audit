@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import type { Prisma } from '@prisma/client';
 import { activityPage, tashkentDayStart, type ActivityFilter } from './activity.js';
 import { deleteCatalog } from './catalogs.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { makeClient, makeClientCatalog, makePerson, type Person } from './firm-test-fixtures.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 

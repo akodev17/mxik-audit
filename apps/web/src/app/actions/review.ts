@@ -4,16 +4,16 @@ import { getI18n } from '@/lib/locale';
 import { z } from 'zod';
 import { currentUser } from '@/lib/session';
 import { writer } from '@/lib/guard';
-import { searchClassifier } from '@/lib/audit-runner';
-import { codeDetails } from '@/lib/code-details';
-import { codeRequestText } from '@/lib/code-request';
-import { BANDS } from '@/core/match/score';
-import type { Skipped } from '@/lib/decide-many';
+import { searchClassifier } from '@tasnivo/domain/audit-runner';
+import { codeDetails } from '@tasnivo/domain/code-details';
+import { codeRequestText } from '@tasnivo/domain/code-request';
+import { BANDS } from '@tasnivo/core/match/score';
+import type { Skipped } from '@tasnivo/domain/decide-many';
 import {
   bulkAccept, recordDecision, recordGroupDecision, reopenDecision, splitFromGroup, sureBandPreview, undoDecision, undoLast,
   type DecideFailure, type SurePreview, type UndoDone,
-} from '@/lib/decisions';
-import { FilterInput, readFilter } from '@/lib/workspace-filter';
+} from '@tasnivo/domain/decisions';
+import { FilterInput, readFilter } from '@tasnivo/domain/workspace-filter';
 
 const DecideInput = z.object({
   findingId: z.string().min(1),

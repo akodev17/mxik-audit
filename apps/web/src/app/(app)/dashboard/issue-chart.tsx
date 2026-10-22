@@ -1,7 +1,7 @@
-import type { TypeCount } from '@/lib/dashboard';
-import { fmtNumber, fmtPercent } from '@/lib/format';
+import type { TypeCount } from '@tasnivo/domain/dashboard';
+import { fmtNumber, fmtPercent } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { issueShares } from '@/lib/work-queue';
+import { issueShares } from '@tasnivo/domain/work-queue';
 import { typeLabels } from '@/ui/labels';
 import { RankedBars } from '@/ui/ranked-bars';
 

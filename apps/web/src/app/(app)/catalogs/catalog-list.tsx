@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import type { CatalogListItem } from '@/lib/catalogs';
-import { fmtDateTime, fmtNumber } from '@/lib/format';
+import type { CatalogListItem } from '@tasnivo/domain/catalogs';
+import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Badge, StatusChip, StatusIcon, type Tone } from '@/ui/badge';
 import { cx } from '@/ui/cx';

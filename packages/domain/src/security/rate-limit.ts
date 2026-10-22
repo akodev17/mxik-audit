@@ -1,6 +1,6 @@
 // Rate limits that survive restarts and span instances: every attempt is a row in auth_attempt.
 // Keys are stored as keyed hashes, so the table holds no addresses or e-mails in clear.
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { keyedHash } from './secret.js';
 
 export type Rule = { kind: string; limit: number; windowMs: number };

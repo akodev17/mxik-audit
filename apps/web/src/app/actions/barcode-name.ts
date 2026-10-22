@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { applyBarcodeName } from '@/lib/barcode-name';
+import { applyBarcodeName } from '@tasnivo/domain/barcode-name';
 import { writer } from '@/lib/guard';
 
 /** Fills the product name from the classifier; viewers cannot write. */

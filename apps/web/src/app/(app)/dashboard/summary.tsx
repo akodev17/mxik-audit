@@ -1,6 +1,6 @@
-import { openRowsHint, reviewedShare } from '@/lib/client-kpi';
-import type { Totals } from '@/lib/dashboard';
-import { fmtNumber } from '@/lib/format';
+import { openRowsHint, reviewedShare } from '@tasnivo/domain/client-kpi';
+import type { Totals } from '@tasnivo/domain/dashboard';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { StatRow, type StatRowItem } from '@/ui/stat-row';
 

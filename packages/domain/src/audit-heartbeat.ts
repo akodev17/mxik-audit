@@ -1,5 +1,5 @@
 // Liveness of a running audit, whichever process runs it (server or CLI script).
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 /** A running audit bumps its heartbeat at least this often. */
 export const HEARTBEAT_MS = 2_000;

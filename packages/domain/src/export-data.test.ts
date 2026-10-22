@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { defaultClient } from './clients.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { storeDocList, writeDocMap } from './docs.js';
 import { codeUnits, exportItems } from './export-rows.js';
 import { reportPdfData } from './pdf/report-data.js';

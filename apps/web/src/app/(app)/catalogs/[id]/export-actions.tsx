@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { db } from '@/lib/db';
+import { db } from '@tasnivo/db';
 import { ExportMenu } from './export-menu';
 
 type Props = {

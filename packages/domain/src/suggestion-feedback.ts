@@ -1,10 +1,10 @@
 // "Taklif notoʻgʻri": why a reviewer called a suggestion wrong, with the stage
 // and label that produced it, for the accuracy metrics. Scoped and write-only
 // for people who may change data.
-import { readEvidence } from '../core/match/evidence.js';
-import { confidenceLabel } from '../core/match/confidence-labels.js';
+import { readEvidence } from '@tasnivo/core/match/evidence';
+import { confidenceLabel } from '@tasnivo/core/match/confidence-labels';
 import { catalogScope } from './access';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import type { WRONG_REASONS } from './wrong-reasons';
 import { mayWrite, type RoleCarrier } from './write-access';
 

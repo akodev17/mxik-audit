@@ -3,7 +3,7 @@
 // requests per address and per mailbox, demos per mailbox per day, link lifetime, throwaway providers.
 import { createHash, randomBytes } from 'node:crypto';
 import { absoluteUrl } from './app-url.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { startDemoSession, type DemoSession } from './demo.js';
 import { demoLinkMinutes, demoMaxLive, demoMaxPerEmail } from './demo-config.js';
 import { canonicalEmail, checkDemoEmail, normalizeEmail } from './demo-email.js';

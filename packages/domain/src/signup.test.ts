@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { after, describe, it } from 'node:test';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { attemptKey } from './security/rate-limit.js';
 import { createAccount } from './signup.js';
 import { dbSkipReason, dropOrgs } from './test-fixtures.js';

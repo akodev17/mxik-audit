@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { CLIENT_FILTERS, CLIENT_SORTS, STALE_DAYS, type ClientFilter, type ClientSort, type FilterCounts } from '@/lib/client-stats';
-import { fmtNumber } from '@/lib/format';
+import { CLIENT_FILTERS, CLIENT_SORTS, STALE_DAYS, type ClientFilter, type ClientSort, type FilterCounts } from '@tasnivo/domain/client-stats';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { withQuery } from '@/lib/query-string';
+import { withQuery } from '@tasnivo/domain/query-string';
 import { cx } from '@/ui/cx';
 import { Field, Input } from '@/ui/input';
 import { Select } from '@/ui/select';

@@ -2,12 +2,12 @@
 
 import { getI18n } from '@/lib/locale';
 import { z } from 'zod';
-import { purchaseOf } from '@/lib/billing/availability';
-import { clickCheckoutUrl } from '@/lib/billing/click';
-import { billingConfig } from '@/lib/billing/config';
-import { createOrder } from '@/lib/billing/orders';
-import { paymeCheckoutUrl } from '@/lib/billing/payme';
-import { planById } from '@/lib/billing/plans';
+import { purchaseOf } from '@tasnivo/domain/billing/availability';
+import { clickCheckoutUrl } from '@tasnivo/domain/billing/click';
+import { billingConfig } from '@tasnivo/domain/billing/config';
+import { createOrder } from '@tasnivo/domain/billing/orders';
+import { paymeCheckoutUrl } from '@tasnivo/domain/billing/payme';
+import { planById } from '@tasnivo/domain/billing/plans';
 import { isDemoOrg } from '@/lib/demo';
 import { admin, writer } from '@/lib/guard';
 

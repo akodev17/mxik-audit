@@ -1,7 +1,7 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { demoLinkMinutes } from '@/lib/demo-config';
+import { demoLinkMinutes } from '@tasnivo/domain/demo-config';
 import { DemoForm } from './demo-form';
 
 export async function generateMetadata(): Promise<Metadata> {

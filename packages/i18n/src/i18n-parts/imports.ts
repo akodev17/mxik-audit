@@ -1,7 +1,7 @@
 // Upload wizard, column mapping, diagnostics, versions, exports, purchases, cheque and sales lists.
 // Uzbek Latin first; the Russian object must have the same shape (the type enforces it).
 import { fmtDate, fmtNumber } from '../format';
-import type { PresetId } from '../import-presets';
+import type { PresetId } from '@tasnivo/domain/import-presets';
 import { pluralRu } from '../plural';
 
 const nu = (v: number): string => fmtNumber('uz', v);

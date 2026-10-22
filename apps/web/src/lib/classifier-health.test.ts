@@ -7,12 +7,12 @@ import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { Pool } from 'pg';
 import { GET as health } from '@/app/api/health/route';
-import { classifierHealth } from './classifier-health.js';
-import { acquireClassifierLock, classifierUpdateRunning, releaseClassifierLock } from './classifier-lock.js';
-import type { ClassifierState } from './classifier-state.js';
-import { readUpdateStatus, tidyMessage, writeUpdateStatus } from './classifier-status.js';
-import { db } from './db.js';
-import { dbSkipReason } from './test-fixtures.js';
+import { classifierHealth } from '@tasnivo/domain/classifier-health';
+import { acquireClassifierLock, classifierUpdateRunning, releaseClassifierLock } from '@tasnivo/domain/classifier-lock';
+import type { ClassifierState } from '@tasnivo/domain/classifier-state';
+import { readUpdateStatus, tidyMessage, writeUpdateStatus } from '@tasnivo/domain/classifier-status';
+import { db } from '@tasnivo/db';
+import { dbSkipReason } from '@tasnivo/domain/test-fixtures';
 
 const takenAt = new Date('2026-09-20T05:00:00Z');
 const state = (over: Partial<ClassifierState> = {}): ClassifierState => ({

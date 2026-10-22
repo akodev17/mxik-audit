@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { billingConfig } from '@/lib/billing/config';
-import { catalogPaid } from '@/lib/billing/orders';
-import { db } from '@/lib/db';
-import { fmtDate } from '@/lib/format';
+import { billingConfig } from '@tasnivo/domain/billing/config';
+import { catalogPaid } from '@tasnivo/domain/billing/orders';
+import { db } from '@tasnivo/db';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { degradedNotes, readPipelineMeta } from '@/lib/pipeline-meta';
+import { degradedNotes, readPipelineMeta } from '@tasnivo/domain/pipeline-meta';
 import { Badge } from '@/ui/badge';
 import type { CurrentUser } from '@/lib/session';
 import { IconInfo } from '@/ui/icons';

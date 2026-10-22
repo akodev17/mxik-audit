@@ -1,6 +1,6 @@
 // Navigation model of the app shell. Pure, so the sidebar, the mobile menu, the command palette
 // and the tests share one definition.
-import type { Locale } from '@/lib/i18n';
+import type { Locale } from '@tasnivo/i18n/i18n';
 
 export type NavKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'help' | 'settings' | 'team';
 export type NavGroupKey = 'work' | 'clients' | 'knowledge' | 'settings';

@@ -5,10 +5,10 @@
 // are never accepted in bulk: a person confirms those row by row.
 import { randomUUID } from 'node:crypto';
 import type { FindingType } from '@prisma/client';
-import { readEvidence } from '../core/match/evidence.js';
+import { readEvidence } from '@tasnivo/core/match/evidence';
 import { catalogScope } from './access.js';
 import { decideMany, liveCodeSet, type ManyDone, type ManyTarget, type Skipped } from './decide-many.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
 import { acceptCode, CONFIRMING_TYPES } from './finding-kinds.js';
 import { workspaceAllIds, workspaceCount, workspaceTypeCount } from './workspace.js';

@@ -7,7 +7,7 @@ import type { ListPreview } from '@/app/actions/purchases';
 import { ListMapper, type MapperField } from '@/app/(app)/clients/[id]/purchases/list-mapper';
 import { Dropzone } from '@/app/(app)/upload/dropzone';
 import { Notice } from '@/app/(app)/upload/notice';
-import type { DocKind, DocMap } from '@/lib/docs';
+import type { DocKind, DocMap } from '@tasnivo/domain/docs';
 import { useI18n } from '@/lib/locale-client';
 import { useToast } from '@/ui/toast';
 import { goTo } from '@/ui/shell/same-route-links';

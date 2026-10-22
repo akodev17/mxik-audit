@@ -1,6 +1,6 @@
 // Account data control: soft delete with a grace period, hard delete by the daily job,
 // the org-level retention of uploaded raw cells, and the data export.
-import { db } from '../db';
+import { db } from '@tasnivo/db';
 import { revokeOrgSessions } from './session-store';
 
 export const RETENTION_CHOICES = [7, 30, 90] as const;

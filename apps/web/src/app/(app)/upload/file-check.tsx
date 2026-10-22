@@ -1,7 +1,7 @@
 'use client';
 
-import type { UploadPreview } from '@/lib/upload-preview';
-import { fmtNumber } from '@/lib/format';
+import type { UploadPreview } from '@tasnivo/domain/upload-preview';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { PreviewTable } from '@/ui/preview-table';

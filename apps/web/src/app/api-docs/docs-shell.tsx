@@ -2,7 +2,7 @@ import { TasnivoLogo } from '@/ui/logo';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { HtmlLang } from '@/components/html-lang';
-import type { Locale } from '@/lib/i18n';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import { LocaleProvider } from '@/lib/locale-client';
 import { buttonClass } from '@/ui/button';
 import { LanguageSwitch } from '@/ui/language-switch';

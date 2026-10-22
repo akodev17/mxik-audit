@@ -1,5 +1,5 @@
 // Pure model of the command palette: which commands exist for a user, and text matching.
-import type { Locale } from '@/lib/i18n';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import { navGroups } from './nav';
 
 export type CommandKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'notifications' | 'settings' | 'help' | 'switchClient' | 'team';

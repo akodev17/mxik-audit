@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { bulkDryRun, type BulkActionInput, type DryRunResult } from '@/app/actions/bulk';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { filterQuery, type WsFilter } from '@/lib/workspace-filter';
+import { filterQuery, type WsFilter } from '@tasnivo/domain/workspace-filter';
 import { Button } from '@/ui/button';
 import { ConfirmDialog, type ConfirmResult } from '@/ui/confirm-dialog';
 import { CodeSearch } from './code-search';

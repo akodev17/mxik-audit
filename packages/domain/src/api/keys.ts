@@ -1,7 +1,7 @@
 // Public API keys. The token is shown once; only its hash is stored. Keys are admin-only: only an
 // admin may create or revoke one, and a key works only while its creator is still an admin of the org.
 import { createHash, randomBytes } from 'node:crypto';
-import { db } from '../db';
+import { db } from '@tasnivo/db';
 import type { Role } from '../session';
 import { orgActive } from '../security/org-active';
 

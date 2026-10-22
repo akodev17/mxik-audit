@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { changeFlag, loadComments, postComment } from '@/app/actions/comments';
-import type { CommentView } from '@/lib/comments';
-import { fmtDateTime } from '@/lib/format';
+import type { CommentView } from '@tasnivo/domain/comments';
+import { fmtDateTime } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { IconCheck } from '@/ui/icons';

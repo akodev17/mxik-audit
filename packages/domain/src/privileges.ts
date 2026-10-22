@@ -1,9 +1,9 @@
 // Privilege findings for an audited catalogue (src/core/audit/privileges.ts),
 // run after the main audit. Replaces only pending privilege findings.
-import { privilegeCodeFinding, privilegeIds, privilegeOpportunityFinding } from '../core/audit/privileges.js';
-import type { Finding } from '../core/audit/checks.js';
+import { privilegeCodeFinding, privilegeIds, privilegeOpportunityFinding } from '@tasnivo/core/audit/privileges';
+import type { Finding } from '@tasnivo/core/audit/checks';
 import { findingData } from './audit-runner.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 
 const PRIVILEGE_TYPES = ['PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'] as const;
 const SUGGESTING_TYPES = new Set(['MISSING', 'NOT_FOUND', 'MISMATCH']);

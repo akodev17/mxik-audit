@@ -4,12 +4,12 @@
 // decided, what is still open and what the data did not allow to check.
 import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
-import { restrictionDate } from '../../core/audit/checks';
-import { typeLabels } from '../../ui/labels';
+import { restrictionDate } from '@tasnivo/core/audit/checks';
+import { typeLabels } from '@tasnivo/i18n/type-labels';
 import { decisionSourceLabel } from '../decision-source.js';
-import { fmtDate } from '../format.js';
-import { dict, type Locale } from '../i18n.js';
-import { appDict } from '../i18n-app.js';
+import { fmtDate } from '@tasnivo/i18n/format';
+import { dict, type Locale } from '@tasnivo/i18n/i18n';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { degradedNotes } from '../pipeline-meta.js';
 import type { PdfRow, ReportPdfData } from './report-data.js';
 

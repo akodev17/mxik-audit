@@ -1,4 +1,4 @@
-import type { GridRow } from '@/lib/workspace-rows';
+import type { GridRow } from '@tasnivo/domain/workspace-rows';
 
 export type Entry =
   | { kind: 'row'; row: GridRow; inGroup: boolean }

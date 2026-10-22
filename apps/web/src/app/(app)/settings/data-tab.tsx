@@ -1,8 +1,8 @@
-import { isAdminRole } from '@/lib/access';
-import { db } from '@/lib/db';
-import { fmtDate } from '@/lib/format';
+import { isAdminRole } from '@tasnivo/domain/access';
+import { db } from '@tasnivo/db';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { deleteAfterDays, RETENTION_CHOICES } from '@/lib/security/account';
+import { deleteAfterDays, RETENTION_CHOICES } from '@tasnivo/domain/security/account';
 import type { CurrentUser } from '@/lib/session';
 import { Section } from '@/ui/page';
 import { CloseAccount } from './close-account';

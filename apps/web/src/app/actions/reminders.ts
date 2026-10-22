@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { canSeeClient } from '@/lib/access';
+import { canSeeClient } from '@tasnivo/domain/access';
 import { isDemoOrg } from '@/lib/demo';
 import { writer } from '@/lib/guard';
 import { getI18n } from '@/lib/locale';
-import { markDone, setSchedule } from '@/lib/reminders';
+import { markDone, setSchedule } from '@tasnivo/domain/reminders';
 
 export type ReminderResult = { ok: true; nextDue?: string | null } | { ok: false; error: string };
 

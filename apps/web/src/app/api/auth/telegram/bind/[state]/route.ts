@@ -4,12 +4,12 @@
 import type { NextRequest } from 'next/server';
 import { isDemoOrg } from '@/lib/demo';
 import { redirectTo } from '@/lib/security/redirect';
-import { claimOnce } from '@/lib/security/replay';
-import { safeEqualText } from '@/lib/security/safe-equal';
+import { claimOnce } from '@tasnivo/domain/security/replay';
+import { safeEqualText } from '@tasnivo/domain/security/safe-equal';
 import { currentUser, getSession } from '@/lib/session';
-import { telegramConfig } from '@/lib/telegram/config';
-import { bindTelegram } from '@/lib/telegram/identity';
-import { verifyTelegramLogin } from '@/lib/telegram/login';
+import { telegramConfig } from '@tasnivo/domain/telegram/config';
+import { bindTelegram } from '@tasnivo/domain/telegram/identity';
+import { verifyTelegramLogin } from '@tasnivo/domain/telegram/login';
 
 export const dynamic = 'force-dynamic';
 

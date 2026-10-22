@@ -2,7 +2,7 @@
 
 import { useRef, useState, type DragEvent } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import { UPLOAD_ACCEPT } from '@/lib/upload-file-types';
+import { UPLOAD_ACCEPT } from '@tasnivo/domain/upload-file-types';
 import { Button } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { IconUpload } from '@/ui/icons';

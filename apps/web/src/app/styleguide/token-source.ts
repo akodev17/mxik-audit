@@ -4,7 +4,7 @@ import { join } from 'node:path';
 export type TokenGroup = 'color' | 'type' | 'radius' | 'shadow' | 'spacing' | 'layout' | 'motion' | 'other';
 export type Token = { name: string; declared: string; group: TokenGroup };
 
-const FILES = { app: 'src/styles/app-tokens.css', landing: 'src/components/landing/landing.css' } as const;
+const FILES = { app: 'apps/web/src/styles/app-tokens.css', landing: 'apps/web/src/components/landing/landing.css' } as const;
 
 function groupOf(name: string): TokenGroup {
   if (/^(color|lp-color)-/.test(name) || name.startsWith('color-')) return 'color';

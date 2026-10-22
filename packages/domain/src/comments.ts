@@ -1,7 +1,7 @@
 // Row notes and the "Mijozdan soʻrash" / "Hal qilindi" flags. Internal only:
 // nothing here reaches share links, PDFs or exports.
 import { catalogScope } from './access';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { mayWrite, type RoleCarrier } from './write-access';
 
 type Scope = { orgId: string; userId: string; clientIds?: string[] | null } & RoleCarrier;

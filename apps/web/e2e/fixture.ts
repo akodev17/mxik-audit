@@ -7,7 +7,7 @@
 // Runs against E2E_BASE_URL (default http://localhost:3000). Nothing here
 // starts, stops or builds a server.
 import assert from 'node:assert/strict';
-import '../src/lib/load-env';
+import '@tasnivo/domain/load-env';
 import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,11 +15,11 @@ import { join } from 'node:path';
 import type { TestContext } from 'node:test';
 import ExcelJS from 'exceljs';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import { db } from '../src/lib/db';
-import { uz } from '../src/lib/i18n';
-import { taUz } from '../src/lib/i18n-app';
-import { hashPassword } from '../src/lib/password';
-import { attemptKey } from '../src/lib/security/rate-limit';
+import { db } from '@tasnivo/db';
+import { uz } from '@tasnivo/i18n/i18n';
+import { taUz } from '@tasnivo/i18n/i18n-app';
+import { hashPassword } from '@tasnivo/domain/password';
+import { attemptKey } from '@tasnivo/domain/security/rate-limit';
 
 export const BASE_URL = (process.env['E2E_BASE_URL'] ?? 'http://localhost:3000').replace(/\/$/, '');
 

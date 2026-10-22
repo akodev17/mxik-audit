@@ -1,5 +1,5 @@
 // Server-side record of every signed-in browser, so a session can be listed and ended.
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { demoIdleMinutes } from '../demo-config.js';
 
 const TOUCH_EVERY_MS = 5 * 60_000;

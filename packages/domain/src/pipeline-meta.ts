@@ -2,8 +2,8 @@
 // workspace can say plainly when a run was degraded. Stable codes, not text:
 // the UI translates them (ta.matchX.degraded). Pure.
 import { z } from 'zod';
-import type { RerankOutcome, VectorOutcome } from '../core/match/types.js';
-import type { AppDict } from './i18n-app.js';
+import type { RerankOutcome, VectorOutcome } from '@tasnivo/core/match/types';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
 
 export const DEGRADED_REASONS = ['rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed'] as const;
 export type DegradedReason = (typeof DEGRADED_REASONS)[number];

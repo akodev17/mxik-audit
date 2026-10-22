@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { createApiKey, MAX_ACTIVE_KEYS, revokeApiKey } from '@/lib/api/keys';
-import { db } from '@/lib/db';
+import { createApiKey, MAX_ACTIVE_KEYS, revokeApiKey } from '@tasnivo/domain/api/keys';
+import { db } from '@tasnivo/db';
 import { admin } from '@/lib/guard';
 import { isDemoOrg } from '@/lib/demo';
 

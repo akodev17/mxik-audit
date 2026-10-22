@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { fmtDate } from '@/lib/format';
+import { fmtDate } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import type { OpenReview, ReviewCounts } from '@/lib/review-assignments';
+import type { OpenReview, ReviewCounts } from '@tasnivo/domain/review-assignments';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { cx } from '@/ui/cx';
 

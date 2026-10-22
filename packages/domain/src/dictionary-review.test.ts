@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { approverEmails, dictionaryCounts, dictionaryWhere, parseDictFilter, retiredEntryCodes } from './dictionary-review.js';
 import { makePerson, type Person } from './firm-test-fixtures.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';

@@ -1,9 +1,9 @@
 // Password reset by e-mail: a one-hour, single-use link. Using it sets the password,
 // confirms the address (the mailbox was just proven) and ends every session of the user.
 import { absoluteUrl } from '../app-url.js';
-import { db } from '../db.js';
-import { appDict } from '../i18n-app.js';
-import type { Locale } from '../i18n.js';
+import { db } from '@tasnivo/db';
+import { appDict } from '@tasnivo/i18n/i18n-app';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import { sendMail } from '../mailer.js';
 import { hashPassword } from '../password.js';
 import { claimToken, issueToken, peekToken } from './email-token.js';

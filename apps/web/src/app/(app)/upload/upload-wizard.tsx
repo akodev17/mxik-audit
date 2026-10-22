@@ -2,12 +2,12 @@
 
 import { useCallback, useState, useTransition } from 'react';
 import { commitUpload, discardUpload, previewUpload } from '@/app/actions/catalog';
-import type { ColumnMap } from '@/lib/column-map';
-import type { ImportDiagnostics } from '@/lib/import-diagnostics';
+import type { ColumnMap } from '@tasnivo/domain/column-map';
+import type { ImportDiagnostics } from '@tasnivo/domain/import-diagnostics';
 import { useI18n } from '@/lib/locale-client';
-import { hasUploadExtension } from '@/lib/upload-file-types';
-import type { UploadPreview } from '@/lib/upload-preview';
-import type { CompletionSummary } from '@/lib/upload-progress';
+import { hasUploadExtension } from '@tasnivo/domain/upload-file-types';
+import type { UploadPreview } from '@tasnivo/domain/upload-preview';
+import type { CompletionSummary } from '@tasnivo/domain/upload-progress';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Select } from '@/ui/select';
 import { Stepper } from '@/ui/stepper';

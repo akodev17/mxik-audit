@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getI18n } from '@/lib/locale';
-import { MIN_PASSWORD } from '@/lib/security/password-check';
-import { resetTarget } from '@/lib/security/password-reset';
+import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
+import { resetTarget } from '@tasnivo/domain/security/password-reset';
 import { EmptyState } from '@/ui/empty-state';
 import { ResetForm } from './reset-form';
 

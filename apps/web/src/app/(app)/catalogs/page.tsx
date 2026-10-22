@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { canWrite, clientScope } from '@/lib/access';
-import { CATALOG_PAGE, catalogList } from '@/lib/catalogs';
-import { db } from '@/lib/db';
-import { fmtNumber } from '@/lib/format';
+import { canWrite, clientScope } from '@tasnivo/domain/access';
+import { CATALOG_PAGE, catalogList } from '@tasnivo/domain/catalogs';
+import { db } from '@tasnivo/db';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { withQuery } from '@/lib/query-string';
+import { withQuery } from '@tasnivo/domain/query-string';
 import { currentUser } from '@/lib/session';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';

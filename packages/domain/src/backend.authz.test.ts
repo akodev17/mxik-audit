@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
-import { BANDS } from '../core/match/score.js';
+import { BANDS } from '@tasnivo/core/match/score';
 import { activityPage } from './activity.js';
 import { switchableClient } from './active-client.js';
 import { authenticate, createApiKey, revokeApiKey } from './api/keys.js';
@@ -30,7 +30,7 @@ import { createClient } from './clients.js';
 import { codeRequestText } from './code-request.js';
 import { addComment, listComments, setFlag } from './comments.js';
 import { dashboard } from './dashboard.js';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import {
   bulkAccept, decisionHistory, recordDecision, recordGroupDecision, splitFromGroup, sureBandPreview, undoDecision, undoLast,
 } from './decisions.js';
@@ -39,7 +39,7 @@ import { editMapping, removeMapping } from './dictionary.js';
 import { acceptDictionaryButton } from './dictionary-button.js';
 import { applyDocMap, deleteDocList, restartDocCheck, storeDocList } from './docs.js';
 import { makeClient, makeClientCatalog, makePerson, type Person } from './firm-test-fixtures.js';
-import { appDict } from './i18n-app.js';
+import { appDict } from '@tasnivo/i18n/i18n-app';
 import { listNotifications, markRead, unreadCount } from './notifications.js';
 import { reportPdfData } from './pdf/report-data.js';
 import { applyPurchaseMap, deletePurchaseList, setClientActivity, storePurchaseList } from './purchases.js';

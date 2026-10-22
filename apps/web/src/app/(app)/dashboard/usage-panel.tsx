@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { WARN_AT } from '@/lib/billing/limits';
-import { fmtNumber } from '@/lib/format';
+import { WARN_AT } from '@tasnivo/domain/billing/limits';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import type { PlanStatus } from '@/lib/plan';
 import { Progress } from '@/ui/progress';

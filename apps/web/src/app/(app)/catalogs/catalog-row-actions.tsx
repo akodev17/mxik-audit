@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { removeCatalog } from '@/app/actions/catalog';
-import { fmtNumber } from '@/lib/format';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { ButtonLink } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { writer } from '@/lib/guard';
-import { createShareLink, listShareLinks, revokeShareLink, type ShareLinkView } from '@/lib/share';
+import { createShareLink, listShareLinks, revokeShareLink, type ShareLinkView } from '@tasnivo/domain/share';
 
 export type ShareRow = Omit<ShareLinkView, 'createdAt' | 'expiresAt' | 'revokedAt' | 'lastViewedAt'> & {
   createdAt: string; expiresAt: string; revokedAt: string | null; lastViewedAt: string | null;

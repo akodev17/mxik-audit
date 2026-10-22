@@ -1,16 +1,16 @@
 // Everything the row drawer shows for one finding, scoped to the org and the
 // user's clients, with code names in the viewer's language.
-import { readEvidence } from '../core/match/evidence.js';
-import type { MatchStage } from '../core/match/types.js';
+import { readEvidence } from '@tasnivo/core/match/evidence';
+import type { MatchStage } from '@tasnivo/core/match/types';
 import { codeDetails, localName, readableLevel } from './code-details';
 import { catalogScope } from './access';
 import { nameFromBarcode, type NameFromBarcode } from './barcode-name';
-import { db } from './db';
+import { db } from '@tasnivo/db';
 import { readDecisionSource, type DecisionSource } from './decision-source';
 import { decisionMode, noSuggestion, type DecisionMode } from './finding-kinds';
 import { findingRows } from './finding-view';
-import type { Locale } from './i18n';
-import type { AppDict } from './i18n-app';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import { cleanPrivilegeName, LEVEL_SPLITS, levelPrefixes, rankAlternatives, reasonFacts, type ReasonFacts } from './row-detail-parts';
 import { rowSignals, type Signal } from './row-signals';
 import { unitAdvice, type UnitAdvice } from './unit-advice';

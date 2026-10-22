@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import { setLocale } from '@/app/actions/locale';
-import { LOCALES, type Locale } from '@/lib/i18n';
+import { LOCALES, type Locale } from '@tasnivo/i18n/i18n';
 import { useI18n } from '@/lib/locale-client';
 import { Segmented } from './segmented';
 

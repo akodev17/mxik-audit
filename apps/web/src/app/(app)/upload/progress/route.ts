@@ -1,8 +1,8 @@
 // The upload wizard polls this while a committed catalogue is audited.
 import { NextResponse } from 'next/server';
-import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
+import { resumeStaleAudits, STALE_MS } from '@tasnivo/domain/audit-jobs';
 import { currentUser } from '@/lib/session';
-import { uploadProgress } from '@/lib/upload-progress';
+import { uploadProgress } from '@tasnivo/domain/upload-progress';
 
 export const dynamic = 'force-dynamic';
 

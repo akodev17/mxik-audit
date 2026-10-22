@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { db } from '../db.js';
+import { db } from '@tasnivo/db';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from '../test-fixtures.js';
 import { createRecord, endRecord, isLive, listSessions, recordAccepted, SESSION_MAX_AGE_SECONDS } from './session-store.js';
 

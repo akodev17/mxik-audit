@@ -6,7 +6,7 @@
 // before learning, so undo can take both back.
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
-import { db } from './db.js';
+import { db } from '@tasnivo/db';
 import { learnQuietly, snapshotMappings, type Learnable } from './dictionary.js';
 import { batchConflicts } from './effective-code.js';
 
