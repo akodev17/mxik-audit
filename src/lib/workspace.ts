@@ -3,6 +3,8 @@
 // never shifts the pages that have not loaded yet.
 import { Prisma } from '@prisma/client';
 import { db } from './db';
+import { mergeTypeCounts } from './finding-type';
+import { findingTypeCounts } from './finding-type-counts';
 import { RISKY_FINDING, RISKY_ITEM } from './risk';
 import { sureBandSql } from './sure-band';
 import { pendingSubset, type WsFilter, type WsSort } from './workspace-filter';
@@ -27,7 +29,7 @@ export type WsSummary = {
 
 export async function workspaceSummary(catalogId: string, rowCount: number): Promise<WsSummary> {
   const [byType, riskyRows, markingTotal, markingRisky, riskyFindings, reviewed, dictionaryPending, sure] = await Promise.all([
-    db.finding.groupBy({ by: ['type'], where: { item: { catalogId } }, _count: { _all: true } }),
+    findingTypeCounts(catalogId),
     db.catalogItem.count({ where: { catalogId, ...RISKY_ITEM } }),
     db.catalogItem.count({ where: { catalogId, markingRequired: true } }),
     db.catalogItem.count({ where: { catalogId, markingRequired: true, ...RISKY_ITEM } }),
@@ -41,7 +43,7 @@ export async function workspaceSummary(catalogId: string, rowCount: number): Pro
   return {
     total: rowCount, riskyRows, riskyFindings, reviewed, markingTotal, markingRisky, dictionaryPending,
     surePending: Number(sure[0]?.n ?? 0),
-    byType: Object.fromEntries(byType.map((r) => [r.type, r._count._all])),
+    byType: Object.fromEntries(byType.map((r) => [r.type, r.count])),
   };
 }
 
@@ -114,7 +116,7 @@ export async function workspaceChipCounts(catalogId: string, filter: WsFilter): 
     GROUP BY f.type`);
   return {
     all: rows.reduce((s, r) => s + Number(r.risky), 0),
-    byType: Object.fromEntries(rows.map((r) => [r.type, Number(r.n)])),
+    byType: Object.fromEntries(mergeTypeCounts(rows.map((r) => ({ type: r.type, count: Number(r.n) }))).map((r) => [r.type, r.count])),
     marking: rows.reduce((s, r) => s + Number(r.marking), 0),
   };
 }

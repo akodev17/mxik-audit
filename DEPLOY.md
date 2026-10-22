@@ -335,6 +335,15 @@ docker compose --profile app up -d app
 
 Never run `prisma migrate dev` against this database; see README "Migrations".
 
+Keep the order: build, migrate, then restart. After `prisma migrate deploy`
+the app container must be recreated from the image built from the same
+commit (`up -d app` does this after `build`), because the Prisma client is
+generated into the image at build time and has to match the schema. A
+container still running the old image reads a finding type the new migration
+added as "OTHER" (a neutral "other finding" label; the API reports `"OTHER"`)
+and logs `[db] finding_type holds a value this Prisma client does not know`
+once; restart it from the new image to see the real type.
+
 ### Codes restricted in EHF
 
 The RESTRICTED check reads table `restricted_code`, loaded from the official

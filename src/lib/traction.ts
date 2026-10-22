@@ -3,6 +3,7 @@
 // excluded, so the figures can go into an accelerator application as they are.
 import { Prisma } from '@prisma/client';
 import { db } from './db.js';
+import { mergeTypeCounts } from './finding-type.js';
 
 export type Traction = {
   generatedAt: Date;
@@ -111,7 +112,7 @@ export async function tractionMetrics(orgIds?: readonly string[]): Promise<Tract
       byStatus: Object.fromEntries(catalogs.map((c) => [c.status, n(c.count)])),
     },
     rows: { audited: n(catalogs.find((c) => c.status === 'ready')?.rows), risky: n(risky?.n) },
-    findingsByType: Object.fromEntries(byType.map((t) => [t.type, n(t.n)])),
+    findingsByType: Object.fromEntries(mergeTypeCounts(byType.map((t) => ({ type: t.type, count: n(t.n) }))).map((t) => [t.type, t.count])),
     decisions: {
       accepted: count('accepted', false),
       edited: count('accepted', true),

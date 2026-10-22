@@ -4,7 +4,8 @@
 import { catalogScope } from './access.js';
 import { db } from './db.js';
 import { readImportMeta } from './import-diagnostics.js';
-import { RISKY_FINDING, RISKY_ITEM } from './risk.js';
+import { findingTypeCounts } from './finding-type-counts.js';
+import { RISKY_ITEM } from './risk.js';
 import type { ScopedActor } from './upload-preview.js';
 
 export type CompletionSummary = {
@@ -36,14 +37,14 @@ export function etaSeconds(done: number, total: number, startedAt: Date | null, 
 async function summary(catalogId: string, rowCount: number, previousId: string | null, importMeta: unknown): Promise<CompletionSummary> {
   const [riskyRows, byType, carried] = await Promise.all([
     db.catalogItem.count({ where: { catalogId, ...RISKY_ITEM } }),
-    db.finding.groupBy({ by: ['type'], where: { item: { catalogId }, ...RISKY_FINDING }, _count: { _all: true } }),
+    findingTypeCounts(catalogId, { risky: true }),
     db.finding.count({ where: { item: { catalogId }, decisionSource: 'carry_over' } }),
   ]);
   const meta = readImportMeta(importMeta);
   return {
     rows: rowCount,
     riskyRows,
-    byType: byType.map((b) => ({ type: b.type, count: b._count._all })).sort((a, b) => b.count - a.count),
+    byType: byType.sort((a, b) => b.count - a.count),
     carried,
     previousId,
     notRead: meta?.parse.truncated ? Math.max(0, meta.parse.totalSeen - meta.diagnostics.rows) : 0,

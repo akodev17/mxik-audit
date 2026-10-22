@@ -2,13 +2,14 @@
 // risky findings, by type, the same way the report does.
 import { db } from '../db.js';
 import type { Dict } from '../i18n.js';
-import { RISKY_FINDING, RISKY_ITEM } from '../risk.js';
+import { findingTypeCounts } from '../finding-type-counts.js';
+import { RISKY_ITEM } from '../risk.js';
 
 const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'] as const;
 export async function auditSummaryText(catalogId: string, reportUrl: string | null, t: Dict): Promise<string> {
   const TYPE_TEXT: Record<string, string> = {
     MISSING: t.typeMissing, NOT_FOUND: t.typeNotFound, MISMATCH: t.typeMismatch, UNIT_CONFLICT: t.typeUnitConflict,
-    RESTRICTED: t.typeRestricted,
+    RESTRICTED: t.typeRestricted, OTHER: t.typeOther,
   };
   const catalog = await db.catalog.findUniqueOrThrow({
     where: { id: catalogId },
@@ -17,11 +18,11 @@ export async function auditSummaryText(catalogId: string, reportUrl: string | nu
   if (catalog.status === 'failed') return t.tgAuditFailed(catalog.filename);
 
   const [byType, risky, marking] = await Promise.all([
-    db.finding.groupBy({ by: ['type'], where: { item: { catalogId }, ...RISKY_FINDING }, _count: { _all: true } }),
+    findingTypeCounts(catalogId, { risky: true }),
     db.catalogItem.count({ where: { catalogId, ...RISKY_ITEM } }),
     db.catalogItem.count({ where: { catalogId, markingRequired: true } }),
   ]);
-  const counts = new Map<string, number>(byType.map((r) => [r.type, r._count._all]));
+  const counts = new Map<string, number>(byType.map((r) => [r.type, r.count]));
   const lines = [
     t.tgAuditDone(catalog.client?.name ?? ''),
     `${t.tgFile}: ${catalog.filename}`,

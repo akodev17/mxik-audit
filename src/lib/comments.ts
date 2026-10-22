@@ -42,7 +42,7 @@ export async function setFlag(scope: Scope, findingId: string, flag: Flag): Prom
   const finding = await visibleFinding(scope, findingId);
   if (!finding) return false;
   await db.$transaction([
-    db.finding.update({ where: { id: finding.id }, data: { flag } }),
+    db.finding.update({ where: { id: finding.id }, data: { flag }, select: { id: true } }),
     db.auditEvent.create({
       data: {
         orgId: scope.orgId, actorId: scope.userId, action: 'finding.flagged', targetId: findingId,

@@ -184,7 +184,7 @@ export async function splitFromGroup(actor: Actor, findingId: string): Promise<R
   });
   if (!finding) return fail('not found');
   await db.$transaction([
-    db.finding.update({ where: { id: finding.id }, data: { groupSplit: true } }),
+    db.finding.update({ where: { id: finding.id }, data: { groupSplit: true }, select: { id: true } }),
     db.auditEvent.create({
       data: {
         orgId: actor.orgId, actorId: actor.userId, action: 'finding.split_from_group', targetId: finding.id,

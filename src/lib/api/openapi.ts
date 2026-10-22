@@ -17,7 +17,7 @@ const object = (properties: Record<string, Schema>, description?: string): Schem
 });
 
 const SCORE = 'Match score from 0 to 1. It ranks candidates; it is not a probability that the code is right.';
-const findingType: Schema = { type: 'string', enum: Object.values(FindingType), description: FINDING_FIELDS.type };
+const findingType: Schema = { type: 'string', enum: [...Object.values(FindingType), 'OTHER'], description: FINDING_FIELDS.type };
 const reason: Schema = { type: 'string', description: FINDING_FIELDS.reason };
 const restrictedFrom: Schema = nullable({ type: 'string', format: 'date', description: FINDING_FIELDS.restrictedFrom });
 const severity: Schema = { type: 'string', enum: Object.values(Severity), description: 'Stable and machine-readable. "info" is shown for information and never counted as risk.' };
