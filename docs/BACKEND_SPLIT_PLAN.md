@@ -307,8 +307,10 @@ Seams:
 - `catalogs/[id]/page.tsx` is shared with W3b: W3b owns the top (catalog header read), W3c the grid half. At
   merge, the grid half should use W3b's `catalog.client.id`, `catalog.exportLocked` and `user` (auth.me). Both
   branches changed money-at-risk.tsx to `workspace.moneyAtRisk`; the two versions are equivalent.
-- notifications/notice-actions.tsx is also listed by W3d; W3c's version (query invalidation) is the one that fits
-  the page.
+- notifications/notice-actions.tsx: take W3c's version (W3d agreed and dropped its glob). W3d's bell uses the key
+  ['notifications', 'preview'], so W3c's ['notifications'] invalidation refreshes it too.
+- actions/reminders.ts: W3c removed finishTask and W3d removed saveSchedule. With both merged nothing is left, so
+  delete the file.
 
 For W4:
 - Files left out of MIGRATED_WEB_PATHS, because they still use pure domain/core helpers:
