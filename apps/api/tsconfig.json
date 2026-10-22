@@ -1,0 +1,17 @@
+{
+  // Type checking only. At runtime tsx (dev, tests) and esbuild (build:api) compile these files
+  // with the root tsconfig.json's options, which enable the same legacy decorators. Neither emits
+  // decorator metadata, so constructor dependencies are always named with @Inject(...).
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "experimentalDecorators": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

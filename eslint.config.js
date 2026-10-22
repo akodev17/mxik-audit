@@ -5,7 +5,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/**', '**/.next/**', 'tmp/**', 'data/**', 'packages/db/prisma/**', 'packages/core/src/normalize/units.generated.ts'] },
+  { ignores: ['**/node_modules/**', '**/.next/**', '**/dist/**', 'tmp/**', 'data/**', 'packages/db/prisma/**', 'packages/core/src/normalize/units.generated.ts'] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
