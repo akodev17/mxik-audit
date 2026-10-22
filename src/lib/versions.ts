@@ -82,7 +82,7 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
 
   const accepted = decided.flatMap((f) => (f.decision === 'accepted' && f.chosenMxik ? [f.chosenMxik] : []));
   const live = accepted.length === 0 ? new Set<string>() : new Set((await db.$queryRaw<{ code: string }[]>`
-    SELECT code FROM mxik_code WHERE code = ANY(${[...new Set(accepted)]}) AND "retiredAt" IS NULL`).map((r) => r.code.trim()));
+    SELECT code FROM mxik_code WHERE code = ANY(${[...new Set(accepted)]}::bpchar[]) AND "retiredAt" IS NULL`).map((r) => r.code.trim()));
 
   type Carried = { findingId: string; sourceFindingId: string; decision: 'accepted' | 'rejected'; chosenMxik: string | null; decidedBy: string | null };
   const carried: Carried[] = [];
