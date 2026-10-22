@@ -2,7 +2,7 @@
 
 export type ToastTone = 'ok' | 'error';
 
-export const TOAST_MS = { ok: 6000, error: 10000, action: 10000 } as const;
+export const TOAST_MS = { ok: 4000, error: 10000, action: 5000 } as const;
 
 export function toastDuration(tone: ToastTone, hasAction: boolean): number {
   const base = tone === 'error' ? TOAST_MS.error : TOAST_MS.ok;

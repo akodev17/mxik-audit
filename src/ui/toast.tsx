@@ -73,7 +73,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
 
 /**
  * Bottom-left stack of at most three toasts. Confirmations are announced politely; errors are
- * role="alert" with an "Error:" prefix. A toast with an action (Undo) stays at least 10 s.
+ * role="alert" with an "Error:" prefix. A toast with an action (Undo) stays at least 5 s.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);

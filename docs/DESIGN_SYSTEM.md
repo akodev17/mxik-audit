@@ -139,7 +139,7 @@ All in `src/ui`. States listed are the ones the dev gallery renders.
 | `Menu` | `label`, `items` ({ label, description, onSelect, href, icon, tone, disabled }), `icon`, `iconOnly`, `variant`, `size`, `align` | arrows, Home, End, first letter, Escape returns focus, Tab closes; flips and shifts like Popover; `description` is a small muted second line |
 | `Tabs` | `items` ({ href, label, active, count }) | links with `aria-current="page"` on the active one; a row wider than the screen scrolls sideways with edge fades and the active tab scrolled into view |
 | `Drawer` | `open`, `title`, `onClose`, `footer`, `backdrop`, `width` (sets `--drawer-width`, default 460px) | non-modal; focus to heading on open and back to opener on close; Escape ignored in a filled text field or when already handled |
-| `ToastProvider`, `useToast()` | `toast(message, { tone: 'ok' \| 'error', action })` | timer pauses on hover and focus; close button; errors are `role="alert"` with an "Error:" prefix; with an action at least 10 s |
+| `ToastProvider`, `useToast()` | `toast(message, { tone: 'ok' \| 'error', action })` | timer pauses on hover and focus; close button; errors are `role="alert"` with an "Error:" prefix; with an action at least 5 s |
 | `Spinner` | `label`, `size` | decorative or `role="status"` |
 | `Kbd` | — | — |
 | `VisuallyHidden` | — | screen-reader text pinned to its containing block |

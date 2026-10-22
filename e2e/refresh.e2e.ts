@@ -1,6 +1,6 @@
 // Refreshes and server actions must commit on their own. In production a router.refresh() after a
 // mutation could stay uncommitted until some unrelated state update (on the dashboard: until the
-// mutation's toast went away, 6 s later): the same React behaviour as the stuck in-section
+// mutation's toast went away, then 6 s later): the same React behaviour as the stuck in-section
 // navigations (src/ui/shell/navigation.ts), but these keep the address, so RouteBoundary does not
 // cover them. The shell now nudges React after each server response (src/ui/shell/response-nudge.ts).
 // Nothing here touches the page between the change and the check, so nothing else can rescue it.
@@ -10,7 +10,7 @@ import type { Browser, BrowserContext, Page } from 'playwright';
 import { localDate } from '../src/lib/reminders';
 import { db, E2E_PASSWORDS, gridRows, launch, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
 
-/** Far below the 6 s toast, whose dismissal used to be what committed a held refresh. */
+/** Below the 4 s toast, whose dismissal used to be what committed a held refresh. */
 const SETTLE_MS = 2_000;
 const ROUNDS = 4;
 
