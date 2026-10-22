@@ -12,16 +12,16 @@
 //
 // Run: the app running elsewhere (npm run dev, or a production build), then
 //      npm run capture       (CAPTURE_BASE_URL defaults to http://localhost:3000)
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { mkdir } from 'node:fs/promises';
 import { chromium, type Browser, type Page } from 'playwright';
-import { db } from '../src/lib/db.js';
+import { db } from '@tasnivo/db';
 
 const BASE = process.env['CAPTURE_BASE_URL'] ?? 'http://localhost:3000';
 const EMAIL = process.env['SEED_EMAIL'] ?? 'buxgalter@demo.uz';
 const PASSWORD = process.env['SEED_PASSWORD'] ?? 'demo12345';
-const OUT = 'public/screenshots';
-const SAMPLE = 'public/demo/namuna-katalog.xlsx';
+const OUT = 'apps/web/public/screenshots';
+const SAMPLE = 'apps/web/public/demo/namuna-katalog.xlsx';
 
 type Shot = {
   file: string;

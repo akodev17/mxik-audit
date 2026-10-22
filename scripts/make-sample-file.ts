@@ -11,8 +11,8 @@ import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { SAMPLE_FILENAME, SAMPLE_HEADERS, sampleWorkbook } from './landing-sample/catalog.js';
 
-const OUT_DIR = 'public/demo';
-const rows = (JSON.parse(readFileSync('prisma/demo-catalog.json', 'utf8')) as { rows: string[][] }).rows;
+const OUT_DIR = 'apps/web/public/demo';
+const rows = (JSON.parse(readFileSync('packages/db/prisma/demo-catalog.json', 'utf8')) as { rows: string[][] }).rows;
 
 await mkdir(OUT_DIR, { recursive: true });
 await writeFile(`${OUT_DIR}/${SAMPLE_FILENAME}`, await sampleWorkbook(rows));

@@ -1,0 +1,14 @@
+{
+  "name": "@tasnivo/i18n",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Uzbek and Russian dictionaries and formatting. Pure functions, no request state.",
+  "exports": {
+    "./i18n-parts": "./src/i18n-parts/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

@@ -1,6 +1,6 @@
 // Memoizes retrieval, so stage ablations re-use the same database answers
 // instead of repeating ~1-2 s vector scans per case per configuration.
-import type { CandidateStore, MxikCandidate } from '../src/core/match/types.js';
+import type { CandidateStore, MxikCandidate } from '@tasnivo/core/match/types';
 
 type Hit = { candidate: MxikCandidate; score: number };
 type FullTextHit = Hit & { hierarchyWords?: string[] };

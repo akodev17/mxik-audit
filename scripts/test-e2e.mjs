@@ -1,13 +1,14 @@
-// End-to-end runner: e2e/*.e2e.ts against a running server (E2E_BASE_URL, default http://localhost:3000).
+// End-to-end runner: apps/web/e2e/*.e2e.ts against a running server (E2E_BASE_URL, default http://localhost:3000).
 // Files run one after another (--test-concurrency=1) because they share that server.
 // Like scripts/test.mjs, it lists the files itself because cmd.exe does not expand globs.
 import { spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const files = readdirSync('e2e').filter((name) => name.endsWith('.e2e.ts')).sort().map((name) => join('e2e', name));
+const DIR = join('apps', 'web', 'e2e');
+const files = readdirSync(DIR).filter((name) => name.endsWith('.e2e.ts')).sort().map((name) => join(DIR, name));
 if (files.length === 0) {
-  console.error('no e2e/*.e2e.ts files found');
+  console.error('no apps/web/e2e/*.e2e.ts files found');
   process.exit(1);
 }
 

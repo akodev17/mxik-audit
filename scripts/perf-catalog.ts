@@ -3,19 +3,19 @@
 // with per-stage timing, run the report's queries, and append the numbers to
 // docs/perf-results.json. Uses a throwaway org that is deleted afterwards.
 // Run: npm run perf [-- --rows 60000 --keep --label "..."]
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism, cpus, totalmem } from 'node:os';
 import ExcelJS from 'exceljs';
 import { Pool } from 'pg';
-import { readCode } from '../src/core/audit/checks.js';
-import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import type { StageTimer } from '../src/core/match/pipeline.js';
-import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
-import { normalizeName } from '../src/core/normalize/index.js';
-import { auditCatalog } from '../src/lib/audit-runner.js';
-import { db } from '../src/lib/db.js';
-import { parseUpload } from '../src/lib/spreadsheet.js';
+import { readCode } from '@tasnivo/core/audit/checks';
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import type { StageTimer } from '@tasnivo/core/match/pipeline';
+import { checkVectorReadiness } from '@tasnivo/core/match/vector-readiness';
+import { normalizeName } from '@tasnivo/core/normalize/index';
+import { auditCatalog } from '@tasnivo/domain/audit-runner';
+import { db } from '@tasnivo/db';
+import { parseUpload } from '@tasnivo/domain/spreadsheet';
 import { makeRng, noisify } from '../eval/noise.js';
 
 const arg = (flag: string): string | undefined => {

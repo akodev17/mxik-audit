@@ -47,12 +47,17 @@ on 3000 — don't start it next to the dev server. If it is running locally,
 Deploying to a server: [`DEPLOY.md`](DEPLOY.md).
 
 Do not run `npm run build` while `npm run dev` is running — they share
-`.next` and the dev server will start returning 500s.
+`apps/web/.next` and the dev server will start returning 500s.
+
+Run every command from the repository root. `npm run dev`/`build`/`start` run
+`next <command> apps/web` there, so the working directory stays the root
+(`data/`, `node_modules/` and `scripts/` resolve against it) and the root `.env`
+is loaded (apps/web/next.config.ts).
 
 Then `npm run typecheck && npm run lint && npm test`.
 
 `.env` is loaded automatically by every script that needs it (via
-`src/lib/load-env.ts` — Node 20 has no `--env-file-if-exists`, and cmd.exe
+`packages/domain/src/load-env.ts` — Node 20 has no `--env-file-if-exists`, and cmd.exe
 does not expand globs, so neither could be relied on). Real environment
 variables always win over the file.
 
@@ -62,14 +67,14 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 
 | Command | What it does |
 |---|---|
-| `npm run typecheck` | `tsc --noEmit` under `strict` |
-| `npm run lint` | ESLint, type-aware |
+| `npm run typecheck` | `tsc --noEmit` under `strict`, in every workspace and for `scripts/` + `eval/` |
+| `npm run lint` | ESLint, type-aware, over `apps/web/src`, `packages/*/src`, `scripts/`, `eval/` |
 | `npm test` | 324 tests: unit tests, plus database integration tests (undo, deletion, demo, background audits, traction and cross-org isolation) that skip with a reason when Postgres is not reachable |
 | `npm run eval` | top-1/top-5 and high-band precision, real vs synthetic, each stage on/off; appends to `docs/eval-results.json` |
 | `npm run eval:synthetic` | rebuilds `eval/synthetic.csv` from classifier names with realistic noise |
 | `npm run perf` | builds a 60,000-row noisy .xlsx (`-- --rows N`), uploads, audits and reports it with per-stage timing; appends to `docs/perf-results.json` |
 | `npm run perf:nav` | tab switching benchmark against a running production build (`next start -p 3001`, never `next dev`): cold/warm tabs, settings tabs, workspace filters, Back/Forward, heap; `-- --slow` adds Fast 3G, `-- --server-log FILE` counts queries per route from a server started with `PRISMA_LOG=1`; appends to `docs/perf-nav-results.json` |
-| `npm run seed:demo` | audits `prisma/demo-catalog.json` into the demo template behind `/demo` |
+| `npm run seed:demo` | audits `packages/db/prisma/demo-catalog.json` into the demo template behind `/demo` |
 | `npm run make:demo-catalog` | rebuilds that fixture from `scripts/demo/products.ts` (hand-checked codes) |
 | `npm run demo:quality` | per-check precision/recall of the demo audit against the fixture's labels |
 | `npm run purge:expired` | erases lead files past retention and deletes expired demo orgs (run daily) |
@@ -83,7 +88,7 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 | `npm run seed` | demo org, user, and a deliberately messy 200-row catalogue |
 | `npm run seed:audit <id>` | audits a stored catalogue from the CLI |
 | `npm run capture` | real screenshots of the running app from a demo session, desktop and phone (docs/demos; the landing page uses none) |
-| `npm run make:sample` | writes `public/demo/namuna-katalog.xlsx` |
+| `npm run make:sample` | writes `apps/web/public/demo/namuna-katalog.xlsx` |
 | `npm run make:sample-report` | freezes an anonymised sample report for the landing page |
 | `npm run generate:units` | regenerates `units.generated.ts` from the portal's unit reference |
 | `npm run inspect:xlsx` | column-by-column census of the export |
@@ -228,9 +233,9 @@ tries to `ALTER` the generated column and fails.
 The working flow:
 
 ```bash
-npx prisma migrate diff --from-schema-datasource prisma/schema.prisma   --to-schema-datamodel prisma/schema.prisma --script > /tmp/next.sql
+npx prisma migrate diff --from-schema-datasource packages/db/prisma/schema.prisma   --to-schema-datamodel packages/db/prisma/schema.prisma --script > /tmp/next.sql
 # review, delete every statement touching mxik_code, then:
-#   prisma/migrations/<timestamp>_<name>/migration.sql
+#   packages/db/prisma/migrations/<timestamp>_<name>/migration.sql
 npx prisma migrate deploy
 ```
 
@@ -242,26 +247,38 @@ server to pick up new fields.
 A checkout (or worktree) whose generated client is older than the database it
 points at sees the database's newer enum values as errors: Prisma refuses a
 read with `Value 'X' not found in enum 'FindingType'`. Finding reads survive
-this (src/lib/finding-type-extension.ts: the type is read as text and shown as
+this (packages/db/src/finding-type-extension.ts: the type is read as text and shown as
 "OTHER", with a `[db] finding_type holds a value…` warning in the server log),
 but other enums and new columns do not. Run `npx prisma generate` in that
 checkout after pulling a migration someone else applied. In development the
 error page shows the error message and digest; in every environment the
 server logs each page error as `[request-error] <method> <path> route=…
-digest=…` (src/instrumentation.ts).
+digest=…` (apps/web/src/instrumentation.ts).
 
-## Layout
+## Repository layout
+
+npm workspaces (`apps/*`, `packages/*`). The packages are TypeScript source,
+not builds: each `package.json` maps `exports` straight to `src/*.ts`, so
+`@tasnivo/domain/catalogs` is `packages/domain/src/catalogs.ts` for Next, tsx and
+tsc alike. The split into an API, a worker and a thin web app is planned in
+[`docs/BACKEND_SPLIT_PLAN.md`](docs/BACKEND_SPLIT_PLAN.md); this is its Wave 0.
 
 ```
-src/core/normalize/   pure text normalization (script, apostrophes, noise, units)
-src/core/match/       cascade, fusion, scoring, domain rules, Postgres store
-src/core/embed/       swappable embedding providers
-src/lib/              server services: decisions/undo, catalogues, demo, retention, audit runner and background jobs, traction
-src/app/              screens, server actions, /admin, /api/export, /api/health
+apps/web/             Next.js: src/app (screens, server actions, /api routes), src/ui, src/components,
+                      src/content (help), src/styles, public/, e2e/; src/lib holds the adapters that
+                      need Next or React (session cookie, locale cookie, per-render caches, NextResponse)
+packages/core/        @tasnivo/core: matching engine, no framework imports
+  src/normalize/      pure text normalization (script, apostrophes, noise, units)
+  src/match/          cascade, fusion, scoring, domain rules, Postgres store
+  src/embed/          swappable embedding providers
+packages/domain/      @tasnivo/domain: server services (decisions/undo, catalogues, demo, retention,
+                      audit runner and background jobs, traction), no Next or React
+packages/i18n/        @tasnivo/i18n: Uzbek/Russian dictionaries and formatting, pure functions
+packages/db/          @tasnivo/db: prisma/ (schema, migrations, seed, demo catalogue fixture) and the
+                      shared Prisma client
 scripts/              ingestion, enrichment, demo fixture, maintenance and Gate 0 diagnostics
 eval/                 golden.csv (real), synthetic.csv, and the evaluation harness
-prisma/               schema, migrations and the demo catalogue fixture
-docs/                 Gate 0 findings, scoring rationale, eval history, session state
+docs/                 Gate 0 findings, scoring rationale, eval history, session state, split plan
 ```
 
 ## Known limitations
@@ -297,7 +314,7 @@ docs/                 Gate 0 findings, scoring rationale, eval history, session 
   base, not invoice defects. The fine consequence is therefore stated without an
   article number pending a tax adviser's confirmation.
 - **The landing page's sample report and the `/demo` catalogue are the same
-  invented file** (`prisma/demo-catalog.json`, 186 rows) audited by the real
+  invented file** (`packages/db/prisma/demo-catalog.json`, 186 rows) audited by the real
   pipeline. Invented rows, not a customer's file; re-run
   `npm run make:sample-report` after any change that alters findings, so the
   landing and the demo stay equal. The art. 223 note above was written before

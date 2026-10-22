@@ -1,0 +1,36 @@
+{
+  "name": "@tasnivo/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Domain services (former src/lib) without Next or React.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tasnivo/core": "*",
+    "@tasnivo/db": "*",
+    "@tasnivo/i18n": "*",
+    "@prisma/client": "^6.19.3",
+    "dejavu-fonts-ttf": "^2.37.3",
+    "exceljs": "^4.4.0",
+    "grammy": "^1.46.0",
+    "iron-session": "^8.0.4",
+    "jszip": "^3.10.1",
+    "nodemailer": "^10.1.2",
+    "pdfkit": "^0.20.2",
+    "pg": "^8.23.0",
+    "qrcode-generator": "^2.0.4",
+    "yauzl": "^3.2.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.17.6",
+    "@types/pg": "^8.23.1",
+    "@types/yauzl": "^2.10.3"
+  }
+}

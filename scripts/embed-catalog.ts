@@ -16,13 +16,13 @@
 // --no-index skips the HNSW build (measurement copies, where exact scans are fine).
 //
 // Run: npm run embed:catalog [-- --columns uz] [-- --restart] [-- --no-index]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { embeddingText } from '../src/core/embed/text.js';
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { embeddingText } from '@tasnivo/core/embed/text';
 import { HNSW_BUILD_SETTINGS, hnswIndexSql } from './lib/hnsw.js';
-import { REBUILDING_PREFIX, writeEmbeddingState, type VectorColumn } from '../src/core/match/vector-readiness.js';
+import { REBUILDING_PREFIX, writeEmbeddingState, type VectorColumn } from '@tasnivo/core/match/vector-readiness';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 const BATCH = Number(process.env['EMBED_BATCH'] ?? '1000');

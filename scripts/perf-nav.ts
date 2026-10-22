@@ -19,13 +19,13 @@
 // --no-save           print only
 // PERF_BASE_URL (default http://localhost:3001), PERF_EMAIL / PERF_PASSWORD (default: the seed org
 // from the README, `npm run seed`).
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { cpus, totalmem } from 'node:os';
 import { chromium, type Browser, type BrowserContext, type Page, type Request } from 'playwright';
-import { taUz } from '../src/lib/i18n-app.js';
+import { taUz } from '@tasnivo/i18n/i18n-app';
 
 const arg = (flag: string): string | undefined => {
   const i = process.argv.indexOf(flag);

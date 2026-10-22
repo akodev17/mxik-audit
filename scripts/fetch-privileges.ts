@@ -2,9 +2,9 @@
 // mxik_code.taxPrivilegeIds can be shown with their wording and legal basis.
 // Public endpoint, found in Gate 0 (docs/gate0-report.md). See docs/imtiyoz-data.md.
 // Run: npm run privileges:fetch
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { z } from 'zod';
-import { db } from '../src/lib/db.js';
+import { db } from '@tasnivo/db';
 
 const URL = 'https://tasnif.soliq.uz/api/cls-api/integration-mxik/references/lgota';
 

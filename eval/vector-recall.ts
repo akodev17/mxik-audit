@@ -6,15 +6,15 @@
 // m=16, ef_construction=64 index on mxik returned 1 of the 24 profile-pipe codes
 // the exact scan finds). Read only.
 // Run: npm run eval:recall [-- --k 50 --ef-search 100 --sets real-metal,golden]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { embeddingText } from '../src/core/embed/text.js';
-import { vectorColumnsFor } from '../src/core/match/pipeline.js';
-import { PostgresCandidateStore } from '../src/core/match/store.js';
-import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
-import { normalizeName } from '../src/core/normalize/index.js';
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { embeddingText } from '@tasnivo/core/embed/text';
+import { vectorColumnsFor } from '@tasnivo/core/match/pipeline';
+import { PostgresCandidateStore } from '@tasnivo/core/match/store';
+import { checkVectorReadiness } from '@tasnivo/core/match/vector-readiness';
+import { normalizeName } from '@tasnivo/core/normalize/index';
 import { parseCases, type EvalCase } from './cases.js';
 import { setOf } from './metrics.js';
 

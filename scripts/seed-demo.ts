@@ -3,15 +3,15 @@
 // to /demo each get a fresh copy of it (src/lib/demo.ts). Re-running replaces
 // the template; existing visitor copies are left alone until they expire.
 // Run: npm run seed:demo
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
-import { readCode } from '../src/core/audit/checks.js';
-import { formatLlmUsage } from '../src/core/match/rerank-usage.js';
-import { normalizeName } from '../src/core/normalize/index.js';
-import { auditCatalog } from '../src/lib/audit-runner.js';
-import { db } from '../src/lib/db.js';
-import { DEMO_ORG_NAME } from '../src/lib/demo.js';
+import { readCode } from '@tasnivo/core/audit/checks';
+import { formatLlmUsage } from '@tasnivo/core/match/rerank-usage';
+import { normalizeName } from '@tasnivo/core/normalize/index';
+import { auditCatalog } from '@tasnivo/domain/audit-runner';
+import { db } from '@tasnivo/db';
+import { DEMO_ORG_NAME } from '@tasnivo/domain/demo';
 
 const Fixture = z.object({
   filename: z.string(),
@@ -20,7 +20,7 @@ const Fixture = z.object({
   rows: z.array(z.array(z.string())),
 });
 
-const fixture = Fixture.parse(JSON.parse(readFileSync('prisma/demo-catalog.json', 'utf8')));
+const fixture = Fixture.parse(JSON.parse(readFileSync('packages/db/prisma/demo-catalog.json', 'utf8')));
 const { columnMap: map } = fixture;
 const cell = (row: string[], i: number): string | null => (i < 0 ? null : row[i]?.trim() || null);
 

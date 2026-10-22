@@ -3,10 +3,10 @@
 // whether the suggested code is the right one. The demo is invented data, so
 // these numbers describe the checks' behaviour, not real-world accuracy.
 // Run: npm run demo:quality   (after npm run seed:demo)
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
-import { db } from '../src/lib/db.js';
+import { db } from '@tasnivo/db';
 
 const Label = z.object({
   intent: z.enum(['clean', 'missing', 'not_found', 'wrong_code', 'unit_conflict']),
@@ -18,7 +18,7 @@ const Fixture = z.object({ labels: z.array(Label) });
 const EXPECTED = { missing: 'MISSING', not_found: 'NOT_FOUND', wrong_code: 'MISMATCH', unit_conflict: 'UNIT_CONFLICT' } as const;
 
 try {
-  const { labels } = Fixture.parse(JSON.parse(readFileSync('prisma/demo-catalog.json', 'utf8')));
+  const { labels } = Fixture.parse(JSON.parse(readFileSync('packages/db/prisma/demo-catalog.json', 'utf8')));
   const catalog = await db.catalog.findFirst({
     where: { org: { kind: 'demo_template' }, status: 'ready' },
     orderBy: { createdAt: 'desc' },

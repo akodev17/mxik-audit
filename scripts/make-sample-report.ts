@@ -1,6 +1,6 @@
 // Runs the real audit on the demo's catalogue (prisma/demo-catalog.json, whose
 // first rows are scripts/landing-sample/catalog.ts) and freezes the result into
-// src/lib/sample-report.generated.ts — so the landing's numbers are the numbers
+// packages/domain/src/sample-report.generated.ts — so the landing's numbers are the numbers
 // a visitor sees in the demo. Also writes the same file to
 // public/demo/namuna-katalog.xlsx, so what a visitor downloads (and can upload
 // to the app) is exactly what produced the page's numbers.
@@ -21,14 +21,14 @@
 // test suite fails on a draft, so one cannot be committed by accident.
 // `-- --source=scripts/landing-sample/catalog.ts` audits only the 27 hand-written
 // rows instead. Any JSON source must use the sample's headers and column layout.
-import '../src/lib/load-env.js';
+import '@tasnivo/domain/load-env';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { readCode, type FindingType } from '../src/core/audit/checks.js';
-import { normalizeName } from '../src/core/normalize/index.js';
-import { auditCatalog, lookupCode } from '../src/lib/audit-runner.js';
-import { db } from '../src/lib/db.js';
-import { parseUpload } from '../src/lib/spreadsheet.js';
+import { readCode, type FindingType } from '@tasnivo/core/audit/checks';
+import { normalizeName } from '@tasnivo/core/normalize/index';
+import { auditCatalog, lookupCode } from '@tasnivo/domain/audit-runner';
+import { db } from '@tasnivo/db';
+import { parseUpload } from '@tasnivo/domain/spreadsheet';
 import {
   SAMPLE_FILENAME, SAMPLE_HEADERS, SAMPLE_MAPPING, SAMPLE_ROWS, sampleWorkbook,
 } from './landing-sample/catalog.js';
@@ -40,7 +40,7 @@ const PER_TYPE = 2;
 const PREVIEW = process.argv.includes('--preview');
 const DRAFT = process.argv.includes('--draft');
 const SOURCE = process.argv.find((a) => a.startsWith('--source='))?.slice('--source='.length)
-  ?? 'prisma/demo-catalog.json';
+  ?? 'packages/db/prisma/demo-catalog.json';
 
 /** The rows to audit: the landing sample, or a JSON fixture in the same layout. */
 function sourceRows(): readonly (readonly string[])[] {
@@ -89,7 +89,7 @@ if (!PREVIEW && !DRAFT && (!embedded || Number(embedded.rowsEmbedded) < Number(s
 
 // ------------------------------------------------- the file, as the app reads it
 const buffer = await sampleWorkbook(sourceRows());
-if (!PREVIEW) writeFileSync(`public/demo/${SAMPLE_FILENAME}`, buffer);
+if (!PREVIEW) writeFileSync(`apps/web/public/demo/${SAMPLE_FILENAME}`, buffer);
 const parsed = await parseUpload(buffer, SAMPLE_FILENAME);
 if (parsed.headers.join('|') !== SAMPLE_HEADERS.join('|')) {
   throw new Error(`Unexpected headers after parsing: ${parsed.headers.join(' | ')}`);
@@ -360,8 +360,8 @@ export const SAMPLE_REPORT: {
 `;
 
 if (!PREVIEW) {
-  writeFileSync('src/lib/sample-report.generated.ts', file);
-  console.log(`wrote src/lib/sample-report.generated.ts and public/demo/${SAMPLE_FILENAME}`);
+  writeFileSync('packages/domain/src/sample-report.generated.ts', file);
+  console.log(`wrote packages/domain/src/sample-report.generated.ts and apps/web/public/demo/${SAMPLE_FILENAME}`);
 } else {
   console.log('preview only — nothing written');
   for (const r of rows) console.log(`    ${r.type} | ${r.productName} | now: ${r.currentName ?? '-'} | fix: ${r.suggestedName ?? r.requiredUnit ?? '-'}`);

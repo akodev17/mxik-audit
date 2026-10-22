@@ -2,7 +2,7 @@
 // Built CONCURRENTLY so a live database keeps answering while it builds; that
 // cannot run inside a transaction, which is why no migration creates it.
 import type { Client } from 'pg';
-import { WEIGHTED_INDEX } from '../../src/core/match/store.js';
+import { WEIGHTED_INDEX } from '@tasnivo/core/match/store';
 
 /** True when mxik_code has the column (the weighted_search_vector migration ran). */
 export async function hasWeightedColumn(client: Client): Promise<boolean> {

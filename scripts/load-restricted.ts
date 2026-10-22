@@ -3,10 +3,10 @@
 // RESTRICTED finding. Upserts, so a later stage's list adds codes and a
 // re-run updates dates; codes absent from the file are left alone.
 // Run: npm run load:restricted -- <xlsx> [--from 2026-07-01] [--source <url>]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import ExcelJS from 'exceljs';
-import { db } from '../src/lib/db.js';
-import { parseRestrictedSheet, RESTRICTED_DEFAULT_FROM, RESTRICTED_SOURCE_URL } from '../src/lib/restricted-list.js';
+import { db } from '@tasnivo/db';
+import { parseRestrictedSheet, RESTRICTED_DEFAULT_FROM, RESTRICTED_SOURCE_URL } from '@tasnivo/domain/restricted-list';
 
 const args = process.argv.slice(2);
 const option = (flag: string): string | undefined => {

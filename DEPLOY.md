@@ -222,7 +222,7 @@ from the bot run in that process).
 
 Click and Payme stay off until their keys are in `.env` (see `.env.example`);
 without them no payment button appears and Settings → Tarif says that no
-payment provider is configured. Catalogue prices: `src/lib/billing/plans.ts`.
+payment provider is configured. Catalogue prices: `packages/domain/src/billing/plans.ts`.
 The firm monthly price is `PLAN_FIRM_PRICE` (whole soʻm); while it is unset
 the plan is not for sale and Settings says the price is not set. Only admins
 see pay buttons; other roles are told that an administrator pays.
@@ -263,7 +263,7 @@ With SMTP on, signing up with an address that already has an account answers "ch
 
 /sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan is not for sale until `PLAN_FIRM_PRICE` is set.
 
-An upload waits at the column-mapping step as an uncommitted preview, and its rows count against the monthly allowance only once the mapping is confirmed. Previews are limited on their own: a user's new upload deletes their earlier open preview, an upload is refused (with a message) when the org's open preview rows from the last 24 hours would exceed the plan's monthly row limit (200,000 when the plan has none; `PREVIEW_ROWS_UNCAPPED` in `src/lib/plan.ts`), and the daily job (7e) deletes previews left for 48 hours. Each deletion writes `catalog.upload_discarded` with `reason` `replaced` or `expired` (the latter without an actor). These numbers are not `.env` settings.
+An upload waits at the column-mapping step as an uncommitted preview, and its rows count against the monthly allowance only once the mapping is confirmed. Previews are limited on their own: a user's new upload deletes their earlier open preview, an upload is refused (with a message) when the org's open preview rows from the last 24 hours would exceed the plan's monthly row limit (200,000 when the plan has none; `PREVIEW_ROWS_UNCAPPED` in `packages/domain/src/plan.ts`), and the daily job (7e) deletes previews left for 48 hours. Each deletion writes `catalog.upload_discarded` with `reason` `replaced` or `expired` (the latter without an actor). These numbers are not `.env` settings.
 
 "Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
 
@@ -305,7 +305,7 @@ docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" SET \"platfo
 ```
 
 - **Closed accounts** stop everything that runs without a sign-in: API keys, share links, the Telegram bot (the chat is treated as unlinked; notifications and audit summaries are not sent; old link codes do nothing).
-- **HTTP headers** on every route (`src/lib/security/headers.ts`): Content-Security-Policy (`default-src 'self'`, `frame-ancestors 'none'`, scripts from the site and `https://telegram.org` for the login widget, its iframe from `https://oauth.telegram.org`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (no camera, microphone, geolocation), `X-Frame-Options: DENY`, and in production `Strict-Transport-Security: max-age=31536000`. `script-src` keeps `'unsafe-inline'` because Next.js bootstraps pages with inline scripts; per-request nonces would need middleware and a verified production build, which is future work. `'unsafe-eval'` and the hot-reload websocket are allowed only in development. The app sends these itself: do not add them again in nginx (with two `Content-Security-Policy` headers the browser enforces both, so everything must pass each one and pages can break).
+- **HTTP headers** on every route (`packages/domain/src/security/headers.ts`): Content-Security-Policy (`default-src 'self'`, `frame-ancestors 'none'`, scripts from the site and `https://telegram.org` for the login widget, its iframe from `https://oauth.telegram.org`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (no camera, microphone, geolocation), `X-Frame-Options: DENY`, and in production `Strict-Transport-Security: max-age=31536000`. `script-src` keeps `'unsafe-inline'` because Next.js bootstraps pages with inline scripts; per-request nonces would need middleware and a verified production build, which is future work. `'unsafe-eval'` and the hot-reload websocket are allowed only in development. The app sends these itself: do not add them again in nginx (with two `Content-Security-Policy` headers the browser enforces both, so everything must pass each one and pages can break).
 - **Landing-page lead form** accepts files up to 5 MB, and an .xlsx that would inflate past 100 MB (or has more than 5,000 entries) is refused before it is parsed.
 - **Account data export** (admin, Settings): a zip with team, clients, dictionary, activity log and one Excel file per catalogue. Passwords, API keys and two-factor secrets are never included.
 - **Closing an account**: the admin confirms with the password; nobody can sign in except an admin, who may restore the account. After `ACCOUNT_DELETE_AFTER_DAYS` (default 30) the daily job (section 7e) erases the organisation and everything under it, including its log entries.
@@ -387,7 +387,7 @@ confirmed by the audit, so a stale copy is made visible:
 
 - **Banner.** The catalogue workspace and the catalogue report show a warning (Uzbek or
   Russian) when the newest snapshot is more than 7 days old, or when the last update
-  failed. A failure counts until a newer snapshot is loaded. The rule is `src/lib/classifier-freshness.ts`.
+  failed. A failure counts until a newer snapshot is loaded. The rule is `packages/domain/src/classifier-freshness.ts`.
 - **Health.** `/api/health` has `classifier.takenAt`, `ageDays`, `codeCount`, `stale` (the same
   7-day rule) and `lastUpdate` (`outcome` `success` or `failed`, `at`, and the failure
   `message`, one line from the update script). A stale copy does not turn the status to

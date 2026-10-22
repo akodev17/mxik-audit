@@ -3,9 +3,9 @@
 // concurrently. Every name it needs is already in the row, so no export is
 // downloaded. Resumable: only rows still NULL are written (--rebuild redoes all).
 // Run: npm run search:weighted [-- --dry-run --rebuild --batch 5000]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { Client } from 'pg';
-import { weightedSearchText, weightedVectorSql, type CodeNames } from '../src/core/match/search-document.js';
+import { weightedSearchText, weightedVectorSql, type CodeNames } from '@tasnivo/core/match/search-document';
 import { ensureWeightedIndex, hasWeightedColumn } from './lib/weighted-search.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';

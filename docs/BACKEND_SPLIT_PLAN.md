@@ -203,3 +203,75 @@ its area, and adds the ESLint restriction for its files.
 - e2e fixtures write through Prisma; keep that (worker and api share the DB), do not convert
   them to HTTP.
 - Do not rotate `SESSION_SECRET` during the migration.
+
+## Wave 0 result (22 Oct 2026)
+
+Done on branch `claude/clever-feistel-609e8d`. What later waves must know:
+
+**Package map.** `packages/core` (@tasnivo/core, former `src/core`), `packages/db` (@tasnivo/db:
+`prisma/` plus `src/index.ts` = the former `src/lib/db.ts`, and `finding-type.ts` +
+`finding-type-extension.ts`, which the client extension needs), `packages/i18n` (@tasnivo/i18n:
+`i18n*.ts`, `i18n-parts/`, plus `format.ts` and `plural.ts` which the dictionaries call, a pure
+`locale.ts` (LOCALE_COOKIE, parseLocale, i18nFor, formatTag, I18n) and `type-labels.ts`),
+`packages/domain` (@tasnivo/domain, the rest of `src/lib`, same folders), `apps/web` (@tasnivo/web).
+An old path maps as `src/lib/x` → `packages/domain/src/x` (or i18n/db as above), `src/core/x` →
+`packages/core/src/x`, `src/{app,ui,components,content,styles}` → `apps/web/src/…`; older docs
+still use the old paths.
+
+**apps/web/src/lib** holds 18 files: the 12 Next/React-coupled ones plus `guard.ts` (needs the
+cookie-reading `currentUser`) and `shell-data.ts` (layout-only, needs the per-render `planStatus`),
+and 4 tests that import web routes or adapters (`api/routes.test.ts`, `classifier-health.test.ts`,
+`help.test.ts`, `demo-access.test.ts`). Four of the 12 are split: the framework-free half is in
+the package, the web file adds the Next part and re-exports the rest —
+`session.ts` (domain: SessionData, sessionOptions, assertSecret, Role, CurrentUser, `loadAccess`;
+web: getSession, `currentUser`, `inDemoOrg`, React-cached), `plan.ts` (domain: uncached
+`planStatus` and `planGates(statusOf)`; web: `planStatus = cache(...)` and gates built on it),
+`demo.ts` (web: `isDemoOrg = cache(...)`), `api/respond.ts` (domain: Outcome, failure,
+rateHeaders; web: send/enter/crashed with NextResponse), `locale.ts` (i18n: pure part; web:
+getLocale/getI18n). A W1 `SessionGuard` is `unsealData` + `loadAccess` + `recordAccepted`.
+`buildAccountExport` and `accuracyCsv`/`reasonsCsv` no longer read the locale cookie themselves:
+the caller passes the locale (the web routes pass `await getLocale()`).
+
+**Resolution.** Packages are TypeScript source, no build step. Each `package.json` has
+`"type": "module"` and `exports` mapping `"./*"` to `"./src/*.ts"` (plus `"."` for db and directory
+entries `@tasnivo/core/normalize`, `@tasnivo/core/embed`, `@tasnivo/i18n/i18n-parts`). Specifiers
+are extensionless (`@tasnivo/domain/security/headers`); relative imports inside a package keep
+their style (`./x.js` or `./x`). npm workspaces link `node_modules/@tasnivo/*` to the folders, so:
+Node/tsx resolve through `exports` and tsx compiles the .ts; tsc (`moduleResolution: bundler`)
+resolves the same `exports`; Next bundles them via `transpilePackages` and keeps the
+`extensionAlias` (.js → .ts) for the relative `.js` imports. No tsconfig `paths` for packages. The
+only `paths` entry is `@/*`: in `apps/web/tsconfig.json` (→ `./src/*`) and in the root
+`tsconfig.json` (→ `./apps/web/src/*`), because tsx reads the root tsconfig when the test runner
+loads the web tests from the root.
+
+**Working directory = repository root, always.** Root `npm run dev|build|start` run
+`next <cmd> apps/web` from the root; Docker runs `npm run start` in `/app`. Code still resolves
+`data/` (embedding models, the classifier status file, classifier downloads), `node_modules/dejavu-fonts-ttf`
+(PDF fonts) and `scripts/update-classifier.ts` (spawned by classifier-start) against
+`process.cwd()`. apps/api and apps/worker must either run from the root too or replace those with
+explicit paths (e.g. a DATA_DIR) — do that in W1, not by `cd apps/api`. Next reads `.env` files
+from apps/web only, so `apps/web/next.config.ts` adds the root `.env*` with `@next/env`'s
+`processEnv` (same precedence and expansion as Next; a change needs a dev-server restart).
+
+**Prisma.** Default generator output (`node_modules/.prisma/client` at the root, one hoisted
+`@prisma/client` for all workspaces); the root `package.json` has
+`"prisma": { "schema": "packages/db/prisma/schema.prisma" }`, so `npx prisma generate|migrate deploy`
+work from the root unchanged (compose `app` command untouched). The generated client loads the
+root `.env` only if `prisma generate` ran while it existed: after pulling Wave 0 run `npm install`
+and `npx prisma generate` at the root. Details: packages/db/README.md.
+
+**Tooling.** `npm run typecheck` = each workspace's `tsc --noEmit -p tsconfig.json` (all extend
+`tsconfig.base.json`, so strict/noUncheckedIndexedAccess are identical) + the root tsconfig for
+`scripts/` and `eval/`. `npm test` walks `apps`, `packages`, `eval`. `npm run lint` lints
+`apps/web/src packages scripts eval` (packages/db/prisma ignored, as prisma/ was never linted).
+Dependencies are declared per workspace with the previous ranges; the lockfile kept every resolved
+version. npm 11 (local) gates install scripts (`allowScripts`); Docker's npm 10 does not. No
+`allowScripts` policy was added — after a fresh local install run `npx prisma generate`.
+
+**Known type-only back-reference:** `packages/i18n/src/i18n-parts/imports.ts` imports
+`type PresetId` from `@tasnivo/domain/import-presets` (erased at runtime; i18n does not list
+domain as a dependency). `packages/db/prisma/seed.ts` imports domain's `load-env` and `password`.
+
+**Not changed:** matching/audit logic, the schema and migrations, `scripts/` names (all root
+`npm run` names kept), docker-compose services. The web app still imports @tasnivo/domain and
+@tasnivo/db directly; the ESLint ban from section 3 comes in W3.

@@ -1,0 +1,94 @@
+import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { clientScope } from '@tasnivo/domain/access';
+import { activityPage, CATEGORIES, type Category } from '@tasnivo/domain/activity';
+import { parseDayInput } from '@tasnivo/domain/activity-dates';
+import { groupDecisions } from '@tasnivo/domain/activity-groups';
+import { db } from '@tasnivo/db';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import { getI18n } from '@/lib/locale';
+import { withQuery } from '@tasnivo/domain/query-string';
+import { currentUser } from '@/lib/session';
+import { ButtonLink } from '@/ui/button';
+import { EmptyState } from '@/ui/empty-state';
+import { Page } from '@/ui/page';
+import { ActivityFilters } from './activity-filters';
+import { ActivityTable } from './activity-table';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t, ta } = await getI18n();
+  return { title: `${ta.log.title} — ${t.appName}` };
+}
+
+type Params = { client?: string; user?: string; type?: string; from?: string; to?: string; page?: string };
+
+export default async function ActivityPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const { locale, ta } = await getI18n();
+  const user = await currentUser();
+  if (!user) redirect('/sign-in');
+  const sp = await searchParams;
+  const category: Category = CATEGORIES.find((c) => c === sp.type) ?? 'all';
+  const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
+
+  // Days are typed as dd.mm.yyyy (older links: yyyy-mm-dd). Unreadable ones are dropped and said so;
+  // a reversed range is swapped and said so.
+  const typedFrom = parseDayInput(sp.from);
+  const typedTo = parseDayInput(sp.to);
+  const unreadable = typedFrom === null || typedTo === null;
+  let from = typedFrom ?? '';
+  let to = typedTo ?? '';
+  const swapped = Boolean(from && to && from > to);
+  if (swapped) [from, to] = [to, from];
+
+  const [clients, users] = await Promise.all([
+    db.client.findMany({ where: { orgId: user.orgId, ...clientScope(user) }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { email: 'asc' }, select: { id: true, email: true } }),
+  ]);
+  // A client id outside the user's scope is ignored, never trusted.
+  const clientId = clients.find((c) => c.id === sp.client)?.id ?? null;
+  const userId = users.find((u) => u.id === sp.user)?.id ?? null;
+  const result = await activityPage(
+    user,
+    { clientId, userId, category, from: from || null, to: to || null, page: page - 1 },
+    { withTotal: true },
+  );
+  const total = result.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / result.pageSize));
+  const firstShown = (page - 1) * result.pageSize + 1;
+  const lastShown = (page - 1) * result.pageSize + result.rows.length;
+  const params: Record<string, string | undefined> = { client: clientId ?? undefined, user: userId ?? undefined, type: category === 'all' ? undefined : category, from: from || undefined, to: to || undefined };
+  const active = Object.values(params).some(Boolean);
+  // A page past the end (an old link, or rows deleted since) goes to the last page, not to an empty one.
+  if (result.rows.length === 0 && page > 1 && total > 0) redirect(withQuery('/activity', params, { page: pages > 1 ? String(pages) : null }));
+  const fmt = (n: number): string => fmtNumber(locale, n);
+
+  return (
+    <Page title={ta.log.title} hint={ta.firmX.log.hint} wide>
+      <ActivityFilters clients={clients} users={users} value={{ clientId, userId, category, from, to }} active={active} />
+      {unreadable ? <p role="status" className="-mt-2 mb-4 text-small text-warn-ink">{ta.firmX.log.badDate}</p> : null}
+      {swapped ? <p role="status" className="-mt-2 mb-4 text-small text-warn-ink">{ta.firmX.log.badRange}</p> : null}
+
+      {result.rows.length === 0 ? (
+        active ? (
+          <EmptyState
+            title={ta.log.empty} hint={ta.log.emptyHint}
+            action={<ButtonLink href="/activity" variant="secondary">{ta.firmX.log.reset}</ButtonLink>}
+          />
+        ) : <EmptyState title={ta.firmX.log.emptyAll} hint={ta.firmX.log.emptyAllHint} />
+      ) : (
+        <>
+          <ActivityTable entries={groupDecisions(result.rows)} />
+          <nav aria-label={ta.log.title} className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-small text-muted">
+              {ta.firmX.log.page(page)} · {ta.firmX.log.range(fmt(firstShown), fmt(lastShown), fmt(total))}
+            </span>
+            <span className="flex gap-2">
+              {page > 1 ? <ButtonLink href={withQuery('/activity', params, { page: page - 1 > 1 ? String(page - 1) : null })} size="sm" variant="secondary">← {ta.log.newer}</ButtonLink> : null}
+              {result.hasMore && page < pages ? <ButtonLink href={withQuery('/activity', params, { page: String(page + 1) })} size="sm" variant="secondary">{ta.log.older} →</ButtonLink> : null}
+            </span>
+          </nav>
+        </>
+      )}
+    </Page>
+  );
+}

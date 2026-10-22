@@ -5,23 +5,23 @@
 // docs/eval-results.json without overwriting earlier runs.
 // Run: npm run eval [-- --label "after key" --no-ablate --fulltext-common-docs N
 //                       --fulltext-column plain|weighted --fulltext-select A|AB]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { matchProduct, type DisableableStage, type PositionFusion } from '../src/core/match/pipeline.js';
-import { NoopRerankProvider, rerankFromEnv } from '../src/core/match/rerank.js';
-import { MemoryRerankCache } from '../src/core/match/rerank-cache.js';
-import { costPer1000Rows, formatLlmUsage } from '../src/core/match/rerank-usage.js';
-import { PostgresCandidateStore, storeRetryCount } from '../src/core/match/store.js';
-import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
-import { BANDS, type VectorCalibration } from '../src/core/match/score.js';
-import type { RerankProvider, RerankRequest, RerankUsage, RerankVerdict } from '../src/core/match/types.js';
-import { rerankConfigFromEnv } from '../src/core/match/rerank-config.js';
-import { OUTPUT_SCHEMA, renderRow, SYSTEM_PROMPT } from '../src/core/match/rerank-prompt.js';
-import { lexicalQuery } from '../src/core/match/query.js';
-import { matchKeyOf, normalizeName, tokenize } from '../src/core/normalize/index.js';
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { matchProduct, type DisableableStage, type PositionFusion } from '@tasnivo/core/match/pipeline';
+import { NoopRerankProvider, rerankFromEnv } from '@tasnivo/core/match/rerank';
+import { MemoryRerankCache } from '@tasnivo/core/match/rerank-cache';
+import { costPer1000Rows, formatLlmUsage } from '@tasnivo/core/match/rerank-usage';
+import { PostgresCandidateStore, storeRetryCount } from '@tasnivo/core/match/store';
+import { checkVectorReadiness } from '@tasnivo/core/match/vector-readiness';
+import { BANDS, type VectorCalibration } from '@tasnivo/core/match/score';
+import type { RerankProvider, RerankRequest, RerankUsage, RerankVerdict } from '@tasnivo/core/match/types';
+import { rerankConfigFromEnv } from '@tasnivo/core/match/rerank-config';
+import { OUTPUT_SCHEMA, renderRow, SYSTEM_PROMPT } from '@tasnivo/core/match/rerank-prompt';
+import { lexicalQuery } from '@tasnivo/core/match/query';
+import { matchKeyOf, normalizeName, tokenize } from '@tasnivo/core/normalize/index';
 import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
 import { diagnoseMiss, type MissDiagnostic } from './diagnose.js';
 import { MemoStore } from './memo-store.js';

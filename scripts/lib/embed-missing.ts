@@ -2,9 +2,9 @@
 // update just added — with the same model that produced the stored vectors, so
 // the table never mixes models. HNSW indexes take the new rows incrementally.
 import type { Pool } from 'pg';
-import { embeddingProviderFromEnv } from '../../src/core/embed/index.js';
-import { embeddingText } from '../../src/core/embed/text.js';
-import { checkVectorReadiness, writeEmbeddingState } from '../../src/core/match/vector-readiness.js';
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { embeddingText } from '@tasnivo/core/embed/text';
+import { checkVectorReadiness, writeEmbeddingState } from '@tasnivo/core/match/vector-readiness';
 
 const BATCH = 500;
 

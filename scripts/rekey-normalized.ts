@@ -10,9 +10,9 @@
 // changes nothing. A dictionary entry whose new key already belongs to another
 // entry of the same org is reported and left alone, never merged silently.
 // Run: npm run rekey:normalized [-- --dry-run --org <orgId>]
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { Client } from 'pg';
-import { normalizeName } from '../src/core/normalize/index.js';
+import { normalizeName } from '@tasnivo/core/normalize/index';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 const DRY_RUN = process.argv.includes('--dry-run');

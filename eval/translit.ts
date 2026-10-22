@@ -3,11 +3,11 @@
 // 438,925-pair ground truth. Reports exact-match rate and the character rules
 // responsible for the biggest residual disagreements.
 // Run: npm run eval:translit
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { createReadStream, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { cyrillicToLatin, scriptAlternates } from '../src/core/normalize/script.js';
-import { matchKeyOf } from '../src/core/normalize/index.js';
+import { cyrillicToLatin, scriptAlternates } from '@tasnivo/core/normalize/script';
+import { matchKeyOf } from '@tasnivo/core/normalize/index';
 
 type Rec = { code: string; nameUz: string | null; nameUzCyrl: string | null };
 

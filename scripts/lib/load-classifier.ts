@@ -9,9 +9,9 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { Client } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
-import { weightedSearchText, weightedVectorSql } from '../../src/core/match/search-document.js';
-import { indexKeys } from '../../src/core/normalize/index.js';
-import { resolveUnit } from '../../src/core/normalize/units.js';
+import { weightedSearchText, weightedVectorSql } from '@tasnivo/core/match/search-document';
+import { indexKeys } from '@tasnivo/core/normalize/index';
+import { resolveUnit } from '@tasnivo/core/normalize/units';
 import { ensureWeightedIndex, hasWeightedColumn } from './weighted-search.js';
 
 type Rec = {

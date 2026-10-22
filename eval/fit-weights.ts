@@ -10,15 +10,15 @@
 // top-1 in the baseline loses it, and synthetic top-1 drops at most 1 point.
 // Appends the grid's best rows and the baseline to docs/weight-fit-results.json.
 // Run: npm run eval:fit [-- --label "..." --grid capped|position|vector|final]   (DATABASE_URL picks the copy)
-import '../src/lib/load-env.js'; // must precede anything reading process.env
+import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { matchProduct, type PositionFusion } from '../src/core/match/pipeline.js';
-import { NoopRerankProvider } from '../src/core/match/rerank.js';
-import type { SignalWeights, VectorCalibration } from '../src/core/match/score.js';
-import { PostgresCandidateStore } from '../src/core/match/store.js';
-import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
+import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { matchProduct, type PositionFusion } from '@tasnivo/core/match/pipeline';
+import { NoopRerankProvider } from '@tasnivo/core/match/rerank';
+import type { SignalWeights, VectorCalibration } from '@tasnivo/core/match/score';
+import { PostgresCandidateStore } from '@tasnivo/core/match/store';
+import { checkVectorReadiness } from '@tasnivo/core/match/vector-readiness';
 import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
 import { MemoStore } from './memo-store.js';
 import { setOf } from './metrics.js';

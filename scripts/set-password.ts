@@ -4,12 +4,12 @@
 //      add --confirm-email to also mark the address confirmed
 // Every session of the user ends, and security.password_reset goes to the audit log.
 import { randomBytes } from 'node:crypto';
-import '../src/lib/load-env.js';
-import { db } from '../src/lib/db.js';
-import { hashPassword } from '../src/lib/password.js';
-import { MIN_PASSWORD, passwordAcceptable } from '../src/lib/security/password-check.js';
-import { clearAttempts, RULES } from '../src/lib/security/rate-limit.js';
-import { endUserSessions } from '../src/lib/security/session-store.js';
+import '@tasnivo/domain/load-env';
+import { db } from '@tasnivo/db';
+import { hashPassword } from '@tasnivo/domain/password';
+import { MIN_PASSWORD, passwordAcceptable } from '@tasnivo/domain/security/password-check';
+import { clearAttempts, RULES } from '@tasnivo/domain/security/rate-limit';
+import { endUserSessions } from '@tasnivo/domain/security/session-store';
 
 const args = process.argv.slice(2);
 const email = args.find((a) => !a.startsWith('--'))?.trim().toLowerCase() ?? '';
