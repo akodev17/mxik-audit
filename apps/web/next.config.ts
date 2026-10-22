@@ -31,10 +31,13 @@ const config: NextConfig = {
     return [
       { source: '/login', destination: '/sign-in', permanent: true },
       { source: '/signin', destination: '/sign-in', permanent: true },
+      // Confirmation e-mails sent before the API took the link over point at /verify/<token>.
+      { source: '/verify/:token', destination: '/api/auth/verify/:token', permanent: false },
     ];
   },
-  // Same-origin API calls (src/lib/api/browser.ts with NEXT_PUBLIC_API_URL empty): an /api/* path that
-  // no route handler of this app serves goes to the API. Behind Caddy /api/* never reaches this app.
+  // Development and single-origin setups without Caddy: /api/* that no Next route handler answers
+  // goes to the API (afterFiles, so the handlers not moved yet keep winning until they are deleted).
+  // With NEXT_PUBLIC_API_URL set the browser calls the API itself and nothing is rewritten.
   async rewrites() {
     if (process.env.NEXT_PUBLIC_API_URL) return [];
     const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');

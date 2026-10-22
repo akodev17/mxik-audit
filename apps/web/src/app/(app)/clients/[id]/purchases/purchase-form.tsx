@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
 import type { endpoints, ResponseOf } from '@tasnivo/contracts';
-import type { PurchaseMap } from '@tasnivo/domain/purchases';
+import type { PurchaseMap } from '@/lib/pure/types';
 import { Dropzone } from '@/app/(app)/upload/dropzone';
 import { Notice } from '@/app/(app)/upload/notice';
 import { api } from '@/lib/api/browser';

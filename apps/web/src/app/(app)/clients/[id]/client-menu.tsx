@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api } from '@/lib/api/browser';
 import { orRefused, refusalText } from '@/lib/api/refusal';
-import type { Dependant } from '@tasnivo/domain/client-lifecycle';
+import type { Dependant } from '@/lib/pure/types';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';

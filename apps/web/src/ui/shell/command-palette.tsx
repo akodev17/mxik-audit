@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { MIN_TEXT } from '@tasnivo/domain/search-query';
+import { MIN_SEARCH_TEXT as MIN_TEXT } from '@/lib/pure/constants';
 import { Badge, type Tone } from '../badge';
 import { Button } from '../button';
 import { cx } from '../cx';

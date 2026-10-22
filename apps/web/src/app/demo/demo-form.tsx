@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition, type FormEvent } from 'react';
-import { DEMO_LIMITS, USE_CASES } from '@tasnivo/domain/demo-access-fields';
+import { DEMO_LIMITS } from '@tasnivo/contracts/modules/demo';
+import { DEMO_USE_CASES as USE_CASES } from '@/lib/pure/constants';
 import { api } from '@/lib/api/browser';
 import { refusalText } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';

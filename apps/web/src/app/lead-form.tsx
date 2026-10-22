@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRef, useState, useTransition, type FormEvent } from 'react';
-import { HONEYPOT_FIELD, LEAD_LIMITS } from '@tasnivo/domain/lead-guard';
+import { HONEYPOT_FIELD, LEAD_LIMITS } from '@tasnivo/contracts/modules/demo';
 import { api } from '@/lib/api/browser';
 import { refusalText } from '@/lib/api/refusal';
 

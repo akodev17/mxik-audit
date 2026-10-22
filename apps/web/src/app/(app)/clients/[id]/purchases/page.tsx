@@ -1,6 +1,6 @@
 import { getI18n } from '@/lib/locale';
 import { Notice } from '@/app/(app)/upload/notice';
-import { canWrite } from '@tasnivo/domain/access';
+import { canWrite } from '@/lib/pure/access';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { pageData } from '@/lib/api/page-data';
 import { serverApi } from '@/lib/api/server';

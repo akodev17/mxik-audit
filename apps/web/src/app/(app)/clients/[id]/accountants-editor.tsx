@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api } from '@/lib/api/browser';
 import { refusalText } from '@/lib/api/refusal';
-import type { AssignableAccountant } from '@tasnivo/domain/client-lifecycle';
+import type { AssignableAccountant } from '@/lib/pure/types';
 import { useI18n } from '@/lib/locale-client';
 import { Button, ButtonLink } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';

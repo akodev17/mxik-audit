@@ -6,7 +6,7 @@ import { api } from '@/lib/api/browser';
 import { refusalText } from '@/lib/api/refusal';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { nextReminderDate, skipsThisMonth } from '@tasnivo/domain/reminder-dates';
+import { nextReminderDate, skipsThisMonth } from '@/lib/pure/reminder-dates';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { Select } from '@/ui/select';

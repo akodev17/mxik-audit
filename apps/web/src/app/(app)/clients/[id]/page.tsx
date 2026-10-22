@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { isApiError } from '@tasnivo/api-client';
-import { canWrite, isAdminRole } from '@tasnivo/domain/access';
-import { groupDecisions } from '@tasnivo/domain/activity-groups';
-import { openRowsHint, reviewedShare, rowProgress } from '@tasnivo/domain/client-kpi';
+import { canWrite, isAdminRole } from '@/lib/pure/access';
+import { groupDecisions } from '@/lib/pure/activity-groups';
+import { openRowsHint, reviewedShare, rowProgress } from '@/lib/pure/client-kpi';
 import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
-import { apiMe } from '@/lib/api/me';
+import { signedIn } from '@/lib/api/me';
 import { pageData } from '@/lib/api/page-data';
 import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { agoText, daysSince } from '@tasnivo/domain/relative-day';
+import { agoText, daysSince } from '@/lib/pure/relative-day';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { IconAlert, IconChevron } from '@/ui/icons';
@@ -48,7 +49,8 @@ export default async function ClientPage({ params }: Props) {
   const { locale, t, ta } = await getI18n();
   const id = (await params).id;
   // Another org's client id, or one outside the user's scope, is the same 404 as a missing one.
-  const [user, data] = await Promise.all([apiMe(), pageData(clientPage(id))]);
+  const [user, data] = await Promise.all([signedIn(), pageData(clientPage(id))]);
+  if (!user) redirect('/sign-in');
   const { client, stats, catalogs, schedule, accountants, dependants } = data;
   const words = ta.firmX.client;
   const admin = isAdminRole(user);

@@ -10,7 +10,8 @@ export type SearchResults = Extract<SearchAnswer, { ok: true }>['results'];
 
 export const shellKeys = {
   all: ['shell'] as const,
-  bell: ['shell', 'bell'] as const,
+  /** Under the notifications page's prefix, so marking read there refreshes the bell too. */
+  bell: ['notifications', 'preview'] as const,
   search: (text: string) => ['shell', 'search', text] as const,
 };
 
@@ -30,8 +31,8 @@ export function searchQuery(text: string) {
 }
 
 /** After a change the shell's cached answers may be outdated: the next look fetches them again. */
-export function invalidateShell(client: QueryClient): Promise<void> {
-  return client.invalidateQueries({ queryKey: shellKeys.all });
+export async function invalidateShell(client: QueryClient): Promise<void> {
+  await Promise.all([client.invalidateQueries({ queryKey: shellKeys.all }), client.invalidateQueries({ queryKey: shellKeys.bell })]);
 }
 
 /** The frame's data (GET /api/shell), read by the (app) layout on every server render. */

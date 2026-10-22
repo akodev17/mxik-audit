@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import type { ResponseOf, endpoints } from '@tasnivo/contracts';
 import { CLIENT_FILTERS, CLIENT_SORTS, STALE_DAYS } from '@tasnivo/contracts/modules/clients';
-import { canWrite } from '@tasnivo/domain/access';
-import { rowProgress } from '@tasnivo/domain/client-kpi';
+import { canWrite } from '@/lib/pure/access';
+import { rowProgress } from '@/lib/pure/client-kpi';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import { getI18n } from '@/lib/locale';
-import { withQuery } from '@tasnivo/domain/query-string';
-import { agoText, daysSince } from '@tasnivo/domain/relative-day';
-import { apiMe } from '@/lib/api/me';
+import { withQuery } from '@/lib/pure/query-string';
+import { agoText, daysSince } from '@/lib/pure/relative-day';
+import { signedIn } from '@/lib/api/me';
 import { pageData } from '@/lib/api/page-data';
 import { serverApi } from '@/lib/api/server';
 import { Badge } from '@/ui/badge';
@@ -59,7 +60,8 @@ function ReviewProgress({ c, ta, locale }: { c: ClientRow; ta: AppDict; locale: 
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<Params> }) {
   const { locale, t, ta } = await getI18n();
-  const user = await apiMe();
+  const user = await signedIn();
+  if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const words = ta.firmX.clients;
   const filter = CLIENT_FILTERS.find((f) => f === sp.filter) ?? 'all';

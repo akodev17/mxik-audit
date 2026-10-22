@@ -3,7 +3,7 @@
 // workspace's own, or the root one for scripts and eval).
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import { migratedWebConfig } from './apps/web/eslint.migrated.mjs';
+import { MIGRATED_WEB_PATHS } from './apps/web/eslint.migrated.mjs';
 
 export default tseslint.config(
   { ignores: ['**/node_modules/**', '**/.next/**', '**/dist/**', 'tmp/**', 'data/**', 'packages/db/prisma/**', 'packages/core/src/normalize/units.generated.ts'] },
@@ -35,6 +35,20 @@ export default tseslint.config(
     },
   },
   {
+    // Web files moved to the API (Wave 3): no domain, database or core code, no server actions.
+    files: MIGRATED_WEB_PATHS,
+    // Tests may hold a web copy (a rule, a constant) against the domain original.
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          { group: ['@tasnivo/domain', '@tasnivo/domain/*', '@tasnivo/db', '@tasnivo/db/*', '@tasnivo/core', '@tasnivo/core/*'], message: 'Migrated web code talks to the API: use @tasnivo/api-client (@/lib/api/browser or @/lib/api/server) and @tasnivo/contracts.' },
+          { group: ['@/app/actions/*'], message: 'Server actions are being replaced by the API: call it through @/lib/api/browser.' },
+        ],
+      }],
+    },
+  },
+  {
     // node:test's describe/it return promises by design; the runner awaits them.
     files: ['**/*.test.ts'],
     rules: {
@@ -42,6 +56,4 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'off',
     },
   },
-  // Web files switched to the API may not import the database, server actions or session adapters.
-  migratedWebConfig,
 );

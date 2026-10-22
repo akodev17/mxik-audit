@@ -8,7 +8,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.104.5",
     "@tasnivo/api-client": "*",
     "@tasnivo/contracts": "*",
     "@tasnivo/core": "*",
@@ -17,6 +16,7 @@
     "@tasnivo/i18n": "*",
     "@mdx-js/mdx": "^3.1.0",
     "@next/env": "^15.5.23",
+    "@tanstack/react-query": "^5.104.5",
     "@tanstack/react-virtual": "^3.14.21",
     "exceljs": "^4.4.0",
     "grammy": "^1.46.0",

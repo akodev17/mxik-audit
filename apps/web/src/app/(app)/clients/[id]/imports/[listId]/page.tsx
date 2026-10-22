@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import type { endpoints, ResponseOf } from '@tasnivo/contracts';
 import { Notice } from '@/app/(app)/upload/notice';
-import { canWrite } from '@tasnivo/domain/access';
+import { canWrite } from '@/lib/pure/access';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { pageData } from '@/lib/api/page-data';
 import { serverApi } from '@/lib/api/server';

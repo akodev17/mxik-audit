@@ -6,7 +6,7 @@ import type { endpoints, ResponseOf } from '@tasnivo/contracts';
 import { ListMapper, type MapperField } from '@/app/(app)/clients/[id]/purchases/list-mapper';
 import { Dropzone } from '@/app/(app)/upload/dropzone';
 import { Notice } from '@/app/(app)/upload/notice';
-import type { DocKind, DocMap } from '@tasnivo/domain/docs';
+import type { DocKind, DocMap } from '@/lib/pure/types';
 import { api } from '@/lib/api/browser';
 import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';

@@ -1,7 +1,7 @@
 // How the accuracy page words the API's stable keys, in the viewer's language. The same choices as
 // keyText/reasonText in packages/domain/src/accuracy.ts, which also reads the database and so cannot
 // be imported here; keep the two in step.
-import type { LabelKey } from '@tasnivo/core/match/confidence-labels';
+import type { LabelKey } from '@/lib/pure/constants';
 import { dict, type Locale } from '@tasnivo/i18n/i18n';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 

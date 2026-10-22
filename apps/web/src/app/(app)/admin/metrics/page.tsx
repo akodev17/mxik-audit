@@ -1,7 +1,7 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { AccuracyRow } from '@tasnivo/domain/accuracy';
+import type { AccuracyRow } from '@/lib/pure/types';
 import { fmtNumber, fmtPercent } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { pageData } from '@/lib/api/page-data';
