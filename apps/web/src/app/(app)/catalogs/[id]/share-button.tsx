@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { shareCreate, shareList, shareRevoke, type ShareRow } from '@/app/actions/share';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { api } from '@/lib/api/browser';
+import { catalogKeys } from '@/lib/catalogs/client';
+import type { ShareRow } from '@/lib/catalogs/types';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
@@ -17,33 +20,31 @@ export function ShareButton({ catalogId }: { catalogId: string }) {
   const s = ta.share;
   const date = (iso: string): string => fmtDate(locale, iso);
   const [open, setOpen] = useState(false);
-  const [links, setLinks] = useState<ShareRow[]>([]);
   const [url, setUrl] = useState<string | null>(null);
   const [days, setDays] = useState<7 | 30>(7);
   const [pdf, setPdf] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<ShareRow | null>(null);
+  const queryClient = useQueryClient();
+  const key = catalogKeys.shareLinks(catalogId);
 
-  const refresh = async (): Promise<void> => {
-    try { setLinks(await shareList(catalogId)); } catch { setError(ta.wsX.toast.network); }
-  };
-  useEffect(() => { if (open) void refresh(); }, [open, catalogId]);
+  // Read each time the popover opens.
+  const list = useQuery({ queryKey: key, queryFn: () => api.catalogs.shareLinks({ catalogId }), enabled: open, staleTime: 0, retry: false });
+  const links = list.data ?? [];
+  const listError = list.isError ? ta.wsX.toast.network : null;
 
-  async function create(): Promise<void> {
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await shareCreate({ catalogId, days, includePdf: pdf });
+  const creator = useMutation({
+    mutationFn: () => api.catalogs.createShareLink({ catalogId, days, includePdf: pdf }),
+    onMutate: () => setError(null),
+    onSuccess: async (result) => {
       if (!result) { setError(ta.wsX.toast.failed); return; }
       setUrl(result.url);
-      await refresh();
-    } catch {
-      setError(ta.wsX.toast.network);
-    } finally {
-      setBusy(false);
-    }
-  }
+      await queryClient.invalidateQueries({ queryKey: key });
+    },
+    onError: () => setError(ta.wsX.toast.network),
+  });
+  const busy = creator.isPending;
+  const create = (): void => creator.mutate();
 
   return (
     <div className="no-print">
@@ -57,9 +58,9 @@ export function ShareButton({ catalogId }: { catalogId: string }) {
             </Select>
           </label>
           <Checkbox label={s.withPdf} checked={pdf} onChange={(e) => setPdf(e.target.checked)} />
-          <Button size="sm" variant="primary" loading={busy} onClick={() => { void create(); }}>{s.create}</Button>
+          <Button size="sm" variant="primary" loading={busy} onClick={create}>{s.create}</Button>
         </div>
-        {error ? <p role="alert" className="mt-2 text-small text-danger-ink">{error}</p> : null}
+        {error ?? listError ? <p role="alert" className="mt-2 text-small text-danger-ink">{error ?? listError}</p> : null}
         {url ? <div className="mt-3"><CopyField label={s.created} value={url} size="compact" /></div> : null}
         {links.length > 0 ? (
           <ul className="mt-3 divide-y divide-line text-small">
@@ -84,8 +85,9 @@ export function ShareButton({ catalogId }: { catalogId: string }) {
         confirmLabel={ta.wsX.shareRevoke.title} cancelLabel={ta.wsX.shareRevoke.keep}
         onConfirm={async () => {
           if (!revoking) return { ok: true };
-          if (!(await shareRevoke(revoking.id))) return { ok: false, error: ta.wsX.toast.failed };
-          await refresh();
+          const revoked = await api.catalogs.revokeShareLink({ linkId: revoking.id }).catch(() => false);
+          if (!revoked) return { ok: false, error: ta.wsX.toast.failed };
+          await queryClient.invalidateQueries({ queryKey: key });
           return { ok: true };
         }}
       />

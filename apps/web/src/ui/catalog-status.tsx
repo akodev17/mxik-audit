@@ -1,6 +1,13 @@
-import { getI18n } from '@/lib/locale';
-import { ButtonLink } from './button';
-import { AutoRefresh, RetryAuditButton } from './catalog-status-client';
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { api } from '@/lib/api/browser';
+import { catalogKeys } from '@/lib/catalogs/client';
+import type { UploadProgress } from '@/lib/catalogs/types';
+import { useI18n } from '@/lib/locale-client';
+import { Button, ButtonLink } from './button';
 import { EmptyState } from './empty-state';
 import { Progress } from './progress';
 
@@ -9,19 +16,53 @@ export type CatalogState = {
   status: 'uploaded' | 'analyzing' | 'ready' | 'failed';
   rowCount: number;
   progressDone: number;
-  auditError: string | null;
 };
+
+/** The server page's state of the catalogue, as the progress read answers it. */
+function progressOf(catalog: CatalogState): UploadProgress | null {
+  if (catalog.status === 'analyzing') return { status: 'analyzing', done: catalog.progressDone, total: catalog.rowCount, etaSeconds: null };
+  if (catalog.status === 'failed' || catalog.status === 'uploaded') return { status: catalog.status };
+  return null;
+}
 
 /**
  * What a screen shows instead of results while a catalogue is not audited.
- * Without it an unaudited catalogue would read as "no risks found".
+ * Without it an unaudited catalogue would read as "no risks found". A running audit is polled
+ * every 2 s (GET /api/catalogs/{id}/progress); once it is ready the page renders again with the results.
  */
-export async function CatalogStatus({ catalog }: { catalog: CatalogState }) {
-  const { t, ta } = await getI18n();
-  if (catalog.status === 'ready') return null;
+export function CatalogStatus({ catalog }: { catalog: CatalogState }) {
+  const { t, ta } = useI18n();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const key = catalogKeys.progress(catalog.id);
+  const initial = progressOf(catalog);
 
-  if (catalog.status === 'analyzing') {
-    const heading = t.catalogAnalyzing(catalog.progressDone, catalog.rowCount);
+  const { data } = useQuery({
+    queryKey: key,
+    queryFn: () => api.catalogs.progress({ catalogId: catalog.id }),
+    ...(initial ? { initialData: initial, initialDataUpdatedAt: 0 } : {}),
+    refetchInterval: (query) => (query.state.data?.status === 'analyzing' ? 2000 : false),
+    refetchIntervalInBackground: true,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+  const state = data ?? initial;
+
+  // The results are rendered by the server page: render it again once the audit is done.
+  useEffect(() => {
+    if (state?.status === 'ready') router.refresh();
+  }, [state?.status, router]);
+
+  const retry = useMutation({
+    mutationFn: () => api.catalogs.retry({ catalogId: catalog.id }),
+    onSuccess: (result) => { if (result.ok) void queryClient.invalidateQueries({ queryKey: key }); },
+  });
+
+  if (!state || state.status === 'ready') return null;
+
+  if (state.status === 'analyzing') {
+    const heading = t.catalogAnalyzing(state.done, state.total);
     return (
       <section aria-live="polite" className="mx-auto max-w-xl px-6 py-16">
         <h2 className="text-section">{heading}</h2>
@@ -29,22 +70,21 @@ export async function CatalogStatus({ catalog }: { catalog: CatalogState }) {
           className="mt-4"
           label={heading}
           hideLabel
-          value={catalog.progressDone}
-          max={Math.max(catalog.rowCount, 1)}
+          value={state.done}
+          max={Math.max(state.total, 1)}
         />
         <p className="mt-3 text-small text-muted">{t.catalogAnalyzingHint}</p>
-        <AutoRefresh intervalMs={2000} />
       </section>
     );
   }
 
-  if (catalog.status === 'failed') {
+  if (state.status === 'failed') {
     // The raw error can carry internals (SQL, paths, provider replies), so it is never shown; it
-    // stays in catalog.auditError, written once when the audit failed. Rendering does not log.
+    // stays in catalog.auditError, written once when the audit failed.
     return (
       <EmptyState
         tone="danger" title={t.catalogFailed} hint={ta.importX.processing.failedHint}
-        action={<RetryAuditButton catalogId={catalog.id} />}
+        action={<Button variant="primary" loading={retry.isPending} onClick={() => retry.mutate()}>{t.catalogRetry}</Button>}
       />
     );
   }

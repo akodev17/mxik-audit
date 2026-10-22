@@ -1,12 +1,9 @@
 import Link from 'next/link';
-import { billingConfig } from '@tasnivo/domain/billing/config';
-import { catalogPaid } from '@tasnivo/domain/billing/orders';
-import { db } from '@tasnivo/db';
 import { fmtDate } from '@tasnivo/i18n/format';
+import { degradedNotes } from '@/lib/catalogs/report';
+import type { CatalogHeader, Me } from '@/lib/catalogs/types';
 import { getI18n } from '@/lib/locale';
-import { degradedNotes, readPipelineMeta } from '@tasnivo/domain/pipeline-meta';
 import { Badge } from '@/ui/badge';
-import type { CurrentUser } from '@/lib/session';
 import { IconInfo } from '@/ui/icons';
 import { BillingBox } from './billing-box';
 import { ClassifierBanner } from './classifier-banner';
@@ -16,43 +13,27 @@ import { ReviewField } from './review-field';
 import { ShareButton } from './share-button';
 
 type Props = {
-  orgId: string;
-  catalog: { id: string; clientId?: string | null; filename: string; createdAt: Date; rowCount: number; status: string; previousId?: string | null; snapshotId?: number | null; pipelineMeta?: unknown };
-  client: { id: string; name: string };
+  /** The catalogue as the API's header read answers it (catalogs.get). */
+  catalog: CatalogHeader;
+  user: Me;
   /** Only writers may create share links. */
   canShare?: boolean;
-  /** Only an admin pays for the corrected file. */
-  canPay: boolean;
-  /** A demo org never pays. */
-  demo: boolean;
-  /** When given, a ready catalogue shows its review task for this user. */
-  viewer?: CurrentUser;
+  /** A ready catalogue shows its review task for this user. */
+  showReview?: boolean;
 };
-
-/** Whether the corrected file needs a payment first; shared with the page's completion state. */
-export async function exportLocked(orgId: string, catalogId: string): Promise<boolean> {
-  return billingConfig().requiredForExport ? !(await catalogPaid(orgId, catalogId)) : false;
-}
 
 /**
  * Catalogue name, client, date and the classifier version the audit used
  * (named by its date, with a hint when a newer one exists), any degraded-run
  * notes, and the export actions.
  */
-export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay, demo, viewer }: Props) {
+export async function WorkspaceHeader({ catalog, user, canShare, showReview }: Props) {
   const { ta, locale } = await getI18n();
   const h = ta.wsX.header;
-  const [used, latest, locked] = await Promise.all([
-    catalog.snapshotId ? db.catalogSnapshot.findUnique({ where: { id: catalog.snapshotId }, select: { id: true, takenAt: true } }) : null,
-    db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true, takenAt: true } }),
-    exportLocked(orgId, catalog.id),
-  ]);
-  const newer = used && latest && latest.id > used.id ? latest : null;
-  const meta = readPipelineMeta(catalog.pipelineMeta);
-  const notes = meta ? degradedNotes(meta, ta) : [];
-
+  const { usedTakenAt: used, newerTakenAt: newer } = catalog.snapshot;
+  const notes = catalog.pipeline ? degradedNotes(catalog.pipeline, ta) : [];
   const classifier = used
-    ? <span>{h.snapshot(fmtDate(locale, used.takenAt))}</span>
+    ? <span>{h.snapshot(fmtDate(locale, used))}</span>
     : <><span>{h.snapshotUnknown}</span><InfoHint text={h.snapshotUnknownHint} label={`${ta.ws.classifier}: ${h.more}`} /></>;
 
   return (
@@ -61,16 +42,16 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay
         <div className="min-w-0 max-w-full">
           <h1 className="truncate text-section text-fg md:text-title" title={catalog.filename}>{catalog.filename}</h1>
           <dl className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-small">
-            <div className="flex min-w-0 gap-1.5"><dt className="text-muted">{ta.ws.client}:</dt><dd className="min-w-0 truncate"><Link href={`/clients/${client.id}`} className="text-brand-ink hover:underline">{client.name}</Link></dd></div>
+            <div className="flex min-w-0 gap-1.5"><dt className="text-muted">{ta.ws.client}:</dt><dd className="min-w-0 truncate"><Link href={`/clients/${catalog.client.id}`} className="text-brand-ink hover:underline">{catalog.client.name}</Link></dd></div>
             <div className="flex gap-1.5"><dt className="text-muted">{ta.ws.date}:</dt><dd>{fmtDate(locale, catalog.createdAt)}</dd></div>
             <div className="flex flex-wrap items-center gap-1.5">
               <dt className="text-muted">{ta.ws.classifier}:</dt>
               <dd className="flex flex-wrap items-center gap-1.5">
                 {classifier}
-                {newer ? <Badge tone="info" icon={<IconInfo size={12} />}>{h.newer(fmtDate(locale, newer.takenAt))}</Badge> : null}
+                {newer ? <Badge tone="info" icon={<IconInfo size={12} />}>{h.newer(fmtDate(locale, newer))}</Badge> : null}
               </dd>
             </div>
-            {viewer && catalog.status === 'ready' && catalog.clientId ? <ReviewField user={viewer} catalogId={catalog.id} clientId={catalog.clientId} demo={demo} /> : null}
+            {showReview && catalog.status === 'ready' ? <ReviewField user={user} catalogId={catalog.id} demo={catalog.demo} /> : null}
             {catalog.status === 'ready' ? (
               <div className="flex gap-1.5"><dt className="text-muted">{ta.importX.report.details}:</dt><dd><Link href={`/catalogs/${catalog.id}/report`} className="text-brand-ink hover:underline">{ta.importX.report.title}</Link></dd></div>
             ) : null}
@@ -83,9 +64,9 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay
         <ExportActions
           catalogId={catalog.id}
           status={catalog.status}
-          locked={locked}
+          locked={catalog.exportLocked}
           share={canShare ? <ShareButton catalogId={catalog.id} /> : null}
-          panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} canPay={canPay} demo={demo} />}
+          panel={catalog.exportLocked ? <BillingBox catalogId={catalog.id} rowCount={catalog.rowCount} /> : null}
         />
       </div>
       <ClassifierBanner className="mt-3" />

@@ -50,7 +50,7 @@ export const billing = defineModule('billing', {
     method: 'GET', path: '/api/catalogs/{catalogId}/purchase', auth: 'session', role: 'any',
     summary: 'Whether this catalogue\'s export can be (or was) paid for, and how',
     params: z.object({ catalogId: Id }),
-    responds: 'json', response: z.object({ purchase: Purchase, planId: z.string().nullable(), requiredForExport: z.boolean() }),
+    responds: 'json', response: z.object({ purchase: Purchase, planId: z.string().nullable(), maxRows: z.number().int().nullable(), requiredForExport: z.boolean() }),
     replaces: ['page:(app)/catalogs/[id]#billing'],
     provisional: 'billing-box.tsx calls catalogPlan, catalogPaid and catalogPurchase itself',
   }),

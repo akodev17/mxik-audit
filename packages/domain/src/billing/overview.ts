@@ -49,6 +49,8 @@ export type CatalogBilling = {
   purchase: CatalogPurchase;
   /** The catalogue's price tier; null above the largest one. */
   planId: string | null;
+  /** The rows that tier covers (the price is "for up to N rows"); null with planId. */
+  maxRows: number | null;
   /** BILLING_REQUIRED_FOR_EXPORT: the corrected file needs this payment (or a subscription) first. */
   requiredForExport: boolean;
 };
@@ -63,6 +65,7 @@ export async function catalogBilling(viewer: Viewer & Pick<CurrentUser, 'clientI
   return {
     purchase: catalogPurchase({ plan, config, admin: isAdminRole(viewer), demo, paid }),
     planId: plan?.id ?? null,
+    maxRows: plan?.maxRows ?? null,
     requiredForExport: config.requiredForExport,
   };
 }

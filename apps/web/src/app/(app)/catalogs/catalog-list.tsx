@@ -1,7 +1,9 @@
+'use client';
+
 import Link from 'next/link';
-import type { CatalogListItem } from '@tasnivo/domain/catalogs';
+import type { CatalogListItem } from '@/lib/catalogs/types';
 import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
-import { getI18n } from '@/lib/locale';
+import { useI18n } from '@/lib/locale-client';
 import { Badge, StatusChip, StatusIcon, type Tone } from '@/ui/badge';
 import { cx } from '@/ui/cx';
 import { Tooltip } from '@/ui/tooltip';
@@ -9,14 +11,23 @@ import { CatalogRowActions } from './catalog-row-actions';
 
 const STATUS_TONE: Record<CatalogListItem['status'], Tone> = { ready: 'good', analyzing: 'info', failed: 'danger', uploaded: 'neutral' };
 
-type Props = { items: CatalogListItem[]; showClient: boolean; canDelete: boolean };
+/** The API's rows (ISO dates); a page still reading the domain passes Dates until it moves too. */
+export type ListedCatalog = Omit<CatalogListItem, 'createdAt'> & { createdAt: string | Date };
+
+type Props = {
+  items: ListedCatalog[];
+  showClient: boolean;
+  canDelete: boolean;
+  /** Re-render the server page after a deletion; off where the list is a React Query read (it is invalidated). */
+  refreshAfterDelete?: boolean;
+};
 
 /**
  * Catalogues as a list that reads as a table on wide screens and as cards on a
  * phone. Not a <table>: the row menu must not be clipped by a scroll frame.
  */
-export async function CatalogList({ items, showClient, canDelete }: Props) {
-  const { locale, t, ta } = await getI18n();
+export function CatalogList({ items, showClient, canDelete, refreshAfterDelete = true }: Props) {
+  const { locale, t, ta } = useI18n();
   const words = ta.firmX.catalogs;
   const cols = showClient
     ? 'md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.6fr)_4.5rem_5.5rem_minmax(9.5rem,auto)_7.5rem]'
@@ -57,7 +68,7 @@ export async function CatalogList({ items, showClient, canDelete }: Props) {
               ) : null}
               <div className="col-span-2 min-w-0 text-small md:col-span-1">
                 <span className={label}>{words.colUploaded}</span>
-                <time dateTime={c.createdAt.toISOString()} className="block tabular-nums">{fmtDateTime(locale, c.createdAt)}</time>
+                <time dateTime={new Date(c.createdAt).toISOString()} className="block tabular-nums">{fmtDateTime(locale, c.createdAt)}</time>
                 <span className="block truncate text-muted" title={c.uploader ?? undefined}>
                   {c.uploader ?? words.uploaderUnknown}{c.viaTelegram ? ` · ${words.viaTelegram}` : ''}
                 </span>
@@ -77,7 +88,7 @@ export async function CatalogList({ items, showClient, canDelete }: Props) {
                 <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{c.status === 'uploaded' ? words.statusUploaded : t.catalogStatus[c.status]}</StatusChip>
               </div>
               <div className="col-span-2 md:col-span-1">
-                <CatalogRowActions catalogId={c.id} filename={c.filename} clientName={c.clientName} rowCount={c.rowCount} canDelete={canDelete} />
+                <CatalogRowActions catalogId={c.id} filename={c.filename} clientName={c.clientName} rowCount={c.rowCount} canDelete={canDelete} refreshAfterDelete={refreshAfterDelete} />
               </div>
             </li>
           );

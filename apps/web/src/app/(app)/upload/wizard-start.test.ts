@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { UploadPreview } from '@tasnivo/domain/upload-preview';
+import type { UploadPreview } from '@/lib/catalogs/types';
 import { followsStart, startKey, startPosition, type WizardStart } from './wizard-start';
 
 const preview = (catalogId: string): UploadPreview => ({

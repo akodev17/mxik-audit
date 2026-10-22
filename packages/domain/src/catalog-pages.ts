@@ -12,6 +12,7 @@ import { CATALOG_PAGE, catalogList, type CatalogListItem } from './catalogs.js';
 import { resolveClient } from './clients.js';
 import { isDemoOrg } from './demo.js';
 import { reportPdfData, type ReportPdfData } from './pdf/report-data.js';
+import { uploadsOpen } from './plan.js';
 import { readPipelineMeta, type PipelineMeta } from './pipeline-meta.js';
 import { assignableMembers, reviewsFor, type Assignable, type ReviewView } from './review-assignments.js';
 import { countView, resolveShare } from './share.js';
@@ -48,6 +49,22 @@ export async function catalogListPage(user: Viewer, input: { clientId?: string; 
     ? { items: [], total: 0 }
     : await catalogList(user, clientId, input.page, input.kind);
   return { items, total, pageSize: CATALOG_PAGE, clients };
+}
+
+/**
+ * The upload page: the clients a catalogue can be uploaded for (not archived, in the user's
+ * scope, the default one first) and whether the plan lets anything be uploaded.
+ */
+export async function uploadOptions(user: Viewer): Promise<{ clients: { id: string; name: string }[]; uploadsOpen: boolean }> {
+  const [clients, open] = await Promise.all([
+    db.client.findMany({
+      where: { orgId: user.orgId, archivedAt: null, ...clientScope(user) },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: { id: true, name: true },
+    }),
+    uploadsOpen(user.orgId),
+  ]);
+  return { clients, uploadsOpen: open.ok };
 }
 
 /** The wizard's preview of an upload still waiting for its mapping (/upload?catalog=…). */

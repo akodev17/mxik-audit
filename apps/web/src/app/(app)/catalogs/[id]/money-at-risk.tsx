@@ -1,12 +1,12 @@
 // Sales of risky rows, when the file had a sales column: an estimate from the
 // file's own numbers, labelled as one. No fine or penalty figure is shown here.
 import { fmtNumber } from '@tasnivo/i18n/format';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { moneyAtRisk } from '@tasnivo/domain/money-at-risk';
 
-export async function MoneyAtRisk({ catalogId, columnMap }: { catalogId: string; columnMap: unknown }) {
+export async function MoneyAtRisk({ catalogId }: { catalogId: string }) {
   const { t, locale } = await getI18n();
-  const sums = await moneyAtRisk(catalogId, columnMap);
+  const sums = await serverApi().workspace.moneyAtRisk({ catalogId });
   if (!sums) return null;
   const { risky: riskySum, total: totalSum } = sums;
   const share = fmtNumber(locale, (riskySum / totalSum) * 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 });

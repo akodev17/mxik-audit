@@ -57,6 +57,7 @@ describe('billing module (database)', { skip }, () => {
     const res = await withEnv(CLICK, () => http().get(`/api/catalogs/${catalogId}/purchase`).set('Cookie', adminCookie));
     const purchase = fits(e.catalogPurchase.response, res.body);
     assert.equal(purchase.planId, 'catalog_500');
+    assert.equal(purchase.maxRows, 500);
     assert.deepEqual(purchase.purchase, { kind: 'available', price: 700_000, providers: ['click'] });
     const stranger = await makeUser();
     orgs.push(stranger.orgId);

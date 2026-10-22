@@ -1,10 +1,8 @@
 'use client';
 
-import type { ColumnMap } from '@tasnivo/domain/column-map';
-import type { ImportDiagnostics } from '@tasnivo/domain/import-diagnostics';
+import type { ColumnMap, ImportDiagnostics, UploadPreview } from '@/lib/catalogs/types';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { UploadPreview } from '@tasnivo/domain/upload-preview';
 import { Button, ButtonLink } from '@/ui/button';
 import { Notice } from './notice';
 
