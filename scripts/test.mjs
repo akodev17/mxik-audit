@@ -8,7 +8,8 @@ import { spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ROOTS = ['src', 'eval'];
+// Every workspace plus eval/. Run from the repo root: tests read fixtures relative to it.
+const ROOTS = ['apps', 'packages', 'eval'];
 const SKIP = new Set(['node_modules', '.next', 'tmp', 'data', 'dist']);
 
 function findTests(dir) {

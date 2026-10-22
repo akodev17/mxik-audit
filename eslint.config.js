@@ -1,9 +1,11 @@
-// Flat config. Type-aware rules on src/, eval/ and scripts/ only.
+// Flat config. Type-aware rules on apps/web/src, packages/*/src, eval/ and scripts/ only (packages/db/prisma,
+// like prisma/ before it, is not linted); each file is typed by its nearest tsconfig.json (the
+// workspace's own, or the root one for scripts and eval).
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['node_modules/**', '.next/**', 'tmp/**', 'data/**', 'prisma/migrations/**', 'src/core/normalize/units.generated.ts'] },
+  { ignores: ['**/node_modules/**', '**/.next/**', 'tmp/**', 'data/**', 'packages/db/prisma/**', 'packages/core/src/normalize/units.generated.ts'] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
