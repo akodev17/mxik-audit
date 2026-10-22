@@ -36,6 +36,17 @@ const globalForPool = globalThis as unknown as { mxikPool?: Pool };
 const pool = globalForPool.mxikPool ?? new Pool({ connectionString: DATABASE_URL, max: 8 });
 if (process.env.NODE_ENV !== 'production') globalForPool.mxikPool = pool;
 
+/** The process's classifier pool, for a long-lived process that reuses it (the worker). */
+export function classifierPool(): Pool {
+  return pool;
+}
+
+/** Ends the pool, for a process shutting down. Nothing may query through it afterwards. */
+export async function closeClassifierPool(): Promise<void> {
+  await pool.end();
+  if (globalForPool.mxikPool === pool) delete globalForPool.mxikPool;
+}
+
 export type AuditProgress = {
   /** Rows processed in this run. */
   done: number;
@@ -116,9 +127,29 @@ export async function loadRestricted(): Promise<Map<string, Date>> {
   return new Map(rows.map((r) => [r.code, r.effectiveFrom]));
 }
 
+/**
+ * Where vectorReadiness gets its embedder. `configured` builds the provider the environment asks for;
+ * `reuse` may swap the provider readiness settled on (the configured one, or a local one rebuilt from
+ * the stored vectors' name) for an equal instance kept from earlier.
+ */
+export type EmbedderSource = {
+  configured(): EmbeddingProvider;
+  reuse(embedder: EmbeddingProvider): EmbeddingProvider;
+};
+
+/** By default a fresh provider per call, so nothing outlives an audit (the web, scripts, tests). */
+const freshEmbedders: EmbedderSource = { configured: () => embeddingProviderFromEnv(), reuse: (embedder) => embedder };
+let embedders = freshEmbedders;
+
+/** Installs a long-lived process's embedder source (the worker keeps one model loaded); null restores the default. */
+export function useEmbedderSource(source: EmbedderSource | null): void {
+  embedders = source ?? freshEmbedders;
+}
+
 /** The vector stage's state for the configured provider, on the shared pool. */
 export async function vectorReadiness(): Promise<VectorReadiness> {
-  return checkVectorReadiness(pool, embeddingProviderFromEnv());
+  const readiness = await checkVectorReadiness(pool, embedders.configured());
+  return { ...readiness, embedder: embedders.reuse(readiness.embedder) };
 }
 
 /** Builds the matching setup for one org; cached LLM verdicts never cross orgs. */

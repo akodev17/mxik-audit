@@ -2,6 +2,7 @@
 // org's linked Telegram chats when the bot is configured. Read state is per user.
 import type { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
+import { jobs } from './jobs/dispatcher.js';
 import type { CurrentUser } from './session.js';
 
 export type NewNotification = {
@@ -43,11 +44,10 @@ export async function notify(input: NewNotification): Promise<string | null> {
   return id;
 }
 
-/** Sends a notification beyond the app; a delivery failure never loses the notification. */
+/** Sends (or queues) a notification beyond the app; a delivery failure never loses the notification. */
 export async function deliver(notificationId: string): Promise<void> {
-  // Loaded lazily so the app never loads the bot library when the bot is off.
-  const { deliverToTelegram } = await import('./telegram/deliver.js');
-  await deliverToTelegram(notificationId).catch((error: unknown) => {
+  // Inline, the dispatcher loads the bot library only now, so the app never loads it when the bot is off.
+  await jobs().enqueueTelegram({ kind: 'notification', notificationId }).catch((error: unknown) => {
     console.warn(`[notify ${notificationId}] telegram failed: ${error instanceof Error ? error.message : String(error)}`);
   });
 }

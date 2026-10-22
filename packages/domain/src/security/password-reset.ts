@@ -4,7 +4,7 @@ import { absoluteUrl } from '../app-url.js';
 import { db } from '@tasnivo/db';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import type { Locale } from '@tasnivo/i18n/i18n';
-import { sendMail } from '../mailer.js';
+import { jobs } from '../jobs/dispatcher.js';
 import { hashPassword } from '../password.js';
 import { claimToken, issueToken, peekToken } from './email-token.js';
 import { passwordAcceptable } from './password-check.js';
@@ -24,14 +24,14 @@ export async function requestReset(email: string, locale: Locale): Promise<void>
   if (!user) return;
   const token = await issueResetToken(user.id);
   const s = appDict(locale).secX.mail;
-  await sendMail({ to: user.email, subject: s.resetSubject, text: s.resetBody(absoluteUrl(`/reset/${token}`), RESET_MINUTES) });
+  await jobs().enqueueMail({ to: user.email, subject: s.resetSubject, text: s.resetBody(absoluteUrl(`/reset/${token}`), RESET_MINUTES) });
 }
 
 /** For an account that exists but was never confirmed: the link confirms it and sets a password chosen by the mailbox owner. */
 export async function sendPendingAccountLink(user: { id: string; email: string }, locale: Locale): Promise<void> {
   const token = await issueResetToken(user.id);
   const s = appDict(locale).secX.mail;
-  await sendMail({ to: user.email, subject: s.pendingSubject, text: s.pendingBody(absoluteUrl(`/reset/${token}`), RESET_MINUTES) });
+  await jobs().enqueueMail({ to: user.email, subject: s.pendingSubject, text: s.pendingBody(absoluteUrl(`/reset/${token}`), RESET_MINUTES) });
 }
 
 /** The address a usable reset link belongs to, for the reset page. */

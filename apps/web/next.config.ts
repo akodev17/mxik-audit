@@ -10,8 +10,9 @@ const config: NextConfig = {
   transpilePackages: ['@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n'],
   // The dev overlay badge would appear in the landing page screenshots.
   devIndicators: false,
-  // exceljs and pg must run on the server, never be bundled for the browser.
-  serverExternalPackages: ['exceljs', 'pg', '@prisma/client', '@huggingface/transformers', 'onnxruntime-node', 'pdfkit'],
+  // exceljs and pg must run on the server, never be bundled for the browser. bullmq and ioredis load
+  // only with JOBS_MODE=bullmq (packages/domain/src/jobs/bullmq.ts).
+  serverExternalPackages: ['exceljs', 'pg', '@prisma/client', '@huggingface/transformers', 'onnxruntime-node', 'pdfkit', 'bullmq', 'ioredis'],
   experimental: {
     // Catalogue uploads are the whole point; the 1 MB default is far too small.
     serverActions: { bodySizeLimit: '25mb' },
