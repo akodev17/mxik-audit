@@ -6,7 +6,7 @@
 // E2E_NO_NAV_FALLBACK=1 to prove it without the watchdog: any navigation it has to rescue fails.
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
-import type { Browser, BrowserContext, Locator, Page } from 'playwright';
+import type { Browser, BrowserContext, Locator, Page, Route } from 'playwright';
 import { COMMIT, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
 
 const main = (page: Page) => page.locator('main');
@@ -117,5 +117,40 @@ describe('query-only navigation', () => {
     ]);
     await page.locator('[role="grid"]').waitFor({ timeout: NAV_TIMEOUT });
     assert.equal(await sawSkeleton(page), false, 'the decision filter changed without the page skeleton');
+  });
+
+  // A page the server is slow to render (a first compile in dev, a heavy query in production) used to
+  // look like an ignored click. Clicking again started another full render of the same page each time,
+  // and after 8 s the watchdog reloaded the document while the answer was still on its way.
+  test('21 a slow page opens from one click: more clicks start no second load, and nothing reloads', { timeout: 120_000 }, async () => {
+    const { page } = session;
+    const SLOW_MS = 9_000;
+    await open(page, '/dashboard');
+    let loads = 0;
+    const isQueuePage = (url: URL): boolean => url.pathname === '/queue' && url.searchParams.has('_rsc');
+    const slow = async (route: Route): Promise<void> => {
+      // Link prefetches (loading boundary only) carry this header; the page itself does not.
+      if (!route.request().headers()['next-router-prefetch']) {
+        loads += 1;
+        await new Promise((r) => setTimeout(r, SLOW_MS));
+      }
+      await route.continue();
+    };
+    await page.route(isQueuePage, slow);
+    try {
+      await page.evaluate(() => { (window as unknown as { __sameDocument?: boolean }).__sameDocument = true; });
+      const tab = page.locator('header a[href="/queue"]').first();
+      await tab.click();
+      for (let i = 0; i < 4; i++) {
+        await page.waitForTimeout(500);
+        await tab.click();
+      }
+      await page.waitForURL((url) => url.pathname === '/queue', { ...COMMIT, timeout: SLOW_MS + NAV_TIMEOUT });
+      await main(page).getByRole('heading', { level: 1, name: TA.firmX.queue.title }).waitFor({ timeout: NAV_TIMEOUT });
+      assert.equal(loads, 1, 'five clicks, one request for the page');
+      assert.equal(await page.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument === true), true, 'the page was not reloaded as a document');
+    } finally {
+      await page.unroute(isQueuePage, slow);
+    }
   });
 });

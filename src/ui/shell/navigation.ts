@@ -112,8 +112,8 @@ export type LinkClick = {
   modified: boolean;
 };
 
-/** The in-app address (path and query) a click or push will reach, for the navigation watchdog; null for hash-only, external or browser-handled targets. */
-export function internalTarget(click: LinkClick, current: string): string | null {
+/** The in-app address (path and query) a click or push goes to, the current one included; null for hash-only, external or browser-handled targets. */
+export function linkAddress(click: LinkClick, current: string): string | null {
   if (click.button !== 0 || click.modified || click.download || !click.href) return null;
   if (click.target && click.target !== '_self') return null;
   const here = parse(current, 'http://localhost');
@@ -121,5 +121,43 @@ export function internalTarget(click: LinkClick, current: string): string | null
   if (!here || !next || next.origin !== here.origin) return null;
   if (!['http:', 'https:'].includes(next.protocol) || next.pathname.startsWith('/api/')) return null;
   const target = `${next.pathname}${next.search}`;
-  return target === `${here.pathname}${here.search}` ? null : target;
+  // A link to a part of this page.
+  if (next.hash && target === `${here.pathname}${here.search}`) return null;
+  return target;
+}
+
+/** The in-app address a click or push will move to, for the navigation watchdog; null when it stays on this address. */
+export function internalTarget(click: LinkClick, current: string): string | null {
+  const target = linkAddress(click, current);
+  const here = parse(current, 'http://localhost');
+  return target === null || !here || target === `${here.pathname}${here.search}` ? null : target;
+}
+
+/** Path and query in one spelling (parameters sorted, one encoding), so a link and a fetched URL compare equal. */
+export function addressKey(address: string): string {
+  const url = new URL(address, 'http://localhost');
+  url.searchParams.sort();
+  const query = url.searchParams.toString();
+  return query === '' ? url.pathname : `${url.pathname}?${query}`;
+}
+
+/** The address a router fetch was for (Next's `_rsc` cache key removed), or null for any other request. */
+export function routerFetchAddress(name: string, origin: string): string | null {
+  const url = parse(name, origin);
+  if (!url || url.origin !== origin || !url.searchParams.has('_rsc')) return null;
+  url.searchParams.delete('_rsc');
+  return addressKey(`${url.pathname}${url.search}`);
+}
+
+/** After this long without an answer the server is not coming back: load the target as a document. */
+export const NAVIGATION_GIVE_UP_MS = 60_000;
+
+/**
+ * What the watchdog makes of a navigation still uncommitted at its deadline. Waiting while the
+ * server has not answered is right: a slow page (a heavy query, a route compiling in dev) commits
+ * when its answer arrives, and loading it as a document would start over. Answered but uncommitted
+ * is the held transition the watchdog exists for (see the note above isServerResponse).
+ */
+export function watchVerdict(answered: boolean, waitedMs: number): 'wait' | 'stuck' {
+  return answered || waitedMs >= NAVIGATION_GIVE_UP_MS ? 'stuck' : 'wait';
 }

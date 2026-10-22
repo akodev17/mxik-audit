@@ -4,10 +4,10 @@ export function Skeleton({ className }: { className?: string }) {
   return <div aria-hidden className={cx('skeleton rounded-ctl', className)} />;
 }
 
-/** Placeholder for a page while its server data loads. */
+/** Placeholder for a page while its server data loads. The navigation watchdog looks for its marker (src/ui/shell/same-route-links.ts). */
 export function PageSkeleton() {
   return (
-    <div className="p-6" aria-busy="true">
+    <div className="p-6" aria-busy="true" data-page-skeleton="">
       <Skeleton className="h-7 w-64" />
       <Skeleton className="mt-3 h-4 w-96 max-w-full" />
       <div className="mt-8 space-y-2">

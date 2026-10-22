@@ -3,7 +3,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { internalTarget, isServerResponse, routeBoundaryKey, settleNudge, type LinkClick, type Timer } from './navigation';
+import {
+  addressKey, internalTarget, isServerResponse, linkAddress, NAVIGATION_GIVE_UP_MS, routeBoundaryKey, routerFetchAddress, settleNudge, watchVerdict,
+  type LinkClick, type Timer,
+} from './navigation';
 
 describe('routeBoundaryKey', () => {
   it('changes with the query on ordinary pages, so each address gets a fresh boundary', () => {
@@ -72,6 +75,47 @@ describe('internalTarget', () => {
     assert.equal(internalTarget(click('/clients/abc', { modified: true }), at), null);
     assert.equal(internalTarget(click('/clients/abc', { button: 1 }), at), null);
     assert.equal(internalTarget(click('mailto:a@b.uz'), at), null);
+  });
+});
+
+describe('linkAddress', () => {
+  const click = (href: string | null, extra: Partial<LinkClick> = {}): LinkClick => ({ href, target: null, download: false, button: 0, modified: false, ...extra });
+  const at = 'http://localhost:3000/clients?filter=empty';
+
+  it('includes the current address (a repeated click on the open tab), but not a link to a part of the page', () => {
+    assert.equal(linkAddress(click('/clients?filter=empty'), at), '/clients?filter=empty');
+    assert.equal(linkAddress(click('/queue'), at), '/queue');
+    assert.equal(linkAddress(click('#section'), at), null);
+    assert.equal(linkAddress(click('/queue', { modified: true }), at), null);
+  });
+});
+
+describe('addressKey and routerFetchAddress', () => {
+  const origin = 'http://localhost:3000';
+
+  it('spell one address one way', () => {
+    assert.equal(addressKey('/settings?tab=plan&x=1'), addressKey('/settings?x=1&tab=plan'));
+    assert.equal(addressKey('/queue?'), '/queue');
+    assert.equal(addressKey('/clients?q=a b'), addressKey('/clients?q=a%20b'));
+  });
+
+  it('gives the address a router fetch was for, without its cache key', () => {
+    assert.equal(routerFetchAddress('http://localhost:3000/queue?_rsc=1x2y', origin), '/queue');
+    assert.equal(routerFetchAddress('http://localhost:3000/settings?tab=plan&_rsc=ab', origin), addressKey('/settings?tab=plan'));
+    assert.equal(routerFetchAddress('http://localhost:3000/clients/abc', origin), null, 'a server action, not a router fetch');
+    assert.equal(routerFetchAddress('https://other.example/queue?_rsc=1', origin), null);
+  });
+});
+
+describe('watchVerdict', () => {
+  it('waits while the server has not answered, and calls it stuck once the answer is there', () => {
+    assert.equal(watchVerdict(false, 8_000), 'wait', 'a slow page is not a stuck one');
+    assert.equal(watchVerdict(false, 24_000), 'wait');
+    assert.equal(watchVerdict(true, 8_000), 'stuck');
+  });
+
+  it('gives up waiting for an answer that never comes', () => {
+    assert.equal(watchVerdict(false, NAVIGATION_GIVE_UP_MS), 'stuck');
   });
 });
 
