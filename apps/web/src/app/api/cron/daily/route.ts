@@ -2,7 +2,7 @@
 // retention). Protected by CRON_SECRET; disabled when the secret is unset.
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { runDailyJobs } from '@tasnivo/domain/daily';
+import { triggerDailyJobs } from '@tasnivo/domain/daily';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,5 +16,5 @@ export async function POST(request: Request) {
   const secret = process.env['CRON_SECRET']?.trim() ?? '';
   if (secret.length < 16) return NextResponse.json({ error: 'cron disabled' }, { status: 503 });
   if (!authorized(request.headers.get('authorization'), secret)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  return NextResponse.json(await runDailyJobs());
+  return NextResponse.json(await triggerDailyJobs());
 }

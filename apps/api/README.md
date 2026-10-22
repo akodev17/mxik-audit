@@ -1,8 +1,8 @@
 # @tasnivo/api
 
 The NestJS 11 HTTP API (Express adapter), everything under `/api`. Plan and context:
-`docs/BACKEND_SPLIT_PLAN.md` §3.1 and Wave 1a. Today it serves `/api/health`, `/api/auth/*` and
-Swagger at `/api/docs` (JSON at `/api/docs-json`); Wave 2 adds the feature modules.
+`docs/BACKEND_SPLIT_PLAN.md` §3.1 and Wave 1a. It serves `/api/health`, `/api/auth/*`, the Wave 2 modules listed
+under Routes, and Swagger at `/api/docs` (JSON at `/api/docs-json`).
 
 ## Run
 
@@ -137,6 +137,35 @@ arguments; domain code must not read cookies or headers. Every route states its 
 callback's own signature check + `@SkipCsrf()`). Every body/query goes through
 `ZodValidationPipe`. Inject with `@Inject(...)`. Add a supertest e2e test that skips without the
 database (`test/helpers.ts`: `dbSkipReason`, `startApp`, `makeUser`).
+
+## Routes: clients, billing, demo, admin, cron, telegram, public API (Wave 2)
+
+Every route is declared from the `@tasnivo/contracts` registry with `@ContractRoute(endpoints.<module>.<op>)`
+(`src/http/contract-route.ts`: method, path, status, SessionGuard plus the role/demo guard, Swagger from
+the zod schemas). The logic is in `@tasnivo/domain`, shared with the web app's actions and route handlers.
+
+| Module (`src/…`) | Routes | Auth |
+|---|---|---|
+| `clients/` | `GET /api/clients` (q, filter, sort, days, page from 0), `GET /api/clients/{id}` (the page's data; 404 outside the user's scope), `POST /api/clients`, `PUT /api/clients/active`, `PATCH /api/clients/{id}`, `POST /api/clients/{id}/archive`, `…/restore`, `…/delete`, `GET` and `PUT /api/clients/{id}/accountants` | session; role and demo refusals are 403, the actions' own refusals stay `{ ok: false, error }` |
+| `billing/` | `GET /api/billing/plan`, `GET /api/catalogs/{id}/purchase`, `POST /api/billing/checkout` | session; checkout answers a non-admin `{ ok: false, error }` as the action did |
+| `billing/payments.controller.ts` | `POST /api/payments/click` (form), `POST /api/payments/payme` (JSON-RPC; its errors are HTTP 200) | the provider's own check, `@SkipCsrf()`; 404 while the provider is not configured |
+| `demo/` | `GET /api/demo/config`, `POST /api/demo/request`, `GET /api/demo/links/{token}` (JSON `null` for an unusable link), `POST /api/demo/open` (sets the session cookie, answers `{ redirect }`), `POST /api/lead` (multipart, sample up to 5 MB) | public; the database-backed limits per address |
+| `admin/` | `GET /api/admin/traction`, `…/pipeline`, `…/accuracy?by=`, `…/metrics?by=` (CSV) | 404 for anyone but a platform admin (OptionalSessionGuard + PlatformAdminGuard) |
+| `cron/` | `POST /api/cron/daily`, `POST /api/cron/classifier-update` (202) | CronGuard, `@SkipCsrf()`; with JOBS_MODE=bullmq both only queue (`{ queued, jobId, added }`; pid null) |
+| `telegram/` | `POST /api/telegram/webhook` (grammy's handler, built once by TelegramWebhookService, 55 s timeout) | X-Telegram-Bot-Api-Secret-Token; 404 without a bot token, 503 without a webhook secret |
+| `public-api/` | `POST /api/v1/check`, `GET` and `POST /api/v1/catalogs`, `GET /api/v1/catalogs/{id}/report`, `GET /api/v1/openapi.json` | ApiKeyGuard (openapi.json is public) |
+
+Bodies the global JSON/urlencoded parsers do not cover (multipart uploads, the Click form, a Payme body
+sent as text) are read by `src/http/request-body.ts` the way the web route handlers read them
+(`request.formData()`, `request.json()`). The /api/v1 operations are `@tasnivo/domain/api/handlers`, the
+same functions the web app's /api/v1 routes call.
+
+**Rate limit store.** `PublicApiModule` provides its own `RATE_LIMIT_STORE`
+(`auth-core/redis-rate-limit.store.ts`): `RedisRateLimitStore` when `REDIS_URL` is set (one sorted set per
+key, the same sliding window and answers as the in-memory store, shared by every instance; while Redis is
+unreachable it falls back to the in-memory window), otherwise the in-memory store. It is provided there,
+not in `AppModule`, because a guard listed in `@UseGuards()` is instantiated in the module of the
+controller that uses it and resolves its dependencies from there.
 
 ## Tests
 

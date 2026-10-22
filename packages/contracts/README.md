@@ -194,7 +194,7 @@ the repository root. Ticks are kept.
 | [ ] | [ ] | page `(app)/settings#integrations` | `account.telegramLinks` ⚠ | `GET /api/account/telegram` | session (admin) |
 | [ ] | [ ] | action `settings.ts#telegramCode` | `account.telegramCode` | `POST /api/account/telegram/code` | session (admin, no demo) |
 | [ ] | [ ] | action `settings.ts#telegramUnlink` | `account.telegramUnlink` | `DELETE /api/account/telegram/{linkId}` | session (admin) |
-| [ ] | [ ] | route `POST /api/telegram/webhook` | `account.telegramWebhook` | `POST /api/telegram/webhook` | providerSignature |
+| [x] | [ ] | route `POST /api/telegram/webhook` | `account.telegramWebhook` | `POST /api/telegram/webhook` | providerSignature |
 | [ ] | [ ] | page `(app)/settings#integrations` | `account.apiKeys` ⚠ | `GET /api/account/api-keys` | session (admin) |
 | [ ] | [ ] | action `api-keys.ts#addApiKey` | `account.createApiKey` | `POST /api/account/api-keys` | session (admin, no demo) |
 | [ ] | [ ] | action `api-keys.ts#removeApiKey` | `account.revokeApiKey` | `DELETE /api/account/api-keys/{keyId}` | session (admin) |
@@ -204,17 +204,17 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `(app)/clients` | `clients.list` ⚠ | `GET /api/clients` | session (any) |
-| [ ] | [ ] | page `(app)/clients/[id]` | `clients.get` ⚠ | `GET /api/clients/{clientId}` | session (any) |
-| [ ] | [ ] | action `clients.ts#addClient` | `clients.create` | `POST /api/clients` | session (writer, no demo) |
-| [ ] | [ ] | action `shell.ts#switchClient` | `clients.switchActive` | `PUT /api/clients/active` | session (any) |
-| [ ] | [ ] | action `clients.ts#rememberClient` | `clients.switchActive` | `PUT /api/clients/active` | session (any) |
-| [ ] | [ ] | action `clients.ts#renameClientAction` | `clients.rename` | `PATCH /api/clients/{clientId}` | session (admin, no demo) |
-| [ ] | [ ] | action `clients.ts#archiveClientAction` | `clients.archive` | `POST /api/clients/{clientId}/archive` | session (admin, no demo) |
-| [ ] | [ ] | action `clients.ts#restoreClientAction` | `clients.restore` | `POST /api/clients/{clientId}/restore` | session (admin, no demo) |
-| [ ] | [ ] | action `clients.ts#deleteClientAction` | `clients.remove` | `POST /api/clients/{clientId}/delete` | session (admin, no demo) |
-| [ ] | [ ] | page `(app)/clients/[id]#accountants` | `clients.accountants` | `GET /api/clients/{clientId}/accountants` | session (admin) |
-| [ ] | [ ] | action `clients.ts#setAccountantsAction` | `clients.setAccountants` | `PUT /api/clients/{clientId}/accountants` | session (admin, no demo) |
+| [x] | [ ] | page `(app)/clients` | `clients.list` ⚠ | `GET /api/clients` | session (any) |
+| [x] | [ ] | page `(app)/clients/[id]` | `clients.get` ⚠ | `GET /api/clients/{clientId}` | session (any) |
+| [x] | [ ] | action `clients.ts#addClient` | `clients.create` | `POST /api/clients` | session (writer, no demo) |
+| [x] | [ ] | action `shell.ts#switchClient` | `clients.switchActive` | `PUT /api/clients/active` | session (any) |
+| [x] | [ ] | action `clients.ts#rememberClient` | `clients.switchActive` | `PUT /api/clients/active` | session (any) |
+| [x] | [ ] | action `clients.ts#renameClientAction` | `clients.rename` | `PATCH /api/clients/{clientId}` | session (admin, no demo) |
+| [x] | [ ] | action `clients.ts#archiveClientAction` | `clients.archive` | `POST /api/clients/{clientId}/archive` | session (admin, no demo) |
+| [x] | [ ] | action `clients.ts#restoreClientAction` | `clients.restore` | `POST /api/clients/{clientId}/restore` | session (admin, no demo) |
+| [x] | [ ] | action `clients.ts#deleteClientAction` | `clients.remove` | `POST /api/clients/{clientId}/delete` | session (admin, no demo) |
+| [x] | [ ] | page `(app)/clients/[id]#accountants` | `clients.accountants` | `GET /api/clients/{clientId}/accountants` | session (admin) |
+| [x] | [ ] | action `clients.ts#setAccountantsAction` | `clients.setAccountants` | `PUT /api/clients/{clientId}/accountants` | session (admin, no demo) |
 
 ### catalogs
 
@@ -340,41 +340,41 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `(app)/settings#plan` | `billing.plan` ⚠ | `GET /api/billing/plan` | session (any) |
-| [ ] | [ ] | page `(app)/layout#plan` | `billing.plan` ⚠ | `GET /api/billing/plan` | session (any) |
-| [ ] | [ ] | page `(app)/catalogs/[id]#billing` | `billing.catalogPurchase` ⚠ | `GET /api/catalogs/{catalogId}/purchase` | session (any) |
-| [ ] | [ ] | action `billing.ts#startCheckout` | `billing.checkout` | `POST /api/billing/checkout` | session (admin) |
-| [ ] | [ ] | route `POST /api/payments/click` | `billing.click` | `POST /api/payments/click` | providerSignature |
-| [ ] | [ ] | route `POST /api/payments/payme` | `billing.payme` | `POST /api/payments/payme` | providerSignature |
+| [x] | [ ] | page `(app)/settings#plan` | `billing.plan` ⚠ | `GET /api/billing/plan` | session (any) |
+| [x] | [ ] | page `(app)/layout#plan` | `billing.plan` ⚠ | `GET /api/billing/plan` | session (any) |
+| [x] | [ ] | page `(app)/catalogs/[id]#billing` | `billing.catalogPurchase` ⚠ | `GET /api/catalogs/{catalogId}/purchase` | session (any) |
+| [x] | [ ] | action `billing.ts#startCheckout` | `billing.checkout` | `POST /api/billing/checkout` | session (admin) |
+| [x] | [ ] | route `POST /api/payments/click` | `billing.click` | `POST /api/payments/click` | providerSignature |
+| [x] | [ ] | route `POST /api/payments/payme` | `billing.payme` | `POST /api/payments/payme` | providerSignature |
 
 ### demo
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `demo` | `demo.config` ⚠ | `GET /api/demo/config` | public |
-| [ ] | [ ] | action `demo.ts#requestDemo` | `demo.request` | `POST /api/demo/request` | public |
-| [ ] | [ ] | page `demo/verify/[token]` | `demo.peek` | `GET /api/demo/links/{token}` | public |
-| [ ] | [ ] | action `demo.ts#openDemo` | `demo.open` | `POST /api/demo/open` | public |
-| [ ] | [ ] | action `lead.ts#submitLead` | `demo.lead` | `POST /api/lead` | public |
+| [x] | [ ] | page `demo` | `demo.config` ⚠ | `GET /api/demo/config` | public |
+| [x] | [ ] | action `demo.ts#requestDemo` | `demo.request` | `POST /api/demo/request` | public |
+| [x] | [ ] | page `demo/verify/[token]` | `demo.peek` | `GET /api/demo/links/{token}` | public |
+| [x] | [ ] | action `demo.ts#openDemo` | `demo.open` | `POST /api/demo/open` | public |
+| [x] | [ ] | action `lead.ts#submitLead` | `demo.lead` | `POST /api/lead` | public |
 
 ### publicApi
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | route `POST /api/v1/check` | `check` | `POST /api/v1/check` | apiKey |
-| [ ] | [ ] | route `GET /api/v1/catalogs` | `listCatalogs` | `GET /api/v1/catalogs` | apiKey |
-| [ ] | [ ] | route `POST /api/v1/catalogs` | `uploadCatalog` | `POST /api/v1/catalogs` | apiKey |
-| [ ] | [ ] | route `GET /api/v1/catalogs/[id]/report` | `report` | `GET /api/v1/catalogs/{id}/report` | apiKey |
-| [ ] | [ ] | route `GET /api/v1/openapi.json` | `openapi` | `GET /api/v1/openapi.json` | public |
+| [x] | [ ] | route `POST /api/v1/check` | `check` | `POST /api/v1/check` | apiKey |
+| [x] | [ ] | route `GET /api/v1/catalogs` | `listCatalogs` | `GET /api/v1/catalogs` | apiKey |
+| [x] | [ ] | route `POST /api/v1/catalogs` | `uploadCatalog` | `POST /api/v1/catalogs` | apiKey |
+| [x] | [ ] | route `GET /api/v1/catalogs/[id]/report` | `report` | `GET /api/v1/catalogs/{id}/report` | apiKey |
+| [x] | [ ] | route `GET /api/v1/openapi.json` | `openapi` | `GET /api/v1/openapi.json` | public |
 
 ### admin
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | page `(app)/admin#traction` | `admin.traction` | `GET /api/admin/traction` | session (platformAdmin) |
-| [ ] | [ ] | page `(app)/admin#pipeline` | `admin.pipeline` | `GET /api/admin/pipeline` | session (platformAdmin) |
-| [ ] | [ ] | page `(app)/admin/metrics` | `admin.accuracy` | `GET /api/admin/accuracy` | session (platformAdmin) |
-| [ ] | [ ] | route `GET /api/admin/metrics` | `admin.metricsCsv` | `GET /api/admin/metrics` | session (platformAdmin) |
+| [x] | [ ] | page `(app)/admin#traction` | `admin.traction` | `GET /api/admin/traction` | session (platformAdmin) |
+| [x] | [ ] | page `(app)/admin#pipeline` | `admin.pipeline` | `GET /api/admin/pipeline` | session (platformAdmin) |
+| [x] | [ ] | page `(app)/admin/metrics` | `admin.accuracy` | `GET /api/admin/accuracy` | session (platformAdmin) |
+| [x] | [ ] | route `GET /api/admin/metrics` | `admin.metricsCsv` | `GET /api/admin/metrics` | session (platformAdmin) |
 
 ### share
 
@@ -387,8 +387,8 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | route `POST /api/cron/daily` | `cron.daily` | `POST /api/cron/daily` | cron |
-| [ ] | [ ] | route `POST /api/cron/classifier-update` | `cron.classifierUpdate` | `POST /api/cron/classifier-update` | cron |
+| [x] | [ ] | route `POST /api/cron/daily` | `cron.daily` | `POST /api/cron/daily` | cron |
+| [x] | [ ] | route `POST /api/cron/classifier-update` | `cron.classifierUpdate` | `POST /api/cron/classifier-update` | cron |
 
 ### health
 

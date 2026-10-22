@@ -137,3 +137,15 @@ export async function reasonsCsv(lang: Locale): Promise<string> {
     r.productName, r.suggestedMxik, r.note, r.createdAt.toISOString(),
   ])]);
 }
+
+/** The metrics page for one dimension: its table, the total over it, and why suggestions were called wrong. */
+export async function accuracyReport(dim: Dimension): Promise<{ rows: AccuracyRow[]; overall: AccuracyRow; wrongReasons: WrongReason[] }> {
+  const [rows, reasons] = await Promise.all([accuracyBy(dim), wrongReasons()]);
+  return { rows, overall: overall(rows), wrongReasons: reasons };
+}
+
+/** GET /api/admin/metrics?by=…: a dimension's table or the reasons list as CSV; null for an unknown `by`. */
+export async function metricsCsv(by: string, lang: Locale): Promise<string | null> {
+  if (by === 'reasons') return reasonsCsv(lang);
+  return DIMENSIONS.includes(by as Dimension) ? accuracyCsv(by as Dimension, lang) : null;
+}

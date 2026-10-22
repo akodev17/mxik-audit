@@ -177,3 +177,15 @@ export async function handlePayme(body: unknown): Promise<Record<string, unknown
 }
 
 export const PAYME_ERRORS = ERRORS;
+
+/**
+ * POST /api/payments/payme once Payme is configured: `body` is the parsed JSON, or null when the
+ * request did not parse. Payme expects HTTP 200 with a JSON-RPC error, never a 401.
+ */
+export async function answerPayme(body: { json: unknown } | null, authorization: string | null, config: PaymeConfig): Promise<Record<string, unknown>> {
+  if (!body) return { jsonrpc: '2.0', id: null, error: ERRORS.parse };
+  const json = body.json;
+  const id = typeof json === 'object' && json !== null ? (json as { id?: unknown }).id ?? null : null;
+  if (!paymeAuthorized(authorization, config)) return { jsonrpc: '2.0', id, error: ERRORS.auth };
+  return handlePayme(json);
+}
