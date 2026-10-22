@@ -122,7 +122,7 @@ export function catchMail(): { mails: MailJobData[]; restore(): void } {
     enqueueDocCheck: () => Promise.resolve(),
     enqueueTelegram: () => Promise.resolve(),
     enqueueClassifierUpdate: () => Promise.resolve(),
-    enqueueDaily: () => Promise.resolve(true),
+    enqueueDaily: () => Promise.resolve(false),
   } satisfies JobDispatcher;
   setJobs(fake);
   return { mails, restore: () => setJobs(null) };
