@@ -74,7 +74,7 @@ services:
         condition: service_healthy
 
 
-  # Scheduled jobs (purge, weekly classifier update, daily reminders); replaces the host crontab.
+  # Scheduled jobs (purge, daily classifier update, daily reminders); replaces the host crontab.
   scheduler:
     profiles: ["app"]
     image: mxik-audit-app
