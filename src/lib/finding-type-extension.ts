@@ -20,11 +20,21 @@ type Args = Record<string, unknown>;
 /** Where a finding sits in a result: the relation fields from the root, and whether its id was added only for the fill. */
 type Need = { path: string[]; dropId: boolean };
 
-/** Model name -> relation field -> related model name. */
-const RELATIONS = new Map(Prisma.dmmf.datamodel.models.map((m) => [
-  m.name,
-  new Map(m.fields.filter((f) => f.kind === 'object').map((f) => [f.name, f.type])),
-]));
+/**
+ * Model name -> relation field -> related model name. Built on first use, not at
+ * module load: a client bundle that happens to import db.ts has no Prisma.dmmf
+ * (the browser stub), and must not crash before any query runs.
+ */
+let relationsCache: Map<string, Map<string, string>> | null = null;
+function relationsOf(): Map<string, Map<string, string>> {
+  if (relationsCache) return relationsCache;
+  const models = (Prisma as { dmmf?: { datamodel?: { models?: readonly { name: string; fields: readonly { kind: string; name: string; type: string }[] }[] } } }).dmmf?.datamodel?.models ?? [];
+  relationsCache = new Map(models.map((m) => [
+    m.name,
+    new Map(m.fields.filter((f) => f.kind === 'object').map((f) => [f.name, f.type])),
+  ]));
+  return relationsCache;
+}
 
 export function isUnknownFindingType(error: unknown): boolean {
   return error instanceof Error && /not found in enum 'FindingType'/.test(error.message);
@@ -50,7 +60,7 @@ export function withoutFindingType(model: string, args: Args, path: string[] = [
       }
     }
   }
-  const relations = RELATIONS.get(model);
+  const relations = relationsOf().get(model);
   for (const key of ['select', 'include']) {
     const tree = out[key] as Args | undefined;
     if (!tree || !relations) continue;

@@ -24,20 +24,10 @@ export type CodeHit = { code: string; name: string; retired: boolean };
 
 export type SearchResults = { query: string; clients: ClientHit[]; catalogs: CatalogHit[]; products: ProductHit[]; codes: CodeHit[] };
 
-export const MIN_TEXT = 2;
-export const MIN_CODE_DIGITS = 5;
-const MAX_QUERY = 100;
+// Query parsing lives in search-query.ts (no db import) so client components can use it.
+export { MIN_CODE_DIGITS, MIN_TEXT, parseQuery, type ParsedQuery } from './search-query.js';
+import { MAX_QUERY, MIN_TEXT, parseQuery, type ParsedQuery } from './search-query.js';
 const LIMITS = { clients: 5, catalogs: 5, products: 8, codes: 5 } as const;
-
-export type ParsedQuery = { text: string; digits: string | null; tooShort: boolean };
-
-/** Trimmed text, plus the digits when the query reads as a code prefix (spaces and dots allowed). */
-export function parseQuery(raw: string): ParsedQuery {
-  const text = raw.replace(/\s+/g, ' ').trim().slice(0, MAX_QUERY);
-  const compact = text.replace(/[\s.-]/g, '');
-  const digits = new RegExp(`^\\d{${MIN_CODE_DIGITS},17}$`).test(compact) ? compact : null;
-  return { text, digits, tooShort: text.length < MIN_TEXT };
-}
 
 type FindingFacts = { severity: Severity; decision: Decision; type: FindingType; decisionSource?: string | null };
 
