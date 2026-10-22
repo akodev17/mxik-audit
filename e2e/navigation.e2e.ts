@@ -102,9 +102,9 @@ describe('query-only navigation', () => {
     for (const tab of ['/settings?tab=security', '/settings?tab=plan', '/settings']) {
       await page.waitForLoadState('networkidle');
       await watchSkeleton(page);
-      const link = main(page).locator(`a[href="${tab}"]`).first();
+      const link = main(page).locator(`a[href="${tab}"]:visible`).first();
       await follow(page, link, tab);
-      await main(page).locator(`a[aria-current="page"][href="${tab}"]`).waitFor({ timeout: NAV_TIMEOUT });
+      await main(page).locator(`a[aria-current="page"][href="${tab}"]:visible`).first().waitFor({ timeout: NAV_TIMEOUT });
       assert.equal(await sawSkeleton(page), false, `${tab} opened without the page skeleton`);
     }
 
