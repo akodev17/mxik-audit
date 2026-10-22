@@ -10,16 +10,7 @@ export const MIGRATED_WEB_PATHS = [
   'apps/web/src/lib/api/query.ts',
   'apps/web/src/lib/api/follow.ts',
   'apps/web/src/ui/query-provider.tsx',
-  // W3a: auth, account, team, settings
-  'apps/web/src/app/sign-in/**',
-  'apps/web/src/app/sign-up/**',
-  'apps/web/src/app/invite/**',
-  'apps/web/src/app/reset/**',
-  'apps/web/src/app/account-deleted/**',
-  'apps/web/src/app/(app)/team/**',
-  'apps/web/src/app/(app)/settings/!(theme-setting).tsx',
-  'apps/web/src/app/(app)/settings/*.ts',
-  'apps/web/src/lib/safe-next.ts',
+  // W3a: auth, account, team, settings — on W3a's branch (claude/w3a-web-auth-772588); the merge takes the union.
   'apps/web/src/ui/language-switch.tsx',
   // W3d: clients, purchases, cheque/sales imports, the app shell, billing buttons, demo, lead form, admin, api-docs
   'apps/web/src/lib/api/refusal.ts',
