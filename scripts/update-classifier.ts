@@ -5,22 +5,29 @@
 //
 //   npm run classifier:update                    full run
 //   npm run classifier:update -- --skip-fetch    reuse data/classifier_*.xlsx
-//   npm run classifier:update -- --dry-run       download + diff only, write nothing
+//   npm run classifier:update -- --dry-run       download + diff only, write nothing; prints the
+//                                                snapshot age before and the counts after
 //   npm run classifier:update -- --recheck 7     only re-check against snapshot 7
 //
-// One run at a time (Postgres advisory lock). Also started by
-// POST /api/cron/classifier-update (CRON_SECRET); see DEPLOY.md.
+// One run at a time (Postgres advisory lock, src/lib/classifier-lock.ts). Also started by
+// POST /api/cron/classifier-update (CRON_SECRET) and, when the snapshot is more than a day
+// old, by the daily cron; see DEPLOY.md. How a run ended is recorded in
+// data/classifier-update-status.json (src/lib/classifier-status.ts) for /api/health and the
+// stale-classifier banner; dry runs and runs refused by the lock record nothing.
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { Pool } from 'pg';
+import { ageInDays } from '../src/lib/classifier-freshness.js';
+import { acquireClassifierLock, releaseClassifierLock } from '../src/lib/classifier-lock.js';
 import { recheckAfterUpdate } from '../src/lib/classifier-recheck.js';
+import { latestSnapshot } from '../src/lib/classifier-state.js';
+import { writeUpdateStatus } from '../src/lib/classifier-status.js';
 import { db } from '../src/lib/db.js';
 import { embedMissing } from './lib/embed-missing.js';
 import { loadClassifier } from './lib/load-classifier.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
-const LOCK_KEY = 727_001;
 const args = process.argv.slice(2);
 const flag = (name: string): boolean => args.includes(name);
 const recheckOnly = args.includes('--recheck') ? Number(args[args.indexOf('--recheck') + 1]) : null;
@@ -37,9 +44,15 @@ function runScript(script: string, scriptArgs: string[] = []): void {
 const pool = new Pool({ connectionString: DATABASE_URL, max: 2 });
 const lock = await pool.connect();
 let exitCode = 0;
+let holdsLock = false;
 try {
-  const { rows } = await lock.query<{ ok: boolean }>('SELECT pg_try_advisory_lock($1) AS ok', [LOCK_KEY]);
-  if (!rows[0]?.ok) throw new Error('another classifier update is running');
+  holdsLock = await acquireClassifierLock(lock);
+  if (!holdsLock) throw new Error('another classifier update is running');
+
+  const before = await latestSnapshot();
+  log(before
+    ? `snapshot before: #${before.id} taken ${before.takenAt.toISOString().slice(0, 10)}, ${ageInDays(before.takenAt, new Date())} day(s) old, ${before.codeCount.toLocaleString()} codes`
+    : 'snapshot before: none');
 
   let snapshotId = recheckOnly;
   if (snapshotId === null) {
@@ -53,6 +66,8 @@ try {
     log('loading as a new snapshot');
     const loaded = await loadClassifier({ databaseUrl: DATABASE_URL, source: 'data/mxik.ndjson', dryRun: flag('--dry-run'), log });
     if (loaded.snapshotId === null) {
+      const d = loaded.diff;
+      log(`dry run: after an update the copy would hold ${loaded.rows.toLocaleString()} codes (live now ${loaded.previousLive.toLocaleString()}): +${d.added} added, -${d.retired} retired, ${d.unitChanged} unit changed, ${d.nameChanged} name changed`);
       log('dry run finished; nothing written');
     } else {
       snapshotId = loaded.snapshotId;
@@ -72,11 +87,15 @@ try {
     const results = await recheckAfterUpdate(snapshotId, log);
     log(`done: ${results.length} client(s) affected`);
   }
+  if (!flag('--dry-run')) writeUpdateStatus('success', null);
 } catch (error) {
-  log(`FAILED: ${error instanceof Error ? error.message : String(error)}`);
+  const message = error instanceof Error ? error.message : String(error);
+  log(`FAILED: ${message}`);
+  // A run the lock turned away is not a failed update; the one holding the lock will record its own end.
+  if (holdsLock && !flag('--dry-run')) writeUpdateStatus('failed', message);
   exitCode = 1;
 } finally {
-  await lock.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => undefined);
+  if (holdsLock) await releaseClassifierLock(lock).catch(() => undefined);
   lock.release();
   await pool.end();
   await db.$disconnect();

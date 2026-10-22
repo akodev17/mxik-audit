@@ -90,7 +90,7 @@ describe('parseUpload: text files', () => {
     ]);
     const parsed = await parseUpload(csv, 'h.csv');
     assert.deepEqual(parsed.headers, [...ONE_C_HEADERS_RU]);
-    assert.deepEqual(parsed.rows[0], ['=HYPERLINK("x")', '06301001001000000', 'kg', '4780000000017', 'Tasdiqlangan']);
+    assert.deepEqual(parsed.rows[0], ['=HYPERLINK("x")', '06301001001000000', 'kg', '4780000000017', 'Tasdiqlangan', '']);
     assert.equal(parsed.rows[1]?.[0], 'Guruch; 1 kg');
   });
 

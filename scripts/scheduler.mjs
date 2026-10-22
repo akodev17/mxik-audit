@@ -41,7 +41,7 @@ function local(d) {
 
 const JOBS = [
   { name: 'purge', h: 3, m: 15, run: () => npmRun('purge:expired') },
-  { name: 'classifier', dow: 1, h: 4, m: 0, run: () => npmRun('classifier:update') },
+  { name: 'classifier', h: 4, m: 0, run: () => npmRun('classifier:update') },
   { name: 'daily', h: 6, m: 15, run: () => callRoute('/api/cron/daily') },
 ];
 

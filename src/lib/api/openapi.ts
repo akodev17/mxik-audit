@@ -19,6 +19,7 @@ const object = (properties: Record<string, Schema>, description?: string): Schem
 const SCORE = 'Match score from 0 to 1. It ranks candidates; it is not a probability that the code is right.';
 const findingType: Schema = { type: 'string', enum: Object.values(FindingType), description: FINDING_FIELDS.type };
 const reason: Schema = { type: 'string', description: FINDING_FIELDS.reason };
+const restrictedFrom: Schema = nullable({ type: 'string', format: 'date', description: FINDING_FIELDS.restrictedFrom });
 const severity: Schema = { type: 'string', enum: Object.values(Severity), description: 'Stable and machine-readable. "info" is shown for information and never counted as risk.' };
 
 const catalogProperties: Record<string, Schema> = {
@@ -53,6 +54,7 @@ function schemas(config: ApiConfig): Record<string, Schema> {
       confidence: nullable({ type: 'number', description: SCORE }),
       reason,
       alternatives: { type: 'array', items: ref('Alternative') },
+      restrictedFrom,
     }),
     CheckResult: object({ name: str, markingRequired: { type: 'boolean' }, findings: { type: 'array', items: ref('CheckFinding') } }),
     CheckResponse: object({ results: { type: 'array', items: ref('CheckResult') } }),
@@ -74,6 +76,7 @@ function schemas(config: ApiConfig): Record<string, Schema> {
       decision: { type: 'string', enum: Object.values(Decision) },
       decisionSource: nullable({ type: 'string', enum: [...DECISION_SOURCES], description: 'How the decision was made: by a person (manual, group, bulk, bulk_sure, dictionary) or automatically (dictionary_auto, carry_over).' }),
       chosenMxik: nullable({ type: 'string', description: 'The code the reviewer chose; may differ from suggestedMxik.' }),
+      restrictedFrom,
     }),
     Report: object({
       ...catalogProperties,

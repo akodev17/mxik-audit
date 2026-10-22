@@ -15,13 +15,14 @@ export function typeLabels(t: Dict): Record<string, string> {
     NOT_PURCHASED: t.typeNotPurchased,
     PRIVILEGE_CODE: t.typePrivilegeCode,
     PRIVILEGE_OPPORTUNITY: t.typePrivilegeOpportunity,
+    RESTRICTED: t.typeRestricted,
   };
 }
 
 /** Red for a wrong or absent code, amber for a doubtful one, grey for information. */
 export function typeTone(type: string, severity: string): Tone {
   if (severity === 'info') return 'neutral';
-  return type === 'MISSING' || type === 'NOT_FOUND' ? 'danger' : 'warn';
+  return type === 'MISSING' || type === 'NOT_FOUND' || (type === 'RESTRICTED' && severity === 'high') ? 'danger' : 'warn';
 }
 
 // A low band is less certainty, not an error: neutral, never the danger tone of problem types.

@@ -8,6 +8,7 @@ const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'] as cons
 export async function auditSummaryText(catalogId: string, reportUrl: string | null, t: Dict): Promise<string> {
   const TYPE_TEXT: Record<string, string> = {
     MISSING: t.typeMissing, NOT_FOUND: t.typeNotFound, MISMATCH: t.typeMismatch, UNIT_CONFLICT: t.typeUnitConflict,
+    RESTRICTED: t.typeRestricted,
   };
   const catalog = await db.catalog.findUniqueOrThrow({
     where: { id: catalogId },

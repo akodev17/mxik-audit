@@ -22,6 +22,7 @@ export function catalogOut(c: CatalogRow) {
 type FindingRow = {
   id: string; type: string; severity: string; suggestedMxik: string | null; confidence: number | null; reason: string;
   decision: string; chosenMxik: string | null; decisionSource: string | null;
+  restrictedFrom?: Date | null;
   item: { rowIndex: number; rawName: string; barcode: string | null; unit: string | null; existingMxik: string | null };
 };
 
@@ -41,7 +42,13 @@ export function findingOut(f: FindingRow) {
     decision: f.decision,
     decisionSource: readDecisionSource(f.decisionSource),
     chosenMxik: f.chosenMxik,
+    restrictedFrom: dateOnly(f.restrictedFrom),
   };
+}
+
+/** A date-only value as YYYY-MM-DD, or null. */
+export function dateOnly(date: Date | null | undefined): string | null {
+  return date ? date.toISOString().slice(0, 10) : null;
 }
 
 type ReportInput = {
