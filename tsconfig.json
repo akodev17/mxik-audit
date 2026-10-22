@@ -1,8 +1,13 @@
 {
   // scripts/ and eval/. Also the config tsx reads for everything run from the root (tests,
   // scripts), so "@/*" points at the web app for its tests. Workspaces have their own tsconfig.json.
+  //
+  // apps/api is included because tsx applies this file's compilerOptions only to the files it
+  // includes, and Nest's parameter decorators compile only with experimentalDecorators: without
+  // these entries `tsx apps/api/src/main.ts` and the apps/api tests fail to transform.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "experimentalDecorators": true,
     "paths": {
       "@/*": [
         "./apps/web/src/*"
@@ -11,7 +16,9 @@
   },
   "include": [
     "scripts/**/*.ts",
-    "eval/**/*.ts"
+    "eval/**/*.ts",
+    "apps/api/src/**/*.ts",
+    "apps/api/test/**/*.ts"
   ],
   "exclude": [
     "node_modules"

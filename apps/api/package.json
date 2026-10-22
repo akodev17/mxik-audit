@@ -1,0 +1,35 @@
+{
+  "name": "@tasnivo/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The NestJS HTTP API. Run it from the repository root (npm run dev:api / build:api / start:api).",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tasnivo/db": "*",
+    "@tasnivo/domain": "*",
+    "@tasnivo/i18n": "*",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@next/env": "^15.5.23",
+    "@prisma/client": "^6.19.3",
+    "cookie": "^1.0.2",
+    "iron-session": "^8.0.4",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.0.0",
+    "@types/express": "^5.0.0",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^6.0.2",
+    "esbuild": "^0.28.0",
+    "supertest": "^7.0.0"
+  }
+}
