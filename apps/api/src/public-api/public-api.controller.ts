@@ -3,8 +3,8 @@
 // @tasnivo/domain/api/handlers, the same functions the web app's route handlers run, so answers,
 // error envelopes and idempotency replays are the same byte for byte. A throw becomes the
 // documented 500 envelope in ApiExceptionFilter.
-import { Controller, Get, Param, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { Controller, Param, Req, Res, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { buildOpenApi, endpoints } from '@tasnivo/contracts';
 import { appOrigin } from '@tasnivo/domain/app-url';
@@ -13,7 +13,7 @@ import { checkOperation, listCatalogsOperation, reportOperation, uploadCatalogOp
 import type { ApiCaller } from '@tasnivo/domain/api/keys';
 import { apiConfig } from '@tasnivo/domain/api/limits';
 import { ApiKeyGuard } from '../auth-core/api-key.guard';
-import { ContractRoute, routePath } from '../http/contract-route';
+import { Route } from '../http/route';
 import { header, type ApiRequest } from '../http/request';
 import { readFormData, readJson } from '../http/request-body';
 
@@ -33,9 +33,10 @@ const callerOf = (req: ApiRequest): ApiCaller => {
   return req.apiCaller;
 };
 
+@ApiTags('publicApi')
 @Controller()
 export class PublicApiController {
-  @ContractRoute(e.check)
+  @Route(e.check)
   @UseGuards(ApiKeyGuard)
   @ApiBearerAuth()
   async check(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
@@ -43,7 +44,7 @@ export class PublicApiController {
     send(res, await checkOperation(callerOf(req), { idempotencyKey: header(req, HEADERS.idempotencyKey), body: body?.json ?? null }));
   }
 
-  @ContractRoute(e.listCatalogs)
+  @Route(e.listCatalogs)
   @UseGuards(ApiKeyGuard)
   @ApiBearerAuth()
   async listCatalogs(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
@@ -52,11 +53,9 @@ export class PublicApiController {
     }));
   }
 
-  @ContractRoute(e.uploadCatalog)
+  @Route(e.uploadCatalog)
   @UseGuards(ApiKeyGuard)
   @ApiBearerAuth()
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' }, clientId: { type: 'string' } } } })
   async uploadCatalog(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
     const form = await readFormData(req);
     const file = form?.get('file');
@@ -69,7 +68,7 @@ export class PublicApiController {
     }));
   }
 
-  @ContractRoute(e.report)
+  @Route(e.report)
   @UseGuards(ApiKeyGuard)
   @ApiBearerAuth()
   async report(@Param('id') id: string, @Req() req: ApiRequest, @Res() res: Response): Promise<void> {
@@ -77,7 +76,7 @@ export class PublicApiController {
   }
 
   /** The v1 contract (OpenAPI 3.0.3, version 1.1.0) for the configured limits; no key needed. */
-  @Get(routePath(e.openapi))
+  @Route(e.openapi)
   @ApiExcludeEndpoint()
   openapi(@Req() req: ApiRequest) {
     const { ratePerMinute, maxCheckItems } = apiConfig();

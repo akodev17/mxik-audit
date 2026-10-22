@@ -140,9 +140,9 @@ database (`test/helpers.ts`: `dbSkipReason`, `startApp`, `makeUser`).
 
 ## Routes: clients, billing, demo, admin, cron, telegram, public API (Wave 2)
 
-Every route is declared from the `@tasnivo/contracts` registry with `@ContractRoute(endpoints.<module>.<op>)`
-(`src/http/contract-route.ts`: method, path, status, SessionGuard plus the role/demo guard, Swagger from
-the zod schemas). The logic is in `@tasnivo/domain`, shared with the web app's actions and route handlers.
+Every route is declared from the `@tasnivo/contracts` registry with W2a's `@Route(endpoints.<module>.<op>)`
+(`src/http/route.ts`: method, path, status, SessionGuard plus AccessGuard for role/demo, Swagger from the
+zod schemas). The logic is in `@tasnivo/domain`, shared with the web app's actions and route handlers.
 
 | Module (`src/…`) | Routes | Auth |
 |---|---|---|
