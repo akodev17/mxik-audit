@@ -109,6 +109,7 @@ const coreUz = {
     searchEmpty: 'Hech narsa topilmadi',
     choose: 'Tanlash',
     markirovka: 'Markirovka',
+    markirovkaSuggested: 'Taklif etilgan kod markirovkalanadi',
     privilege: 'Imtiyoz',
     request: 'Yangi kod soʻrovi matni',
     requestHint: 'Matn tayyor; uni tasnif.soliq.uz saytiga oʻzingiz yuborasiz.',

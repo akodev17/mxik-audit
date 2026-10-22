@@ -72,7 +72,8 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{typeLabels(t)[detail.type] ?? detail.type}</StatusChip>
           {suggesting && !detail.noSuggestion && (detail.confidence !== null || detail.stage === 'barcode' || detail.stage === 'dictionary') ? <MatchChip confidence={detail.confidence} stage={detail.stage} show /> : null}
-          {detail.markingCurrent || detail.markingSuggested ? <Badge tone="warn">{ta.drawer.markirovka}</Badge> : null}
+          {/* The badge is the row's markingRequired, as in the grid and the filter; a marked suggestion too weak to count is only mentioned. */}
+          {row.marking ? <Badge tone="warn">{ta.drawer.markirovka}</Badge> : detail.markingSuggested ? <Badge tone="neutral">{ta.drawer.markirovkaSuggested}</Badge> : null}
           {detail.privileges.length > 0 && !PRIVILEGE_TYPES.has(detail.type) ? <Badge tone="info">{ta.drawer.privilege}</Badge> : null}
         </div>
         {score ? (

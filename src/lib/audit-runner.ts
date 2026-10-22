@@ -23,6 +23,7 @@ import { normalizeName } from '../core/normalize/index.js';
 import {
   POSITION_DIGITS, readCode, runChecks, type Finding, type ResolvedRow, type Restriction,
 } from '../core/audit/checks.js';
+import { markingRequired } from '../core/audit/marking.js';
 import type { RerankGate } from '../core/match/rerank-config.js';
 import type {
   EmbeddingProvider, RerankOutcome, RerankProvider, RerankUsage, ScoredCandidate, VectorOutcome,
@@ -227,12 +228,12 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     restriction,
   });
 
-  // Marking follows the classifier's own flag on the row's code or on a code we suggest.
-  const suggestedMarked = findings.some((f) =>
-    suggestions.find((s) => s.candidate.code === f.suggestedMxik)?.candidate.isMarked === true);
+  // Marking: the row's own marked code always sets it; a marked suggested code
+  // only when it is labelled "Yuqori moslik" or came from barcode/dictionary.
+  // A low-confidence guess does not. Rule and reasons in core/audit/marking.
   return {
     findings,
-    markingRequired: existing.candidate?.isMarked === true || suggestedMarked,
+    markingRequired: markingRequired(existing.candidate?.isMarked === true, findings, suggestions),
     match: { rerank: match.rerank, vector: match.vector },
   };
 }
@@ -312,7 +313,7 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
     orderBy: { rowIndex: 'asc' },
     select: {
       id: true, rowIndex: true, rawName: true, barcode: true,
-      existingMxik: true, unit: true,
+      existingMxik: true, unit: true, markingRequired: true,
     },
   });
 
@@ -328,8 +329,9 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
   await runPool(items, CONCURRENCY, async (item, index) => {
     const { findings, markingRequired, match } = await checkItem(item, ctx);
     countMatch(counters, match);
-    if (markingRequired) {
-      await db.catalogItem.update({ where: { id: item.id }, data: { markingRequired: true } });
+    // Written both ways, so a re-audit clears a flag an earlier run set.
+    if (markingRequired !== item.markingRequired) {
+      await db.catalogItem.update({ where: { id: item.id }, data: { markingRequired } });
     }
     if (findings.length > 0) {
       await timed(timer, 'persist', () => db.finding.createMany({ data: findingData(item.id, findings) }));
