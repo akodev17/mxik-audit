@@ -301,6 +301,13 @@ export const uz = {
       newerHint: 'Bu tahlil tasniflagichning oldingi versiyasi boʻyicha bajarilgan. Yangi versiya boʻyicha toʻliq tekshirish uchun faylni qayta yuklang.',
       degradedMore: 'Bu takliflarga taʼsir qiladi; ularni diqqat bilan tekshiring.',
     },
+    /** Shown in the workspace and the report when the classifier copy is old or its last update failed. */
+    classifierBanner: {
+      title: 'Tasniflagich nusxasi yangilanmagan',
+      stale: (days: number, date: string) => `Tasniflagichning saqlangan nusxasi ${date} holatida (${days} kun oldin). Yangi qoʻshilgan yoki bekor qilingan kodlar hisobga olinmagan boʻlishi mumkin.`,
+      failed: (date: string) => `Tasniflagichni soʻnggi yangilash urinishi (${date}) muvaffaqiyatsiz tugadi.`,
+      hint: 'Natijalarga ehtiyot boʻlib qarang: bekor qilingan kod hali amalda deb koʻrsatilishi mumkin. Administratorga xabar bering.',
+    },
     keys: {
       title: 'Tezkor tugmalar',
       open: 'Tezkor tugmalar roʻyxati',
@@ -669,6 +676,12 @@ export const ru: typeof uz = {
       newer: (date) => `Есть более новый классификатор (${date})`,
       newerHint: 'Этот анализ выполнен по предыдущей версии классификатора. Для полной проверки по новой версии загрузите файл заново.',
       degradedMore: 'Это влияет на предложения; проверяйте их внимательнее.',
+    },
+    classifierBanner: {
+      title: 'Копия классификатора не обновлена',
+      stale: (days, date) => `Сохранённая копия классификатора — по состоянию на ${date} (${days} ${pluralRu(days, 'день', 'дня', 'дней')} назад). Недавно добавленные или отменённые коды могут быть не учтены.`,
+      failed: (date) => `Последняя попытка обновить классификатор (${date}) завершилась ошибкой.`,
+      hint: 'Относитесь к результатам осторожно: отменённый код может по-прежнему считаться действующим. Сообщите администратору.',
     },
     keys: {
       title: 'Горячие клавиши',

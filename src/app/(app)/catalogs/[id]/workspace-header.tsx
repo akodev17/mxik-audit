@@ -9,6 +9,7 @@ import { Badge } from '@/ui/badge';
 import type { CurrentUser } from '@/lib/session';
 import { IconInfo } from '@/ui/icons';
 import { BillingBox } from './billing-box';
+import { ClassifierBanner } from './classifier-banner';
 import { ExportActions } from './export-actions';
 import { InfoHint } from './info-hint';
 import { ReviewField } from './review-field';
@@ -87,6 +88,7 @@ export async function WorkspaceHeader({ orgId, catalog, client, canShare, canPay
           panel={<BillingBox orgId={orgId} catalogId={catalog.id} rowCount={catalog.rowCount} canPay={canPay} demo={demo} />}
         />
       </div>
+      <ClassifierBanner className="mt-3" />
       {notes.length > 0 ? (
         <section className="mt-3 rounded-ctl border border-line bg-info-tint px-3 py-2 text-small text-info-ink" aria-label={ta.matchX.degraded.title}>
           <p className="flex items-center gap-1.5 font-medium"><IconInfo size={14} />{ta.matchX.degraded.title}</p>

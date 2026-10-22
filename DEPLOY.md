@@ -114,7 +114,8 @@ that is unreachable from the server, run `mx npm run ingest` (without
 
 ```bash
 docker compose --profile app up -d app
-curl -s http://127.0.0.1:3000/api/health    # {"status":"ok","database":true,"classifier":true}
+curl -s http://127.0.0.1:3000/api/health
+# {"status":"ok","database":true,"classifier":{"loaded":true,"takenAt":"2026-10-21T12:51:50.918Z","ageDays":1,"codeCount":442964,"stale":false,"lastUpdate":{"outcome":"success",...}}}
 ```
 
 Audits run in the background. If the app restarts mid-audit, it resumes the
@@ -172,9 +173,9 @@ on their own, so no `TZ` variable is needed in `.env`.
 ```cron
 # Erase lead files past LEAD_FILE_RETENTION_DAYS and delete expired demo copies.
 15 3 * * * cd /opt/mxik-audit && docker compose --profile app exec -T app npm run purge:expired >> /var/log/mxik-purge.log 2>&1
-# Weekly classifier update: download, diff, embed new codes, re-check every
+# Daily classifier update: download, diff, embed new codes, re-check every
 # client's latest catalogue, notify affected orgs (in the app and on Telegram).
-0 4 * * 1 cd /opt/mxik-audit && docker compose --profile app exec -T app npm run classifier:update >> /var/log/mxik-classifier.log 2>&1
+0 4 * * * cd /opt/mxik-audit && docker compose --profile app exec -T app npm run classifier:update >> /var/log/mxik-classifier.log 2>&1
 # Nightly database backup, 14 kept.
 45 3 * * * docker exec mxik-audit-db pg_dump -U mxik -Fc mxik > /opt/mxik-audit/backups/mxik-$(date +\%F).dump && find /opt/mxik-audit/backups -name '*.dump' -mtime +14 -delete
 ```
@@ -190,10 +191,14 @@ the route answers 503. It returns 202 at once and writes its log to
 `data/classifier-update.log` inside the container:
 
 ```cron
-0 4 * * 1 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/classifier-update
+0 4 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/classifier-update
 ```
 
 Only one update runs at a time (a Postgres advisory lock); a second start exits.
+
+The daily route of 7e also starts an update when the newest snapshot is more
+than a day old and none is running, so a server that only calls that route (or
+whose update cron stopped) still catches up. A snapshot of a day or less is left alone.
 
 Copy backups off the server too; a backup on the same disk is not a backup.
 
@@ -264,7 +269,7 @@ An upload waits at the column-mapping step as an uncommitted preview, and its ro
 
 ## 7e. Daily jobs (monthly reminders)
 
-Once a day call the daily route (same `CRON_SECRET` as the classifier update):
+Once a day call the daily route (same `CRON_SECRET` as the classifier update). Besides the jobs below it starts a classifier update (section 7, same lock and log) when the newest snapshot is more than a day old and none is running; the answer's `classifierUpdate` field says whether it did:
 
 ```cron
 15 6 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/daily
@@ -335,8 +340,9 @@ Never run `prisma migrate dev` against this database; see README "Migrations".
 The portal regenerates its export on every request. To pick up new codes:
 
 ```bash
-mx npm run classifier:update                    # what the weekly cron runs
-mx npm run classifier:update -- --dry-run       # download and show the diff, write nothing
+mx npm run classifier:update                    # what the daily cron runs
+mx npm run classifier:update -- --dry-run       # download and show the diff, write nothing; prints the
+                                                # snapshot age before and the counts after
 mx npm run classifier:update -- --recheck <id>  # re-check clients against snapshot <id> again
 ```
 
@@ -348,6 +354,26 @@ latest catalogue: rows whose code changed are re-checked and new problems are
 added with the reason prefix "Tasniflagich yangilandi:"; earlier decisions are
 kept. Each affected client gets a `classifier.updated` event and a
 notification.
+
+#### Stale copy: banner and health
+
+The classifier changes often and a retired code that the copy still lists would be
+confirmed by the audit, so a stale copy is made visible:
+
+- **Banner.** The catalogue workspace and the catalogue report show a warning (Uzbek or
+  Russian) when the newest snapshot is more than 7 days old, or when the last update
+  failed. A failure counts until a newer snapshot is loaded. The rule is `src/lib/classifier-freshness.ts`.
+- **Health.** `/api/health` has `classifier.takenAt`, `ageDays`, `codeCount`, `stale` (the same
+  7-day rule) and `lastUpdate` (`outcome` `success` or `failed`, `at`, and the failure
+  `message`, one line from the update script). A stale copy does not turn the status to
+  503, so point an uptime check at `classifier.stale` or `ageDays` if it should alert.
+- **Where the outcome is kept.** `catalog_snapshot` only records updates that succeeded, so
+  each run also writes `data/classifier-update-status.json` (override with
+  `CLASSIFIER_UPDATE_STATUS`); `data/` is the volume `app` and `scheduler` share. Dry runs
+  and a start refused by the lock write nothing. If the file is missing, the last update is
+  taken to be the newest snapshot.
+- After a failure read `data/classifier-update.log` (HTTP and daily starts) or
+  `/var/log/mxik-classifier.log` (crontab), fix the cause and run the update by hand.
 
 `npm run embed:catalog` is only needed to switch embedding models: it
 re-embeds every code (~2.7 h on 4 vCPU) and the vector stage stays off until it
@@ -365,7 +391,7 @@ docker compose --profile app start app
 
 `docker compose --profile app up -d --build` runs the whole stack as containers:
 `db`, `app` (applies pending migrations, then serves on 127.0.0.1:3000),
-`scheduler` (purge at 03:15, classifier update on Mondays 04:00, the daily jobs
+`scheduler` (purge at 03:15, classifier update daily at 04:00, the daily jobs
 of 7e at 06:15, all UTC+5; replaces the crontab in section 7 and the daily route call
 in 7e, which needs `CRON_SECRET`) and `backup` (nightly `pg_dump` at 03:45 into
 `./backups`, 14 kept). Add `--profile bot` for the Telegram long-polling bot.
