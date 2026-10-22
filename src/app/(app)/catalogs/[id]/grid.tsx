@@ -34,7 +34,7 @@ type Props = {
   compact: boolean;
   expanded: ReadonlySet<string>;
   hasMore: boolean;
-  scrollRef: RefObject<HTMLDivElement | null>;
+  scrollEl: HTMLDivElement | null;
   gridRef: RefObject<HTMLDivElement | null>;
   handlers: GridHandlers;
   readOnly: boolean;
@@ -52,13 +52,13 @@ const HEIGHT = { comfortable: 64, compact: 40 } as const;
  * itself holds focus and points at the active row with aria-activedescendant;
  * the workspace's key handler moves it.
  */
-export function Grid({ entries, total, activeIndex, compact, expanded, hasMore, scrollRef, gridRef, handlers, readOnly, selected, allChecked, editingId, layout }: Props) {
+export function Grid({ entries, total, activeIndex, compact, expanded, hasMore, scrollEl, gridRef, handlers, readOnly, selected, allChecked, editingId, layout }: Props) {
   const { ta } = useI18n();
   const c = ta.wsX.col;
   const header: Record<ColumnKey, string> = { select: c.select, no: c.no, product: c.product, status: c.status, current: c.current, suggested: c.suggested, match: c.match, decision: c.decision };
   const virtualizer = useVirtualizer({
     count: entries.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollEl,
     estimateSize: () => (compact ? HEIGHT.compact : HEIGHT.comfortable),
     overscan: 12,
     scrollMargin: HEADER_HEIGHT,
