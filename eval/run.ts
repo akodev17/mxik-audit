@@ -16,7 +16,7 @@ import { MemoryRerankCache } from '../src/core/match/rerank-cache.js';
 import { costPer1000Rows, formatLlmUsage } from '../src/core/match/rerank-usage.js';
 import { PostgresCandidateStore, storeRetryCount } from '../src/core/match/store.js';
 import { checkVectorReadiness } from '../src/core/match/vector-readiness.js';
-import { BANDS } from '../src/core/match/score.js';
+import { BANDS, type VectorCalibration } from '../src/core/match/score.js';
 import type { RerankProvider, RerankRequest, RerankUsage, RerankVerdict } from '../src/core/match/types.js';
 import { rerankConfigFromEnv } from '../src/core/match/rerank-config.js';
 import { OUTPUT_SCHEMA, renderRow, SYSTEM_PROMPT } from '../src/core/match/rerank-prompt.js';
@@ -43,9 +43,19 @@ const ABLATE = !process.argv.includes('--no-ablate');
 // --nonsemantic-vector-weight N. Absent flags leave the pipeline defaults.
 const positionFusionArg = argValue('--position-fusion');
 const vectorWeightArg = argValue('--nonsemantic-vector-weight');
-const ranking: { positionFusion?: PositionFusion; nonSemanticVectorWeight?: number } = {
+// --vector-calibration legacy | floor,ceil: how a semantic cosine becomes a signal (score.ts).
+const calibrationArg = argValue('--vector-calibration');
+const perPositionArg = argValue('--vector-per-position');
+const calibrationBand = calibrationArg?.split(',').map(Number);
+const ranking: {
+  positionFusion?: PositionFusion; nonSemanticVectorWeight?: number; vectorCalibration?: VectorCalibration | null; vectorPerPosition?: number;
+} = {
   ...(positionFusionArg === 'off' || positionFusionArg === 'subposition' || positionFusionArg === 'position' ? { positionFusion: positionFusionArg } : {}),
   ...(vectorWeightArg === undefined ? {} : { nonSemanticVectorWeight: Number(vectorWeightArg) }),
+  ...(perPositionArg === undefined ? {} : { vectorPerPosition: Number(perPositionArg) }),
+  ...(calibrationArg === 'legacy' ? { vectorCalibration: null }
+    : calibrationBand?.length === 2 && calibrationBand.every(Number.isFinite)
+      ? { vectorCalibration: { floor: calibrationBand[0] ?? 0.8, ceil: calibrationBand[1] ?? 0.95 } } : {}),
 };
 
 // ------------------------------------------------------------------ cases
@@ -71,6 +81,8 @@ const commonDocs = argValue('--fulltext-common-docs');
 // too (store.ts). Both default to the store's own.
 const fullTextColumn = argValue('--fulltext-column');
 const fullTextSelect = argValue('--fulltext-select');
+// --ef-search N: HNSW search breadth (store default 100); exact scans ignore it.
+const efSearchArg = argValue('--ef-search');
 const baseStore = new PostgresCandidateStore(pool, {
   // The placeholder embedder's sparse vectors defeat HNSW; see store.ts.
   exactVectorScan: !embedder.semantic,
@@ -78,8 +90,11 @@ const baseStore = new PostgresCandidateStore(pool, {
   ...(commonDocs === undefined ? {} : { fullTextCommonDocs: Number(commonDocs) }),
   ...(fullTextColumn === 'plain' || fullTextColumn === 'weighted' ? { fullTextColumn } : {}),
   ...(fullTextSelect === 'A' || fullTextSelect === 'AB' ? { fullTextSelectWeights: fullTextSelect } : {}),
+  ...(efSearchArg === undefined ? {} : { efSearch: Number(efSearchArg) }),
 });
 const fullTextSource = await baseStore.fullTextSource();
+// Columns holding the provider's vectors; the pipeline picks the row's script's column.
+const vectorColumns = readiness.stored?.columns ?? ['uz'];
 const store = new MemoStore(baseStore);
 
 // Never score against a label that is not a live classifier code, or a prefix no live code has.
@@ -177,7 +192,7 @@ console.log(`classifier      ${Number(codeCount).toLocaleString()} live codes ·
 console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
 for (const e of excluded) console.log(`  excluded: ${e}`);
 console.log(`full-text       "${fullTextSource}"${fullTextSource === 'searchVectorWeighted' ? `, selecting on weight ${fullTextSelect ?? 'A'}` : ''}`);
-console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- NOT SEMANTIC'}`);
+console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- NOT SEMANTIC'} · text ${embedder.textShape ?? 'folded'} · columns ${vectorColumns.join('+')}`);
 if (readiness.reason) console.log(`  vector stage    ${readiness.usable ? 'SUBSTITUTED' : 'DISABLED'}: ${readiness.reason}`);
 console.log(`reranker        ${realReranker.name}${realReranker.available ? '' : '   <-- DISABLED (gate measured in dry run)'}`);
 console.log(`rerank gate     top-1 < ${gate.minConfidence} or margin < ${gate.minMargin}`);
@@ -211,7 +226,7 @@ async function runConfig(config: Config): Promise<Outcome[]> {
       const t0 = Date.now();
       const result = await matchProduct(
         { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit },
-        { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled), ...ranking },
+        { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled), vectorColumns, ...ranking },
       );
       const rankIndex = result.candidates.findIndex((c) => accepts(testCase.correct, c.candidate.code));
       const top = result.candidates[0];
@@ -387,9 +402,11 @@ history.runs.push({
   database,
   providers: {
     embedding: embedder.name, embeddingSemantic: embedder.semantic, vectorUsable: readiness.usable,
+    embeddingTextShape: embedder.textShape ?? 'folded', vectorColumns,
     reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
     fullText: { column: fullTextSource, selectWeights: fullTextSource === 'searchVectorWeighted' ? (fullTextSelect ?? 'A') : null },
     ranking,
+    efSearch: efSearchArg === undefined ? null : Number(efSearchArg),
   },
   cases: { real: real.length, synthetic: synthetic.length, excluded },
   metrics: results,

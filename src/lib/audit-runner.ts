@@ -17,7 +17,7 @@ import { PostgresRerankCache } from '../core/match/rerank-cache-pg.js';
 import { rerankConfigFromEnv } from '../core/match/rerank-config.js';
 import { PROMPT_VERSION } from '../core/match/rerank-prompt.js';
 import { lexicalStrictThresholdFromEnv, PostgresCandidateStore } from '../core/match/store.js';
-import { checkVectorReadiness, type VectorReadiness } from '../core/match/vector-readiness.js';
+import { checkVectorReadiness, type VectorColumn, type VectorReadiness } from '../core/match/vector-readiness.js';
 import { normalizeName } from '../core/normalize/index.js';
 import { readCode, runChecks, type Finding, type ResolvedRow } from '../core/audit/checks.js';
 import type { RerankGate } from '../core/match/rerank-config.js';
@@ -97,6 +97,8 @@ export type AuditContext = {
   timer?: StageTimer | undefined;
   /** Stage 4 is switched off when the stored vectors are unusable, so no query is embedded. */
   disabledStages?: ReadonlySet<DisableableStage> | undefined;
+  /** Vector columns holding the provider's vectors (embedding_state.columns). */
+  vectorColumns?: readonly VectorColumn[] | undefined;
   /** Providers as configured for this run, for Catalog.pipelineMeta. */
   setup?: PipelineSetup | undefined;
   degradedReasons: string[];
@@ -133,7 +135,8 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
   const dictionary = await loadDictionary(orgId).catch(() => undefined);
   const disabledStages = readiness.usable ? undefined : new Set<DisableableStage>(['vector']);
-  return { store, embedder, reranker, gate, dictionary, timer, disabledStages, setup, degradedReasons };
+  const vectorColumns = readiness.stored?.columns;
+  return { store, embedder, reranker, gate, dictionary, timer, disabledStages, vectorColumns, setup, degradedReasons };
 }
 
 export type AuditableItem = {
@@ -155,7 +158,7 @@ const SELF_MATCH_DEPTH = 20;
 
 /** Matches one row and runs every check on it. Writes nothing. */
 export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise<ItemCheck> {
-  const { store, embedder, reranker, gate, dictionary, timer, disabledStages } = ctx;
+  const { store, embedder, reranker, gate, dictionary, timer, disabledStages, vectorColumns } = ctx;
   // Ranked deeper than the suggestions so the row's own code is usually
   // scorable from this one retrieval, without a second pass.
   const match = await matchProduct({
@@ -163,7 +166,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     barcode: item.barcode,
     unit: item.unit,
     existingMxik: item.existingMxik,
-  }, { store, embedder, reranker, dictionary, rerankGate: gate, timer, disabledStages, topK: SELF_MATCH_DEPTH });
+  }, { store, embedder, reranker, dictionary, rerankGate: gate, timer, disabledStages, vectorColumns, topK: SELF_MATCH_DEPTH });
 
   // Resolve the row's own code so NOT_FOUND and retirement can be judged.
   const code = readCode(item.existingMxik);
@@ -189,7 +192,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
       const selfMatch = await timed(timer, 'self-match', () => matchProduct(
         { rawName: item.rawName, unit: item.unit },
         // Same name + unit, so a reranked row is a cache hit here, not a second call.
-        { store, embedder, reranker, rerankGate: gate, disabledStages, topK: SELF_MATCH_DEPTH },
+        { store, embedder, reranker, rerankGate: gate, disabledStages, vectorColumns, topK: SELF_MATCH_DEPTH },
       ));
       found = selfMatch.candidates.find((s) => s.candidate.code === code);
     }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { groupFusion, RRF_K, reciprocalRankFusion } from './fusion.js';
+import { diversify, groupFusion, RRF_K, reciprocalRankFusion } from './fusion.js';
 
 const id = (s: string): string => s;
 
@@ -123,5 +123,17 @@ describe('groupFusion', () => {
     const scores = groupFusion([{ name: 'lex', items: ['X1'] }, { name: 'vec', items: ['P1', 'P2'], weight: 0 }], group);
     assert.deepEqual([...scores], [['X', 1]]);
     assert.equal(groupFusion([], group).size, 0);
+  });
+});
+
+describe('diversify', () => {
+  const group = (code: string): string => code.slice(0, 1);
+  it('keeps the first codes of each group, in order, up to the cap', () => {
+    assert.deepEqual(diversify(['P1', 'P2', 'P3', 'X1', 'P4', 'Y1'], group, 2), ['P1', 'P2', 'X1', 'Y1']);
+  });
+
+  it('changes nothing without a usable cap', () => {
+    assert.deepEqual(diversify(['P1', 'P2'], group, 0), ['P1', 'P2']);
+    assert.deepEqual(diversify(['P1', 'P2'], group, Number.NaN), ['P1', 'P2']);
   });
 });

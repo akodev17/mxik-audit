@@ -5,23 +5,24 @@ import { canWrite, isAdminRole } from '@/lib/access';
 import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
 import { rowProgress } from '@/lib/client-stats';
+import { parseQueueParams, type QueueFilter, type QueueSort } from '@/lib/work-queue';
 import { dashboard } from '@/lib/dashboard';
 import { getI18n } from '@/lib/locale';
 import { onboardingSteps } from '@/lib/onboarding';
 import { planStatus } from '@/lib/plan';
 import { openTasks } from '@/lib/reminders';
+import { openReviews, reviewCounts } from '@/lib/review-assignments';
 import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
-import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { TabPanels, type TabPanel } from '@/ui/tab-panels';
 import { ActivityFeed } from '../activity/activity-feed';
 import { AccountantFilter } from './accountant-filter';
 import { Changes } from './changes';
-import { ClientRisk } from './client-risk';
 import { IssueChart } from './issue-chart';
 import { Onboarding } from './onboarding';
 import { Summary } from './summary';
+import { ReviewTasks } from './review-tasks';
 import { Tasks } from './tasks';
 import { UsagePanel } from './usage-panel';
 import { WorkQueue } from './work-queue';
@@ -36,20 +37,24 @@ const RECENT = 8;
 /** Padding of every region of the page; the hairlines between regions are drawn by the grid. */
 const REGION = 'px-5 py-6 sm:px-8';
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string; qf?: string; qs?: string; rv?: string }> }) {
   const { ta } = await getI18n();
   const user = await currentUser();
   if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const admin = isAdminRole(user);
   const home = ta.firmX.home;
+  const view = parseQueueParams(sp);
 
-  const [data, allTasks, steps, recent, plan] = await Promise.all([
+  const mineOnly = sp.rv === 'mine';
+  const [data, allTasks, steps, recent, plan, reviews, reviewTotals] = await Promise.all([
     dashboard(user, admin ? sp.accountant ?? null : null),
     openTasks(user.orgId, user.clientIds),
     onboardingSteps(user),
     activityPage(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: 40 }),
     planStatus(user.orgId),
+    openReviews(user, { mineOnly }),
+    reviewCounts(user),
   ]);
   const shown = new Set(data.clients.map((c) => c.id));
   const tasks = allTasks.filter((x) => shown.has(x.clientId));
@@ -60,6 +65,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return q ? `/queue?${q}` : '/queue';
   };
   const reviewed = rowProgress(totals);
+  const awaiting = data.clients.filter((c) => c.openRows > 0).length;
+  const viewHref = (v: { qf?: QueueFilter; qs?: QueueSort }): string => {
+    const q = new URLSearchParams();
+    if (data.selected) q.set('accountant', data.selected.id);
+    if (v.qf && v.qf !== 'all') q.set('qf', v.qf);
+    if (v.qs && v.qs !== 'urgent') q.set('qs', v.qs);
+    if (mineOnly) q.set('rv', 'mine');
+    const text = q.toString();
+    return text ? `/dashboard?${text}` : '/dashboard';
+  };
+  const reviewHref = (mine: boolean): string => {
+    const q = new URLSearchParams();
+    if (data.selected) q.set('accountant', data.selected.id);
+    if (view.filter !== 'all') q.set('qf', view.filter);
+    if (view.sort !== 'urgent') q.set('qs', view.sort);
+    if (mine) q.set('rv', 'mine');
+    const text = q.toString();
+    return text ? `/dashboard?${text}` : '/dashboard';
+  };
   const audited = data.clients.some((c) => c.catalogId !== null);
   const openSteps = steps.some((s) => !s.done);
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
@@ -70,7 +94,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // Secondary content sits in tabs so it never competes with the work: clients, activity, changes, team.
   const tabs: TabPanel[] = [
-    { id: 'clients', label: ta.nav.clients, content: <ClientRisk clients={data.clients} accountantQuery={accountantQuery} /> },
     {
       id: 'activity', label: ta.nav.activity,
       content: (
@@ -90,7 +113,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <div className="mx-auto w-full max-w-[100rem]">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 pb-6 pt-8 sm:px-8">
         <div className="min-w-0">
-          <h1 className="text-[2.25rem] font-normal leading-10 tracking-tight">{ta.dash.title}</h1>
+          <h1 className="text-[2rem] font-normal leading-9 tracking-tight">{ta.dash.title}</h1>
           <p className="mt-1.5 max-w-2xl text-small text-muted">{home.hint}</p>
           {user.demo ? (
             <p className="mt-3 flex flex-wrap items-center gap-2 text-small text-muted">
@@ -101,7 +124,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {admin && data.accountants.length > 0 ? <AccountantFilter accountants={data.accountants} selected={data.selected} /> : null}
-          {hasClients && canAct ? <ButtonLink href="/upload" variant="secondary">{home.nextEmptyCta}</ButtonLink> : null}
         </div>
       </div>
 
@@ -112,21 +134,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ) : null}
 
       {hasClients ? (
-        <div className="grid border-t border-line xl:grid-cols-[minmax(0,1fr)_28rem]">
-          <div className="min-w-0 xl:border-r xl:border-line">
-            <div className={`${REGION} border-b border-line`}>
-              <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} />
+        <>
+        <div className="grid border-t border-line xl:grid-cols-[minmax(0,1fr)_25rem]">
+          <div className="min-w-0 divide-y divide-line xl:border-r xl:border-line">
+            <div className={REGION}>
+              <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} awaiting={awaiting} />
             </div>
-            {data.byType.length > 0 ? (
-              <div className={`${REGION} border-b border-line`}><IssueChart types={data.byType} accountantQuery={accountantQuery} /></div>
-            ) : null}
-            <div className={`${REGION} max-xl:border-b max-xl:border-line`}><TabPanels label={ta.dash.recent} tabs={tabs} /></div>
+            <div className={REGION}>
+              <WorkQueue clients={data.clients} pending={data.pending} canUpload={canAct} queueHref={queueHref} filter={view.filter} sort={view.sort} viewHref={viewHref} />
+            </div>
           </div>
 
-          <aside className="min-w-0 divide-y divide-line">
-            <div className={REGION}>
-              <WorkQueue clients={data.clients} pending={data.pending} canUpload={canAct} queueHref={queueHref} />
-            </div>
+          <aside className="min-w-0 divide-y divide-line max-xl:border-t max-xl:border-line">
+            {data.byType.length > 0 ? <div className={REGION}><IssueChart types={data.byType} accountantQuery={accountantQuery} /></div> : null}
+            {reviewTotals.open > 0 ? <div className={REGION}><ReviewTasks items={reviews} counts={reviewTotals} mineOnly={mineOnly} viewHref={reviewHref} /></div> : null}
             {tasks.length > 0 ? (
               <div className={REGION}>
                 <h2 className="mb-4 text-[1.125rem] font-medium leading-6">{ta.reminders.tasks}</h2>
@@ -140,6 +161,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {openSteps && !firstRun ? <div className={REGION}><Onboarding steps={steps} primary={false} /></div> : null}
           </aside>
         </div>
+        <div className={`${REGION} border-t border-line`}>
+          {tabs.length > 1 ? <TabPanels label={ta.dash.recent} tabs={tabs} /> : (
+              <section aria-labelledby="recent-title">
+                <h2 id="recent-title" className="mb-3 text-[1.125rem] font-medium leading-6">{ta.dash.recent}</h2>
+                {tabs[0]?.content}
+              </section>
+            )}
+        </div>
+        </>
       ) : null}
     </div>
   );

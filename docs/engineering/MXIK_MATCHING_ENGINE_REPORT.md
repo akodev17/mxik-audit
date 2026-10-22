@@ -108,7 +108,7 @@ to say where degraded mode stands):
 | high-band precision | 100% everywhere | 100% in every run and config of the series (run 16's 87.5% was a label error, fixed) | met |
 | vectors on vs off within 2 points | every set | metal −29.8 (stand-in), golden +25, synthetic +7.9 | not met; needs e5 |
 | ≥ 5 rows/s, lexical ≤ 800 ms/row p50 | perf machine | 2.6 rows/s, lexical 1,513 ms/row (summed, with pool waits) | not met; hashing exact scan dominates |
-| 60,000-row run recorded | | running at ~2.4 rows/s (§6) | pending |
+| 60,000-row run recorded | | stopped at 19,556 rows for the e5 work (§6) | not met |
 
 The weight fit (`npm run eval:fit`, 238 configurations in three fits, fit on
 80% of every set, fixed 20% hold-out): baseline objective 77.17 train / 84.91
@@ -178,12 +178,18 @@ machine is an i5-12400F; the October entries in `docs/perf-results.json` (and
 the plan) were measured on an i5-14400F, so absolute rates do not compare
 across the two; the before/after pair above ran on the same machine and data.
 
-**60,000 rows.** Started on `mxik_scratch` at 2026-10-21 ~17:20 local with the committed code
-(`npm run perf -- --rows 60000`). When this report was first committed it read
-"audited 180 / 60,000  2.3 rows/s  ETA 26337s": about 2.4 rows/s, so ~7 hours end to end, almost all of it the
-hashing provider's exact vector scan. The script appends to
-`docs/perf-results.json` only when it finishes; the outcome is recorded in a
-follow-up commit, or, if the run cannot finish, how far it got and why.
+**60,000 rows: not completed.** Started on `mxik_scratch` at 2026-10-21 ~17:20
+local with the committed code (`npm run perf -- --rows 60000`, hashing
+vectors). Generating the 3.8 MB xlsx and parsing and storing all 60,000 rows
+took 15.3 s; the audit then ran at 1.8–2.4 rows/s (≈ 9 h projected), almost
+all of it the hashing provider's exact vector scan. It was stopped on purpose
+at 20:19 local, at **19,556 of 60,000 rows audited (6,518 findings)**, because
+phase 0 had landed on `mxik` and `mxik_scratch` was needed for the e5 work
+(§9); a hashing-mode run on a database being re-embedded would have measured
+nothing useful. Resume after a kill was therefore not exercised. With e5 and
+the rebuilt HNSW index the vector query costs 13 ms instead of ~1.7 s, so the
+60,000-row run should be repeated on the phase-0 setup; nothing was appended
+to `docs/perf-results.json` for it.
 
 ## 7. Tests and checks actually run
 
@@ -204,7 +210,7 @@ run (no UI component changed; the UI-facing changes are i18n strings and
 
 ## 8. Remaining blockers and risks
 
-1. **Phase 0** is the blocker for every §7.3 target: with e5 vectors the vector
+1. **Phase 0** (done 2026-10-22, see §9; this item kept as written on 2026-10-21) is the blocker for every §7.3 target: with e5 vectors the vector
    stage stops pulling metal rows to the wrong positions, and both opt-in
    features (position fusion, stand-in weighting) and the weights must be
    re-measured with `npm run eval` and `npm run eval:fit`.
@@ -223,13 +229,90 @@ run (no UI component changed; the UI-facing changes are i18n strings and
    drive with ~25 GB free) is left in place for the owner to re-run the series;
    `docker exec mxik-audit-db dropdb -U mxik mxik_scratch` removes it.
 
-## 9. Final state
+## 9. Addendum 2026-10-22: phase 0 and the e5 vector stage
 
-Branch `claude/matching-engine-06cd30`, 19 commits on top of `e5b0f3c`
-before this report; the report is the next commit (`git log --oneline
-e5b0f3c..HEAD`). Working tree clean apart from what the running 60,000-row
-perf run will write to `docs/perf-results.json`. Not pushed, not merged.
-`mxik_scratch` is left in the container (dropped with `docker exec
-mxik-audit-db dropdb -U mxik mxik_scratch`), `mxik_loadtest` was dropped. The
-worktree's `node_modules` is a junction to the main checkout's: remove the
-junction before `git worktree remove`, or the shared `node_modules` is wiped.
+The owner's session ran phase 0 on `mxik` (snapshot #4 of 2026-10-21, 442,964
+codes, local e5 vectors). The vector stage then made the real sets worse than
+no vectors at all. At the coordinating session's request this session fixed it
+on the same branch; the plan's §5 note and `docs/scoring.md` ("e5 vectors
+after phase 0") hold the details. Measured on `mxik_scratch`, re-cloned from the
+phase-0 `mxik` (the 60,000-row hashing perf run was stopped for this, §6), and
+confirmed on `mxik` by the coordinating session.
+
+What changed, in commits `b49f409` … `3b6db1e`:
+
+1. **Embedding text** (`src/core/embed/text.ts`): one `embeddingText()` for
+   stored vectors and queries; natural text with e5's "query: " (rows) and
+   "passage: " (classifier names) instead of the folded key; both vector
+   columns filled and searched by the row's script; a new provider name
+   (`…#natural-v2`) so folded vectors are never compared with natural queries;
+   `embedding_state.columns` (additive migration `20261025100000`).
+2. **HNSW recall**: the default graph (`m = 16, ef_construction = 64`) returned
+   on average 47% of the exact top 50 on the metal rows; now `m = 32,
+   ef_construction = 200`, `hnsw.ef_search = 1000`: 0.95, 13 ms per query
+   (exact: 705 ms). New `npm run eval:recall` and `npm run vectors:reindex`
+   (online, serial: a parallel build's 2 GB shared-memory segment did not fit
+   in the container's `/dev/shm` and failed on `mxik` and on scratch; fixed in
+   `3b71b74`, DEPLOY.md updated).
+3. **Cosine band** 0.80–0.95 for semantic providers (`vectorToUnit`); two
+   hold-out fits (390 configurations: band, vector weight, a per-position cap
+   on the vector list, position fusion) kept it and kept the cap and position
+   fusion off.
+4. **`unrequestedMaterial` rule**: 40 rows better, none worse.
+5. Measured and **left off**: weighted hierarchy full-text with e5 (run 46: 0
+   better, 1 worse), per-position cap, position fusion (fixes 49 profile pipes,
+   breaks the synthetic constraint).
+
+**All stages**
+
+| Run | Step | DB | golden | construction | metal | synthetic |
+|---|---|---|---|---|---|---|
+| 36 | phase 0 as stored: folded v1, legacy mapping | scratch | 75.0 / 83.3 | 69.6 / 88.2 | 36.9 / 86.9 | 90.6 / 96.9 |
+| 37 | v1 vectors + band 0.80–0.95 | scratch | 66.7 / 83.3 | 74.5 / 87.3 | 45.8 / 96.4 | 91.1 / 96.9 |
+| 38 | natural v2, HNSW m=16/64 ef 100 | mxik | 66.7 / 66.7 | 81.4 / 89.2 | 46.4 / 48.2 | 90.6 / 95.3 |
+| 39 | natural v2, exact scan | scratch | 66.7 / 75.0 | 81.4 / 92.2 | 45.8 / 77.4 | 93.7 / 99.0 |
+| 43 | natural v2, HNSW m=32/200 ef 1000 | mxik | 66.7 / 66.7 | 81.4 / 91.2 | 45.8 / 77.4 | 92.7 / 97.9 |
+| 44 | natural v2, HNSW m=32/200 ef 1000 | scratch | 66.7 / 75.0 | 81.4 / 92.2 | 45.8 / 77.4 | 93.7 / 99.0 |
+| 45 | + unrequested-material rule | scratch | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | 93.7 / 99.0 |
+
+**Stage 4 (vector) off**
+
+| Run | Step | DB | golden | construction | metal | synthetic |
+|---|---|---|---|---|---|---|
+| 36 | phase 0 as stored: folded v1, legacy mapping | scratch | 50.0 / 58.3 | 76.5 / 86.3 | 75.6 / 98.2 | 85.3 / 92.1 |
+| 38 | natural v2, HNSW m=16/64 ef 100 | mxik | 50.0 / 58.3 | 76.5 / 86.3 | 75.6 / 98.2 | 85.3 / 92.1 |
+| 39 | natural v2, exact scan | scratch | 50.0 / 58.3 | 76.5 / 86.3 | 75.6 / 98.2 | 85.3 / 92.1 |
+| 43 | natural v2, HNSW m=32/200 ef 1000 | mxik | 50.0 / 58.3 | 76.5 / 86.3 | 75.6 / 98.2 | 85.3 / 92.1 |
+| 44 | natural v2, HNSW m=32/200 ef 1000 | scratch | 50.0 / 58.3 | 76.5 / 86.3 | 75.6 / 98.2 | 85.3 / 92.1 |
+| 45 | + unrequested-material rule | scratch | 50.0 / 58.3 | 76.5 / 86.3 | 75.6 / 98.2 | 85.3 / 92.1 |
+
+Run 46 (weighted full-text on, otherwise as 45): golden 66.7/75.0, construction
+82.4/92.2, metal 46.4/98.2, synthetic 93.2/99.0.
+
+Against §7.3 on the phase-0 data layer: construction ≥ 70 / ≥ 90 **met**
+(82.4/92.2); synthetic ≥ 90 / ≥ 95 **met** (93.7/99.0); high-band precision
+100% **met**; golden no-regression **not met** (PANADOL row lost by the
+natural-text vectors, which the folded ones found); metal ≥ 80 / ≥ 95 **top-5
+met (98.2), top-1 not** (46.4: 49 profile pipes take the hot-rolled profile
+base code, 35 hot-rolled sheets the "Лист просечно-вытяжной" base code, where
+the +0.05 base-code rule outweighs unmarked identifying codes); vectors-on not
+worse than off by more than 2 points: **met on construction, synthetic and
+golden, not on metal top-1** (46.4 vs 75.6). The reranker is the designed
+answer to the remaining metal top-1 (position-level judgement); it still has
+no key.
+
+## 10. Final state
+
+Branch `claude/matching-engine-06cd30`: the first report was commit `5c6c4d8`
+(20 commits on top of `e5b0f3c`); with the e5 work it has 27
+(`git log --oneline e5b0f3c..HEAD`; this update is the last). Working tree
+clean. Not pushed, not merged by this session; the coordinating session merges
+into main. `mxik_scratch` (a copy of the phase-0 `mxik` with natural-v2
+vectors, the m=32/200 indexes and the weighted column filled; ~6 GB) is left in
+the container for re-measurement (`docker exec mxik-audit-db dropdb -U mxik
+mxik_scratch` removes it); `mxik_loadtest` was dropped. On `mxik` this session
+ran only read-only evals and recall probes; the re-embed, the migrations and
+the index rebuild there were done by the owner's session with this branch's
+code. The worktree's `node_modules` is a junction to the main checkout's:
+remove the junction before `git worktree remove`, or the shared
+`node_modules` is wiped.

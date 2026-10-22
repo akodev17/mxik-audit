@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { normalizeName } from '../normalize/index.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
 import type { MxikCandidate } from './types.js';
 
@@ -203,5 +204,34 @@ describe('hierarchyPath', () => {
       hierarchyPath(candidate({ groupName: null, className: null, positionName: null, subPositionName: null })),
       '',
     );
+  });
+});
+
+describe('applyRules: unrequested material', () => {
+  const sheet = (code: string, nameRu: string) => candidate({ code, nameRu, nameUz: nameRu, isBase: true, unitBinding: 'none' });
+  const stainless = sheet('07219001001000007', 'Прокат плоский из коррозионностойкой стали, Лист горячекатаный из нержавеющей стали');
+  const carbon = sheet('07208001001000552', 'Плоский прокат из железа, Лист стальной горячекатаный');
+  const tokens = (name: string) => normalizeName(name).tokens;
+
+  it('marks down a semi-product of a metal the row never names', () => {
+    const r = applyRules({ candidate: stainless, rowUnit: null, preparedDish: false, productTokens: tokens('Лист г/к 2,0х1250х2500') });
+    assert.ok(r.keys.includes('unrequestedMaterial'));
+    const plain = applyRules({ candidate: carbon, rowUnit: null, preparedDish: false, productTokens: tokens('Лист г/к 2,0х1250х2500') });
+    assert.ok(!plain.keys.includes('unrequestedMaterial'));
+  });
+
+  it('leaves the metal alone when the row names it, in either language or as an abbreviation', () => {
+    for (const name of ['Лист нержавеющий 2мм', 'Лист н/ж 2мм', 'Zanglamaydigan list 2 mm']) {
+      assert.ok(!applyRules({ candidate: stainless, rowUnit: null, preparedDish: false, productTokens: tokens(name) }).keys.includes('unrequestedMaterial'), name);
+    }
+  });
+
+  it('only judges metal semi-products, never finished articles such as a stainless pot', () => {
+    const pot = sheet('07323001001000000', 'Кастрюля из нержавеющей стали');
+    assert.ok(!applyRules({ candidate: pot, rowUnit: null, preparedDish: false, productTokens: tokens('Кастрюля 5 л') }).keys.includes('unrequestedMaterial'));
+  });
+
+  it('needs the row words, so callers without them get the old behaviour', () => {
+    assert.ok(!applyRules({ candidate: stainless, rowUnit: null, preparedDish: false }).keys.includes('unrequestedMaterial'));
   });
 });

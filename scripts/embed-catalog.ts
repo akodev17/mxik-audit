@@ -6,17 +6,23 @@
 // stage stays off, because old and new vectors are mixed in the table until the
 // last batch. Only then is the new provider recorded.
 //
-// The pipeline searches embeddingUz only, so by default only that column is
-// filled and embeddingRu is cleared (never left holding another model's
-// vectors). Pass --columns uz,ru to fill both.
+// Both columns are filled by default: embeddingUz from nameUz, embeddingRu from
+// nameRu, and the pipeline searches the column of the row's script (plan §5,
+// 2026-10-22). --columns uz fills only embeddingUz and clears embeddingRu (never
+// left holding another model's vectors). The text embedded is the provider's
+// passage text (src/core/embed/text.ts), the same function the pipeline uses
+// for queries; embedding_state records the provider and the columns.
 //
-// Run: npm run embed:catalog [-- --columns uz,ru] [-- --restart]
+// --no-index skips the HNSW build (measurement copies, where exact scans are fine).
+//
+// Run: npm run embed:catalog [-- --columns uz] [-- --restart] [-- --no-index]
 import '../src/lib/load-env.js'; // must precede anything reading process.env
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { Pool } from 'pg';
 import { embeddingProviderFromEnv } from '../src/core/embed/index.js';
-import { matchKeyOf } from '../src/core/normalize/index.js';
-import { REBUILDING_PREFIX, writeEmbeddingState } from '../src/core/match/vector-readiness.js';
+import { embeddingText } from '../src/core/embed/text.js';
+import { HNSW_BUILD_SETTINGS, hnswIndexSql } from './lib/hnsw.js';
+import { REBUILDING_PREFIX, writeEmbeddingState, type VectorColumn } from '../src/core/match/vector-readiness.js';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 const BATCH = Number(process.env['EMBED_BATCH'] ?? '1000');
@@ -26,14 +32,16 @@ const arg = (flag: string): string | undefined => {
   const i = process.argv.indexOf(flag);
   return i >= 0 ? process.argv[i + 1] : undefined;
 };
-const columns = (arg('--columns') ?? 'uz').split(',').map((c) => c.trim());
+const columns = (arg('--columns') ?? 'uz,ru').split(',').map((c) => c.trim());
 const fillRu = columns.includes('ru');
 const restart = process.argv.includes('--restart');
+const buildIndex = !process.argv.includes('--no-index');
 
 const pool = new Pool({ connectionString: DATABASE_URL, max: 4 });
 const embedder = embeddingProviderFromEnv();
 
-console.log(`provider: ${embedder.name}  dimensions=${embedder.dimensions}  semantic=${embedder.semantic}`);
+const shape = embedder.textShape ?? 'folded';
+console.log(`provider: ${embedder.name}  dimensions=${embedder.dimensions}  semantic=${embedder.semantic}  text=${shape}`);
 console.log(`columns:  embeddingUz${fillRu ? ' + embeddingRu' : ' (embeddingRu cleared)'}`);
 if (!embedder.semantic) console.log('NOTE: the local hashing stand-in, not a semantic model.');
 
@@ -75,9 +83,12 @@ for (;;) {
   );
   if (batch.rows.length === 0) break;
 
-  // Embed the folded form: it is what queries are folded to at match time.
-  const uz = (await embedder.embed(batch.rows.map((r) => matchKeyOf(r.nameUz)))).map(literal);
-  const ru = fillRu ? (await embedder.embed(batch.rows.map((r) => matchKeyOf(r.nameRu)))).map(literal) : null;
+  // The passage text in the provider's shape: what the pipeline's query text is compared with.
+  const uz = (await embedder.embed(batch.rows.map((r) => embeddingText(r.nameUz, 'passage', shape)), 'passage')).map(literal);
+  // A code without a Russian name is found through its Uzbek one in that column too.
+  const ru = fillRu
+    ? (await embedder.embed(batch.rows.map((r) => embeddingText(r.nameRu || r.nameUz, 'passage', shape)), 'passage')).map(literal)
+    : null;
   const codes = batch.rows.map((r) => r.code);
 
   await pool.query(
@@ -100,21 +111,28 @@ const embedSeconds = (Date.now() - started) / 1000;
 console.log(`embedded ${done.toLocaleString()} rows in ${fmt(embedSeconds)} (${(done / embedSeconds).toFixed(0)}/s)`);
 
 // HNSW after the data, so each index is built once over a full column.
-console.log('building HNSW indexes (cosine)...');
-for (const col of fillRu ? ['embeddingUz', 'embeddingRu'] as const : ['embeddingUz'] as const) {
+if (buildIndex) console.log('building HNSW indexes (cosine)...');
+else console.log('--no-index: HNSW indexes not built; vector queries scan exactly');
+for (const col of !buildIndex ? [] : fillRu ? ['embeddingUz', 'embeddingRu'] as const : ['embeddingUz'] as const) {
   const t0 = Date.now();
   await pool.query(`DROP INDEX IF EXISTS "mxik_code_${col}_hnsw"`);
-  await pool.query(
-    `CREATE INDEX "mxik_code_${col}_hnsw" ON mxik_code
-     USING hnsw ("${col}" vector_cosine_ops) WITH (m = 16, ef_construction = 64)`,
-  );
+  // Denser than pgvector's defaults: see scripts/lib/hnsw.ts for the recall it buys.
+  // One connection, so the session settings apply to the build (see HNSW_BUILD_SETTINGS).
+  const client = await pool.connect();
+  try {
+    for (const setting of HNSW_BUILD_SETTINGS) await client.query(setting);
+    await client.query(hnswIndexSql(col));
+  } finally {
+    client.release();
+  }
   console.log(`  ${col}: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }
 await pool.query('ANALYZE mxik_code');
 
 const filled = await pool.query<{ n: string }>('SELECT count(*)::text AS n FROM mxik_code WHERE "embeddingUz" IS NOT NULL');
 const rowsEmbedded = Number(filled.rows[0]?.n ?? 0);
-await writeEmbeddingState(pool, { provider: embedder.name, dimensions: embedder.dimensions, rowsEmbedded });
+const recorded: VectorColumn[] = fillRu ? ['uz', 'ru'] : ['uz'];
+await writeEmbeddingState(pool, { provider: embedder.name, dimensions: embedder.dimensions, rowsEmbedded, columns: recorded });
 rmSync(CHECKPOINT, { force: true });
-console.log(`rows with embeddings: ${rowsEmbedded.toLocaleString()}; recorded embedding_state: ${embedder.name}`);
+console.log(`rows with embeddings: ${rowsEmbedded.toLocaleString()}; recorded embedding_state: ${embedder.name}, columns ${recorded.join('+')}`);
 await pool.end();

@@ -11,17 +11,36 @@ export type NewNotification = {
   title: string;
   body: string;
   href?: string | null;
+  /** Addressed to this person alone; null or absent = everyone who may see the notice. */
+  userId?: string | null;
+  /** Names the event, so raising it again (a retried job, a repeated request) changes nothing. */
+  dedupeKey?: string | null;
+  /** Send to the org's Telegram chats too. Default: yes for notices to everyone, never for one person's. */
+  external?: boolean;
 };
 
-export async function notify(input: NewNotification): Promise<string> {
-  const created = await db.notification.create({
-    data: {
-      orgId: input.orgId, clientId: input.clientId ?? null, kind: input.kind,
-      title: input.title, body: input.body, href: input.href ?? null,
-    },
-  });
-  await deliver(created.id);
-  return created.id;
+/**
+ * Stores a notification and, unless it is personal, sends it on. Returns its id, or null when the same
+ * dedupeKey was already raised for the org (nothing is stored or sent twice).
+ */
+export async function notify(input: NewNotification): Promise<string | null> {
+  const data = {
+    orgId: input.orgId, clientId: input.clientId ?? null, kind: input.kind,
+    title: input.title, body: input.body, href: input.href ?? null,
+    userId: input.userId ?? null, dedupeKey: input.dedupeKey ?? null,
+  };
+  let id: string;
+  if (data.dedupeKey) {
+    // The unique index on (orgId, dedupeKey) decides; skipDuplicates turns the race into a no-op.
+    const made = await db.notification.createMany({ data: [data], skipDuplicates: true });
+    if (made.count === 0) return null;
+    const row = await db.notification.findFirstOrThrow({ where: { orgId: data.orgId, dedupeKey: data.dedupeKey }, select: { id: true } });
+    id = row.id;
+  } else {
+    id = (await db.notification.create({ data, select: { id: true } })).id;
+  }
+  if (input.external ?? !input.userId) await deliver(id);
+  return id;
 }
 
 /** Sends a notification beyond the app; a delivery failure never loses the notification. */
@@ -35,10 +54,14 @@ export async function deliver(notificationId: string): Promise<void> {
 
 export type NoticeUser = Pick<CurrentUser, 'userId' | 'orgId' | 'clientIds'>;
 
-/** Org-level notices (no client) for everyone; client notices only for users who may see that client. */
-export function noticeScope(user: Pick<CurrentUser, 'orgId' | 'clientIds'>): Prisma.NotificationWhereInput {
-  if (user.clientIds == null) return { orgId: user.orgId };
-  return { orgId: user.orgId, OR: [{ clientId: null }, { clientId: { in: user.clientIds } }] };
+/**
+ * Org-level notices (no client) for everyone; client notices only for users who may see that client;
+ * a notice addressed to one person only for that person.
+ */
+export function noticeScope(user: Pick<CurrentUser, 'orgId' | 'clientIds' | 'userId'>): Prisma.NotificationWhereInput {
+  const mine: Prisma.NotificationWhereInput = { OR: [{ userId: null }, { userId: user.userId }] };
+  if (user.clientIds == null) return { orgId: user.orgId, ...mine };
+  return { orgId: user.orgId, AND: [mine, { OR: [{ clientId: null }, { clientId: { in: user.clientIds } }] }] };
 }
 
 /**
@@ -82,7 +105,19 @@ export type NoticeView = {
 
 export type NoticePage = { items: NoticeView[]; total: number; page: number; pageSize: number; pageCount: number };
 
-export type ListOptions = { page?: number; pageSize?: number; unreadOnly?: boolean };
+/** Notice kinds by topic: review tasks, finished audits, and everything else (classifier updates, reminders). */
+export const NOTICE_GROUPS = ['review', 'audit', 'other'] as const;
+export type NoticeGroup = (typeof NOTICE_GROUPS)[number];
+
+const GROUP_KINDS = { review: ['review.assigned', 'review.completed'], audit: ['catalog.ready'] } as const;
+
+export function groupWhere(group: NoticeGroup | undefined): Prisma.NotificationWhereInput {
+  if (!group) return {};
+  if (group === 'other') return { kind: { notIn: [...GROUP_KINDS.review, ...GROUP_KINDS.audit] } };
+  return { kind: { in: [...GROUP_KINDS[group]] } };
+}
+
+export type ListOptions = { page?: number; pageSize?: number; unreadOnly?: boolean; group?: NoticeGroup };
 
 export const NOTICE_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 50;
@@ -91,7 +126,7 @@ const MAX_PAGE_SIZE = 50;
 export async function listNotifications(user: NoticeUser, opts: ListOptions = {}): Promise<NoticePage> {
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(opts.pageSize ?? NOTICE_PAGE_SIZE)));
   const page = Math.max(0, Math.trunc(opts.page ?? 0));
-  const where = opts.unreadOnly ? unreadWhere(user) : noticeScope(user);
+  const where: Prisma.NotificationWhereInput = { AND: [opts.unreadOnly ? unreadWhere(user) : noticeScope(user), groupWhere(opts.group)] };
   const [total, rows] = await Promise.all([
     db.notification.count({ where }),
     db.notification.findMany({
@@ -146,11 +181,11 @@ export async function markAllRead(user: NoticeUser): Promise<number> {
   return created.count;
 }
 
-/** Latest notification per client, for the clients list. */
+/** Latest notification per client, for the clients list. Personal notices are not shown there: the list is read by everyone who sees the client. */
 export async function latestPerClient(orgId: string, clientIds: readonly string[]): Promise<Map<string, { title: string; createdAt: Date }>> {
   if (clientIds.length === 0) return new Map();
   const rows = await db.notification.findMany({
-    where: { orgId, clientId: { in: [...clientIds] } },
+    where: { orgId, clientId: { in: [...clientIds] }, userId: null },
     orderBy: { createdAt: 'desc' },
     distinct: ['clientId'],
     select: { clientId: true, title: true, createdAt: true },

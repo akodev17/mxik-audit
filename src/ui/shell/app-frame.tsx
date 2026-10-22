@@ -33,7 +33,7 @@ type Props = { shell: ShellData; children: ReactNode };
  * link, plan banner, main area and command palette.
  */
 export function AppFrame({ shell, children }: Props) {
-  const { ta } = useI18n();
+  const { t, ta } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const menuId = useId();
@@ -56,7 +56,7 @@ export function AppFrame({ shell, children }: Props) {
 
   return (
     <ToastProvider>
-      <div className="relative flex h-dvh flex-col overflow-hidden bg-base">
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-base print:block print:h-auto print:overflow-visible">
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-toast focus:rounded-ctl focus:border focus:border-line-strong focus:bg-raised focus:px-3 focus:py-2 focus:text-data focus:font-medium focus:shadow-pop"
@@ -79,7 +79,7 @@ export function AppFrame({ shell, children }: Props) {
               tooltipAlign="start"
             />
           </span>
-          <Link href="/dashboard" aria-label={ta.shellX.nav.home} className="hidden w-16 shrink-0 place-items-center border-r border-line md:grid">
+          <Link href="/dashboard" aria-label={ta.shellX.nav.home} title={t.appName} className="grid w-12 shrink-0 place-items-center md:w-16 md:border-r md:border-line">
             <TasnivoMark className="size-7 text-fg" />
           </Link>
           <TopNav canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
@@ -95,12 +95,12 @@ export function AppFrame({ shell, children }: Props) {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1">
-          <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} />
+        <div className="flex min-h-0 flex-1 print:block">
+          <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} unread={shell.unread} />
           <div className="relative flex min-w-0 flex-1 flex-col">
             <NavigationProgress />
             <PlanBanner plan={shell.plan} />
-            <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none"><RouteBoundary>{children}</RouteBoundary></main>
+            <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none print:overflow-visible"><RouteBoundary>{children}</RouteBoundary></main>
           </div>
         </div>
       </div>

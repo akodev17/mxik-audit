@@ -4,7 +4,15 @@
 import { unchanged, type Pairing, type VersionItem } from '../core/match/version-pairs.js';
 
 export type DiffNote = 'name' | 'unit' | 'code' | 'barcode' | 'identity' | 'classifier' | 'nowRisky' | 'nowSafe';
-export type DiffRow = { rowIndex: number; name: string; unit: string | null; code: string | null; notes?: DiffNote[] };
+/** How a row was matched to the previous version: barcode and name+unit are exact keys, "row" is the same position with the same words, an approximate match. */
+export type DiffMatch = 'barcode' | 'name' | 'row';
+export type DiffRow = {
+  rowIndex: number; name: string; unit: string | null; code: string | null; notes?: DiffNote[];
+  /** The previous version's values, for rows that changed. */
+  before?: { name: string; unit: string | null; code: string | null };
+  /** For paired rows: how the pairing was made. */
+  match?: DiffMatch;
+};
 
 export type DiffSets = {
   /** Items with a high or medium finding, in the previous and in this version. */
@@ -25,8 +33,11 @@ export type DiffParts = {
   counts: DiffCounts;
 };
 
-export const toDiffRow = (i: VersionItem, notes?: DiffNote[]): DiffRow =>
-  ({ rowIndex: i.rowIndex, name: i.rawName, unit: i.unit, code: i.existingMxik, ...(notes ? { notes } : {}) });
+export const toDiffRow = (i: VersionItem, notes?: DiffNote[], pair?: { prev: VersionItem; by: DiffMatch }): DiffRow => ({
+  rowIndex: i.rowIndex, name: i.rawName, unit: i.unit, code: i.existingMxik,
+  ...(notes ? { notes } : {}),
+  ...(pair ? { match: pair.by, before: { name: pair.prev.rawName, unit: pair.prev.unit, code: pair.prev.existingMxik } } : {}),
+});
 
 const same = (a: string | null, b: string | null): boolean => (a ?? '').trim() === (b ?? '').trim();
 
@@ -40,32 +51,32 @@ export function changedFields(prev: VersionItem, next: VersionItem): DiffNote[] 
   return what.length > 0 ? what : ['identity'];
 }
 
-/** Classifies every paired row once; lists are capped at `limit`, counts are not. */
-export function diffParts(pairing: Pairing, sets: DiffSets, limit: number): DiffParts {
+/** Classifies every paired row once; each list is the window [offset, offset + limit) of its rows, the counts are of all of them. */
+export function diffParts(pairing: Pairing, sets: DiffSets, limit: number, offset = 0): DiffParts {
   const changed: DiffRow[] = [];
   const statusChanged: DiffRow[] = [];
   const reReview: DiffRow[] = [];
   let unchangedCount = 0;
-  for (const { prev, next } of pairing.pairs) {
+  for (const { prev, next, by } of pairing.pairs) {
     const isSame = unchanged(prev, next);
-    if (!isSame) changed.push(toDiffRow(next, changedFields(prev, next)));
+    if (!isSame) changed.push(toDiffRow(next, changedFields(prev, next), { prev, by }));
     else {
       unchangedCount++;
       if (sets.prevRisky.has(prev.id) !== sets.nextRisky.has(next.id)) {
-        statusChanged.push(toDiffRow(next, [sets.updated.has(next.id) ? 'classifier' : sets.nextRisky.has(next.id) ? 'nowRisky' : 'nowSafe']));
+        statusChanged.push(toDiffRow(next, [sets.updated.has(next.id) ? 'classifier' : sets.nextRisky.has(next.id) ? 'nowRisky' : 'nowSafe'], { prev, by }));
       }
     }
     // Decided last time, open again now: the row changed, or its decision could not be carried.
     if (sets.prevDecided.has(prev.id) && sets.nextPending.has(next.id)) {
-      reReview.push(toDiffRow(next, isSame ? undefined : changedFields(prev, next)));
+      reReview.push(toDiffRow(next, isSame ? undefined : changedFields(prev, next), { prev, by }));
     }
   }
   return {
-    added: pairing.added.slice(0, limit).map((i) => toDiffRow(i)),
-    removed: pairing.removed.slice(0, limit).map((i) => toDiffRow(i)),
-    changed: changed.slice(0, limit),
-    statusChanged: statusChanged.slice(0, limit),
-    reReview: reReview.slice(0, limit),
+    added: pairing.added.slice(offset, offset + limit).map((i) => toDiffRow(i)),
+    removed: pairing.removed.slice(offset, offset + limit).map((i) => toDiffRow(i)),
+    changed: changed.slice(offset, offset + limit),
+    statusChanged: statusChanged.slice(offset, offset + limit),
+    reReview: reReview.slice(offset, offset + limit),
     counts: {
       added: pairing.added.length, removed: pairing.removed.length, changed: changed.length,
       unchanged: unchangedCount, statusChanged: statusChanged.length, reReview: reReview.length,

@@ -86,7 +86,7 @@ export default async function CatalogWorkspacePage({ params, searchParams }: Par
 
   return (
     <div className="flex min-h-full flex-col md:h-full">
-      <WorkspaceHeader {...header} canShare={writer} />
+      <WorkspaceHeader {...header} canShare={writer} viewer={user} />
       <Suspense fallback={null}>
         <MoneyAtRisk catalogId={catalog.id} columnMap={catalog.columnMap} />
       </Suspense>

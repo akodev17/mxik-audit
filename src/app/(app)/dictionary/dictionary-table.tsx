@@ -16,6 +16,8 @@ import { useToast } from '@/ui/toast';
 export type DictRow = {
   id: string; kind: string; label: string; unit: string | null; code: string; codeName: string | null;
   uses: number; confirmations: number; source: string | null; stale: boolean; updated: string;
+  /** E-mail of whoever last taught or edited the entry; null when it was not recorded. */
+  approver: string | null;
 };
 
 const CODE = /^\d{17}$/;
@@ -36,6 +38,7 @@ function Trust({ row }: { row: DictRow }) {
     <span className="flex flex-col items-start gap-0.5">
       {badge}
       {source ? <span className="text-micro text-muted">{source}</span> : null}
+      <span className="max-w-48 truncate text-micro text-muted" title={row.approver ?? undefined}>{x.colApprover}: {row.approver ?? x.approverUnknown}</span>
     </span>
   );
 }

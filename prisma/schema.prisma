@@ -179,6 +179,8 @@ model EmbeddingState {
   dimensions   Int
   rowsEmbedded Int
   updatedAt    DateTime @default(now())
+  /// Vector columns holding this provider's vectors: "uz" (embeddingUz), "ru" (embeddingRu).
+  columns      String[] @default(["uz"])
 
   @@map("embedding_state")
 }
@@ -206,6 +208,7 @@ model Organization {
   schedules ClientSchedule[]
   reminderTasks ReminderTask[]
   docLists  DocList[]
+  reviewAssignments ReviewAssignment[]
   apiKeys   ApiKey[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
@@ -279,6 +282,10 @@ model User {
   recoveryCodes RecoveryCode[]
   sessions      UserSession[]
   notificationReads NotificationRead[]
+  /// Catalogue reviews handed to this person.
+  assignedReviews ReviewAssignment[] @relation("ReviewAssignee")
+  /// Notifications addressed to this person alone.
+  notices Notification[] @relation("NoticeTarget")
   /// Platform operator (cross-org admin pages). Set by hand in the database, never by email.
   platformAdmin Boolean @default(false)
   /// Telegram user id this person bound for signing in; separate from notification chats.
@@ -599,6 +606,7 @@ model Client {
   schedule ClientSchedule?
   reminderTasks ReminderTask[]
   docLists DocList[]
+  reviewAssignments ReviewAssignment[]
 
   @@index([orgId])
   @@map("client")
@@ -695,6 +703,7 @@ model Catalog {
   client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items    CatalogItem[]
   shareLinks ShareLink[]
+  reviewAssignment ReviewAssignment?
 
   @@index([orgId])
   @@index([clientId, createdAt])
@@ -843,14 +852,61 @@ model Notification {
   readAt    DateTime?
   /// Set once delivered to the org's Telegram chats; null = not sent (yet).
   telegramSentAt DateTime?
+  /// Addressed to one person (e.g. a review assigned to them); null = everyone who may see the notice.
+  userId    String?
+  /// Names the event that produced it, so a retried job cannot raise it twice. Null = never deduplicated.
+  dedupeKey String?
+
+  user User? @relation("NoticeTarget", fields: [userId], references: [id], onDelete: Cascade)
 
   org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   reads  NotificationRead[]
 
+  @@unique([orgId, dedupeKey])
   @@index([orgId, createdAt])
   @@index([clientId, createdAt])
+  @@index([userId])
   @@map("notification")
+}
+
+enum ReviewStatus {
+  open
+  done
+
+  @@map("review_status")
+}
+
+/// A catalogue review handed to one team member: by when, and the note that came with it. One per
+/// catalogue; handing it to someone else (or changing the date or note) updates it and raises the revision.
+model ReviewAssignment {
+  id         String       @id @default(cuid())
+  orgId      String
+  clientId   String
+  catalogId  String       @unique
+  assigneeId String
+  /// Who handed it over.
+  createdBy  String?
+  dueOn      DateTime?    @db.Date
+  note       String?
+  status     ReviewStatus @default(open)
+  /// Bumped on every change of assignee, due date or note; part of the notification's dedupe key.
+  revision   Int          @default(1)
+  doneAt     DateTime?
+  doneBy     String?
+  doneNote   String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client   Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  catalog  Catalog      @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  assignee User         @relation("ReviewAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status, dueOn])
+  @@index([assigneeId, status])
+  @@index([clientId])
+  @@map("review_assignment")
 }
 
 /// A Telegram chat linked to an org: receives notifications and may send files.

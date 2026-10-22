@@ -348,6 +348,29 @@ What this plan adds or fixes:
   and the per-row query use the same text shape (`embeddingText()` as one shared
   function with a test), otherwise vectors and queries live in different
   distributions.
+
+  > **Implementation note (2026-10-22, after phase 0).** This item was missed
+  > on 2026-10-21 and phase 0 showed why it matters: with folded text and
+  > e5's "query: " prefix on both sides the vector stage made metal worse
+  > than no vectors (36.9/86.9 vs 75.6/98.2). Done as written, plus three
+  > things the measurements required: (1) the natural-text variant is a new
+  > provider name (`local:Xenova/multilingual-e5-small#natural-v2`) so old
+  > folded vectors are always queried with the folded variant until
+  > re-embedded; rows are "query: ", classifier names "passage: "; both
+  > vector columns are filled and chosen by the row's script
+  > (`embedding_state.columns`, migration `20261025100000`). (2) The HNSW
+  > index was the bigger loss: recall@50 against an exact scan 0.47 on the
+  > metal rows with `m = 16, ef_construction = 64`; now `m = 32,
+  > ef_construction = 200`, `hnsw.ef_search = 1000` (0.95, 13 ms/query;
+  > `npm run eval:recall`, `npm run vectors:reindex`, serial builds because a
+  > parallel build's shared-memory segment exceeded `/dev/shm`). (3) The
+  > cosine is mapped on the band e5 uses (0.80–0.95), confirmed by two
+  > hold-out fits; a cap on codes per position in the vector list and
+  > position fusion did not survive the hold-out. A rule for metals the row
+  > does not name (`unrequestedMaterial`) fixed the top-5 of 35 sheet rows.
+  > Result on `mxik_scratch` = `mxik` (runs 44–45, `docs/scoring.md`):
+  > construction 82.4/92.2 (§7.3 target met), synthetic 93.7/99.0, metal
+  > 46.4/98.2 (top-1 still below vectors-off 75.6), golden 66.7/75.0.
 - **Hashing fallback.** Keep as the stand-in, but when `embedder.semantic` is
   false the vector list enters fusion with a lower weight or not at all: the
   branch eval shows hashing vectors *lower* top-1 on real data by ~30 points.
