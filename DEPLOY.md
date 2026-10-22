@@ -335,6 +335,22 @@ docker compose --profile app up -d app
 
 Never run `prisma migrate dev` against this database; see README "Migrations".
 
+### Codes restricted in EHF
+
+The RESTRICTED check reads table `restricted_code`, loaded from the official
+list of generalized construction codes (perechen.xlsx: header "МХИК коди" on
+row 4, data from row 5; announced in tasnif.soliq.uz news 5063). Load it once,
+and again whenever a further stage of the list is published:
+
+```bash
+mx npm run load:restricted -- /path/perechen.xlsx                      # from 2026-07-01
+mx npm run load:restricted -- /path/next-stage.xlsx --from YYYY-MM-DD --source <news url>
+```
+
+It upserts and prints how many codes were added, updated and found in the
+classifier. Audits started afterwards use the list; earlier audits keep their
+findings.
+
 ### Refreshing the classifier
 
 The portal regenerates its export on every request. To pick up new codes:

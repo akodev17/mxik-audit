@@ -162,6 +162,8 @@ export type ExportRow = {
   unit: string;
   packaging: string;
   auditStatus: string;
+  /** When EHF stops accepting the exported code (restricted_code), as text; empty when it is not restricted. */
+  restricted?: string;
 };
 
 export type ExportOptions = {
@@ -175,6 +177,7 @@ export type ExportOptions = {
     unit: string;
     packaging: string;
     auditStatus: string;
+    restricted: string;
   };
   sheetName?: string;
 };
@@ -196,6 +199,7 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
   const unitIndex = unitColumn ?? (outHeaders.push(labels.unit) - 1);
   const packagingIndex = outHeaders.push(labels.packaging) - 1;
   const statusIndex = outHeaders.push(labels.auditStatus) - 1;
+  const restrictedIndex = outHeaders.push(labels.restricted) - 1;
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Tasnivo';
@@ -215,6 +219,7 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
     cells[unitIndex] = row.unit;
     cells[packagingIndex] = row.packaging;
     cells[statusIndex] = row.auditStatus;
+    cells[restrictedIndex] = row.restricted ?? '';
     sheet.addRow(cells.map(formulaSafe));
   }
 
@@ -222,6 +227,7 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
   sheet.getColumn(mxikIndex + 1).numFmt = '@';
   sheet.getColumn(mxikIndex + 1).width = 20;
   sheet.getColumn(statusIndex + 1).width = 24;
+  sheet.getColumn(restrictedIndex + 1).width = 26;
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   const out = await workbook.xlsx.writeBuffer();

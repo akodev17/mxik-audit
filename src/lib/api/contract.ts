@@ -75,6 +75,7 @@ export const FINDING_FIELDS = {
   reason: 'Human-readable explanation in Uzbek (Latin script), for a person to read. Its wording may change between releases: do not parse it. Use type, severity and suggestedMxik, the stable machine-readable fields.',
   type: 'Stable machine-readable kind of problem.',
   suggestedMxik: 'Suggested 17-digit code, or null. Stable and machine-readable.',
+  restrictedFrom: 'RESTRICTED only (null otherwise): the date (YYYY-MM-DD) from which electronic invoices (EHF) no longer accept the generalized code, per the published list. On a MISSING row the restricted code is the suggested one.',
 } as const;
 
 /** Page sizes: a missing or unreadable limit uses the default, a larger one is cut to the maximum. */

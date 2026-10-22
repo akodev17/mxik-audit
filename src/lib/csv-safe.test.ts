@@ -31,7 +31,7 @@ describe('formula injection guard', () => {
   it('guards the 1C CSV', () => {
     const csv = build1cCsv([{ name: '=1+1', mxik: '06301001001000000', unit: '@kg', barcode: '', auditStatus: '+x' }]).toString('utf8');
     const line = csv.split('\r\n')[1] ?? '';
-    assert.equal(line, "'=1+1;06301001001000000;'@kg;;'+x");
+    assert.equal(line, "'=1+1;06301001001000000;'@kg;;'+x;");
   });
 
   it('guards the 1C .xlsx and keeps code columns as text', async () => {
@@ -47,7 +47,7 @@ describe('formula injection guard', () => {
       headers: ['Nomi', '=Narx'],
       rows: [{ original: ['@SUM(1)', '-5'], mxik: '06301001001000000', unit: 'kg', packaging: '', auditStatus: '=x' }],
       mxikColumn: null, unitColumn: null,
-      labels: { mxik: 'MXIK', unit: 'Birlik', packaging: 'Qadoq', auditStatus: 'Holat' },
+      labels: { mxik: 'MXIK', unit: 'Birlik', packaging: 'Qadoq', auditStatus: 'Holat', restricted: 'EHF' },
     });
     const cells = await cellsOf(buffer);
     assert.ok(cells.includes("'=Narx"));

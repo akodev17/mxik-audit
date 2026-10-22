@@ -166,6 +166,7 @@ export async function rowDetail(
     facts: reasonFacts({
       type: f.type, severity: f.severity, reason: f.reason, wasRetired: f.wasRetired, snapshotId: f.snapshotId,
       existingMxik: f.item.existingMxik, unit: f.item.unit, codeUnits: own?.unitCanonical ?? [],
+      restrictedMxik: f.restrictedMxik, restrictedFrom: f.restrictedFrom,
     }),
     confidence: f.confidence,
     stage: evidence?.stage ?? null,

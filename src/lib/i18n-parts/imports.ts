@@ -197,8 +197,10 @@ export const uz = {
         409: 'Tahlil hali tugamagan: yuklab olish keyinroq mumkin boʻladi.',
         generic: 'Faylni tayyorlab boʻlmadi. Qayta urinib koʻring.',
       } as Record<'402' | '404' | '409' | 'generic', string>,
-      columns: { mxik: 'MXIK kodi', unit: 'Oʻlchov birligi', packaging: 'Qadoqlash', status: 'Audit holati' },
-      oneC: ['Nomi', 'MXIK (IKPU) kodi', 'Oʻlchov birligi', 'Shtrix-kod', 'Audit holati'] as readonly [string, string, string, string, string],
+      columns: { mxik: 'MXIK kodi', unit: 'Oʻlchov birligi', packaging: 'Qadoqlash', status: 'Audit holati', restricted: 'EHF cheklovi' },
+      oneC: ['Nomi', 'MXIK (IKPU) kodi', 'Oʻlchov birligi', 'Shtrix-kod', 'Audit holati', 'EHF cheklovi'] as readonly [string, string, string, string, string, string],
+      /** The export's restriction cell: the code is a generalized one EHF refuses from this date. */
+      restrictedFrom: (date: string) => `${date} dan EHFda cheklangan`,
       status: {
         ok: 'Xavf topilmadi', accepted: 'Tasdiqlandi', rejected: 'Taklif rad etildi',
         partial: 'Qisman koʻrib chiqilgan', pending: 'Koʻrib chiqilmagan',
@@ -562,8 +564,9 @@ export const ru: typeof uz = {
         409: 'Анализ ещё не завершён: скачать можно будет позже.',
         generic: 'Не удалось подготовить файл. Попробуйте ещё раз.',
       },
-      columns: { mxik: 'Код ИКПУ', unit: 'Единица измерения', packaging: 'Упаковка', status: 'Статус аудита' },
-      oneC: ['Наименование', 'ИКПУ', 'Единица измерения', 'Штрихкод', 'Статус аудита'],
+      columns: { mxik: 'Код ИКПУ', unit: 'Единица измерения', packaging: 'Упаковка', status: 'Статус аудита', restricted: 'Ограничение в ЭСФ' },
+      oneC: ['Наименование', 'ИКПУ', 'Единица измерения', 'Штрихкод', 'Статус аудита', 'Ограничение в ЭСФ'],
+      restrictedFrom: (date) => `Ограничен в ЭСФ с ${date}`,
       status: {
         ok: 'Рисков не найдено', accepted: 'Принято', rejected: 'Предложение отклонено',
         partial: 'Частично рассмотрено', pending: 'Не рассмотрено',

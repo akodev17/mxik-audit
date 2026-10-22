@@ -27,6 +27,14 @@ export async function codeUnits(codes: readonly string[]): Promise<Map<string, C
   return new Map(rows.map((r) => [r.code.trim(), { unitBinding: r.unitBinding, unitCanonical: r.unitCanonical, unitContainer: r.unitContainer }]));
 }
 
+/** When EHF stops accepting each of `codes` that is on the restricted list (restricted_code). */
+export async function codeRestrictions(codes: readonly string[]): Promise<Map<string, Date>> {
+  const wanted = [...new Set(codes)].filter((c) => /^\d{17}$/.test(c));
+  if (wanted.length === 0) return new Map();
+  const rows = await db.restrictedCode.findMany({ where: { code: { in: wanted } }, select: { code: true, effectiveFrom: true } });
+  return new Map(rows.map((r) => [r.code, r.effectiveFrom]));
+}
+
 export async function exportItems(catalogId: string): Promise<ExportItem[]> {
   const items = await db.catalogItem.findMany({
     where: { catalogId },
