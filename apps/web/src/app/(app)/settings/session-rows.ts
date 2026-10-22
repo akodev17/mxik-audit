@@ -1,15 +1,7 @@
 // Ordering and the "last active" wording of the sessions list. Pure, so it is tested without a database.
 import type { Locale } from '@tasnivo/i18n/i18n';
 
-type Session = { id: string; lastSeenAt: Date };
-
-/** This device first, then the most recently active. */
-export function orderSessions<T extends Session>(sessions: readonly T[], currentId: string | null | undefined): T[] {
-  return [...sessions].sort((a, b) => {
-    if ((a.id === currentId) !== (b.id === currentId)) return a.id === currentId ? -1 : 1;
-    return b.lastSeenAt.getTime() - a.lastSeenAt.getTime();
-  });
-}
+export { orderSessions } from '@tasnivo/domain/security/session-order';
 
 const STEPS: [Intl.RelativeTimeFormatUnit, number][] = [['minute', 60], ['hour', 24], ['day', 30]];
 

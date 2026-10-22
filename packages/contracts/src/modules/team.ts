@@ -33,7 +33,7 @@ export const team = defineModule('team', {
       inviteDays: z.number().int(),
     }),
     replaces: ['page:(app)/team'],
-    provisional: 'team/page.tsx queries db.user, db.client and db.invite itself; the invite list is admin-only there',
+    notes: 'Only an admin of a real (non-demo) org gets the lists; anyone else gets empty ones, as the page read nothing for them. Shape confirmed in W2; until W3 team/page.tsx queries db.user, db.client and db.invite itself.',
   }),
   invite: endpoint({
     method: 'POST', path: '/api/team/invites', auth: 'session', role: 'admin', noDemo: true,

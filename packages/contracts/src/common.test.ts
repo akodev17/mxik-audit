@@ -7,6 +7,7 @@ import { CatalogStatus, ClientActivity, Decision, FindingType, Severity, UserRol
 import type { MatchStage } from '@tasnivo/core/match/types';
 import { BANDS } from '@tasnivo/core/match/score';
 import { CATEGORIES } from '@tasnivo/domain/activity';
+import { LOGO_MAX_BYTES } from '@tasnivo/domain/account-settings';
 import { DIMENSIONS } from '@tasnivo/domain/accuracy';
 import { CheckItemSchema } from '@tasnivo/domain/api/check';
 import * as domainContract from '@tasnivo/domain/api/contract';
@@ -93,8 +94,7 @@ describe('value lists equal their sources', () => {
     // Private constants of the actions, read from their source.
     assert.match(readFileSync('apps/web/src/app/actions/lead.ts', 'utf8'), /const MAX_BYTES = 5 \* 1024 \* 1024;/);
     assert.equal(LIMITS.leadBytes, 5 * 1024 * 1024);
-    assert.match(readFileSync('apps/web/src/app/actions/settings.ts', 'utf8'), /const LOGO_MAX_BYTES = 300 \* 1024;/);
-    assert.equal(LIMITS.logoBytes, 300 * 1024);
+    assert.equal(LIMITS.logoBytes, LOGO_MAX_BYTES);
     // The review note limit the action allowed (NOTE_MAX * 4 characters before trimming).
     const note = endpoints.catalogs.assignReview.body.shape.note;
     assert.equal(note.safeParse('x'.repeat(NOTE_MAX * 4)).success, true);

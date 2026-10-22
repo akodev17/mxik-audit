@@ -3,6 +3,7 @@
 import { absoluteUrl } from './app-url.js';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import type { Locale } from '@tasnivo/i18n/i18n';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import { TRIAL_DAYS } from './billing/limits.js';
 import { db } from '@tasnivo/db';
 import { jobs } from './jobs/dispatcher.js';
@@ -10,8 +11,9 @@ import { mailEnabled } from './mailer.js';
 import { hashPassword } from './password.js';
 import { MIN_PASSWORD } from './security/password-check.js';
 import { sendPendingAccountLink } from './security/password-reset.js';
-import { hit, RULES } from './security/rate-limit.js';
+import { hit, minutesOf, RULES } from './security/rate-limit.js';
 import { EMAIL_PATTERN, emailAcceptable } from './security/reserved-email.js';
+import { openSession, type SignInSession } from './security/sign-in.js';
 import { confirmEmail, sendVerification } from './security/verification.js';
 
 export { confirmEmail };
@@ -75,4 +77,25 @@ export async function createAccount(input: Input): Promise<SignupResult> {
   if (!user) return { ok: false, error: 'emailTaken' };
   if (needsVerification) await sendVerification(user.id, email, input.locale ?? 'uz');
   return { ok: true, account: { userId: user.id, orgId: user.orgId, email, needsVerification } };
+}
+
+/**
+ * The public sign-up form: opens a 14-day trial org under the per-address signup limit. With SMTP
+ * configured the address must be confirmed first, and an address that is already registered gets
+ * the same "check your e-mail" answer. Otherwise the new admin is signed in (`{ redirect }`).
+ */
+export async function signUpForm(
+  session: SignInSession,
+  input: { email: string; password: string; firm: string },
+  req: { ip: string; userAgent: string | null; locale: Locale },
+): Promise<{ redirect: string } | { error?: string; checkEmail?: boolean }> {
+  const { ta } = i18nFor(req.locale);
+  const verdict = await hit(RULES.signupIp, req.ip);
+  if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
+  const result = await createAccount({ email: input.email, password: input.password, firmName: input.firm, locale: req.locale });
+  if (!result.ok) return 'mailed' in result ? { checkEmail: true } : { error: ta.msg.account[result.error] };
+  if (result.account.needsVerification) return { checkEmail: true };
+  const { userId, orgId, email } = result.account;
+  const next = await openSession(session, { id: userId, orgId, email }, { via: 'signup', landing: '/dashboard' }, req.userAgent);
+  return { redirect: next ?? '/sign-in' };
 }

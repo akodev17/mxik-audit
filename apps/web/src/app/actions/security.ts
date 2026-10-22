@@ -1,43 +1,35 @@
 'use server';
 
-import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { getI18n } from '@/lib/locale';
-import { db } from '@tasnivo/db';
 import { isDemoOrg } from '@/lib/demo';
 import { formText } from '@tasnivo/domain/form';
 import { admin } from '@/lib/guard';
-import { verifyPassword } from '@tasnivo/domain/password';
-import { requestDeletion, restoreAccount, setRetention } from '@tasnivo/domain/security/account';
-import { changePassword as changeUserPassword } from '@tasnivo/domain/security/password-change';
-import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
-import { qrPath, type QrPath } from '@tasnivo/domain/security/qr';
-import { clearAttempts, hit, minutesOf, RULES } from '@tasnivo/domain/security/rate-limit';
-import { isReservedEmail } from '@tasnivo/domain/security/reserved-email';
-import { isLive, revokeOthers, revokeSession } from '@tasnivo/domain/security/session-store';
-import { completePending } from '@/lib/security/sign-in';
-import { codeAccepted, codeAttemptAllowed } from '@tasnivo/domain/security/two-factor-attempts';
-import { beginSetup, confirmSetup, disable, regenerateRecovery } from '@tasnivo/domain/security/two-factor';
+import { setRetention } from '@tasnivo/domain/security/account';
+import {
+  changePasswordForm, closeAccountForm, finishTwoFactor as finishSetup, newRecoveryCodes as renewRecovery,
+  reopenAccount as reopenTarget, securityExtras as extrasOf, startTelegramBind as startBind, startTwoFactor as beginTwoFactor,
+  turnOffTwoFactor as disableTwoFactor, type PasswordState, type SecurityExtras,
+} from '@tasnivo/domain/security/account-security';
+import { twoFactorForm, type ErrorState } from '@tasnivo/domain/security/auth-forms';
+import type { QrPath } from '@tasnivo/domain/security/qr';
+import { revokeOthers, revokeSession } from '@tasnivo/domain/security/session-store';
+import { requestFacts } from '@/lib/request-facts';
 import { currentUser, getSession, type CurrentUser } from '@/lib/session';
-import { telegramConfig } from '@tasnivo/domain/telegram/config';
-import { telegramBinding, unbindTelegram } from '@tasnivo/domain/telegram/identity';
+import { unbindTelegram } from '@tasnivo/domain/telegram/identity';
 
-const Code = z.string().trim().min(6).max(32);
-
-export type TwoFactorLoginState = { error?: string };
+// The rules live in @tasnivo/domain/security/account-security and auth-forms, shared with the API.
+export type { PasswordState, SecurityExtras };
+export type TwoFactorLoginState = ErrorState;
+export type DeleteState = ErrorState;
 
 /** Second step of sign-in: the authenticator code or a recovery code. Too many wrong codes end the pending sign-in. */
 export async function submitTwoFactor(_prev: TwoFactorLoginState, form: FormData): Promise<TwoFactorLoginState> {
-  const { ta } = await getI18n();
-  const code = Code.safeParse(form.get('code'));
-  if (!code.success) return { error: ta.security.codeWrong };
-  const result = await completePending(code.data);
-  if (result.ok) redirect(result.next);
-  if (result.reason === 'locked') redirect('/sign-in?error=2fa_locked');
-  if (result.reason === 'expired') redirect('/sign-in?error=2fa_expired');
-  return { error: ta.security.codeWrong };
+  const result = await twoFactorForm(await getSession(), form.get('code'), await requestFacts());
+  if ('redirect' in result) redirect(result.redirect);
+  return result;
 }
 
 /** A signed-in, non-demo user; null otherwise. */
@@ -48,31 +40,28 @@ async function member(): Promise<CurrentUser | null> {
 
 export async function startTwoFactor(): Promise<{ secret: string; uri: string; qr: QrPath } | null> {
   const user = await member();
-  const setup = user ? await beginSetup(user.userId, user.email) : null;
-  return setup ? { ...setup, qr: qrPath(setup.uri) } : null;
+  return user ? beginTwoFactor(user) : null;
 }
 
-/** Runs a code check for the signed-in user under the per-user two-factor limit. */
-async function withCode<T>(code: unknown, job: (user: CurrentUser, code: string) => Promise<T | null>): Promise<T | null> {
+/** Runs a code check for a signed-in member; the per-user limit is applied by the domain. */
+async function withMember<T>(fallback: T, job: (user: CurrentUser) => Promise<T>): Promise<T> {
   const user = await member();
-  const parsed = Code.safeParse(code);
-  if (!user || !parsed.success || !(await codeAttemptAllowed(user.userId))) return null;
-  const result = await job(user, parsed.data);
-  if (result !== null) await codeAccepted(user.userId);
+  if (!user) return fallback;
+  const result = await job(user);
   revalidatePath('/settings');
   return result;
 }
 
 export async function finishTwoFactor(code: unknown): Promise<string[] | null> {
-  return withCode(code, (user, c) => confirmSetup(user, c));
+  return withMember(null, (user) => finishSetup(user, code));
 }
 
 export async function turnOffTwoFactor(code: unknown): Promise<boolean> {
-  return (await withCode(code, async (user, c) => ((await disable(user, c)) ? true : null))) === true;
+  return withMember(false, (user) => disableTwoFactor(user, code));
 }
 
 export async function newRecoveryCodes(code: unknown): Promise<string[] | null> {
-  return withCode(code, (user, c) => regenerateRecovery(user.userId, c));
+  return withMember(null, (user) => renewRecovery(user, code));
 }
 
 export async function endSession(sid: unknown): Promise<boolean> {
@@ -92,51 +81,26 @@ export async function endOtherSessions(): Promise<number> {
   return count;
 }
 
-export type PasswordState = { error?: string; done?: string };
-
 /** Settings → Security: current and new password; every other session of the user ends. */
 export async function changePassword(_prev: PasswordState, form: FormData): Promise<PasswordState> {
-  const { ta } = await getI18n();
+  const { ta, locale } = await getI18n();
   const user = await member();
   if (!user) return { error: ta.security.failed };
-  const verdict = await hit(RULES.passwordConfirm, user.userId);
-  if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
-  const result = await changeUserPassword(user, formText(form, 'current'), formText(form, 'next'), (await getSession()).sid ?? null);
-  if (!result.ok) return { error: result.error === 'wrong' ? ta.secX.password.wrong : ta.secX.password.short(MIN_PASSWORD) };
-  await clearAttempts(RULES.passwordConfirm, user.userId);
-  revalidatePath('/settings');
-  return { done: ta.secX.password.done(result.sessionsEnded) };
+  const result = await changePasswordForm(user, { current: formText(form, 'current'), next: formText(form, 'next') }, (await getSession()).sid ?? null, locale);
+  if (result.done) revalidatePath('/settings');
+  return result;
 }
-
-export type SecurityExtras = {
-  telegram: { available: boolean; bot: string | null; bound: boolean; canUnbind: boolean };
-  passwordMin: number;
-  /** False for an account opened with Telegram: it has no password the person knows. */
-  passwordChangeable: boolean;
-};
 
 /** What the security panel needs beyond two-factor and sessions. */
 export async function securityExtras(): Promise<SecurityExtras | null> {
   const user = await member();
-  if (!user) return null;
-  const tg = telegramConfig();
-  const binding = await telegramBinding(user.userId);
-  return {
-    telegram: { available: tg.enabled && tg.username !== null, bot: tg.username, ...binding },
-    passwordMin: MIN_PASSWORD,
-    passwordChangeable: !isReservedEmail(user.email),
-  };
+  return user ? extrasOf(user) : null;
 }
 
 /** Starts binding Telegram for sign-in: a one-time state the widget's callback must bring back (src/app/api/auth/telegram/bind). */
 export async function startTelegramBind(): Promise<string | null> {
   const user = await member();
-  if (!user || !telegramConfig().enabled) return null;
-  const session = await getSession();
-  session.tgBind = randomBytes(18).toString('base64url');
-  session.tgBindAt = Date.now();
-  await session.save();
-  return session.tgBind;
+  return user ? startBind(await getSession()) : null;
 }
 
 export async function stopTelegramLogin(): Promise<boolean> {
@@ -156,29 +120,18 @@ export async function changeRetention(days: unknown): Promise<boolean> {
   return ok;
 }
 
-export type DeleteState = { error?: string };
-
 /** Closes the account after the admin repeats the password; the browser is signed out. */
 export async function closeAccount(_prev: DeleteState, form: FormData): Promise<DeleteState> {
-  const { ta } = await getI18n();
+  const { ta, locale } = await getI18n();
   const user = await admin();
   if (!user || await isDemoOrg(user.orgId)) return { error: ta.security.deleteFailed };
-  const verdict = await hit(RULES.passwordConfirm, user.userId);
-  if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
-  const row = await db.user.findUnique({ where: { id: user.userId }, select: { passwordHash: true } });
-  const password = form.get('password');
-  if (!row || typeof password !== 'string' || !(await verifyPassword(password, row.passwordHash))) return { error: ta.security.passwordWrong };
-  await clearAttempts(RULES.passwordConfirm, user.userId);
-  if (!(await requestDeletion(user))) return { error: ta.security.deleteFailed };
+  const result = await closeAccountForm(user, form.get('password'), locale);
+  if (!('redirect' in result)) return result;
   (await getSession()).destroy();
-  redirect('/sign-in?error=closed');
+  redirect(result.redirect);
 }
 
 /** From the closed-account page: an admin of the closed org reopens it. */
 export async function reopenAccount(): Promise<void> {
-  const session = await getSession();
-  if (!session.userId || !session.orgId || !session.sid || !(await isLive(session.sid, session.userId))) redirect('/sign-in');
-  const user = await db.user.findFirst({ where: { id: session.userId, orgId: session.orgId, role: 'admin' }, select: { id: true } });
-  if (user && await restoreAccount({ userId: user.id, orgId: session.orgId })) redirect('/dashboard');
-  redirect('/account-deleted');
+  redirect(await reopenTarget(await getSession()));
 }

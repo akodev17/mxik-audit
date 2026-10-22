@@ -77,7 +77,7 @@ export const auth = defineModule('auth', {
     summary: 'What the sign-in pages offer: Telegram sign-in, password reset by mail',
     responds: 'json', response: z.object({ telegramBot: z.string().nullable(), mailEnabled: z.boolean() }),
     replaces: ['page:sign-in', 'page:sign-up', 'page:sign-in/forgot'],
-    provisional: 'the pages read telegramConfig() and mailEnabled() directly today',
+    notes: 'Shape confirmed in W2; until W3 the pages read telegramConfig() and mailEnabled() directly.',
   }),
   signIn: endpoint({
     method: 'POST', path: '/api/auth/sign-in', auth: 'public',
@@ -197,7 +197,7 @@ export const auth = defineModule('auth', {
     summary: 'The user\'s live sessions, the current one first',
     responds: 'json', response: z.array(SessionRow),
     replaces: ['page:(app)/settings#security'],
-    provisional: 'security-tab.tsx formats dates itself today; this answers ISO dates and the device label',
+    notes: 'Shape confirmed in W2; until W3 security-tab.tsx formats dates itself; this answers ISO dates and the device label.',
   }),
   endSession: endpoint({
     method: 'DELETE', path: '/api/auth/sessions/{sid}', auth: 'session', role: 'any', noDemo: true,
