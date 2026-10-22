@@ -321,3 +321,15 @@ For W4:
   the totals would remove that last refresh.
 - The web copies (workspace-url.ts, queue-params.ts, dictionary-params.ts) are tested against the domain. Drop the
   tests and keep the copies when the web stops depending on @tasnivo/domain.
+
+Verified on the branch, merged with main 96d3ef5:
+- Root typecheck, lint (only the known xlsx.ts warning) and `npm run build` pass.
+- Unit tests: 1552, all green after rerunning three API e2e files on their own. Run alongside the other W3
+  sessions, those files failed on the shared database's rate-limit rows and on audit timeouts.
+- E2E against `next start` on 3103 (built with `API_INTERNAL_URL=http://localhost:4203`), the API on 4203 and the dev
+  database, in Edge (`E2E_CHANNEL=msedge`, new in fixture.ts): dictionary-review 2/2, navigation 5/5, refresh 4/4,
+  review-flow 17/17, scale 3/3 (j/k).
+- review-flow tests 8 and 14 now capture `POST /api/findings/{id}/decision` and replay it as the viewer (403
+  `forbidden`) instead of the server action.
+- Run servers and e2e with `connection_limit=4` in DATABASE_URL while several sessions share the dev Postgres
+  (max_connections 100).

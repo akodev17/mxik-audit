@@ -62,8 +62,8 @@ const state: {
   /** The newest audited catalogue of client A. */
   ready?: string;
   decided: Decided[];
-  /** The decide server action as the browser called it, for the viewer's direct attempt. */
-  decideAction?: { id: string; url: string };
+  /** The decide call (POST /api/findings/{id}/decision) as the browser made it, for the viewer's direct attempt. */
+  decideAction?: { url: string };
 } = { decided: [] };
 
 function need(t: TestContext, value: unknown, what: string): boolean {
@@ -115,10 +115,9 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     browser = await launch();
     admin = await newPage(browser);
     admin.page.on('request', (request) => {
-      const action = request.headers()['next-action'];
       const body = request.postData() ?? '';
-      if (request.method() === 'POST' && action && !state.decideAction && body.includes('"findingId"') && body.includes('"decision":"accepted"')) {
-        state.decideAction = { id: action, url: request.url() };
+      if (request.method() === 'POST' && !state.decideAction && /\/api\/findings\/[^/]+\/decision$/.test(new URL(request.url()).pathname) && body.includes('"decision":"accepted"')) {
+        state.decideAction = { url: request.url() };
       }
     });
   });
@@ -416,7 +415,7 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     await poll('picked code in the database', () => db.finding.findUnique({ where: { id: toPick.id }, select: { decision: true, chosenMxik: true } }), (f) => f?.decision === 'accepted' && f.chosenMxik === alt, 15_000, 250);
     await pickRow.getByRole('button', { name: TA.wsX.act.undo, exact: true }).waitFor();
     state.decided.push({ findingId: toPick.id, product: toPick.item.rawName, decision: 'accepted', code: alt, original: toPick.item.existingMxik ?? '', picked: true });
-    assert.ok(state.decideAction, 'the browser called the decide action (kept for the viewer test)');
+    assert.ok(state.decideAction, 'the browser called the decide endpoint (kept for the viewer test)');
   });
 
   test('9 each decision is stored with who, how and an audit event', { timeout: 60_000 }, async (t) => {
@@ -649,24 +648,25 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
       assert.equal(await button.isDisabled(), true, 'alternatives cannot be chosen');
     }
 
-    // Calling the decide server action directly, as a crafted request would, is refused.
+    // Calling the decide endpoint directly, as a crafted request would, is refused.
     if (state.decideAction) {
       const before = await db.finding.findUnique({ where: { id: findingId }, select: { decision: true, decidedBy: true } });
-      const reply = await page.evaluate(async ({ action, finding }) => {
-        const res = await fetch(window.location.pathname, {
+      const reply = await page.evaluate(async ({ finding }) => {
+        const res = await fetch(`/api/findings/${encodeURIComponent(finding)}/decision`, {
           method: 'POST',
-          headers: { 'Next-Action': action, 'Content-Type': 'text/plain;charset=UTF-8', Accept: 'text/x-component' },
-          body: JSON.stringify([{ findingId: finding, decision: 'accepted', chosenMxik: null }]),
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'tasnivo' },
+          body: JSON.stringify({ decision: 'accepted', chosenMxik: null }),
         });
         return { status: res.status, body: await res.text() };
-      }, { action: state.decideAction.id, finding: findingId });
+      }, { finding: findingId });
       t.diagnostic(`viewer decide attempt: HTTP ${reply.status}`);
-      assert.match(reply.body, /"code":"forbidden"/, 'the action answers forbidden');
+      assert.equal(reply.status, 403, 'the API refuses a viewer');
+      assert.match(reply.body, /"code":"forbidden"/, 'the endpoint answers forbidden');
       const afterwards = await db.finding.findUnique({ where: { id: findingId }, select: { decision: true, decidedBy: true } });
       assert.deepEqual(afterwards, before, 'nothing changed in the database');
       assert.equal(await db.auditEvent.count({ where: { orgId: fx.orgId, actorId: fx.viewer.id, action: { startsWith: 'finding.' } } }), 0, 'no decision event by the viewer');
     } else {
-      assert.fail('the decide action id was not captured in test 8');
+      assert.fail('the decide call was not captured in test 8');
     }
 
     await page.goto('/upload');
