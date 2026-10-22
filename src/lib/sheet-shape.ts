@@ -19,6 +19,8 @@ export type Shaped = {
   /** Rows above the header (titles, notes) that were not read as data. */
   skippedAbove: number;
   emptyRowsSkipped: number;
+  /** Rows below the header that repeat it (paginated exports), not read as data. */
+  repeatedHeadersSkipped: number;
   /**
    * Where data rows sit in the file: [data row (1-based), file line] for every
    * row that does not follow the previous one directly (an empty row between).
@@ -81,6 +83,18 @@ export function detectHeaderRow(rows: readonly (readonly string[])[]): number {
   return 0;
 }
 
+const sameCell = (cell: string): string => cell.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/**
+ * Whether a row repeats the header, as paginated exports do on every page:
+ * every non-empty header cell matches (trimmed, case-insensitive). A header
+ * with fewer than two filled cells is too thin to tell a repeat from data.
+ */
+export function repeatsHeader(row: readonly string[], header: readonly string[]): boolean {
+  if (filled(header) < 2) return false;
+  return header.every((h, i) => h.trim() === '' || sameCell(row[i] ?? '') === sameCell(h));
+}
+
 /** Placeholder name for a column without a header. */
 export const columnName = (index: number): string => `Ustun ${index + 1}`;
 
@@ -105,7 +119,15 @@ export function shapeGrid(grid: readonly (readonly string[] | undefined)[], extr
   });
   const headerIndex = detectHeaderRow(nonEmpty);
   const headerCells = nonEmpty[headerIndex] ?? [];
-  const data = nonEmpty.slice(headerIndex + 1);
+  const data: string[][] = [];
+  const dataLines: number[] = [];
+  let repeatedHeadersSkipped = 0;
+  for (let i = headerIndex + 1; i < nonEmpty.length; i++) {
+    const row = nonEmpty[i] ?? [];
+    if (repeatsHeader(row, headerCells)) { repeatedHeadersSkipped++; continue; }
+    data.push(row);
+    dataLines.push(lines[i] ?? 0);
+  }
   const kept = data.slice(0, MAX_ROWS);
   // A data row wider than the header still keeps every cell; the extra columns get placeholder names.
   const width = kept.reduce((w, r) => Math.max(w, r.length), headerCells.length);
@@ -122,8 +144,8 @@ export function shapeGrid(grid: readonly (readonly string[] | undefined)[], extr
   const headerRow = lines[headerIndex] ?? 1;
   return {
     headers, rows, totalSeen, truncated: totalSeen > rows.length,
-    headerRow, skippedAbove: headerIndex, emptyRowsSkipped,
-    lineJumps: jumps(lines.slice(headerIndex + 1, headerIndex + 1 + kept.length), headerRow),
+    headerRow, skippedAbove: headerIndex, emptyRowsSkipped, repeatedHeadersSkipped,
+    lineJumps: jumps(dataLines.slice(0, kept.length), headerRow),
   };
 }
 

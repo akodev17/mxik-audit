@@ -26,6 +26,8 @@ export type ParseMeta = {
   headerRow: number;
   skippedAbove: number;
   emptyRowsSkipped: number;
+  /** See Shaped.repeatedHeadersSkipped; absent on uploads read before it was counted. */
+  repeatedHeadersSkipped?: number;
   totalSeen: number;
   truncated: boolean;
   /** See Shaped.lineJumps (sheet-shape.ts); absent on uploads read before it was kept. */
@@ -150,6 +152,7 @@ export async function parseUpload(buffer: Buffer, _filename?: string): Promise<P
   const meta: ParseMeta = {
     format: kind === 'xlsx' ? 'xlsx' : 'csv', encoding, delimiter,
     headerRow: shaped.headerRow, skippedAbove: shaped.skippedAbove, emptyRowsSkipped: shaped.emptyRowsSkipped,
+    repeatedHeadersSkipped: shaped.repeatedHeadersSkipped,
     totalSeen: shaped.totalSeen, truncated: shaped.truncated, lineJumps: shaped.lineJumps,
   };
   return { headers: shaped.headers, rows: shaped.rows, truncated: shaped.truncated, totalSeen: shaped.totalSeen, meta };

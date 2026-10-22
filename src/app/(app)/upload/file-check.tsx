@@ -13,6 +13,7 @@ export function FileCheck({ preview, onNext, onStartOver }: { preview: UploadPre
   const c = ta.importX.check;
   const n = (v: number): string => fmtNumber(locale, v);
   const parse = preview.parse;
+  const repeatedHeaders = parse?.repeatedHeadersSkipped ?? 0;
   const facts: [string, string][] = [
     [ta.importX.confirm.file, preview.filename],
     ...(parse ? [
@@ -38,10 +39,11 @@ export function FileCheck({ preview, onNext, onStartOver }: { preview: UploadPre
           </div>
         ))}
       </dl>
-      {parse && (parse.skippedAbove > 0 || parse.emptyRowsSkipped > 0) ? (
+      {parse && (parse.skippedAbove > 0 || parse.emptyRowsSkipped > 0 || repeatedHeaders > 0) ? (
         <Notice tone="info">
           {parse.skippedAbove > 0 ? <p>{c.skippedAbove(parse.skippedAbove)}</p> : null}
           {parse.emptyRowsSkipped > 0 ? <p>{c.emptySkipped(parse.emptyRowsSkipped)}</p> : null}
+          {repeatedHeaders > 0 ? <p>{c.repeatedHeaders(repeatedHeaders)}</p> : null}
         </Notice>
       ) : null}
       <div>
