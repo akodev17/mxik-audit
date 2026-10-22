@@ -20,6 +20,13 @@ const config: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders() }];
   },
+  // The habitual addresses land on the real sign-in page instead of a 404.
+  async redirects() {
+    return [
+      { source: '/login', destination: '/sign-in', permanent: true },
+      { source: '/signin', destination: '/sign-in', permanent: true },
+    ];
+  },
   webpack: (webpackConfig) => {
     // src/core and src/lib are also run directly by tsx (scripts, eval, tests),
     // which under "type": "module" requires explicit .js extensions on relative
