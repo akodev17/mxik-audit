@@ -1,0 +1,13 @@
+# The production routing over plain HTTP on http://localhost:8080, for testing
+# (docker-compose.yml, service caddy-local, profile "local"). No certificates, no HSTS.
+#
+# Upstreams default to the dev servers on the host (`npm run dev` on 3000, the API on 4000);
+# compose passes LOCAL_WEB_UPSTREAM / LOCAL_API_UPSTREAM to aim elsewhere, e.g. web:3000 and
+# api:4000 for the containers of the "app" profile.
+{
+	auto_https off
+}
+
+:8080 {
+	import routes.caddy
+}

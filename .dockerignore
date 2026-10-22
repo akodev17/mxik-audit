@@ -1,13 +1,23 @@
 **/node_modules
 **/.next
+**/dist
 .git
+# The main checkout holds every session's worktree here; never send them as build context.
+.claude
 tmp
 *.log
 .env
 .env.*
 !.env.example
+backups
+test-results
+playwright-report
+# Mounted into the caddy container from the host, not part of any image.
+infra
 # Classifier downloads and the 1.1 GB NDJSON are mounted at runtime, never baked in.
 data/*.xlsx
 data/mxik.ndjson
 data/models
 data/embed-checkpoint.json
+data/*.log
+data/*-status.json
