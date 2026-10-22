@@ -219,7 +219,7 @@ Routes use `@Route(endpoints.<module>.<op>)` (src/http/route.ts) with `AccessGua
   `ZodValidationPipe` with the registry's schemas; the kept download URLs read their query the way
   the old routes did (an unknown `format` is xlsx, `audience` other than client is internal).
 ## Routes: catalogs, imports, share (Wave 2b)
-All 39 operations of `endpoints.catalogs`, `endpoints.imports` and `endpoints.share`
+All 40 operations of `endpoints.catalogs`, `endpoints.imports` and `endpoints.share`
 (`packages/contracts/README.md` lists each with what it replaces). The logic is in
 `@tasnivo/domain`: `catalog-upload` (wizard, retry, delete), `catalog-pages` (list, header, summary,
 versions, diff, report, review, progress, share view), `catalog-review`, `share`, `catalog-exports`
@@ -227,7 +227,7 @@ versions, diff, report, review, progress, share view), `catalog-review`, `share`
 actions and route handlers call the same functions.
 | Area | Routes |
 |---|---|
-| upload wizard | `POST /api/catalogs/preview` (multipart: `file` up to 20 MB .xlsx/.xls/.csv, `clientId`), `GET` and `DELETE /api/catalogs/{id}/preview`, `POST /api/catalogs/{id}/diagnose`, `POST /api/catalogs/{id}/commit` (audit through `jobs()`; makes the client the session's active one), `GET /api/catalogs/{id}/progress` (was `/upload/progress`; resumes a stalled audit), `POST /api/catalogs/{id}/retry` |
+| upload wizard | `GET /api/upload/options` (the upload page's clients and plan gate, W3b), `POST /api/catalogs/preview` (multipart: `file` up to 20 MB .xlsx/.xls/.csv, `clientId`), `GET` and `DELETE /api/catalogs/{id}/preview`, `POST /api/catalogs/{id}/diagnose`, `POST /api/catalogs/{id}/commit` (audit through `jobs()`; makes the client the session's active one), `GET /api/catalogs/{id}/progress` (was `/upload/progress`; resumes a stalled audit), `POST /api/catalogs/{id}/retry` |
 | catalogues | `GET /api/catalogs`, `GET` and `DELETE /api/catalogs/{id}`, `GET /api/catalogs/{id}/summary`, `/versions`, `/diff`, `/report` |
 | review | `GET` and `PUT /api/catalogs/{id}/review`, `POST /api/catalogs/{id}/review/done` |
 | share links | `GET` and `POST /api/catalogs/{id}/share-links`, `DELETE /api/share-links/{linkId}`; public: `GET /api/share/{token}` (counts a view), `GET /api/share/{token}/pdf` (was `/r/{token}/pdf`) |

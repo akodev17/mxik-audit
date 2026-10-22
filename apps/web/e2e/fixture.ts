@@ -163,7 +163,9 @@ export async function setupEmptyOrg(label: string): Promise<EmptyFixture> {
 // ------------------------------------------------------------------ browser
 
 export async function launch(): Promise<Browser> {
-  return chromium.launch({ headless: process.env['E2E_HEADED'] !== '1' });
+  // E2E_CHANNEL=msedge drives an installed Edge where Playwright's own Chromium is not downloaded.
+  const channel = process.env['E2E_CHANNEL'];
+  return chromium.launch({ headless: process.env['E2E_HEADED'] !== '1', ...(channel ? { channel } : {}) });
 }
 
 /**
