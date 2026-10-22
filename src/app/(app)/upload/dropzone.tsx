@@ -2,11 +2,10 @@
 
 import { useRef, useState, type DragEvent } from 'react';
 import { useI18n } from '@/lib/locale-client';
+import { UPLOAD_ACCEPT } from '@/lib/upload-file-types';
 import { Button } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { IconUpload } from '@/ui/icons';
-
-const ACCEPT = '.xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
 
 /**
  * Drop a file or press the visible button. The button is the keyboard and
@@ -47,7 +46,7 @@ export function Dropzone({ onFile, busy, compact = false }: { onFile: (file: Fil
       <Button variant="primary" loading={busy} onClick={() => input.current?.click()}>{s.choose}</Button>
       <p className="max-w-md text-small text-muted">{s.formats}</p>
       <input
-        ref={input} type="file" accept={ACCEPT} className="sr-only" tabIndex={-1} aria-hidden
+        ref={input} type="file" accept={UPLOAD_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
           // Cleared so choosing the same file again still fires a change.
