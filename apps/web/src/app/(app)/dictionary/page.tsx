@@ -1,6 +1,7 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
-import { canWrite, requireMe } from '@/lib/require-me';
+import { redirect } from 'next/navigation';
+import { signedIn } from '@/lib/api/me';
 import { serverApi } from '@/lib/api/server';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
@@ -19,7 +20,8 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
   const { q, page, filter } = readDictParams(await searchParams);
   const listing = serverApi().dictionary.list({ ...(q ? { q } : {}), ...(filter !== 'all' ? { f: filter } : {}), page });
   listing.catch(() => undefined); // awaited below, after a missing session has redirected
-  const user = await requireMe();
+  const user = await signedIn();
+  if (!user) redirect('/sign-in');
   const data = await listing;
   // Entries are product names from every client's catalogues: a member scoped to some clients sees none of them.
   if (!data.available) {
@@ -33,7 +35,7 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
   return (
     <Page title={ta.dict.title} hint={ta.dict.hint} wide>
       <DictionarySearch initial={q} />
-      <DictionaryView key={`${q}|${filter}|${page}`} q={q} filter={filter} page={page} initial={data} editable={canWrite(user)} />
+      <DictionaryView key={`${q}|${filter}|${page}`} q={q} filter={filter} page={page} initial={data} editable={user.role !== 'viewer'} />
     </Page>
   );
 }

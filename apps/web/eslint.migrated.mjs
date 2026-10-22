@@ -21,5 +21,4 @@ export const MIGRATED_WEB_PATHS = [
   'apps/web/src/app/(app)/dashboard/{dashboard-data.ts,tasks.tsx}',
   'apps/web/src/lib/workspace-url.ts',
   'apps/web/src/lib/api-failure.ts',
-  'apps/web/src/lib/require-me.ts',
 ];

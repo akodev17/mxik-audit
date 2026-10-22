@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getI18n } from '@/lib/locale';
-import { requireMe } from '@/lib/require-me';
+import { signedIn } from '@/lib/api/me';
 import { serverApi } from '@/lib/api/server';
 import { Page } from '@/ui/page';
 import { MarkAllReadButton } from './notice-actions';
@@ -26,7 +26,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const requested = Math.max(1, Number.parseInt(sp.page ?? '1', 10) || 1);
   const listing = serverApi().notifications.list({ page: requested - 1, ...(unreadOnly ? { unread: '1' as const } : {}), ...(topic ? { group: topic } : {}) });
   listing.catch(() => undefined); // awaited below, after a missing session has redirected
-  await requireMe();
+  if (!(await signedIn())) redirect('/sign-in');
   const list = await listing;
   // Past the end (after marking things read, or an edited URL): show the last page that exists.
   if (requested > list.pageCount) redirect(pageHref(list.pageCount, unreadOnly, topic));

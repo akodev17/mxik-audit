@@ -301,7 +301,7 @@ These areas now read and write through `@tasnivo/api-client` (branch `claude/w3c
 - **Deleted actions:** review, workspace, bulk, comments, views, feedback, barcode-name, dictionary, and
   `reminders.ts#finishTask`. `reminders.ts#saveSchedule` stays: `clients/[id]/schedule-form.tsx` (W3d) uses it.
   shell.ts (notifications preview/mark read, used by the bell) is W3d's.
-- **Session in pages:** `lib/require-me.ts` (`requireMe()` on W3a's `signedIn()`, plus `canWrite`/`isAdminRole`).
+- **Session in pages:** W3a's `signedIn()` (lib/api/me.ts) with a redirect to /sign-in; writers are `role !== 'viewer'`.
 
 Seams:
 - `catalogs/[id]/page.tsx` is shared with W3b: W3b owns the top (catalog header read), W3c the grid half. At

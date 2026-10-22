@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { fmtNumber } from '@tasnivo/i18n/format';
-import { canWrite, isAdminRole, requireMe } from '@/lib/require-me';
+import { redirect } from 'next/navigation';
+import { signedIn } from '@/lib/api/me';
 import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
 import { ButtonLink } from '@/ui/button';
@@ -21,11 +22,12 @@ type Params = { client?: string; type?: string; severity?: string; flag?: string
 
 export default async function QueuePage({ searchParams }: { searchParams: Promise<Params> }) {
   const { locale, ta } = await getI18n();
-  const user = await requireMe();
+  const user = await signedIn();
+  if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const q = ta.firmX.queue;
   const filter = readQueueFilter(sp);
-  if (!isAdminRole(user)) filter.accountantId = null;
+  if (user.role !== 'admin') filter.accountantId = null;
 
   const page = await serverApi().workspace.queue(queueQuery(filter, sp.after));
   const { clients } = page;
@@ -36,7 +38,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
 
   return (
     <Page title={q.title} hint={q.hint} wide>
-      {canWrite(user) ? null : <p className="mb-4 text-small text-muted">{q.readOnly}</p>}
+      {user.role !== 'viewer' ? null : <p className="mb-4 text-small text-muted">{q.readOnly}</p>}
       <QueueFilters
         filter={filter} clients={clients}
         accountants={people.map((p) => ({ id: p.id, email: p.email, unrestricted: p.assigned === 0 }))}

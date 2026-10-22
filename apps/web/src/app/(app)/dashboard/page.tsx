@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { groupDecisions } from '@tasnivo/domain/activity-groups';
 import { rowProgress } from '@tasnivo/domain/client-stats';
 import { parseQueueParams, type QueueFilter, type QueueSort } from '@tasnivo/domain/work-queue';
-import { canWrite, isAdminRole, requireMe } from '@/lib/require-me';
+import { redirect } from 'next/navigation';
+import { signedIn } from '@/lib/api/me';
 import { getI18n } from '@/lib/locale';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
@@ -32,9 +33,10 @@ const REGION = 'px-5 py-6 sm:px-8';
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string; qf?: string; qs?: string; rv?: string }> }) {
   const { ta } = await getI18n();
-  const user = await requireMe();
+  const user = await signedIn();
+  if (!user) redirect('/sign-in');
   const sp = await searchParams;
-  const admin = isAdminRole(user);
+  const admin = user.role === 'admin';
   const home = ta.firmX.home;
   const view = parseQueueParams(sp);
 
@@ -71,7 +73,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const audited = data.clients.some((c) => c.catalogId !== null);
   const openSteps = steps.some((s) => !s.done);
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
-  const canAct = canWrite(user) && !user.demo;
+  const canAct = user.role !== 'viewer' && !user.demo;
   const workload = data.workload && data.workload.length > 0 ? data.workload : null;
   const hasClients = data.clients.length > 0;
   const capped = !user.demo && (['clients', 'rowsPerMonth', 'seats'] as const).some((k) => plan.limits[k] !== null);
