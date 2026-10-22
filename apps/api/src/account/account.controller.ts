@@ -19,7 +19,6 @@ import { MAX_UPLOAD_BYTES } from '@tasnivo/domain/catalog-import';
 import { RETENTION_CHOICES, setRetention } from '@tasnivo/domain/security/account';
 import { closeAccountForm, closedAccountStatus, reopenAccount } from '@tasnivo/domain/security/account-security';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
-import { telegramConfig } from '@tasnivo/domain/telegram/config';
 import { unlink } from '@tasnivo/domain/telegram/linking';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
@@ -29,7 +28,6 @@ import type { ApiRequest } from '../http/request';
 import { Route } from '../http/route';
 import { ZodValidationPipe } from '../http/zod-validation.pipe';
 import { setLocaleCookie, setPrefCookie, SIDEBAR_COOKIE, THEME_COOKIE } from './prefs';
-import { TelegramWebhook } from './telegram-webhook';
 
 const e = endpoints.account;
 
@@ -48,10 +46,7 @@ const LOGO_UPLOAD_CAP = 5 * 1024 * 1024;
 @ApiTags('account')
 @Controller()
 export class AccountController {
-  constructor(
-    @Inject(SessionService) private readonly sessions: SessionService,
-    @Inject(TelegramWebhook) private readonly webhook: TelegramWebhook,
-  ) {}
+  constructor(@Inject(SessionService) private readonly sessions: SessionService) {}
 
   @Route(e.get)
   async get(@CurrentUser() user: User): Promise<Answer<'get'>> {
@@ -155,15 +150,6 @@ export class AccountController {
   @Route(e.telegramUnlink)
   async telegramUnlink(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.telegramUnlink.params)) { linkId }: { linkId: string }): Promise<Answer<'telegramUnlink'>> {
     return { ok: await unlink(user, linkId) };
-  }
-
-  /** grammy's webhook handler; 404 while the bot is off, 503 without TELEGRAM_WEBHOOK_SECRET. */
-  @Route(e.telegramWebhook)
-  async telegramWebhook(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
-    const config = telegramConfig();
-    if (!config.enabled) throw new ApiError(404, 'not_found', 'telegram disabled');
-    if (!config.webhookSecret) throw new ApiError(503, 'unavailable', 'TELEGRAM_WEBHOOK_SECRET not set');
-    await this.webhook.handle(config, config.webhookSecret, req, res);
   }
 
   @Route(e.apiKeys)
