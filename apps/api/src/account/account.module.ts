@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AccountController } from './account.controller';
-import { TelegramWebhook } from './telegram-webhook';
 
-/** endpoints.account (org settings, browser preferences, Telegram chats and webhook, API keys, the audit log). */
-@Module({ controllers: [AccountController], providers: [TelegramWebhook] })
+/** endpoints.account (org settings, browser preferences, Telegram chats, API keys, the audit log); the Telegram webhook lives in TelegramModule. */
+@Module({ controllers: [AccountController] })
 export class AccountModule {}

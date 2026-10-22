@@ -24,6 +24,9 @@ export class TelegramController {
     if (!config.enabled) throw new ApiError(404, 'not_found', 'telegram disabled');
     const secret = config.webhookSecret;
     if (!secret) throw new ApiError(503, 'unavailable', 'TELEGRAM_WEBHOOK_SECRET not set');
+    // With @Res() Nest leaves the status to the handler, and a POST otherwise ends as 201; grammy
+    // only ever sets 401 itself, so start from 200 as the web route answered.
+    res.status(200);
     await this.webhook.handle({ ...config, webhookSecret: secret }, req, res);
   }
 }

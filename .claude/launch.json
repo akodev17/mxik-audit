@@ -4,14 +4,35 @@
     {
       "name": "mxik-audit",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "mxik-prod",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "start", "apps/web", "-p", "3000"],
+      "runtimeArgs": [
+        "next",
+        "start",
+        "apps/web",
+        "-p",
+        "3000"
+      ],
       "port": 3000
+    },
+    {
+      "name": "mxik-dev-3001",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "apps/web",
+        "-p",
+        "3001"
+      ],
+      "port": 3001
     }
   ]
 }

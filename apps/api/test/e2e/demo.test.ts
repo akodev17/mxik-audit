@@ -97,7 +97,8 @@ describe('demo module (database)', { skip }, () => {
 
     const me = await http().get('/api/auth/me').set('Cookie', cookiePair(setCookies(res), SESSION_COOKIE) ?? '');
     assert.equal(me.status, 200);
-    assert.equal(bodyOf<{ user: { demo: boolean } }>(me).user.demo, true);
+    // /api/auth/me answers the CurrentUser itself (contracts auth.me), not { user }.
+    assert.equal(bodyOf<{ demo: boolean }>(me).demo, true);
 
     const again = await http().post('/api/demo/open').set(CSRF).set('X-Real-IP', testIp()).send({ token });
     assert.deepEqual(again.body, { error: t.demoAccess.errors.link });
