@@ -72,6 +72,28 @@ describe('parseUpload: text files', () => {
     assert.equal(fileLine({ headerRow: 2 }, 1), null, 'uploads read before lines were kept say nothing');
   });
 
+  it('drops a header repeated mid-file (paginated exports) and keeps the file lines right', async () => {
+    const page = (from: number) => Array.from({ length: 5 }, (_, i) => `Tovar ${from + i};0630100100100000${(from + i) % 10}`);
+    const csv = ['Katalog 2026', 'Nomi;MXIK kodi', ...page(1), ' nomi ; MXIK KODI ;', ...page(6)].join('\n');
+    const parsed = await parseUpload(Buffer.from(csv, 'utf8'), 'pages.csv');
+    assert.deepEqual(parsed.headers, ['Nomi', 'MXIK kodi']);
+    assert.equal(parsed.rows.length, 10);
+    assert.ok(parsed.rows.every((r) => r[0]?.startsWith('Tovar ')), 'no header row read as a product');
+    assert.equal(parsed.totalSeen, 10);
+    assert.equal(parsed.truncated, false);
+    assert.equal(parsed.meta.skippedAbove, 1);
+    assert.equal(parsed.meta.repeatedHeadersSkipped, 1);
+    // Header on line 2, page one on lines 3–7, the repeat on line 8, page two on lines 9–13.
+    assert.deepEqual(parsed.meta.lineJumps, [[6, 9]]);
+    assert.deepEqual([1, 5, 6, 10].map((r) => fileLine(parsed.meta, r)), [3, 7, 9, 13]);
+  });
+
+  it('keeps a data row that only shares some cells with the header', async () => {
+    const parsed = await parseUpload(Buffer.from('Nomi;Birlik\nGuruch;kg\nNomi;dona\n', 'utf8'), 'near.csv');
+    assert.deepEqual(parsed.rows, [['Guruch', 'kg'], ['Nomi', 'dona']]);
+    assert.equal(parsed.meta.repeatedHeadersSkipped, 0);
+  });
+
   it('marks truncation only when rows exceed the limit, and counts every row seen', async () => {
     const lines = ['name;code', ...Array.from({ length: MAX_ROWS + 5 }, (_, i) => `Item ${i};${i}`)];
     const parsed = await parseUpload(Buffer.from(lines.join('\n'), 'utf8'), 'f.csv');
@@ -134,6 +156,23 @@ describe('parseUpload: spreadsheets', () => {
     assert.deepEqual([fileLine(parsed.meta, 1), fileLine(parsed.meta, 2)], [3, 4], 'sheet rows under the merged title');
     assert.deepEqual(parsed.headers, ['Nomi', 'Narx', 'MXIK']);
     assert.deepEqual(parsed.rows, [['Guruch', '1.1250', '06301001001000000'], ['Shakar', '12500', '06301001001000001']]);
+  });
+
+  it('drops the header repeated on every page of a sheet', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('S');
+    sheet.addRow(['Mahsulotlar roʻyxati']);
+    sheet.addRow(['Nomi', 'MXIK kodi', 'Birlik']);
+    for (let i = 1; i <= 5; i++) sheet.addRow([`Tovar ${i}`, '06301001001000000', 'kg']);
+    sheet.addRow([]);
+    sheet.addRow(['Nomi', 'MXIK kodi', 'Birlik']);
+    for (let i = 6; i <= 10; i++) sheet.addRow([`Tovar ${i}`, '06301001001000000', 'kg']);
+    const parsed = await parseUpload(Buffer.from(await workbook.xlsx.writeBuffer()), 'pages.xlsx');
+    assert.equal(parsed.rows.length, 10);
+    assert.equal(parsed.totalSeen, 10);
+    assert.equal(parsed.meta.repeatedHeadersSkipped, 1);
+    // Sheet row 8 is empty and row 9 the repeat: Tovar 6 sits on row 10.
+    assert.deepEqual([fileLine(parsed.meta, 5), fileLine(parsed.meta, 6)], [7, 10]);
   });
 
   it('writes numbers so the amount reader cannot mistake them for thousands', () => {
