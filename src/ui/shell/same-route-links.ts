@@ -45,16 +45,17 @@ const pageLoading = (): boolean => document.querySelector('[data-page-skeleton]'
 
 /**
  * Whether a click or push to `address` would only repeat a navigation already on its way: the one
- * being watched, or the page whose skeleton is showing while its answer has not arrived. The router
- * would start the same server render again for each such click, and a person who sees nothing happen
- * clicks again and again; every click then made the page slower. Once the answer is there, a click
- * goes through as before.
+ * being watched, or the page whose skeleton is showing (its answer, or its JavaScript, still on the
+ * way). The router starts the same server render again for each such click, and a person who sees
+ * nothing happen clicks again and again; every click then made the page slower. A page whose answer
+ * has been in for NAVIGATION_WATCHDOG_MS and still shows the skeleton may be held: a click goes through.
  */
 function alreadyOnItsWay(address: string): boolean {
   const key = addressKey(address);
   if (pending && addressKey(pending.target) === key) return true;
   if (!opening || opening.key !== key || addressKey(here()) !== key || !pageLoading()) return false;
-  return (answered.get(key) ?? -1) < opening.since;
+  const answer = answered.get(key) ?? -1;
+  return answer < opening.since || performance.now() - answer < NAVIGATION_WATCHDOG_MS;
 }
 
 /**

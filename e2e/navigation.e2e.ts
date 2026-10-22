@@ -119,24 +119,27 @@ describe('query-only navigation', () => {
     assert.equal(await sawSkeleton(page), false, 'the decision filter changed without the page skeleton');
   });
 
-  // A page the server is slow to render (a first compile in dev, a heavy query in production) used to
-  // look like an ignored click. Clicking again started another full render of the same page each time,
-  // and after 8 s the watchdog reloaded the document while the answer was still on its way.
-  test('21 a slow page opens from one click: more clicks start no second load, and nothing reloads', { timeout: 120_000 }, async () => {
+  // A page that is slow to appear (its JavaScript compiled on a first visit in dev, or slow to download)
+  // used to look like an ignored click: the skeleton stayed, and every further click on its tab started
+  // another full server render of the same page.
+  test('21 a page slow to appear opens from one click: more clicks start no second render, and nothing reloads', { timeout: 120_000 }, async () => {
     const { page } = session;
-    const SLOW_MS = 9_000;
+    const SLOW_MS = 6_000;
     await open(page, '/dashboard');
-    let loads = 0;
-    const isQueuePage = (url: URL): boolean => url.pathname === '/queue' && url.searchParams.has('_rsc');
-    const slow = async (route: Route): Promise<void> => {
-      // Link prefetches (loading boundary only) carry this header; the page itself does not.
-      if (!route.request().headers()['next-router-prefetch']) {
-        loads += 1;
-        await new Promise((r) => setTimeout(r, SLOW_MS));
-      }
+    let renders = 0;
+    const isQueueRender = (url: URL): boolean => url.pathname === '/queue' && url.searchParams.has('_rsc');
+    const countRender = async (route: Route): Promise<void> => {
+      // Link prefetches (loading boundary only) carry this header; a render of the page does not.
+      if (!route.request().headers()['next-router-prefetch']) renders += 1;
       await route.continue();
     };
-    await page.route(isQueuePage, slow);
+    const isQueueChunk = (url: URL): boolean => url.pathname.startsWith('/_next/static/chunks/app/') && url.pathname.includes('/queue/page');
+    const holdChunk = async (route: Route): Promise<void> => {
+      await new Promise((r) => setTimeout(r, SLOW_MS));
+      await route.continue();
+    };
+    await page.route(isQueueRender, countRender);
+    await page.route(isQueueChunk, holdChunk);
     try {
       await page.evaluate(() => { (window as unknown as { __sameDocument?: boolean }).__sameDocument = true; });
       const tab = page.locator('header a[href="/queue"]').first();
@@ -145,12 +148,13 @@ describe('query-only navigation', () => {
         await page.waitForTimeout(500);
         await tab.click();
       }
-      await page.waitForURL((url) => url.pathname === '/queue', { ...COMMIT, timeout: SLOW_MS + NAV_TIMEOUT });
-      await main(page).getByRole('heading', { level: 1, name: TA.firmX.queue.title }).waitFor({ timeout: NAV_TIMEOUT });
-      assert.equal(loads, 1, 'five clicks, one request for the page');
+      await page.waitForURL((url) => url.pathname === '/queue', { ...COMMIT, timeout: NAV_TIMEOUT });
+      await main(page).getByRole('heading', { level: 1, name: TA.firmX.queue.title }).waitFor({ timeout: SLOW_MS + NAV_TIMEOUT });
+      assert.equal(renders, 1, 'five clicks, one server render of the page');
       assert.equal(await page.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument === true), true, 'the page was not reloaded as a document');
     } finally {
-      await page.unroute(isQueuePage, slow);
+      await page.unroute(isQueueRender, countRender);
+      await page.unroute(isQueueChunk, holdChunk);
     }
   });
 });
