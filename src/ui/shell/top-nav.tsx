@@ -6,6 +6,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/locale-client';
 import { cx } from '../cx';
 import { Menu } from '../menu';
+import { useIntentPrefetch } from './intent-prefetch';
 import { fittingTabs, isActive } from './nav';
 import { useNav } from './nav-items';
 
@@ -26,6 +27,7 @@ export function TopNav({ canWrite, canTeam, activePath }: { canWrite: boolean; c
   const current = usePathname();
   const pathname = activePath ?? current;
   const tabs = useNav(canWrite, canTeam).flatMap((g) => g.items).filter((i) => TAB_KEYS.has(i.key));
+  const intent = useIntentPrefetch();
   const nav = useRef<HTMLElement>(null);
   const row = useRef<HTMLUListElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
@@ -68,6 +70,7 @@ export function TopNav({ canWrite, canTeam, activePath }: { canWrite: boolean; c
             <li key={item.key} className="flex shrink-0">
               <Link
                 href={item.href}
+                {...intent(item.href)}
                 aria-current={active ? 'page' : undefined}
                 title={text === item.label ? undefined : item.label}
                 className={cx(TAB, active ? cx('text-fg', UNDERLINE) : 'text-muted hover:text-fg')}

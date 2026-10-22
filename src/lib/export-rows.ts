@@ -23,7 +23,7 @@ export async function codeUnits(codes: readonly string[]): Promise<Map<string, C
   if (wanted.length === 0) return new Map();
   const rows = await db.$queryRaw<{ code: string; unitBinding: string; unitCanonical: string[]; unitContainer: string | null }[]>`
     SELECT code, "unitBinding"::text AS "unitBinding", "unitCanonical", "unitContainer"
-    FROM mxik_code WHERE code = ANY(${wanted})`;
+    FROM mxik_code WHERE code = ANY(${wanted}::bpchar[])`;
   return new Map(rows.map((r) => [r.code.trim(), { unitBinding: r.unitBinding, unitCanonical: r.unitCanonical, unitContainer: r.unitContainer }]));
 }
 

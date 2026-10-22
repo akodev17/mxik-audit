@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { localDate } from '../src/lib/reminders';
-import { db, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, traced, type Fixture } from './fixture';
+import { db, E2E_PASSWORDS, gridRows, launch, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
 
 /** Far below the 6 s toast, whose dismissal used to be what committed a held refresh. */
 const SETTLE_MS = 2_000;
@@ -73,5 +73,34 @@ describe('refresh after a change', () => {
         await done.waitFor({ state: 'detached', timeout: SETTLE_MS });
       }
     }
+  });
+
+  // A page fetched ahead on hover (src/ui/shell/intent-prefetch.ts) is kept for 30 s. A workspace
+  // decision does not revalidate, so the next page opened must refresh itself (src/ui/shell/router-cache.ts).
+  test('20 a section fetched ahead before a workspace decision shows the decision', { timeout: 120_000 }, async () => {
+    const { page } = session;
+    const finding = await db.finding.findFirst({ where: { item: { catalogId: fx.clientBCatalogId } }, select: { id: true, item: { select: { rawName: true } } } });
+    assert.ok(finding, 'client B has a finding');
+    await page.goto(`/catalogs/${fx.clientBCatalogId}`);
+    await gridRows(page).first().waitFor();
+    await page.waitForLoadState('networkidle');
+
+    const queueTab = page.locator('header a[href="/queue"]');
+    await Promise.all([
+      page.waitForResponse((res) => new URL(res.url()).pathname === '/queue' && res.url().includes('_rsc=')),
+      queueTab.hover(),
+    ]);
+    const row = page.locator(`#ws-row-${finding.id}`);
+    await row.getByRole('button', { name: TA.wsX.act.reject, exact: true }).click();
+    await row.getByRole('button', { name: TA.wsX.act.undo, exact: true }).waitFor();
+
+    await queueTab.click();
+    await page.waitForURL((url) => url.pathname === '/queue');
+    const gone = await page.waitForFunction(
+      (product) => { const main = document.querySelector('main'); return main?.querySelector('h1') !== null && !(main?.textContent ?? '').includes(product); },
+      finding.item.rawName,
+      { timeout: SETTLE_MS, polling: 50 },
+    ).then(() => true, () => false);
+    assert.ok(gone, `the queue no longer lists "${finding.item.rawName}" within ${SETTLE_MS} ms of opening it`);
   });
 });

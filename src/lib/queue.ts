@@ -173,7 +173,7 @@ export async function queuePage(user: QueueViewer, f: QueueFilter, cursor: Queue
     WITH latest AS (${latest(user.orgId, ids)})
     SELECT f.id AS finding_id, i."rowIndex" AS row_index, i."rawName" AS raw_name, i.unit, f.type::text AS type, f.severity::text AS severity,
       i."existingMxik" AS existing_mxik, f."suggestedMxik" AS suggested_mxik, f.confidence, f.evidence->>'stage' AS stage, f.flag,
-      CASE WHEN f.type::text = 'UNIT_CONFLICT' THEN (SELECT m."unitCanonical" FROM mxik_code m WHERE m.code = i."existingMxik") END AS code_units,
+      CASE WHEN f.type::text = 'UNIT_CONFLICT' THEN (SELECT m."unitCanonical" FROM mxik_code m WHERE m.code = i."existingMxik"::bpchar) END AS code_units,
       (SELECT count(*)::int FROM finding_comment fc WHERE fc."findingId" = f.id) AS comments,
       l.id AS catalog_id, l.filename AS catalog_name, l."createdAt" AS audited_at, cl.id AS client_id, cl.name AS client_name,
       ${SEV} AS sev

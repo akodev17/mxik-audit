@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/locale-client';
 import { cx } from '../cx';
 import { IconBell, IconUpload } from '../icons';
 import { Tooltip } from '../tooltip';
+import { useIntentPrefetch } from './intent-prefetch';
 import { isActive } from './nav';
 import { useNav } from './nav-items';
 
@@ -15,9 +16,10 @@ const IDLE = 'text-muted hover:bg-surface hover:text-fg';
 const CURRENT = 'bg-surface text-fg';
 
 function RailLink({ href, label, active, children, className }: { href: string; label: string; active: boolean; children: ReactNode; className?: string }) {
+  const intent = useIntentPrefetch();
   return (
     <Tooltip content={label} side="right" describe={false}>
-      <Link href={href} aria-label={label} aria-current={active ? 'page' : undefined} className={cx(ICON, active ? CURRENT : IDLE, className)}>
+      <Link href={href} {...intent(href)} aria-label={label} aria-current={active ? 'page' : undefined} className={cx(ICON, active ? CURRENT : IDLE, className)}>
         {children}
       </Link>
     </Tooltip>

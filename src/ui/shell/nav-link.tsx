@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type FocusEvent, type PointerEvent } from 'react';
 import { cx } from '../cx';
 import { useEscape } from '../overlay';
+import { useIntentPrefetch } from './intent-prefetch';
 import type { NavItemView } from './nav-items';
 
 type Props = {
@@ -36,6 +37,7 @@ export function NavLink({ item, active, labelClass, onNavigate }: Props) {
   const label = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tip, setTip] = useState<{ top: number; left: number } | null>(null);
+  const intent = useIntentPrefetch()(item.href);
 
   const clear = (): void => {
     if (timer.current) clearTimeout(timer.current);
@@ -56,6 +58,7 @@ export function NavLink({ item, active, labelClass, onNavigate }: Props) {
     timer.current = setTimeout(show, HOVER_DELAY_MS);
   };
   const onFocus = (e: FocusEvent): void => {
+    intent.onFocus(e);
     if (focusVisible(e.target)) show();
   };
 
@@ -68,6 +71,9 @@ export function NavLink({ item, active, labelClass, onNavigate }: Props) {
         ref={link}
         href={item.href}
         aria-current={active ? 'page' : undefined}
+        onPointerEnter={intent.onPointerEnter}
+        onPointerLeave={intent.onPointerLeave}
+        onPointerDown={intent.onPointerDown}
         onFocus={onFocus}
         onBlur={hide}
         onClick={() => { hide(); onNavigate?.(); }}

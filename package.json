@@ -36,6 +36,7 @@
     "eval:recall": "tsx eval/vector-recall.ts",
     "eval:synthetic": "tsx eval/make-synthetic.ts",
     "perf": "tsx scripts/perf-catalog.ts",
+    "perf:nav": "tsx scripts/perf-nav.ts",
     "lint": "eslint src eval scripts",
     "check:providers": "tsx scripts/check-providers.ts",
     "dev": "next dev -p 3000",

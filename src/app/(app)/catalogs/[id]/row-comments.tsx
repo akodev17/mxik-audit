@@ -10,6 +10,7 @@ import { IconCheck } from '@/ui/icons';
 import { Spinner } from '@/ui/spinner';
 import { Textarea } from '@/ui/textarea';
 import { useToast } from '@/ui/toast';
+import { serverChange } from '@/ui/shell/router-cache';
 
 type Props = {
   findingId: string;
@@ -40,7 +41,7 @@ export function RowComments({ findingId, flag, readOnly, onChange }: Props) {
   async function send(): Promise<void> {
     setBusy('send');
     try {
-      const updated = await postComment({ findingId, body: text });
+      const updated = await serverChange(postComment({ findingId, body: text }));
       if (!updated) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
       setItems(updated);
       setText('');
@@ -56,7 +57,7 @@ export function RowComments({ findingId, flag, readOnly, onChange }: Props) {
     const value = current === next ? null : next;
     setBusy('flag');
     try {
-      if (!(await changeFlag({ findingId, flag: value }))) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
+      if (!(await serverChange(changeFlag({ findingId, flag: value })))) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
       setCurrent(value);
       onChange(items?.length ?? 0, value);
     } catch {

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { cx } from './cx';
+import { useIntentPrefetch } from './shell/intent-prefetch';
 
 export type TabItem = { href: string; label: string; active: boolean; count?: number };
 
@@ -11,12 +12,13 @@ type Overflow = { left: boolean; right: boolean };
 /**
  * Link-based tabs: the active one is a URL, so it survives reloads. When the row is wider than the
  * screen it scrolls sideways (scrollbar hidden, edge fades show there is more) and the active tab
- * is scrolled into view.
+ * is scrolled into view. Each tab's page is fetched on intent (hover, press, focus), so it usually opens at once.
  */
 export function Tabs({ items }: { items: TabItem[] }) {
   const scroller = useRef<HTMLElement>(null);
   const [overflow, setOverflow] = useState<Overflow>({ left: false, right: false });
   const activeHref = items.find((i) => i.active)?.href;
+  const intent = useIntentPrefetch();
 
   useEffect(() => {
     const el = scroller.current;
@@ -57,6 +59,7 @@ export function Tabs({ items }: { items: TabItem[] }) {
           <Link
             key={i.href}
             href={i.href}
+            {...(i.active ? {} : intent(i.href))}
             aria-current={i.active ? 'page' : undefined}
             className={cx(
               'shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-offset-[-2px]',

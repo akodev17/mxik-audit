@@ -68,6 +68,7 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 | `npm run eval` | top-1/top-5 and high-band precision, real vs synthetic, each stage on/off; appends to `docs/eval-results.json` |
 | `npm run eval:synthetic` | rebuilds `eval/synthetic.csv` from classifier names with realistic noise |
 | `npm run perf` | builds a 60,000-row noisy .xlsx (`-- --rows N`), uploads, audits and reports it with per-stage timing; appends to `docs/perf-results.json` |
+| `npm run perf:nav` | tab switching benchmark against a running production build (`next start -p 3001`, never `next dev`): cold/warm tabs, settings tabs, workspace filters, Back/Forward, heap; `-- --slow` adds Fast 3G, `-- --server-log FILE` counts queries per route from a server started with `PRISMA_LOG=1`; appends to `docs/perf-nav-results.json` |
 | `npm run seed:demo` | audits `prisma/demo-catalog.json` into the demo template behind `/demo` |
 | `npm run make:demo-catalog` | rebuilds that fixture from `scripts/demo/products.ts` (hand-checked codes) |
 | `npm run demo:quality` | per-check precision/recall of the demo audit against the fixture's labels |

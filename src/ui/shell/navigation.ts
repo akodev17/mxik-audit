@@ -10,6 +10,13 @@
 // Nothing else wakes the root, so the address and page stayed put until an unrelated update.
 // A boundary that is new for each address takes React's other path: it commits the skeleton and
 // retries, as cross-section navigations always did.
+//
+// Rechecked 2026-10-21 on Next 15.5.23 / React 19.2.8 (docs/engineering/TAB_SWITCH_PERFORMANCE_REPORT.md):
+// with one boundary per path for every page, e2e/navigation and e2e/refresh passed ten consecutive
+// runs on a production build with the watchdog's fallback off. So pages that rebuild their query-
+// driven parts themselves now change the query in place (QUERY_IN_PLACE): no skeleton, and no
+// 300 ms wait for React to reveal content after one. List pages keep a boundary per address: their
+// filter forms hold uncontrolled inputs that only a remount resets.
 
 // The boundary key follows useSearchParams, which history.replaceState and pushState also update.
 // A page that rewrites its own address that way must be listed below (whole page, or the param it
@@ -18,15 +25,21 @@
 /** Pages that rewrite their own query while staying mounted (the upload wizard's resume id): a change must not remount them. */
 const KEEP_QUERY_STATE = /^\/upload$/;
 /**
+ * Pages whose query changes render in place, under one boundary: settings (each ?tab= is its own
+ * panel, mounted fresh) and the workspace (its grid is keyed by catalogue and filter; density,
+ * grouping and columns follow their props).
+ */
+const QUERY_IN_PLACE = /^\/(settings|catalogs\/[^/]+)$/;
+/**
  * Query params a page reads once and then removes from the address itself: the Telegram bind
  * result in settings, and the row to open in the workspace. Removing them must not remount the page.
- * Every other query change is a new page (the workspace grid already remounts on each filter).
+ * Every other query change on a list page is a new page.
  */
 const CLIENT_ONLY_PARAMS = ['tg', 'row'];
 
 /** Key of the page boundary: the path, plus the query except where the page keeps state in it. */
 export function routeBoundaryKey(pathname: string, search: string): string {
-  if (KEEP_QUERY_STATE.test(pathname)) return pathname;
+  if (KEEP_QUERY_STATE.test(pathname) || QUERY_IN_PLACE.test(pathname)) return pathname;
   const params = new URLSearchParams(search);
   for (const name of CLIENT_ONLY_PARAMS) params.delete(name);
   const query = params.toString();
@@ -99,8 +112,8 @@ export type LinkClick = {
   modified: boolean;
 };
 
-/** The in-app address (path and query) a click or push will reach, for the navigation watchdog; null for hash-only, external or browser-handled targets. */
-export function internalTarget(click: LinkClick, current: string): string | null {
+/** The in-app address (path and query) a click or push goes to, the current one included; null for hash-only, external or browser-handled targets. */
+export function linkAddress(click: LinkClick, current: string): string | null {
   if (click.button !== 0 || click.modified || click.download || !click.href) return null;
   if (click.target && click.target !== '_self') return null;
   const here = parse(current, 'http://localhost');
@@ -108,5 +121,43 @@ export function internalTarget(click: LinkClick, current: string): string | null
   if (!here || !next || next.origin !== here.origin) return null;
   if (!['http:', 'https:'].includes(next.protocol) || next.pathname.startsWith('/api/')) return null;
   const target = `${next.pathname}${next.search}`;
-  return target === `${here.pathname}${here.search}` ? null : target;
+  // A link to a part of this page.
+  if (next.hash && target === `${here.pathname}${here.search}`) return null;
+  return target;
+}
+
+/** The in-app address a click or push will move to, for the navigation watchdog; null when it stays on this address. */
+export function internalTarget(click: LinkClick, current: string): string | null {
+  const target = linkAddress(click, current);
+  const here = parse(current, 'http://localhost');
+  return target === null || !here || target === `${here.pathname}${here.search}` ? null : target;
+}
+
+/** Path and query in one spelling (parameters sorted, one encoding), so a link and a fetched URL compare equal. */
+export function addressKey(address: string): string {
+  const url = new URL(address, 'http://localhost');
+  url.searchParams.sort();
+  const query = url.searchParams.toString();
+  return query === '' ? url.pathname : `${url.pathname}?${query}`;
+}
+
+/** The address a router fetch was for (Next's `_rsc` cache key removed), or null for any other request. */
+export function routerFetchAddress(name: string, origin: string): string | null {
+  const url = parse(name, origin);
+  if (!url || url.origin !== origin || !url.searchParams.has('_rsc')) return null;
+  url.searchParams.delete('_rsc');
+  return addressKey(`${url.pathname}${url.search}`);
+}
+
+/** After this long without an answer the server is not coming back: load the target as a document. */
+export const NAVIGATION_GIVE_UP_MS = 60_000;
+
+/**
+ * What the watchdog makes of a navigation still uncommitted at its deadline. Waiting while the
+ * server has not answered is right: a slow page (a heavy query, a route compiling in dev) commits
+ * when its answer arrives, and loading it as a document would start over. Answered but uncommitted
+ * is the held transition the watchdog exists for (see the note above isServerResponse).
+ */
+export function watchVerdict(answered: boolean, waitedMs: number): 'wait' | 'stuck' {
+  return answered || waitedMs >= NAVIGATION_GIVE_UP_MS ? 'stuck' : 'wait';
 }

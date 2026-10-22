@@ -12,11 +12,13 @@ import { ToastProvider } from '../toast';
 import { ClientSwitcher } from './client-switcher';
 import { CommandPalette } from './command-palette';
 import { MobileNav } from './mobile-nav';
+import { NavigationProgress } from './navigation-progress';
 import { NotificationBell } from './notification-bell';
 import { PlanBanner } from './plan-banner';
 import { Rail } from './rail';
 import { ResponseNudge } from './response-nudge';
 import { RouteBoundary } from './route-boundary';
+import { RefreshAfterChange } from './router-cache';
 import { NavigationWatchdog } from './same-route-links';
 import { SearchButton } from './search-button';
 import { isPaletteShortcut, isTypingTarget } from './shortcuts';
@@ -96,7 +98,8 @@ export function AppFrame({ shell, children }: Props) {
 
         <div className="flex min-h-0 flex-1 print:block">
           <Rail canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={shell.canWrite && !shell.demo} unread={shell.unread} />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative flex min-w-0 flex-1 flex-col">
+            <NavigationProgress />
             <PlanBanner plan={shell.plan} />
             <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none print:overflow-visible"><RouteBoundary>{children}</RouteBoundary></main>
           </div>
@@ -104,6 +107,7 @@ export function AppFrame({ shell, children }: Props) {
       </div>
       <Suspense fallback={null}>
         <NavigationWatchdog />
+        <RefreshAfterChange />
       </Suspense>
       <ResponseNudge />
       <CommandPalette

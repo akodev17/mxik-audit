@@ -2,6 +2,7 @@
 // its rows, findings and cached AI verdicts, but never audit-log rows: the log
 // is append-only, so its events stay (pointing at a catalogue that no longer
 // exists) and a tombstone event records the deletion.
+import { Prisma } from '@prisma/client';
 import { normalizeName } from '../core/normalize/index.js';
 import { rerankCacheKey } from '../core/match/rerank-cache.js';
 import { catalogScope } from './access.js';
@@ -77,15 +78,12 @@ export async function catalogList(
     }),
   ]);
   const ids = catalogs.map((c) => c.id);
-  const uploads = ids.length === 0 ? [] : await db.auditEvent.findMany({
-    where: { orgId: user.orgId, action: 'catalog.uploaded', targetId: { in: ids } },
-    select: { targetId: true, actorId: true, payload: true },
-  });
-  const actors = await db.user.findMany({
-    where: { orgId: user.orgId, id: { in: uploads.flatMap((u) => (u.actorId ? [u.actorId] : [])) } },
-    select: { id: true, email: true },
-  });
-  const email = new Map(actors.map((a) => [a.id, a.email]));
+  // Who uploaded each one, in one round trip: only a member of this org is ever named.
+  const uploads = ids.length === 0 ? [] : await db.$queryRaw<{ targetId: string | null; actorId: string | null; payload: Prisma.JsonValue; email: string | null }[]>(Prisma.sql`
+    SELECT e."targetId", e."actorId", e.payload, u.email
+    FROM audit_event e LEFT JOIN "user" u ON u.id = e."actorId" AND u."orgId" = e."orgId"
+    WHERE e."orgId" = ${user.orgId} AND e.action = 'catalog.uploaded' AND e."targetId" = ANY(${ids})`);
+  const email = new Map(uploads.flatMap((u) => (u.actorId && u.email ? [[u.actorId, u.email] as const] : [])));
   const upload = new Map(uploads.map((u) => [u.targetId, u]));
   const nameCount = new Map<string, number>();
   for (const c of catalogs) nameCount.set(`${c.clientId}|${c.filename}`, (nameCount.get(`${c.clientId}|${c.filename}`) ?? 0) + 1);

@@ -34,7 +34,7 @@ export type ManyOptions = {
 export async function liveCodeSet(codes: Iterable<string>): Promise<Set<string>> {
   const list = [...new Set(codes)];
   if (list.length === 0) return new Set();
-  const rows = await db.$queryRaw<{ code: string }[]>`SELECT code FROM mxik_code WHERE code = ANY(${list}) AND "retiredAt" IS NULL`;
+  const rows = await db.$queryRaw<{ code: string }[]>`SELECT code FROM mxik_code WHERE code = ANY(${list}::bpchar[]) AND "retiredAt" IS NULL`;
   return new Set(rows.map((r) => r.code.trim()));
 }
 

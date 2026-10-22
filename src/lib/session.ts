@@ -78,8 +78,12 @@ const loadAccess = cache(async (userId: string, orgId: string): Promise<{ role: 
   return { role: user.role, clientIds: user.role === 'admin' || assigned.length === 0 ? null : assigned, demoOrg: user.org.kind === 'demo' };
 });
 
-/** Null when not signed in; callers redirect. */
-export async function currentUser(): Promise<CurrentUser | null> {
+/**
+ * Null when not signed in; callers redirect. Once per request inside a render (React cache): the
+ * metadata, the page and the tabs it renders share one session check. Outside a render (server
+ * actions, route handlers) every call checks again.
+ */
+export const currentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await getSession();
   const { userId, orgId, email } = session;
   if (!userId || !orgId || !email) return null;
@@ -87,4 +91,9 @@ export async function currentUser(): Promise<CurrentUser | null> {
   if (!access) return null;
   if (!(await recordAccepted(session.sid, userId, access.demoOrg))) return null;
   return { userId, orgId, email, demo: session.demo === true, clientId: session.clientId ?? null, role: access.role, clientIds: access.clientIds };
+});
+
+/** Whether the user's org is a demo copy, from the database row currentUser already read (inside a render: no query of its own). */
+export async function inDemoOrg(user: Pick<CurrentUser, 'userId' | 'orgId'>): Promise<boolean> {
+  return (await loadAccess(user.userId, user.orgId))?.demoOrg === true;
 }

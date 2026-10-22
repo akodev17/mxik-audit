@@ -1,13 +1,12 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
-import { Suspense } from 'react';
+import { cache, Suspense } from 'react';
 import { resumeStaleAudits, STALE_MS } from '@/lib/audit-jobs';
 import { resolveClient } from '@/lib/clients';
 import { canWrite, catalogScope, isAdminRole } from '@/lib/access';
 import { db } from '@/lib/db';
-import { isDemoOrg } from '@/lib/demo';
-import { currentUser } from '@/lib/session';
+import { currentUser, inDemoOrg, type CurrentUser } from '@/lib/session';
 import { defaultView } from '@/lib/views';
 import { readHidden, viewQuery } from '@/lib/view-params';
 import { decodeCursor, workspaceChipCounts, workspaceCount, workspacePageIds, workspaceSummary } from '@/lib/workspace';
@@ -20,12 +19,15 @@ import { exportLocked, WorkspaceHeader } from './workspace-header';
 
 type Params = { params: Promise<{ id: string }> };
 
+/** The catalogue if this user may see it; the tab title and the page share one read per request. */
+const visibleCatalog = cache((id: string, user: CurrentUser) => db.catalog.findFirst({ where: { id, ...catalogScope(user) } }));
+
 /** The tab says which catalogue is open; an id the user may not see reads like any missing page, never its name. */
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { t, ta } = await getI18n();
   const user = await currentUser();
   const { id } = await params;
-  const catalog = user ? await db.catalog.findFirst({ where: { id, ...catalogScope(user) }, select: { filename: true } }) : null;
+  const catalog = user ? await visibleCatalog(id, user) : null;
   return { title: `${catalog?.filename ?? ta.shellX.notFound.title} — ${t.appName}` };
 }
 
@@ -46,9 +48,9 @@ export default async function CatalogWorkspacePage({ params, searchParams }: Par
   const { ta, locale } = await getI18n();
 
   // An id that is not this org's is indistinguishable from one that does not exist.
-  const catalog = await db.catalog.findFirst({ where: { id, ...catalogScope(user) } });
+  const catalog = await visibleCatalog(id, user);
   if (!catalog) notFound();
-  const [client, demo] = await Promise.all([resolveClient(user.orgId, catalog.clientId), isDemoOrg(user.orgId)]);
+  const [client, demo] = await Promise.all([resolveClient(user.orgId, catalog.clientId), inDemoOrg(user)]);
   const header = { orgId: user.orgId, catalog, client, canPay: isAdminRole(user), demo };
 
   if (catalog.status !== 'ready') {

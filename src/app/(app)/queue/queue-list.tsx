@@ -58,6 +58,19 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
     </span>
   );
 
+  // Each row's pieces are built once and placed in both layouts: the payload then carries them once
+  // (React sends a repeated element as a reference), not once per layout.
+  const items = rows.map((r) => ({
+    r,
+    unit: r.unit ? <span className="ml-1.5 text-small font-normal text-muted">{r.unit}</span> : null,
+    where: where(r),
+    marks: marks(r),
+    issue: issue(r),
+    current: r.existingMxik ? <CodeChip code={r.existingMxik} /> : null,
+    suggestion: suggestion(r),
+    open: <>{q.open}<span className="sr-only">: {q.openLabel(r.clientName, r.rowIndex + 1)}</span></>,
+  }));
+
   return (
     <>
       <div className="hidden md:block">
@@ -72,19 +85,17 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {items.map(({ r, ...x }) => (
               <tr key={r.findingId}>
                 <Td className="min-w-[14rem] max-w-xs">
-                  <Link href={workspaceHref(r)} className="block truncate font-medium hover:text-brand-ink hover:underline" title={r.rawName}>{r.rawName}{r.unit ? <span className="ml-1.5 text-small font-normal text-muted">{r.unit}</span> : null}</Link>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">{where(r)}{marks(r)}</span>
+                  <Link href={workspaceHref(r)} className="block truncate font-medium hover:text-brand-ink hover:underline" title={r.rawName}>{r.rawName}{x.unit}</Link>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">{x.where}{x.marks}</span>
                 </Td>
-                <Td>{issue(r)}</Td>
-                <Td>{r.existingMxik ? <CodeChip code={r.existingMxik} /> : <span className="text-small text-muted">{q.noCode}</span>}</Td>
-                <Td>{suggestion(r)}</Td>
+                <Td>{x.issue}</Td>
+                <Td>{x.current ?? <span className="text-small text-muted">{q.noCode}</span>}</Td>
+                <Td>{x.suggestion}</Td>
                 <Td className="text-right">
-                  <ButtonLink href={workspaceHref(r)} size="sm" variant="secondary">
-                    {q.open}<span className="sr-only">: {q.openLabel(r.clientName, r.rowIndex + 1)}</span>
-                  </ButtonLink>
+                  <ButtonLink href={workspaceHref(r)} size="sm" variant="secondary">{x.open}</ButtonLink>
                 </Td>
               </tr>
             ))}
@@ -93,20 +104,18 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
       </div>
 
       <ul className="space-y-3 md:hidden">
-        {rows.map((r) => (
+        {items.map(({ r, ...x }) => (
           <li key={r.findingId} className="relative rounded-ctl border border-line bg-raised p-3">
-            <p className="font-medium [overflow-wrap:anywhere]">{r.rawName}{r.unit ? <span className="ml-1.5 text-small font-normal text-muted">{r.unit}</span> : null}</p>
-            <p className="mt-0.5">{where(r)}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">{issue(r)}{marks(r)}</div>
+            <p className="font-medium [overflow-wrap:anywhere]">{r.rawName}{x.unit}</p>
+            <p className="mt-0.5">{x.where}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">{x.issue}{x.marks}</div>
             <dl className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-small">
               <dt className="text-muted">{q.colCurrent}</dt>
-              <dd className="min-w-0">{r.existingMxik ? <CodeChip code={r.existingMxik} /> : <span className="text-muted">{q.noCode}</span>}</dd>
+              <dd className="min-w-0">{x.current ?? <span className="text-muted">{q.noCode}</span>}</dd>
               <dt className="text-muted">{q.colSuggestion}</dt>
-              <dd className="min-w-0">{suggestion(r)}</dd>
+              <dd className="min-w-0">{x.suggestion}</dd>
             </dl>
-            <ButtonLink href={workspaceHref(r)} size="sm" variant="secondary" className="mt-3 w-full">
-              {q.open}<span className="sr-only">: {q.openLabel(r.clientName, r.rowIndex + 1)}</span>
-            </ButtonLink>
+            <ButtonLink href={workspaceHref(r)} size="sm" variant="secondary" className="mt-3 w-full">{x.open}</ButtonLink>
           </li>
         ))}
       </ul>

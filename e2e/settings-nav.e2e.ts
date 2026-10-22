@@ -4,13 +4,21 @@ import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it, type TestContext } from 'node:test';
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Locator, Page } from 'playwright';
 import { ARTIFACTS, COMMIT, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
 
 const S = TA.setX.tabs;
 const rail = (page: Page) => page.getByRole('navigation', { name: TA.shellX.nav.utilities, exact: true });
 const headerNav = (page: Page) => page.getByRole('navigation', { name: TA.shellX.nav.label, exact: true });
 const sections = (page: Page) => page.getByRole('navigation', { name: S.label, exact: true });
+/**
+ * A section link's aria-current once it settles. Settings change sections in place (src/ui/shell/navigation.ts),
+ * so the address can change a moment before the menu does; wait for the highlight instead of reading it once.
+ */
+const highlight = async (link: Locator): Promise<string | null> => {
+  await link.and(link.page().locator('[aria-current="page"]')).waitFor({ timeout: 5_000 }).catch(() => undefined);
+  return link.getAttribute('aria-current');
+};
 
 describe('settings navigation', () => {
   let fx: Fixture;
@@ -78,7 +86,7 @@ describe('settings navigation', () => {
     for (const [id, name] of [['security', S.security], ['plan', S.plan], ['integrations', S.integrations], ['data', S.data]] as const) {
       await Promise.all([page.waitForURL((u) => u.searchParams.get('tab') === id, COMMIT), sections(page).getByRole('link', { name, exact: true }).click()]);
       await page.locator('main h1').first().waitFor();
-      assert.equal(await sections(page).getByRole('link', { name, exact: true }).getAttribute('aria-current'), 'page', `${id} is highlighted after one click`);
+      assert.equal(await highlight(sections(page).getByRole('link', { name, exact: true })), 'page', `${id} is highlighted after one click`);
       assert.equal(await sections(page).locator('[aria-current="page"]').count(), 1, `${id}: only one highlighted`);
     }
   });
@@ -91,7 +99,7 @@ describe('settings navigation', () => {
     await Promise.all([page.waitForURL((u) => u.searchParams.get('tab') === 'security', COMMIT), sections(page).getByRole('link', { name: S.security, exact: true }).click()]);
     await page.goBack();
     await page.waitForURL((u) => u.searchParams.get('tab') === 'plan', COMMIT);
-    assert.equal(await sections(page).getByRole('link', { name: S.plan, exact: true }).getAttribute('aria-current'), 'page', 'back returns to the previous section');
+    assert.equal(await highlight(sections(page).getByRole('link', { name: S.plan, exact: true })), 'page', 'back returns to the previous section');
     await page.goForward();
     await page.waitForURL((u) => u.searchParams.get('tab') === 'security', COMMIT);
     await page.reload();

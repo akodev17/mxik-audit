@@ -31,12 +31,14 @@ async function activeFor(user: CurrentUser): Promise<VisibleClient | null> {
 }
 
 export async function shellData(user: CurrentUser): Promise<ShellData> {
-  const active = await activeFor(user);
-  const [clients, unread, plan] = await Promise.all([
+  const [active, listed, unread, plan] = await Promise.all([
+    activeFor(user),
     visibleClients(user),
     unreadCount(user).catch(() => null),
     planStatus(user.orgId),
   ]);
+  // activeFor may have just created the default client, after the list was read.
+  const clients = active && !listed.some((c) => c.id === active.id) ? await visibleClients(user) : listed;
   return {
     email: user.email,
     demo: user.demo,

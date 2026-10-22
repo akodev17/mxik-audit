@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { isDemoOrg } from '@/lib/demo';
 import { getI18n } from '@/lib/locale';
-import { currentUser } from '@/lib/session';
+import { currentUser, inDemoOrg } from '@/lib/session';
 import { Page } from '@/ui/page';
 import { AccountTab } from './account-tab';
 import { DataTab } from './data-tab';
@@ -30,7 +29,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   // The Telegram sign-in binding comes back to /settings?tg=…: keep the result, open the tab it belongs to.
   if (typeof params['tg'] === 'string' && params['tab'] === undefined) redirect(`/settings?tab=security&tg=${encodeURIComponent(params['tg'])}`);
 
-  const demo = await isDemoOrg(user.orgId);
+  const demo = await inDemoOrg(user);
   const visible = visibleTabs(user.role, demo);
   const { tab, refused } = chooseTab({ tab: params['tab'], tg: params['tg'] }, visible);
   const s = ta.setX;

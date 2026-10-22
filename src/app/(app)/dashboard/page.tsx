@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { canWrite, isAdminRole } from '@/lib/access';
 import { activityPage } from '@/lib/activity';
 import { groupDecisions } from '@/lib/activity-groups';
-import { pendingAudits } from '@/lib/client-attention';
 import { rowProgress } from '@/lib/client-stats';
 import { parseQueueParams, type QueueFilter, type QueueSort } from '@/lib/work-queue';
 import { dashboard } from '@/lib/dashboard';
@@ -88,7 +87,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const audited = data.clients.some((c) => c.catalogId !== null);
   const openSteps = steps.some((s) => !s.done);
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
-  const pending = await pendingAudits(user.orgId, data.clients.filter((c) => !c.isDefault));
   const canAct = canWrite(user) && !user.demo;
   const workload = data.workload && data.workload.length > 0 ? data.workload : null;
   const hasClients = data.clients.length > 0;
@@ -143,7 +141,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} awaiting={awaiting} />
             </div>
             <div className={REGION}>
-              <WorkQueue clients={data.clients} pending={pending} canUpload={canAct} queueHref={queueHref} filter={view.filter} sort={view.sort} viewHref={viewHref} />
+              <WorkQueue clients={data.clients} pending={data.pending} canUpload={canAct} queueHref={queueHref} filter={view.filter} sort={view.sort} viewHref={viewHref} />
             </div>
           </div>
 

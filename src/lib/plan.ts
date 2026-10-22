@@ -1,5 +1,6 @@
 // What an org may do right now: trial or firm limits, usage against them,
 // warnings at 80% and a paywall at 100% or when the trial has ended.
+import { cache } from 'react';
 import { db } from './db';
 import { planLimits, WARN_AT, type LimitKey, type Limits } from './billing/limits';
 
@@ -37,10 +38,13 @@ export async function usageOf(orgId: string, now = new Date()): Promise<Usage> {
   return { clients, rowsPerMonth: rows._sum.rowCount ?? 0, seats: users + invites };
 }
 
-export async function planStatus(orgId: string, now = new Date()): Promise<PlanStatus> {
-  const org = await db.organization.findUnique({ where: { id: orgId }, select: { kind: true, trialEndsAt: true, subscriptionUntil: true } });
+/** Once per render (React cache): the app frame and the page share it. Server actions read it each time. */
+export const planStatus = cache(async (orgId: string, now = new Date()): Promise<PlanStatus> => {
+  const [org, usage] = await Promise.all([
+    db.organization.findUnique({ where: { id: orgId }, select: { kind: true, trialEndsAt: true, subscriptionUntil: true } }),
+    usageOf(orgId, now),
+  ]);
   const limits = planLimits();
-  const usage = await usageOf(orgId, now);
   const none: Limits = { clients: null, rowsPerMonth: null, seats: null };
 
   let state: PlanState;
@@ -61,7 +65,7 @@ export async function planStatus(orgId: string, now = new Date()): Promise<PlanS
     warnings: capped.filter((k) => usage[k] >= (active[k] ?? Infinity) * WARN_AT),
     full: state === 'expired' ? KEYS : capped.filter((k) => usage[k] >= (active[k] ?? Infinity)),
   };
-}
+});
 
 export type Gate = { ok: true } | { ok: false; reason: 'expired' | LimitKey };
 

@@ -13,6 +13,7 @@ import { Segmented } from '@/ui/segmented';
 import { Spinner } from '@/ui/spinner';
 import { typeLabels } from '@/ui/labels';
 import { count, skippedText } from './ws-text';
+import { serverChange } from '@/ui/shell/router-cache';
 
 type Props = {
   open: boolean;
@@ -53,7 +54,7 @@ export function SureAcceptDialog({ open, catalogId, filter, filterNarrows, onClo
     setBusy(true);
     setError(null);
     try {
-      const result = await acceptAllAbove({ catalogId, minConfidence: BANDS.high, filter: filterArg });
+      const result = await serverChange(acceptAllAbove({ catalogId, minConfidence: BANDS.high, filter: filterArg }));
       if (!result.ok) { setError(result.error); return; }
       onDone(result);
       onClose();
