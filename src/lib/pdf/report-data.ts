@@ -28,6 +28,8 @@ export type PdfRow = {
   automatic: boolean;
   /** Who decided (email), for the internal report only. */
   decidedBy: string | null;
+  /** RESTRICTED: when EHF stops accepting the restricted code. */
+  restrictedFrom?: Date | null;
 };
 
 export type ReportChecks = { purchases: boolean };
@@ -63,7 +65,7 @@ export type ReportPdfData = {
   pipeline: PipelineMeta | null;
 };
 
-const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'];
+const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED'];
 const AUTOMATIC: DecisionSource[] = ['carry_over', 'dictionary_auto'];
 
 export async function reportPdfData(orgId: string, catalogId: string): Promise<ReportPdfData | null> {
@@ -92,7 +94,7 @@ export async function reportPdfData(orgId: string, catalogId: string): Promise<R
       orderBy: [{ decision: 'asc' }, { item: { rowIndex: 'asc' } }, { type: 'asc' }],
       take: PDF_ROW_LIMIT + 1,
       select: {
-        type: true, suggestedMxik: true, decision: true, chosenMxik: true, decisionSource: true, decidedBy: true,
+        type: true, suggestedMxik: true, decision: true, chosenMxik: true, decisionSource: true, decidedBy: true, restrictedFrom: true,
         item: { select: { rowIndex: true, rawName: true, existingMxik: true } },
       },
     }),
@@ -142,6 +144,7 @@ export async function reportPdfData(orgId: string, catalogId: string): Promise<R
         source,
         automatic: f.decision !== 'pending' && isAutomatic(source),
         decidedBy: f.decidedBy ? emails.get(f.decidedBy) ?? null : null,
+        restrictedFrom: f.restrictedFrom,
       };
     }),
     truncated: findings.length > PDF_ROW_LIMIT,

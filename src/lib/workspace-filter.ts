@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { readDecisionSource, type DecisionSource } from './decision-source';
 
-export const FINDING_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY'] as const;
+export const FINDING_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED'] as const;
 export type WsType = (typeof FINDING_TYPES)[number];
 
 /** pending (default), every decision state, or one of them; `auto` = decided by the system (dictionary auto-accept, carry-over). */

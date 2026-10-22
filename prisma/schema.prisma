@@ -125,6 +125,21 @@ model TaxPrivilege {
   @@map("tax_privilege")
 }
 
+/// Generalized codes that EHF refuses from `effectiveFrom` on (construction
+/// resources, tasnif.soliq.uz news 5063). Loaded from the official list by
+/// `npm run load:restricted -- <xlsx>`; feeds the RESTRICTED finding.
+model RestrictedCode {
+  code          String   @id
+  effectiveFrom DateTime @db.Date
+  /// The list's own name for the code (Russian, else Uzbek), for operators.
+  reason        String
+  /// Where the list was published.
+  source        String
+  importedAt    DateTime @default(now())
+
+  @@map("restricted_code")
+}
+
 /// Each catalogue import, so codes that vanish between imports can be detected.
 model CatalogSnapshot {
   id         Int      @id @default(autoincrement())
@@ -778,6 +793,9 @@ enum FindingType {
   PRIVILEGE_CODE
   /// The suggested code is privilege-linked and the row's code is not.
   PRIVILEGE_OPPORTUNITY
+  /// The row's code (on a MISSING row, the suggested one) is a generalized code
+  /// EHF refuses from restricted_code.effectiveFrom on.
+  RESTRICTED
 
   @@map("finding_type")
 }
@@ -829,6 +847,9 @@ model Finding {
   flag          String?
   /// Where the current decision came from: manual, group, bulk, bulk_sure, dictionary, dictionary_auto, carry_over.
   decisionSource String?
+  /// RESTRICTED only: the restricted code this finding is about, and when EHF stops accepting it.
+  restrictedMxik String?
+  restrictedFrom DateTime? @db.Date
 
   item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   comments FindingComment[]

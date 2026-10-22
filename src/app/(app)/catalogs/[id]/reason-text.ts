@@ -18,6 +18,10 @@ export function reasonLines({ type, facts, noSuggestion }: Input, w: AppDict['ws
   }
   if (type === 'PRIVILEGE_CODE') lines.push(facts.privilegeMismatch ? r.privilegeMismatch : r.privilegeCheck);
   if (type === 'PRIVILEGE_OPPORTUNITY') lines.push(r.opportunityCheck);
+  if (type === 'RESTRICTED') {
+    if (facts.restriction) lines.push(r.restricted(facts.restriction.code, facts.restriction.date, facts.restriction.inForce));
+    if (noSuggestion) lines.push(r.restrictedNone);
+  }
   if (facts.afterUpdate) lines.push(r.afterUpdate);
   return lines.filter((l): l is string => Boolean(l));
 }

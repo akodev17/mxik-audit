@@ -19,6 +19,7 @@ import { PrintButton } from '@/ui/print-button';
 import { StatRow } from '@/ui/stat-row';
 import { Table, Td, Th } from '@/ui/table';
 import { ActivityFeed } from '../../../activity/activity-feed';
+import { ClassifierBanner } from '../classifier-banner';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
@@ -72,6 +73,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </div>
       )}
     >
+      <ClassifierBanner className="mb-6" />
       <dl className="mb-8 grid gap-x-8 gap-y-3 text-data sm:grid-cols-2 lg:grid-cols-4">
         <div><dt className="text-small text-muted">{r.client}</dt><dd className="font-medium">{data.clientName}</dd></div>
         <div><dt className="text-small text-muted">{r.file}</dt><dd className="break-words font-medium">{data.filename}</dd></div>

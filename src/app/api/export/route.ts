@@ -7,7 +7,8 @@ import { db } from '@/lib/db';
 import { demoExportRefusal } from '@/lib/demo-limits';
 import { build1cCsv, build1cXlsx, type OneCRow } from '@/lib/export-1c';
 import { baseName, contentDisposition } from '@/lib/export-filename';
-import { codeUnits, exportItems, exportPackaging, exportUnit } from '@/lib/export-rows';
+import { restrictionDate } from '@/core/audit/checks';
+import { codeRestrictions, codeUnits, exportItems, exportPackaging, exportUnit } from '@/lib/export-rows';
 import { getI18n } from '@/lib/locale';
 import { currentUser } from '@/lib/session';
 import { buildExport, type ExportRow } from '@/lib/spreadsheet';
@@ -51,13 +52,22 @@ export async function GET(request: Request) {
 
   const items = await exportItems(catalog.id);
   const accepted = [...new Set(items.flatMap((i) => (i.effective.acceptedCode ? [i.effective.acceptedCode] : [])))];
-  const units = await codeUnits(accepted);
+  const [units, restrictions] = await Promise.all([
+    codeUnits(accepted),
+    codeRestrictions(items.flatMap((i) => (i.effective.code ? [i.effective.code] : []))),
+  ]);
+  // Judged on the code the file leaves with: an accepted detailed code clears it.
+  const restrictedText = (code: string | null): string => {
+    const from = code ? restrictions.get(code) : undefined;
+    return from ? x.restrictedFrom(restrictionDate(from)) : '';
+  };
   const rows: ExportRow[] = items.map((item) => ({
     original: item.original,
     mxik: item.effective.code ?? '',
     unit: exportUnit(item, units),
     packaging: exportPackaging(item, units),
     auditStatus: x.status[item.effective.review],
+    restricted: restrictedText(item.effective.code),
   }));
 
   const base = baseName(catalog.filename);
@@ -65,6 +75,7 @@ export async function GET(request: Request) {
     if (format === '1c' || format === '1c-xlsx') {
       const oneC: OneCRow[] = items.map((item, i) => ({
         name: item.rawName, mxik: rows[i]?.mxik ?? '', unit: rows[i]?.unit ?? '', barcode: item.barcode ?? '', auditStatus: rows[i]?.auditStatus ?? '',
+        restricted: rows[i]?.restricted ?? '',
       }));
       if (format === '1c') return { body: new Uint8Array(build1cCsv(oneC, x.oneC)), type: 'text/csv; charset=utf-8', filename: `${base}-${x.suffix.oneC}.csv` };
       return { body: new Uint8Array(await build1cXlsx(oneC, x.oneC)), type: XLSX, filename: `${base}-${x.suffix.oneC}.xlsx` };
@@ -74,7 +85,7 @@ export async function GET(request: Request) {
       rows,
       mxikColumn: mapping.data.mxik >= 0 ? mapping.data.mxik : null,
       unitColumn: mapping.data.unit >= 0 ? mapping.data.unit : null,
-      labels: { mxik: x.columns.mxik, unit: x.columns.unit, packaging: x.columns.packaging, auditStatus: x.columns.status },
+      labels: { mxik: x.columns.mxik, unit: x.columns.unit, packaging: x.columns.packaging, auditStatus: x.columns.status, restricted: x.columns.restricted },
       sheetName: x.sheet,
     });
     return { body: new Uint8Array(buffer), type: XLSX, filename: `${base}-${x.suffix.xlsx}.xlsx` };

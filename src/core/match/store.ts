@@ -4,7 +4,7 @@ import type { Pool } from 'pg';
 import type { CandidateStore, MxikCandidate } from './types.js';
 import type { VectorColumn } from './vector-readiness.js';
 
-const SELECT_FIELDS = `
+export const SELECT_FIELDS = `
   code, "nameUz", "nameRu",
   "groupNameUz" AS "groupName", "classNameUz" AS "className",
   "positionNameUz" AS "positionName", "subPositionNameUz" AS "subPositionName",
@@ -13,7 +13,7 @@ const SELECT_FIELDS = `
   "unitRaw", "unitContainer", barcode
 `;
 
-type Row = {
+export type Row = {
   code: string;
   nameUz: string;
   nameRu: string;
@@ -34,7 +34,7 @@ type Row = {
   barcode: string | null;
 };
 
-function toCandidate(row: Row): MxikCandidate {
+export function toCandidate(row: Row): MxikCandidate {
   return {
     code: row.code.trim(),
     nameUz: row.nameUz,

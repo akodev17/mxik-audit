@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
-import { MISMATCH_THRESHOLD, readCode, runChecks, summarize, type ResolvedRow } from './checks.js';
+import {
+  MISMATCH_THRESHOLD, readCode, restrictedFinding, restrictionDate, restrictionSeverity, RESTRICTED_HIGH_DAYS, runChecks, summarize,
+  type ResolvedRow, type Restriction,
+} from './checks.js';
 
 function candidate(code: string, overrides: Partial<MxikCandidate> = {}): MxikCandidate {
   return {
@@ -275,5 +278,68 @@ describe('summarize', () => {
     const s = summarize([], 0);
     assert.equal(s.totalRows, 0);
     assert.equal(s.riskyRows, 0);
+  });
+});
+
+describe('RESTRICTED', () => {
+  const TODAY = new Date('2026-10-22T09:00:00Z');
+  const JULY = new Date('2026-07-01T00:00:00Z');
+  /** VALID is the generalized code; OTHER is a detailed code of the same position. */
+  const restriction = (overrides: Partial<Restriction> = {}): Restriction => ({
+    code: VALID, effectiveFrom: JULY, replacements: [scored('01701001002000007', 0.7)], ...overrides,
+  });
+
+  it('fires on the row\'s own code, suggests the detailed code and keeps the other checks as they were', () => {
+    const plain = runChecks(row(), TODAY);
+    const f = runChecks(row({ restriction: restriction() }), TODAY);
+    assert.deepEqual(f.slice(0, -1), plain);
+    const r = f.at(-1);
+    assert.equal(r?.type, 'RESTRICTED');
+    assert.equal(r?.severity, 'high');
+    assert.equal(r?.suggestedMxik, '01701001002000007');
+    assert.equal(r?.confidence, 0.7);
+    assert.deepEqual(r?.restriction, { code: VALID, effectiveFrom: JULY });
+    assert.match(r?.reason ?? '', /^01701001002000000 umumiy kodi 01\.07\.2026 dan EHFda cheklangan: .* Taklif: 01701001002000007\.$/);
+  });
+
+  it('says to request a detailed code on mkinfo.uz when the position has none', () => {
+    const r = runChecks(row({ restriction: restriction({ replacements: [] }) }), TODAY).at(-1);
+    assert.equal(r?.suggestedMxik, null);
+    assert.equal(r?.confidence, null);
+    assert.deepEqual(r?.alternatives, []);
+    assert.match(r?.reason ?? '', /mkinfo\.uz/);
+  });
+
+  it('is high within 90 days of the date or after it, medium further out', () => {
+    const at = (days: number): string | undefined =>
+      runChecks(row({ restriction: restriction({ effectiveFrom: new Date(TODAY.getTime() + days * 86_400_000) }) }), TODAY).at(-1)?.severity;
+    assert.equal(at(-30), 'high');
+    assert.equal(at(0), 'high');
+    assert.equal(at(RESTRICTED_HIGH_DAYS), 'high');
+    assert.equal(at(RESTRICTED_HIGH_DAYS + 1), 'medium');
+    assert.equal(restrictionSeverity(JULY, new Date('2026-01-01T00:00:00Z')), 'medium');
+    assert.equal(restrictionSeverity(JULY, new Date('2026-04-02T00:00:00Z')), 'high');
+  });
+
+  it('says "will be restricted" before the date', () => {
+    const r = restrictedFinding(restriction(), new Date('2026-05-01T00:00:00Z'));
+    assert.match(r.reason, /01\.07\.2026 dan EHFda cheklanadi/);
+  });
+
+  it('comes alongside MISSING (about the suggested code) and NOT_FOUND', () => {
+    const missing = runChecks(row({ existingMxik: null, suggestions: [scored(VALID, 0.8)], restriction: restriction() }), TODAY);
+    assert.deepEqual(missing.map((f) => f.type), ['MISSING', 'RESTRICTED']);
+    assert.equal(missing[0]?.suggestedMxik, VALID);
+    const notFound = runChecks(row({ existing: { found: true, retired: true, candidate: null }, restriction: restriction() }), TODAY);
+    assert.deepEqual(notFound.map((f) => f.type), ['NOT_FOUND', 'RESTRICTED']);
+  });
+
+  it('is absent without a restriction, and counted by summarize', () => {
+    assert.equal(runChecks(row({ restriction: null }), TODAY).some((f) => f.type === 'RESTRICTED'), false);
+    assert.equal(summarize([runChecks(row({ restriction: restriction() }), TODAY)], 1).byType.RESTRICTED, 1);
+  });
+
+  it('writes dates as the official list does', () => {
+    assert.equal(restrictionDate(JULY), '01.07.2026');
   });
 });

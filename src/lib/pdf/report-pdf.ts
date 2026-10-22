@@ -4,6 +4,7 @@
 // decided, what is still open and what the data did not allow to check.
 import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
+import { restrictionDate } from '../../core/audit/checks';
 import { typeLabels } from '../../ui/labels';
 import { decisionSourceLabel } from '../decision-source.js';
 import { fmtDate } from '../format.js';
@@ -38,6 +39,13 @@ function texts(locale: Locale, audience: PdfAudience) {
   };
 }
 
+/** The finding type, and for RESTRICTED the date EHF stops accepting the code. */
+const typeText = (row: PdfRow, x: Texts): string => {
+  const label = x.types[row.type] ?? row.type;
+  return row.restrictedFrom ? `${label}
+${x.ta.importX.exp.restrictedFrom(restrictionDate(row.restrictedFrom))}` : label;
+};
+
 const clip = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 const codeText = (c: { code: string; name: string | null } | null, empty: string, unknown: string): string =>
   (c ? `${c.code}\n${clip(c.name ?? unknown, 110)}` : empty);
@@ -70,7 +78,7 @@ function who(row: PdfRow, x: Texts): string {
 function openCells(row: PdfRow, x: Texts): string[] {
   const { t } = x;
   return [
-    String(row.rowIndex + 1), clip(row.product, 160), x.types[row.type] ?? row.type,
+    String(row.rowIndex + 1), clip(row.product, 160), typeText(row, x),
     codeText(row.current, t.reviewNoCode, t.codeUnknown), codeText(row.suggested, '—', t.codeUnknown),
   ];
 }
@@ -81,7 +89,7 @@ function decidedCells(row: PdfRow, x: Texts): string[] {
     ? `${decisionText.accepted}: ${codeText(row.chosen ?? row.suggested, '—', t.codeUnknown)}`
     : decisionText[row.decision];
   return [
-    String(row.rowIndex + 1), clip(row.product, 160), x.types[row.type] ?? row.type,
+    String(row.rowIndex + 1), clip(row.product, 160), typeText(row, x),
     codeText(row.current, t.reviewNoCode, t.codeUnknown), outcome, who(row, x),
   ];
 }

@@ -1,6 +1,7 @@
 // POST /api/v1/check: runs the same matching and checks as the app for 1..N products.
 import { z } from 'zod';
 import { auditContext, checkItem } from '../audit-runner';
+import { dateOnly } from './serialize';
 
 export const CheckItemSchema = z.object({
   name: z.string().trim().min(1).max(500),
@@ -14,6 +15,7 @@ export type CheckItemInput = z.infer<typeof CheckItemSchema>;
 type FindingIn = {
   type: string; severity: string; suggestedMxik: string | null; confidence: number | null; reason: string;
   alternatives: readonly { code: string; name: string; confidence: number }[];
+  restriction?: { effectiveFrom: Date } | undefined;
 };
 
 /** One product's answer; `confidence` is a match score from 0 to 1, not a probability. */
@@ -28,6 +30,7 @@ export function checkResultOut(name: string, result: { markingRequired: boolean;
       confidence: f.confidence,
       reason: f.reason,
       alternatives: f.alternatives.map((a) => ({ code: a.code, name: a.name, confidence: a.confidence })),
+      restrictedFrom: dateOnly(f.restriction?.effectiveFrom),
     })),
   };
 }

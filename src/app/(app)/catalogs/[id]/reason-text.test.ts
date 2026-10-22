@@ -5,7 +5,7 @@ import type { ReasonFacts } from '@/lib/row-detail-parts';
 import { reasonLines } from './reason-text.js';
 import { unitLabel } from './unit-label.js';
 
-const facts: ReasonFacts = { code: '00401001001099999', retired: false, afterUpdate: false, rowUnit: 'litr', requiredUnits: [], purchasedOtherUnit: false, privilegeMismatch: false };
+const facts: ReasonFacts = { code: '00401001001099999', retired: false, afterUpdate: false, rowUnit: 'litr', requiredUnits: [], purchasedOtherUnit: false, privilegeMismatch: false, restriction: null };
 const uz = appDict('uz').wsX;
 const ru = appDict('ru').wsX;
 const latin = /[a-zʻ]{3,}/i;
@@ -18,10 +18,12 @@ describe('reason lines', () => {
 
   it('read wholly in Russian for a Russian viewer', () => {
     const unit = (u: string): string => unitLabel('ru', u);
-    for (const type of ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY']) {
-      const lines = reasonLines({ type, facts: { ...facts, requiredUnits: ['dona'], retired: true, afterUpdate: true, rowUnit: null }, noSuggestion: true }, ru, unit);
+    const restriction = { code: '02523001001000000', date: '01.07.2026', inForce: true };
+    for (const type of ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED']) {
+      const lines = reasonLines({ type, facts: { ...facts, requiredUnits: ['dona'], retired: true, afterUpdate: true, rowUnit: null, restriction }, noSuggestion: true }, ru, unit);
       assert.ok(lines.length > 0, type);
-      for (const line of lines) assert.equal(latin.test(line.replace(/\d+/g, '')), false, `${type}: ${line}`);
+      // mkinfo.uz is a site name, the same in every language.
+      for (const line of lines) assert.equal(latin.test(line.replace(/\d+/g, '').replace('mkinfo.uz', '')), false, `${type}: ${line}`);
     }
   });
 
@@ -42,8 +44,18 @@ describe('reason lines', () => {
     assert.equal(reasonLines({ type: 'PRIVILEGE_CODE', facts, noSuggestion: true }, uz, String)[1], uz.reason.privilegeCheck);
   });
 
+  it('give a restricted code\'s date, and where to ask when its position has no detailed code', () => {
+    const restriction = { code: '02523001001000000', date: '01.07.2026', inForce: false };
+    const soon = reasonLines({ type: 'RESTRICTED', facts: { ...facts, restriction }, noSuggestion: false }, uz, String);
+    assert.deepEqual(soon, [uz.explain['RESTRICTED'], uz.reason.restricted('02523001001000000', '01.07.2026', false)]);
+    assert.match(soon[1] ?? '', /01\.07\.2026 dan 02523001001000000 kodidan EHFda foydalanish cheklanadi/);
+    const none = reasonLines({ type: 'RESTRICTED', facts: { ...facts, restriction: { ...restriction, inForce: true } }, noSuggestion: true }, ru, String);
+    assert.deepEqual(none.slice(1), [ru.reason.restricted('02523001001000000', '01.07.2026', true), ru.reason.restrictedNone]);
+    assert.match(none.join(' '), /ограничено.*mkinfo\.uz/);
+  });
+
   it('use the dictionary term for the classifier', () => {
-    for (const text of [uz.explain['NOT_FOUND'], uz.reason.notFoundRetired('X')]) assert.equal(/klassifikator/i.test(text ?? ''), false);
+    for (const text of [uz.explain['NOT_FOUND'], uz.reason.notFoundRetired('X'), uz.reason.restrictedNone]) assert.equal(/klassifikator/i.test(text ?? ''), false);
   });
 });
 
