@@ -162,8 +162,10 @@ export async function setupEmptyOrg(label: string): Promise<EmptyFixture> {
 
 // ------------------------------------------------------------------ browser
 
+/** E2E_CHANNEL=msedge (or chrome) uses an installed browser where Playwright's own Chromium is not downloaded. */
 export async function launch(): Promise<Browser> {
-  return chromium.launch({ headless: process.env['E2E_HEADED'] !== '1' });
+  const channel = process.env['E2E_CHANNEL'];
+  return chromium.launch({ headless: process.env['E2E_HEADED'] !== '1', ...(channel ? { channel } : {}) });
 }
 
 /**
