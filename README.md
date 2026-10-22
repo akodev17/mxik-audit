@@ -22,7 +22,7 @@ Requires Node 20+ and Docker.
 
 ```bash
 npm install
-docker compose up -d          # Postgres 16 + pgvector on host port 54329
+docker compose up -d          # Postgres 16 + pgvector on host port 54329, Redis on 63799
 npx prisma migrate deploy     # schema (never `migrate dev`; see Migrations)
 npm run fetch:catalog         # 93 MB, three language variants, ~20 s
 npm run ingest -- --enrich    # normalize + fetch marking flags, ~10 min
@@ -39,11 +39,13 @@ npm run dev                   # http://localhost:3000
 
 No-signup demo: `http://localhost:3000/demo`. Sign-in org: `buxgalter@demo.uz` / `demo12345`.
 
-One app, one port: locally the app is `npm run dev` on 3000 and Docker runs
-only the database (plain `docker compose up -d` starts just `db`). The
-compose `app` profile is the production build for servers and also listens
-on 3000 — don't start it next to the dev server. If it is running locally,
-`docker compose --profile app rm -s -f app` removes it (image and data stay).
+Locally the app is `npm run dev` on 3000 and Docker runs only the database
+and Redis (plain `docker compose up -d` starts just `db` and `redis`). The
+compose `app` profile is the production stack for servers (caddy, web, api,
+worker, backup) and also listens on 3000 and 4000 — don't start it next to the
+dev servers. If it is running locally, `docker compose --profile app stop`
+stops it (images and data stay). `docker compose --profile local up -d caddy-local`
+puts the production routing in front of the dev servers on http://localhost:8080.
 Deploying to a server: [`DEPLOY.md`](DEPLOY.md).
 
 Do not run `npm run build` while `npm run dev` is running — they share

@@ -1,0 +1,68 @@
+# Routing shared by Caddyfile (tasnivo.uz, HTTPS) and Caddyfile.local (http://localhost:8080).
+# Imported inside a site block; paths are relative to this folder (/etc/caddy in the container).
+#
+# Upstreams come from the environment so the same file serves the compose stack (defaults),
+# the dev servers on the host (Caddyfile.local) and the cutover period: until every /api route
+# lives in apps/api (plan, Wave 4), set API_UPSTREAM=web:3000 and the Next.js app keeps
+# answering /api/* as it does today.
+
+# Compresses text responses only (HTML, JSON, JS, CSS, SVG, CSV); xlsx, zip and pdf pass as they are.
+encode zstd gzip
+
+# Security headers. The apps set their own (packages/domain/src/security/headers.ts through
+# next.config.ts); "?" adds a header only when the upstream did not send it, so nothing is ever
+# doubled. Content-Security-Policy is left to each app: the web policy is page-specific and the
+# API's Swagger UI (/api/docs) needs its own.
+header {
+	?X-Content-Type-Options "nosniff"
+	?Referrer-Policy "strict-origin-when-cross-origin"
+	?Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	?X-Frame-Options "DENY"
+	-X-Powered-By
+}
+
+# Uploads (catalogues up to 20 MB, multipart overhead on top), as nginx's client_max_body_size 30m.
+request_body {
+	max_size 30MB
+}
+
+# Client address for the rate limits (packages/domain/src/security/client-ip.ts reads X-Real-IP,
+# else the rightmost X-Forwarded-For hop). Caddy replaces both on every request: X-Forwarded-For,
+# -Proto and -Host by default (a client's own values are dropped, since no proxy is trusted), and
+# X-Real-IP below. Behind a CDN, add `servers { trusted_proxies static <ranges> }` to the global
+# options in Caddyfile so {client_ip} is the visitor rather than the CDN.
+
+# Requests that may take minutes: catalogue uploads, audits and exports, the public API
+# (uploads and synchronous checks), and the account export (a zip of every catalogue).
+# The /api/export*, /api/report-pdf, /api/catalog-* lines are the monolith's export URLs; drop them
+# when W2b has moved every export under /api/catalogs.
+@api_long path /api/catalogs /api/catalogs/* /api/v1/* /api/account/export* /api/export* /api/report-pdf* /api/catalog-*
+handle @api_long {
+	reverse_proxy {$API_UPSTREAM:api:4000} {
+		header_up X-Real-IP {client_ip}
+		transport http {
+			response_header_timeout 300s
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+}
+
+# The rest of the API: /api/health, /api/docs, /api/auth/*, the payment and Telegram callbacks...
+@api path /api /api/*
+handle @api {
+	reverse_proxy {$API_UPSTREAM:api:4000} {
+		header_up X-Real-IP {client_ip}
+		transport http {
+			response_header_timeout 60s
+		}
+	}
+}
+
+# Pages, assets, and (until Wave 4) the server actions that still upload and audit inside a
+# page request, so no response timeout here; Next limits server-action bodies to 25 MB itself.
+handle {
+	reverse_proxy {$WEB_UPSTREAM:web:3000} {
+		header_up X-Real-IP {client_ip}
+	}
+}

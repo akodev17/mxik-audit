@@ -1,22 +1,52 @@
-# Development: `docker compose up -d` starts only the database (host port 54329).
-# Everything: `docker compose --profile app up -d --build` runs db, app (migrates on
-# start), scheduler (purge, classifier update, daily reminders) and nightly backup.
-# Add `--profile bot` for the Telegram long-polling bot. DEPLOY.md has the details.
+# Development: `docker compose up -d` starts only Postgres (host port 54329) and Redis (63799);
+# the apps run on the host (`npm run dev`, `npm run start:api`, `npm run start:worker`).
+# Server: `docker compose --profile app up -d --build` runs the whole stack behind Caddy:
+#
+#   caddy  :80/:443  ──► /api/*  → api    (NestJS, 4000; applies migrations on start)
+#                    └─► else    → web    (Next.js, 3000)
+#   worker (BullMQ jobs and the schedule), db, redis, backup (nightly pg_dump into ./backups)
+#
+# Add `--profile bot` for the Telegram long-polling bot, `--profile local` for Caddy on
+# http://localhost:8080 without TLS. DEPLOY.md has the details; infra/ holds the Caddy config.
+#
+# W2: the api and worker services follow the contract agreed in Wave 1 (root scripts
+# `start:api` / `start:worker`, API_PORT, WORKER_PORT with GET /healthz, REDIS_URL, JOBS_MODE,
+# DATA_DIR); lines marked "W2" are the places to adjust if apps/api or apps/worker differ.
+
 # Inlined into the browser bundle at build time; rebuild after changing.
-x-app-build: &app-build
+x-web-build: &web-build
   context: .
+  target: web
   args:
     NEXT_PUBLIC_DEMO_URL: ${NEXT_PUBLIC_DEMO_URL:-/demo}
     NEXT_PUBLIC_TELEGRAM_URL: ${NEXT_PUBLIC_TELEGRAM_URL:-}
     NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
     NEXT_PUBLIC_SHOW_LEGAL_223: ${NEXT_PUBLIC_SHOW_LEGAL_223:-false}
     NEXT_PUBLIC_FEATURE_MULTI_CLIENT: ${NEXT_PUBLIC_FEATURE_MULTI_CLIENT:-false}
+    NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+
+# Docker keeps container logs forever by default; 5 files of 10 MB per service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# Inside the compose network the database is "db" and Redis is "redis", whatever .env says.
+x-server-env: &server-env
+  DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
+  REDIS_URL: redis://redis:6379
+  JOBS_MODE: bullmq
+  DATA_DIR: /app/data
+  NODE_ENV: production
 
 services:
+  # Same image, tuning, volume and container name as before the split.
   db:
     image: pgvector/pgvector:pg16
     container_name: mxik-audit-db
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: mxik
       # Set POSTGRES_PASSWORD in .env for any server; the default suits local development only.
@@ -50,69 +80,193 @@ services:
       timeout: 3s
       retries: 20
 
-  app:
-    profiles: ["app"]
-    build: *app-build
-    image: mxik-audit-app
-    container_name: mxik-audit-app
-    # Applies pending migrations, then serves.
-    command: ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+  # BullMQ queues (audit, doc-check, mail, telegram, classifier-update, daily). Jobs are
+  # re-creatable from the database, but the append-only file keeps queued ones across restarts.
+  # BullMQ needs maxmemory-policy noeviction, which is Redis's default; do not change it.
+  redis:
+    image: redis:7-alpine
+    container_name: mxik-audit-redis
     restart: unless-stopped
+    logging: *logging
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # Loopback only, for the apps running on the host in development (REDIS_URL in .env).
+      - "127.0.0.1:63799:6379"
+    volumes:
+      - mxik-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # HTTPS for SITE_DOMAIN (infra/Caddyfile). The only service reachable from outside.
+  caddy:
+    profiles: ["app"]
+    image: caddy:2.10-alpine
+    container_name: mxik-audit-caddy
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-localhost}
+      # W4 cutover: until every /api route is in apps/api, API_UPSTREAM=web:3000 in .env keeps
+      # the Next.js app answering /api/* (infra/routes.caddy).
+      API_UPSTREAM: ${API_UPSTREAM:-api:4000}
+      WEB_UPSTREAM: web:3000
+    ports:
+      - "80:80"
+      - "443:443"
+      # HTTP/3.
+      - "443:443/udp"
+    volumes:
+      - ./infra:/etc/caddy:ro
+      # Certificates and the ACME account; losing it means re-issuing (rate-limited).
+      - caddy-data:/data
+      - caddy-config:/config
+    healthcheck:
+      # The admin endpoint (localhost:2019 inside the container) answers once Caddy has loaded its config.
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_started
+
+  web:
+    profiles: ["app"]
+    build: *web-build
+    image: mxik-audit-web
+    container_name: mxik-audit-web
+    restart: unless-stopped
+    logging: *logging
     env_file: .env
     environment:
-      # Inside the compose network the database is "db" on 5432, whatever .env says.
-      DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
+      PORT: 3000
       NODE_ENV: production
+      # Server-side rendering calls the API inside the network; the browser uses the page's origin.
+      # W2/W3: keep this name in step with what packages/api-client reads.
+      API_INTERNAL_URL: http://api:4000
+      # Until Wave 4 the web app still reads the database and runs audits itself.
+      DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
     ports:
-      # nginx on the host terminates HTTPS and proxies here.
+      # Loopback only, for curl on the server; visitors come through caddy.
       - "127.0.0.1:3000:3000"
+    # W4: drop with the in-process audits (the embedding model and classifier status live in data/).
     volumes:
-      # Classifier downloads and the ingest output live on the host.
       - ./data:/app/data
+    depends_on:
+      # The api applies the migrations; the web app reads the same schema until Wave 4.
+      api:
+        condition: service_healthy
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      target: api
+    image: mxik-audit-api
+    container_name: mxik-audit-api
+    # Applies pending migrations once, then serves. W2: `start:api` comes from W1a's root script.
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run start:api"]
+    restart: unless-stopped
+    logging: *logging
+    env_file: .env
+    environment:
+      <<: *server-env
+      API_PORT: 4000
+    ports:
+      # Loopback only: `curl -s http://127.0.0.1:4000/api/health` on the server.
+      - "127.0.0.1:4000:4000"
+    volumes:
+      # Embedding models, the classifier status file and update log, classifier downloads.
+      - ./data:/app/data
+    healthcheck:
+      # 503 (unhealthy) until the classifier is loaded, so an empty database holds back web and
+      # worker: load it first (DEPLOY.md 5).
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # A migration that builds an index can take minutes; failures before this do not count.
+      start_period: 300s
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
-
-  # Scheduled jobs (purge, daily classifier update, daily reminders); replaces the host crontab.
-  scheduler:
+  # Background jobs and the schedule: purge 03:15, classifier update 04:00, daily jobs 06:15
+  # (UTC+5), resume of interrupted audits on boot. Replaces the former "scheduler" service
+  # (scripts/scheduler.mjs), which called the web app's cron routes; there is no scheduler
+  # container any more. Run operator scripts in this image: `docker compose run --rm worker npm run ...`.
+  worker:
     profiles: ["app"]
-    image: mxik-audit-app
-    container_name: mxik-audit-scheduler
+    build:
+      context: .
+      target: worker
+    image: mxik-audit-worker
+    container_name: mxik-audit-worker
+    # W2: `start:worker` comes from W1b's root script.
+    command: ["npm", "run", "start:worker"]
     restart: unless-stopped
+    logging: *logging
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
-      NODE_ENV: production
-    command: ["node", "scripts/scheduler.mjs"]
+      <<: *server-env
+      WORKER_PORT: 4100
     volumes:
       - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 120s
+    # Started after the migrations have run, which the api does on its start.
     depends_on:
-      app:
+      api:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Time for the graceful shutdown (W1b) to stop a running audit at a row boundary.
+    stop_grace_period: 60s
 
   # Telegram long-polling bot, for setups without a public HTTPS webhook (profile "bot").
-  telegram-bot:
+  # Same image as the worker; audits it starts are queued for the worker (JOBS_MODE=bullmq).
+  bot:
     profiles: ["bot"]
-    build: *app-build
-    image: mxik-audit-app
-    container_name: mxik-audit-telegram-bot
+    build:
+      context: .
+      target: worker
+    image: mxik-audit-worker
+    container_name: mxik-audit-bot
     restart: unless-stopped
+    logging: *logging
+    command: ["npm", "run", "telegram:bot"]
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://mxik:${POSTGRES_PASSWORD:-mxik}@db:5432/mxik?schema=public
-      NODE_ENV: production
-    command: ["npm", "run", "telegram:bot"]
+      <<: *server-env
+    volumes:
+      - ./data:/app/data
+    # The image's check asks the worker's /healthz, which the bot does not serve.
+    healthcheck:
+      disable: true
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  # Nightly pg_dump at 03:45 UTC+5, 14 dumps kept in ./backups.
+  # Nightly pg_dump at 03:45 UTC+5, 14 dumps kept in ./backups. Copy them off the server (DEPLOY.md 9).
   backup:
     profiles: ["app"]
     image: pgvector/pgvector:pg16
     container_name: mxik-audit-backup
     restart: unless-stopped
+    logging: *logging
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:-mxik}
       TZ: Asia/Tashkent
@@ -132,5 +286,31 @@ services:
       db:
         condition: service_healthy
 
+  # The production routing on http://localhost:8080, no TLS (infra/Caddyfile.local), for testing.
+  # Defaults point at the dev servers on the host; LOCAL_WEB_UPSTREAM=web:3000 and
+  # LOCAL_API_UPSTREAM=api:4000 test the containers of the "app" profile instead.
+  caddy-local:
+    profiles: ["local"]
+    image: caddy:2.10-alpine
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.local", "--adapter", "caddyfile"]
+    environment:
+      WEB_UPSTREAM: ${LOCAL_WEB_UPSTREAM:-host.docker.internal:3000}
+      API_UPSTREAM: ${LOCAL_API_UPSTREAM:-host.docker.internal:4000}
+    extra_hosts:
+      # Docker Desktop resolves it already; on Linux this maps it to the host.
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./infra:/etc/caddy:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   mxik-pgdata:
+  mxik-redis:
+  caddy-data:
+  caddy-config:

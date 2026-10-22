@@ -1,7 +1,23 @@
 # Deploying Tasnivo on a Linux VPS
 
-Docker runs the app and Postgres (with pgvector); nginx on the host terminates
-HTTPS and proxies to the app. Nothing here depends on a particular provider.
+Everything runs in Docker Compose on one server; the host needs only Docker and a firewall.
+
+```
+tasnivo.uz ──► caddy (HTTPS, :80/:443)
+                 ├── /api/*          → api     NestJS, port 4000, applies migrations on start
+                 └── everything else → web     Next.js, port 3000
+worker  BullMQ jobs (audits, document checks, mail, Telegram) and the schedule
+db      Postgres 16 + pgvector          redis   BullMQ queues
+backup  nightly pg_dump into ./backups  bot     optional Telegram long polling (profile "bot")
+```
+
+The files: `docker-compose.yml`, `Dockerfile` (targets `web`, `api`, `worker`), `infra/Caddyfile`
+(HTTPS, `www` redirect), `infra/routes.caddy` (routing, limits, timeouts, headers) and `.env`.
+Nothing here depends on a particular provider.
+
+> **During the backend split** (docs/BACKEND_SPLIT_PLAN.md, Waves 2–4) not every `/api` route is
+> in the api service yet. Until Wave 4, put `API_UPSTREAM=web:3000` in `.env`: Caddy then sends
+> `/api/*` to the Next.js app, which still serves all of them, exactly as before the split.
 
 ## 0. What you need
 
@@ -9,76 +25,120 @@ HTTPS and proxies to the app. Nothing here depends on a particular provider.
   (Postgres, the vector index build and the ~1 GB local embedding model share
   it; 4 GB is the bare minimum), 30 GB disk. Audit speed scales with the CPUs
   Postgres gets: on 4 it measured 2.4–15 rows/s depending on the products.
-- A domain name with an `A` record pointing at the server's IP.
-- Outbound HTTPS to `huggingface.co` once, for the embedding model's weights.
+- The domain `tasnivo.uz` with DNS you can edit (section 2).
+- Outbound HTTPS to `huggingface.co` once, for the embedding model's weights, and to
+  Let's Encrypt for the certificates.
 - An SSH login with `sudo`.
 
 Expect about 3–4 hours, most of it embedding the 442,719 classifier names once
-on the CPU (step 4). Everything else takes 30–45 minutes.
+on the CPU (step 5). Everything else takes 30–45 minutes.
 
 ## 1. Prepare the server
 
 ```bash
 sudo apt-get update && sudo apt-get -y upgrade
-sudo apt-get -y install ca-certificates curl git nginx ufw
+sudo apt-get -y install ca-certificates curl git ufw unattended-upgrades
 
 # Docker Engine + compose plugin (official convenience script)
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker "$USER"   # log out and back in for this to apply
 
-# Firewall: SSH and web only. Postgres and the app bind to 127.0.0.1 in
-# docker-compose.yml, so they are never reachable from outside.
+# Firewall: SSH and web only (443/udp is HTTP/3).
 sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 443/udp
 sudo ufw --force enable
 ```
 
-## 2. Get the code and configure it
+Docker-published ports bypass ufw, so the firewall is not what protects the other services:
+`docker-compose.yml` publishes only Caddy on all interfaces; Postgres (54329), Redis (63799),
+web (3000) and api (4000) bind to `127.0.0.1`, for `curl` and `psql` on the server itself.
+Keep it that way when you edit the file.
+
+Docker's default log driver keeps every line forever; each service in `docker-compose.yml`
+rotates its logs (10 MB × 5 files).
+
+## 2. DNS for tasnivo.uz
+
+At the registrar or DNS host, point both names at the server:
+
+| Name | Type | Value |
+|---|---|---|
+| `tasnivo.uz` (`@`) | `A` | the server's IPv4 address |
+| `www.tasnivo.uz` | `A` (or `CNAME tasnivo.uz`) | the same |
+| both, if the server has IPv6 | `AAAA` | the server's IPv6 address |
+
+Check before the first start: `dig +short tasnivo.uz` and `dig +short www.tasnivo.uz` must print
+the server's address. Caddy proves control of the domain to Let's Encrypt over port 80 (HTTP-01)
+or 443 (TLS-ALPN-01), so both must be open and DNS must already resolve; a missing `www` record
+only costs that name its certificate (the main site still works, Caddy retries). Optionally add a
+`CAA` record `0 issue "letsencrypt.org"`.
+
+A CDN or proxy in front of the server (Cloudflare "orange cloud") changes the client address the
+rate limits see; see 7g before turning one on.
+
+## 3. Get the code and configure it
 
 ```bash
 sudo mkdir -p /opt/mxik-audit && sudo chown "$USER" /opt/mxik-audit
 git clone <repository-url> /opt/mxik-audit
 cd /opt/mxik-audit
 cp .env.example .env
+chmod 600 .env
 ```
 
-Edit `.env` (`nano .env`). Every variable is documented in the file. At minimum:
+The checkout's directory name is the compose project name, and the database volume is named
+after it (`mxik-audit_mxik-pgdata`): keep `/opt/mxik-audit`.
+
+Edit `.env` (`nano .env`). Every variable is documented in the file, grouped by the service
+that reads it. At minimum:
 
 | Variable | Value |
 |---|---|
+| `SITE_DOMAIN` | `tasnivo.uz` |
 | `POSTGRES_PASSWORD` | a long random string: `openssl rand -hex 24` |
-| `SESSION_SECRET` | 64 hex chars: `openssl rand -hex 32` |
-| `NEXT_PUBLIC_SITE_URL` | `https://your-domain` |
+| `SESSION_SECRET` | 32+ characters: `openssl rand -hex 32` (64 hex chars). Never rotate it casually (7g) |
+| `CRON_SECRET` | 16+ characters: `openssl rand -hex 24`; only for the HTTP cron routes (section 7) |
+| `SMTP_URL`, `MAIL_FROM` | your mail provider, e.g. `smtps://user:password@smtp.example.com:465` and `"Tasnivo <no-reply@tasnivo.uz>"`; required for demo requests, invites and password reset |
+| `APP_URL` | `https://tasnivo.uz` |
+| `NEXT_PUBLIC_SITE_URL` | `https://tasnivo.uz` |
 | `NEXT_PUBLIC_DEMO_URL` | `/demo` |
 | `NEXT_PUBLIC_TELEGRAM_URL` | your Telegram link, or leave empty to hide it |
+| `NEXT_PUBLIC_API_URL` | leave empty: the browser calls `/api` on the page's own origin |
 | `ANTHROPIC_API_KEY` | optional; without it suggestions stay capped below bulk-accept |
 | `EMBEDDING_PROVIDER` | `local` (already set in `.env.example`) |
 | `ADMIN_EMAILS` | sign-in emails allowed to open `/admin`, comma-separated |
+| `API_UPSTREAM` | `web:3000` until Wave 4 is deployed (see the note at the top), then remove it |
 
-`DATABASE_URL` in `.env` is ignored inside Docker; compose points the app at
-the `db` container itself.
+`DATABASE_URL`, `REDIS_URL`, `JOBS_MODE` and `DATA_DIR` in `.env` are ignored inside Docker:
+compose points the services at the `db` and `redis` containers and at `/app/data`. The
+`NEXT_PUBLIC_*` values are compiled into the web image: rebuild it after changing them.
 
-The import scripts write to `./data`, which is mounted into the container. The
-container runs as uid 1000:
+The import scripts and the services write to `./data` (embedding models, classifier downloads,
+the classifier status file), which is mounted into api, worker, bot and web. The containers run
+as uid 1000 (`node`):
 
 ```bash
+mkdir -p backups
 sudo chown -R 1000:1000 data
 ```
 
-## 3. Build and start the database
+## 4. Build and start the database
 
 ```bash
-docker compose --profile app build          # ~3–5 min
-docker compose up -d db
-docker compose ps                           # db should become "healthy"
+docker compose --profile app build          # three images (web, api, worker), ~5–8 min
+docker compose up -d db redis
+docker compose ps                           # db and redis should become "healthy"
 ```
 
-## 4. Create the schema and import the classifier
+## 5. Create the schema and import the classifier
 
-Run once on a fresh server, in this order:
+Operator commands run in the worker image (it has the scripts and `tsx`), as one-off containers
+that do not start the rest of the stack. Run once on a fresh server, in this order:
 
 ```bash
-alias mx='docker compose --profile app run --rm app'
+alias mx='docker compose --profile app run --rm --no-deps worker'
 
 mx npx prisma migrate deploy        # tables and indexes
 mx npm run fetch:catalog            # 3 official Excel exports, ~93 MB, ~1 min
@@ -87,6 +147,8 @@ mx npm run load:db                  # ~443k codes into Postgres, ~3 min
 mx npm run embed:catalog            # local e5 vectors, both columns, + HNSW indexes, ~3 h on 4 vCPU
 mx npm run seed:demo                # the demo catalogue behind /demo, ~1 min
 ```
+
+Put the alias in `~/.bashrc` (with `cd /opt/mxik-audit` first in your session) to keep it.
 
 `embed:catalog` first downloads the model (~470 MB) into `./data/models`, which
 persists across rebuilds. It is resumable: if the session drops, run the same
@@ -110,113 +172,79 @@ answering throughout.
 that is unreachable from the server, run `mx npm run ingest` (without
 `--enrich`) and the marking flag stays unknown.
 
-## 5. Start the app
+## 6. Start the stack
 
 ```bash
-docker compose --profile app up -d app
-curl -s http://127.0.0.1:3000/api/health
+docker compose --profile app up -d
+docker compose --profile app ps             # every service "healthy" within a few minutes (backup has no check)
+docker compose logs caddy | grep -i certificate   # "certificate obtained successfully" for both names
+curl -s https://tasnivo.uz/api/health
 # {"status":"ok","database":true,"classifier":{"loaded":true,"takenAt":"2026-10-21T12:51:50.918Z","ageDays":1,"codeCount":442964,"stale":false,"lastUpdate":{"outcome":"success",...}}}
 ```
 
-Audits run in the background. If the app restarts mid-audit, it resumes the
-catalogue from its last finished row on startup.
+Start order is enforced by the healthchecks: db and redis → api (runs `prisma migrate deploy`,
+then serves) → worker and web → caddy. `http://tasnivo.uz` and `https://www.tasnivo.uz` redirect
+to `https://tasnivo.uz`. The session cookie is `Secure` in production, so sign-in only works
+over HTTPS.
 
-## 6. nginx and HTTPS
+`/api/health` answers 503 until the classifier is loaded (section 5), so on an empty database
+the api stays "unhealthy" and web, worker and caddy do not start: load the classifier first.
 
-Create `/etc/nginx/sites-available/mxik-audit` (replace `your-domain`):
+What each healthcheck asks: api `GET /api/health` (database reachable, classifier loaded); worker `GET /healthz` on
+`WORKER_PORT`; web a static file (`/icon.svg`, no database); redis `redis-cli ping`; caddy its
+admin endpoint; db `pg_isready`. The Telegram bot has no check.
 
-```nginx
-server {
-    listen 80;
-    server_name your-domain;
-
-    # Catalogue uploads are up to 20 MB.
-    client_max_body_size 30m;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # A large catalogue is audited inside the upload request.
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/mxik-audit /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
-
-sudo apt-get -y install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain       # adds the 443 server and the redirect
-```
-
-Certbot renews automatically. The session cookie is `Secure` in production,
-so sign-in only works over HTTPS.
+Audits run in the worker. If it restarts mid-audit, it resumes the catalogue from its last
+finished row when it starts again.
 
 ## 7. Scheduled jobs
 
-The times below are Uzbekistan time (UTC+5, no daylight saving). Host cron runs
-on the server's clock, which is usually UTC: set the zone once with
-`sudo timedatectl set-timezone Asia/Tashkent`, or subtract 5 hours from every
-time. The app itself always shows and groups dates in `Asia/Tashkent`, whatever
-the server's zone, and the compose scheduler and backup (section 9) keep UTC+5
-on their own, so no `TZ` variable is needed in `.env`.
+The worker runs them itself; there is no host crontab and no scheduler container any more (the
+former `scheduler` service and its "unhealthy" status are gone). Times are Uzbekistan time
+(UTC+5, no daylight saving), whatever the server's zone:
 
-`crontab -e` and add:
+| Time | Job |
+|---|---|
+| 03:15 | purge: erase lead files past `LEAD_FILE_RETENTION_DAYS`, delete expired demo copies |
+| 03:45 | backup container: `pg_dump` into `./backups` (section 9) |
+| 04:00 | classifier update: download, diff, embed new codes, re-check every client's latest catalogue, notify affected orgs (in the app and on Telegram) |
+| 06:15 | daily jobs (7e) |
 
-```cron
-# Erase lead files past LEAD_FILE_RETENTION_DAYS and delete expired demo copies.
-15 3 * * * cd /opt/mxik-audit && docker compose --profile app exec -T app npm run purge:expired >> /var/log/mxik-purge.log 2>&1
-# Daily classifier update: download, diff, embed new codes, re-check every
-# client's latest catalogue, notify affected orgs (in the app and on Telegram).
-0 4 * * * cd /opt/mxik-audit && docker compose --profile app exec -T app npm run classifier:update >> /var/log/mxik-classifier.log 2>&1
-# Nightly database backup, 14 kept.
-45 3 * * * docker exec mxik-audit-db pg_dump -U mxik -Fc mxik > /opt/mxik-audit/backups/mxik-$(date +\%F).dump && find /opt/mxik-audit/backups -name '*.dump' -mtime +14 -delete
-```
+Only one classifier update runs at a time (a Postgres advisory lock); a second start exits. The
+daily jobs also start an update when the newest snapshot is more than a day old and none is
+running, so a missed 04:00 run catches up. A snapshot of a day or less is left alone.
+
+The same two jobs can be started over HTTP, e.g. from an external scheduler, when `CRON_SECRET`
+(16+ characters) is set; without it these routes answer 503. They return at once (the work is
+queued for the worker):
 
 ```bash
-mkdir -p /opt/mxik-audit/backups
-sudo touch /var/log/mxik-purge.log /var/log/mxik-classifier.log && sudo chown "$USER" /var/log/mxik-purge.log /var/log/mxik-classifier.log
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://tasnivo.uz/api/cron/classifier-update
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://tasnivo.uz/api/cron/daily
 ```
 
-The classifier update can also be started over HTTP, e.g. from an external
-scheduler, when `CRON_SECRET` (16+ characters) is set in `.env`; without it
-the route answers 503. It returns 202 at once and writes its log to
-`data/classifier-update.log` inside the container:
-
-```cron
-0 4 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/classifier-update
-```
-
-Only one update runs at a time (a Postgres advisory lock); a second start exits.
-
-The daily route of 7e also starts an update when the newest snapshot is more
-than a day old and none is running, so a server that only calls that route (or
-whose update cron stopped) still catches up. A snapshot of a day or less is left alone.
-
-Copy backups off the server too; a backup on the same disk is not a backup.
+Coming from the single-container setup? Remove its crontab lines (`crontab -e`); they would
+run the jobs a second time.
 
 ## 7a. Telegram bot (optional)
 
 1. Create a bot with @BotFather; put the token in `.env` as
    `TELEGRAM_BOT_TOKEN`, a long random `TELEGRAM_WEBHOOK_SECRET`, the bot's
-   `TELEGRAM_BOT_USERNAME`, and `APP_URL=https://your-domain`. Restart the app.
-2. Point Telegram at the app once: `mx npm run telegram:webhook`
-   (`-- --delete` removes it).
+   `TELEGRAM_BOT_USERNAME`, and `APP_URL=https://tasnivo.uz`. Recreate the services:
+   `docker compose --profile app up -d`.
+2. Choose **one** way to receive updates:
+   - **Webhook** (recommended on the server): `mx npm run telegram:webhook` points Telegram at
+     `https://tasnivo.uz/api/telegram/webhook` (`-- --delete` removes it). Caddy and the api
+     serve it; nothing else to run.
+   - **Long polling** (no public HTTPS, or for testing): `docker compose --profile app --profile bot up -d bot`.
+     The bot removes any webhook when it starts; audits it starts are queued for the worker.
+     Do not set the webhook again while it runs.
 3. Users link a chat in the app: Sozlamalar → Telegram → "Ulash kodini olish",
    then send `/start CODE` to the bot. Linked chats can send .xlsx/.csv files
    (20 MB Bot API limit), pick the client, and get the summary when the audit
    finishes; classifier-update notifications go to every linked chat.
 
-Without a public HTTPS URL (development), run the bot with long polling
-instead: `npm run telegram:bot` (it removes any webhook first; audits started
-from the bot run in that process).
+On a development machine, `npm run telegram:bot` runs the same long-polling bot on the host.
 
 ## 7b. Payments (optional)
 
@@ -228,18 +256,19 @@ the plan is not for sale and Settings says the price is not set. Only admins
 see pay buttons; other roles are told that an administrator pays.
 
 - **Click** (SHOP API): in the merchant cabinet set both Prepare URL and
-  Complete URL to `https://your-domain/api/payments/click`; put
+  Complete URL to `https://tasnivo.uz/api/payments/click`; put
   `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` in `.env`.
 - **Payme** (Merchant API): set the endpoint to
-  `https://your-domain/api/payments/payme`, account field `order_id`; put
+  `https://tasnivo.uz/api/payments/payme`, account field `order_id`; put
   `PAYME_MERCHANT_ID` and `PAYME_KEY`. For the sandbox
   (test.paycom.uz), set `PAYME_TEST_MODE=true` and `PAYME_TEST_KEY`.
 - `APP_URL` must be the public https origin (return links after payment).
 - `BILLING_REQUIRED_FOR_EXPORT=true` makes the corrected-file download
   require a paid order for that catalogue or an active firm subscription.
 
-A paid order writes `billing.paid` to the audit log; orders and provider
-transactions are in the `order` and `payment_transaction` tables.
+The callback URLs stay the same through the backend split: Caddy sends `/api/payments/*` to
+whichever service `API_UPSTREAM` names. A paid order writes `billing.paid` to the audit log;
+orders and provider transactions are in the `order` and `payment_transaction` tables.
 
 ## 7c. Team, email and roles (optional)
 
@@ -265,33 +294,31 @@ With SMTP on, signing up with an address that already has an account answers "ch
 
 An upload waits at the column-mapping step as an uncommitted preview, and its rows count against the monthly allowance only once the mapping is confirmed. Previews are limited on their own: a user's new upload deletes their earlier open preview, an upload is refused (with a message) when the org's open preview rows from the last 24 hours would exceed the plan's monthly row limit (200,000 when the plan has none; `PREVIEW_ROWS_UNCAPPED` in `packages/domain/src/plan.ts`), and the daily job (7e) deletes previews left for 48 hours. Each deletion writes `catalog.upload_discarded` with `reason` `replaced` or `expired` (the latter without an actor). These numbers are not `.env` settings.
 
-"Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (/setdomain); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
+Uploads are limited to 20 MB by the app and to 30 MB per request body by Caddy (`infra/routes.caddy`); catalogue uploads, exports and the public API may take up to 300 s, other `/api` requests 60 s to start answering.
+
+"Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (`/setdomain` → `tasnivo.uz`); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
 
 ## 7e. Daily jobs (monthly reminders)
 
-Once a day call the daily route (same `CRON_SECRET` as the classifier update). Besides the jobs below it starts a classifier update (section 7, same lock and log) when the newest snapshot is more than a day old and none is running; the answer's `classifierUpdate` field says whether it did:
+The worker runs them at 06:15 (section 7); `POST /api/cron/daily` with `CRON_SECRET` starts them by hand or from an external scheduler. Besides the jobs below they start a classifier update (section 7, same lock and log) when the newest snapshot is more than a day old and none is running.
 
-```cron
-15 6 * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/daily
-```
-
-It creates the monthly-check tasks that are due (per client: Sozlamalar of the client page), tells the accountant responsible on Telegram when the bot is configured, deletes upload previews left uncommitted for 48 hours (7d) and runs the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
+They create the monthly-check tasks that are due (per client: Sozlamalar of the client page), tell the accountant responsible on Telegram when the bot is configured, delete upload previews left uncommitted for 48 hours (7d) and run the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
 
 ## 7f. Public API
 
-Admins create keys in Settings → Integratsiyalar (shown once, only a hash is stored). Endpoints: `POST /api/v1/check`, `GET /api/v1/catalogs` (paged with `limit` and `cursor`), `POST /api/v1/catalogs`, `GET /api/v1/catalogs/:id/report`; spec at `/api/v1/openapi.json`, docs at `/api-docs`. Every response to a valid key carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`. Both POST endpoints accept `Idempotency-Key`: a repeat with the same key under the same API key within 24 hours returns the first successful response (`Idempotent-Replayed: true`); rows live in `api_idempotency` and the daily job (7e) prunes them.
-Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept in memory per process, so it resets on restart and is per instance), `API_CHECKS_PER_MONTH_TRIAL` / `_FIRM` and `API_CHECK_MAX_ITEMS`. Uploaded rows count against the plan's monthly row limit like uploads in the app. Set `APP_URL` so the OpenAPI document names the public origin.
+Admins create keys in Settings → Integratsiyalar (shown once, only a hash is stored). Endpoints: `POST https://tasnivo.uz/api/v1/check`, `GET /api/v1/catalogs` (paged with `limit` and `cursor`), `POST /api/v1/catalogs`, `GET /api/v1/catalogs/:id/report`; spec at `/api/v1/openapi.json`, docs at `/api-docs` (the api's Swagger UI at `/api/docs` once Wave 2 has moved the routes; the v1 contract does not change). Every response to a valid key carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`. Both POST endpoints accept `Idempotency-Key`: a repeat with the same key under the same API key within 24 hours returns the first successful response (`Idempotent-Replayed: true`); rows live in `api_idempotency` and the daily job (7e) prunes them.
+Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept per process, so it resets on restart and is per instance), `API_CHECKS_PER_MONTH_TRIAL` / `_FIRM` and `API_CHECK_MAX_ITEMS`. Uploaded rows count against the plan's monthly row limit like uploads in the app. Set `APP_URL` so the OpenAPI document names the public origin.
 
 ## 7g. Security and data control
 
-- **Two-factor sign-in** (authenticator app, 6-digit TOTP, set up by scanning a QR code) and one-time recovery codes are per user, in Settings. The TOTP secret is stored encrypted, and recovery codes (80 bits each) as an HMAC, both with keys derived from `SESSION_SECRET`: if you rotate `SESSION_SECRET`, two-factor secrets and recovery codes stop working and those users need an operator to turn two-factor off (`UPDATE "user" SET "totpSecret" = NULL, "totpEnabledAt" = NULL, "totpLastStep" = NULL WHERE email = '...'`) before they set it up again. Recovery codes issued before this version keep working until regenerated. Five wrong codes end a pending sign-in (the password is asked again); ten wrong codes per user per hour block further tries for that hour.
+- **Two-factor sign-in** (authenticator app, 6-digit TOTP, set up by scanning a QR code) and one-time recovery codes are per user, in Settings. The TOTP secret is stored encrypted, and recovery codes (80 bits each) as an HMAC, both with keys derived from `SESSION_SECRET`: if you rotate `SESSION_SECRET`, two-factor secrets and recovery codes stop working and those users need an operator to turn two-factor off (`UPDATE "user" SET "totpSecret" = NULL, "totpEnabledAt" = NULL, "totpLastStep" = NULL WHERE email = '...'`) before they set it up again. Recovery codes issued before this version keep working until regenerated. Five wrong codes end a pending sign-in (the password is asked again); ten wrong codes per user per hour block further tries for that hour. The web app and the api read the same session cookie with the same secret; do not rotate it during the backend split.
 - **Active sessions** are recorded in the database; a user can end any of their sessions in Settings. A session not seen for 7 days (the cookie lifetime) is dead. Cookies without a session record (issued before session records existed) are no longer accepted: those users sign in once more. Demo visitors are the only sessions without a record.
-- **Rate limits** live in the `auth_attempt` table, so they survive restarts and apply across instances: 5 password attempts per email per 15 minutes (then a cooldown message; the right password clears the count), 30 sign-in attempts per client address per 15 minutes, 3 password-reset and 3 confirmation-resend mails per address per hour (10 per client address), 8 signups per client address per hour. The client address is `X-Real-IP` (nginx sets it from `$remote_addr`, section 6), else the **rightmost** `X-Forwarded-For` hop, never the leftmost (the client writes that one). Keep the app port bound to 127.0.0.1 behind nginx; if another proxy sits in front of nginx, configure nginx's `real_ip` module so `$remote_addr` is the visitor. Stored keys are HMACs, not raw emails or addresses. The daily job (7e) deletes attempts older than a day.
+- **Rate limits** live in the `auth_attempt` table, so they survive restarts and apply across instances: 5 password attempts per email per 15 minutes (then a cooldown message; the right password clears the count), 30 sign-in attempts per client address per 15 minutes, 3 password-reset and 3 confirmation-resend mails per address per hour (10 per client address), 8 signups per client address per hour. The client address is `X-Real-IP`, else the **rightmost** `X-Forwarded-For` hop, never the leftmost (the client writes that one). Caddy sets `X-Real-IP` to the connection's address and replaces any `X-Forwarded-For` a client sends (`infra/routes.caddy`); keep web and api bound to 127.0.0.1 so nothing reaches them around Caddy. If a CDN or another proxy sits in front of Caddy, add its address ranges as `trusted_proxies` in the global options of `infra/Caddyfile` (`servers { trusted_proxies static <ranges> }`), or every visitor shares the proxy's address. Stored keys are HMACs, not raw emails or addresses. The daily job (7e) deletes attempts older than a day.
 - **Passwords**: Settings → Xavfsizlik changes the password (the current one is required; every other session of the user ends; `security.password_changed` in the audit log). "Parolni unutdingizmi?" on the sign-in page mails a reset link (1 hour, single use, only the newest link works; using it sets the password, confirms the address and ends every session of the user; `security.password_reset`). The page answers the same whether or not the address has an account. **Without SMTP no link can be sent**; the page says an administrator has to set the password, and the operator does it on the server:
 
 ```bash
 mx npm run password:set -- user@example.com                   # prints a new random password once
-echo 'new-password' | docker compose --profile app run --rm -T app npm run password:set -- user@example.com --stdin
+echo 'new-password' | docker compose --profile app run --rm --no-deps -T worker npm run password:set -- user@example.com --stdin
 mx npm run password:set -- user@example.com --confirm-email   # also marks the address confirmed
 ```
 
@@ -305,55 +332,82 @@ docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" SET \"platfo
 ```
 
 - **Closed accounts** stop everything that runs without a sign-in: API keys, share links, the Telegram bot (the chat is treated as unlinked; notifications and audit summaries are not sent; old link codes do nothing).
-- **HTTP headers** on every route (`packages/domain/src/security/headers.ts`): Content-Security-Policy (`default-src 'self'`, `frame-ancestors 'none'`, scripts from the site and `https://telegram.org` for the login widget, its iframe from `https://oauth.telegram.org`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (no camera, microphone, geolocation), `X-Frame-Options: DENY`, and in production `Strict-Transport-Security: max-age=31536000`. `script-src` keeps `'unsafe-inline'` because Next.js bootstraps pages with inline scripts; per-request nonces would need middleware and a verified production build, which is future work. `'unsafe-eval'` and the hot-reload websocket are allowed only in development. The app sends these itself: do not add them again in nginx (with two `Content-Security-Policy` headers the browser enforces both, so everything must pass each one and pages can break).
+- **HTTP headers** (`packages/domain/src/security/headers.ts`, sent by the web app on every route): Content-Security-Policy (`default-src 'self'`, `frame-ancestors 'none'`, scripts from the site and `https://telegram.org` for the login widget, its iframe from `https://oauth.telegram.org`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (no camera, microphone, geolocation), `X-Frame-Options: DENY`, and in production `Strict-Transport-Security: max-age=31536000`. `script-src` keeps `'unsafe-inline'` because Next.js bootstraps pages with inline scripts; per-request nonces would need middleware and a verified production build, which is future work. `'unsafe-eval'` and the hot-reload websocket are allowed only in development. Caddy adds the same values (except the CSP) only to responses that lack them, e.g. from the api, and never a second copy: with two `Content-Security-Policy` headers the browser enforces both, so keep `set` directives for these out of the Caddyfiles.
 - **Landing-page lead form** accepts files up to 5 MB, and an .xlsx that would inflate past 100 MB (or has more than 5,000 entries) is refused before it is parsed.
 - **Account data export** (admin, Settings): a zip with team, clients, dictionary, activity log and one Excel file per catalogue. Passwords, API keys and two-factor secrets are never included.
 - **Closing an account**: the admin confirms with the password; nobody can sign in except an admin, who may restore the account. After `ACCOUNT_DELETE_AFTER_DAYS` (default 30) the daily job (section 7e) erases the organisation and everything under it, including its log entries.
 - **Raw-file retention**: each org chooses 7, 30 (default) or 90 days, or "keep". The daily job blanks the uploaded cells that are not in a mapped column (names, codes, units, prices are kept, so reports and exports keep working). It is never retroactive: only uploads created at or after the org's `organization."rawRetentionSince"` are blanked, once older than the window. That date is when the org was created, and for orgs that existed before retention shipped, the moment its migration ran; uploads from before it are never touched, and an org whose `rawRetentionSince` is NULL is skipped entirely. Settings → Maʼlumotlar shows the date. Changing the window does not move it; to apply retention to an org's older uploads (only on that org's written request) set it earlier by hand, e.g. `UPDATE organization SET "rawRetentionSince" = '2026-01-01' WHERE id = '...';`.
+- **The server**: only ports 22, 80 and 443 open (section 1); `.env` readable by its owner only (`chmod 600`); SSH with keys (`PasswordAuthentication no` in `/etc/ssh/sshd_config`); `unattended-upgrades` installs security updates. Images are rebuilt from `node:22-bookworm-slim` on every upgrade (8), which picks up its patches.
 
 ## 8. Operating it
 
 | Task | Command |
 |---|---|
-| Health | `curl -s http://127.0.0.1:3000/api/health` |
-| App logs | `docker compose --profile app logs -f app` |
+| Status of every service | `docker compose --profile app ps` |
+| Health (public / on the server) | `curl -s https://tasnivo.uz/api/health` / `curl -s http://127.0.0.1:4000/api/health` |
+| Logs | `docker compose --profile app logs -f --tail=200 api worker` (also `web`, `caddy`, `db`, `bot`) |
+| Restart one service | `docker compose --profile app restart worker` |
+| Queue state | `docker compose exec redis redis-cli --scan --pattern 'bull:*' \| head` |
 | Erase a lead's file on request | `mx npm run lead:delete -- --list`, then `mx npm run lead:delete -- <leadId>` (`--all` also removes the contact) |
 | Rebuild the demo | `mx npm run seed:demo` |
 | Which LLM/embedding setup is active | `mx npm run check:providers` |
-| Traction metrics | `https://your-domain/admin`, signed in as a platform admin (7g) |
+| Traction metrics | `https://tasnivo.uz/admin`, signed in as a platform admin (7g) |
 | Set a user's password (no SMTP) | `mx npm run password:set -- user@example.com` (7g) |
+| psql | `docker exec -it mxik-audit-db psql -U mxik mxik` |
 
 ### Updating to a new version
 
 ```bash
 cd /opt/mxik-audit
 git pull
-docker compose --profile app build
-docker compose --profile app run --rm app npx prisma migrate deploy
-docker compose --profile app up -d app
+docker compose --profile app build          # or `pull`, if the images come from a registry
+docker compose --profile app up -d --remove-orphans
+docker compose --profile app ps
 ```
 
-Never run `prisma migrate dev` against this database; see README "Migrations".
+`up -d` recreates every service whose image changed. The api applies pending migrations
+(`prisma migrate deploy`) before it starts serving, and the worker and web wait until the api is
+healthy, so the order build → migrate → restart is kept without extra steps. Watch it with
+`docker compose logs -f api`. Never run `prisma migrate dev` against this database; see README
+"Migrations".
 
-Keep the order: build, migrate, then restart. After `prisma migrate deploy`
-the app container must be recreated from the image built from the same
-commit (`up -d app` does this after `build`), because the Prisma client is
-generated into the image at build time and has to match the schema. A
-container still running the old image reads a finding type the new migration
-added as "OTHER" (a neutral "other finding" label; the API reports `"OTHER"`)
-and logs `[db] finding_type holds a value this Prisma client does not know`
-once; restart it from the new image to see the real type.
+The Prisma client is generated into each image at build time and has to match the schema, so
+every service must run an image built from the same commit (`build` then `up -d` does this). A
+container still running an old image reads a finding type a new migration added as "OTHER" (a
+neutral "other finding" label; the API reports `"OTHER"`) and logs
+`[db] finding_type holds a value this Prisma client does not know` once; recreate it from the
+new image to see the real type.
+
+Rolling back: `git checkout <previous tag>`, then `build` and `up -d` as above. Migrations are
+not undone; a release whose migration the previous version cannot read says so in its notes,
+and the way back is the restore of section 9.
+
+### Moving from the single-container setup (nginx, `app`, `scheduler`)
+
+Once, on a server that ran the previous `docker-compose.yml` behind nginx and certbot:
+
+```bash
+cd /opt/mxik-audit && git pull                 # then add SITE_DOMAIN, CRON_SECRET, API_UPSTREAM to .env
+docker compose --profile app build
+sudo systemctl disable --now nginx certbot.timer   # Caddy takes ports 80 and 443 and its own certificates
+crontab -e                                     # delete the mxik lines: the worker schedules the jobs now
+docker compose --profile app up -d --remove-orphans   # removes the old app, scheduler, telegram-bot containers
+```
+
+The database volume and `./data`, `./backups` are reused as they are; nothing is migrated by hand.
+If the long-polling bot ran before, start it again with `--profile bot` (its service is now `bot`).
 
 ### Codes restricted in EHF
 
 The RESTRICTED check reads table `restricted_code`, loaded from the official
 list of generalized construction codes (perechen.xlsx: header "МХИК коди" on
 row 4, data from row 5; announced in tasnif.soliq.uz news 5063). Load it once,
-and again whenever a further stage of the list is published:
+and again whenever a further stage of the list is published (copy the file into `./data` first,
+the container sees it as `data/...`):
 
 ```bash
-mx npm run load:restricted -- /path/perechen.xlsx                      # from 2026-07-01
-mx npm run load:restricted -- /path/next-stage.xlsx --from YYYY-MM-DD --source <news url>
+mx npm run load:restricted -- data/perechen.xlsx                       # from 2026-07-01
+mx npm run load:restricted -- data/next-stage.xlsx --from YYYY-MM-DD --source <news url>
 ```
 
 It upserts and prints how many codes were added, updated and found in the
@@ -362,10 +416,11 @@ findings.
 
 ### Refreshing the classifier
 
-The portal regenerates its export on every request. To pick up new codes:
+The portal regenerates its export on every request. The worker picks up new codes daily
+(section 7); by hand:
 
 ```bash
-mx npm run classifier:update                    # what the daily cron runs
+mx npm run classifier:update                    # what the 04:00 job runs
 mx npm run classifier:update -- --dry-run       # download and show the diff, write nothing; prints the
                                                 # snapshot age before and the counts after
 mx npm run classifier:update -- --recheck <id>  # re-check clients against snapshot <id> again
@@ -394,30 +449,77 @@ confirmed by the audit, so a stale copy is made visible:
   503, so point an uptime check at `classifier.stale` or `ageDays` if it should alert.
 - **Where the outcome is kept.** `catalog_snapshot` only records updates that succeeded, so
   each run also writes `data/classifier-update-status.json` (override with
-  `CLASSIFIER_UPDATE_STATUS`); `data/` is the volume `app` and `scheduler` share. Dry runs
-  and a start refused by the lock write nothing. If the file is missing, the last update is
-  taken to be the newest snapshot.
-- After a failure read `data/classifier-update.log` (HTTP and daily starts) or
-  `/var/log/mxik-classifier.log` (crontab), fix the cause and run the update by hand.
+  `CLASSIFIER_UPDATE_STATUS`); `data/` is the host folder mounted into api, worker, bot and web.
+  Dry runs and a start refused by the lock write nothing. If the file is missing, the last
+  update is taken to be the newest snapshot.
+- After a failure read `data/classifier-update.log` and `docker compose logs worker`, fix the
+  cause and run the update by hand.
 
 `npm run embed:catalog` is only needed to switch embedding models: it
 re-embeds every code (~2.7 h on 4 vCPU) and the vector stage stays off until it
 finishes. Run it off-hours.
 
-### Restoring a backup
+## 9. Backups
+
+The `backup` service writes `./backups/mxik-YYYY-MM-DD.dump` (`pg_dump -Fc`) at 03:45 UTC+5 and
+keeps 14. A backup on the same disk is not a backup: copy them off the server every day. Redis
+holds only queued jobs and is not backed up; `./data` can be rebuilt (section 5) but saves hours,
+so copy `data/classifier-update-status.json` along if you like.
+
+**With rclone** (any S3-compatible storage, Backblaze B2, Google Drive, another server over SFTP):
 
 ```bash
-docker compose --profile app stop app
-docker exec -i mxik-audit-db pg_restore -U mxik -d mxik --clean --if-exists < backups/mxik-YYYY-MM-DD.dump
-docker compose --profile app start app
+sudo apt-get -y install rclone
+rclone config                                   # create a remote, e.g. "offsite"
+crontab -e
+# 04:30 UTC+5 = 23:30 UTC; adjust to the server's clock (`timedatectl`).
+30 23 * * * rclone copy /opt/mxik-audit/backups offsite:tasnivo-backups --max-age 48h >> /var/log/mxik-offsite.log 2>&1
 ```
 
-## 9. Everything in Docker
+`rclone copy` never deletes on the remote; set a lifecycle rule there (e.g. keep 90 days).
 
-`docker compose --profile app up -d --build` runs the whole stack as containers:
-`db`, `app` (applies pending migrations, then serves on 127.0.0.1:3000),
-`scheduler` (purge at 03:15, classifier update daily at 04:00, the daily jobs
-of 7e at 06:15, all UTC+5; replaces the crontab in section 7 and the daily route call
-in 7e, which needs `CRON_SECRET`) and `backup` (nightly `pg_dump` at 03:45 into
-`./backups`, 14 kept). Add `--profile bot` for the Telegram long-polling bot.
-Copy `./backups` off the server as well.
+**Without extra tools**, pull from another machine you control (its own cron, so the VPS holds
+no credentials for the backup host):
+
+```bash
+rsync -av --ignore-existing deploy@tasnivo.uz:/opt/mxik-audit/backups/ ~/tasnivo-backups/
+# or: scp deploy@tasnivo.uz:/opt/mxik-audit/backups/mxik-$(date +%F).dump ~/tasnivo-backups/
+```
+
+### Restore drill (monthly)
+
+Restore the newest dump into a throwaway database next to the real one and look at it; nothing
+running is touched:
+
+```bash
+cd /opt/mxik-audit
+docker run -d --name mxik-restore-test -e POSTGRES_PASSWORD=drill -e POSTGRES_USER=mxik -e POSTGRES_DB=mxik \
+  --shm-size=1g pgvector/pgvector:pg16
+sleep 10
+docker exec -i mxik-restore-test pg_restore -U mxik -d mxik --no-owner < "$(ls -t backups/*.dump | head -1)"
+docker exec mxik-restore-test psql -U mxik mxik -c 'SELECT count(*) FROM catalog;' -c 'SELECT max("createdAt") FROM catalog;'
+docker rm -f mxik-restore-test
+```
+
+The counts should match production (`docker exec mxik-audit-db psql -U mxik mxik -c 'SELECT count(*) FROM catalog;'`)
+up to the last day's work. Do the same once with a dump fetched back from off-server storage.
+
+### Restoring for real
+
+```bash
+docker compose --profile app stop caddy web api worker
+docker compose --profile bot stop bot 2>/dev/null
+docker exec -i mxik-audit-db pg_restore -U mxik -d mxik --clean --if-exists < backups/mxik-YYYY-MM-DD.dump
+docker compose --profile app up -d
+```
+
+The api re-applies any migration newer than the dump when it starts. Audits that were running
+when the dump was taken resume from their last finished row.
+
+## 10. Local testing of the production routing
+
+`docker compose --profile local up -d caddy-local` serves `infra/routes.caddy` on
+http://localhost:8080 without TLS, proxying to the dev servers on the host (`npm run dev` on 3000,
+the api on 4000). Set `LOCAL_API_UPSTREAM=host.docker.internal:3000` while the API has no route
+yet, or `LOCAL_WEB_UPSTREAM=web:3000` and `LOCAL_API_UPSTREAM=api:4000` (with the `app` profile)
+to test the containers.

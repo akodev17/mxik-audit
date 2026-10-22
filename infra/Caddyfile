@@ -1,0 +1,15 @@
+# Production edge for the compose "app" profile (docker-compose.yml, service caddy).
+# Automatic HTTPS: Caddy obtains and renews the Let's Encrypt certificates for SITE_DOMAIN and
+# www.SITE_DOMAIN (both need DNS records pointing at this server, DEPLOY.md section 2) and
+# redirects HTTP to HTTPS. Certificates live in the caddy-data volume.
+# Routing, limits, timeouts and headers: routes.caddy. Local testing without TLS: Caddyfile.local.
+
+{$SITE_DOMAIN:localhost} {
+	# The web app sends the same value in production; "?" keeps it from being doubled.
+	header ?Strict-Transport-Security "max-age=31536000"
+	import routes.caddy
+}
+
+www.{$SITE_DOMAIN:localhost} {
+	redir https://{$SITE_DOMAIN:localhost}{uri} permanent
+}
