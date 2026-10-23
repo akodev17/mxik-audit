@@ -454,7 +454,6 @@ const coreRu: CoreAppDict = {
       verify: 'Ссылка подтверждения недействительна или просрочена. Зарегистрируйтесь заново.',
       closed: 'Аккаунт поставлен на удаление. Администратор может восстановить его до истечения срока удаления.',
     },
-    verifyNeeded: 'Подтвердите электронную почту: откройте ссылку из письма.',
     lastAdmin: 'Должен остаться хотя бы один администратор.',
     gate: {
       expired: 'Пробный период закончился. Чтобы продолжить, активируйте тариф на странице «Настройки».',
@@ -473,8 +472,6 @@ const coreRu: CoreAppDict = {
     mail: {
       inviteSubject: (org) => `${org}: приглашение`,
       inviteBody: (org, url, days) => `Вас приглашают в команду ${org}.\nПринять приглашение: ${url}\nСсылка действует ${days} дн.`,
-      verifySubject: 'Tasnivo: подтвердите электронную почту',
-      verifyBody: (url, hours) => `Чтобы активировать аккаунт, откройте ссылку:\n${url}\nСсылка действует ${hours} ч.`,
     },
     signals: {
       dictionaryLabel: 'Словарь',
@@ -589,6 +586,7 @@ const coreRu: CoreAppDict = {
       'security.password_reset': 'Пароль восстановлен',
       'security.telegram_bound': 'Вход через Telegram подключён',
       'security.telegram_unbound': 'Вход через Telegram отключён',
+      'security.google_bound': 'Вход через Google подключён',
       'finding.auto_accepted': 'Автоматически принято по словарю',
       'account.deletion_requested': 'Аккаунт поставлен на удаление',
       'account.restored': 'Аккаунт восстановлен',

@@ -4,13 +4,13 @@ import { parse } from 'cookie';
 import type { ApiCaller } from '@tasnivo/domain/api/keys';
 import type { RateResult } from '@tasnivo/domain/api/limits';
 import { clientIp as clientIpFrom } from '@tasnivo/domain/security/client-ip';
-import type { CurrentUser } from '@tasnivo/domain/session';
+import type { SignedInUser } from '@tasnivo/domain/session';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { LOCALE_COOKIE, parseLocale } from '@tasnivo/i18n/locale';
 
 export type ApiRequest = Request & {
   /** Set by SessionGuard (a user) and OptionalSessionGuard (a user or null). */
-  user?: CurrentUser | null;
+  user?: SignedInUser | null;
   /** Set by LocaleInterceptor; read through requestLocale(). */
   locale?: Locale;
   /** Set by ApiKeyGuard on /api/v1 routes. */

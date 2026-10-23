@@ -28,12 +28,17 @@ describe('round trips', () => {
     roundTrip(E.auth.signIn.body, { email: 'a@b.uz', password: 'x', next: '/catalogs' }, 'signIn body');
     roundTrip(E.auth.signIn.response, { redirect: '/dashboard' }, 'signIn redirect');
     roundTrip(E.auth.signIn.response, { error: 'Email yoki parol notoʻgʻri', unverified: true }, 'signIn state');
-    roundTrip(E.auth.me.response, { userId: 'u1', orgId: 'o1', email: 'a@b.uz', demo: false, clientId: null, role: 'accountant', clientIds: ['c1'] }, 'me');
+    roundTrip(E.auth.me.response, { userId: 'u1', orgId: 'o1', email: 'a@b.uz', demo: false, clientId: null, role: 'accountant', clientIds: ['c1'], verified: true }, 'me');
+    roundTrip(E.auth.verifyCode.body, { code: '123456' }, 'verifyCode body');
+    roundTrip(E.auth.verifyCode.response, { redirect: '/dashboard' }, 'verifyCode confirmed');
+    roundTrip(E.auth.resendCode.response, { info: 'Yangi kod yuborildi.' }, 'resendCode sent');
+    roundTrip(E.auth.config.response, { telegramBot: null, mailEnabled: true, google: true }, 'config');
     roundTrip(E.auth.twoFactorStart.response, { secret: 'S', uri: 'otpauth://totp/x', qr: { size: 29, path: 'M0 0h1v1H0z' } }, '2fa start');
     roundTrip(E.auth.twoFactorStart.response, null, '2fa start refused');
     roundTrip(E.auth.sessions.response, [{ id: 's1', userAgent: null, device: 'Chrome, Windows', current: true, createdAt: AT, lastSeenAt: AT }], 'sessions');
     refused(E.auth.twoFactorFinish.body, { code: '123' }, 'a code shorter than 6');
-    refused(E.auth.me.response, { userId: 'u1', orgId: 'o1', email: 'a@b.uz', demo: false, clientId: null, role: 'owner', clientIds: null }, 'unknown role');
+    refused(E.auth.me.response, { userId: 'u1', orgId: 'o1', email: 'a@b.uz', demo: false, clientId: null, role: 'owner', clientIds: null, verified: true }, 'unknown role');
+    refused(E.auth.me.response, { userId: 'u1', orgId: 'o1', email: 'a@b.uz', demo: false, clientId: null, role: 'admin', clientIds: null }, 'no verified flag');
   });
 
   it('account', () => {

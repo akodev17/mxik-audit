@@ -1,11 +1,13 @@
-// endpoints.auth, public half: me, sign-in and sign-out, two-factor sign-in, sign-up, password
-// reset and the confirmation link, against the development database through the real app.
+// endpoints.auth, public half: me, sign-in and sign-out, two-factor sign-in, sign-up and its code
+// step, password reset, the confirmation link and the start of Google sign-in, against the
+// development database through the real app.
 import '../setup-env';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import type { INestApplication } from '@nestjs/common';
 import { sealData } from 'iron-session';
 import { db } from '@tasnivo/db';
+import { issueCode } from '@tasnivo/domain/security/email-code';
 import { issueToken } from '@tasnivo/domain/security/email-token';
 import { issueResetToken } from '@tasnivo/domain/security/password-reset';
 import { createRecord } from '@tasnivo/domain/security/session-store';
@@ -68,7 +70,7 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
 
     const who = await me(pair);
     assert.equal(who.status, 200);
-    assert.deepEqual(bodyOf<CurrentUser>(who), { userId: u.userId, orgId: u.orgId, email: u.email, demo: false, clientId: null, role: 'admin', clientIds: null });
+    assert.deepEqual(bodyOf<CurrentUser>(who), { userId: u.userId, orgId: u.orgId, email: u.email, demo: false, clientId: null, role: 'admin', clientIds: null, verified: true });
   });
 
   it('an unsafe next falls back to /dashboard; a saved interface language comes back as the locale cookie', async () => {
@@ -85,7 +87,7 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     assert.equal(uz.status, 200);
     assert.deepEqual(bodyOf<State>(uz), { error: t.signInError });
     assert.equal(setCookies(uz).length, 0);
-    const ru = await call(`mxik_locale=ru`).post('/api/auth/sign-in').send({ email: 'nobody-at-all@test.local', password: 'x' });
+    const ru = await call(`mxik_locale=ru`).post('/api/auth/sign-in').send({ email: `nobody-${testIp()}@test.local`, password: 'x' });
     assert.deepEqual(bodyOf<State>(ru), { error: i18nFor('ru').t.signInError });
     // A malformed address answers exactly like a wrong password.
     assert.deepEqual(bodyOf(await signIn({ email: 'not-an-email', password: 'x' })), bodyOf(uz));
@@ -152,18 +154,36 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     assert.equal((await me(`${SESSION_COOKIE}=${seal}`)).status, 401);
   });
 
-  it('sign-up opens a trial org and signs its admin in; a taken or malformed address is refused', async () => {
+  it('sign-up opens a trial org and signs its admin in to the code step only; the code opens the rest; a taken or malformed address is refused', async () => {
     const email = `signup-${testIp()}@example.com`.toLowerCase();
     const res = await call().post('/api/auth/sign-up').send({ email, password: 'long-enough-1', firm: '  Hisob   Pro ' });
     await fx.adopt(email);
-    assert.deepEqual(bodyOf<State>(res), { redirect: '/dashboard' });
-    const row = await db.user.findUniqueOrThrow({ where: { email }, select: { role: true, org: { select: { name: true, trialEndsAt: true } } } });
+    assert.deepEqual(bodyOf<State>(res), { redirect: '/sign-up/verify' });
+    const row = await db.user.findUniqueOrThrow({ where: { email }, select: { id: true, role: true, emailVerifiedAt: true, org: { select: { name: true, trialEndsAt: true } } } });
     assert.equal(row.role, 'admin');
+    assert.equal(row.emailVerifiedAt, null);
     assert.equal(row.org.name, 'Hisob Pro');
-    assert.ok(row.org.trialEndsAt && row.org.trialEndsAt > new Date());
-    assert.equal((await me(sessionPair(res))).status, 200);
+    assert.ok(row.org.trialEndsAt && row.org.trialEndsAt.getTime() - Date.now() > 13.9 * 86_400_000);
+    const pair = sessionPair(res);
+    const who = await me(pair);
+    assert.equal(who.status, 200);
+    assert.equal(bodyOf<{ verified: boolean }>(who).verified, false);
 
-    assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email, password: 'long-enough-1', firm: 'x' })), { error: ta.msg.account.emailTaken });
+    // Unconfirmed: every other session endpoint answers 403 unverified.
+    for (const path of ['/api/auth/sessions', '/api/catalogs', '/api/shell']) {
+      const refused = await call(pair).get(path);
+      assert.equal(refused.status, 403, path);
+      assert.equal(bodyOf(refused).error.code, 'unverified');
+    }
+    const code = await issueCode(row.id);
+    const wrong = code === '000000' ? '111111' : '000000';
+    assert.deepEqual(bodyOf<State>(await call(pair).post('/api/auth/verify-code').send({ code: wrong })), { error: ta.verifyX.wrong });
+    assert.deepEqual(bodyOf<State>(await call(pair).post('/api/auth/verify-code').send({ code })), { redirect: '/dashboard' });
+    assert.equal((await call(pair).get('/api/auth/sessions')).status, 200);
+    assert.equal(bodyOf<{ verified: boolean }>(await me(pair)).verified, true);
+
+    // The address is taken: the owner gets a mail, the visitor the "check your e-mail" answer.
+    assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email, password: 'long-enough-1', firm: 'x' })), { checkEmail: true });
     assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email: 'bad', password: 'long-enough-1', firm: 'x' })), { error: ta.msg.account.emailBad });
     assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email: 'x@example.com', password: 'short', firm: 'x' })), { error: ta.msg.account.passwordShort });
   });
@@ -185,14 +205,15 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     assert.equal(bodyOf(unguarded).error.code, 'csrf');
   });
 
-  it('forgot password: refused without mail; with mail it queues a reset link, same answer for an unknown address', async () => {
-    assert.deepEqual(bodyOf<State>(await call().post('/api/auth/password/forgot').send({ email: 'a@b.uz' })), { error: ta.secX.forgot.noMail });
+  it('forgot password: refused without mail (production without SMTP); with mail it queues a reset link, same answer for an unknown address', async () => {
+    const noMail = await withEnv({ NODE_ENV: 'production' }, async () => bodyOf<State>(await call().post('/api/auth/password/forgot').send({ email: 'a@b.uz' })));
+    assert.deepEqual(noMail, { error: ta.secX.forgot.noMail });
     const u = await fx.user();
     const caught = catchMail();
     try {
       await withEnv(MAIL_ON, async () => {
         assert.deepEqual(bodyOf<State>(await call().post('/api/auth/password/forgot').send({ email: u.email })), { sent: true });
-        assert.deepEqual(bodyOf<State>(await call().post('/api/auth/password/forgot').send({ email: 'nobody-here@test.local' })), { sent: true });
+        assert.deepEqual(bodyOf<State>(await call().post('/api/auth/password/forgot').send({ email: `nobody-${testIp()}@test.local` })), { sent: true });
         assert.deepEqual(bodyOf<State>(await call().post('/api/auth/password/forgot').send({ email: 'nope' })), { error: ta.msg.account.emailBad });
       });
     } finally {
@@ -217,7 +238,7 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
   });
 
   it('resend confirmation answers the same whatever happens', async () => {
-    const res = await call().post('/api/auth/confirmation/resend').send({ email: 'nobody@test.local', password: 'x' });
+    const res = await call().post('/api/auth/confirmation/resend').send({ email: `nobody-${testIp()}@test.local`, password: 'x' });
     assert.deepEqual(bodyOf<State>(res), { info: ta.secX.resendSent });
     assert.deepEqual(bodyOf<State>(await call().post('/api/auth/confirmation/resend').send({ email: 'bad', password: '' })), { info: ta.secX.resendSent });
   });
@@ -237,14 +258,45 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     assert.equal((await me(cookiePair(setCookies(res), SESSION_COOKIE))).status, 200);
   });
 
-  it('with mail on, an unconfirmed address is refused with the unverified flag', async () => {
+  it('an unconfirmed address signs in to the code step, whatever next says; resend mails a new code there', async () => {
     const u = await fx.user();
     await db.user.update({ where: { id: u.userId }, data: { emailVerifiedAt: null } });
-    const res = await withEnv(MAIL_ON, () => signIn({ email: u.email, password: u.password }));
-    assert.deepEqual(bodyOf<State>(res), { error: ta.msg.verifyNeeded, unverified: true });
+    const res = await withEnv(MAIL_ON, () => signIn({ email: u.email, password: u.password, next: '/catalogs' }));
+    assert.deepEqual(bodyOf<State>(res), { redirect: '/sign-up/verify' });
+    const pair = sessionPair(res);
+    assert.equal((await call(pair).get('/api/catalogs')).status, 403);
+    const before = await db.emailCode.count({ where: { userId: u.userId } });
+    assert.deepEqual(bodyOf<State>(await call(pair).post('/api/auth/verify-code/resend')), { info: ta.verifyX.resent });
+    assert.equal(await db.emailCode.count({ where: { userId: u.userId } }), before + 1);
+    // Without a session the code step is 401, like any session endpoint.
+    assert.equal((await call().post('/api/auth/verify-code').send({ code: '123456' })).status, 401);
   });
 
   it('GET /api/auth/config says what the sign-in pages offer', async () => {
-    assert.deepEqual(bodyOf(await call().get('/api/auth/config')), { telegramBot: null, mailEnabled: false });
+    const config = await withEnv({ GOOGLE_CLIENT_ID: undefined }, async () => bodyOf(await call().get('/api/auth/config')));
+    assert.deepEqual(config, { telegramBot: null, mailEnabled: false, google: false });
+  });
+
+  it('Google sign-in starts only when configured: PKCE, state and nonce, kept in the session cookie', async () => {
+    const off = await withEnv({ GOOGLE_CLIENT_ID: undefined }, () => call().get('/api/auth/google'));
+    assert.equal(off.status, 307);
+    assert.equal(off.headers['location'], '/sign-in');
+    await withEnv({ GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-secret', APP_URL: 'https://tasnivo.test', GOOGLE_REDIRECT_URI: undefined }, async () => {
+      assert.equal(bodyOf<{ google: boolean }>(await call().get('/api/auth/config')).google, true);
+      const res = await call().get('/api/auth/google?next=/catalogs');
+      assert.equal(res.status, 302);
+      const url = new URL(res.headers['location'] ?? '');
+      assert.equal(url.host, 'accounts.google.com');
+      assert.equal(url.searchParams.get('redirect_uri'), 'https://tasnivo.test/api/auth/google/callback');
+      assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
+      const pair = sessionPair(res);
+      const data = await unsealPair(pair!);
+      assert.equal(data.google?.state, url.searchParams.get('state'));
+      assert.equal(data.google?.next, '/catalogs');
+      // A callback whose state is not this browser's goes back to sign-in.
+      const forged = await call(pair).get('/api/auth/google/callback?code=x&state=forged');
+      assert.equal(forged.status, 307);
+      assert.equal(forged.headers['location'], '/sign-in?error=google_state');
+    });
   });
 });

@@ -54,6 +54,7 @@
     "build:worker": "node apps/worker/build.mjs",
     "start:worker": "node --enable-source-maps apps/worker/dist/main.js",
     "worker:smoke": "tsx scripts/worker-smoke.ts",
+    "mail:test": "tsx scripts/mail-test.ts",
     "seed": "tsx packages/db/prisma/seed.ts",
     "seed:audit": "tsx scripts/audit-catalog.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",

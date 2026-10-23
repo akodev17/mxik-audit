@@ -168,7 +168,7 @@ describe('api-client: answers and errors', () => {
 
 describe('api-client: server side (Next SSR)', () => {
   it('forwards the incoming cookie and language, nothing else, and does not use browser credentials', async () => {
-    const m = mockFetch(() => Response.json({ userId: 'u1', orgId: 'o1', email: 'a@b.uz', demo: false, clientId: null, role: 'admin', clientIds: null }));
+    const m = mockFetch(() => Response.json({ userId: 'u1', orgId: 'o1', email: 'a@b.uz', demo: false, clientId: null, role: 'admin', clientIds: null, verified: true }));
     const incoming = new Headers({ cookie: 'mxik_audit_session=sealed', 'accept-language': 'ru', 'x-secret': 'no', host: 'tasnivo.uz' });
     const api = createServerApiClient({ baseUrl: 'http://api:4000', incoming: () => incoming, fetch: m.fetch, validate: true });
     const me = await api.auth.me();
