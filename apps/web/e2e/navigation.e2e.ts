@@ -46,6 +46,17 @@ describe('query-only navigation', () => {
     await fx?.cleanup();
   });
 
+  // B14: the page streams behind loading.tsx, so the status stays 200 (see review-flow 13b), but the tab
+  // must not keep the admin title for someone who sees the not-found page.
+  test('B14 /admin and /admin/metrics for a firm admin: the not-found page, and the tab says so', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    for (const path of ['/admin', '/admin/metrics']) {
+      await page.goto(path);
+      await main(page).getByRole('heading', { name: TA.shellX.notFound.title }).waitFor();
+      assert.equal(await page.title(), `${TA.shellX.notFound.title} — ${T.appName}`, path);
+    }
+  });
+
   test('19 client filter tabs and the sidebar link switch the list', { timeout: 90_000 }, async () => {
     const { page } = session;
     await open(page, '/clients');
