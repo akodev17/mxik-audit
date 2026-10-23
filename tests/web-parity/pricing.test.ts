@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { apiConfig } from '@tasnivo/domain/api/limits';
 import { planLimits, TRIAL_DAYS } from '@tasnivo/domain/billing/limits';
-import { catalogPlan, planById, PLANS, subscriptionPlan, TIERS, YEARLY_PAID_MONTHS } from '@tasnivo/domain/billing/plans';
+import { catalogPlan, FEATURES, PLAN_FEATURES, planById, PLANS, subscriptionPlan, TIERS, YEARLY_PAID_MONTHS } from '@tasnivo/domain/billing/plans';
 import { PRICING } from '@/components/landing/config';
 
 describe('landing pricing = domain plans', () => {
@@ -27,6 +27,14 @@ describe('landing pricing = domain plans', () => {
     for (const t of PRICING.tiers) {
       assert.deepEqual({ ...t.limits }, limits[t.tier], `${t.tier} limits`);
       assert.equal(t.apiChecks, checks[t.tier], `${t.tier} API checks`);
+    }
+  });
+
+  it('marks each card\'s feature lines as the app enforces them, in the domain\'s order', () => {
+    assert.deepEqual(PRICING.features.map(([key]) => key), [...FEATURES]);
+    const columns = ['trial', ...TIERS] as const;
+    for (const [key, marks] of PRICING.features) {
+      assert.deepEqual([...marks], columns.map((plan) => PLAN_FEATURES[plan][key]), key);
     }
   });
 

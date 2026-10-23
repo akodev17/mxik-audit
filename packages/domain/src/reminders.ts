@@ -6,6 +6,7 @@ import { db } from '@tasnivo/db';
 import type { Result } from './decisions.js';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import { orgLocale } from './org-locale.js';
+import { orgHasFeature } from './plan.js';
 import { localDate, nextReminderDate, skipsThisMonth } from './reminder-dates.js';
 import { mayWrite, type RoleCarrier } from './write-access.js';
 
@@ -135,6 +136,8 @@ export async function runReminders(now = new Date()): Promise<{ created: number;
   for (const s of schedules) {
     // Closed accounts get no reminders while they wait for deletion.
     if (s.org.kind !== 'customer' || s.org.deletedAt) continue;
+    // A plan without monthly reminders (the free one, after a downgrade) keeps its schedule but gets none.
+    if (!(await orgHasFeature(s.orgId, 'reminders'))) continue;
     const dueOn = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), s.dayOfMonth));
     const claimed = await db.clientSchedule.updateMany({ where: { clientId: s.clientId, OR: [{ lastPeriod: null }, { lastPeriod: { not: period } }] }, data: { lastPeriod: period } });
     if (claimed.count !== 1) continue;

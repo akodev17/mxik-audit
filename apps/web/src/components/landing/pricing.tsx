@@ -1,6 +1,8 @@
+import Link from 'next/link';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { uz as pricingUz } from '@tasnivo/i18n/i18n-parts/pricing';
-import { ONLINE_PAYMENT, PRICING, TELEGRAM_BOT } from './config';
+import { helpPath } from '@/lib/help';
+import { ONLINE_PAYMENT, PRICING } from './config';
 import { CONTAINER } from './container';
 import { PricingPlans, type PlanCard } from './pricing-plans';
 
@@ -21,12 +23,9 @@ function limitRows(limits: Limits, apiChecks: number | null): PlanCard['limits']
   ];
 }
 
-function features(paid: boolean): PlanCard['features'] {
-  return [
-    { label: c.features.risks, on: true },
-    { label: c.features.suggestions, on: true },
-    { label: c.features.export, on: paid },
-  ];
+/** Column of a plan in PRICING.features: Koʻrik, then the tiers in order. */
+function features(column: number): PlanCard['features'] {
+  return PRICING.features.map(([key, marks]) => ({ label: c.features[key], on: marks[column] ?? false }));
 }
 
 function cards(): PlanCard[] {
@@ -37,56 +36,24 @@ function cards(): PlanCard[] {
       key: 'trial', name: c.names.trial, who: c.who.trial, highlight: true,
       monthly: freePrice, yearly: freePrice,
       cta: { label: c.ctaFree, href: '/sign-up' },
-      features: features(false), limits: limitRows(trial.limits, trial.apiChecks),
+      features: features(0), limits: limitRows(trial.limits, trial.apiChecks),
     },
-    ...PRICING.tiers.map((t): PlanCard => {
+    ...PRICING.tiers.map((t, i): PlanCard => {
       const yearly = t.monthly * PRICING.yearlyPaidMonths;
       return {
         key: t.tier, name: c.names[t.tier], who: c.who[t.tier], highlight: false,
         monthly: { price: n(t.monthly), unit: `${c.currency} ${c.perMonth}`, note: c.monthlyEquivalent(n(Math.round(yearly / 12))) },
         yearly: { price: n(yearly), unit: `${c.currency} ${c.perYear}`, note: c.yearlyEquivalent(n(Math.round(yearly / 12))) },
         cta: { label: c.ctaPaid, href: '/sign-up' },
-        features: features(true), limits: limitRows(t.limits, t.apiChecks),
+        features: features(i + 1), limits: limitRows(t.limits, t.apiChecks),
       };
     }),
   ];
 }
 
-/** What every plan has, the free one included: none of it is limited by plan (only the numbers are). */
-function Everywhere() {
-  const e = c.everywhere;
-  const groups = Object.entries(e.groups).map(([key, g]) => ({
-    key,
-    title: g.title,
-    items: Object.entries(g.items).filter(([id]) => id !== 'telegram' || TELEGRAM_BOT).map(([id, item]) => ({ id, ...item })),
-  }));
-  return (
-    <div className="mt-6 rounded-lp-lg border border-lp-line bg-lp-base p-6 sm:p-8">
-      <h3 className="text-[18px] font-semibold">{e.title}</h3>
-      <p className="mt-2 max-w-[48rem] text-[15px] text-lp-muted">{e.lead}</p>
-      <div className="mt-6 grid gap-8 md:grid-cols-3">
-        {groups.map((g) => (
-          <div key={g.key}>
-            <h4 className="text-[13px] font-medium uppercase tracking-wide text-lp-muted">{g.title}</h4>
-            <ul className="mt-3 space-y-3">
-              {g.items.map((item) => (
-                <li key={item.id} className="flex items-start gap-2.5">
-                  <svg aria-hidden="true" viewBox="0 0 20 20" className="mt-0.5 size-5 shrink-0 text-lp-ok" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="7.5" /><path d="m6.8 10.3 2.2 2.2 4.2-4.6" /></svg>
-                  <p className="text-[15px]">
-                    <span className="font-medium">{item.name}.</span> <span className="text-lp-muted">{item.text}</span>
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// The free check first, then the three subscriptions (monthly or yearly), what all of them have,
-// then the one-off corrected catalogue for a company that does not want a subscription.
+// The free check first, then the three subscriptions (monthly or yearly), then the one-off
+// corrected catalogue for a company that does not want a subscription. Explanations of each
+// feature live in the help article, linked once under the cards.
 export function Pricing() {
   return (
     <section id="narxlar" aria-labelledby="pricing-title" className="bg-lp-surface py-20 sm:py-28">
@@ -102,7 +69,9 @@ export function Pricing() {
           copy={{ period: c.period, forWhom: c.forWhom, badge: c.startBadge, included: c.included, excluded: c.excluded, limitsTitle: c.limitsTitle }}
         />
 
-        <Everywhere />
+        <p className="mt-4 text-center text-[15px]">
+          <Link href={helpPath('uz', 'tariflar-va-limitlar')} className="font-medium text-lp-brand-ink underline decoration-2 underline-offset-4">{c.details}</Link>
+        </p>
 
         <div className="mt-6 flex flex-col gap-5 rounded-lp-lg border border-lp-line bg-lp-base p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-[26rem]">
