@@ -119,6 +119,15 @@ describe('parseUpload: text files', () => {
   it('refuses binary content', async () => {
     await rejects(Buffer.from([0x25, 0x50, 0x44, 0x46, 0x00, 0x01, 0x02]), 'binary');
   });
+
+  it('B11: a text file renamed to .xlsx is "not an Excel workbook", not "no data rows"', async () => {
+    const fake = Buffer.from('this is not a spreadsheet\n');
+    await assert.rejects(parseUpload(fake, 'fake.xlsx'), (error: unknown) => error instanceof ParseError && error.code === 'not_xlsx');
+    assert.equal((await parseUpload(fake, 'fake.csv')).rows.length, 0, 'the same text as .csv is just empty');
+    assert.equal((await parseUpload(Buffer.from('a;b\n'), 'a.xlsx')).rows.length, 0, 'a header-only CSV renamed to .xlsx is "no rows"');
+    const csv = Buffer.from('Nomi;MXIK\nGuruch;06301001001000000\n');
+    assert.equal((await parseUpload(csv, 'renamed.xlsx')).rows.length, 1, 'a real CSV renamed to .xlsx is still read by its content');
+  });
 });
 
 describe('parseUpload: spreadsheets', () => {

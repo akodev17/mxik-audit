@@ -27,13 +27,13 @@ export class NotificationsController {
   }
 
   @Route(e.list)
-  list(@CurrentUser() user: User, @Query(pipe(e.list.query)) q: In<typeof e.list.query>) {
-    return noticesPage(user, { page: q.page, unreadOnly: q.unread === true, group: q.group });
+  list(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Query(pipe(e.list.query)) q: In<typeof e.list.query>) {
+    return noticesPage(user, { page: q.page, unreadOnly: q.unread === true, group: q.group, locale });
   }
 
   @Route(e.preview)
-  preview(@CurrentUser() user: User) {
-    return bellPreview(user);
+  preview(@CurrentUser() user: User, @Locale() locale: LocaleCode) {
+    return bellPreview(user, locale);
   }
 
   @Route(e.markRead)

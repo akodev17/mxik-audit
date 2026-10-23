@@ -561,6 +561,7 @@ const coreUz = {
       'purchases.mapped': 'Xaridlar roʻyxati ustunlari tasdiqlandi',
       'purchases.deleted': 'Xaridlar roʻyxati oʻchirildi',
       'catalog.upload_discarded': 'Tasdiqlanmagan yuklash bekor qilindi',
+      'catalog.previewed': 'Fayl oʻqildi (tasdiqlanmagan)',
       'cheques.deleted': 'Cheklardagi xato kodlar roʻyxati oʻchirildi',
       'sales.deleted': 'Sotuv fayli oʻchirildi',
       'telegram.linked': 'Telegram ulandi',

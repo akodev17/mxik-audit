@@ -75,7 +75,8 @@ describe(`a catalogue of ${ROWS} rows`, () => {
     const next = main(page).getByRole('button', { name: TA.importX.map.next, exact: true });
     await poll('mapping ready', () => next.isEnabled(), Boolean, 60_000, 250);
     await next.click();
-    await main(page).getByRole('heading', { name: TA.importX.confirm.title }).waitFor();
+    // B7: exact, or it also matches the h3 "Keyin nima boʻladi" (importX.done.whatNext).
+    await main(page).getByRole('heading', { name: TA.importX.confirm.title, exact: true }).waitFor();
     assert.ok(plainNumbers((await main(page).textContent()) ?? '').includes(plainNumbers(TA.importX.confirm.rows(ROWS))), `confirm step: ${ROWS} rows`);
     await main(page).getByRole('button', { name: TA.importX.confirm.start, exact: true }).click();
 

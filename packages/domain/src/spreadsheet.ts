@@ -37,7 +37,7 @@ export type ParseMeta = {
 export type ParseResult = SheetData & { truncated: boolean; totalSeen: number; meta: ParseMeta };
 
 /** Stable reasons a file cannot be read; the action turns them into the user's language. */
-export type ParseErrorCode = 'legacy_xls' | 'zip_limits' | 'unreadable' | 'no_sheet' | 'binary';
+export type ParseErrorCode = 'legacy_xls' | 'zip_limits' | 'unreadable' | 'no_sheet' | 'binary' | 'not_xlsx';
 
 export class ParseError extends Error {
   constructor(readonly code: ParseErrorCode) {
@@ -134,7 +134,7 @@ function readText(buffer: Buffer): { grid: string[][]; encoding: TextEncodingNam
  * skipped, every data cell is kept, and rows past MAX_ROWS are counted, not read.
  * Throws ParseError with a stable code.
  */
-export async function parseUpload(buffer: Buffer, _filename?: string): Promise<ParseResult> {
+export async function parseUpload(buffer: Buffer, filename?: string): Promise<ParseResult> {
   const kind = sniffKind(buffer);
   if (kind === 'xls') throw new ParseError('legacy_xls');
 
@@ -149,6 +149,9 @@ export async function parseUpload(buffer: Buffer, _filename?: string): Promise<P
   }
 
   const shaped = shapeGrid(grid, extra);
+  // Named .xlsx but not a zip, and no table in it as text either (no rows, not even two columns): a damaged
+  // or renamed file, not an empty one (B11). A header-only CSV renamed to .xlsx is still "no rows".
+  if (kind === 'text' && shaped.rows.length === 0 && shaped.headers.length < 2 && /\.xlsx$/i.test(filename ?? '')) throw new ParseError('not_xlsx');
   const meta: ParseMeta = {
     format: kind === 'xlsx' ? 'xlsx' : 'csv', encoding, delimiter,
     headerRow: shaped.headerRow, skippedAbove: shaped.skippedAbove, emptyRowsSkipped: shaped.emptyRowsSkipped,

@@ -19,6 +19,8 @@ export const uz = {
       endOthersTitle: 'Boshqa barcha seanslar tugatilsinmi?',
       endOthersText: 'Bu qurilmadan boshqa barcha brauzer va qurilmalarda hisobdan chiqiladi. U yerda qayta kirish uchun parol kerak boʻladi.',
       endFailed: 'Seanslar tugatilmadi. Sahifani yangilab, qayta urinib koʻring.',
+      showAll: (n: number) => `Hammasini koʻrsatish (${n})`,
+      showFewer: 'Kamroq koʻrsatish',
     },
     notices: {
       '2fa_locked': 'Kod bir necha marta notoʻgʻri kiritildi. Xavfsizlik uchun qaytadan parol bilan kiring.',
@@ -102,6 +104,8 @@ export const ru: typeof uz = {
       endOthersTitle: 'Завершить все остальные сеансы?',
       endOthersText: 'Вы выйдете из аккаунта во всех браузерах и на всех устройствах, кроме этого. Чтобы войти там снова, понадобится пароль.',
       endFailed: 'Сеансы не завершены. Обновите страницу и попробуйте ещё раз.',
+      showAll: (n: number) => `Показать все (${n})`,
+      showFewer: 'Свернуть',
     },
     notices: {
       '2fa_locked': 'Код несколько раз введён неверно. Для безопасности войдите заново с паролем.',

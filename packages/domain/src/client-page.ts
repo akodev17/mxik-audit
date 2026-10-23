@@ -83,7 +83,7 @@ export async function clientPage(user: CurrentUser, clientId: string): Promise<C
     clientStats({ orgId: user.orgId, clientIds: [client.id], filter: archived ? 'archived' : 'all', limit: 1 }),
     catalogList(user, client.id),
     writer && !archived ? catalogList(user, client.id, 0, 'drafts') : Promise.resolve({ items: [] }),
-    activityPage(user, { clientId: client.id, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: HISTORY_SIZE }),
+    activityPage(user, { clientId: client.id, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: HISTORY_SIZE, committedOnly: true }),
     getSchedule(user.orgId, client.id),
     db.user.findMany({
       where: { orgId: user.orgId, role: { not: 'viewer' } }, orderBy: { email: 'asc' },

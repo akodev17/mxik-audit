@@ -144,8 +144,8 @@ async function NotLinked({ catalogId }: { catalogId: string }) {
     <EmptyState
       title={d.notLinked} hint={d.notLinkedHint}
       action={(
-        <form method="get" action={`/catalogs/${catalogId}/diff`} className="flex w-full flex-col items-stretch gap-2 text-left sm:flex-row sm:items-end">
-          <Select name="with" label={d.compareWith} wrapperClassName="min-w-0 flex-1" defaultValue={candidates[0]?.id}>
+        <form method="get" action={`/catalogs/${catalogId}/diff`} className="flex w-full max-w-2xl flex-col items-stretch gap-2 text-left sm:flex-row sm:items-end">
+          <Select name="with" label={d.compareWith} wrapperClassName="min-w-0 flex-1 sm:min-w-72" defaultValue={candidates[0]?.id}>
             {candidates.map((c) => <option key={c.id} value={c.id}>{`${c.filename} · ${fmtDate(locale, c.createdAt)}`}</option>)}
           </Select>
           <Button type="submit" variant="primary">{d.compare}</Button>

@@ -70,7 +70,8 @@ export async function listCatalogsOperation(caller: ApiCaller, query: { limit: s
   const limit = pageLimit(query.limit, PAGE.catalogs);
   const { cursor, clientId } = query;
   if (clientId && !(await ownedClient(caller.orgId, clientId))) return plain(failure(op, 'not_found', 'Unknown clientId.'));
-  const where = { orgId: caller.orgId, ...(clientId ? { clientId } : {}) };
+  // Unconfirmed uploads (drafts) are not catalogues yet: the web list keeps them apart and they expire (B12).
+  const where = { orgId: caller.orgId, status: { not: 'uploaded' as const }, ...(clientId ? { clientId } : {}) };
   if (cursor && !(await db.catalog.findFirst({ where: { ...where, id: cursor }, select: { id: true } }))) {
     return plain(failure(op, 'invalid_request', BAD_CURSOR));
   }

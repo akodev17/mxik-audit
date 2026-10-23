@@ -30,7 +30,11 @@ describe('diffCsv', () => {
   });
 
   it('writes the previous values and names an approximate pairing', () => {
-    assert.equal(lines[3], 'Oʻzgargan,2,Shakar,kg,019,Shakar,kg,018,kod,taxminiy');
+    assert.equal(lines[3], 'Oʻzgargan,2,Shakar,kg,"=""019""",Shakar,kg,"=""018""",kod,taxminiy');
+  });
+
+  it('B5: writes codes as Excel text, so the leading zeros and all 17 digits survive', () => {
+    assert.equal(lines[2], 'Oʻchirilgan,5,Choy,dona,"=""02202001001000000""",,,,,');
   });
 
   it('neutralises spreadsheet formulas', () => {

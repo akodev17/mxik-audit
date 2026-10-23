@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { agoLabel } from './session-rows.js';
+import { agoLabel, SESSIONS_SHOWN, shownSessions } from './session-rows.js';
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -12,5 +12,35 @@ describe('sessions list', () => {
     assert.equal(agoLabel('ru', at('2026-10-19T09:00:00Z'), now), '3 часа назад');
     assert.equal(agoLabel('ru', at('2026-10-07T12:00:00Z'), now), '12 дней назад');
     assert.equal(agoLabel('uz', at('2026-08-01T12:00:00Z'), now), null);
+  });
+
+  it('B3: Uzbek never goes through Intl (browsers lack Uzbek data) and never shows a minus', () => {
+    const now = at('2026-10-19T12:00:00Z');
+    assert.equal(agoLabel('uz', at('2026-10-19T11:59:00Z'), now), '1 daqiqa oldin');
+    assert.equal(agoLabel('uz', at('2026-10-18T17:00:00Z'), now), '19 soat oldin');
+    assert.equal(agoLabel('uz', at('2026-10-18T11:00:00Z'), now), 'kecha');
+    assert.equal(agoLabel('uz', at('2026-10-12T12:00:00Z'), now), '7 kun oldin');
+    assert.equal(agoLabel('uz', at('2026-10-19T12:05:00Z'), now), 'hozir', 'a clock a little ahead is "now"');
+    const original = Intl.RelativeTimeFormat;
+    // A browser without Uzbek data: the root locale's "-1 min" must not reach the page.
+    Reflect.set(Intl, 'RelativeTimeFormat', function () { throw new Error('Intl used for uz'); });
+    try {
+      for (const m of [0, 1, 59, 60, 23 * 60, 24 * 60, 29 * 24 * 60]) {
+        const label = agoLabel('uz', new Date(now.getTime() - m * 60_000), now) ?? '';
+        assert.ok(!label.startsWith('-'), label);
+      }
+    } finally {
+      Reflect.set(Intl, 'RelativeTimeFormat', original);
+    }
+  });
+
+  it('B21: shows this device and the 9 latest others until asked for all', () => {
+    const rows = Array.from({ length: 55 }, (_, i) => ({ id: i, current: i === 30 }));
+    const shown = shownSessions(rows, false);
+    assert.equal(shown.length, SESSIONS_SHOWN);
+    assert.ok(shown.some((r) => r.current), 'this device is always listed');
+    assert.deepEqual(shown.filter((r) => !r.current).map((r) => r.id), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal(shownSessions(rows, true).length, 55);
+    assert.equal(shownSessions(rows.slice(0, 4), false).length, 4);
   });
 });

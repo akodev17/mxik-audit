@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { canSeeClient } from './access.js';
 import { db } from '@tasnivo/db';
 import { orgLocale } from './org-locale.js';
-import { reviewAssignedText, reviewCompletedText } from './notification-text.js';
+import { inEveryLocale, reviewAssignedText, reviewCompletedText } from './notification-text.js';
 import { notify } from './notifications.js';
 import { localDate } from './reminder-dates.js';
 import { mayWrite, type RoleCarrier } from './write-access.js';
@@ -140,9 +140,9 @@ export async function assignReview(who: Who, input: AssignInput, now = new Date(
   if (saved.changed && assignee.id !== who.userId) {
     const locale = await orgLocale(who.orgId);
     const by = await db.user.findUnique({ where: { id: who.userId }, select: { email: true } });
-    const text = reviewAssignedText({ clientName: catalog.client?.name ?? '', filename: catalog.filename, dueOn, note, by: by?.email }, locale);
+    const text = inEveryLocale((l) => reviewAssignedText({ clientName: catalog.client?.name ?? '', filename: catalog.filename, dueOn, note, by: by?.email }, l));
     await notify({
-      orgId: who.orgId, clientId, userId: assignee.id, kind: 'review.assigned', ...text,
+      orgId: who.orgId, clientId, userId: assignee.id, kind: 'review.assigned', ...text[locale], text,
       href: `/catalogs/${catalog.id}`, dedupeKey: `review.assigned:${saved.id}:${saved.revision}`,
     });
   }
@@ -179,9 +179,9 @@ export async function completeReview(who: Who, catalogId: string, doneNote: stri
   if (task.createdBy && task.createdBy !== who.userId) {
     const locale = await orgLocale(who.orgId);
     const by = await db.user.findUnique({ where: { id: who.userId }, select: { email: true } });
-    const text = reviewCompletedText({ clientName: task.client.name, filename: task.catalog.filename, note, by: by?.email }, locale);
+    const text = inEveryLocale((l) => reviewCompletedText({ clientName: task.client.name, filename: task.catalog.filename, note, by: by?.email }, l));
     await notify({
-      orgId: who.orgId, clientId: task.clientId, userId: task.createdBy, kind: 'review.completed', ...text,
+      orgId: who.orgId, clientId: task.clientId, userId: task.createdBy, kind: 'review.completed', ...text[locale], text,
       href: `/catalogs/${catalogId}`, dedupeKey: `review.completed:${task.id}:${task.revision}`,
     });
   }

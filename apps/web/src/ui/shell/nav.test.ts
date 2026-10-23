@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { emailInitials, nameInitials } from './initials';
 import { allClientsTarget, fittingTabs, helpHref, isActive, navGroups, switcherScope, switchTarget } from './nav';
 import { paletteCommands } from './palette-model';
-import { parseSidebar, sidebarLabelled, toggledSidebar } from './prefs';
+import { parseSidebar, sidebarCookie, sidebarLabelled, toggledSidebar } from './prefs';
 
 describe('shell navigation', () => {
   it('groups the links and shows upload only to writers', () => {
@@ -53,6 +53,11 @@ describe('shell navigation', () => {
     assert.equal(sidebarLabelled('collapsed', 1920), false);
     assert.equal(toggledSidebar(true), 'collapsed');
     assert.equal(toggledSidebar(false), 'expanded');
+  });
+
+  it('B6: writes the sidebar cookie the server reads, for a year, site-wide, not HttpOnly', () => {
+    assert.equal(sidebarCookie('collapsed'), 'mxik_sidebar=collapsed; Max-Age=31536000; Path=/; SameSite=Lax');
+    assert.equal(parseSidebar(/^mxik_sidebar=([^;]*)/.exec(sidebarCookie('expanded'))?.[1]), 'expanded');
   });
 
   it('marks clients and people with two letters, skipping legal forms', () => {

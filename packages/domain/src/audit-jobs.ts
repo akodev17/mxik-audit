@@ -14,7 +14,7 @@ import { isDemoOrg } from './demo.js';
 import { jobs } from './jobs/dispatcher.js';
 import { InlineDispatcher } from './jobs/inline.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
-import { auditReadyText } from './notification-text.js';
+import { auditReadyText, inEveryLocale } from './notification-text.js';
 import { notify } from './notifications.js';
 import { orgLocale } from './org-locale.js';
 import { runPrivilegeCheck } from './privileges.js';
@@ -121,9 +121,9 @@ async function notifyReady(
       orgLocale(catalog.orgId),
       db.finding.count({ where: { item: { catalogId }, decision: 'pending' } }),
     ]);
-    const text = auditReadyText({ clientName: catalog.client?.name ?? '', filename: catalog.filename, open }, locale);
+    const text = inEveryLocale((l) => auditReadyText({ clientName: catalog.client?.name ?? '', filename: catalog.filename, open }, l));
     await notify({
-      orgId: catalog.orgId, clientId: catalog.clientId, userId: actor?.userId ?? null, kind: 'catalog.ready', ...text,
+      orgId: catalog.orgId, clientId: catalog.clientId, userId: actor?.userId ?? null, kind: 'catalog.ready', ...text[locale], text,
       href: `/catalogs/${catalogId}`, dedupeKey: `catalog.ready:${catalogId}:${catalog.auditStartedAt?.getTime() ?? 0}`, external: false,
     });
   } catch (error) {

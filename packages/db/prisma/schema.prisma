@@ -922,6 +922,8 @@ model Notification {
   userId    String?
   /// Names the event that produced it, so a retried job cannot raise it twice. Null = never deduplicated.
   dedupeKey String?
+  /// Title and body in every interface language ({ "uz": { "title", "body" }, "ru": … }), so each reader gets theirs; null on older rows (title/body then).
+  text      Json?
 
   user User? @relation("NoticeTarget", fields: [userId], references: [id], onDelete: Cascade)
 

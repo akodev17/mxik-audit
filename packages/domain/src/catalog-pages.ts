@@ -5,6 +5,7 @@
 // (catalogScope): another org's or another client's catalogue is null, the same as a missing one.
 import { db } from '@tasnivo/db';
 import { canWrite, catalogScope, clientScope } from './access.js';
+import { resolveVisibleClient } from './active-client.js';
 import { resumeStaleAudits, STALE_MS } from './audit-jobs.js';
 import { billingConfig } from './billing/config.js';
 import { catalogPaid } from './billing/orders.js';
@@ -29,12 +30,13 @@ export function visibleCatalog(user: Pick<CurrentUser, 'orgId' | 'clientIds'>, c
   return db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(user) } });
 }
 
-export type CatalogListPage = { items: CatalogListItem[]; total: number; pageSize: number; clients: { id: string; name: string }[] };
+export type CatalogListPage = { items: CatalogListItem[]; total: number; pageSize: number; clients: { id: string; name: string }[]; clientId: string | null };
 
 /**
  * The catalogues list (catalogs/page.tsx): the client filter options, and one page of catalogues
- * or of drafts. Without a client the one being worked on is shown, "all" shows every client;
- * with a single client there is nothing to filter. Drafts are only for those who can finish them.
+ * or of drafts. Without a client the one being worked on is shown (the header switcher's active
+ * client, same fallback, B4), "all" shows every client; with a single client there is nothing to
+ * filter. Drafts are only for those who can finish them.
  */
 export async function catalogListPage(user: Viewer, input: { clientId?: string; page: number; kind: 'catalogs' | 'drafts'; status?: 'ready' | 'analyzing' | 'failed' }): Promise<CatalogListPage> {
   const clients = await db.client.findMany({
@@ -42,13 +44,14 @@ export async function catalogListPage(user: Viewer, input: { clientId?: string; 
     orderBy: { name: 'asc' },
     select: { id: true, name: true },
   });
-  const requested = input.clientId === 'all' ? null : clients.find((c) => c.id === (input.clientId ?? user.clientId))?.id ?? null;
+  const wanted = input.clientId ?? (await resolveVisibleClient(user))?.id;
+  const requested = input.clientId === 'all' ? null : clients.find((c) => c.id === wanted)?.id ?? null;
   const clientId = clients.length > 1 ? requested : null;
   const writer = canWrite(user) && !user.demo;
   const { items, total } = input.kind === 'drafts' && !writer
     ? { items: [], total: 0 }
     : await catalogList(user, clientId, input.page, input.kind, input.kind === 'catalogs' ? input.status : undefined);
-  return { items, total, pageSize: CATALOG_PAGE, clients };
+  return { items, total, pageSize: CATALOG_PAGE, clients, clientId };
 }
 
 /**

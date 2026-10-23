@@ -563,6 +563,7 @@ const coreRu: CoreAppDict = {
       'purchases.mapped': 'Столбцы списка закупок подтверждены',
       'purchases.deleted': 'Список закупок удалён',
       'catalog.upload_discarded': 'Неподтверждённая загрузка отменена',
+      'catalog.previewed': 'Файл прочитан (не подтверждён)',
       'cheques.deleted': 'Список ошибочных кодов из чеков удалён',
       'sales.deleted': 'Файл продаж удалён',
       'telegram.linked': 'Telegram подключён',

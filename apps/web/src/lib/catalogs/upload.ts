@@ -122,6 +122,9 @@ export function fileLine(info: Pick<ParseMeta, 'headerRow' | 'lineJumps'>, dataR
 /** .xls stays in so a legacy file reaches the parser and gets its "save as .xlsx" message. */
 export const UPLOAD_EXTENSIONS = ['.xlsx', '.xls', '.csv'] as const;
 
+/** What the drop zone promises: the formats that are read; .xls only earns the "save as .xlsx" message (B20). */
+export const READ_EXTENSIONS = UPLOAD_EXTENSIONS.filter((ext) => ext !== '.xls');
+
 /** The file input's `accept`: the extensions plus their MIME types for pickers that filter by type. */
 export const UPLOAD_ACCEPT = [
   ...UPLOAD_EXTENSIONS,

@@ -102,10 +102,11 @@ describe('app shell layout', () => {
     for (const w of DESKTOP) {
       await page.setViewportSize({ width: w, height: 900 });
       await page.goto('/dashboard');
-      await page.waitForFunction(() => {
-        const nav = document.querySelector('[data-rail="collapsed"] nav[aria-label]');
+      // The sidebar's own nav by its label: the header's TopNav is a labelled nav too (B6).
+      await page.waitForFunction((label) => {
+        const nav = [...document.querySelectorAll('[data-rail="collapsed"] nav[aria-label]')].find((n) => n.getAttribute('aria-label') === label);
         return (nav?.parentElement?.getBoundingClientRect().width ?? 999) <= 64.5;
-      });
+      }, TA.shellX.nav.utilities);
       assert.equal(await rail(page).getByRole('link', { name: TA.shellX.bell.title }).getByText(TA.shellX.bell.title, { exact: true }).isVisible(), false, `${w}: icons only`);
     }
 

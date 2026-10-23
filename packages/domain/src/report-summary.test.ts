@@ -38,7 +38,20 @@ describe('report summary', () => {
     };
     const csv = reportCsv([row({ product: '=1+1' }), rows[2] as PdfRow], labels).replace(/^\uFEFF/, '').trim().split('\r\n');
     assert.equal(csv.length, 3);
-    assert.match(csv[1] ?? '', /^1,'=1\+1,Kod yoʻq,,,04001001001001001,Sut,Koʻrib chiqilmagan,/);
+    assert.match(csv[1] ?? '', /^1,'=1\+1,Kod yoʻq,,,"=""04001001001001001""",Sut,Koʻrib chiqilmagan,/);
     assert.match(csv[2] ?? '', /Tasdiqlangan,,koʻchirilgan,$/);
+  });
+
+  it('B5: writes every code as Excel text, so a code starting with 0 keeps its zeros', () => {
+    const labels: ReportCsvLabels = {
+      columns: { row: 'Qator', product: 'Tovar', type: 'Turi', current: 'Kod', currentName: 'Nomi', suggested: 'Taklif', suggestedName: 'Taklif nomi', decision: 'Qaror', chosen: 'Tanlangan', source: 'Manba', by: 'Kim' },
+      decisions: { pending: 'Koʻrib chiqilmagan', accepted: 'Tasdiqlangan', rejected: 'Rad etilgan' },
+      types: { MISMATCH: 'Mos emas' }, sources: { manual: 'qoʻlda' },
+    };
+    const line = reportCsv([row({
+      type: 'MISMATCH', current: { code: '00204004001000000', name: 'Eski' }, suggested: { code: '02202001001000000', name: 'Choy' },
+      decision: 'accepted', chosen: { code: '02202001001000000', name: 'Choy' }, source: 'manual',
+    })], labels).slice(1).trim().split('\r\n')[1];
+    assert.equal(line, '1,Sut,Mos emas,"=""00204004001000000""",Eski,"=""02202001001000000""",Choy,Tasdiqlangan,"=""02202001001000000""",qoʻlda,');
   });
 });

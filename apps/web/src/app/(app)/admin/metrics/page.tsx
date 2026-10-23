@@ -12,11 +12,12 @@ import { Page } from '@/ui/page';
 import { Stat } from '@/ui/stat';
 import { Table, Td, Th } from '@/ui/table';
 import { Card, FLUSH_TABLE } from '../../_manage/card';
+import { adminAllowed } from '../allowed';
 import { DIMENSIONS, keyText, reasonText, type Dimension } from './accuracy-text';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
-  return { title: `${ta.metrics.title} — ${t.appName}`, robots: { index: false } };
+  return { title: `${(await adminAllowed()) ? ta.metrics.title : ta.shellX.notFound.title} — ${t.appName}`, robots: { index: false } };
 }
 
 const pct = (locale: Locale, r: number | null): string => (r === null ? '—' : fmtPercent(locale, r, { minimumFractionDigits: 1 }));
