@@ -264,3 +264,12 @@ session id when the e-mail code is confirmed (FAIL-1); the sign-up answer reveal
 registered (FAIL-2, documented); manual rollback SQL for the three migrations (FAIL-3); the local Google
 redirect URI in `DEPLOY.md` names port 3011 (FAIL-4). Deferred bugs: B9 (not reproduced), B15 (Uzbek-only
 landing and legal pages).
+
+Addendum (18:35): between the two merges above and the outcome commit, a separate coordinator session
+merged its accounting automation programme into `main` (`2b5b7a3`, 343 files, based on the QA-passed
+bug-fix branch; its report is `docs/accounting-2026-10-23/FINAL_REPORT.md`, and it already applied QA
+FAIL-1..4 as its Q2, Q3, Q11, Q13). The push of `dd25b32` therefore carried both programmes. The
+combined commit was re-verified in a clean worktree (fresh `npm ci`, `prisma generate`): typecheck 0
+errors, lint 0 errors, `npm test` with Redis 2007 pass / 0 fail / 2 skipped, web, API and worker builds
+green. Still not run on it: e2e as one suite on the combined tree (each programme ran its own), and the
+accounting migrations on an empty database.
