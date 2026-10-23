@@ -319,7 +319,7 @@ address. Links from confirmation mails sent before the codes still work for thei
    scopes `openid`, `email`, `profile`; publish it.
 2. Credentials → Create credentials → OAuth client ID → Web application. Authorised redirect URI:
    `https://tasnivo.uz/api/auth/google/callback` (for local testing add
-   `http://localhost:3011/api/auth/google/callback` and set `GOOGLE_REDIRECT_URI` to it).
+   `http://localhost:3000/api/auth/google/callback` and set `GOOGLE_REDIRECT_URI` to it).
 3. Put the client ID and secret in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and recreate the
    api. The button appears on /sign-in and /sign-up.
 
