@@ -10,7 +10,7 @@ import { COMMIT, db, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, TA, trac
 
 const DESKTOP = [1440, 1024, 768];
 // Settings is not a header tab: it is the gear in the left rail.
-const HEADER_TABS = ['/dashboard', '/queue', '/clients', '/team', '/catalogs', '/dictionary', '/activity'];
+const HEADER_TABS = ['/dashboard', '/queue', '/clients', '/team', '/catalogs', '/bank', '/didox', '/products', '/onec', '/dictionary', '/activity'];
 
 const headerNav = (page: Page) => page.getByRole('navigation', { name: TA.shellX.nav.label, exact: true });
 const rail = (page: Page) => page.getByRole('navigation', { name: TA.shellX.nav.utilities, exact: true });

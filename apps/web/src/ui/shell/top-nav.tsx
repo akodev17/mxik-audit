@@ -11,7 +11,7 @@ import { fittingTabs, isActive } from './nav';
 import { useNav } from './nav-items';
 
 /** Destinations shown as tabs. Upload, help and settings live in the left rail (the account menu repeats settings and help). */
-const TAB_KEYS = new Set(['dashboard', 'queue', 'clients', 'team', 'catalogs', 'dictionary', 'activity']);
+const TAB_KEYS = new Set(['dashboard', 'queue', 'clients', 'team', 'catalogs', 'bank', 'didox', 'products', 'onec', 'dictionary', 'activity']);
 
 const TAB = 'relative flex items-center px-2.5 text-data font-medium transition-colors duration-(--duration-fast) focus-visible:rounded-ctl';
 const UNDERLINE = 'after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-brand';
