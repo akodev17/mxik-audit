@@ -10,6 +10,7 @@ import { ApiError } from '../../src/http/errors';
 import { requestOrigin } from '../../src/http/facts';
 import { toErrorResponse } from '../../src/http/exception.filter';
 import { loggablePath, requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '../../src/http/middleware';
+import type { ApiRequest } from '../../src/http/request';
 import { ZodValidationPipe } from '../../src/http/zod-validation.pipe';
 import { fakeReq, fakeRes } from '../helpers';
 
@@ -101,19 +102,6 @@ describe('error envelope', () => {
   });
 });
 
-describe('requestOrigin', () => {
-  const req = (headers: Record<string, string>, protocol = 'http') =>
-    ({ protocol, get: (name: string) => headers[name.toLowerCase()] }) as never;
-  it('is the proxy\'s forwarded host and protocol, else Host; null for a host that is not a plain name[:port]', () => {
-    assert.equal(requestOrigin(req({ host: 'localhost:4014' })), 'http://localhost:4014');
-    assert.equal(requestOrigin(req({ host: 'agent4.localhost:3014' })), 'http://agent4.localhost:3014');
-    assert.equal(requestOrigin(req({ host: 'api:4000', 'x-forwarded-host': 'tasnivo.uz', 'x-forwarded-proto': 'https' })), 'https://tasnivo.uz');
-    assert.equal(requestOrigin(req({ host: 'evil.test/path' })), null);
-    assert.equal(requestOrigin(req({ host: 'a b' })), null);
-    assert.equal(requestOrigin(req({})), null);
-  });
-});
-
 describe('ZodValidationPipe', () => {
   const pipe = new ZodValidationPipe(z.object({ email: z.string(), n: z.number().default(1) }));
 
@@ -185,5 +173,21 @@ describe('middleware', () => {
     // Ordinary ids stay: they are what an operator looks for.
     assert.equal(loggablePath('/api/catalogs/cm123/rows'), '/api/catalogs/cm123/rows');
     assert.equal(loggablePath('/api/auth/telegram/bind'), '/api/auth/telegram/bind');
+  });
+});
+
+describe('requestOrigin (OAuth redirect URI fallback while APP_URL is unset)', () => {
+  const origin = (headers: Record<string, string>) => requestOrigin(fakeReq({ headers }) as unknown as ApiRequest);
+
+  it('prefers the proxy\'s forwarded host and protocol, else Host', () => {
+    assert.equal(origin({ host: 'localhost:4011', 'x-forwarded-host': 'agent1.localhost:3011', 'x-forwarded-proto': 'http' }), 'http://agent1.localhost:3011');
+    assert.equal(origin({ host: 'api:4000', 'x-forwarded-host': 'tasnivo.uz, caddy', 'x-forwarded-proto': 'https' }), 'https://tasnivo.uz');
+    assert.equal(origin({ host: 'localhost:3011' }), 'http://localhost:3011');
+  });
+
+  it('refuses a host that is not a plain name with an optional port', () => {
+    assert.equal(origin({ host: 'evil.example/path' }), null);
+    assert.equal(origin({ host: 'a@b' }), null);
+    assert.equal(origin({}), null);
   });
 });
