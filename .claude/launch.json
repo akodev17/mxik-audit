@@ -2,6 +2,18 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "integ-api-4027",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location 'C:\\Users\\User\\Desktop\\pets\\mxik-audit\\.claude\\worktrees\\tasnivo-integration'; $env:API_PORT='4027'; npx tsx apps/api/src/main.ts"],
+      "port": 4027
+    },
+    {
+      "name": "integ-web-3027-prod",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location 'C:\\Users\\User\\Desktop\\pets\\mxik-audit\\.claude\\worktrees\\tasnivo-integration'; $env:API_INTERNAL_URL='http://localhost:4027'; npx next start apps/web -p 3027"],
+      "port": 3027
+    },
+    {
       "name": "mxik-audit",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
@@ -319,6 +331,49 @@
       ],
       "port": 3026,
       "url": "http://a5b.localhost:3026"
+    },
+    {
+      "name": "mxik-audit-3001",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "-p",
+        "3001"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "mxik-ui-verify",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        ".claude/worktrees/ui-verify",
+        "-p",
+        "3007"
+      ],
+      "port": 3007
+    },
+    {
+      "name": "tasnivo-api-4010",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4010'; npm run dev:api"
+      ],
+      "port": 4010
+    },
+    {
+      "name": "tasnivo-web-3002",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4010'; npx next dev apps/web -p 3002"
+      ],
+      "port": 3002
     }
   ]
 }
