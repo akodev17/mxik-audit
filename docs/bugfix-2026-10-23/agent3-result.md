@@ -12,7 +12,7 @@ from `f11abc4`. Not pushed.
 | `2664f79` | The commit consumes rows through the ledger; `usageOf` reads it; callers handle `over_allowance` |
 | `c3f239a` | Tests: clients and seats cannot be recycled into more processing |
 | `c38abea` | API regression test: upload → delete → upload past the trial cap is refused |
-| (this file) | Result, handoff notes, screenshots |
+| `78ef294` | Result, handoff notes, screenshots (this file) |
 
 ## Root cause
 
