@@ -5,6 +5,7 @@ import type { Locale } from '@tasnivo/i18n/i18n';
 import { db } from '@tasnivo/db';
 import { canSeeClient } from './access.js';
 import { isDemoOrg } from './demo.js';
+import { orgHasFeature } from './plan.js';
 import { getSchedule, markDone, setSchedule } from './reminders.js';
 import type { RoleCarrier } from './write-access.js';
 
@@ -33,6 +34,8 @@ export async function saveClientSchedule(
   if (await isDemoOrg(user.orgId)) return { ok: false, error: ta.firmX.errors.forbidden };
   if (!Number.isInteger(input.dayOfMonth) || input.dayOfMonth < 1 || input.dayOfMonth > 28) return { ok: false, error: words.badDay };
   if (!canSeeClient(user, clientId)) return { ok: false, error: ta.firmX.errors['not found'] };
+  // Switching reminders off is always allowed; switching them on needs a plan that has them.
+  if (input.enabled && !(await orgHasFeature(user.orgId, 'reminders'))) return { ok: false, error: ta.prX.notInPlan(ta.prX.features.reminders) };
   const result = await setSchedule(user, clientId, input);
   if (!result.ok) {
     return { ok: false, error: result.error === 'bad day' ? words.badDay : result.error === 'assignee scope' ? words.assigneeScope : ta.firmX.errors['not found'] };

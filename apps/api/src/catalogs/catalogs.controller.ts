@@ -17,7 +17,8 @@ import {
   type UploadedFile,
 } from '@tasnivo/domain/catalog-upload';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
-import { shareCreateFor, shareRevokeFor, shareRows } from '@tasnivo/domain/share';
+import { shareAllowed, shareCreateFor, shareRevokeFor, shareRows } from '@tasnivo/domain/share';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
 import { CurrentUser, Locale } from '../http/decorators';
@@ -146,7 +147,11 @@ export class CatalogsController {
   }
 
   @Route(e.createShareLink)
-  createShareLink(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.createShareLink.params)) { catalogId }: CatalogPath, @Body() body: unknown) {
+  async createShareLink(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.createShareLink.params)) { catalogId }: CatalogPath, @Body() body: unknown) {
+    if (!(await shareAllowed(user))) {
+      const { prX } = i18nFor(locale).ta;
+      throw new ApiError(403, 'plan_feature', prX.notInPlan(prX.features.clientLinks));
+    }
     return shareCreateFor(user, withPath(body, { catalogId }));
   }
 

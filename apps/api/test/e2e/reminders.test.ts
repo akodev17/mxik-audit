@@ -37,6 +37,8 @@ describe('reminders module (e2e)', { skip }, () => {
   before(async () => {
     app = await startApp();
     admin = await orgWithAdmin(orgs);
+    // Monthly reminders are a paid-plan feature (the free plan is refused, see "the free plan").
+    await db.organization.update({ where: { id: admin.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
     clientId = await makeClient(admin.orgId, 'Mijoz A');
     otherClientId = await makeClient(admin.orgId, 'Mijoz B');
     viewer = await member(admin.orgId, 'viewer');
@@ -70,6 +72,15 @@ describe('reminders module (e2e)', { skip }, () => {
     const back = shaped(r.schedule, (await get(`/api/clients/${clientId}/reminder`, viewer)).body) as { dayOfMonth: number; clientId: string; enabled: boolean };
     assert.deepEqual([back.clientId, back.dayOfMonth, back.enabled], [clientId, 5, true]);
     assert.ok(!('orgId' in (back as object)), 'only the contract\'s fields');
+  });
+
+  it('the free plan cannot switch reminders on, only off', async () => {
+    const free = await orgWithAdmin(orgs);
+    await db.organization.update({ where: { id: free.orgId }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000), subscriptionUntil: null } });
+    const own = await makeClient(free.orgId, 'Mijoz C');
+    const { prX } = i18nFor('uz').ta;
+    assert.deepEqual((await save(free, { dayOfMonth: 5, assigneeId: null, enabled: true }, own)).body, { ok: false, error: prX.notInPlan(prX.features.reminders) });
+    assert.equal(bodyOf<{ ok: boolean }>(await save(free, { dayOfMonth: 5, assigneeId: null, enabled: false }, own)).ok, true);
   });
 
   it('save is refused for a viewer and a demo org (403), as the action refused them', async () => {

@@ -79,7 +79,11 @@ describe('account (database)', { skip }, () => {
   });
 
   it('branding: name and PNG/JPEG logo by content, a refused file, removal; admin of a real org only', async () => {
-    const u = await fx.user();
+    // Branded PDFs are a feature of the Buxgalter and Byuro plans; the free plan is told so.
+    const trial = await fx.user();
+    const { prX } = ta;
+    assert.deepEqual(bodyOf(await call(await sessionCookie(trial)).post('/api/account/branding').field('brandName', 'Hisob Pro')), { error: prX.notInPlan(prX.features.branding) });
+    const u = await fx.user({ plan: 'firm' });
     const cookie = await sessionCookie(u);
     const post = () => call(cookie).post('/api/account/branding');
     assert.deepEqual(bodyOf(await post().field('brandName', '  Hisob   Pro ').attach('logo', PNG, 'logo.png')), { saved: true });

@@ -32,6 +32,28 @@ export const PLANS = {
   ],
 } as const;
 
+/** What a plan card lists, in its order. */
+export const FEATURES = ['risks', 'suggestions', 'team', 'activity', 'dictionary', 'export', 'reminders', 'api', 'branding', 'clientLinks'] as const;
+export type Feature = (typeof FEATURES)[number];
+export type PlanKey = 'trial' | Tier;
+
+/**
+ * Which plan has which feature: the cards on the landing page, the help article and the app read
+ * this one table. The app refuses a missing GATED feature (planHas in plan.ts); `export` is the
+ * corrected file, refused by BILLING_REQUIRED_FOR_EXPORT without a paid order or subscription.
+ */
+const ALL: Record<Feature, boolean> = Object.fromEntries(FEATURES.map((f) => [f, true])) as Record<Feature, boolean>;
+export const PLAN_FEATURES: Record<PlanKey, Record<Feature, boolean>> = {
+  trial: { ...ALL, export: false, reminders: false, branding: false, clientLinks: false },
+  company: { ...ALL, branding: false, clientLinks: false },
+  accountant: ALL,
+  firm: ALL,
+};
+
+/** Features the app itself refuses when the plan lacks them; the rest are on in every plan. */
+export const GATED_FEATURES = ['reminders', 'branding', 'clientLinks'] as const satisfies readonly Feature[];
+export type GatedFeature = (typeof GATED_FEATURES)[number];
+
 export type Plan = {
   id: string;
   price: number;

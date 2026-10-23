@@ -2,7 +2,7 @@
 // reopening, the account export, language, theme, sidebar, Telegram chats, API keys, and the
 // activity log.
 import { z } from 'zod';
-import { IsoDateTime, LIMITS, LOCALES, OkFlag, Ok, PlanLimitsOf, Redirect, RETENTION_CHOICES, ShellFail, THEMES, TierOffers } from '../common';
+import { IsoDateTime, LIMITS, LOCALES, OkFlag, Ok, PlanFeatures, PlanLimitsOf, Redirect, RETENTION_CHOICES, ShellFail, THEMES, TierOffers } from '../common';
 import { defineModule, endpoint } from '../endpoint';
 import { ErrorState } from './auth';
 
@@ -72,6 +72,8 @@ export const account = defineModule('account', {
       plans: z.object({ trial: Limits, company: Limits, accountant: Limits, firm: Limits }),
       /** Every subscription tier with its limits and prices (added with the tiers). */
       tiers: TierOffers,
+      /** Which plan has which feature (added with the feature lines on the plan cards). */
+      features: PlanFeatures,
       trialDays: z.number().int(),
       retentionChoices: z.array(z.number().int()),
       origin: z.string().nullable(),

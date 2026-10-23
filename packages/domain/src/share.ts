@@ -6,6 +6,7 @@ import { canWrite, catalogScope } from './access';
 import type { Role } from './session';
 import { db } from '@tasnivo/db';
 import { orgActive } from './security/org-active';
+import { orgHasFeature } from './plan';
 
 const hash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
@@ -89,10 +90,16 @@ export async function shareRows(actor: Actor | null, catalogId: unknown): Promis
 
 const CreateInput = z.object({ catalogId: z.string().min(1), days: z.union([z.literal(7), z.literal(30)]), includePdf: z.boolean() });
 
-/** A new link for a ready catalogue the actor may see; null for anything else. */
+/** Whether the actor's plan has client links; the API answers 403 plan_feature when it has not. */
+export async function shareAllowed(actor: Pick<Actor, 'orgId'>): Promise<boolean> {
+  return orgHasFeature(actor.orgId, 'clientLinks');
+}
+
+/** A new link for a ready catalogue the actor may see; null for anything else, a plan without client links included. */
 export async function shareCreateFor(actor: Actor | null, payload: unknown): Promise<{ url: string } | null> {
   const parsed = CreateInput.safeParse(payload);
   if (!actor || !parsed.success) return null;
+  if (!(await shareAllowed(actor))) return null;
   return createShareLink(actor, parsed.data.catalogId, { days: parsed.data.days, includePdf: parsed.data.includePdf });
 }
 
