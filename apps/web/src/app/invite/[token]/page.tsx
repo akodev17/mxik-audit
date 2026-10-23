@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { cache } from 'react';
 import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { EmptyState } from '@/ui/empty-state';
+import { AuthResult, AuthTitle } from '@/ui/auth-parts';
+import { ButtonLink } from '@/ui/button';
 import { JoinForm } from './join-form';
 
 type Params = { params: Promise<{ token: string }> };
@@ -22,19 +22,18 @@ export default async function InvitePage({ params }: Params) {
   const invite = await invitation(token);
   if (!invite) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-        <EmptyState
-          tone="danger" title={ta.team.inviteBad} hint={ta.team.inviteBadHint}
-          action={<Link href="/sign-in" className="text-brand hover:underline">{t.signIn}</Link>}
-        />
-      </main>
+      <AuthResult
+        tone="danger" role="none" title={ta.team.inviteBad}
+        action={<ButtonLink href="/sign-in" variant="secondary" size="lg" className="w-full">{t.signIn}</ButtonLink>}
+      >
+        <p>{ta.team.inviteBadHint}</p>
+      </AuthResult>
     );
   }
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <p className="text-xl font-bold tracking-tight">{t.appName}</p>
-      <p className="mb-6 mt-1 text-sm text-muted">{ta.team.inviteIntro(invite.orgName, ta.team.roles[invite.role])}</p>
+    <>
+      <AuthTitle title={ta.authX.invite.title} lead={ta.team.inviteIntro(invite.orgName, ta.team.roles[invite.role])} />
       <JoinForm token={token} email={invite.email} />
-    </main>
+    </>
   );
 }

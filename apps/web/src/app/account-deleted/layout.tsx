@@ -1,11 +1,6 @@
-import { LocaleScope } from '@/ui/locale-scope';
-import { onest } from '@/ui/onest';
-import { readTheme } from '@/ui/shell/server-prefs';
+import { AuthLayout } from '@/ui/auth-layout';
 
-export default async function ClosedAccountLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className={`app ${onest.variable} min-h-screen bg-surface`} data-theme={await readTheme()}>
-      <LocaleScope>{children}</LocaleScope>
-    </div>
-  );
+/** The account's language applies here (no switch) and there is nothing to sell: no brand panel. */
+export default function ClosedAccountLayout({ children }: { children: React.ReactNode }) {
+  return <AuthLayout aside={false} languageSwitch={false}>{children}</AuthLayout>;
 }

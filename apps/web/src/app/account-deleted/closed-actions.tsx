@@ -15,7 +15,7 @@ function RedirectButton({ call, variant, label }: { call: () => Promise<{ redire
     e.preventDefault();
     if (!run.isPending && !leaving) run.mutate();
   };
-  return <form onSubmit={submit}><Button type="submit" variant={variant}>{label}</Button></form>;
+  return <form onSubmit={submit}><Button type="submit" variant={variant} size="lg" loading={run.isPending || leaving} className="w-full">{label}</Button></form>;
 }
 
 /** An admin of the closed org reopens it. */
