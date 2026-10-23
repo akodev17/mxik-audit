@@ -20,6 +20,12 @@ merge qilinmaguncha hech narsa oʻzgarmaydi.
 | Foydalanuvchilar | 2 | 3 | 5 | 10 |
 | Oyiga API tekshiruvlari | 500 | 1 000 | 10 000 | 50 000 |
 
+**Barcha tariflarda (bepul Koʻrikda ham)** — landingda kartalar ostida alohida blok: jamoa va rollar,
+tekshiruv navbati, harakatlar jurnali; mijozga havola orqali koʻrsatish (hisobot va PDF), «mijozdan
+soʻralgan» belgisi, oʻz logotipingiz bilan PDF, oylik eslatmalar; firma lugʻati, Telegram, API.
+Bular ilovada hozir tarifga qarab cheklanmagan, shuning uchun kartalarda «—» bilan koʻrsatilmaydi.
+Telegram qatori faqat `NEXT_PUBLIC_TELEGRAM_BOT=true` boʻlganda chiqadi (bot productionda ulangach).
+
 **Bitta katalogdagi SKU va oyiga kataloglar soni** alohida cheklanmaydi: ikkalasini ham «oyiga
 tekshiriladigan pozitsiyalar» qamrab oladi. Sabab: xarajat qatorlar soniga bogʻliq, kataloglar soniga
 emas; 50 qatorli va 10 000 qatorli katalogni bir xil «1 katalog» deb sanash adolatsiz. Har pogʻonada
@@ -113,5 +119,8 @@ faqat `packages/i18n/src/i18n-parts/pricing.ts` dagi nomlar oʻzgaradi.
    Cheklanmagan qoldirilsinmi?
 4. Pogʻonani oy oʻrtasida oshirish: hozir yangi toʻlov muddatni uzaytiradi va soʻnggi toʻlangan pogʻona
    amal qiladi (qayta hisoblash yoʻq). Qisman qaytarish/qayta hisoblash kerakmi?
-5. Bitta katalog 200 000 SKU dan katta yoki 10 000 SKU dan katta bir martalik — «individual narx»; buni
+5. Ayrim imkoniyatlarni (masalan, mijozga havola, oylik eslatmalar, brendli PDF) faqat Buxgalter va
+   Byuroda qoldirish kerakmi? Bu farqni kuchaytiradi, lekin ilovada cheklov kodi yozilishi kerak;
+   hozir hammasi barcha tariflarda ishlaydi va landing shuni aytadi.
+6. Bitta katalog 200 000 SKU dan katta yoki 10 000 SKU dan katta bir martalik — «individual narx»; buni
    landingda yozish kerakmi?

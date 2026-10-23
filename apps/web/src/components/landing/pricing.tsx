@@ -1,6 +1,6 @@
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { uz as pricingUz } from '@tasnivo/i18n/i18n-parts/pricing';
-import { ONLINE_PAYMENT, PRICING } from './config';
+import { ONLINE_PAYMENT, PRICING, TELEGRAM_BOT } from './config';
 import { CONTAINER } from './container';
 import { PricingPlans, type PlanCard } from './pricing-plans';
 
@@ -52,8 +52,41 @@ function cards(): PlanCard[] {
   ];
 }
 
-// The free check first, then the three subscriptions (monthly or yearly), then the one-off
-// corrected catalogue for a company that does not want a subscription.
+/** What every plan has, the free one included: none of it is limited by plan (only the numbers are). */
+function Everywhere() {
+  const e = c.everywhere;
+  const groups = Object.entries(e.groups).map(([key, g]) => ({
+    key,
+    title: g.title,
+    items: Object.entries(g.items).filter(([id]) => id !== 'telegram' || TELEGRAM_BOT).map(([id, item]) => ({ id, ...item })),
+  }));
+  return (
+    <div className="mt-6 rounded-lp-lg border border-lp-line bg-lp-base p-6 sm:p-8">
+      <h3 className="text-[18px] font-semibold">{e.title}</h3>
+      <p className="mt-2 max-w-[48rem] text-[15px] text-lp-muted">{e.lead}</p>
+      <div className="mt-6 grid gap-8 md:grid-cols-3">
+        {groups.map((g) => (
+          <div key={g.key}>
+            <h4 className="text-[13px] font-medium uppercase tracking-wide text-lp-muted">{g.title}</h4>
+            <ul className="mt-3 space-y-3">
+              {g.items.map((item) => (
+                <li key={item.id} className="flex items-start gap-2.5">
+                  <svg aria-hidden="true" viewBox="0 0 20 20" className="mt-0.5 size-5 shrink-0 text-lp-ok" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="7.5" /><path d="m6.8 10.3 2.2 2.2 4.2-4.6" /></svg>
+                  <p className="text-[15px]">
+                    <span className="font-medium">{item.name}.</span> <span className="text-lp-muted">{item.text}</span>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// The free check first, then the three subscriptions (monthly or yearly), what all of them have,
+// then the one-off corrected catalogue for a company that does not want a subscription.
 export function Pricing() {
   return (
     <section id="narxlar" aria-labelledby="pricing-title" className="bg-lp-surface py-20 sm:py-28">
@@ -68,6 +101,8 @@ export function Pricing() {
           cards={cards()}
           copy={{ period: c.period, forWhom: c.forWhom, badge: c.startBadge, included: c.included, excluded: c.excluded, limitsTitle: c.limitsTitle }}
         />
+
+        <Everywhere />
 
         <div className="mt-6 flex flex-col gap-5 rounded-lp-lg border border-lp-line bg-lp-base p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-[26rem]">

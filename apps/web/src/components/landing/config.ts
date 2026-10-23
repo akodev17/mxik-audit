@@ -68,6 +68,12 @@ export const SHOW_MULTI_CLIENT = process.env.NEXT_PUBLIC_FEATURE_MULTI_CLIENT ==
  */
 export const ONLINE_PAYMENT = process.env.NEXT_PUBLIC_ONLINE_PAYMENT === 'true';
 
+/**
+ * The Telegram bot (notifications, files sent to the bot) works on this deployment: the API has
+ * TELEGRAM_BOT_TOKEN and the webhook. Off until then: the pricing section does not list Telegram.
+ */
+export const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT === 'true';
+
 /* Prices and limits the pricing section shows, as numbers. They are a copy of PLANS in
    packages/domain/src/billing/plans.ts, which the app enforces and charges: the web app does not
    import the domain package, so tests/pricing-parity.test.ts fails when the two differ. Change

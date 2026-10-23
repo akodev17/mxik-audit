@@ -57,6 +57,37 @@ export const uz = {
     },
     payTransfer: 'Toʻlov bank oʻtkazmasi orqali, ish bajarilgandan keyin.',
     payOnline: 'Ilovada Click yoki Payme orqali ham toʻlash mumkin.',
+    everywhere: {
+      title: 'Barcha tariflarda, bepul Koʻrikda ham',
+      lead: 'Jamoa, mijoz va integratsiya imkoniyatlari tarifga qarab yopilmaydi: tariflar faqat chegaralar va toʻgʻrilangan fayl bilan farq qiladi.',
+      groups: {
+        team: {
+          title: 'Jamoa bilan ishlash',
+          items: {
+            roles: { name: 'Jamoa va rollar', text: 'Administrator, buxgalter va kuzatuvchi; har bir aʼzoga faqat oʻz mijozlarini ochish mumkin.' },
+            queue: { name: 'Tekshiruv navbati', text: 'Barcha mijozlarning hal qilinmagan pozitsiyalari bitta roʻyxatda.' },
+            activity: { name: 'Harakatlar jurnali', text: 'Kim, qachon va qaysi kodni tasdiqlagani saqlanadi.' },
+          },
+        },
+        client: {
+          title: 'Mijoz bilan ishlash',
+          items: {
+            share: { name: 'Mijozga havola orqali koʻrsatish', text: 'Hisobot va PDF muddatli havolada: mijoz roʻyxatdan oʻtmasdan koʻradi.' },
+            askClient: { name: 'Mijozdan soʻrash', text: 'Noaniq pozitsiyani «mijozdan soʻralgan» deb belgilab, javobgacha kuzatasiz.' },
+            branding: { name: 'Oʻz logotipingiz bilan PDF', text: 'Mijozga beriladigan hisobotda firmangiz nomi va logotipi.' },
+            reminders: { name: 'Oylik eslatmalar', text: 'Har bir mijoz uchun katalogni qayta tekshirish kuni.' },
+          },
+        },
+        tools: {
+          title: 'Integratsiya va xotira',
+          items: {
+            dictionary: { name: 'Firma lugʻati', text: 'Bir marta tasdiqlangan kod keyingi kataloglarda yana taklif qilinadi.' },
+            telegram: { name: 'Telegram', text: 'Natijalar va eslatmalar Telegramga keladi; botga fayl yuborib tekshirtirish mumkin.' },
+            api: { name: 'API', text: '1C, Google Sheets va boshqa dasturlardan MXIK tekshiruvi.' },
+          },
+        },
+      },
+    },
   },
 };
 
@@ -110,5 +141,36 @@ export const ru: typeof uz = {
     },
     payTransfer: 'Оплата банковским переводом, после выполнения работы.',
     payOnline: 'В приложении можно оплатить и через Click или Payme.',
+    everywhere: {
+      title: 'Во всех тарифах, и в бесплатной «Проверке»',
+      lead: 'Работа с командой, клиентами и интеграции не закрываются по тарифу: тарифы отличаются только лимитами и исправленным файлом.',
+      groups: {
+        team: {
+          title: 'Работа с командой',
+          items: {
+            roles: { name: 'Команда и роли', text: 'Администратор, бухгалтер и наблюдатель; участнику можно открыть только его клиентов.' },
+            queue: { name: 'Очередь проверки', text: 'Нерешённые позиции всех клиентов в одном списке.' },
+            activity: { name: 'Журнал действий', text: 'Сохраняется, кто, когда и какой код подтвердил.' },
+          },
+        },
+        client: {
+          title: 'Работа с клиентом',
+          items: {
+            share: { name: 'Показать клиенту по ссылке', text: 'Отчёт и PDF по ссылке со сроком действия: клиент смотрит без регистрации.' },
+            askClient: { name: 'Вопрос клиенту', text: 'Неясную позицию отмечаете «запрошено у клиента» и следите до ответа.' },
+            branding: { name: 'PDF с вашим логотипом', text: 'В отчёте для клиента — название и логотип вашей фирмы.' },
+            reminders: { name: 'Ежемесячные напоминания', text: 'День повторной проверки каталога для каждого клиента.' },
+          },
+        },
+        tools: {
+          title: 'Интеграции и память',
+          items: {
+            dictionary: { name: 'Словарь фирмы', text: 'Однажды подтверждённый код снова предлагается в следующих каталогах.' },
+            telegram: { name: 'Telegram', text: 'Результаты и напоминания приходят в Telegram; можно отправить файл боту на проверку.' },
+            api: { name: 'API', text: 'Проверка MXIK из 1С, Google Sheets и других программ.' },
+          },
+        },
+      },
+    },
   },
 };
