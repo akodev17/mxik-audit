@@ -124,6 +124,7 @@ describe('parseUpload: text files', () => {
     const fake = Buffer.from('this is not a spreadsheet\n');
     await assert.rejects(parseUpload(fake, 'fake.xlsx'), (error: unknown) => error instanceof ParseError && error.code === 'not_xlsx');
     assert.equal((await parseUpload(fake, 'fake.csv')).rows.length, 0, 'the same text as .csv is just empty');
+    assert.equal((await parseUpload(Buffer.from('a;b\n'), 'a.xlsx')).rows.length, 0, 'a header-only CSV renamed to .xlsx is "no rows"');
     const csv = Buffer.from('Nomi;MXIK\nGuruch;06301001001000000\n');
     assert.equal((await parseUpload(csv, 'renamed.xlsx')).rows.length, 1, 'a real CSV renamed to .xlsx is still read by its content');
   });

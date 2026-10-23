@@ -149,8 +149,9 @@ export async function parseUpload(buffer: Buffer, filename?: string): Promise<Pa
   }
 
   const shaped = shapeGrid(grid, extra);
-  // Named .xlsx but not a zip, and nothing readable as text either: a damaged or renamed file, not an empty one (B11).
-  if (kind === 'text' && shaped.rows.length === 0 && /\.xlsx$/i.test(filename ?? '')) throw new ParseError('not_xlsx');
+  // Named .xlsx but not a zip, and no table in it as text either (no rows, not even two columns): a damaged
+  // or renamed file, not an empty one (B11). A header-only CSV renamed to .xlsx is still "no rows".
+  if (kind === 'text' && shaped.rows.length === 0 && shaped.headers.length < 2 && /\.xlsx$/i.test(filename ?? '')) throw new ParseError('not_xlsx');
   const meta: ParseMeta = {
     format: kind === 'xlsx' ? 'xlsx' : 'csv', encoding, delimiter,
     headerRow: shaped.headerRow, skippedAbove: shaped.skippedAbove, emptyRowsSkipped: shaped.emptyRowsSkipped,

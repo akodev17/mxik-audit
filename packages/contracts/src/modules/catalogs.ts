@@ -225,7 +225,7 @@ export const catalogs = defineModule('catalogs', {
       pageSize: z.number().int(),
       clients: z.array(z.object({ id: z.string(), name: z.string() })),
       /** The client the list is narrowed to (the header switcher's active one when none is asked for); null = all. */
-      clientId: z.string().nullable(),
+      clientId: z.string().nullable().default(null),
     }),
     replaces: ['page:(app)/catalogs'],
     provisional: 'catalogs/page.tsx adds the client filter options from db.client',
