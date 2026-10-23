@@ -107,7 +107,7 @@ export function TourCard({ hole }: { hole: Rect | null }) {
       {step.href ? (
         <Link href={step.href} className="mt-3 inline-flex items-center gap-1 text-small font-medium text-brand-ink hover:underline">
           {copy.open}
-          <IconArrowRight size={14} aria-hidden />
+          <IconArrowRight size={14} />
         </Link>
       ) : null}
       <div className="mt-5 flex flex-wrap items-center gap-2">

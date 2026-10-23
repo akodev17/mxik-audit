@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId } from 'react';
+import { useEffect } from 'react';
 import { useEscape, useScrollLock } from '../overlay';
 import { Portal } from '../portal';
 import { useMediaQuery } from '../shell/use-media-query';
@@ -18,7 +18,6 @@ export function TourOverlay() {
   const tour = useTour();
   const setMode = useTourMode();
   const wide = useMediaQuery('(min-width: 768px)', true);
-  const maskId = `tour-mask-${useId().replace(/[^\w-]/g, '')}`;
   const { rect } = useTourTarget(tour.step?.targets ?? [], tour.open, wide, tour.index);
 
   useScrollLock(tour.open);
@@ -33,24 +32,15 @@ export function TourOverlay() {
     <Portal>
       <div className="fixed inset-0 z-modal">
         {/* Swallows every press on the page behind, and keeps focus in the card. */}
-        <div aria-hidden className="absolute inset-0 motion-safe:animate-fade-in" onPointerDown={(e) => e.preventDefault()}>
+        <div aria-hidden className="absolute inset-0 overflow-hidden motion-safe:animate-fade-in" onPointerDown={(e) => e.preventDefault()}>
           {hole ? (
-            <svg className="pointer-events-none absolute inset-0 size-full">
-              <defs>
-                <mask id={maskId}>
-                  <rect width="100%" height="100%" fill="white" />
-                  <rect x={hole.left} y={hole.top} width={hole.width} height={hole.height} rx={8} fill="black" />
-                </mask>
-              </defs>
-              <rect width="100%" height="100%" className="fill-overlay" mask={`url(#${maskId})`} />
-            </svg>
-          ) : <div className="absolute inset-0 bg-overlay" />}
-          {hole ? (
+            // The cut-out casts the scrim as its own spread shadow: one element, rounded like the target,
+            // and the overlay token in both themes.
             <div
-              className="pointer-events-none absolute rounded-md ring-2 ring-brand"
+              className="absolute rounded-md shadow-[0_0_0_200vmax_var(--color-overlay)] ring-2 ring-brand"
               style={{ top: hole.top, left: hole.left, width: hole.width, height: hole.height }}
             />
-          ) : null}
+          ) : <div className="absolute inset-0 bg-overlay" />}
         </div>
         <TourCard hole={hole} />
       </div>

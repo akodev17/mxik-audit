@@ -27,9 +27,9 @@ export type TourApi = {
   finish: () => void;
 };
 
-type Internal = TourApi & { setMode: (mode: TourMode) => void };
-
-const Ctx = createContext<Internal | null>(null);
+const Ctx = createContext<TourApi | null>(null);
+// Kept apart from the public API: only the overlay reports whether the current step found its target.
+const ModeCtx = createContext<((mode: TourMode) => void) | null>(null);
 
 type Props = {
   /** May change data and upload (the same condition as the rail's upload link). */
@@ -86,26 +86,23 @@ export function TourProvider({ canWrite, canManageTeam, onDone, children }: Prop
     else setIndex(index + 1);
   }, [index, steps.length, finish]);
 
-  const value = useMemo<Internal>(() => ({
-    open: open && steps.length > 0, index, step: steps[index] ?? null, steps, mode, start, next, back, skip, finish, setMode,
+  const value = useMemo<TourApi>(() => ({
+    open: open && steps.length > 0, index, step: steps[index] ?? null, steps, mode, start, next, back, skip, finish,
   }), [open, index, steps, mode, start, next, back, skip, finish]);
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={value}><ModeCtx.Provider value={setMode}>{children}</ModeCtx.Provider></Ctx.Provider>;
 }
 
-function useInternal(): Internal {
+/** The guided tour: its state and the actions that drive it. */
+export function useTour(): TourApi {
   const value = useContext(Ctx);
   if (!value) throw new Error('useTour() must be used inside <TourProvider>');
   return value;
 }
 
-/** The guided tour: its state and the actions that drive it. */
-export function useTour(): TourApi {
-  const { setMode: _setMode, ...api } = useInternal();
-  return api;
-}
-
 /** For the overlay only: reports whether the current step found its target. */
 export function useTourMode(): (mode: TourMode) => void {
-  return useInternal().setMode;
+  const value = useContext(ModeCtx);
+  if (!value) throw new Error('useTourMode() must be used inside <TourProvider>');
+  return value;
 }
