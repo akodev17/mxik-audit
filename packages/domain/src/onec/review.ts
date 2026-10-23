@@ -102,21 +102,23 @@ export type RecordQuery = { status?: RecordStatus; page: number };
 
 /** One batch, a page of its records, and the formats it can become. Null when the reader may not see it. */
 export async function batchDetail(reader: Reader, batchId: string, q: RecordQuery): Promise<{
-  batch: BatchRow; meta: unknown; records: RecordRow[]; total: number; pageSize: number; formats: OneCFormat[]; primary: OneCFormat;
+  batch: BatchRow; meta: unknown; records: RecordRow[]; total: number; pageSize: number; formats: OneCFormat[]; primary: OneCFormat; transferAvailable: boolean;
 } | null> {
   const batch = await db.importBatch.findFirst({ where: { id: batchId, ...batchScope(reader) }, select: { ...batchSelect, meta: true } });
   if (!batch) return null;
   const where: Prisma.ImportRecordWhereInput = { batchId, ...(q.status ? { status: q.status } : {}) };
-  const [records, total] = await Promise.all([
+  const [records, total, connection] = await Promise.all([
     db.importRecord.findMany({
       where, orderBy: { rowIndex: 'asc' }, skip: q.page * RECORD_PAGE, take: RECORD_PAGE,
       select: { id: true, rowIndex: true, status: true, payload: true, issues: true, decision: true, decidedAt: true, outcome: true },
     }),
     db.importRecord.count({ where }),
+    db.oneCConnection.findUnique({ where: { orgId: reader.orgId }, select: { kind: true, baseUrl: true } }),
   ]);
   return {
     batch: batchRow(batch), meta: batch.meta, records: records.map(recordRow), total, pageSize: RECORD_PAGE,
     formats: [...accounting.ONEC_FORMATS_BY_KIND[batch.kind]], primary: accounting.PRIMARY_FORMAT[batch.kind],
+    transferAvailable: connection?.kind === 'odata' && Boolean(connection.baseUrl),
   };
 }
 
@@ -235,7 +237,7 @@ export async function decideMany(actor: Actor, batchId: string, body: unknown): 
   }
   const batch = await db.importBatch.findFirst({ where: { id: batchId, ...batchScope(actor) }, select: { id: true, status: true, kind: true } });
   if (!batch) return { ok: false, error: 'not_found' };
-  const records = await db.importRecord.findMany({ where: { batchId, id: { in: ids as string[] } }, select: recordSelect });
+  const records = await db.importRecord.findMany({ where: { batchId, id: { in: ids } }, select: recordSelect });
   const refused: { id: string; error: DecisionError }[] = [];
   const byStatus = new Map<RecordStatus, string[]>();
   for (const rec of records) {

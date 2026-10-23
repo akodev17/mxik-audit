@@ -16,7 +16,7 @@ export type Transferred = { ok: true; exportId: string; outcome: ImportOutcome }
 const CONCURRENCY = 4;
 
 async function inPool<T, R>(items: readonly T[], limit: number, run: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
+  const out = new Array<R>(items.length);
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < items.length) {

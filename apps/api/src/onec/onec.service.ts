@@ -56,7 +56,7 @@ export class OnecService {
     if (!result.ok) return refused(locale, result.error);
     const disposition = result.file.headers['content-disposition'] ?? '';
     const filename = /filename\*=UTF-8''([^;]+)/.exec(disposition)?.[1];
-    return { ok: true as const, exportId: result.exportId, filename: filename ? decodeURIComponent(filename) : null, reused: result.reused ?? false };
+    return { ok: true as const, exportId: result.exportId, filename: filename ? decodeURIComponent(filename) : null, records: result.records, reused: result.reused ?? false };
   }
 
   async transfer(user: CurrentUser, locale: Locale, batchId: string, body: { format: 'odata'; recordIds?: string[] }) {

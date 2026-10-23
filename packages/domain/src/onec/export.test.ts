@@ -107,7 +107,7 @@ describe('1C exports (database)', { skip }, () => {
     assert.deepEqual(await prepareExport({ orgId: a.orgId, batchId, format: 'receipt_xlsx' }), { ok: false, error: 'format_unsupported' });
     assert.deepEqual(await prepareExport({ orgId: a.orgId, batchId, format: 'nope' as 'odata' }), { ok: false, error: 'format_unknown' });
     assert.deepEqual(await buildExport({ orgId: a.orgId, batchId, format: 'odata', actorId: a.userId }), { ok: false, error: 'format_not_file' });
-    const inv = await seedInvoiceBatch({ orgId: a.orgId }, { ...INVOICE_META, externalId: 'broken', number: '' as string, date: 'x' });
+    const inv = await seedInvoiceBatch({ orgId: a.orgId }, { ...INVOICE_META, externalId: 'broken', number: '', date: 'x' });
     assert.deepEqual(await prepareExport({ orgId: a.orgId, batchId: inv, format: 'receipt_xlsx' }), { ok: false, error: 'meta_invalid' });
   });
 

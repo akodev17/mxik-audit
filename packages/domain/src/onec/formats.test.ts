@@ -47,7 +47,7 @@ async function cells(bytes: Buffer): Promise<Record<string, string[][]>> {
   for (const ws of wb.worksheets) {
     const rows: string[][] = [];
     ws.eachRow({ includeEmpty: true }, (row) => {
-      const values = (row.values as unknown[]).slice(1).map((v) => (v === null || v === undefined ? '' : String(v)));
+      const values = (row.values as unknown[]).slice(1).map((v) => (v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v as string | number | boolean)));
       rows.push(values);
     });
     out[ws.name] = rows;

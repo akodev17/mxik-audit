@@ -22,7 +22,7 @@ export type PrepareInput = { orgId: string; batchId: string; format: OneCFormat;
 export type Prepared =
   | { ok: true; records: number; issues: ValidationIssue[]; checks: ImportOutcome['checks'] }
   | { ok: false; error: string };
-export type Built = { ok: true; exportId: string; file: FileOut; reused?: boolean } | { ok: false; error: string };
+export type Built = { ok: true; exportId: string; file: FileOut; records: number; reused?: boolean } | { ok: false; error: string };
 
 /** How long a repeat of the same export request answers the export already made. */
 export const IDEMPOTENCY_MS = 10 * 60_000;
@@ -155,11 +155,11 @@ export async function buildExport(input: PrepareInput & { actorId: string }): Pr
   const recent = await db.oneCExport.findFirst({
     where: { batchId: input.batchId, format: input.format, requestKey: key, createdAt: { gte: new Date(Date.now() - IDEMPOTENCY_MS) }, batch: { orgId: input.orgId } },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, createdAt: true, file: true, filename: true, contentType: true },
+    select: { id: true, createdAt: true, file: true, filename: true, contentType: true, recordCount: true },
   });
   if (recent?.file) {
     const changed = await db.importRecord.count({ where: { batchId: input.batchId, decidedAt: { gt: recent.createdAt } } });
-    if (changed === 0) return { ok: true, exportId: recent.id, file: fileOut(recent.file, recent.filename ?? 'export', recent.contentType ?? 'application/octet-stream'), reused: true };
+    if (changed === 0) return { ok: true, exportId: recent.id, file: fileOut(recent.file, recent.filename ?? 'export', recent.contentType ?? 'application/octet-stream'), records: recent.recordCount, reused: true };
   }
 
   const planned = await planFor(input);
@@ -199,7 +199,7 @@ export async function buildExport(input: PrepareInput & { actorId: string }): Pr
     });
     return row.id;
   }, { timeout: 60_000 });
-  return { ok: true, exportId, file: fileOut(built.bytes, built.filename, built.contentType) };
+  return { ok: true, exportId, file: fileOut(built.bytes, built.filename, built.contentType), records: plan.included.length };
 }
 
 /** A stored export's file again (the history's download link); null when it is not the org's or has no file. */

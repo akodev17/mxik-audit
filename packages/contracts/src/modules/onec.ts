@@ -122,6 +122,8 @@ export const onec = defineModule('onec', {
       pageSize: z.number().int(),
       formats: z.array(Format),
       primary: Format,
+      /** The org has an OData connection configured (transfer is offered; still unverified against a real 1C). */
+      transferAvailable: z.boolean(),
     }),
     replaces: ['page:(app)/onec/[batchId]'],
     notes: '404 for another org\'s batch or a client the accountant may not open.',
@@ -141,7 +143,7 @@ export const onec = defineModule('onec', {
     params: BatchPath,
     body: ExportRequest,
     responds: 'json',
-    response: z.union([z.object({ ok: z.literal(true), exportId: z.string(), filename: z.string().nullable(), reused: z.boolean() }), Refused]),
+    response: z.union([z.object({ ok: z.literal(true), exportId: z.string(), filename: z.string().nullable(), records: z.number().int(), reused: z.boolean() }), Refused]),
     replaces: ['page:(app)/onec/[batchId]#export'],
     notes: 'Answers JSON, not the file, so the page can show the outcome; GET /api/onec/exports/{exportId}/file downloads it. '
       + 'The same request within 10 minutes (no decision since) answers the same export (reused: true).',
