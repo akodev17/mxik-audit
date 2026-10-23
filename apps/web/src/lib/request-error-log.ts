@@ -1,6 +1,6 @@
 // One log line per server error, with the route it broke and the digest the
 // error page carries, so a failed page can be matched to its cause in the log.
-// Called from onRequestError in src/instrumentation.ts.
+// Called from onRequestError in apps/web/src/instrumentation.ts.
 
 export type RequestErrorContext = { routePath?: string; routeType?: string; renderSource?: string };
 

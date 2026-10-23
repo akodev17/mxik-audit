@@ -3,19 +3,15 @@ import { join } from 'node:path';
 import { processEnv, type LoadedEnvFiles } from '@next/env';
 import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
-import { securityHeaders } from '@tasnivo/domain/security/headers';
+import { securityHeaders } from './src/lib/security-headers';
 
 const config: NextConfig = {
-  // The workspace packages are TypeScript source (package.json "exports" point at .ts files).
-  transpilePackages: ['@tasnivo/api-client', '@tasnivo/contracts', '@tasnivo/core', '@tasnivo/db', '@tasnivo/domain', '@tasnivo/i18n'],
+  // The workspace packages are TypeScript source (package.json "exports" point at .ts files). The web app
+  // reads and writes through the API only: no @tasnivo/domain, @tasnivo/db or @tasnivo/core here (ESLint).
+  transpilePackages: ['@tasnivo/api-client', '@tasnivo/contracts', '@tasnivo/i18n'],
   // The dev overlay badge would appear in the landing page screenshots.
   devIndicators: false,
-  // exceljs and pg must run on the server, never be bundled for the browser. bullmq and ioredis load
-  // only with JOBS_MODE=bullmq (packages/domain/src/jobs/bullmq.ts).
-  serverExternalPackages: ['exceljs', 'pg', '@prisma/client', '@huggingface/transformers', 'onnxruntime-node', 'pdfkit', 'bullmq', 'ioredis'],
   experimental: {
-    // Catalogue uploads are the whole point; the 1 MB default is far too small.
-    serverActions: { bodySizeLimit: '25mb' },
     // Router cache. dynamic 0 (Next's default): a page opened by a plain navigation is fetched each
     // time; the workspace keeps its rows in client state, so a cached copy of a filter view could
     // show a row as undecided after it was decided. static 30 (Next's minimum, default 300): a page
@@ -35,15 +31,15 @@ const config: NextConfig = {
       { source: '/verify/:token', destination: '/api/auth/verify/:token', permanent: false },
     ];
   },
-  // Development and single-origin setups without Caddy: /api/* that no Next route handler answers
-  // goes to the API (afterFiles, so the handlers not moved yet keep winning until they are deleted).
-  // With NEXT_PUBLIC_API_URL set the browser calls the API itself and nothing is rewritten.
-  // `next build` writes the destination into the build: set API_INTERNAL_URL when building, not
-  // only when starting (behind Caddy /api/* never reaches the web app, so there it does not matter).
+  // Development and single-origin setups without Caddy: every /api/* request goes to the API (the web
+  // app has no route handlers of its own). With NEXT_PUBLIC_API_URL set the browser calls the API itself
+  // and nothing is rewritten. `next build` writes the destination into the build: set API_INTERNAL_URL
+  // when building, not only when starting (behind Caddy /api/* never reaches the web app, so there it
+  // does not matter).
   async rewrites() {
     if (process.env.NEXT_PUBLIC_API_URL) return [];
     const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
-    return { beforeFiles: [], afterFiles: [{ source: '/api/:path*', destination: `${api}/api/:path*` }], fallback: [] };
+    return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
   },
   webpack: (webpackConfig) => {
     // packages/* are also run directly by tsx (scripts, eval, tests),

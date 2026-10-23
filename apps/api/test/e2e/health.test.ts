@@ -8,7 +8,14 @@ import type { PrismaService } from '../../src/db/prisma.service';
 import { HealthController } from '../../src/health/health.controller';
 import { bodyOf, dbSkipReason, serverOf, startApp } from '../helpers';
 
-type Health = { status: string; database: boolean; classifier: { loaded: boolean } };
+type Health = {
+  status: string;
+  database: boolean;
+  classifier: {
+    loaded: boolean; takenAt: string | null; ageDays: number | null; codeCount: number | null; stale: boolean | null;
+    lastUpdate: { outcome: string } | null;
+  };
+};
 
 const skip = await dbSkipReason();
 
@@ -28,6 +35,14 @@ describe('GET /api/health (database)', { skip }, () => {
     assert.equal(body.status, loaded ? 'ok' : 'unavailable');
     assert.equal(body.database, true);
     assert.equal(body.classifier.loaded, loaded);
+    if (loaded) {
+      // The classifier block (moved here from the web app's route test).
+      assert.equal(typeof body.classifier.takenAt, 'string');
+      assert.ok(Number.isInteger(body.classifier.ageDays) && (body.classifier.ageDays ?? -1) >= 0);
+      assert.ok((body.classifier.codeCount ?? 0) > 0);
+      assert.equal(typeof body.classifier.stale, 'boolean');
+      assert.ok(body.classifier.lastUpdate === null || ['success', 'failed'].includes(body.classifier.lastUpdate.outcome));
+    }
     assert.equal(res.headers['cache-control'], 'no-store');
     assert.equal(res.headers['x-content-type-options'], 'nosniff');
     assert.equal(res.headers['x-powered-by'], undefined);

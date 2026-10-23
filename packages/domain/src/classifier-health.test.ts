@@ -1,18 +1,17 @@
-// The classifier fields of /api/health: shape from a fixed state, the status
-// file round trip, and (database up) the route and the shared advisory lock.
+// The classifier fields of /api/health: shape from a fixed state, the status file round trip,
+// and (database up) the shared advisory lock. The route itself: apps/api/test/e2e/health.test.ts.
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { Pool } from 'pg';
-import { GET as health } from '@/app/api/health/route';
-import { classifierHealth } from '@tasnivo/domain/classifier-health';
-import { acquireClassifierLock, classifierUpdateRunning, releaseClassifierLock } from '@tasnivo/domain/classifier-lock';
-import type { ClassifierState } from '@tasnivo/domain/classifier-state';
-import { readUpdateStatus, tidyMessage, writeUpdateStatus } from '@tasnivo/domain/classifier-status';
 import { db } from '@tasnivo/db';
-import { dbSkipReason } from '@tasnivo/domain/test-fixtures';
+import { classifierHealth } from './classifier-health.js';
+import { acquireClassifierLock, classifierUpdateRunning, releaseClassifierLock } from './classifier-lock.js';
+import type { ClassifierState } from './classifier-state.js';
+import { readUpdateStatus, tidyMessage, writeUpdateStatus } from './classifier-status.js';
+import { dbSkipReason } from './test-fixtures.js';
 
 const takenAt = new Date('2026-09-20T05:00:00Z');
 const state = (over: Partial<ClassifierState> = {}): ClassifierState => ({
@@ -72,22 +71,8 @@ describe('update status file', () => {
 
 const skip = await dbSkipReason();
 
-describe('health route and update lock (database)', { skip }, () => {
+describe('update lock (database)', { skip }, () => {
   after(async () => { await db.$disconnect(); });
-
-  it('answers with the classifier block', async () => {
-    const res = await health();
-    assert.equal(res.status, 200);
-    const body = await res.json() as { status: string; database: boolean; classifier: ReturnType<typeof classifierHealth> };
-    assert.equal(body.status, 'ok');
-    assert.equal(body.database, true);
-    assert.equal(body.classifier.loaded, true);
-    assert.equal(typeof body.classifier.takenAt, 'string');
-    assert.ok(Number.isInteger(body.classifier.ageDays) && (body.classifier.ageDays ?? -1) >= 0);
-    assert.ok((body.classifier.codeCount ?? 0) > 0);
-    assert.equal(typeof body.classifier.stale, 'boolean');
-    assert.ok(body.classifier.lastUpdate === null || ['success', 'failed'].includes(body.classifier.lastUpdate.outcome));
-  });
 
   it('sees the advisory lock the update script holds', async () => {
     const pool = new Pool({ connectionString: process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik', max: 2 });
