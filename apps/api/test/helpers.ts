@@ -24,12 +24,12 @@ export async function dbSkipReason(): Promise<string | false> {
 export const testConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({ ...parseEnv(process.env), ...overrides });
 
 /** The real AppModule (plus test-only controllers) on an in-memory Express server; no request log. */
-export async function startApp(options: { config?: Partial<AppConfig>; controllers?: Type[] } = {}): Promise<INestApplication> {
+export async function startApp(options: { config?: Partial<AppConfig>; controllers?: Type[]; docs?: boolean } = {}): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers: options.controllers ?? [] })
     .overrideProvider(APP_CONFIG).useValue(testConfig(options.config))
     .compile();
   const app = moduleRef.createNestApplication({ logger: false });
-  configureApp(app, { requestLog: false });
+  configureApp(app, { requestLog: false, ...(options.docs === undefined ? {} : { docs: options.docs }) });
   await app.init();
   return app;
 }
