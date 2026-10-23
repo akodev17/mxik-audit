@@ -98,7 +98,7 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
   return (
     <div className="space-y-4">
       <Card
-        title={`${g.line} ${n(detail.records.length)}`}
+        title={`${ta.didoxX.list.lines}: ${n(detail.records.length)}`}
         hint={counts ? (['valid', 'corrected', 'suspicious', 'unresolved', 'skipped'] as const).map((s) => `${ta.accountingX.record[s]}: ${n(counts[s])}`).join(' · ') : undefined}
         actions={(
           <Segmented
@@ -119,18 +119,19 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
             <tr>
               <Th numeric>{g.line}</Th>
               <Th>{g.name}</Th>
-              <Th className="hidden lg:table-cell">{g.mxik}</Th>
-              <Th className="hidden md:table-cell">{g.package}</Th>
+              <Th className="hidden 2xl:table-cell">{g.mxik}</Th>
+              <Th className="hidden lg:table-cell">{g.package}</Th>
               <Th numeric>{g.quantity}</Th>
-              <Th numeric className="hidden md:table-cell">{g.price}</Th>
+              <Th numeric className="hidden 2xl:table-cell">{g.price}</Th>
               <Th numeric>{g.total}</Th>
-              <Th>{g.product}</Th>
+              <Th className="hidden 2xl:table-cell">{g.product}</Th>
               <Th>{g.issues}</Th>
               <Th>{g.status}</Th>
               {writable ? <Th><span className="sr-only">{g.actions}</span></Th> : null}
             </tr>
           </thead>
           <tbody>
+            {rows.length === 0 ? <tr><Td colSpan={11} className="py-6 text-center text-muted">{d.detail.noProblems}</Td></tr> : null}
             {rows.map((r) => {
               const p = r.payload;
               const tone = recordTone(r.status as RecordStatus);
@@ -141,23 +142,24 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
                   <Td className="min-w-48 max-w-sm">
                     <span className="block font-medium">{p.name}</span>
                     {r.sameAs.length > 0 ? <span className="block text-small text-muted">{d.detail.group(r.sameAs.join(', '))}</span> : null}
-                    <span className="block font-mono text-small text-muted lg:hidden">{p.mxik ?? '—'}</span>
+                    <span className="block font-mono text-small text-muted 2xl:hidden">{p.mxik ?? '—'}</span>
+                    <span className="mt-1 block 2xl:hidden"><Badge tone={MATCH_TONE[match]}>{d.detail.match[match]}</Badge>{p.product.chosen ? <span className="ml-1 text-small text-muted">{p.product.chosen.label}</span> : null}</span>
                   </Td>
-                  <Td className="hidden lg:table-cell">
+                  <Td className="hidden 2xl:table-cell">
                     <span className="block font-mono text-small">{p.mxik ?? '—'}</span>
                     {p.mxikName ? <span className="block max-w-56 truncate text-small text-muted" title={p.mxikName}>{p.mxikName}</span> : null}
                   </Td>
-                  <Td className="hidden whitespace-nowrap md:table-cell">{p.packageName ?? p.unit ?? '—'}</Td>
+                  <Td className="hidden whitespace-nowrap lg:table-cell">{p.packageName ?? p.unit ?? '—'}</Td>
                   <Td numeric className="whitespace-nowrap">{decimalText(p.quantity)}</Td>
-                  <Td numeric className="hidden whitespace-nowrap md:table-cell">{decimalText(p.price, { money: true })}</Td>
+                  <Td numeric className="hidden whitespace-nowrap 2xl:table-cell">{decimalText(p.price, { money: true })}</Td>
                   <Td numeric className="whitespace-nowrap">{decimalText(p.total, { money: true })}</Td>
-                  <Td className="min-w-32">
+                  <Td className="hidden min-w-32 2xl:table-cell">
                     <Badge tone={MATCH_TONE[match]}>{d.detail.match[match]}</Badge>
                     {p.product.chosen ? <span className="mt-1 block max-w-48 truncate text-small text-muted" title={p.product.chosen.reason ?? p.product.chosen.label}>{p.product.chosen.label}</span> : null}
                   </Td>
                   <Td className="min-w-40">
                     <ul className="flex flex-wrap gap-1">
-                      {r.issues.map((i, k) => (
+                      {r.issues.filter((i) => i.code !== 'product_unchecked').map((i, k) => (
                         <li key={`${i.code}-${k}`}><Badge tone={severityTone(i.severity)} title={issueTitle(i)}>{d.issues[i.code] ?? i.code}</Badge></li>
                       ))}
                     </ul>
@@ -185,7 +187,7 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
         </Table>
       </Card>
 
-      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {error ? <Notice tone={error === d.detail.onecPending ? 'info' : 'danger'}>{error}</Notice> : null}
 
       {writable ? (
         <Card title={d.detail.prepare} footer={(
@@ -299,7 +301,7 @@ function Picker({ line, onClose, onDecide }: { line: Line; onClose: () => void; 
             {suggestion.reason ? <p className="text-muted">{suggestion.reason}</p> : null}
             <Button size="compact" className="mt-2" onClick={() => setMxik(suggestion.id)}>{d.apply}</Button>
           </div>
-        ) : <p className="text-small text-muted">—</p>}
+        ) : <p className="text-small text-muted">{d.noSuggestion}</p>}
       </div>
     </Dialog>
   );

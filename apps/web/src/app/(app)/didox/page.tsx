@@ -68,7 +68,7 @@ export default async function DidoxPage({ searchParams }: { searchParams: Promis
                   <Th numeric>{d.list.lines}</Th>
                   <Th numeric>{d.list.issues}</Th>
                   <Th>{d.list.status}</Th>
-                  <Th className="hidden md:table-cell">{d.list.source}</Th>
+                  <Th className="hidden xl:table-cell">{d.list.source}</Th>
                   <Th><span className="sr-only">{d.list.remove}</span></Th>
                 </tr>
               </thead>
@@ -87,7 +87,7 @@ export default async function DidoxPage({ searchParams }: { searchParams: Promis
                       <Td numeric>{n(r.counts?.total ?? 0)}</Td>
                       <Td numeric className={r.issues > 0 ? 'text-warn-ink' : 'text-muted'}>{n(r.issues)}</Td>
                       <Td><StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{a.status[r.status as keyof typeof a.status] ?? r.status}</StatusChip></Td>
-                      <Td className="hidden whitespace-nowrap text-muted md:table-cell">{d.list.sources[r.source] ?? r.source}</Td>
+                      <Td className="hidden whitespace-nowrap text-muted xl:table-cell">{d.list.sources[r.source] ?? r.source}</Td>
                       <Td>
                         <span className="flex justify-end">
                           {writable ? <DeleteInvoiceButton batchId={r.id} label={`${r.sellerName} · ${r.number}`} lines={r.counts?.total ?? 0} /> : null}

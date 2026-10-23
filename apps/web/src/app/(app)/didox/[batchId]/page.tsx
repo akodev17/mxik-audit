@@ -34,7 +34,7 @@ export default async function DidoxInvoicePage({ params }: { params: Promise<{ b
 
   return (
     <Page
-      title={`${invoice.sellerName || '—'} · № ${meta.number}`} hint={`${fmtDate(locale, meta.date)}${invoice.clientName ? ` · ${invoice.clientName}` : ''}`}
+      title={`${invoice.sellerName || '—'} · ${/^№/.test(meta.number) ? meta.number : `№ ${meta.number}`}`} hint={`${fmtDate(locale, meta.date)}${invoice.clientName ? ` · ${invoice.clientName}` : ''}`}
       wide crumbs={[{ label: d.detail.back, href: '/didox' }]}
       actions={(
         <>

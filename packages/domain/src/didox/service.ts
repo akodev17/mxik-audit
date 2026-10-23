@@ -14,6 +14,7 @@ import { canSeeClient, canWrite } from '../access.js';
 import { uploadTarget, type UploadedFile } from '../catalog-upload.js';
 import type { FileOut } from '../catalog-exports.js';
 import { isDemoOrg } from '../demo.js';
+import { looksLikeZip } from '../security/zip-guard.js';
 import { buildExport, prepareExport } from '../onec/index.js';
 import { classifyProducts, upsertProducts } from '../products/index.js';
 import type { CurrentUser } from '../session.js';
@@ -206,7 +207,7 @@ export async function uploadDidoxFile(user: Writer, locale: Locale, input: { fil
     const { headers, rows } = read.sheet;
     return { ok: true, kind: 'sheet', filename: gate.name, preview: { headers, rows: rows.slice(0, 10), totalRows: rows.length, map: guessSheetMap(headers), fields: SHEET_FIELDS } };
   }
-  const source = /\.zip$/i.test(gate.name) || read.documents.some((d) => d.entry !== gate.name) ? 'didox_zip' : 'didox_json';
+  const source = looksLikeZip(gate.buffer) ? 'didox_zip' : 'didox_json';
   const items: UploadItem[] = [];
   for (const doc of read.documents) {
     try {
