@@ -161,10 +161,16 @@ export async function classifyDetailed(orgId: string, lines: readonly ClassifyLi
         issues.push({ code: 'mxik_missing', severity: 'error', field: 'mxik', ...(suggestion ? { suggestion: suggestion.id } : {}) });
       } else if (f.type === 'NOT_FOUND') {
         // Present in an earlier import and absent now = retired by absence; never seen = not a code.
+        // A retired code is "inactive per API" once the history endpoint said isActive "0" (cached by
+        // the classifier update); otherwise it is inactive by its absence from the export, and `api`
+        // says what the API answered, if anything.
         const retired = f.wasRetired;
+        const said = code ? activity.get(code) : undefined;
+        const issueCode = !retired ? 'mxik_not_found' : said?.isActive === false ? 'mxik_inactive_api' : 'mxik_inactive';
+        const api = said?.notFound ? 'not_found' : said?.isActive === true ? 'active' : said?.isActive === false ? 'inactive' : 'unknown';
         status = worse(status, retired ? 'inactive' : 'invalid');
         suggestion = alternatives[0] ?? null;
-        issues.push({ code: retired ? 'mxik_inactive' : 'mxik_not_found', severity: 'error', field: 'mxik', params: { code: code ?? '' }, ...(suggestion ? { suggestion: suggestion.id } : {}) });
+        issues.push({ code: issueCode, severity: 'error', field: 'mxik', params: { code: code ?? '', ...(retired ? { api } : {}) }, ...(suggestion ? { suggestion: suggestion.id } : {}) });
       } else if (f.type === 'MISMATCH') {
         status = worse(status, 'suspicious');
         suggestion = alternatives[0] ?? null;
