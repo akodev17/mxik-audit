@@ -3,18 +3,20 @@ import { getI18n } from '@/lib/locale';
 import { IconBook } from '@/ui/icons';
 
 /**
- * What the dictionary is and what automatic acceptance does, in two sentences beside the search;
+ * What the dictionary is and what automatic acceptance does, as one quiet band above the search;
  * an admin, who owns the setting, gets the way to it.
  */
 export async function DictionaryExplainer({ admin }: { admin: boolean }) {
   const { ta } = await getI18n();
   const u = ta.wsUi.dict;
   return (
-    <aside className="rounded-lg border border-line bg-surface p-4 lg:order-2 lg:row-span-2">
-      <h2 className="flex items-center gap-2 text-small font-semibold text-fg"><IconBook size={16} className="text-muted" />{u.autoTitle}</h2>
-      <p className="mt-2 text-small text-muted">{u.autoBody}</p>
-      <p className="mt-2 text-small text-muted">{u.autoSetting}</p>
-      {admin ? <Link href="/settings" className="mt-3 inline-block text-small font-medium text-brand-ink hover:underline">{u.autoLink}</Link> : null}
+    <aside aria-label={u.autoTitle} className="mb-5 flex gap-3 rounded-lg border border-line bg-surface p-4">
+      <IconBook size={18} className="mt-0.5 shrink-0 text-muted" />
+      <div className="min-w-0 space-y-1 text-small">
+        <h2 className="font-semibold text-fg">{u.autoTitle}</h2>
+        <p className="text-muted">{u.autoBody} {u.autoSetting}</p>
+        {admin ? <Link href="/settings" className="inline-block font-medium text-brand-ink hover:underline">{u.autoLink}</Link> : null}
+      </div>
     </aside>
   );
 }

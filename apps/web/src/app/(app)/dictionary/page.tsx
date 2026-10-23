@@ -35,12 +35,8 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
 
   return (
     <Page title={ta.dict.title} hint={ta.dict.hint} wide>
-      <div className="grid items-start gap-x-6 gap-y-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="min-w-0 lg:order-1">
-          <DictionarySearch initial={q} />
-        </div>
-        <DictionaryExplainer admin={user.role === 'admin'} />
-      </div>
+      <DictionaryExplainer admin={user.role === 'admin'} />
+      <DictionarySearch initial={q} />
       <DictionaryView key={`${q}|${filter}|${page}`} q={q} filter={filter} page={page} initial={data} editable={user.role !== 'viewer'} />
     </Page>
   );

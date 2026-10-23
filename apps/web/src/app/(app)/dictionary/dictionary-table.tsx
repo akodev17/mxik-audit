@@ -96,7 +96,7 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
         <span className="block truncate font-medium text-fg" title={row.label}>{row.label}</span>
         {row.unit ? <span className="text-micro text-muted">{row.unit}</span> : null}
       </Td>
-      <Td>{row.kind === 'barcode' ? ta.dict.kindBarcode : ta.dict.kindName}</Td>
+      <Td className="whitespace-nowrap text-muted">{row.kind === 'barcode' ? ta.dict.kindBarcode : ta.dict.kindName}</Td>
       <Td className="min-w-56 max-w-sm">
         {editing ? (
           <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>

@@ -76,3 +76,50 @@ folder and lists it under "Primitive requests" in its result note; U1 consolidat
    accessible names/roles kept or the spec updated in the same commit.
 3. Both languages updated; no hardcoded strings.
 4. Commits in logical steps on your branch; a "Result" note appended here.
+
+## U4 result (workspace, queue, dictionary) — 23 Oct, partial
+
+Branch `claude/u4-workspace-6eb144`. Screenshots: `docs/ui-refresh/u4/<page>-<375|768|1280>-<light|dark>.png`
+(workspace, drawer, bulk, grouped, empty-filter, sure, queue, dictionary; production build on 3114 + API 4214, seed
+demo catalogue). The dictionary shots predate the last layout fix (explainer moved from a side card to a band above
+the search). The demo catalogue has no similar rows, so the "grouped" shots show the flat list.
+
+Done:
+- Grid: one-line rows at 40 / 32 px (`ROW_HEIGHT` in columns.ts), header 36 px with sort buttons on # (file order)
+  and Muammo (risk) with `aria-sort`; finding-type colour only in the status chip; match column is a neutral
+  three-bar meter + band word (`confidence-meter.tsx`, `match-chip.tsx` deleted; the suggestion cell shows bars when
+  the match column is hidden); decision column in two fixed slots (no shift on hover/active/decided); group header
+  rows on the surface tone with a member count and a pending bar, members indented; skeleton rows while more pages
+  exist; "end of list · n muammo" line; empty-filter state with icon, search echo and reset.
+- Summary strip as KPI chips + progress bar; toolbar on one line at 1280 (32 px controls; views/table settings as
+  ghost icon buttons); type chips with counts plus removable chips for every non-default filter (`filter-chips.tsx`);
+  floating bulk bar (role=toolbar) over the grid bottom; quiet shortcut strip with Kbd keys and a "?" dialog.
+- Drawer: product + type chip, current/proposed code side by side with the changing blocks underlined
+  (`CodePair`), sticky section bar (Details / Evidence / Comments / History, scroll-to, all sections stay in the
+  DOM so the e2e text checks still see them), keyboard combobox code search, comment thread with initials avatars
+  and Ctrl+Enter, history section, sticky footer. Request text and "wrong suggestion" are now Dialogs; the
+  sure-accept dialog has a summary card. Phone cards use the same meter/decision pieces.
+- Queue: client cards (findings, rows, share of queue, filter-to-client, open-in-workspace), removable filter chips,
+  tidier table/cards. Dictionary: chip filters with counts, explainer band (how it works + auto-accept, settings link
+  for admins), "Tasdiqlash" for unverified entries (dictionary.update with the same code = one confirmation).
+- i18n: new `wsUi` group at the end of the uz and ru objects in packages/i18n/src/i18n-parts/workspace.ts.
+
+Verified: `npm run typecheck` green; eslint on the touched folders green; `next build` green.
+NOT run (stopped on the owner's instruction): `npm test`, root `npm run lint`, and the e2e specs (review-flow,
+scale, dictionary-review, refresh, navigation). Accessible names/roles the specs use were kept on purpose (grid
+roles and ids, chip link names "Label: n muammo", drawer complementary name and headings, `Choose: code` buttons,
+decision button names, the decision `<select>`), but this is unproven until the specs run.
+
+Unfinished / follow-ups:
+- Queue cards have no assignee, due date or review progress: `workspace.queue` byClient only has findings/rows.
+  Needs an additive contract field (per client: open review assignee, dueOn, reviewed/total) plus the API.
+- Row height changed (64/40 → 40/32): the scale spec's j/k budget should be rechecked on a production build.
+- `ui/row-list.tsx`, `ui/code-chip.tsx`, `ui/ranked-bars.tsx`, `ui/sparkline.tsx` untouched.
+
+Primitive requests for U1:
+- `Popover`: an `iconOnly`/`hideLabel` prop (columns menu passes an sr-only label span today).
+- `Kbd`: a compact size for dense strips; `Button`: a fixed-width slot option, or accept the `w-[6.75rem]` pattern.
+- `Drawer`: a `header` slot under the title (the section bar is sticky inside the body with negative margins now).
+- `Dialog` footer: a start-aligned slot (request-text puts a link left with `mr-auto`).
+- A shared `FilterChip` (pill with count / removable) — workspace, queue and dictionary each style one locally.
+- `Textarea`: a borderless variant for composers (row-comments overrides border and focus).
