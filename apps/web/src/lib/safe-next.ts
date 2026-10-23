@@ -1,5 +1,5 @@
 // Where to land after sign-in when the link carries ?next=: only a path on this site. A copy of
-// @tasnivo/domain/security/safe-next (safe-next.test.ts holds them together); the API applies the
+// @tasnivo/domain/security/safe-next (tests/web-parity/safe-next.test.ts holds them together); the API applies the
 // original to what the sign-in form posts.
 const BASE = 'http://next.invalid';
 const MAX_LENGTH = 512;

@@ -1,13 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
 import { checkCredentials, hasIssues, MIN_PASSWORD_LENGTH } from './credentials-check.js';
 
 describe('sign-in and sign-up field checks', () => {
-  it('uses the server minimum password length', () => {
-    assert.equal(MIN_PASSWORD_LENGTH, MIN_PASSWORD);
-  });
-
   it('asks for a missing or malformed address and a missing password', () => {
     assert.deepEqual(checkCredentials('', '', null), { email: 'required', password: 'required' });
     assert.deepEqual(checkCredentials('  ', 'x', null), { email: 'required' });

@@ -1,5 +1,5 @@
-// Web-local copies of small db-free domain helpers for files the Wave 3 lint rule keeps away from
-// @tasnivo/domain (apps/web/eslint.migrated.mjs); pure.test.ts compares each with its original.
+// Web-local copies of small db-free domain helpers (the web app may not import @tasnivo/domain);
+// tests/web-parity/pure.test.ts compares each with its original.
 // Role checks the pages show or hide controls by (domain access.ts canWrite / isAdminRole).
 import type { Role } from '@/lib/api/me';
 

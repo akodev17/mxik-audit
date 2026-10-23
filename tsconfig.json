@@ -1,6 +1,7 @@
 {
-  // scripts/ and eval/. Also the config tsx reads for everything run from the root (tests,
-  // scripts), so "@/*" points at the web app for its tests. Workspaces have their own tsconfig.json.
+  // scripts/, eval/ and tests/. Also the config tsx reads for everything run from the root (tests,
+  // scripts), so "@/*" points at the web app for its tests and for tests/web-parity. Workspaces have
+  // their own tsconfig.json.
   //
   // apps/api is included because tsx applies this file's compilerOptions only to the files it
   // includes, and Nest's parameter decorators compile only with experimentalDecorators: without
@@ -19,6 +20,7 @@
   "include": [
     "scripts/**/*.ts",
     "eval/**/*.ts",
+    "tests/**/*.ts",
     "apps/api/src/**/*.ts",
     "apps/api/test/**/*.ts",
     "apps/worker/src/**/*.ts"

@@ -7,7 +7,7 @@ import { appDict } from '@tasnivo/i18n/i18n-app';
 import {
   apiFilter, DECISION_FILTERS, DECISION_SOURCES, decisionSourceLabel, FINDING_TYPES, filterKey, filterQuery, FLAG_FILTERS, isAutomatic,
   OPTIONAL_COLUMNS, readDecisionSource, readFilter, readHidden, viewQuery, type FilterParams, type ViewParams,
-} from './workspace-url.js';
+} from '@/lib/workspace-url';
 
 // URL values worth trying for each filter field: valid ones, junk, empty and missing.
 const VALUES: Record<keyof FilterParams, (string | null | undefined)[]> = {

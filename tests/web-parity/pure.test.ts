@@ -1,4 +1,4 @@
-// The web-local copies in this folder must behave like their @tasnivo/domain and @tasnivo/core
+// The web-local copies in apps/web/src/lib/pure must behave like their @tasnivo/domain and @tasnivo/core
 // originals: a change on one side fails here until both agree.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -13,13 +13,13 @@ import * as domainReminders from '@tasnivo/domain/reminder-dates';
 import { MIN_TEXT } from '@tasnivo/domain/search-query';
 import type { LabelKey as CoreLabelKey } from '@tasnivo/core/match/confidence-labels';
 import { taUz } from '@tasnivo/i18n/i18n-app';
-import { canWrite, isAdminRole } from './access';
-import { DECISION_EVENTS, GROUP_WINDOW_MS, groupDecisions } from './activity-groups';
-import * as kpi from './client-kpi';
-import { DEMO_USE_CASES, LABEL_KEYS, MIN_SEARCH_TEXT, type LabelKey } from './constants';
-import { withQuery } from './query-string';
-import { agoText, daysSince } from './relative-day';
-import * as reminders from './reminder-dates';
+import { canWrite, isAdminRole } from '@/lib/pure/access';
+import { DECISION_EVENTS, GROUP_WINDOW_MS, groupDecisions } from '@/lib/pure/activity-groups';
+import * as kpi from '@/lib/pure/client-kpi';
+import { DEMO_USE_CASES, LABEL_KEYS, MIN_SEARCH_TEXT, type LabelKey } from '@/lib/pure/constants';
+import { withQuery } from '@/lib/pure/query-string';
+import { agoText, daysSince } from '@/lib/pure/relative-day';
+import * as reminders from '@/lib/pure/reminder-dates';
 
 // The local label union is exactly core's (checked by the compiler, both ways).
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

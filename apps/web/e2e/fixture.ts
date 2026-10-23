@@ -6,6 +6,10 @@
 //
 // Runs against E2E_BASE_URL (default http://localhost:3000). Nothing here
 // starts, stops or builds a server.
+//
+// The one exception to the web app's import ban (root eslint.config.js): this file may use @tasnivo/db
+// and @tasnivo/domain to write fixtures straight into the database the API and the worker share. The
+// *.e2e.ts files get the database and the domain's test helpers from here, never directly.
 import assert from 'node:assert/strict';
 import '@tasnivo/domain/load-env';
 import { randomBytes } from 'node:crypto';
@@ -244,7 +248,7 @@ export async function statValue(page: Page, label: string): Promise<string | nul
  * browser's ICU data ("3,000" in headless Chromium) while the suite's copy is formatted
  * by Node ("3 000"), so copy that contains numbers is compared without separators.
  */
-export const plainNumbers = (text: string): string => text.replace(/(\d)[\s,.  ](?=\d{3}(?!\d))/g, '$1');
+export const plainNumbers = (text: string): string => text.replace(/(\d)[\s,.\u00a0\u202f](?=\d{3}(?!\d))/g, '$1');
 
 /** Digits of a formatted number ("1 234" in uz). */
 export const digits = (text: string | null): number => Number((text ?? '').replace(/\D/g, ''));
@@ -323,3 +327,6 @@ export async function poll<V>(what: string, read: () => Promise<V>, done: (v: V)
 }
 
 export { db };
+export { requestDemoAccess } from '@tasnivo/domain/demo-access';
+export { localDate } from '@tasnivo/domain/reminders';
+export { dropOrgs, liveCodes, makeCatalog, makeOrg } from '@tasnivo/domain/test-fixtures';

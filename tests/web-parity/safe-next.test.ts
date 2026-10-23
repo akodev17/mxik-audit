@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { safeNext as original } from '@tasnivo/domain/security/safe-next';
-import { safeNext } from './safe-next.js';
+import { safeNext } from '@/lib/safe-next';
 
 describe('the web copy of safeNext', () => {
   it('answers what the domain original answers', () => {

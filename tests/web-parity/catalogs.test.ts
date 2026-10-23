@@ -1,5 +1,5 @@
-// The catalogue screens' browser copies of pure @tasnivo/domain code (the web app no longer imports
-// the domain) must keep answering what the originals answer.
+// The catalogue screens' browser copies of pure @tasnivo/domain code (apps/web/src/lib/catalogs; the web
+// app does not import the domain) must keep answering what the originals answer.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import * as access from '@tasnivo/domain/access';
@@ -15,9 +15,9 @@ import { typeLines as domainTypeLines } from '@tasnivo/domain/report-summary';
 import { fileLine as domainFileLine } from '@tasnivo/domain/sheet-shape';
 import * as fileTypes from '@tasnivo/domain/upload-file-types';
 import { appDict } from '@tasnivo/i18n/i18n-app';
-import { groupDecisions, type ActivityRow } from './activity';
-import { bannerReasons, canWrite, degradedNotes, isAdminRole, localToday, typeLines, withQuery } from './report';
-import { applyPreset, COLUMN_FIELDS, fileLine, hasUploadExtension, IMPORT_PRESETS, mappingIssues, UPLOAD_ACCEPT, UPLOAD_EXTENSIONS } from './upload';
+import { bannerReasons, canWrite, degradedNotes, isAdminRole, localToday, typeLines, withQuery } from '@/lib/catalogs/report';
+import { applyPreset, COLUMN_FIELDS, fileLine, hasUploadExtension, IMPORT_PRESETS, mappingIssues, UPLOAD_ACCEPT, UPLOAD_EXTENSIONS } from '@/lib/catalogs/upload';
+import { groupDecisions, type ActivityRow } from '@/lib/pure/activity-groups';
 
 describe('catalogue screens: web copies equal the domain', () => {
   it('column fields, mapping issues', () => {

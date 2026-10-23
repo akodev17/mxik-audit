@@ -6,9 +6,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Page } from 'playwright';
-import { requestDemoAccess } from '@tasnivo/domain/demo-access';
-import { dropOrgs, liveCodes, makeCatalog, makeOrg } from '@tasnivo/domain/test-fixtures';
-import { ARTIFACTS, COMMIT, db, launch, newPage, T, TA, traced } from './fixture';
+import { ARTIFACTS, COMMIT, db, dropOrgs, launch, liveCodes, makeCatalog, makeOrg, newPage, requestDemoAccess, T, TA, traced } from './fixture';
 
 const tag = (): string => Math.random().toString(16).slice(2, 10);
 const DA = T.demoAccess;

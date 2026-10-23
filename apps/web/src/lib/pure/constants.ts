@@ -1,5 +1,5 @@
-// Fixed values of domain and core modules that the migrated web files need (the originals sit next
-// to server code); pure.test.ts compares them.
+// Fixed values of domain and core modules that the web app needs (the originals sit next to server
+// code); tests/web-parity/pure.test.ts compares them.
 
 /** search-query.ts MIN_TEXT: the palette searches from this many characters. */
 export const MIN_SEARCH_TEXT = 2;

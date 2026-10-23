@@ -1,5 +1,5 @@
 // What the upload wizard computes in the browser. Copies of pure @tasnivo/domain code (the web app
-// no longer imports the domain); catalogs-drift.test.ts keeps them equal to the originals.
+// does not import the domain); tests/web-parity/catalogs.test.ts keeps them equal to the originals.
 import { COLUMN_FIELDS } from '@tasnivo/contracts';
 import type { ColumnField, ColumnMap, ParseMeta } from './types';
 
