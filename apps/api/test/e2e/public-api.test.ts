@@ -11,7 +11,7 @@ import { buildOpenApi } from '@tasnivo/contracts';
 import { db } from '@tasnivo/db';
 import { HEADERS, OPERATIONS, type OperationId } from '@tasnivo/domain/api/contract';
 import { listCatalogsOperation, reportOperation } from '@tasnivo/domain/api/handlers';
-import { authenticate, createApiKey } from '@tasnivo/domain/api/keys';
+import { authenticate, createApiKey, monthKey } from '@tasnivo/domain/api/keys';
 import { checksInFlight, startCheck } from '@tasnivo/domain/api/limits';
 import { openApiSpec } from '@tasnivo/domain/api/openapi';
 import { setJobs, type JobDispatcher } from '@tasnivo/domain/jobs/dispatcher';
@@ -209,6 +209,35 @@ describe('/api/v1 through the Nest app (database)', { skip }, () => {
       for (const release of held) release();
     }
     assert.equal(checksInFlight(), 0);
+  });
+
+  it('check: parallel requests at the edge of the monthly allowance never pass the cap together (Q6)', async () => {
+    const trial = await makeOrg();
+    try {
+      await db.organization.update({ where: { id: trial.orgId }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
+      const created = await createApiKey({ ...trial, role: 'admin' }, 'cap');
+      assert.ok(created);
+      const keyId = (await db.apiKey.findFirstOrThrow({ where: { orgId: trial.orgId }, select: { id: true } })).id;
+      // The trial allows 500 checks a month; 495 are used, so two requests of 2 fit and a third does not.
+      await db.apiUsage.create({ data: { keyId, orgId: trial.orgId, month: monthKey(), checks: 495, requests: 1 } });
+      const saved = process.env['API_CHECK_CONCURRENCY'];
+      process.env['API_CHECK_CONCURRENCY'] = '20';
+      try {
+        const items = [{ name: 'Shakar 1 kg' }, { name: 'Guruch 1 kg' }];
+        const answers = await Promise.all(Array.from({ length: 6 }, () => as(created.token).post('/check').send({ items })));
+        const statuses = answers.map((r) => r.status).sort();
+        assert.deepEqual(statuses, [200, 200, 402, 402, 402, 402], JSON.stringify(statuses));
+        for (const r of answers.filter((x) => x.status === 402)) documentedError('check', r, 'plan_limit');
+      } finally {
+        if (saved === undefined) delete process.env['API_CHECK_CONCURRENCY'];
+        else process.env['API_CHECK_CONCURRENCY'] = saved;
+      }
+      const used = await db.apiUsage.aggregate({ where: { orgId: trial.orgId, month: monthKey() }, _sum: { checks: true, requests: true } });
+      assert.equal(used._sum.checks, 499);
+      assert.equal(used._sum.requests, 3);
+    } finally {
+      await dropOrgs([trial.orgId]);
+    }
   });
 
   it('upload: 202 with the stored catalogue, its audit handed to the queue; replayed for the same key', async () => {

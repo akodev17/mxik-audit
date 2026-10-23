@@ -15,7 +15,7 @@ import { checkProducts, CheckItemSchema } from './check';
 import { HEADERS, PAGE, pageLimit, type OperationId } from './contract';
 import { fingerprint, idempotent, parseIdempotencyKey, type Idempotent } from './idempotency';
 import type { ApiCaller } from './keys';
-import { apiConfig, CHECK_BUSY_RETRY_SECONDS, checkAllowance, recordUsage, startCheck } from './limits';
+import { apiConfig, CHECK_BUSY_RETRY_SECONDS, recordUsage, releaseChecks, reserveChecks, startCheck } from './limits';
 import { failure, type Outcome } from './respond';
 import { catalogOut, findingOut, reportOut, uploadOut } from './serialize';
 
@@ -50,14 +50,21 @@ export async function checkOperation(caller: ApiCaller, input: { idempotencyKey:
   if (items.length > max) return plain(failure(op, 'invalid_request', `At most ${max} items per request.`));
 
   const run = async (): Promise<Outcome> => {
-    const allowance = await checkAllowance(caller.orgId, items.length);
+    // Reserved before the matching runs (Q6): parallel requests cannot all pass the same month total.
+    const allowance = await reserveChecks(caller.keyId, caller.orgId, items.length);
     if (!allowance.ok) {
       return allowance.reason === 'expired'
         ? failure(op, 'plan_expired', 'The trial has ended; activate a plan.')
         : failure(op, 'plan_limit', 'The monthly check allowance of the plan is used up.');
     }
-    const results = await checkProducts(caller.orgId, items);
-    await recordUsage(caller.keyId, caller.orgId, items.length);
+    let results: Awaited<ReturnType<typeof checkProducts>>;
+    try {
+      results = await checkProducts(caller.orgId, items);
+    } catch (error) {
+      await releaseChecks(caller.keyId, items.length);
+      throw error;
+    }
+    await recordUsage(caller.keyId, caller.orgId, 0);
     return { status: 200, body: { results } };
   };
   // A per-process cap on checks in flight (Q1): beyond it the caller retries, and an idempotent

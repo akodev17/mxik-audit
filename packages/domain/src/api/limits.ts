@@ -59,14 +59,35 @@ export function takeRate(keyId: string, now = Date.now(), limit = apiConfig().ra
 
 export type Allowance = { ok: true } | { ok: false; reason: 'expired' | 'checks' };
 
-/** Whether `adding` more checks fit this month; an expired trial allows none. */
-export async function checkAllowance(orgId: string, adding: number): Promise<Allowance> {
+/**
+ * Reserves `adding` checks of this month's allowance for the key before they run (Q6): under a
+ * transaction-scoped advisory lock per org, the month's total is read and, when the checks fit, the
+ * key's row is incremented in the same transaction, so parallel requests cannot all pass the same
+ * total. An expired trial allows none. Give the checks back with releaseChecks when the run fails.
+ */
+export async function reserveChecks(keyId: string, orgId: string, adding: number): Promise<Allowance> {
   const status = await planStatus(orgId);
   if (status.state === 'expired') return { ok: false, reason: 'expired' };
   const cap = monthlyCheckCap(status);
-  if (cap === null) return { ok: true };
-  const used = await db.apiUsage.aggregate({ where: { orgId, month: monthKey() }, _sum: { checks: true } });
-  return (used._sum.checks ?? 0) + adding > cap ? { ok: false, reason: 'checks' } : { ok: true };
+  const month = monthKey();
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('api_checks'), hashtext(${orgId}))`;
+    if (cap !== null) {
+      const used = await tx.apiUsage.aggregate({ where: { orgId, month }, _sum: { checks: true } });
+      if ((used._sum.checks ?? 0) + adding > cap) return { ok: false, reason: 'checks' } as const;
+    }
+    await tx.apiUsage.upsert({
+      where: { keyId_month: { keyId, month } },
+      create: { keyId, orgId, month, checks: adding, requests: 0 },
+      update: { checks: { increment: adding } },
+    });
+    return { ok: true } as const;
+  });
+}
+
+/** Gives back checks reserveChecks took for a run that failed. */
+export async function releaseChecks(keyId: string, checks: number): Promise<void> {
+  await db.apiUsage.updateMany({ where: { keyId, month: monthKey(), checks: { gte: checks } }, data: { checks: { decrement: checks } } });
 }
 
 /** The org's API use this calendar month (UTC), over all its keys. */
