@@ -141,3 +141,17 @@ What changed (behaviour and API calls kept; names and roles the e2e specs use ke
 7. **Row actions**: a list-row pattern with actions revealed on hover/focus on pointer devices
    (`md:pointer-fine:opacity-0 group-hover:… group-focus-within:…` in `catalog-list.tsx`).
 8. **Chip/Tag**: small mono chips (dropzone file types) — no primitive exists.
+
+### Verification and what is unfinished
+
+- Green: root `npm run typecheck`; `npm run lint` (0 errors, one older warning in `scripts/lib/xlsx.ts`);
+  `next build apps/web`; the contracts, i18n and ui unit tests (`npm test` as a whole was not run).
+- E2E against web 3113 (`next start`) + API 4213, stopped early on the owner's wrap-up: demo-access 5/5,
+  empty-states 2/2, review-assignment 5/5 passed; refresh 3/4 (the failing one is
+  "router.refresh() on the dashboard", a timing check on U2's page on a loaded machine; not rerun).
+  review-flow (upload/mapping/export/diff) and scale did **not** finish: the upload flow's e2e is
+  unverified.
+- Not checked visually: the before → after row diff (the local data had no changed rows; review-flow
+  test 12 covers one), the print preview of the report.
+- Local data: the screenshots added one audited catalogue `namuna-katalog.xlsx` (186 rows) and a share
+  link to the seed org "Demo Savdo MChJ"; delete it from /catalogs if unwanted.
