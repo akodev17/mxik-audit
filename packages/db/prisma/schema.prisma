@@ -231,6 +231,9 @@ model Organization {
   onecConnection OneCConnection?
 
   products  Product[]
+
+  bankFormats BankFormat[]
+  bankRules BankRule[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -675,6 +678,8 @@ model Client {
   importBatches ImportBatch[]
   counterparties Counterparty[]
   products Product[]
+
+  bankRules BankRule[]
 
   @@index([orgId])
   @@map("client")
@@ -1451,6 +1456,62 @@ model OneCConnection {
 }
 
 // ── Agent 2: bank statements (formats, saved column mappings) ───────────────────────────
+
+/// A bank statement layout the org taught Tasnivo by choosing its columns once (the manual
+/// mapping step of /bank): the next file whose header signature matches is read with this
+/// mapping and needs no mapping step. Built-in layouts live in code (packages/domain/src/bank/formats).
+model BankFormat {
+  id              String   @id @default(cuid())
+  orgId           String
+  /// What the user called it ("Kapitalbank, so'm"), shown when the format is recognised.
+  name            String
+  /// Normalised header names in column order joined with '|' (bank/formats/signature.ts).
+  headerSignature String
+  /// Role → source column index (BankColumnMap in packages/contracts/src/modules/bank.ts).
+  columnMap       Json
+  /// Date order, decimal mark, direction convention (BankConventions).
+  conventions     Json
+  /// Stays false until a real statement of that bank was read and checked against its totals.
+  verified        Boolean  @default(false)
+  usedCount       Int      @default(0)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, headerSignature])
+  @@map("bank_format")
+}
+
+/// A deterministic statement-line rule: when a line matches (`kind` + `value`), its 1C operation
+/// and cash-flow item are set, explained as `rule:<id>`. Remembered from a reviewer's correction
+/// ("remember for this counterparty / purpose") or added by hand. Applied before the built-in
+/// rules, highest priority first.
+model BankRule {
+  id           String   @id @default(cuid())
+  orgId        String
+  /// The client the rule was learnt for; null = every statement of the org.
+  clientId     String?
+  /// 'purpose_contains' | 'inn_equals' | 'counterparty_equals' | 'amount_sign'.
+  kind         String
+  /// The text to find (purpose), the ИНН, the normalised counterparty name, or 'debit' / 'credit'.
+  value        String
+  operation    String
+  cashFlowItem String?
+  priority     Int      @default(100)
+  /// Statement lines this rule decided, counted when a statement is read.
+  hits         Int      @default(0)
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, clientId, priority])
+  @@map("bank_rule")
+}
 
 // ── Agent 3: Didox invoices (connections, document cache) ───────────────────────────────
 

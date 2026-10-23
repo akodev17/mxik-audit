@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuthCoreModule } from './auth-core/auth-core.module';
 import { CsrfGuard } from './auth-core/csrf.guard';
 import { AuthModule } from './auth/auth.module';
+import { BankModule } from './bank/bank.module';
 import { BillingModule } from './billing/billing.module';
 import { CatalogsModule } from './catalogs/catalogs.module';
 import { ClientsModule } from './clients/clients.module';
@@ -46,6 +47,7 @@ import { WorkspaceModule } from './workspace/workspace.module';
     BillingModule,
     DemoModule,
     AdminModule,
+    BankModule,
     CronModule,
     TelegramModule,
     PublicApiModule,
