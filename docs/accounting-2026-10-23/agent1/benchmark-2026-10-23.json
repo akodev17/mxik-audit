@@ -1,14 +1,20 @@
 {
   "command": "npx tsx scripts/bench-onec-export.ts 1000 3",
   "machine": "owner's dev PC (Windows 10, shared dev Postgres in Docker on 54329, connection_limit=4, other sessions' servers running)",
-  "records": 1000,
-  "runs": 3,
-  "at": "2026-10-23T12:07:59.042Z",
-  "seedMs": [854, 828, 1502],
-  "prepareMs": [539, 348, 501],
-  "buildMs": [1092, 912, 1464],
-  "repeatMs": [126, 155, 133],
-  "duplicatePrepareMs": 2356,
-  "median": { "seed": 854, "prepare": 501, "build": 1092, "prepareAndBuild": 1593, "repeat": 133 },
-  "fileBytes": 623429
+  "runs": [
+    {
+      "note": "before the duplicate lookup became one SQL join",
+      "at": "2026-10-23T12:07:59.042Z",
+      "seedMs": [854, 828, 1502], "prepareMs": [539, 348, 501], "buildMs": [1092, 912, 1464], "repeatMs": [126, 155, 133], "duplicatePrepareMs": 2356,
+      "median": { "seed": 854, "prepare": 501, "build": 1092, "prepareAndBuild": 1593, "repeat": 133 },
+      "fileBytes": 623429
+    },
+    {
+      "note": "after (exportedElsewhere as one join); the full npm test suite was running at the same time",
+      "at": "2026-10-23T12:12:41.073Z",
+      "seedMs": [855, 968, 702], "prepareMs": [272, 749, 367], "buildMs": [1029, 1442, 1236], "repeatMs": [180, 149, 311], "duplicatePrepareMs": 840,
+      "median": { "seed": 855, "prepare": 367, "build": 1236, "prepareAndBuild": 1603, "repeat": 180 },
+      "fileBytes": 623429
+    }
+  ]
 }

@@ -50,11 +50,12 @@ export async function loadBatch(orgId: string, batchId: string): Promise<Loaded 
 /** Exported records of the org's other batches with any of these fingerprints. */
 async function exportedElsewhere(orgId: string, batchId: string, fingerprints: string[]): Promise<Map<string, { batchId: string }>> {
   if (fingerprints.length === 0) return new Map();
-  const rows = await db.importRecord.findMany({
-    where: { fingerprint: { in: fingerprints }, status: 'exported', batchId: { not: batchId }, batch: { orgId } },
-    select: { fingerprint: true, batchId: true },
-  });
-  return new Map(rows.map((r) => [r.fingerprint ?? '', { batchId: r.batchId }]));
+  // One join on the fingerprint index; Prisma's relation filter took seconds for a 1 000-row statement.
+  const rows = await db.$queryRaw<{ fingerprint: string; batchId: string }[]>`
+    SELECT r.fingerprint, r."batchId"
+    FROM import_record r JOIN import_batch b ON b.id = r."batchId"
+    WHERE r.fingerprint = ANY(${fingerprints}) AND r.status = 'exported' AND r."batchId" <> ${batchId} AND b."orgId" = ${orgId}`;
+  return new Map(rows.map((r) => [r.fingerprint, { batchId: r.batchId }]));
 }
 
 export type Planned = { ok: true; loaded: Loaded; plan: Plan } | { ok: false; error: string };
