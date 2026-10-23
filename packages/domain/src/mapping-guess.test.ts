@@ -34,4 +34,17 @@ describe('guessMapping name column', () => {
     const m = guessMapping(['Mahsulot MXIK kodi', 'Mahsulot shtrix kodi', 'Mahsulot']);
     assert.deepEqual([m.mxik, m.barcode, m.name], [0, 1, 2]);
   });
+
+  it('reads a 1C export: "Номенклатура" is the name, "Код" is not, "Ед." is the unit', () => {
+    const m = guessMapping(['Код', 'Номенклатура', 'Штрихкод', 'ИКПУ', 'Ед.', 'Цена розн.']);
+    assert.deepEqual(m, { name: 1, barcode: 2, mxik: 3, unit: 4, price: 5, sales: -1 });
+    assert.equal(guessMapping(['Kod', 'Nomenklatura', 'MXIK']).name, 1);
+    assert.equal(guessMapping(['Артикул', 'Наименование номенклатуры']).name, 1);
+  });
+
+  it('skips identifier columns in the fallback, but still returns a column', () => {
+    assert.equal(guessMapping(['Код', 'Kolonka', 'ИКПУ']).name, 1);
+    assert.equal(guessMapping(['№', 'Артикул', 'Описание']).name, 2);
+    assert.equal(guessMapping(['Код', 'ИКПУ']).name, 0);
+  });
 });

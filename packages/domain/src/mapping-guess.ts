@@ -3,10 +3,11 @@ import type { ColumnField, ColumnMap } from './column-map';
 
 /** Header keywords that identify each field. */
 const HINTS: Record<ColumnField, string[]> = {
-  name: ['nom', 'tovar', 'mahsulot', 'наимен', 'товар', 'продукт', 'name', 'product'],
+  name: ['nom', 'tovar', 'mahsulot', 'наимен', 'товар', 'продукт', 'номенклатур', 'nomenklatur', 'name', 'product'],
   barcode: ['shtrix', 'shtrih', 'штрих', 'barcode', 'ean', 'gtin', 'bar code'],
   mxik: ['mxik', 'ikpu', 'мхик', 'икпу', 'spic', 'tasnif'],
-  unit: ['birlik', 'oʻlchov', 'olchov', 'единиц', 'изм', 'unit', 'uom'],
+  // "Ед." is how 1C and most price lists abbreviate the unit column; "ед" alone would also match "среднее".
+  unit: ['birlik', 'birl', 'oʻlchov', 'o‘lchov', "o'lchov", 'olchov', 'единиц', 'изм', 'ед.', 'unit', 'uom'],
   price: ['narx', 'цена', 'price', 'summa', 'сумма', 'стоим'],
   sales: ['sotuv summa', 'savdo summa', 'сумма продаж', 'сумма реализ', 'выручк', 'sales'],
 };
@@ -16,10 +17,17 @@ const HINTS: Record<ColumnField, string[]> = {
  * whole words ("Mahsulot nomi"), beats a header that merely contains a name hint ("Tovar guruhi").
  */
 const NAME_WORDS = [
-  'nomi', 'nom', 'nomlanishi', 'tovar nomi', 'mahsulot nomi',
-  'наименование', 'название', 'наименование товара',
+  'nomi', 'nom', 'nomlanishi', 'tovar nomi', 'mahsulot nomi', 'nomenklatura',
+  'наименование', 'название', 'наименование товара', 'номенклатура', 'наименование номенклатуры',
   'name', 'product name', 'item name',
 ];
+
+/**
+ * Headers that hold an identifier, never a product name: when nothing names the product, the
+ * fallback must skip these ("Код" in a 1C export is the row's own code, not the name).
+ */
+// `\b` is ASCII-only in JavaScript, so the word end is spelled out for Cyrillic headers.
+const IDENTIFIER_HEADER = /^(код|kod|kodi|артикул|artikul|art|sku|id|№|n|номер|raqam|number)(?:$|[^\p{L}\p{N}])/u;
 
 /** Lower case, words separated by single spaces, punctuation dropped. */
 const words = (s: string): string => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).join(' ');
@@ -64,7 +72,11 @@ export function guessMapping(headers: readonly string[]): ColumnMap {
   const unit = find('unit');
   const name = findName();
   const price = find('price');
-  // The name column is required; fall back to the first free column.
-  const fallback = lower.findIndex((_, i) => !taken.has(i));
-  return { name: name === -1 ? Math.max(0, fallback) : name, barcode, mxik, unit, price, sales };
+  // The name column is required; fall back to the first free column that is not an identifier,
+  // then to the first free column at all.
+  const free = (i: number): boolean => !taken.has(i);
+  const isIdentifier = (h: string): boolean => IDENTIFIER_HEADER.test(h.trim()) || IDENTIFIER_HEADER.test(words(h));
+  const fallback = lower.findIndex((h, i) => free(i) && !isIdentifier(h));
+  const anyFree = lower.findIndex((_, i) => free(i));
+  return { name: name === -1 ? Math.max(0, fallback === -1 ? anyFree : fallback) : name, barcode, mxik, unit, price, sales };
 }
