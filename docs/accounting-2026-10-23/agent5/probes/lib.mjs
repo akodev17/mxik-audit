@@ -31,7 +31,7 @@ export function latestCode(email, after = 0) {
   for (const f of files) {
     const p = join(OUTBOX, f);
     const txt = readFileSync(p, 'utf8');
-    if (!txt.startsWith(`To: ${email}\n`)) continue;
+    if (!txt.startsWith(`To: ${email.toLowerCase()}\n`)) continue;
     const m = txt.match(/\b(\d{6})\b/);
     if (m) return m[1];
   }
