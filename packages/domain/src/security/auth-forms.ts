@@ -1,4 +1,4 @@
-// The public sign-in forms (password, two-factor code, reset, confirmation, e-mail link) as
+// The public sign-in forms (password, two-factor code, reset, confirmation code, e-mail link) as
 // functions of their inputs, so the web app's server actions and the API answer the same way.
 // The caller supplies the request facts (client address, user agent, language) and, where a form
 // signs someone in, the session cookie as a SignInSession. A form that ended in redirect() in the
@@ -7,13 +7,13 @@ import { z } from 'zod';
 import { db } from '@tasnivo/db';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
-import { mailEnabled } from '../mailer.js';
+import { mailDeliverable } from '../mailer.js';
 import { MIN_PASSWORD, passwordMatches } from './password-check.js';
 import { requestReset, resetPassword } from './password-reset.js';
 import { clearAttempts, hit, minutesOf, RULES } from './rate-limit.js';
 import { safeNext } from './safe-next.js';
 import { completePending, openSession, type SignInSession } from './sign-in.js';
-import { confirmEmail, resendVerification } from './verification.js';
+import { confirmCode, confirmEmail, resendVerification, sendVerification, VERIFY_PATH } from './verification.js';
 
 export type Redirect = { redirect: string };
 /** What a form needs from the request: the client address (domain clientIp), the user agent and the interface language. */
@@ -21,7 +21,7 @@ export type RequestFacts = { ip: string; userAgent: string | null; locale: Local
 
 export type SignInState = {
   error?: string;
-  /** The password was right but the address is not confirmed yet: offer to resend the link. */
+  /** Kept for older clients; an unconfirmed account is now signed in and sent to the code step. */
   unverified?: boolean;
   /** A notice that is not an error (a new link was sent). */
   info?: string;
@@ -63,11 +63,10 @@ export async function signInForm(
   if (!user || !(await passwordMatches(user, password))) return { error: t.signInError };
   await clearAttempts(RULES.passwordEmail, email);
 
-  // With SMTP configured, the address must be confirmed first.
-  if (mailEnabled() && !user.emailVerifiedAt) return { error: ta.msg.verifyNeeded, unverified: true };
-
   if (user.locale) await req.rememberLocale?.(user.locale);
-  const next = await openSession(session, user, { via: 'password', landing: safeNext(input.next) ?? '/dashboard' }, req.userAgent);
+  // An unconfirmed address is signed in to the code step only: the API refuses everything else until then.
+  const landing = user.emailVerifiedAt ? safeNext(input.next) ?? '/dashboard' : VERIFY_PATH;
+  const next = await openSession(session, user, { via: 'password', landing }, req.userAgent);
   if (!next) return { error: t.signInError };
   return { redirect: next };
 }
@@ -75,7 +74,7 @@ export async function signInForm(
 /** /sign-in/forgot: mails a reset link. The answer is the same whether or not the address has an account. */
 export async function forgotPasswordForm(emailInput: string, req: Pick<RequestFacts, 'ip' | 'locale'>): Promise<ForgotState> {
   const { ta } = i18nFor(req.locale);
-  if (!mailEnabled()) return { error: ta.secX.forgot.noMail };
+  if (!mailDeliverable()) return { error: ta.secX.forgot.noMail };
   const email = z.string().email().max(200).safeParse(emailInput.trim().toLowerCase());
   if (!email.success) return { error: ta.msg.account.emailBad };
   for (const [rule, key] of [[RULES.resetIp, req.ip], [RULES.resetEmail, email.data]] as const) {
@@ -95,7 +94,7 @@ export async function resetPasswordForm(token: string, input: { password: string
   return { redirect: '/sign-in?notice=reset_done' };
 }
 
-/** From the sign-in form: a new confirmation link for an unconfirmed account. Same answer whether or not anything was sent. */
+/** From the sign-in page (after a dead link): a new confirmation code for an unconfirmed account. Same answer whether or not anything was sent. */
 export async function resendConfirmationForm(input: { email: string; password: string }, req: Pick<RequestFacts, 'ip' | 'locale'>): Promise<SignInState> {
   const { ta } = i18nFor(req.locale);
   const parsed = credentials(input.email, input.password);
@@ -120,7 +119,43 @@ export async function twoFactorForm(session: SignInSession, code: unknown, req: 
   return { error: ta.security.codeWrong };
 }
 
-/** The link in the confirmation e-mail: confirms the address and signs the user in. Answers where the browser goes. */
+/** The signed-in user the code step works for. */
+type Unconfirmed = { userId: string; email: string };
+
+const confirmed = async (userId: string): Promise<boolean> =>
+  Boolean((await db.user.findUnique({ where: { id: userId }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt);
+
+/**
+ * The code step (/sign-up/verify): the six-digit code from the mail. Limited per user across codes;
+ * each code also allows only a few wrong entries. Answers where the browser goes once confirmed.
+ */
+export async function verifyCodeForm(user: Unconfirmed, code: string, req: Pick<RequestFacts, 'locale'>): Promise<Redirect | ErrorState> {
+  const { ta } = i18nFor(req.locale);
+  const v = ta.verifyX;
+  if (await confirmed(user.userId)) return { redirect: '/dashboard' };
+  const verdict = await hit(RULES.verifyCodeUser, user.userId);
+  if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
+  const result = await confirmCode(user.userId, code);
+  if (result === 'ok') {
+    await clearAttempts(RULES.verifyCodeUser, user.userId);
+    return { redirect: '/dashboard' };
+  }
+  return { error: result === 'wrong' ? v.wrong : result === 'locked' ? v.locked : v.expired };
+}
+
+/** "Send the code again" on the code step: limited per address and per mailbox. */
+export async function resendCodeForm(user: Unconfirmed, req: Pick<RequestFacts, 'ip' | 'locale'>): Promise<Redirect | SignInState> {
+  const { ta } = i18nFor(req.locale);
+  if (await confirmed(user.userId)) return { redirect: '/dashboard' };
+  for (const [rule, key] of [[RULES.resendIp, req.ip], [RULES.resendEmail, user.email]] as const) {
+    const verdict = await hit(rule, key);
+    if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
+  }
+  if (!mailDeliverable() || !(await sendVerification(user.userId, user.email, req.locale))) return { error: ta.verifyX.resendFailed };
+  return { info: ta.verifyX.resent };
+}
+
+/** The link in a confirmation e-mail sent before the codes: confirms the address and signs the user in. Answers where the browser goes. */
 export async function verifyEmailLink(session: SignInSession, token: string, userAgent: string | null): Promise<string> {
   const user = await confirmEmail(token);
   // The notice on the sign-in page offers a new link.

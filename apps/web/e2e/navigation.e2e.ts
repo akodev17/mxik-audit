@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Locator, Page, Route } from 'playwright';
-import { COMMIT, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
+import { COMMIT, db, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
 
 const main = (page: Page) => page.locator('main');
 const NAV_TIMEOUT = 15_000;
@@ -44,6 +44,53 @@ describe('query-only navigation', () => {
   after(async () => {
     await browser?.close();
     await fx?.cleanup();
+  });
+
+  // B14: the page streams behind loading.tsx, so the status stays 200 (see review-flow 13b), but the tab
+  // must not keep the admin title for someone who sees the not-found page.
+  test('B14 /admin and /admin/metrics for a firm admin: the not-found page, and the tab says so', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    for (const path of ['/admin', '/admin/metrics']) {
+      await page.goto(path);
+      await main(page).getByRole('heading', { name: TA.shellX.notFound.title }).waitFor();
+      assert.equal(await page.title(), `${TA.shellX.notFound.title} — ${T.appName}`, path);
+    }
+  });
+
+  test('B17 the diff page\'s "compare with" select is wide enough for a file name and date', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    // A second catalogue of client B under another name: no linked previous version, one candidate.
+    const second = await db.catalog.create({
+      data: {
+        orgId: fx.orgId, clientId: fx.clientB.id, filename: `ikkinchi-${fx.tag}.xlsx`, rowCount: 0, status: 'ready',
+        headers: ['Mahsulot'], columnMap: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1 },
+      },
+      select: { id: true },
+    });
+    try {
+      await page.goto(`/catalogs/${second.id}/diff`);
+      const select = main(page).locator('select[name="with"]');
+      await select.waitFor();
+      const box = await select.boundingBox();
+      assert.ok(box && box.width >= 280, `the select is ${box?.width ?? 0} px wide`);
+    } finally {
+      // The later tests expect the fixture as set up (one catalogue for client B).
+      await db.catalog.delete({ where: { id: second.id } });
+    }
+  });
+
+  test('B18 one decision, and its undo, move the toolbar\'s problem count and the chips', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    const finding = await db.finding.findFirst({ where: { item: { catalogId: fx.clientBCatalogId } }, select: { id: true } });
+    assert.ok(finding);
+    await page.goto(`/catalogs/${fx.clientBCatalogId}`);
+    const shown = (n: number) => main(page).getByText(TA.wsX.count.findings(String(n), n), { exact: true }).first();
+    await shown(1).waitFor();
+    const row = page.locator(`#ws-row-${finding.id}`);
+    await row.getByRole('button', { name: TA.wsX.act.reject, exact: true }).click();
+    await shown(0).waitFor({ timeout: 10_000 });
+    await row.getByRole('button', { name: TA.wsX.act.undo, exact: true }).click();
+    await shown(1).waitFor({ timeout: 10_000 });
   });
 
   test('19 client filter tabs and the sidebar link switch the list', { timeout: 90_000 }, async () => {

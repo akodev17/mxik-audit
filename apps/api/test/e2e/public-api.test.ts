@@ -66,6 +66,8 @@ describe('/api/v1 through the Nest app (database)', { skip }, () => {
     for (let i = 0; i < 3; i++) ownCatalogs.push((await makeCatalog(a.orgId, [{ rawName: `Tovar ${i}`, suggestedMxik: null, confidence: null }])).catalogId);
     catalogA = ownCatalogs[0] ?? '';
     catalogB = (await makeCatalog(b.orgId, [{ rawName: 'Boshqa', suggestedMxik: null, confidence: null }])).catalogId;
+    // B12: an unconfirmed upload (draft) of A's is never listed.
+    await db.catalog.create({ data: { orgId: a.orgId, filename: 'draft.xlsx', rowCount: 1, status: 'uploaded', headers: ['name'], columnMap: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1 } } });
     // Uploads queue their audit instead of running it in the test process.
     setJobs({ mode: 'bullmq', enqueueAudit: (catalogId: string) => { audits.push(catalogId); return Promise.resolve(); } } as unknown as JobDispatcher);
   });

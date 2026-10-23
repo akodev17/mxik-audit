@@ -74,6 +74,11 @@ async function importFile(ctx: Context, config: TelegramConfig, link: Link, pend
     filename: pending.filename, parsed, mapping, telegramChatId: chatId,
   });
   const applied = await applyMapping(link.orgId, catalogId, mapping);
+  if ('error' in applied && applied.error === 'over_allowance') {
+    await db.catalog.deleteMany({ where: { id: catalogId, status: 'uploaded' } });
+    await ctx.reply(appDict(await orgLocale(link.orgId)).msg.gate.rowsPerMonth);
+    return;
+  }
   if ('error' in applied) {
     await ctx.reply(t.tgNoNames);
     return;

@@ -58,6 +58,11 @@ type Common = {
   role?: Role;
   /** Refused for a demo org, as the old action did (`isDemoOrg`). */
   noDemo?: boolean;
+  /**
+   * Session endpoints only: also open to a user whose e-mail address is not confirmed yet. Every
+   * other session endpoint answers 403 `unverified` to them (the code step, its resend and `me` only).
+   */
+  allowUnverified?: true;
   summary: string | ((config: DocConfig) => string);
   /** Path parameters; every `{name}` in the path has a key here. */
   params?: AnyZodObject;

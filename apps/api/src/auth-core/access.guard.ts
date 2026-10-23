@@ -11,7 +11,8 @@ import { requestLocale, type ApiRequest } from '../http/request';
 export const ENDPOINT = 'tasnivo:endpoint';
 
 /**
- * After SessionGuard: the registry entry's `role` (writer = admin or accountant, admin) and
+ * After SessionGuard: an unconfirmed e-mail address first (403 `unverified`, except on the entries
+ * marked `allowUnverified`: the code step, its resend and `me`), then the registry entry's `role` (writer = admin or accountant, admin) and
  * `noDemo` (refused for a demo org, read from the database each time, as the actions did).
  * Refusals are 403 with the code `forbidden` or `demo` and a message in the request's language.
  * `platformAdmin` is not decided here (always refused): the admin routes bring their own check.
@@ -25,6 +26,7 @@ export class AccessGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<ApiRequest>();
     const user = req.user;
     if (!endpoint || !user) throw new ApiError(500, 'server_error', 'AccessGuard needs Route() and SessionGuard.');
+    if (!user.verified && !endpoint.allowUnverified) throw new ApiError(403, 'unverified', i18nFor(requestLocale(req)).ta.verifyX.required);
     const message = (): string => i18nFor(requestLocale(req)).ta.firmX.errors.forbidden;
     const allowed = endpoint.role === 'admin' ? isAdminRole(user)
       : endpoint.role === 'writer' ? canWrite(user)

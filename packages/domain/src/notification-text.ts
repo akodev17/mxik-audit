@@ -1,7 +1,17 @@
 // Notification wording, shared by the app and Telegram. Pure. Notifications store
-// rendered text, so callers render it in the org's language (src/lib/org-locale.ts).
+// rendered text: title/body in the org's language (src/lib/org-locale.ts) for Telegram and
+// older readers, and every language in `text` so the app shows each reader theirs (B13).
 import { fmtDate } from '@tasnivo/i18n/format';
-import type { Locale } from '@tasnivo/i18n/i18n';
+import { LOCALES, type Locale } from '@tasnivo/i18n/i18n';
+
+export type NoticeText = { title: string; body: string };
+
+/** A notice's title and body in every interface language (Notification.text). */
+export type NoticeTexts = Record<Locale, NoticeText>;
+
+export function inEveryLocale(make: (locale: Locale) => NoticeText): NoticeTexts {
+  return Object.fromEntries(LOCALES.map((locale) => [locale, make(locale)])) as NoticeTexts;
+}
 
 export type UpdateCounts = {
   /** Distinct codes in the client's catalogue that the update archived. */

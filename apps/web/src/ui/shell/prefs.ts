@@ -17,6 +17,14 @@ export function sidebarLabelled(pref: SidebarPref, width: number): boolean {
   return width >= (pref === 'expanded' ? 1024 : 1280);
 }
 
+/**
+ * The sidebar cookie as the browser writes it the moment the toggle is clicked (B6): the API's PUT
+ * sets the same cookie, but a reload before it answers cancels it and the choice was lost.
+ */
+export function sidebarCookie(pref: SidebarPref): string {
+  return `${SIDEBAR_COOKIE}=${pref}; Max-Age=${PREF_COOKIE_OPTIONS.maxAge}; Path=${PREF_COOKIE_OPTIONS.path}; SameSite=Lax`;
+}
+
 /** The toggle always flips what is on screen: names shown → collapsed, icons only → expanded. */
 export function toggledSidebar(labelledNow: boolean): Exclude<SidebarPref, 'auto'> {
   return labelledNow ? 'collapsed' : 'expanded';

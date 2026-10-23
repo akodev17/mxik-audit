@@ -153,6 +153,21 @@ describe('workspace review (database)', { skip }, () => {
     assert.equal(await workspaceCount(c.catalogId, readFilter({ q: barcode })), 1, 'a barcode finds its row');
   });
 
+  it('B1: search folds the apostrophe family and needs every word, in any order', async () => {
+    const t = tag();
+    const c = await catalogWith(a.orgId, [
+      { rawName: `Mol go'shti ${t}`, findings: [{}] },
+      { rawName: `Qoʻy goʻshti ${t}`, findings: [{}] },
+      { rawName: `Tovuq go’shti ${t}`, findings: [{}] },
+      { rawName: `Sut: Nestle, vakuumli qadoq ${t}`, findings: [{}] },
+    ]);
+    const n = (q: string): Promise<number> => workspaceCount(c.catalogId, readFilter({ q }));
+    for (const q of ["go'shti", 'goʻshti', 'go‘shti', 'go’shti', 'go`shti']) assert.equal(await n(q), 3, q);
+    assert.equal(await n('sut nestle'), 1);
+    assert.equal(await n(`nestle ${t} sut`), 1, 'word order does not matter');
+    assert.equal(await n('sut tovuq'), 0, 'every word must occur');
+  });
+
   it('row detail marks only the missing levels of an unknown code and explains from data', async () => {
     const [x = ''] = codes;
     let unknown = `${x.slice(0, 11)}999999`;

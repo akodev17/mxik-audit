@@ -130,6 +130,8 @@ async function main(): Promise<void> {
       orgId: org.id,
       email: DEMO_EMAIL,
       passwordHash: await hashPassword(DEMO_PASSWORD),
+      // Our own account: confirmed, or every page would wait for a mailed code.
+      emailVerifiedAt: new Date(),
     },
   });
 

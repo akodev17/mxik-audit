@@ -11,7 +11,7 @@ import {
   type Dependant, type LifecycleError,
 } from '@tasnivo/domain/client-lifecycle';
 import { createClient, ownedClient } from '@tasnivo/domain/clients';
-import { gate } from '@tasnivo/domain/plan';
+import { allows, planStatus } from '@tasnivo/domain/plan';
 import type { CurrentUser } from '@tasnivo/domain/session';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
@@ -47,12 +47,17 @@ export class ClientsService {
   /** actions/clients.ts addClient: plan gate, create, and the new client becomes the active one. */
   async create(user: CurrentUser, body: unknown, locale: Locale, req: ApiRequest, res: Response): Promise<{ ok: true; clientId: string } | Fail> {
     const { t, ta } = i18nFor(locale);
-    const allowed = await gate(user.orgId, 'clients');
+    const status = await planStatus(user.orgId);
+    const allowed = allows(status, 'clients');
     if (!allowed.ok) return { ok: false, error: ta.msg.gate[allowed.reason] };
     const input = parse(e.create.body, body);
     if (!input) return { ok: false, error: t.clientsBadName };
-    const result = await createClient(user, input.name);
-    if (!result.ok) return { ok: false, error: result.error === 'forbidden' ? ta.firmX.errors.forbidden : t.clientsBadName };
+    // The cap again, counted under the org's lock in createClient: parallel requests cannot pass it.
+    const result = await createClient(user, input.name, status.limits.clients);
+    if (!result.ok) {
+      const error = result.error === 'full' ? ta.msg.gate.clients : result.error === 'forbidden' ? ta.firmX.errors.forbidden : t.clientsBadName;
+      return { ok: false, error };
+    }
     await this.setActive(req, res, result.clientId);
     return { ok: true, clientId: result.clientId };
   }

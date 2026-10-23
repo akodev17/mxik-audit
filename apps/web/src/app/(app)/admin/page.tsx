@@ -11,10 +11,11 @@ import type { Locale } from '@tasnivo/i18n/i18n';
 import { pageData } from '@/lib/api/page-data';
 import { serverApi } from '@/lib/api/server';
 import { Card, FLUSH_TABLE } from '../_manage/card';
+import { adminAllowed, tractionOnce } from './allowed';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getI18n();
-  return { title: `${t.adminTitle} — ${t.appName}`, robots: { index: false } };
+  const { t, ta } = await getI18n();
+  return { title: `${(await adminAllowed()) ? t.adminTitle : ta.shellX.notFound.title} — ${t.appName}`, robots: { index: false } };
 }
 
 /** Counts by name as a two-column table in a flush card; the card title names the table. */
@@ -39,7 +40,7 @@ function CountCard({ title, rows, locale }: { title: string; rows: [string, numb
 export default async function AdminPage() {
   const { locale, t, ta } = await getI18n();
   const api = serverApi();
-  const [m, pipeline] = await pageData(Promise.all([api.admin.traction(), api.admin.pipeline()]));
+  const [m, pipeline] = await pageData(Promise.all([tractionOnce(), api.admin.pipeline()]));
   const fmt = (n: number): string => fmtNumber(locale, n);
 
   return (

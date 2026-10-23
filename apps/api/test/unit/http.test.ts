@@ -4,10 +4,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import { parseEnv, InvalidEnvError } from '../../src/config/env';
 import { ApiError } from '../../src/http/errors';
+import { requestOrigin } from '../../src/http/facts';
 import { toErrorResponse } from '../../src/http/exception.filter';
-import { requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '../../src/http/middleware';
+import { loggablePath, requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '../../src/http/middleware';
+import type { ApiRequest } from '../../src/http/request';
 import { ZodValidationPipe } from '../../src/http/zod-validation.pipe';
 import { fakeReq, fakeRes } from '../helpers';
 
@@ -50,6 +53,37 @@ describe('error envelope', () => {
   it('first-party: Nest\'s own exceptions get a code from their status', () => {
     assert.deepEqual(toErrorResponse(new NotFoundException('Cannot GET /api/x'), false).body, { error: { code: 'not_found', message: 'Cannot GET /api/x' } });
     assert.deepEqual(toErrorResponse(new BadRequestException(['a', 'b']), false).body, { error: { code: 'invalid_request', message: 'a; b' } });
+  });
+
+  it('keeps the status of body-parser\'s client errors (413, 415, 400) instead of a 500', () => {
+    // http-errors as raw-body throws them: status plus expose: true.
+    const tooLarge = Object.assign(new Error('request entity too large'), { status: 413, statusCode: 413, expose: true, type: 'entity.too.large' });
+    assert.deepEqual(toErrorResponse(tooLarge, false), { status: 413, headers: {}, body: { error: { code: 'too_large', message: 'request entity too large' } } });
+    assert.deepEqual(toErrorResponse(tooLarge, true).body.error, { code: 'too_large', message: 'request entity too large' });
+    const charset = Object.assign(new Error('unsupported charset "UTF-7"'), { status: 415, expose: true });
+    assert.equal(toErrorResponse(charset, false).status, 415);
+    // Not marked safe to show, or a server status: still the generic 500.
+    assert.equal(toErrorResponse(Object.assign(new Error('secret'), { status: 413 }), false).status, 500);
+    assert.deepEqual(toErrorResponse(Object.assign(new Error('secret'), { status: 502, expose: true }), false).body,
+      { error: { code: 'server_error', message: 'The request could not be completed. Try again later.' } });
+  });
+
+  it('first-party: generic refusals (401, 404, 413, CSRF) leave in the request\'s language; other messages as thrown', () => {
+    for (const locale of ['uz', 'ru'] as const) {
+      const h = i18nFor(locale).ta.httpX;
+      const say = (e: unknown) => toErrorResponse(e, false, locale).body;
+      assert.deepEqual(say(new ApiError(401, 'unauthorized', 'Sign in to continue.')), { error: { code: 'unauthorized', message: h.unauthorized } });
+      assert.deepEqual(say(new ApiError(404, 'not_found', 'Not found.')), { error: { code: 'not_found', message: h.notFound } });
+      assert.deepEqual(say(new ApiError(404, 'not_found', 'Client not found.')), { error: { code: 'not_found', message: h.notFound } });
+      assert.deepEqual(say(new NotFoundException('Cannot GET /api/x')), { error: { code: 'not_found', message: h.notFound } });
+      assert.deepEqual(say(Object.assign(new Error('request entity too large'), { status: 413, expose: true })), { error: { code: 'too_large', message: h.tooLarge } });
+      assert.deepEqual(say(new ApiError(403, 'csrf', 'Cross-origin request refused.')), { error: { code: 'csrf', message: h.csrf } });
+      // Already worded by the thrower (in the reader's language): untouched, extra fields kept.
+      assert.deepEqual(say(new ApiError(404, 'not_found', 'Katalog topilmadi', {}, { x: 1 })), { error: { code: 'not_found', message: 'Katalog topilmadi' }, x: 1 });
+      assert.deepEqual(say(new BadRequestException('Validation failed')), { error: { code: 'invalid_request', message: 'Validation failed' } });
+    }
+    // The public API keeps its English contract.
+    assert.deepEqual(toErrorResponse(new ApiError(404, 'not_found', 'Not found.'), true, 'ru').body, { error: { code: 'not_found', message: 'Not found.' } });
   });
 
   it('never leaks an unexpected error\'s message', () => {
@@ -112,5 +146,48 @@ describe('middleware', () => {
     assert.equal(lines.length, 1);
     const [line] = lines;
     assert.deepEqual({ ...line, ms: 0 }, { method: 'POST', path: '/api/auth/sign-in', status: 401, ms: 0, userId: 'u9' });
+  });
+
+  it('never logs a secret path segment: reset, verification, invite, demo and share tokens, one-time states', () => {
+    const secret = 'Zx9-SECRET_token_43chars_aaaaaaaaaaaaaaaaaaa';
+    const cases: [string, string][] = [
+      [`/api/auth/password/reset/${secret}`, '/api/auth/password/reset/{token}'],
+      [`/api/auth/verify/${secret}`, '/api/auth/verify/{token}'],
+      [`/api/invites/${secret}/join`, '/api/invites/{token}/join'],
+      [`/api/invites/${secret}`, '/api/invites/{token}'],
+      [`/api/demo/links/${secret}`, '/api/demo/links/{token}'],
+      [`/api/share/${secret}/pdf`, '/api/share/{token}/pdf'],
+      [`/API/Share/${secret}`, '/api/share/{token}'],
+      [`/api/auth/telegram/bind/${secret}`, '/api/auth/telegram/bind/{state}'],
+    ];
+    for (const [path, logged] of cases) {
+      assert.equal(loggablePath(path), logged);
+      const lines: LogLine[] = [];
+      const listeners: (() => void)[] = [];
+      requestLogMiddleware((line) => lines.push(line))({ ...fakeReq({ method: 'GET', path }), originalUrl: `${path}?x=1` } as never,
+        { statusCode: 200, on: (_e: string, fn: () => void) => listeners.push(fn) } as never, () => undefined);
+      listeners.forEach((fn) => fn());
+      assert.equal(lines[0]?.path, logged);
+      assert.ok(!JSON.stringify(lines).includes(secret));
+    }
+    // Ordinary ids stay: they are what an operator looks for.
+    assert.equal(loggablePath('/api/catalogs/cm123/rows'), '/api/catalogs/cm123/rows');
+    assert.equal(loggablePath('/api/auth/telegram/bind'), '/api/auth/telegram/bind');
+  });
+});
+
+describe('requestOrigin (OAuth redirect URI fallback while APP_URL is unset)', () => {
+  const origin = (headers: Record<string, string>) => requestOrigin(fakeReq({ headers }) as unknown as ApiRequest);
+
+  it('prefers the proxy\'s forwarded host and protocol, else Host', () => {
+    assert.equal(origin({ host: 'localhost:4011', 'x-forwarded-host': 'agent1.localhost:3011', 'x-forwarded-proto': 'http' }), 'http://agent1.localhost:3011');
+    assert.equal(origin({ host: 'api:4000', 'x-forwarded-host': 'tasnivo.uz, caddy', 'x-forwarded-proto': 'https' }), 'https://tasnivo.uz');
+    assert.equal(origin({ host: 'localhost:3011' }), 'http://localhost:3011');
+  });
+
+  it('refuses a host that is not a plain name with an optional port', () => {
+    assert.equal(origin({ host: 'evil.example/path' }), null);
+    assert.equal(origin({ host: 'a@b' }), null);
+    assert.equal(origin({}), null);
   });
 });

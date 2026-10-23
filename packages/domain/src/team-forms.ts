@@ -8,7 +8,7 @@ import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { acceptInvite, createInvite, INVITE_DAYS, InviteRefused } from './invites.js';
 import { mailEnabled } from './mailer.js';
-import { allows, gate, planStatus } from './plan.js';
+import { allows, planStatus } from './plan.js';
 import { openSession, type SignInSession } from './security/sign-in.js';
 import type { CurrentUser, Role } from './session.js';
 import { changeMember, ownedClientIds, removeTeamMember, revokeTeamInvite } from './team-members.js';
@@ -57,11 +57,18 @@ export async function inviteMemberForm(user: Admin, input: InviteInput, locale: 
   const clientIds = scoped ? await ownedClientIds(user.orgId, requested) : [];
   if (scoped && clientIds.length === 0) return { fieldErrors: { clients: s.pickClient } };
 
-  const allowed = await gate(user.orgId, 'seats');
+  const status = await planStatus(user.orgId);
+  const allowed = allows(status, 'seats');
   if (!allowed.ok) return { error: allowed.reason === 'expired' ? ta.msg.gate.expired : s.invite.seatsFull };
 
-  const result = await createInvite(user, { email, role: role.data, clientIds, locale });
-  return { url: result.url, email, emailed: result.emailed };
+  try {
+    // The cap again, counted under the org's lock: two invites sent at once cannot both take the last seat.
+    const result = await createInvite(user, { email, role: role.data, clientIds, locale }, status.limits.seats);
+    return { url: result.url, email, emailed: result.emailed };
+  } catch (error) {
+    if (error instanceof InviteRefused && error.reason === 'seats') return { error: s.invite.seatsFull };
+    throw error;
+  }
 }
 
 /** Changes a member's role and client access. The last admin cannot be demoted. */
@@ -113,14 +120,18 @@ export async function resendInviteForm(user: Admin, inviteId: unknown, locale: L
   if (!mailEnabled()) return { ok: false, error: s.pending.resendFailed };
   if (await db.user.findFirst({ where: { orgId: user.orgId, email: old.email }, select: { id: true } })) return { ok: false, error: s.invite.memberExists };
   // A pending invite already holds its seat; an expired one must find one free again.
+  let seatCap: number | null = null;
   if (old.expiresAt <= new Date()) {
-    const allowed = await gate(user.orgId, 'seats');
+    const status = await planStatus(user.orgId);
+    const allowed = allows(status, 'seats');
     if (!allowed.ok) return { ok: false, error: allowed.reason === 'expired' ? ta.msg.gate.expired : s.invite.seatsFull };
+    seatCap = status.limits.seats;
   }
   let sent: Awaited<ReturnType<typeof createInvite>>;
   try {
-    sent = await createInvite(user, { email: old.email, role: old.role, clientIds: old.clientIds, locale });
+    sent = await createInvite(user, { email: old.email, role: old.role, clientIds: old.clientIds, locale }, seatCap);
   } catch (error) {
+    if (error instanceof InviteRefused && error.reason === 'seats') return { ok: false, error: s.invite.seatsFull };
     if (error instanceof InviteRefused) return { ok: false, error: s.pending.resendFailed };
     throw error;
   }

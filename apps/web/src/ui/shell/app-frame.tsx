@@ -18,7 +18,7 @@ import { NavigationProgress } from './navigation-progress';
 import { NotificationBell } from './notification-bell';
 import { rememberRecent } from './palette-recent';
 import { PlanBanner } from './plan-banner';
-import { toggledSidebar, type SidebarPref } from './prefs';
+import { sidebarCookie, toggledSidebar, type SidebarPref } from './prefs';
 import { Rail } from './rail';
 import { ResponseNudge } from './response-nudge';
 import { RouteBoundary } from './route-boundary';
@@ -53,7 +53,9 @@ export function AppFrame({ shell, sidebar, children }: Props) {
   const toggleRail = useCallback(() => {
     const next = toggledSidebar(labelled);
     setPref(next);
-    // The cookie only decides the next server render; the frame has already changed.
+    // The cookie only decides the next server render; the frame has already changed. Written here at
+    // once so a reload right away keeps the choice (B6); the PUT stays for the account's record.
+    document.cookie = sidebarCookie(next);
     void api.account.setSidebar({ state: next }).catch(() => undefined);
   }, [labelled]);
 

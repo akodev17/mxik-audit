@@ -14,17 +14,34 @@ merge qilinmaguncha hech narsa oʻzgarmaydi.
 | Yillik narx (10 oy hisobida) | — | 3 900 000 soʻm (oyiga 325 000) | 9 000 000 soʻm (oyiga 750 000) | 18 000 000 soʻm (oyiga 1 500 000) |
 | Riskli pozitsiyalar va sabablari | ✓ | ✓ | ✓ | ✓ |
 | Kod takliflari va tasdiqlash | ✓ | ✓ | ✓ | ✓ |
+| Jamoa: admin, buxgalter, kuzatuvchi | ✓ | ✓ | ✓ | ✓ |
+| Harakatlar jurnali | ✓ | ✓ | ✓ | ✓ |
+| Firma lugʻati: kodlar eslab qolinadi | ✓ | ✓ | ✓ | ✓ |
 | Toʻgʻrilangan fayl: Excel, 1C, PDF | — | ✓ | ✓ | ✓ |
+| Oylik eslatmalar | — | ✓ | ✓ | ✓ |
+| API: 1C, Google Sheets | ✓ | ✓ | ✓ | ✓ |
+| Oʻz logotipingiz bilan PDF | — | — | ✓ | ✓ |
+| Mijozga havola orqali hisobot | — | — | ✓ | ✓ |
 | Mijozlar | 3 | 1 (oʻz kompaniyasi) | 10 | cheklanmagan |
 | Oyiga tekshiriladigan pozitsiyalar (SKU) | 5 000 | 20 000 | 50 000 | 200 000 |
 | Foydalanuvchilar | 2 | 3 | 5 | 10 |
 | Oyiga API tekshiruvlari | 500 | 1 000 | 10 000 | 50 000 |
 
-**Barcha tariflarda (bepul Koʻrikda ham)** — landingda kartalar ostida alohida blok: jamoa va rollar,
-tekshiruv navbati, harakatlar jurnali; mijozga havola orqali koʻrsatish (hisobot va PDF), «mijozdan
-soʻralgan» belgisi, oʻz logotipingiz bilan PDF, oylik eslatmalar; firma lugʻati, Telegram, API.
-Bular ilovada hozir tarifga qarab cheklanmagan, shuning uchun kartalarda «—» bilan koʻrsatilmaydi.
-Telegram qatori faqat `NEXT_PUBLIC_TELEGRAM_BOT=true` boʻlganda chiqadi (bot productionda ulangach).
+**Imkoniyatlar jadvali** har bir kartada oʻz roʻyxati sifatida turadi (qisqa qatorlar, ✓/—);
+izohlar yordam maqolasida, kartalar ostida bitta «Imkoniyatlar haqida batafsil» havolasi.
+Jadval bitta joyda: `PLAN_FEATURES` (`packages/domain/src/billing/plans.ts`); landing, yordam maqolasi va ilova
+shuni oʻqiydi, test landing nusxasini tekshiradi. Ilova «—» ni haqiqatan yopadi:
+- **Oylik eslatmalar** — Koʻrikda eslatmani yoqib boʻlmaydi, kunlik ish eslatma yubormaydi;
+- **Oʻz logotipingiz bilan PDF** — Koʻrik va Korxonada nom/logotip saqlanmaydi, PDF firma nomisiz chiqadi
+  (avval saqlangani tarif pasaysa chiqmaydi);
+- **Mijozga havola** — Koʻrik va Korxonada yangi havola yaratilmaydi (403 `plan_feature`, sababi aytiladi);
+  mavjud havolalar muddatigacha ishlaydi;
+- **Toʻgʻrilangan fayl** — `BILLING_REQUIRED_FOR_EXPORT=true` bilan (6-boʻlim, 1-savol).
+
+Qarorlar: Korxona — bitta kompaniya, shuning uchun mijozga havola va brendli PDF (mijozlarga beriladigan
+narsalar) yoʻq, eslatma va API bor. Koʻrikda API ✓ qoldi: sinovda 500 ta tekshiruv bor va firmalar 1C
+ulanishini aynan sinov paytida tekshiradi; uni yopish kerak boʻlsa, `PLANS.trial.apiChecks` ni 0 qilish kifoya.
+Jamoa, jurnal va lugʻat hamma tarifda: ularsiz tekshiruvning oʻzi ishlamaydi (kim tasdiqladi, nima eslab qolindi).
 
 **Bitta katalogdagi SKU va oyiga kataloglar soni** alohida cheklanmaydi: ikkalasini ham «oyiga
 tekshiriladigan pozitsiyalar» qamrab oladi. Sabab: xarajat qatorlar soniga bogʻliq, kataloglar soniga
@@ -119,8 +136,7 @@ faqat `packages/i18n/src/i18n-parts/pricing.ts` dagi nomlar oʻzgaradi.
    Cheklanmagan qoldirilsinmi?
 4. Pogʻonani oy oʻrtasida oshirish: hozir yangi toʻlov muddatni uzaytiradi va soʻnggi toʻlangan pogʻona
    amal qiladi (qayta hisoblash yoʻq). Qisman qaytarish/qayta hisoblash kerakmi?
-5. Ayrim imkoniyatlarni (masalan, mijozga havola, oylik eslatmalar, brendli PDF) faqat Buxgalter va
-   Byuroda qoldirish kerakmi? Bu farqni kuchaytiradi, lekin ilovada cheklov kodi yozilishi kerak;
-   hozir hammasi barcha tariflarda ishlaydi va landing shuni aytadi.
+5. Imkoniyatlar jadvali (yuqorida) toʻgʻrimi? Ayniqsa: Koʻrikda API qolsinmi, Korxonaga brendli PDF
+   kerakmi (masalan, distribyutor oʻz dilerlariga hisobot bersa)?
 6. Bitta katalog 200 000 SKU dan katta yoki 10 000 SKU dan katta bir martalik — «individual narx»; buni
    landingda yozish kerakmi?

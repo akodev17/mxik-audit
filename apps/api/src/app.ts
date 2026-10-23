@@ -9,6 +9,13 @@ import { requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '.
 
 export const GLOBAL_PREFIX = 'api';
 
+/**
+ * JSON and form bodies (body-parser's default is 100 KB). The registry allows bulk targets of
+ * 20 000 row ids and group decisions of 5 000 (packages/contracts workspace.ts), about 600 KB of
+ * JSON; the server actions this API replaced took 1 MB. Uploads are multipart and capped per file.
+ */
+export const BODY_LIMIT = '1mb';
+
 export type AppOptions = {
   /** Request log writer; false = no request log (tests). Default: one Nest Logger line per request. */
   requestLog?: false | ((line: LogLine) => void);
@@ -21,6 +28,9 @@ export function configureApp(app: INestApplication, options: AppOptions = {}): I
   app.setGlobalPrefix(GLOBAL_PREFIX);
   app.use(securityHeadersMiddleware());
   if (options.requestLog !== false) app.use(requestLogMiddleware(options.requestLog));
+  // After the middleware above, where Nest's default parsers sit, so a refused body still gets the headers and a log line.
+  express.useBodyParser('json', { limit: BODY_LIMIT });
+  express.useBodyParser('urlencoded', { limit: BODY_LIMIT, extended: true });
   app.enableShutdownHooks();
 
   const document = SwaggerModule.createDocument(app, new DocumentBuilder()

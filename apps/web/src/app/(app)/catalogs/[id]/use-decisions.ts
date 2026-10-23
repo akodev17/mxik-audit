@@ -28,7 +28,11 @@ const PENDING = { decision: 'pending', chosenMxik: null, chosenName: null, decis
  * so a failure or a refused call puts the row back and says so; a row someone else decided
  * meanwhile is replaced with the server's state.
  */
-export function useDecisions(rows: GridRow[], mapRows: MapRows, onReviewed: (delta: number) => void, announce: (text: string) => void, onManyChanged: () => void) {
+export function useDecisions(
+  rows: GridRow[], mapRows: MapRows, onReviewed: (delta: number) => void, announce: (text: string) => void, onManyChanged: () => void,
+  /** One row was decided or undone: the filter's count and the chips need a recount (B18). */
+  onOneChanged: () => void,
+) {
   const { ta, locale } = useI18n();
   const x = ta.wsX.toast;
   const toast = useToast();
@@ -53,6 +57,7 @@ export function useDecisions(rows: GridRow[], mapRows: MapRows, onReviewed: (del
       onReviewed(-risky);
       // Rows of a bulk event may not be loaded; the server recounts the summary.
       if (result.findingIds.length > 1) onManyChanged();
+      else onOneChanged();
       const message = result.row && result.findingIds.length === 1
         ? x.undone(`#${result.row.rowIndex + 1} ${shortName(result.row.productName)}`)
         : count(locale, x.undoneMany, result.findingIds.length);
@@ -63,7 +68,7 @@ export function useDecisions(rows: GridRow[], mapRows: MapRows, onReviewed: (del
       toast(failed(error), { tone: 'error' });
       return null;
     }
-  }, [announce, failed, locale, onManyChanged, onReviewed, patch, toast, x]);
+  }, [announce, failed, locale, onManyChanged, onOneChanged, onReviewed, patch, toast, x]);
 
   /** Puts the server's decision on a row someone else decided, and names who. */
   const adoptServer = useCallback((row: GridRow, conflict: Extract<DecideResult, { code: 'already_decided' }>) => {
@@ -117,12 +122,13 @@ export function useDecisions(rows: GridRow[], mapRows: MapRows, onReviewed: (del
     }
     const eventId = result.eventId;
     patch(ids, (r) => ({ ...r, decisionEventId: eventId }));
+    onOneChanged();
     const label = `#${row.rowIndex + 1} ${shortName(row.productName)}`;
     const message = decision === 'rejected' ? x.rejected(label) : row.mode === 'confirm' && !chosen ? x.confirmed(label) : x.accepted(label);
     toast(message, { action: { label: ta.wsX.act.undo, run: () => { void revert({ eventId, findingId }); } } });
     announce(message);
     return true;
-  }, [adoptServer, announce, failed, failureText, onReviewed, patch, revert, ta, toast, x]);
+  }, [adoptServer, announce, failed, failureText, onOneChanged, onReviewed, patch, revert, ta, toast, x]);
 
   /** Applies a many-row result the server already committed. Returns the risky rows changed. */
   const applyMany = useCallback(({ ids, eventId, decision, code, name, source }: ManyApplied): number => {

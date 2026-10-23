@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { isApiError } from '@tasnivo/api-client';
 import { api } from '@/lib/api/browser';
 import { catalogKeys } from '@/lib/catalogs/client';
 import type { ShareRow } from '@/lib/catalogs/types';
@@ -45,7 +46,8 @@ export function ShareButton({ catalogId }: { catalogId: string }) {
       setUrl(result.url);
       await queryClient.invalidateQueries({ queryKey: key });
     },
-    onError: () => setError(ta.wsX.toast.network),
+    // A plan without client links answers 403 plan_feature with the sentence to show.
+    onError: (e) => setError(isApiError(e) && e.code === 'plan_feature' ? e.message : ta.wsX.toast.network),
   });
   const busy = creator.isPending;
 

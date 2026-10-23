@@ -1,0 +1,10 @@
+In-app browser, http://127.0.0.1:3016, seed user buxgalter@demo.uz, 23 Oct 2026.
+
+B14  /admin as a firm admin (not a platform admin): main shows "Sahifa topilmadi" and
+     document.title = "Sahifa topilmadi — Tasnivo" (before the fix: "Koʻrsatkichlar — Tasnivo").
+     Also covered by e2e navigation.e2e.ts "B14 …" (/admin and /admin/metrics).
+
+B18  demo-katalog.xlsx, filter "Koʻrib chiqilmagan": toolbar "83 muammo", chip "Hammasi: 83 muammo".
+     Rejected row ws-row-cmt1jkovr000kvjegfjwfhinf → 2.5 s later "82 muammo" / "Hammasi: 82 muammo".
+     Undo in the row → "83 muammo" / "Hammasi: 83 muammo" (seed data back as it was).
+     Before the fix both stayed at 83 until a bulk action or reload.

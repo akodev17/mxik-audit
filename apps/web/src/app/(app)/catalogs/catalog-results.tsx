@@ -46,7 +46,7 @@ export function CatalogResults({ client, status, page, initial, initialDrafts, w
   const list = useQuery({
     queryKey: [...catalogKeys.all, 'list', client ?? null, status ?? null, page],
     queryFn: () => api.catalogs.list({ ...filter, ...(status ? { status } : {}), page: page - 1, kind: 'catalogs' }),
-    initialData: { ...initial, clients: [] },
+    initialData: { ...initial, clients: [], clientId: null },
     // Nothing kept between visits: the server render is always the starting point.
     gcTime: 0,
     staleTime: 30_000,
@@ -54,7 +54,7 @@ export function CatalogResults({ client, status, page, initial, initialDrafts, w
   const drafts = useQuery({
     queryKey: [...catalogKeys.all, 'drafts', client ?? null],
     queryFn: () => api.catalogs.list({ ...filter, page: 0, kind: 'drafts' }),
-    initialData: { items: initialDrafts, total: initialDrafts.length, pageSize: initial.pageSize, clients: [] },
+    initialData: { items: initialDrafts, total: initialDrafts.length, pageSize: initial.pageSize, clients: [], clientId: null },
     gcTime: 0,
     staleTime: 30_000,
     enabled: withDrafts,

@@ -12,13 +12,15 @@ export const uz = {
     passwordCooldown: (minutes: number) => `Bu elektron pochta uchun parol koʻp marta notoʻgʻri kiritildi. ${minutes} daqiqadan soʻng qayta urinib koʻring yoki parolni tiklang.`,
     forgotLink: 'Parolni unutdingizmi?',
     resend: 'Tasdiqlash havolasini qayta yuborish',
-    resendSent: 'Agar elektron pochta va parol toʻgʻri boʻlsa va manzil hali tasdiqlanmagan boʻlsa, yangi havola yuborildi. Pochtani, jumladan “Spam” jildini tekshiring.',
+    resendSent: 'Agar elektron pochta va parol toʻgʻri boʻlsa va manzil hali tasdiqlanmagan boʻlsa, yangi tasdiqlash kodi yuborildi. Pochtani, jumladan “Spam” jildini tekshiring.',
     backToSignIn: 'Kirish sahifasiga qaytish',
     required: { email: 'Elektron pochtani kiriting.', password: 'Parolni kiriting.' },
     sessions: {
       endOthersTitle: 'Boshqa barcha seanslar tugatilsinmi?',
       endOthersText: 'Bu qurilmadan boshqa barcha brauzer va qurilmalarda hisobdan chiqiladi. U yerda qayta kirish uchun parol kerak boʻladi.',
       endFailed: 'Seanslar tugatilmadi. Sahifani yangilab, qayta urinib koʻring.',
+      showAll: (n: number) => `Hammasini koʻrsatish (${n})`,
+      showFewer: 'Kamroq koʻrsatish',
     },
     notices: {
       '2fa_locked': 'Kod bir necha marta notoʻgʻri kiritildi. Xavfsizlik uchun qaytadan parol bilan kiring.',
@@ -95,13 +97,15 @@ export const ru: typeof uz = {
     passwordCooldown: (minutes: number) => `Для этой почты слишком много раз введён неверный пароль. Повторите через ${minutesRu(minutes)} или восстановите пароль.`,
     forgotLink: 'Забыли пароль?',
     resend: 'Отправить ссылку подтверждения ещё раз',
-    resendSent: 'Если почта и пароль верны, а адрес ещё не подтверждён, мы отправили новую ссылку. Проверьте почту, в том числе папку «Спам».',
+    resendSent: 'Если почта и пароль верны, а адрес ещё не подтверждён, мы отправили новый код подтверждения. Проверьте почту, в том числе папку «Спам».',
     backToSignIn: 'Вернуться ко входу',
     required: { email: 'Введите электронную почту.', password: 'Введите пароль.' },
     sessions: {
       endOthersTitle: 'Завершить все остальные сеансы?',
       endOthersText: 'Вы выйдете из аккаунта во всех браузерах и на всех устройствах, кроме этого. Чтобы войти там снова, понадобится пароль.',
       endFailed: 'Сеансы не завершены. Обновите страницу и попробуйте ещё раз.',
+      showAll: (n: number) => `Показать все (${n})`,
+      showFewer: 'Свернуть',
     },
     notices: {
       '2fa_locked': 'Код несколько раз введён неверно. Для безопасности войдите заново с паролем.',

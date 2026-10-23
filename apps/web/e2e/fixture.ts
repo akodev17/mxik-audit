@@ -227,6 +227,12 @@ const COMMIT_60S = { waitUntil: 'commit', timeout: 60_000 } as const;
 /** The workspace grid's finding rows currently in the DOM (the grid is virtualised). */
 export const gridRows = (page: Page) => page.locator('[role="grid"] [role="row"][id^="ws-row-"]');
 
+/**
+ * Whether the page comes from `next dev` (its hot-update hook exists only there). Next skips
+ * router.prefetch in development, so a test of prefetching can only pass against a production build (B8).
+ */
+export const isDevServer = (page: Page): Promise<boolean> => page.evaluate(() => 'webpackHotUpdate_N_E' in window);
+
 /** The finding id behind a grid row element id. */
 export const findingIdOf = (domId: string | null): string | null => (domId?.startsWith('ws-row-') ? domId.slice('ws-row-'.length) : null);
 

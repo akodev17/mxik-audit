@@ -5,12 +5,13 @@ import { absoluteUrl } from './app-url';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { db } from '@tasnivo/db';
-import { mailEnabled, sendMail } from './mailer';
+import { mailDeliverable, mailEnabled, sendMail } from './mailer';
 import { orgLocale } from './org-locale';
 import { hashPassword } from './password';
 import { MIN_PASSWORD } from './security/password-check';
 import { emailAcceptable } from './security/reserved-email';
 import { sendVerification } from './security/verification';
+import { lockOrgUsage } from './usage-ledger';
 import type { Role } from './session';
 
 export const INVITE_DAYS = 7;
@@ -18,7 +19,7 @@ const hash = (token: string): string => createHash('sha256').update(token).diges
 
 type Actor = { userId: string; orgId: string };
 
-export type InviteRefusal = 'forbidden' | 'demo' | 'bad_clients';
+export type InviteRefusal = 'forbidden' | 'demo' | 'bad_clients' | 'seats';
 
 /** Thrown for an invite the server action should already have stopped. */
 export class InviteRefused extends Error {
@@ -36,8 +37,13 @@ async function activeClientIds(orgId: string, ids: readonly string[]): Promise<s
 }
 
 /** Admins of a real (non-demo, open) org only; throws InviteRefused otherwise. */
+/**
+ * With `seatCap` (the plan's seats limit; null = uncapped) members plus open invites are counted
+ * under the org's usage lock in the transaction that adds the invite, so parallel invites cannot
+ * pass the cap: InviteRefused('seats').
+ */
 export async function createInvite(
-  actor: Actor, input: { email: string | null; role: Role; clientIds: string[]; locale?: Locale },
+  actor: Actor, input: { email: string | null; role: Role; clientIds: string[]; locale?: Locale }, seatCap: number | null = null,
 ): Promise<{ url: string; emailed: boolean }> {
   if (!(await isOrgAdmin(actor.orgId, actor.userId))) throw new InviteRefused('forbidden');
   const org = await db.organization.findUnique({ where: { id: actor.orgId }, select: { name: true, kind: true, deletedAt: true } });
@@ -47,11 +53,21 @@ export async function createInvite(
   const owned = await activeClientIds(actor.orgId, input.clientIds);
   if (!owned) throw new InviteRefused('bad_clients');
   const token = randomBytes(24).toString('base64url');
-  await db.invite.create({
-    data: {
-      orgId: actor.orgId, tokenHash: hash(token), email: input.email, role: input.role, clientIds: owned,
-      createdBy: actor.userId, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000),
-    },
+  await db.$transaction(async (tx) => {
+    if (seatCap !== null) {
+      await lockOrgUsage(tx, actor.orgId);
+      const [users, invites] = await Promise.all([
+        tx.user.count({ where: { orgId: actor.orgId } }),
+        tx.invite.count({ where: { orgId: actor.orgId, usedAt: null, expiresAt: { gt: new Date() } } }),
+      ]);
+      if (users + invites >= seatCap) throw new InviteRefused('seats');
+    }
+    await tx.invite.create({
+      data: {
+        orgId: actor.orgId, tokenHash: hash(token), email: input.email, role: input.role, clientIds: owned,
+        createdBy: actor.userId, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000),
+      },
+    });
   });
   await db.auditEvent.create({
     data: { orgId: actor.orgId, actorId: actor.userId, action: 'team.invited', payload: { role: input.role, email: input.email, clients: owned.length } },
@@ -78,7 +94,7 @@ export type AcceptResult = { ok: true; userId: string; orgId: string; email: str
 
 /**
  * An invite sent to an address confirms that address (the admin chose it); a link without one
- * lets the person type any address, so it is confirmed by mail when SMTP is on.
+ * lets the person type any address, so it is confirmed with a mailed code.
  */
 export async function acceptInvite(token: string, emailInput: string, password: string): Promise<AcceptResult> {
   const invite = await db.invite.findUnique({ where: { tokenHash: hash(token) } });
@@ -105,6 +121,7 @@ export async function acceptInvite(token: string, emailInput: string, password: 
     return created;
   }).catch(() => null);
   if (!user) return { ok: false, error: 'inviteUsed' };
-  if (!emailBound && mailEnabled()) await sendVerification(user.id, email, await orgLocale(user.orgId));
+  // The address must be confirmed with the mailed code before anything opens (AccessGuard).
+  if (!emailBound && mailDeliverable()) await sendVerification(user.id, email, await orgLocale(user.orgId));
   return { ok: true, userId: user.id, orgId: user.orgId, email };
 }

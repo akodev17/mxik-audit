@@ -2,7 +2,7 @@
 
 import { useRef, useState, type DragEvent } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import { UPLOAD_ACCEPT, UPLOAD_EXTENSIONS } from '@/lib/catalogs/upload';
+import { READ_EXTENSIONS, UPLOAD_ACCEPT } from '@/lib/catalogs/upload';
 import { Button } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { IconUpload } from '@/ui/icons';
@@ -64,7 +64,7 @@ export function Dropzone({ onFile, busy, compact = false }: { onFile: (file: Fil
       <p className="mt-1 text-small text-muted pointer-coarse:hidden">{s.or}</p>
       <Button variant="primary" className="mt-3" loading={busy} onClick={() => input.current?.click()}>{s.choose}</Button>
       <ul aria-hidden className="mt-5 flex flex-wrap justify-center gap-1.5">
-        {UPLOAD_EXTENSIONS.map((ext) => (
+        {READ_EXTENSIONS.map((ext) => (
           <li key={ext} className="rounded-sm border border-line bg-raised px-1.5 py-0.5 font-mono text-micro text-muted">{ext}</li>
         ))}
         <li className="rounded-sm border border-line bg-raised px-1.5 py-0.5 text-micro text-muted">{f.maxSize}</li>

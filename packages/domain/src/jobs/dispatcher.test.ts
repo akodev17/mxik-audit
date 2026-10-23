@@ -127,6 +127,11 @@ describe('BullDispatcher', () => {
     assert.deepEqual(queues.get(QUEUES.classifierUpdate)?.added, [{ name: 'classifier-update', data: { reason: 'manual' }, jobId: undefined }]);
   });
 
+  it('keeps no sent mail in Redis and a failed one a day at most: mails carry reset and confirmation links', () => {
+    assert.equal(JOB_DEFAULTS.mail.removeOnComplete, true);
+    assert.deepEqual(JOB_DEFAULTS.mail.removeOnFail, { age: 24 * 3600 });
+  });
+
   it('addUnique reports whether it added', async () => {
     const q = new FakeQueue();
     assert.equal(await addUnique(q, 'audit', {}, 'x'), true);

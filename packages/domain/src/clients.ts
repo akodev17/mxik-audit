@@ -4,6 +4,7 @@
 import type { UserRole } from '@prisma/client';
 import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
+import { lockOrgUsage } from './usage-ledger.js';
 
 export type ClientRef = { id: string; name: string; isDefault: boolean };
 
@@ -49,12 +50,23 @@ export function cleanClientName(name: string): string | null {
  * assigned to it in the same transaction, so the new client never 404s for
  * the person who made it. Viewers cannot create clients.
  */
-export async function createClient(actor: Actor & { role: UserRole }, name: string): Promise<Result<{ clientId: string }>> {
+/** Thrown inside createClient's transaction when the org already has `cap` clients. */
+class ClientsFull extends Error {}
+
+/**
+ * Adds a client. With `cap` (the plan's clients limit; null = uncapped) the count is taken under
+ * the org's usage lock in the same transaction, so parallel requests cannot pass the cap: 'full'.
+ */
+export async function createClient(actor: Actor & { role: UserRole }, name: string, cap: number | null = null): Promise<Result<{ clientId: string }>> {
   if (actor.role === 'viewer') return { ok: false, error: 'forbidden' };
   const clean = cleanClientName(name);
   if (!clean) return { ok: false, error: 'bad name' };
   const scoped = actor.role !== 'admin' && actor.clientIds != null;
   const client = await db.$transaction(async (tx) => {
+    if (cap !== null) {
+      await lockOrgUsage(tx, actor.orgId);
+      if ((await tx.client.count({ where: { orgId: actor.orgId } })) >= cap) throw new ClientsFull();
+    }
     const created = await tx.client.create({ data: { orgId: actor.orgId, name: clean }, select: { id: true } });
     if (scoped) await tx.clientAssignment.create({ data: { userId: actor.userId, clientId: created.id } });
     await tx.auditEvent.create({
@@ -64,6 +76,10 @@ export async function createClient(actor: Actor & { role: UserRole }, name: stri
       },
     });
     return created;
+  }).catch((error: unknown) => {
+    if (error instanceof ClientsFull) return null;
+    throw error;
   });
+  if (!client) return { ok: false, error: 'full' };
   return { ok: true, clientId: client.id };
 }

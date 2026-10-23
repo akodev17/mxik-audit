@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
-import { isAuditRunning, resumeStaleAudits, retryAudit, startAudit, STARTUP_STALE_MS } from './audit-jobs.js';
+import { after, before, describe, it, mock } from 'node:test';
+import { isAuditRunning, resumeStaleAudits, retryAudit, runAudit, startAudit, STARTUP_STALE_MS } from './audit-jobs.js';
 import { auditCatalog } from './audit-runner.js';
 import { db } from '@tasnivo/db';
 import { setJobs } from './jobs/dispatcher.js';
@@ -107,5 +107,20 @@ describe('background audits (database)', { skip }, () => {
     assert.equal((await db.catalog.findUnique({ where: { id } }))?.status, 'failed');
     assert.equal(await retryAudit(a, id), true);
     await waitFor(id, 'ready');
+  });
+
+  it('stops quietly, without an error in the log, when the catalogue was deleted under the audit', async () => {
+    const id = await rawCatalog(a.orgId, [{ name: 'Tuz', code }]);
+    await db.catalog.delete({ where: { id } });
+    const errors = mock.method(console, 'error', () => undefined);
+    const infos = mock.method(console, 'info', () => undefined);
+    try {
+      await runAudit(id, 0, a, {});
+      assert.equal(errors.mock.callCount(), 0);
+      assert.match(String(infos.mock.calls[0]?.arguments[0]), /stopped: the catalogue was deleted/);
+    } finally {
+      errors.mock.restore();
+      infos.mock.restore();
+    }
   });
 });

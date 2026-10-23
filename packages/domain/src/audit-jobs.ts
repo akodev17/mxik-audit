@@ -14,7 +14,7 @@ import { isDemoOrg } from './demo.js';
 import { jobs } from './jobs/dispatcher.js';
 import { InlineDispatcher } from './jobs/inline.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
-import { auditReadyText } from './notification-text.js';
+import { auditReadyText, inEveryLocale } from './notification-text.js';
 import { notify } from './notifications.js';
 import { orgLocale } from './org-locale.js';
 import { runPrivilegeCheck } from './privileges.js';
@@ -96,6 +96,13 @@ export async function runAudit(catalogId: string, fromRow: number, actor: AuditA
     });
     await notifyReady(catalogId, catalog, actor);
   } catch (error) {
+    // Deleted while it was being audited (its rows and findings went with it, so the next write fails
+    // on a foreign key): nothing failed, the audit just has nothing left to work on.
+    const exists = await db.catalog.findUnique({ where: { id: catalogId }, select: { id: true } }).then(Boolean, () => true);
+    if (!exists) {
+      console.info(`[audit ${catalogId}] stopped: the catalogue was deleted`);
+      return;
+    }
     // Logged here once, with the stack; the page shows only its localized message.
     console.error(`[audit ${catalogId}] failed`, error);
     await db.catalog.update({
@@ -121,9 +128,9 @@ async function notifyReady(
       orgLocale(catalog.orgId),
       db.finding.count({ where: { item: { catalogId }, decision: 'pending' } }),
     ]);
-    const text = auditReadyText({ clientName: catalog.client?.name ?? '', filename: catalog.filename, open }, locale);
+    const text = inEveryLocale((l) => auditReadyText({ clientName: catalog.client?.name ?? '', filename: catalog.filename, open }, l));
     await notify({
-      orgId: catalog.orgId, clientId: catalog.clientId, userId: actor?.userId ?? null, kind: 'catalog.ready', ...text,
+      orgId: catalog.orgId, clientId: catalog.clientId, userId: actor?.userId ?? null, kind: 'catalog.ready', ...text[locale], text,
       href: `/catalogs/${catalogId}`, dedupeKey: `catalog.ready:${catalogId}:${catalog.auditStartedAt?.getTime() ?? 0}`, external: false,
     });
   } catch (error) {

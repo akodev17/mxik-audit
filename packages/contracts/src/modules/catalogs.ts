@@ -224,6 +224,8 @@ export const catalogs = defineModule('catalogs', {
       total: z.number().int(),
       pageSize: z.number().int(),
       clients: z.array(z.object({ id: z.string(), name: z.string() })),
+      /** The client the list is narrowed to (the header switcher's active one when none is asked for); null = all. */
+      clientId: z.string().nullable().default(null),
     }),
     replaces: ['page:(app)/catalogs'],
     provisional: 'catalogs/page.tsx adds the client filter options from db.client',
@@ -408,6 +410,7 @@ export const catalogs = defineModule('catalogs', {
     body: z.object({ days: z.union([z.literal(7), z.literal(30)]), includePdf: z.boolean() }),
     responds: 'json', response: z.object({ url: z.string() }).nullable(),
     replaces: ['action:share.ts#shareCreate'],
+    notes: 'A plan without client links (billing/plans.ts PLAN_FEATURES) answers 403 plan_feature with a message to show.',
   }),
   revokeShareLink: endpoint({
     method: 'DELETE', path: '/api/share-links/{linkId}', auth: 'session', role: 'writer',

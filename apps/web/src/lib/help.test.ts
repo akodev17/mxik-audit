@@ -25,12 +25,21 @@ const offer = (tier: Tier, monthly: number) => ({
   yearly: { id: `${tier}_yearly`, price: monthly * 10, kind: 'subscription' as const, maxRows: null, tier, months: 12 },
 });
 
+const ALL = { risks: true, suggestions: true, team: true, activity: true, dictionary: true, export: true, reminders: true, api: true, branding: true, clientLinks: true };
+const FEATURES = {
+  trial: { ...ALL, export: false, reminders: false, branding: false, clientLinks: false },
+  company: { ...ALL, branding: false, clientLinks: false },
+  accountant: ALL,
+  firm: ALL,
+};
+
 /** GET /api/config with the plans the API ships (apps/api's account test checks the endpoint). */
 const CONFIG: HelpConfig = {
   uploadMaxBytes: 20 * 1024 * 1024,
   api: { ratePerMinute: 60, maxCheckItems: 100, checksPerMonth: CHECKS },
   plans: LIMITS,
   tiers: [offer('company', 390_000), offer('accountant', 900_000), offer('firm', 1_800_000)],
+  features: FEATURES,
   trialDays: 14, retentionChoices: [7, 30, 90], origin: null, firmPrice: 1_800_000, closeAfterDays: 30,
 };
 
@@ -82,6 +91,9 @@ describe('help center articles', () => {
     assert.match(uz, /390\s000 soʻm \/ oy/);
     assert.match(uz, /3\s900\s000 soʻm \/ yil/);
     assert.match(uz, /200\s000/);
+    // The plan cards' feature lines with the matrix's marks: client links only from Buxgalter up.
+    assert.match(uz, /Mijozga havola orqali hisobot<\/th><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>✓<\/td><td[^>]*>✓<\/td>/);
+    assert.match(uz, /Oylik eslatmalar<\/th><td[^>]*>—<\/td><td[^>]*>✓<\/td>/);
     const ru = await render('ru', 'tariflar-va-limitlar');
     for (const name of ['Проверка', 'Предприятие', 'Бухгалтер', 'Бюро']) assert.match(ru, new RegExp(name));
     assert.match(ru, /18\s000\s000 сум \/ год/);
