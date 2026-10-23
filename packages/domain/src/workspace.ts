@@ -91,13 +91,29 @@ function scopeConditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
 
   if (filter.commented) where.push(Prisma.sql`EXISTS (SELECT 1 FROM finding_comment fc WHERE fc."findingId" = f.id)`);
   if (filter.q) {
-    const like = `%${filter.q.replace(/[\\%_]/g, '\\$&')}%`;
     const digits = /^\d{3,17}$/.test(filter.q) ? `${filter.q}%` : null;
+    const words = searchWords(filter.q).map((w) => Prisma.sql`${NAME_FOLDED} ILIKE ${`%${w.replace(/[\\%_]/g, '\\$&')}%`}`);
+    const name = words.length ? Prisma.sql`(${Prisma.join(words, ' AND ')})` : Prisma.sql`true`;
     where.push(digits
-      ? Prisma.sql`(ci."rawName" ILIKE ${like} OR ci."existingMxik" LIKE ${digits} OR f."suggestedMxik" LIKE ${digits} OR ci.barcode LIKE ${digits})`
-      : Prisma.sql`ci."rawName" ILIKE ${like}`);
+      ? Prisma.sql`(${name} OR ci."existingMxik" LIKE ${digits} OR f."suggestedMxik" LIKE ${digits} OR ci.barcode LIKE ${digits})`
+      : name);
   }
   return where;
+}
+
+/** The apostrophe family Uzbek text is written with (ʻ ʼ ‘ ’ ` ´ and the ASCII one). */
+const APOSTROPHES = 'ʻʼ‘’`´';
+
+/** The row name with every apostrophe folded to ASCII `'` (B1). */
+const NAME_FOLDED = Prisma.sql`translate(ci."rawName", ${APOSTROPHES}, ${"'".repeat(APOSTROPHES.length)})`;
+
+/**
+ * The words of a search query with apostrophes folded to ASCII (B1): every word
+ * must occur in the name, in any order, so "goʻshti", "go'shti" and "go‘shti"
+ * find the same rows and "sut nestle" finds "Sut: Nestle, …".
+ */
+export function searchWords(q: string): string[] {
+  return q.replace(new RegExp(`[${APOSTROPHES}]`, 'gu'), "'").split(/\s+/u).filter(Boolean);
 }
 
 export type ChipCounts = { all: number; byType: Record<string, number>; marking: number };
