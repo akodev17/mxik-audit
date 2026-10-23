@@ -152,6 +152,14 @@ export const account = defineModule('account', {
     responds: 'json', response: Flag,
     replaces: ['action:shell.ts#setSidebar'],
   }),
+  setTour: endpoint({
+    method: 'PUT', path: '/api/account/tour', auth: 'session', role: 'any',
+    summary: 'Guided tour finished or skipped (done: true), or shown again on the next visit (done: false)',
+    body: z.object({ done: z.boolean() }),
+    responds: 'json', response: Ok,
+    replaces: ['page:(app)/layout#shell'],
+    notes: 'Writes User.tourCompletedAt, which GET /api/shell answers as tour. Re-opening the tour from the menu does not call done: false; it exists for tests and support. A demo is accepted and nothing is written.',
+  }),
   telegramLinks: endpoint({
     method: 'GET', path: '/api/account/telegram', auth: 'session', role: 'admin',
     summary: 'Telegram chats that receive notifications, and whether the bot is configured',

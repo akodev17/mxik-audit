@@ -183,3 +183,19 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261105000100_default_
 
 What breaks: nothing in the old code (its shell GET creates the row again). With the new code, an
 org without a client shows no active client until its first upload creates the default one.
+
+## Onboarding tour (`202611060*`)
+
+### `20261106000100_user_tour` (T1.1, `feat/onboarding-tour`)
+
+Adds the nullable `user.tourCompletedAt` timestamp: when the user finished or skipped the guided
+tour (`PUT /api/account/tour`); null = the tour opens on the next visit. No backfill.
+
+```sql
+ALTER TABLE "user" DROP COLUMN IF EXISTS "tourCompletedAt";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261106000100_user_tour';
+```
+
+What breaks: with the new code still running, the mark-done call (`PUT /api/account/tour`) answers
+500 and `GET /api/shell` reads the unreadable flag as `tour: "done"`, so the tour never opens on its
+own (the frame itself keeps working). Deploy the previous code first; it never reads the column.

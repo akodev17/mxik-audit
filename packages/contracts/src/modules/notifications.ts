@@ -44,6 +44,8 @@ export const ShellFrame = z.object({
   clients: z.array(ClientRef),
   activeClient: ClientRef.nullable(),
   unread: z.number().int().nullable(),
+  /** The guided tour: pending until the user finishes or skips it; always done for a demo. */
+  tour: z.enum(['pending', 'done']),
 });
 
 export const notifications = defineModule('notifications', {
@@ -52,7 +54,7 @@ export const notifications = defineModule('notifications', {
     summary: 'The app frame: visible clients and the active one, unread count, plan warnings',
     responds: 'json', response: ShellFrame,
     replaces: ['page:(app)/layout#shell'],
-    notes: 'An unscoped user in an org without clients gets the default client created, as the layout did. unread is null when it could not be read.',
+    notes: 'An unscoped user in an org without clients gets the default client created, as the layout did. unread is null when it could not be read. tour reads User.tourCompletedAt; an unreadable flag answers done.',
   }),
 
   list: endpoint({

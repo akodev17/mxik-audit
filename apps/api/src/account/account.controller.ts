@@ -21,6 +21,7 @@ import { deleteAfterDays, RETENTION_CHOICES, setRetention } from '@tasnivo/domai
 import { closeAccountForm, closedAccountStatus, reopenAccount } from '@tasnivo/domain/security/account-security';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
 import { unlink } from '@tasnivo/domain/telegram/linking';
+import { setTourDone } from '@tasnivo/domain/tour';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
 import { CurrentUser, Locale } from '../http/decorators';
@@ -138,6 +139,12 @@ export class AccountController {
   @Route(e.setSidebar)
   setSidebar(@Body(new ZodValidationPipe(e.setSidebar.body)) body: { state: string }, @Res({ passthrough: true }) res: Response): Answer<'setSidebar'> {
     setPrefCookie(res, SIDEBAR_COOKIE, body.state);
+    return { ok: true };
+  }
+
+  @Route(e.setTour)
+  async setTour(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.setTour.body)) body: { done: boolean }): Promise<Answer<'setTour'>> {
+    await setTourDone(user, body.done);
     return { ok: true };
   }
 

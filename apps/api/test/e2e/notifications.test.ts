@@ -103,8 +103,10 @@ describe('notifications module (e2e)', { skip }, () => {
   });
 
   it("shell: the frame's clients in the user's scope, the active one, unread count and plan; it creates no client (Q4)", async () => {
-    const frame = shaped(n.shell, (await get('/api/shell', admin)).body) as { email: string; canWrite: boolean; canManageTeam: boolean; clients: { name: string }[]; activeClient: { id: string } | null; unread: number | null; plan: { state: string } };
+    const frame = shaped(n.shell, (await get('/api/shell', admin)).body) as { email: string; canWrite: boolean; canManageTeam: boolean; clients: { name: string }[]; activeClient: { id: string } | null; unread: number | null; plan: { state: string }; tour: string };
     assert.equal(frame.email, admin.email);
+    // A new user has not taken the guided tour yet (PUT /api/account/tour: account.test.ts).
+    assert.equal(frame.tour, 'pending');
     assert.equal(frame.canWrite, true);
     assert.equal(frame.canManageTeam, true);
     assert.deepEqual(frame.clients.map((c) => c.name).sort(), ['Boshqa mijoz', 'Sut zavodi']);
