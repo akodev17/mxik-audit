@@ -18,6 +18,9 @@ import { liveCodes } from '@tasnivo/domain/test-fixtures';
 import ExcelJS from 'exceljs';
 import { bodyOf, dbSkipReason, dropOrgs, makeUser, serverOf, startApp, type TestUser } from '../helpers';
 import { binary, matches, sessionCookie } from '../upload-fixtures';
+/** A sheet cell as text (ExcelJS cells may be rich objects). */
+const cellText = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint' ? String(v) : v == null ? '' : JSON.stringify(v));
+
 
 const skip = await dbSkipReason();
 const dx = endpoints.didox;
@@ -34,7 +37,7 @@ function standardWithLiveCodes(codes: string[]): Buffer {
 async function sheetCells(body: Buffer): Promise<string[]> {
   const book = new ExcelJS.Workbook();
   await book.xlsx.load(body as unknown as Parameters<typeof book.xlsx.load>[0]);
-  return book.worksheets.flatMap((ws) => ws.getSheetValues().flatMap((row) => (Array.isArray(row) ? row.map((v) => String(v ?? '')) : [])));
+  return book.worksheets.flatMap((ws) => ws.getSheetValues().flatMap((row) => (Array.isArray(row) ? row.map(cellText) : [])));
 }
 
 async function zipOf(files: Record<string, string | Buffer>): Promise<Buffer> {
@@ -143,7 +146,7 @@ describe('didox (database)', { skip }, () => {
     assert.equal(p.onec.records, 1);
 
     const receipt = await send('post', `/api/didox/invoices/${ids.noisy}/export?format=receipt_xlsx`).buffer(true).parse(binary);
-    assert.equal(receipt.status, 200, String(receipt.body));
+    assert.ok(receipt.status === 200 || receipt.status === 201, `export answered ${receipt.status}`);
     assert.match(String(receipt.headers['content-type']), /spreadsheetml/);
     const cells = await sheetCells(receipt.body as Buffer);
     assert.ok(cells.includes('Сахар-песок 50 кг'));

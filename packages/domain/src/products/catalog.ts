@@ -263,7 +263,7 @@ export function exportState(p: { mxikStatus: string; mxikIssues: Prisma.JsonValu
   const fallback = STATUS_ISSUE[asStatus(p.mxikStatus)];
   const issues = stored.length > 0 ? stored : fallback ? [fallback] : [];
   const status = issues.some((i) => i.severity === 'error') ? 'unresolved' : issues.length > 0 ? 'suspicious' : 'valid';
-  return { status, issues: issues as unknown as Prisma.InputJsonValue, ...(status === 'valid' ? { decision: { action: 'approve' } } : {}) };
+  return { status, issues, ...(status === 'valid' ? { decision: { action: 'approve' } } : {}) };
 }
 
 /** Asks the 1C module for a nomenclature_xlsx of a batch: prepare (validate, dedupe), then build. */

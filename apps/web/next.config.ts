@@ -4,7 +4,21 @@ import { processEnv, type LoadedEnvFiles } from '@next/env';
 import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 import { securityHeaders } from '@tasnivo/contracts/security-headers';
-import { apiRewrites } from './src/lib/api-rewrite';
+
+/**
+ * Copy of src/lib/api-rewrite.ts apiRewrites (that file is the tested specification; Next transpiles
+ * only next.config.ts itself, so a TS module cannot be imported here). Keep the two in step.
+ */
+function apiRewrites(env: Record<string, string | undefined>, log: (line: string) => void = console.log): { source: string; destination: string }[] {
+  if (env['NEXT_PUBLIC_API_URL']) {
+    log(`[next.config] /api/* is not rewritten: the browser calls NEXT_PUBLIC_API_URL (${env['NEXT_PUBLIC_API_URL']}) itself`);
+    return [];
+  }
+  const set = env['API_INTERNAL_URL']?.trim();
+  const api = (set || 'http://localhost:4000').replace(/\/$/, '');
+  log(`[next.config] /api/* -> ${api}/api/* (${set ? 'API_INTERNAL_URL' : 'default, API_INTERNAL_URL not set'}); a production build keeps this destination, so set API_INTERNAL_URL when building`);
+  return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
+}
 
 const config: NextConfig = {
   // The workspace packages are TypeScript source (package.json "exports" point at .ts files). The web app

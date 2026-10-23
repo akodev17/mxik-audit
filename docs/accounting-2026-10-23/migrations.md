@@ -89,19 +89,78 @@ the counterparty directory. Roll back every workstream migration that references
 
 ## Agent 1: 1C integration core (`202611010*`)
 
-Filled in Phase C from `feat/onec-integration-core`.
+### `20261101000100_onec_connection`
+
+Adds `onec_connection` (per-org 1C settings and sealed direct-connection credentials), four nullable columns on `onec_export` (the stored file, its content type, the idempotency request key and record-set hash) and two indexes.
+
+```sql
+DROP INDEX IF EXISTS "import_record_fingerprint_idx";
+DROP INDEX IF EXISTS "onec_export_recordSetHash_idx";
+ALTER TABLE "onec_export" DROP COLUMN IF EXISTS "recordSetHash", DROP COLUMN IF EXISTS "requestKey", DROP COLUMN IF EXISTS "contentType", DROP COLUMN IF EXISTS "file";
+DROP TABLE IF EXISTS "onec_connection";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261101000100_onec_connection';
+```
+
+What breaks: every stored 1C file is lost (exports can be rebuilt from their batches), the idempotent repeat of an export no longer finds the earlier one, and every org's 1C connection settings are gone.
+
 
 ## Agent 2: bank statements (`202611020*`)
 
-Filled in Phase C from `feat/bank-statement-automation`.
+### `20261102000100_bank_formats_rules`
+
+Adds `bank_format` (remembered column mappings per org and header signature) and `bank_rule` (operation rules per org or client).
+
+```sql
+DROP TABLE IF EXISTS "bank_rule";
+DROP TABLE IF EXISTS "bank_format";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261102000100_bank_formats_rules';
+```
+
+What breaks: remembered bank layouts and operation rules are lost; the next upload of a known bank asks for its mapping again and undecided lines stay undecided. Statements and their records (`import_batch`, `import_record`) are untouched.
+
 
 ## Agent 3: Didox invoices (`202611030*`)
 
-Filled in Phase C from `feat/didox-invoice-automation`.
+### `20261103000100_didox`
+
+Adds `didox_connection` (per-org Didox token, sealed) and `didox_document` (the raw document JSON and PDF cached per Didox id).
+
+```sql
+DROP TABLE IF EXISTS "didox_document";
+DROP TABLE IF EXISTS "didox_connection";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261103000100_didox';
+```
+
+What breaks: the Didox connection must be set up again and the sync re-fetches every document it already imported only if its batch is also gone (batches keep the Didox id in `externalRef`); invoice batches and records are untouched.
+
 
 ## Agent 4: MXIK intelligence and products (`202611040*`)
 
-Filled in Phase C from `feat/mxik-product-intelligence`.
+### `20261104000100_products_packaging`
+
+Adds `product`, `product_alias`, `packaging_code` (Tasnif packaging cache) and `mxik_code_state` (activity of retired codes from the Tasnif API), with their indexes, the identity unique index and the trigram index on `product.normalizedName`.
+
+```sql
+DROP TABLE IF EXISTS "product_alias";
+DROP TABLE IF EXISTS "product";
+DROP TABLE IF EXISTS "packaging_code";
+DROP TABLE IF EXISTS "mxik_code_state";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261104000100_products_packaging';
+```
+
+What breaks: the product catalogue of every org is lost (product batches under `import_batch` stay, so it can be rebuilt by saving them again); confirmed MXIK mappings are safe in `firm_mapping`; packaging checks fetch from Tasnif again.
+
+### `20261104000200_product_alternatives`
+
+Adds the nullable `product.mxikAlternatives` JSON column (the runner-up codes of a classification).
+
+```sql
+ALTER TABLE "product" DROP COLUMN IF EXISTS "mxikAlternatives";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261104000200_product_alternatives';
+```
+
+What breaks: the product drawer shows no alternatives until the next classification. Roll this back before `20261104000100_products_packaging`.
+
 
 ## Agent 5: platform (`202611050*`)
 

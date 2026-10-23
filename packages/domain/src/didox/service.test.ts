@@ -20,6 +20,9 @@ import {
 import { guessSheetMap } from './sources.js';
 import { baseStubDeps as S } from './test-deps.js';
 import { invoiceLineFingerprint } from '../onec/index.js';
+/** A sheet cell as text (ExcelJS cells may be rich objects). */
+const cellText = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint' ? String(v) : v == null ? '' : JSON.stringify(v));
+
 
 const skip = await dbSkipReason();
 const raw = (name: string): Buffer => readFileSync(join(FIXTURE_DIR, name));
@@ -149,7 +152,7 @@ describe('Didox service (database)', { skip }, () => {
     assert.ok(d);
     const [oil, sugar, flour, rice, tea] = d.records;
     assert.ok(oil && sugar && flour && rice && tea);
-    assert.deepEqual(await decideLine(userOf(a, { role: 'viewer' }), 'ru', oil.id, { action: 'approve' }), { ok: false, error: 'Недостаточно прав для этого действия.' }, S);
+    assert.deepEqual(await decideLine(userOf(a, { role: 'viewer' }), 'ru', oil.id, { action: 'approve' }, S), { ok: false, error: 'Недостаточно прав для этого действия.' });
     assert.deepEqual((await decideLine(admin, 'ru', sugar.id, { action: 'approve' }, S) as { error: string }).error, 'Сначала выберите товар или исправьте проблему.');
     assert.equal((await decideLine(admin, 'ru', sugar.id, { action: 'correct', corrections: { mxik: '123' } }, S) as { ok: boolean }).ok, false);
 
@@ -177,7 +180,7 @@ describe('Didox service (database)', { skip }, () => {
     await decideLine(admin, 'ru', rice.id, { action: 'correct', corrections: { mxik: '10063010001000000' } }, S);
     const last = await decideLine(admin, 'ru', tea.id, { action: 'approve' }, S);
     assert.ok(last.ok);
-    assert.deepEqual(last.counts, { total: 5, valid: 2, corrected: 2, suspicious: 0, unresolved: 0, skipped: 1, exported: 0 });
+    assert.deepEqual(last.counts, { total: 5, valid: 2, corrected: 2, suspicious: 0, unresolved: 0, skipped: 1, exported: 0, approved: 4 });
     assert.equal((await db.importBatch.findUniqueOrThrow({ where: { id: batches['noisy'] } })).status, 'approved');
   });
 
@@ -203,7 +206,7 @@ describe('Didox service (database)', { skip }, () => {
     assert.match(exp.file.headers['content-type'] ?? '', /spreadsheetml/);
     const book = new ExcelJS.Workbook();
     await book.xlsx.load(Buffer.from(exp.file.body as Uint8Array) as unknown as Parameters<typeof book.xlsx.load>[0]);
-    const cells = book.worksheets.flatMap((ws) => ws.getSheetValues().flatMap((row) => (Array.isArray(row) ? row.map((v) => String(v ?? '')) : [])));
+    const cells = book.worksheets.flatMap((ws) => ws.getSheetValues().flatMap((row) => (Array.isArray(row) ? row.map(cellText) : [])));
     for (const name of ['Подсолнечное масло 1л', 'Сахар-песок 50 кг', 'Рис девзира 1кг', 'Чай зелёный 100г']) assert.ok(cells.includes(name), name);
     assert.ok(!cells.includes('Мука в/с 25кг'), 'the skipped line is not in the file');
     assert.equal((await db.importBatch.findUniqueOrThrow({ where: { id: batches['noisy'] } })).status, 'exported');
