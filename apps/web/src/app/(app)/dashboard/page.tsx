@@ -1,20 +1,26 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signedIn } from '@/lib/api/me';
 import { getI18n } from '@/lib/locale';
 import { groupDecisions } from '@/lib/pure/activity-groups';
 import { rowProgress } from '@/lib/pure/client-kpi';
-import { parseQueueParams, type QueueFilter, type QueueSort } from '@/lib/pure/work-queue';
+import { parseQueueParams, workQueue, type QueueFilter, type QueueSort } from '@/lib/pure/work-queue';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
+import { IconChevron } from '@/ui/icons';
+import { Page } from '@/ui/page';
 import { TabPanels, type TabPanel } from '@/ui/tab-panels';
 import { ActivityFeed } from '../activity/activity-feed';
 import { AccountantFilter } from './accountant-filter';
+import { Card, FOOT_LINK } from './card';
 import { Changes } from './changes';
 import { dashboardData } from './dashboard-data';
 import { IssueChart } from './issue-chart';
 import { Onboarding } from './onboarding';
+import { ONBOARDING_COOKIE, onboardingHidden } from './onboarding-pref';
+import { RestoreOnboarding } from './onboarding-toggle';
 import { Summary } from './summary';
 import { ReviewTasks } from './review-tasks';
 import { Tasks } from './tasks';
@@ -28,8 +34,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const RECENT = 8;
-/** Padding of every region of the page; the hairlines between regions are drawn by the grid. */
-const REGION = 'px-5 py-6 sm:px-8';
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountant?: string; qf?: string; qs?: string; rv?: string }> }) {
   const { ta } = await getI18n();
@@ -41,9 +45,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const view = parseQueueParams(sp);
 
   const mineOnly = sp.rv === 'mine';
-  const { data, plan } = await dashboardData(sp);
+  const [{ data, plan }, jar] = await Promise.all([dashboardData(sp), cookies()]);
   const { tasks, onboarding: steps, reviews: { open: reviews, counts: reviewTotals } } = data;
-  const recent = { rows: data.activity };
   const { totals } = data;
   const accountantQuery = data.selected ? `accountant=${encodeURIComponent(data.selected.id)}` : '';
   const queueHref = (extra = ''): string => {
@@ -73,90 +76,84 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const audited = data.clients.some((c) => c.catalogId !== null);
   const openSteps = steps.some((s) => !s.done);
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
+  const checklistHidden = onboardingHidden(jar.get(ONBOARDING_COOKIE)?.value);
   const canAct = user.role !== 'viewer' && !user.demo;
   const workload = data.workload && data.workload.length > 0 ? data.workload : null;
   const hasClients = data.clients.length > 0;
   const capped = !user.demo && (['clients', 'rowsPerMonth', 'seats'] as const).some((k) => plan.limits[k] !== null);
+  // A brand-new firm sees the checklist alone: an empty queue and an empty log would only repeat "nothing yet".
+  const showQueue = !firstRun || workQueue(data.clients, new Set(data.pending.keys())).length > 0;
+  const showRecent = !firstRun || data.activity.length > 0;
+  const stepsDone = ta.firmX.onboarding.progress(steps.filter((s) => s.done).length, steps.length);
 
-  // Secondary content sits in tabs so it never competes with the work: clients, activity, changes, team.
+  // Secondary content shares one card in tabs, so it never competes with the work: activity, changes, team.
   const tabs: TabPanel[] = [
     {
       id: 'activity', label: ta.nav.activity,
-      content: (
-        <>
-          {recent.rows.length === 0
-            ? <p className="text-small text-muted">{ta.dash.recentEmpty}</p>
-            : <ActivityFeed entries={groupDecisions(recent.rows).slice(0, RECENT)} />}
-          <Link href="/activity" className="mt-3 inline-block text-small font-medium text-brand-ink hover:underline">{home.recentAll}</Link>
-        </>
-      ),
+      content: data.activity.length === 0
+        ? <p className="py-4 text-small text-muted">{ta.dash.recentEmpty}</p>
+        : <ActivityFeed entries={groupDecisions(data.activity).slice(0, RECENT)} />,
     },
-    ...(data.changes.length > 0 ? [{ id: 'changes', label: home.changesTitle, content: <Changes changes={data.changes} /> }] : []),
-    ...(workload ? [{ id: 'workload', label: home.workloadTitle, content: <Workload rows={workload} /> }] : []),
+    ...(data.changes.length > 0 ? [{ id: 'changes', label: home.changesTitle, content: <><p className="mb-3 text-small text-muted">{home.changesHint}</p><Changes changes={data.changes} /></> }] : []),
+    ...(workload ? [{ id: 'workload', label: home.workloadTitle, content: <><p className="mb-3 text-small text-muted">{home.workloadHint}</p><Workload rows={workload} /></> }] : []),
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[100rem]">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 pb-6 pt-8 sm:px-8">
-        <div className="min-w-0">
-          <h1 className="text-[2rem] font-normal leading-9 tracking-tight">{ta.dash.title}</h1>
-          <p className="mt-1.5 max-w-2xl text-small text-muted">{home.hint}</p>
-          {user.demo ? (
-            <p className="mt-3 flex flex-wrap items-center gap-2 text-small text-muted">
-              <Badge tone="info">{ta.firmX.sample.badge}</Badge>
-              {ta.firmX.sample.hint}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {admin && data.accountants.length > 0 ? <AccountantFilter accountants={data.accountants} selected={data.selected} /> : null}
-        </div>
-      </div>
-
-      {firstRun ? <div className="border-t border-line px-5 py-6 sm:px-8"><Onboarding steps={steps} primary /></div> : null}
-
-      {!hasClients && !firstRun ? (
-        <div className="border-t border-line px-5 py-6 sm:px-8"><EmptyState title={home.clientsNone} hint={home.clientsNoneHint} /></div>
+    <Page
+      title={ta.dash.title}
+      hint={home.hint}
+      wide
+      actions={admin && data.accountants.length > 0 ? <AccountantFilter accountants={data.accountants} selected={data.selected} /> : null}
+    >
+      {user.demo ? (
+        <p className="-mt-2 mb-5 flex flex-wrap items-center gap-2 text-small text-muted">
+          <Badge tone="info">{ta.firmX.sample.badge}</Badge>
+          {ta.firmX.sample.hint}
+        </p>
       ) : null}
 
-      {hasClients ? (
-        <>
-        <div className="grid border-t border-line xl:grid-cols-[minmax(0,1fr)_25rem]">
-          <div className="min-w-0 divide-y divide-line xl:border-r xl:border-line">
-            <div className={REGION}>
-              <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} awaiting={awaiting} />
-            </div>
-            <div className={REGION}>
-              <WorkQueue clients={data.clients} pending={data.pending} canUpload={canAct} queueHref={queueHref} filter={view.filter} sort={view.sort} viewHref={viewHref} />
-            </div>
-          </div>
+      <div className="space-y-6">
+        {firstRun ? <Onboarding steps={steps} primary /> : null}
 
-          <aside className="min-w-0 divide-y divide-line max-xl:border-t max-xl:border-line">
-            {data.byType.length > 0 ? <div className={REGION}><IssueChart types={data.byType} accountantQuery={accountantQuery} /></div> : null}
-            {reviewTotals.open > 0 ? <div className={REGION}><ReviewTasks items={reviews} counts={reviewTotals} mineOnly={mineOnly} viewHref={reviewHref} /></div> : null}
-            {tasks.length > 0 ? (
-              <div className={REGION}>
-                <h2 className="mb-4 text-[1.125rem] font-medium leading-6">{ta.reminders.tasks}</h2>
-                <Tasks
-                  canWrite={canAct}
-                  items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn, overdue: x.overdue }))}
-                />
+        {!hasClients && !firstRun ? (
+          <div className="rounded-lg border border-line bg-raised"><EmptyState title={home.clientsNone} hint={home.clientsNoneHint} /></div>
+        ) : null}
+
+        {hasClients ? (
+          <>
+            {audited ? <Summary totals={totals} reviewed={reviewed} audited={audited} queueHref={queueHref()} awaiting={awaiting} changes={data.changes} /> : null}
+
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+              <div className="min-w-0 space-y-6">
+                {showQueue ? <WorkQueue clients={data.clients} pending={data.pending} canUpload={canAct} queueHref={queueHref} filter={view.filter} sort={view.sort} viewHref={viewHref} /> : null}
+                {showRecent ? <Card
+                  id="recent"
+                  title={ta.dash.recent}
+                  footer={<Link href="/activity" className={FOOT_LINK}>{home.recentAll}<IconChevron size={12} /></Link>}
+                >
+                  {tabs.length > 1 ? <TabPanels label={ta.dash.recent} tabs={tabs} /> : tabs[0]?.content}
+                </Card> : null}
               </div>
-            ) : null}
-            {capped ? <div className={REGION}><UsagePanel status={plan} /></div> : null}
-            {openSteps && !firstRun ? <div className={REGION}><Onboarding steps={steps} primary={false} /></div> : null}
-          </aside>
-        </div>
-        <div className={`${REGION} border-t border-line`}>
-          {tabs.length > 1 ? <TabPanels label={ta.dash.recent} tabs={tabs} /> : (
-              <section aria-labelledby="recent-title">
-                <h2 id="recent-title" className="mb-3 text-[1.125rem] font-medium leading-6">{ta.dash.recent}</h2>
-                {tabs[0]?.content}
-              </section>
-            )}
-        </div>
-        </>
-      ) : null}
-    </div>
+
+              <div className="min-w-0 space-y-6">
+                {openSteps && !firstRun && !checklistHidden ? <Onboarding steps={steps} primary={false} /> : null}
+                {reviewTotals.open > 0 ? <ReviewTasks items={reviews} counts={reviewTotals} mineOnly={mineOnly} viewHref={reviewHref} /> : null}
+                {tasks.length > 0 ? (
+                  <Card id="tasks" title={ta.reminders.tasks} flush>
+                    <Tasks
+                      canWrite={canAct}
+                      items={tasks.map((x) => ({ id: x.id, clientId: x.clientId, clientName: x.clientName, dueOn: x.dueOn, overdue: x.overdue }))}
+                    />
+                  </Card>
+                ) : null}
+                {data.byType.length > 0 ? <IssueChart types={data.byType} accountantQuery={accountantQuery} /> : null}
+                {capped ? <UsagePanel status={plan} /> : null}
+                {openSteps && !firstRun && checklistHidden ? <RestoreOnboarding>{ta.firmX.onboarding.restore(stepsDone)}<IconChevron size={12} /></RestoreOnboarding> : null}
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </Page>
   );
 }

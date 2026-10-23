@@ -3,6 +3,7 @@ import { getI18n } from '@/lib/locale';
 import { issueShares } from '@/lib/pure/work-queue';
 import { typeLabels } from '@/ui/labels';
 import { RankedBars } from '@/ui/ranked-bars';
+import { Card } from './card';
 import type { TypeCount } from './dashboard-data';
 
 /**
@@ -22,10 +23,8 @@ export async function IssueChart({ types, accountantQuery }: { types: TypeCount[
     href: `/queue?${[`type=${encodeURIComponent(x.type)}`, accountantQuery].filter(Boolean).join('&')}`,
   }));
   return (
-    <section aria-labelledby="issues-title">
-      <h2 id="issues-title" className="text-[1.125rem] font-medium leading-6">{ta.firmX.home.typesTitle}</h2>
-      <p className="mb-4 mt-0.5 text-small text-muted">{ta.firmX.home.typesHint}</p>
-      <RankedBars items={items} label={ta.firmX.home.typesTitle} empty={ta.firmX.home.typesNone} />
-    </section>
+    <Card id="issues" title={ta.firmX.home.typesTitle} hint={ta.firmX.home.typesHint}>
+      <div className="pt-1"><RankedBars items={items} label={ta.firmX.home.typesTitle} empty={ta.firmX.home.typesNone} /></div>
+    </Card>
   );
 }

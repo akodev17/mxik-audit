@@ -7,21 +7,21 @@ import {
 } from '@/lib/pure/work-queue';
 import { cx } from '@/ui/cx';
 import { ButtonLink } from '@/ui/button';
-import { IconSuccess } from '@/ui/icons';
+import { IconChevron, IconSuccess } from '@/ui/icons';
+import { Menu } from '@/ui/menu';
 import { Progress } from '@/ui/progress';
+import { nameInitials } from '@/ui/shell/initials';
 import { AttentionBadges } from '../clients/attention-badges';
+import { Card, FOOT_LINK } from './card';
 import type { DashboardClient } from './dashboard-data';
 
 const SHOWN = 5;
 
-/** Two-letter mark for a client tile; the name is always printed beside it. */
-const initials = (name: string): string => name.replace(/[^\p{L}\p{N} ]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '·';
-
 /**
  * Where to work next: one row per client with something to do, most urgent first (a missed monthly
  * check, then the most open risky rows). Each row says who, which catalogue and how far the review
- * is, and has exactly one button; the first row's button is the page's primary action. The full list
- * is /clients?filter=attention.
+ * is, and has exactly one button; the first row's button is the page's primary action. Filter chips
+ * and the order travel in the URL (qf, qs). The full list is /clients?filter=attention.
  */
 export async function WorkQueue({ clients, pending, canUpload, queueHref, filter, sort, viewHref }: {
   clients: DashboardClient[]; pending: ReadonlyMap<string, PendingAudit>; canUpload: boolean; queueHref: (extra?: string) => string;
@@ -42,50 +42,55 @@ export async function WorkQueue({ clients, pending, canUpload, queueHref, filter
     return { href: `/clients/${e.client.id}`, label: home.nextOverdueCta };
   };
 
-  return (
-    <section aria-labelledby="queue-title">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id="queue-title" className="text-[1.125rem] font-medium leading-6">{home.queueTitle}</h2>
-          <p className="mt-0.5 text-small text-muted">{home.queueHint}</p>
-        </div>
-        {entries.length > SHOWN ? <Link href="/clients?filter=attention" className="shrink-0 text-small font-medium text-brand-ink hover:underline">{home.attentionAll} ({fmt(entries.length)})</Link> : null}
-      </div>
+  const sortMenu = all.length > 1 ? (
+    <Menu
+      label={home.sortBy(home.queueSorts[sort])}
+      size="sm"
+      variant="ghost"
+      align="end"
+      items={QUEUE_SORTS.map((s) => ({ label: home.queueSorts[s], href: viewHref({ qf: filter, qs: s }), current: s === sort }))}
+    />
+  ) : null;
 
+  return (
+    <Card
+      id="queue"
+      title={home.queueTitle}
+      hint={home.queueHint}
+      actions={sortMenu}
+      flush
+      footer={entries.length > SHOWN ? (
+        <Link href="/clients?filter=attention" className={FOOT_LINK}>{home.attentionAll} · {home.queueCount(fmt(entries.length))}<IconChevron size={12} /></Link>
+      ) : undefined}
+    >
       {all.length > 1 ? (
-        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-small">
-          <nav aria-label={home.queueFilterLabel} className="flex flex-wrap items-center gap-1">
-            {QUEUE_FILTERS.filter((f) => f === 'all' || counts[f] > 0).map((f) => (
-              <Link
-                key={f} href={viewHref({ qf: f, qs: sort })} aria-current={f === filter ? 'true' : undefined} scroll={false}
-                className={cx('rounded-ctl px-2.5 py-1 font-medium transition-colors duration-(--duration-fast)', f === filter ? 'bg-surface text-fg' : 'text-muted hover:bg-surface hover:text-fg')}
-              >
-                {home.queueFilters[f]} <span className="tabular-nums text-subtle">{fmt(counts[f])}</span>
-              </Link>
-            ))}
-          </nav>
-          <nav aria-label={home.queueSortLabel} className="flex flex-wrap items-center gap-1 text-muted">
-            <span>{home.queueSortLabel}:</span>
-            {QUEUE_SORTS.map((s) => (
-              <Link key={s} href={viewHref({ qf: filter, qs: s })} aria-current={s === sort ? 'true' : undefined} scroll={false} className={cx('rounded-ctl px-1.5 py-0.5 hover:text-fg', s === sort && 'font-medium text-fg underline underline-offset-4')}>{home.queueSorts[s]}</Link>
-            ))}
-          </nav>
-        </div>
+        <nav aria-label={home.queueFilterLabel} className="flex flex-wrap items-center gap-1.5 px-4 pb-3 sm:px-5">
+          {QUEUE_FILTERS.filter((f) => f === 'all' || counts[f] > 0).map((f) => (
+            <Link
+              key={f} href={viewHref({ qf: f, qs: sort })} aria-current={f === filter ? 'true' : undefined} scroll={false}
+              className={cx(
+                'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-small font-medium transition-colors duration-(--duration-fast)',
+                f === filter ? 'border-transparent bg-fg text-inverse' : 'border-line bg-raised text-muted hover:border-line-strong hover:text-fg',
+              )}
+            >
+              {home.queueFilters[f]}
+              <span className={cx('tabular-nums', f === filter ? 'text-inverse' : 'text-subtle')}>{fmt(counts[f])}</span>
+            </Link>
+          ))}
+        </nav>
       ) : null}
 
       {shown.length === 0 && all.length > 0 ? (
-        <p className="mt-4 border-y border-line py-5 text-small text-muted">{home.queueNoMatch}</p>
+        <p className="border-t border-line px-5 py-8 text-center text-small text-muted">{home.queueNoMatch}</p>
       ) : shown.length === 0 ? (
-        <div className="mt-4 flex items-start gap-3 border-y border-line py-5">
-          <span aria-hidden className="mt-0.5 text-good-ink"><IconSuccess size={20} /></span>
-          <div className="min-w-0">
-            <h3 className="font-medium">{home.queueDoneTitle}</h3>
-            <p className="mt-0.5 text-small text-muted">{home.nextDone}</p>
-            {canUpload ? <ButtonLink href="/upload" variant="secondary" size="sm" className="mt-3">{home.nextEmptyCta}</ButtonLink> : null}
-          </div>
+        <div className="flex flex-col items-center border-t border-line px-6 py-10 text-center">
+          <span aria-hidden className="mb-3 grid size-11 place-items-center rounded-full bg-good-tint text-good-ink"><IconSuccess size={20} /></span>
+          <h3 className="text-data font-semibold">{home.queueDoneTitle}</h3>
+          <p className="mt-1 max-w-sm text-small text-muted">{home.nextDone}</p>
+          {canUpload ? <ButtonLink href="/upload" variant="secondary" size="sm" className="mt-4">{home.nextEmptyCta}</ButtonLink> : null}
         </div>
       ) : (
-        <ol className="mt-4 divide-y divide-line border-y border-line">
+        <ol className="divide-y divide-line border-t border-line">
           {shown.map((e, i) => {
             const c = e.client;
             const progress = rowProgress(c);
@@ -93,17 +98,19 @@ export async function WorkQueue({ clients, pending, canUpload, queueHref, filter
             const reasons = clientAttention(c, pending).filter((r) => r.kind !== 'open');
             const context = c.catalogName ? `${c.catalogName}${c.auditedAt ? ` · ${home.queueLast(fmtDate(locale, c.auditedAt))}` : ''}` : null;
             return (
-              <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-4 sm:flex-nowrap">
-                <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-ctl border border-line bg-surface text-small font-medium text-muted">{initials(c.name)}</span>
+              <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 transition-colors duration-(--duration-fast) hover:bg-surface/60 sm:flex-nowrap sm:px-5">
+                <span aria-hidden className={cx('grid size-9 shrink-0 place-items-center rounded-md text-small font-semibold', i === 0 ? 'bg-brand-tint text-brand-ink' : 'bg-sunken text-muted')}>{nameInitials(c.name)}</span>
                 <div className="min-w-0 flex-1 basis-48">
-                  {i === 0 ? <p className="text-micro font-medium uppercase tracking-wide text-brand-ink">{home.queueFirst}</p> : null}
-                  <Link href={`/clients/${c.id}`} className="block truncate font-medium hover:text-brand-ink hover:underline" title={c.name}>{c.name}</Link>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Link href={`/clients/${c.id}`} className="min-w-0 truncate font-medium hover:text-brand-ink hover:underline" title={c.name}>{c.name}</Link>
+                    {i === 0 ? <span className="shrink-0 rounded-full bg-brand-tint px-2 py-0.5 text-micro font-medium text-brand-ink">{home.queueFirst}</span> : null}
+                  </div>
                   {context ? <p className="truncate text-small text-muted" title={context}>{context}</p> : null}
                   {reasons.length > 0 ? <div className="mt-1.5"><AttentionBadges reasons={reasons} ta={ta} locale={locale} /></div> : null}
                 </div>
                 {progress && c.openRows > 0 ? (
-                  <div className="w-full shrink-0 sm:w-56">
-                    <p className="mb-1 flex items-baseline justify-between gap-2 text-small tabular-nums">
+                  <div className="w-full shrink-0 sm:w-48">
+                    <p className="mb-1.5 text-small tabular-nums">
                       <span className="font-medium text-danger-ink">{home.queueOpenOf(fmt(c.openRows), fmt(progress.total), progress.total)}</span>
                     </p>
                     <Progress size="sm" tone="good" hideLabel label={ta.firmX.progress.label} value={progress.done} max={progress.total}
@@ -116,6 +123,6 @@ export async function WorkQueue({ clients, pending, canUpload, queueHref, filter
           })}
         </ol>
       )}
-    </section>
+    </Card>
   );
 }

@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/locale-client';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { useToast } from '@/ui/toast';
+import { IconClock } from '@/ui/shell/icons';
 import { serverChange } from '@/ui/shell/router-cache';
 
 export type TaskItem = { id: string; clientId: string; clientName: string; dueOn: string; overdue: boolean };
@@ -41,16 +42,19 @@ export function Tasks({ items, canWrite }: { items: TaskItem[]; canWrite: boolea
     }
   }
 
-  if (open.length === 0) return <p className="text-small text-muted">{ta.firmX.home.tasksNone}</p>;
+  if (open.length === 0) return <p className="border-t border-line px-5 py-6 text-center text-small text-muted">{ta.firmX.home.tasksNone}</p>;
   return (
-    <ul className="divide-y divide-line rounded-ctl border border-line bg-raised">
+    <ul className="divide-y divide-line border-t border-line">
       {open.map((t) => (
-        <li key={t.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5">
-          <span className="min-w-0">
-            <Link href={`/clients/${t.clientId}`} className="font-medium hover:text-brand-ink hover:underline">{t.clientName}</Link>
+        <li key={t.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
+          <span className="flex min-w-0 items-start gap-3">
+            <span aria-hidden className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-md ${t.overdue ? 'bg-danger-tint text-danger-ink' : 'bg-sunken text-muted'}`}><IconClock size={14} /></span>
+            <span className="min-w-0">
+            <Link href={`/clients/${t.clientId}`} className="block truncate font-medium hover:text-brand-ink hover:underline">{t.clientName}</Link>
             <span className="mt-0.5 flex flex-wrap items-center gap-2 text-small text-muted">
               {ta.firmX.home.taskDue(fmtDate(locale, t.dueOn))}
               {t.overdue ? <StatusChip tone="danger" icon={<StatusIcon tone="danger" size={12} />}>{ta.reminders.overdue}</StatusChip> : null}
+            </span>
             </span>
           </span>
           {canWrite ? (
