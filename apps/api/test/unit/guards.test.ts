@@ -16,7 +16,7 @@ import { OptionalSessionGuard, SessionGuard } from '../../src/auth-core/session.
 import { SESSION_COOKIE, SessionService, type SessionDeps } from '../../src/auth-core/session.service';
 import { SkipCsrf } from '../../src/http/decorators';
 import { ApiError } from '../../src/http/errors';
-import { fakeReq, fakeRes, httpContext, testConfig, type FakeReq } from '../helpers';
+import { fakeReq, fakeRes, httpContext, testConfig } from '../helpers';
 
 async function rejects(promise: Promise<unknown> | (() => unknown), status: number, code: string): Promise<ApiError> {
   try {
@@ -114,7 +114,7 @@ describe('AccessGuard: e-mail confirmation', () => {
     Reflect.defineMetadata(ENDPOINT, e, handler);
     return handler;
   };
-  const check = (e: Endpoint, u: SignedInUser) => new AccessGuard(new Reflector()).canActivate(httpContext({ ...fakeReq(), user: u } as FakeReq, fakeRes(), handlerFor(e)));
+  const check = (e: Endpoint, u: SignedInUser) => new AccessGuard(new Reflector()).canActivate(httpContext({ ...fakeReq(), user: u }, fakeRes(), handlerFor(e)));
 
   it('refuses an unconfirmed user on every ordinary session endpoint with 403 unverified', async () => {
     for (const e of [endpoints.auth.sessions, endpoints.auth.twoFactorStart, endpoints.auth.changePassword, endpoints.auth.security]) {
@@ -138,7 +138,7 @@ describe('AccessGuard: e-mail confirmation', () => {
 
   it('answers the refusal in the request language', async () => {
     const error = await rejects(new AccessGuard(new Reflector()).canActivate(httpContext(
-      { ...fakeReq({ headers: { cookie: 'mxik_locale=ru' } }), user: user({ verified: false }) } as FakeReq, fakeRes(), handlerFor(endpoints.auth.sessions))), 403, 'unverified');
+      { ...fakeReq({ headers: { cookie: 'mxik_locale=ru' } }), user: user({ verified: false }) }, fakeRes(), handlerFor(endpoints.auth.sessions))), 403, 'unverified');
     assert.match(error.message, /Подтвердите/);
   });
 });

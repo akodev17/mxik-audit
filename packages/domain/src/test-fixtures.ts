@@ -26,7 +26,8 @@ export type TestActor = { orgId: string; userId: string };
 export async function makeOrg(kind: OrgKind = 'customer', expiresAt?: Date): Promise<TestActor> {
   const tag = randomBytes(5).toString('hex');
   const org = await db.organization.create({ data: { name: `test-${tag}`, kind, expiresAt: expiresAt ?? null } });
-  const user = await db.user.create({ data: { orgId: org.id, email: `test-${tag}@test.local`, passwordHash: 'x' } });
+  // An established account: its address is confirmed (an unconfirmed one reaches only the code step).
+  const user = await db.user.create({ data: { orgId: org.id, email: `test-${tag}@test.local`, passwordHash: 'x', emailVerifiedAt: new Date() } });
   return { orgId: org.id, userId: user.id };
 }
 

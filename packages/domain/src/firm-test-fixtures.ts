@@ -17,7 +17,8 @@ export type Person = { userId: string; orgId: string; role: UserRole; clientIds:
 /** A member with this role; clientIds become assignments (none = sees every client, as in session.ts). */
 export async function makePerson(orgId: string, role: UserRole, clientIds: string[] = []): Promise<Person> {
   const email = `test-${tag()}@test.local`;
-  const user = await db.user.create({ data: { orgId, email, passwordHash: 'x', role }, select: { id: true } });
+  // Confirmed address: an unconfirmed member reaches only the code step (AccessGuard).
+  const user = await db.user.create({ data: { orgId, email, passwordHash: 'x', role, emailVerifiedAt: new Date() }, select: { id: true } });
   if (clientIds.length > 0) await db.clientAssignment.createMany({ data: clientIds.map((clientId) => ({ userId: user.id, clientId })) });
   return { userId: user.id, orgId, role, email, clientIds: role === 'admin' || clientIds.length === 0 ? null : clientIds };
 }
