@@ -10,6 +10,7 @@ import { db } from '@tasnivo/db';
 import { canSeeClient, canWrite, catalogScope } from './access.js';
 import { resolveVisibleClient } from './active-client.js';
 import { retryAudit, startAudit } from './audit-jobs.js';
+import { defaultClient } from './clients.js';
 import { applyMapping, MAX_UPLOAD_BYTES, storedRows, storeCatalog } from './catalog-import.js';
 import { deleteCatalog } from './catalogs.js';
 import { ColumnMapSchema, mappingIssues, type MappingIssue } from './column-map.js';
@@ -39,17 +40,25 @@ type Target = { ok: true; id: string } | { ok: false; reason: 'client' | 'archiv
 
 /**
  * The client an upload goes to: the org's, one the user may work on, and not
- * archived. Without a name, the client the user is working on.
+ * archived. Without a name, the client the user is working on; an unscoped
+ * user of an org that has no client yet (made before sign-up created one) gets
+ * the default client created here, never a "no right" refusal (Q4).
  */
 export async function uploadTarget(user: CurrentUser, clientId: string | null): Promise<Target> {
   if (!clientId) {
-    const active = await resolveVisibleClient(user);
+    const active = await resolveVisibleClient(user) ?? (user.clientIds == null ? await firstClient(user) : null);
     return active ? { ok: true, id: active.id } : { ok: false, reason: 'client' };
   }
   if (!canSeeClient(user, clientId)) return { ok: false, reason: 'client' };
   const client = await db.client.findFirst({ where: { id: clientId, orgId: user.orgId }, select: { id: true, archivedAt: true } });
   if (!client) return { ok: false, reason: 'client' };
   return client.archivedAt ? { ok: false, reason: 'archived' } : { ok: true, id: client.id };
+}
+
+/** An unscoped user's client once the org's default one exists (created if missing). */
+async function firstClient(user: CurrentUser) {
+  await defaultClient(user.orgId);
+  return resolveVisibleClient(user);
 }
 
 export type PreviewResult = { ok: true; preview: UploadPreview } | { ok: false; error: string };

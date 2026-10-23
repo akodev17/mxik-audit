@@ -1,12 +1,18 @@
 // Clients of an organization: an accounting firm's customers, or a company's
 // single default client. Every query is scoped by org id; a client id alone
 // never reaches another org's data.
+import { createHash } from 'node:crypto';
 import type { UserRole } from '@prisma/client';
 import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
 import { lockOrgUsage } from './usage-ledger.js';
 
 export type ClientRef = { id: string; name: string; isDefault: boolean };
+
+/** The default client's id: the same formula as the clients migration, defaultClient() and the catalogue trigger. */
+export function defaultClientId(orgId: string): string {
+  return `cl${createHash('md5').update(orgId).digest('hex')}`;
+}
 
 /** The org's default client, created on first use (the catalogue trigger does the same). */
 export async function defaultClient(orgId: string): Promise<ClientRef> {

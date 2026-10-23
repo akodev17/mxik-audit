@@ -6,6 +6,7 @@ import { appDict } from '@tasnivo/i18n/i18n-app';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { TRIAL_DAYS } from './billing/limits.js';
+import { defaultClientId } from './clients.js';
 import { db } from '@tasnivo/db';
 import { jobs } from './jobs/dispatcher.js';
 import { mailDeliverable } from './mailer.js';
@@ -71,6 +72,8 @@ export async function createAccount(input: Input): Promise<SignupResult> {
   const needsVerification = !input.verified;
   const user = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({ data: { name, kind: 'customer', trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000) } });
+    // The org's default client exists from the start (Q4): uploads through the API work before any page was opened.
+    await tx.client.create({ data: { id: defaultClientId(org.id), orgId: org.id, name, isDefault: true } });
     const created = await tx.user.create({
       data: { orgId: org.id, email, passwordHash, role: 'admin', emailVerifiedAt: needsVerification ? null : new Date(), telegramUserId: input.telegramUserId ?? null, googleSub: input.googleSub ?? null },
     });
