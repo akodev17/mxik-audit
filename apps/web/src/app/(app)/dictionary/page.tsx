@@ -6,6 +6,7 @@ import { serverApi } from '@/lib/api/server';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { readDictParams } from './dictionary-params';
+import { DictionaryExplainer } from './dictionary-explainer';
 import { DictionarySearch } from './dictionary-search';
 import { DictionaryView } from './dictionary-view';
 
@@ -34,7 +35,12 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
 
   return (
     <Page title={ta.dict.title} hint={ta.dict.hint} wide>
-      <DictionarySearch initial={q} />
+      <div className="grid items-start gap-x-6 gap-y-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0 lg:order-1">
+          <DictionarySearch initial={q} />
+        </div>
+        <DictionaryExplainer admin={user.role === 'admin'} />
+      </div>
       <DictionaryView key={`${q}|${filter}|${page}`} q={q} filter={filter} page={page} initial={data} editable={user.role !== 'viewer'} />
     </Page>
   );

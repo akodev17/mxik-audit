@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/locale-client';
 import { ButtonLink } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/empty-state';
+import { IconBook, IconSearch } from '@/ui/icons';
 import { DICT_FILTERS, type DictFilter } from './dictionary-params';
 import { DictionaryTable, type DictRow } from './dictionary-table';
 
@@ -43,26 +44,42 @@ export function DictionaryView({ q, filter, page, initial, editable }: Props) {
   return (
     <>
       {counts.all > 0 ? (
-        <nav aria-label={x.filterLabel} className="mb-3 flex flex-wrap items-center gap-1 text-small">
-          {DICT_FILTERS.filter((f) => f === 'all' || f === filter || counts[f] > 0).map((f) => (
-            <Link key={f} href={params({ f })} aria-current={f === filter ? 'true' : undefined} className={cx('rounded-ctl px-2.5 py-1 font-medium', f === filter ? 'bg-surface text-fg' : 'text-muted hover:bg-surface hover:text-fg')}>
-              {x.filters[f]} <span className="tabular-nums text-subtle">{fmtNumber(locale, counts[f])}</span>
-            </Link>
-          ))}
+        <nav aria-label={x.filterLabel} className="mb-3 flex flex-wrap items-center gap-2">
+          {DICT_FILTERS.filter((f) => f === 'all' || f === filter || counts[f] > 0).map((f) => {
+            const on = f === filter;
+            return (
+              <Link
+                key={f} href={params({ f })} aria-current={on ? 'true' : undefined}
+                className={cx(
+                  'inline-flex h-7 items-center gap-1.5 rounded-full border pl-3 pr-1.5 text-small font-medium transition-colors duration-(--duration-fast)',
+                  on ? 'border-brand bg-brand-tint text-brand-ink' : 'border-line-strong bg-raised text-fg hover:bg-surface',
+                )}
+              >
+                {x.filters[f]}
+                <span className={cx('inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-micro tabular-nums', on ? 'bg-raised text-brand-ink' : 'bg-sunken text-muted')}>{fmtNumber(locale, counts[f])}</span>
+              </Link>
+            );
+          })}
         </nav>
       ) : null}
-      {filter === 'unverified' || filter === 'stale' ? <p className="mb-2 text-small text-muted">{x.filterHints[filter]}</p> : null}
+      {filter === 'unverified' || filter === 'stale' ? <p className="mb-3 text-small text-muted">{x.filterHints[filter]}</p> : null}
       {rows.length === 0 ? (
-        q || filter !== 'all' ? <EmptyState title={x.emptySearch} hint={x.emptySearchHint} /> : <EmptyState title={x.emptyTitle} hint={x.emptyHint} />
+        q || filter !== 'all'
+          ? <EmptyState icon={<IconSearch size={20} />} title={x.emptySearch} hint={x.emptySearchHint} action={<ButtonLink size="sm" variant="secondary" href="/dictionary">{ta.wsX.filter.reset}</ButtonLink>} />
+          : <EmptyState icon={<IconBook size={20} />} title={x.emptyTitle} hint={x.emptyHint} />
       ) : (
         <>
-          {editable ? null : <p className="mb-2 text-small text-muted">{x.viewerHint}</p>}
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-section">{x.total(fmtNumber(locale, total), total)}</h2>
+            {editable ? null : <p className="text-small text-muted">{x.viewerHint}</p>}
+          </div>
           <DictionaryTable rows={rows} canEdit={editable} />
-          <nav aria-label={x.pages} className="mt-3 flex flex-wrap items-center gap-3 text-small text-muted">
-            <span>{x.total(fmtNumber(locale, total), total)}</span>
-            {page > 0 ? <ButtonLink size="sm" href={href(page - 1)}>{x.prev}</ButtonLink> : null}
-            {(page + 1) * pageSize < total ? <ButtonLink size="sm" href={href(page + 1)}>{x.next}</ButtonLink> : null}
-          </nav>
+          {page > 0 || (page + 1) * pageSize < total ? (
+            <nav aria-label={x.pages} className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              {page > 0 ? <ButtonLink size="sm" variant="ghost" href={href(page - 1)}>{x.prev}</ButtonLink> : null}
+              {(page + 1) * pageSize < total ? <ButtonLink size="sm" variant="secondary" href={href(page + 1)}>{x.next}</ButtonLink> : null}
+            </nav>
+          ) : null}
         </>
       )}
     </>
