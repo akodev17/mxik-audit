@@ -1,8 +1,9 @@
-// What an org may do right now: trial or firm limits, usage against them,
+// What an org may do right now: trial or subscription-tier limits, usage against them,
 // warnings at 80% and a paywall at 100% or when the trial has ended. The web app's
 // src/lib/plan.ts memoises planStatus once per render and builds its gates on that copy.
 import { db } from '@tasnivo/db';
 import { planLimits, WARN_AT, type LimitKey, type Limits } from './billing/limits';
+import { planById, SUBSCRIPTION_IDS, type Plan, type Tier } from './billing/plans';
 
 export type PlanState = 'unlimited' | 'trial' | 'firm' | 'expired';
 
@@ -10,6 +11,8 @@ export type Usage = { clients: number; rowsPerMonth: number; seats: number };
 
 export type PlanStatus = {
   state: PlanState;
+  /** The subscription tier while state is 'firm' (any paid subscription); null otherwise. */
+  tier: Tier | null;
   trialEndsAt: Date | null;
   daysLeft: number | null;
   limits: Limits;
@@ -38,6 +41,16 @@ export async function usageOf(orgId: string, now = new Date()): Promise<Usage> {
   return { clients, rowsPerMonth: rows._sum.rowCount ?? 0, seats: users + invites };
 }
 
+/** The org's latest paid subscription plan (its tier and period); null when it never paid for one. */
+export async function lastSubscription(orgId: string): Promise<Plan | null> {
+  const order = await db.order.findFirst({
+    where: { orgId, status: 'paid', planId: { in: SUBSCRIPTION_IDS } },
+    orderBy: { paidAt: 'desc' },
+    select: { planId: true },
+  });
+  return order ? planById(order.planId) : null;
+}
+
 /** Reads the plan and usage each call; the web app wraps it once per render (apps/web/src/lib/plan.ts). */
 export async function planStatus(orgId: string, now = new Date()): Promise<PlanStatus> {
   const [org, usage] = await Promise.all([
@@ -53,11 +66,15 @@ export async function planStatus(orgId: string, now = new Date()): Promise<PlanS
   else if (org.trialEndsAt && org.trialEndsAt > now) state = 'trial';
   else state = 'expired';
 
-  const active = state === 'unlimited' ? none : state === 'firm' ? limits.firm : limits.trial;
+  // A subscription set by hand without an order (before the tiers, or in tests) is the top tier,
+  // which has the limits the single firm plan had.
+  const tier = state === 'firm' ? (await lastSubscription(orgId))?.tier ?? 'firm' : null;
+  const active = state === 'unlimited' ? none : tier ? limits[tier] : limits.trial;
   const daysLeft = state === 'trial' && org?.trialEndsAt ? Math.max(0, Math.ceil((org.trialEndsAt.getTime() - now.getTime()) / 86_400_000)) : null;
   const capped = KEYS.filter((k) => active[k] !== null);
   return {
     state,
+    tier,
     trialEndsAt: org?.trialEndsAt ?? null,
     daysLeft,
     limits: active,

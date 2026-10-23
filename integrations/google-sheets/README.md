@@ -16,7 +16,7 @@ The server address and API key are stored per user in Apps Script User propertie
 1. In the app: Settings, API keys, create a key. Copy it once; it is not shown again.
 2. The server must be reachable over `https://` and `APP_URL` should be set (see `DEPLOY.md`, section 7f).
 3. Batches use 20 products; keep it equal to `API_CHECK_MAX_ITEMS` on the server.
-4. Each checked product counts against the plan allowance (`API_CHECKS_PER_MONTH_TRIAL` / `_FIRM`), and the per-key rate limit is `API_RATE_PER_MINUTE`.
+4. Each checked product counts against the plan's monthly allowance (`packages/domain/src/billing/plans.ts`), and the per-key rate limit is `API_RATE_PER_MINUTE`.
 
 ## Install for testing (bound to one sheet)
 

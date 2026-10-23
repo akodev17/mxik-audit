@@ -6,6 +6,7 @@ import { after, before, describe, it } from 'node:test';
 import type { INestApplication } from '@nestjs/common';
 import JSZip from 'jszip';
 import { db } from '@tasnivo/db';
+import { firmPrice } from '@tasnivo/domain/billing/plans';
 import { deleteAfterDays } from '@tasnivo/domain/security/account';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { SESSION_COOKIE } from '../../src/auth-core/session.service';
@@ -67,10 +68,14 @@ describe('account (database)', { skip }, () => {
     assert.equal(body.uploadMaxBytes, 20 * 1024 * 1024);
     assert.equal(body.trialDays, 14);
     assert.deepEqual(body.retentionChoices, [7, 30, 90]);
-    assert.equal(body.firmPrice, null, 'the firm plan is not for sale while its price is unset');
+    // Prices are in billing/plans.ts now: PLAN_FIRM_PRICE is no longer read, firmPrice is the top tier's monthly price.
+    assert.equal(body.firmPrice, firmPrice());
     assert.equal(body.closeAfterDays, 45);
-    const priced = await withEnv({ PLAN_FIRM_PRICE: '450 000' }, async () => call().get('/api/config'));
-    assert.equal(bodyOf<Config>(priced).firmPrice, 450_000);
+    const env = await withEnv({ PLAN_FIRM_PRICE: '450 000' }, async () => call().get('/api/config'));
+    assert.equal(bodyOf<Config>(env).firmPrice, firmPrice());
+    const { tiers, plans } = bodyOf<{ tiers: { tier: string; monthly: { id: string } }[]; plans: Record<string, unknown> }>(res);
+    assert.deepEqual(tiers.map((t) => t.monthly.id), ['company_monthly', 'accountant_monthly', 'firm_monthly']);
+    assert.deepEqual(Object.keys(plans).sort(), ['accountant', 'company', 'firm', 'trial']);
   });
 
   it('branding: name and PNG/JPEG logo by content, a refused file, removal; admin of a real org only', async () => {

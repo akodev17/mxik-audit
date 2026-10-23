@@ -253,10 +253,15 @@ On a development machine, `npm run telegram:bot` runs the same long-polling bot 
 
 Click and Payme stay off until their keys are in `.env` (see `.env.example`);
 without them no payment button appears and Settings → Tarif says that no
-payment provider is configured. Catalogue prices: `packages/domain/src/billing/plans.ts`.
-The firm monthly price is `PLAN_FIRM_PRICE` (whole soʻm); while it is unset
-the plan is not for sale and Settings says the price is not set. Only admins
-see pay buttons; other roles are told that an administrator pays.
+payment provider is configured. Every price — the three subscription tiers, monthly and yearly,
+and the one-off catalogue tiers — is in `packages/domain/src/billing/plans.ts` (the landing repeats
+them; `tests/web-parity/pricing.test.ts` keeps the two equal; `PLAN_FIRM_PRICE` is no longer read).
+Only admins see pay buttons; other roles are told that an administrator pays. A bank transfer is
+recorded by hand: `npm run billing:activate -- --org <org id or e-mail> --plan company_yearly`
+(optionally `--amount` when a different sum was agreed, `--catalog <id>` for a one-off catalogue);
+it writes a paid order with provider `bank` and extends the subscription by 1 or 12 months.
+Set `NEXT_PUBLIC_ONLINE_PAYMENT=true` in the web build once Click or Payme works, so the landing
+pricing note mentions it.
 
 - **Click** (SHOP API): in the merchant cabinet set both Prepare URL and
   Complete URL to `https://tasnivo.uz/api/payments/click`; put
@@ -267,7 +272,8 @@ see pay buttons; other roles are told that an administrator pays.
   (test.paycom.uz), set `PAYME_TEST_MODE=true` and `PAYME_TEST_KEY`.
 - `APP_URL` must be the public https origin (return links after payment).
 - `BILLING_REQUIRED_FOR_EXPORT=true` makes the corrected-file download
-  require a paid order for that catalogue or an active firm subscription.
+  require a paid order for that catalogue or an active subscription. The landing promises the free
+  plan has no corrected file, so production needs it.
 
 The callback URLs stayed the same through the backend split: Caddy sends `/api/payments/*` to the
 api service. A paid order writes `billing.paid` to the audit log;
@@ -293,7 +299,7 @@ With SMTP on, signing up with an address that already has an account answers "ch
 
 ## 7d. Signup, trial and plan limits
 
-/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats) come from `PLAN_TRIAL_*` / `PLAN_FIRM_*` in .env (see .env.example) and are placeholders until you set them. At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the existing Click/Payme flow (7b), and the firm plan is not for sale until `PLAN_FIRM_PRICE` is set.
+/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats, API checks) are each plan's, in `packages/domain/src/billing/plans.ts` (the trial and the tiers; the tier is that of the org's latest paid subscription order, the top tier when a subscription was set by hand). At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the Click/Payme flow or a recorded bank transfer (7b).
 
 An upload waits at the column-mapping step as an uncommitted preview, and its rows count against the monthly allowance only once the mapping is confirmed. Previews are limited on their own: a user's new upload deletes their earlier open preview, an upload is refused (with a message) when the org's open preview rows from the last 24 hours would exceed the plan's monthly row limit (200,000 when the plan has none; `PREVIEW_ROWS_UNCAPPED` in `packages/domain/src/plan.ts`), and the daily job (7e) deletes previews left for 48 hours. Each deletion writes `catalog.upload_discarded` with `reason` `replaced` or `expired` (the latter without an actor). These numbers are not `.env` settings.
 
@@ -310,7 +316,7 @@ They create the monthly-check tasks that are due (per client: Sozlamalar of the 
 ## 7f. Public API
 
 Admins create keys in Settings → Integratsiyalar (shown once, only a hash is stored). Endpoints: `POST https://tasnivo.uz/api/v1/check`, `GET /api/v1/catalogs` (paged with `limit` and `cursor`), `POST /api/v1/catalogs`, `GET /api/v1/catalogs/:id/report`; spec at `/api/v1/openapi.json`, docs at `/api-docs` (the api's Swagger UI at `/api/docs` once Wave 2 has moved the routes; the v1 contract does not change). Every response to a valid key carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`. Both POST endpoints accept `Idempotency-Key`: a repeat with the same key under the same API key within 24 hours returns the first successful response (`Idempotent-Replayed: true`); rows live in `api_idempotency` and the daily job (7e) prunes them.
-Limits are config, not decisions: `API_RATE_PER_MINUTE` (kept per process, so it resets on restart and is per instance), `API_CHECKS_PER_MONTH_TRIAL` / `_FIRM` and `API_CHECK_MAX_ITEMS`. Uploaded rows count against the plan's monthly row limit like uploads in the app. Set `APP_URL` so the OpenAPI document names the public origin.
+Limits: `API_RATE_PER_MINUTE` (kept per process, so it resets on restart and is per instance) and `API_CHECK_MAX_ITEMS` are config; the monthly check allowance is each plan's (`packages/domain/src/billing/plans.ts`). Uploaded rows count against the plan's monthly row limit like uploads in the app. Set `APP_URL` so the OpenAPI document names the public origin.
 
 ## 7g. Security and data control
 

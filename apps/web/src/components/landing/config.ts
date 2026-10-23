@@ -62,22 +62,36 @@ export const SHOW_LEGAL_223 = process.env.NEXT_PUBLIC_SHOW_LEGAL_223 === 'true';
  */
 export const SHOW_MULTI_CLIENT = process.env.NEXT_PUBLIC_FEATURE_MULTI_CLIENT === 'true';
 
-/* Prices and plan names, in one place. Change them here only; nothing else on
-   the page repeats a number. Pricing is a hypothesis (see docs/HANDOFF_2026-10-23.md),
-   which is a reason to keep it easy to edit, not a reason to hide it. */
+/**
+ * Online payment (Click/Payme) is live in the app. Off until the provider keys are set on the API
+ * server: the pricing note then mentions only the bank transfer.
+ */
+export const ONLINE_PAYMENT = process.env.NEXT_PUBLIC_ONLINE_PAYMENT === 'true';
+
+/**
+ * The Telegram bot (notifications, files sent to the bot) works on this deployment: the API has
+ * TELEGRAM_BOT_TOKEN and the webhook. Off until then: the pricing section does not list Telegram.
+ */
+export const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT === 'true';
+
+/* Prices and limits the pricing section shows, as numbers. They are a copy of PLANS in
+   packages/domain/src/billing/plans.ts, which the app enforces and charges: the web app does not
+   import the domain package, so tests/pricing-parity.test.ts fails when the two differ. Change
+   both together. Names and texts are in packages/i18n/src/i18n-parts/pricing.ts. Pricing is a
+   hypothesis (docs/PRICING_PROPOSAL.md), which is a reason to keep it easy to edit, not to hide it. */
 export const PRICING = {
-  currency: 'soʻm',
-  free: {
-    name: 'Risk auditi',
-    price: 'BEPUL',
-    detail: 'Nechta pozitsiya riskli va nimasi notoʻgʻri',
-  },
-  planName: 'Toʻgʻrilangan katalog',
-  planDetail: 'Tasdiqlangan kodlar qoʻyilgan fayl va qarorlar tarixi',
-  plans: [
-    { rows: '500 SKU gacha', price: '700 000' },
-    { rows: '2 000 SKU gacha', price: '1 500 000' },
-    { rows: '10 000 SKU gacha', price: '4 000 000' },
+  trial: { days: 14, limits: { clients: 3, rowsPerMonth: 5_000, seats: 2 }, apiChecks: 500 },
+  /** A year costs this many months. */
+  yearlyPaidMonths: 10,
+  tiers: [
+    { tier: 'company', monthly: 390_000, limits: { clients: 1, rowsPerMonth: 20_000, seats: 3 }, apiChecks: 1_000 },
+    { tier: 'accountant', monthly: 900_000, limits: { clients: 10, rowsPerMonth: 50_000, seats: 5 }, apiChecks: 10_000 },
+    { tier: 'firm', monthly: 1_800_000, limits: { clients: null, rowsPerMonth: 200_000, seats: 10 }, apiChecks: 50_000 },
   ],
-  paymentNote: 'Toʻlov bank oʻtkazmasi orqali, ish bajarilgandan keyin.',
+  /** The one-off corrected catalogue, by size. */
+  catalog: [
+    { maxRows: 500, price: 700_000 },
+    { maxRows: 2_000, price: 1_500_000 },
+    { maxRows: 10_000, price: 4_000_000 },
+  ],
 } as const;

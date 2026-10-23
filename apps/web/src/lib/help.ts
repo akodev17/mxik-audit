@@ -27,7 +27,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   {
     slug: 'tariflar-va-limitlar',
     title: { uz: 'Tariflar va limitlar', ru: 'Тарифы и лимиты' },
-    description: { uz: 'Sinov va firma obunasi chegaralari, chegaraga yetganda nima boʻladi, toʻlov.', ru: 'Лимиты пробного периода и подписки фирмы, что происходит у лимита, оплата.' },
+    description: { uz: 'Koʻrik, Korxona, Buxgalter va Byuro: narxlar, chegaralar, oylik va yillik toʻlov.', ru: 'Проверка, Предприятие, Бухгалтер и Бюро: цены, лимиты, оплата помесячно и за год.' },
   },
   {
     slug: 'xavfsizlik-va-malumotlar',

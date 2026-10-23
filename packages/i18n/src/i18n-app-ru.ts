@@ -436,7 +436,7 @@ const coreRu: CoreAppDict = {
     keys: { clients: 'клиенты', rowsPerMonth: 'строк в месяц', seats: 'пользователи' },
     usage: 'Использование',
     unlimited: 'без ограничений',
-    stateLabel: { unlimited: 'Без ограничений', trial: 'Пробный период', firm: 'Подписка фирмы', expired: 'Пробный период закончился' },
+    stateLabel: { unlimited: 'Без ограничений', trial: 'Пробный период', firm: 'Подписка', expired: 'Пробный период закончился' },
     until: (date) => `до ${date}`,
   },
   msg: {

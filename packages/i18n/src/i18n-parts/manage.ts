@@ -68,7 +68,7 @@ export const uz = {
         active: 'Faol',
         createTitle: 'Yangi kalit',
       },
-      plan: { usage: 'Foydalanish', compareHint: 'Sinov va firma tariflari chegaralari.' },
+      plan: { usage: 'Foydalanish', compareHint: 'Koʻrik va obuna tariflari: narx va chegaralar.' },
     },
     docs: {
       guide: 'Qoʻllanma',
@@ -155,7 +155,7 @@ export const ru: typeof uz = {
         active: 'Активен',
         createTitle: 'Новый ключ',
       },
-      plan: { usage: 'Использование', compareHint: 'Лимиты пробного периода и тарифа фирмы.' },
+      plan: { usage: 'Использование', compareHint: 'Проверка и тарифы подписки: цены и лимиты.' },
     },
     docs: {
       guide: 'Руководство',

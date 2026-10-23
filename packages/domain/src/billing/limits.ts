@@ -1,34 +1,19 @@
-// Plan limits, in one config object. The numbers are the owner's to set:
-// override them with PLAN_TRIAL_* / PLAN_FIRM_* env vars (a number, or
-// "unlimited"). The defaults below are placeholders, not a commercial decision.
+// Plan limits per plan, read from PLANS (billing/plans.ts) — the same numbers the landing page
+// promises. They used to come from PLAN_TRIAL_* / PLAN_FIRM_* env vars; those are no longer read,
+// because a server-only override would make the app enforce something the landing does not say.
+import { PLANS, TIERS, type Tier } from './plans';
+
 export type Limits = { clients: number | null; rowsPerMonth: number | null; seats: number | null };
 export type LimitKey = keyof Limits;
 
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = PLANS.trial.days;
 
-type Env = Record<string, string | undefined>;
+export type PlanLimits = { trial: Limits } & Record<Tier, Limits>;
 
-function limit(raw: string | undefined, fallback: number | null): number | null {
-  const value = raw?.trim().toLowerCase();
-  if (!value) return fallback;
-  if (value === 'unlimited') return null;
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
-}
-
-export function planLimits(env: Env = process.env): { trial: Limits; firm: Limits } {
-  return {
-    trial: {
-      clients: limit(env['PLAN_TRIAL_CLIENTS'], 3),
-      rowsPerMonth: limit(env['PLAN_TRIAL_ROWS'], 5_000),
-      seats: limit(env['PLAN_TRIAL_SEATS'], 2),
-    },
-    firm: {
-      clients: limit(env['PLAN_FIRM_CLIENTS'], null),
-      rowsPerMonth: limit(env['PLAN_FIRM_ROWS'], null),
-      seats: limit(env['PLAN_FIRM_SEATS'], null),
-    },
-  };
+/** The trial's limits and each tier's; `firm` is the top tier (the single firm plan of old). */
+export function planLimits(): PlanLimits {
+  const tiers = Object.fromEntries(TIERS.map((t) => [t, { ...PLANS.tiers[t].limits }])) as Record<Tier, Limits>;
+  return { trial: { ...PLANS.trial.limits }, ...tiers };
 }
 
 /** Share of a limit at which the app starts warning. */

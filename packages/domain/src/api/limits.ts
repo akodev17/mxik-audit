@@ -1,7 +1,9 @@
 // Per-key rate limit and the monthly check allowance of the org plan.
-// The numbers are config: API_RATE_PER_MINUTE and API_CHECKS_PER_MONTH_TRIAL / _FIRM.
+// The rate and batch size are config (API_RATE_PER_MINUTE, API_CHECK_MAX_ITEMS); the monthly
+// allowance is each plan's, from PLANS (billing/plans.ts), like every other plan limit.
 import { db } from '@tasnivo/db';
-import { planStatus, type PlanState } from '../plan';
+import { PLANS, TIERS, type Tier } from '../billing/plans';
+import { planStatus, type PlanStatus } from '../plan';
 import { monthKey } from './keys';
 
 type Env = Record<string, string | undefined>;
@@ -17,18 +19,24 @@ function whole(raw: string | undefined, fallback: number | null): number | null 
 export function apiConfig(env: Env = process.env) {
   return {
     ratePerMinute: whole(env['API_RATE_PER_MINUTE'], 60) ?? 60,
-    checksPerMonth: { trial: whole(env['API_CHECKS_PER_MONTH_TRIAL'], 500), firm: whole(env['API_CHECKS_PER_MONTH_FIRM'], null) },
+    checksPerMonth: checksPerMonth(),
     maxCheckItems: whole(env['API_CHECK_MAX_ITEMS'], 20) ?? 20,
   };
 }
 
+/** Checks a month per plan; `firm` is the top tier (the single firm plan of old). */
+function checksPerMonth(): { trial: number | null } & Record<Tier, number | null> {
+  const tiers = Object.fromEntries(TIERS.map((t) => [t, PLANS.tiers[t].apiChecks])) as Record<Tier, number | null>;
+  return { trial: PLANS.trial.apiChecks, ...tiers };
+}
+
 export type ApiConfig = ReturnType<typeof apiConfig>;
 
-/** Checks a month allowed in a plan state; null = no cap. An expired trial allows none. */
-export function monthlyCheckCap(state: PlanState, config: ApiConfig = apiConfig()): number | null {
-  if (state === 'expired') return 0;
-  if (state === 'trial') return config.checksPerMonth.trial;
-  if (state === 'firm') return config.checksPerMonth.firm;
+/** Checks a month allowed for a plan status; null = no cap. An expired trial allows none. */
+export function monthlyCheckCap(status: Pick<PlanStatus, 'state' | 'tier'>, config: ApiConfig = apiConfig()): number | null {
+  if (status.state === 'expired') return 0;
+  if (status.state === 'trial') return config.checksPerMonth.trial;
+  if (status.state === 'firm') return config.checksPerMonth[status.tier ?? 'firm'];
   return null;
 }
 
@@ -55,7 +63,7 @@ export type Allowance = { ok: true } | { ok: false; reason: 'expired' | 'checks'
 export async function checkAllowance(orgId: string, adding: number): Promise<Allowance> {
   const status = await planStatus(orgId);
   if (status.state === 'expired') return { ok: false, reason: 'expired' };
-  const cap = monthlyCheckCap(status.state);
+  const cap = monthlyCheckCap(status);
   if (cap === null) return { ok: true };
   const used = await db.apiUsage.aggregate({ where: { orgId, month: monthKey() }, _sum: { checks: true } });
   return (used._sum.checks ?? 0) + adding > cap ? { ok: false, reason: 'checks' } : { ok: true };

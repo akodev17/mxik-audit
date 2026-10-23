@@ -153,7 +153,7 @@ export async function apiKeysView(orgId: string): Promise<ApiKeysView> {
     keys: keys.map((k) => ({ ...k, createdBy: k.createdBy ? emails.get(k.createdBy) ?? null : null, creatorRemoved: k.createdBy !== null && !emails.has(k.createdBy) })),
     maxActive: MAX_ACTIVE_KEYS,
     usage,
-    monthlyCap: monthlyCheckCap(status.state, config),
+    monthlyCap: monthlyCheckCap(status, config),
     ratePerMinute: config.ratePerMinute,
   };
 }
