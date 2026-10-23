@@ -1,7 +1,7 @@
 // endpoints.bank through the real app against the development database: preview, read with the
 // chosen columns, progress, the review records, a decision with a remembered rule, bulk approval,
-// the 1C dry run and export (the onec interface is the base-commit stub until Agent 1 lands:
-// 501 not_implemented), reconciliation and its CSV, layouts and rules, removal, and refusals.
+// the 1C dry run and export through Agent 1's interface, reconciliation and its CSV, layouts and
+// rules, and refusals.
 import '../setup-env';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -115,15 +115,18 @@ describe('bank (database)', { skip }, () => {
     assert.deepEqual(bodyOf<{ rules: { kind: string; value: string }[] }>(rules).rules.map((r) => [r.kind, r.value]), [['purpose_contains', 'по договору № 4/28']]);
   });
 
-  it('prepare and export go through the 1C interface (stub: not_implemented)', async () => {
+  it('prepare and export through the 1C interface: the bank_exchange_1_02 file, then nothing left to send', async () => {
     const prep = await send('post', `/api/bank/statements/${batchId}/prepare`);
     assert.equal(prep.status, 200);
     matches(b.prepare.response, prep.body, 'prepare');
-    assert.deepEqual(bodyOf<{ onec: unknown }>(prep).onec, { ok: false, error: 'not_implemented' });
-    const exp = await send('post', `/api/bank/statements/${batchId}/export`);
-    assert.equal(exp.status, 501);
-    assert.equal(bodyOf(exp).error.code, 'not_implemented');
-    assert.equal(bodyOf(exp).error.message, ta.bankX.errors.onecUnavailable);
+    assert.equal(bodyOf<{ onec: { ok: boolean } }>(prep).onec.ok, true);
+    const exp = await send('post', `/api/bank/statements/${batchId}/export`).buffer(true).parse(binary);
+    assert.equal(exp.status, 200, String(exp.body));
+    assert.ok(String(exp.headers['content-disposition']).startsWith('attachment; '));
+    assert.ok((exp.body as Buffer).subarray(0, 40).toString('latin1').startsWith('1CClientBankExchange'));
+    const again = await send('post', `/api/bank/statements/${batchId}/export`);
+    assert.equal(again.status, 409);
+    assert.equal(bodyOf(again).error.code, 'nothing_to_export');
   });
 
   it('reconciliation and its CSV', async () => {
@@ -154,7 +157,6 @@ describe('bank (database)', { skip }, () => {
     assert.equal((await send('post', '/api/bank/preview', viewer).attach('file', fixture('ru-debit-credit.xlsx'), 'x.xlsx')).status, 403, 'a viewer may not upload');
     assert.equal((await send('delete', `/api/bank/statements/${batchId}`, viewer)).status, 403);
 
-    assert.deepEqual((await send('delete', `/api/bank/statements/${batchId}`)).body, { ok: true });
-    assert.equal((await http().get(`/api/bank/statements/${batchId}`).set('Cookie', cookie)).status, 404);
+    assert.deepEqual((await send('delete', `/api/bank/statements/${batchId}`)).body, { ok: false, error: ta.bankX.errors.removeExported }, 'an exported statement stays');
   });
 });

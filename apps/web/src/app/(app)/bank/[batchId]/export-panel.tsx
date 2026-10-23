@@ -94,7 +94,7 @@ export function ExportPanel({ batchId, writable, approved, exports }: { batchId:
             {prepared.onec.ok ? (
               prepared.onec.issues.length > 0 ? (
                 <Notice tone="warn" title={x.onecIssues}>
-                  <ul className="list-disc pl-4">{prepared.onec.issues.slice(0, 10).map((i, k) => <li key={k}>{(ta.bankX.issues as Record<string, string>)[i.code] ?? i.code}</li>)}</ul>
+                  <ul className="list-disc pl-4">{prepared.onec.issues.slice(0, 10).map((i, k) => <li key={k}>{(ta.bankX.issues as Record<string, string>)[i.code] ?? (ta.accountingX.issues as Record<string, string>)[i.code] ?? i.code}</li>)}</ul>
                 </Notice>
               ) : null
             ) : prepared.onec.error === 'not_implemented' ? <Notice tone="info">{x.onecUnavailable}</Notice> : prepared.onec.error === 'nothing_to_export' ? null : <Notice tone="warn">{prepared.onec.error}</Notice>}
@@ -106,7 +106,10 @@ export function ExportPanel({ batchId, writable, approved, exports }: { batchId:
             <h3 className="mb-1 text-small font-semibold text-muted">{x.history}</h3>
             <ul className="space-y-1 text-small">
               {exports.map((e) => (
-                <li key={e.id}>{fmtDateTime(locale, e.createdAt)} · {e.format} · {ta.bankX.lineCount(e.recordCount)}{e.filename ? ` · ${e.filename}` : ''}</li>
+                <li key={e.id}>
+                  {fmtDateTime(locale, e.createdAt)} · {e.format} · {ta.bankX.lineCount(e.recordCount)}
+                  {e.filename ? <> · <a className="text-brand-ink underline" href={`/api/onec/exports/${e.id}/file`} download>{e.filename}</a></> : null}
+                </li>
               ))}
             </ul>
           </div>
