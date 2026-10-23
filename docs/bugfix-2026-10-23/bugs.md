@@ -131,9 +131,14 @@ workspace, report, client page, settings, team, upload, landing).
 - **Cause:** `toggleRail` in `apps/web/src/ui/shell/app-frame.tsx:53-58` changes local state and fires
   `api.account.setSidebar` without waiting; the `mxik_sidebar` cookie only exists once that response
   arrives, and a navigation cancels the request. The API sets the cookie correctly when it completes.
+- **Second cause, in the test (from Agent 5's baseline note):** `shell-layout.e2e.ts:105` queries
+  `[data-rail="collapsed"] nav[aria-label]`, which since U2 first matches the header's TopNav (it got an
+  `aria-label`), so the width check could not pass even with the cookie set. Scope the selector to the
+  sidebar's own nav (e.g. by its label or a `data-` hook).
 - **Proposed fix:** also write `mxik_sidebar` from the browser immediately (`document.cookie`, same name,
   `Path=/; Max-Age=31536000; SameSite=Lax`, it is not HttpOnly) and keep the PUT. Same pattern for the
-  theme toggle if it has the same shape. Make test 23 pass; add a unit test for the cookie writer.
+  theme toggle if it has the same shape. Fix the test selector. Make test 23 pass; add a unit test for
+  the cookie writer.
 
 ### B7. e2e: the confirm step's heading locator is ambiguous, 6 upload tests fail (blocks e2e)
 
