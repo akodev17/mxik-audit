@@ -121,7 +121,7 @@ export function ClientSwitcher({ clients, active, canAdd }: Props) {
   };
 
   return (
-    <div ref={dd.root} className="relative flex min-w-0 md:max-w-[16rem] 2xl:max-w-[22rem]" onBlur={dd.onBlur}>
+    <div ref={dd.root} data-tour="client-switcher" className="relative flex min-w-0 md:max-w-[16rem] 2xl:max-w-[22rem]" onBlur={dd.onBlur}>
       <HoverTip content={name} className="min-w-0">
         <button
           ref={dd.trigger}

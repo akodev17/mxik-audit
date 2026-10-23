@@ -22,7 +22,7 @@ export async function Onboarding({ steps, primary }: { steps: Step[]; primary: b
 
   if (primary) {
     return (
-      <section aria-labelledby="onboarding-title" className="rounded-lg border border-line bg-raised">
+      <section aria-labelledby="onboarding-title" data-tour="checklist" className="rounded-lg border border-line bg-raised">
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-line px-4 py-4 sm:px-5">
           <div className="min-w-0">
             <h2 id="onboarding-title" className="text-section">{words.title}</h2>
@@ -68,7 +68,7 @@ export async function Onboarding({ steps, primary }: { steps: Step[]; primary: b
 
   return (
     <DismissibleOnboarding label={words.dismiss}>
-      <section aria-labelledby="onboarding-title" className="rounded-lg border border-line bg-raised">
+      <section aria-labelledby="onboarding-title" data-tour="checklist" className="rounded-lg border border-line bg-raised">
         <div className="px-4 pb-3 pr-12 pt-4 sm:px-5 sm:pr-12">
           <h2 id="onboarding-title" className="text-section">{words.title}</h2>
           <p className="mt-0.5 text-small tabular-nums text-muted">{progress}</p>

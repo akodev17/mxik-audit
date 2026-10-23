@@ -70,6 +70,7 @@ export function TopNav({ canWrite, canTeam, activePath }: { canWrite: boolean; c
             <li key={item.key} className="flex shrink-0">
               <Link
                 href={item.href}
+                data-tour={`nav-${item.key}`}
                 {...intent(item.href)}
                 aria-current={active ? 'page' : undefined}
                 title={text === item.label ? undefined : item.label}
@@ -82,7 +83,7 @@ export function TopNav({ canWrite, canTeam, activePath }: { canWrite: boolean; c
         })}
       </ul>
       {rest.length ? (
-        <div className={cx('relative ml-0.5 flex shrink-0 items-center lg:ml-1', restActive && UNDERLINE)}>
+        <div data-tour="nav-more" className={cx('relative ml-0.5 flex shrink-0 items-center lg:ml-1', restActive && UNDERLINE)}>
           <Menu
             label={ta.shellX.nav.more}
             align="end"

@@ -11,6 +11,9 @@ import { IconButton } from '../icon-button';
 import { IconMenu } from '../icons';
 import { TasnivoMark } from '../logo';
 import { ToastProvider } from '../toast';
+import { TourProvider } from '../tour/tour-context';
+import { TourDevTrigger } from '../tour/tour-dev-trigger';
+import { TourOverlay } from '../tour/tour-overlay';
 import { ClientSwitcher } from './client-switcher';
 import { CommandPalette } from './command-palette';
 import { MobileNav } from './mobile-nav';
@@ -86,77 +89,81 @@ export function AppFrame({ shell, sidebar, children }: Props) {
   const canUpload = shell.canWrite && !shell.demo;
   return (
     <ToastProvider>
-      <div
-        data-rail={pref}
-        className="group/frame relative grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base print:block print:h-auto print:overflow-visible"
-      >
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-toast focus:rounded-ctl focus:border focus:border-line-strong focus:bg-raised focus:px-3 focus:py-2 focus:text-data focus:font-medium focus:shadow-pop"
+      <TourProvider canWrite={canUpload} canManageTeam={shell.canManageTeam}>
+        <div
+          data-rail={pref}
+          className="group/frame relative grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base print:block print:h-auto print:overflow-visible"
         >
-          {ta.shellX.skip}
-        </a>
-        <MobileNav
-          id={menuId} open={menuOpen} onClose={closeMenu} canWrite={canUpload} canTeam={shell.canManageTeam}
-          email={shell.email} unread={shell.unread}
-        />
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-toast focus:rounded-ctl focus:border focus:border-line-strong focus:bg-raised focus:px-3 focus:py-2 focus:text-data focus:font-medium focus:shadow-pop"
+          >
+            {ta.shellX.skip}
+          </a>
+          <MobileNav
+            id={menuId} open={menuOpen} onClose={closeMenu} canWrite={canUpload} canTeam={shell.canManageTeam}
+            email={shell.email} unread={shell.unread}
+          />
 
-        <header className="no-print col-start-2 row-start-1 flex h-14 min-w-0 items-stretch border-b border-line bg-base">
-          <span className="flex items-center pl-2 md:hidden">
-            <IconButton
-              label={ta.shellX.nav.open}
-              icon={<IconMenu />}
-              size="md"
-              onClick={() => setMenuOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={menuOpen}
-              aria-controls={menuOpen ? menuId : undefined}
-              tooltipSide="bottom"
-              tooltipAlign="start"
-            />
-          </span>
-          <Link href="/dashboard" aria-label={ta.shellX.nav.home} className="grid w-11 shrink-0 place-items-center md:hidden">
-            <TasnivoMark className="size-7 text-fg" />
-          </Link>
-          <TopNav canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
-          {/* Shrinkable, so on a phone a long client name truncates instead of pushing the account menu off-screen. */}
-          <div className="ml-auto flex min-w-0 items-center gap-1 px-2 sm:gap-1.5 sm:px-4">
-            {/* It reads the query (useSearchParams); the boundary keeps any static render of the frame valid. */}
-            <Suspense fallback={null}>
-              <ClientSwitcher clients={shell.clients} active={shell.activeClient} canAdd={canUpload} />
-            </Suspense>
-            <span aria-hidden className="mx-1 hidden h-6 w-px shrink-0 bg-line sm:block" />
-            <SearchButton onOpen={() => setPaletteOpen(true)} expanded={paletteOpen} />
-            {shell.demo ? <span className="hidden sm:inline-flex"><Badge tone="brand" title={ta.shell.demoTitle}>{ta.shell.demoPill}</Badge></span> : null}
-            <NotificationBell initialUnread={shell.unread} />
-            <UserMenu email={shell.email} />
+          <header className="no-print col-start-2 row-start-1 flex h-14 min-w-0 items-stretch border-b border-line bg-base">
+            <span className="flex items-center pl-2 md:hidden">
+              <IconButton
+                label={ta.shellX.nav.open}
+                icon={<IconMenu />}
+                size="md"
+                onClick={() => setMenuOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
+                aria-controls={menuOpen ? menuId : undefined}
+                tooltipSide="bottom"
+                tooltipAlign="start"
+              />
+            </span>
+            <Link href="/dashboard" aria-label={ta.shellX.nav.home} className="grid w-11 shrink-0 place-items-center md:hidden">
+              <TasnivoMark className="size-7 text-fg" />
+            </Link>
+            <TopNav canWrite={shell.canWrite} canTeam={shell.canManageTeam} />
+            {/* Shrinkable, so on a phone a long client name truncates instead of pushing the account menu off-screen. */}
+            <div className="ml-auto flex min-w-0 items-center gap-1 px-2 sm:gap-1.5 sm:px-4">
+              {/* It reads the query (useSearchParams); the boundary keeps any static render of the frame valid. */}
+              <Suspense fallback={null}>
+                <ClientSwitcher clients={shell.clients} active={shell.activeClient} canAdd={canUpload} />
+              </Suspense>
+              <span aria-hidden className="mx-1 hidden h-6 w-px shrink-0 bg-line sm:block" />
+              <SearchButton onOpen={() => setPaletteOpen(true)} expanded={paletteOpen} />
+              {shell.demo ? <span className="hidden sm:inline-flex"><Badge tone="brand" title={ta.shell.demoTitle}>{ta.shell.demoPill}</Badge></span> : null}
+              <NotificationBell initialUnread={shell.unread} />
+              <UserMenu email={shell.email} />
+            </div>
+          </header>
+
+          <Rail
+            canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={canUpload} unread={shell.unread}
+            clients={shell.clients} activeClientId={shell.activeClient?.id ?? null} labelled={labelled} onToggle={toggleRail}
+          />
+
+          <div className="relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col print:block">
+            <NavigationProgress />
+            <PlanBanner plan={shell.plan} />
+            <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none print:overflow-visible"><RouteBoundary>{children}</RouteBoundary></main>
           </div>
-        </header>
-
-        <Rail
-          canWrite={shell.canWrite} canTeam={shell.canManageTeam} canUpload={canUpload} unread={shell.unread}
-          clients={shell.clients} activeClientId={shell.activeClient?.id ?? null} labelled={labelled} onToggle={toggleRail}
-        />
-
-        <div className="relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col print:block">
-          <NavigationProgress />
-          <PlanBanner plan={shell.plan} />
-          <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 overflow-y-auto outline-none print:overflow-visible"><RouteBoundary>{children}</RouteBoundary></main>
         </div>
-      </div>
-      <Suspense fallback={null}>
-        <NavigationWatchdog />
-        <RefreshAfterChange />
-      </Suspense>
-      <ResponseNudge />
-      <CommandPalette
-        open={paletteOpen}
-        onClose={closePalette}
-        canWrite={canUpload}
-        canTeam={shell.canManageTeam}
-        clients={shell.clients}
-        activeClientId={shell.activeClient?.id ?? null}
-      />
+        <Suspense fallback={null}>
+          <NavigationWatchdog />
+          <RefreshAfterChange />
+        </Suspense>
+        <ResponseNudge />
+        <CommandPalette
+          open={paletteOpen}
+          onClose={closePalette}
+          canWrite={canUpload}
+          canTeam={shell.canManageTeam}
+          clients={shell.clients}
+          activeClientId={shell.activeClient?.id ?? null}
+        />
+        <TourOverlay />
+        <Suspense fallback={null}><TourDevTrigger /></Suspense>
+      </TourProvider>
     </ToastProvider>
   );
 }

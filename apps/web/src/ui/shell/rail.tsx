@@ -85,8 +85,10 @@ function RailItem({ label, visible, className, render }: {
   );
 }
 
-function RailLink({ href, label, icon, active, trailing, className }: {
+function RailLink({ href, label, icon, active, trailing, className, tour }: {
   href: string; label: string; icon: ReactNode; active: boolean; trailing?: ReactNode; className?: string;
+  /** Step target of the guided tour (data-tour). */
+  tour?: string;
 }) {
   const intent = useIntentPrefetch()(href);
   return (
@@ -97,6 +99,7 @@ function RailLink({ href, label, icon, active, trailing, className }: {
           href={href}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
+          data-tour={tour}
           onPointerEnter={intent.onPointerEnter}
           onPointerLeave={intent.onPointerLeave}
           onPointerDown={intent.onPointerDown}
@@ -152,7 +155,7 @@ export function Rail({ canWrite, canTeam, canUpload, unread, clients = [], activ
         <div className="flex flex-col gap-1 px-3 pt-3">
           {upload ? (
             <RailLink
-              href={upload.href} label={ta.shellX.nav.upload} icon={<IconUpload size={18} />} active={isActive(pathname, upload.href)}
+              href={upload.href} label={ta.shellX.nav.upload} tour="rail-upload" icon={<IconUpload size={18} />} active={isActive(pathname, upload.href)}
               className="mb-2 border border-line-strong bg-raised text-fg shadow-sm hover:border-line-input hover:bg-raised"
             />
           ) : null}
@@ -207,8 +210,8 @@ export function Rail({ canWrite, canTeam, canUpload, unread, clients = [], activ
         ) : null}
 
         <div className="mt-auto flex flex-col gap-1 border-t border-line px-3 py-3">
-          {help ? <RailLink href={help.href} label={help.label} icon={help.icon} active={isActive(pathname, help.href)} /> : null}
-          {settings ? <RailLink href={settings.href} label={settings.label} icon={settings.icon} active={isActive(pathname, settings.href)} /> : null}
+          {help ? <RailLink href={help.href} tour="rail-help" label={help.label} icon={help.icon} active={isActive(pathname, help.href)} /> : null}
+          {settings ? <RailLink href={settings.href} tour="rail-settings" label={settings.label} icon={settings.icon} active={isActive(pathname, settings.href)} /> : null}
           {onToggle ? <RailItem
             label={toggleLabel}
             visible={ta.shellX.nav.collapse}

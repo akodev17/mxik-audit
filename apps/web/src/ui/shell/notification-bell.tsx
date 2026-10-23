@@ -87,6 +87,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number | nu
         aria-expanded={dd.open}
         aria-controls={dd.open ? dd.panelId : undefined}
         aria-label={unread === null ? ta.shellX.bell.title : ta.shellX.bell.label(count)}
+        data-tour="bell"
         onClick={() => dd.setOpen(!dd.open)}
         onPointerEnter={prefetch}
         onFocus={prefetch}
