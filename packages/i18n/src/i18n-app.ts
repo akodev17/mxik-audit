@@ -587,6 +587,7 @@ const coreUz = {
       'security.password_reset': 'Parol tiklandi',
       'security.telegram_bound': 'Telegram orqali kirish ulandi',
       'security.telegram_unbound': 'Telegram orqali kirish uzildi',
+      'security.google_bound': 'Google orqali kirish ulandi',
       'finding.auto_accepted': 'Lugʻat boʻyicha avtomatik tasdiqlandi',
       'account.deletion_requested': 'Hisob oʻchirishga qoʻyildi',
       'account.restored': 'Hisob tiklandi',

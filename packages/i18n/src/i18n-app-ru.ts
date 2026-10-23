@@ -589,6 +589,7 @@ const coreRu: CoreAppDict = {
       'security.password_reset': 'Пароль восстановлен',
       'security.telegram_bound': 'Вход через Telegram подключён',
       'security.telegram_unbound': 'Вход через Telegram отключён',
+      'security.google_bound': 'Вход через Google подключён',
       'finding.auto_accepted': 'Автоматически принято по словарю',
       'account.deletion_requested': 'Аккаунт поставлен на удаление',
       'account.restored': 'Аккаунт восстановлен',

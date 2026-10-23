@@ -232,10 +232,14 @@ export class AuthController {
     return startTelegramBind(await this.sessions.forSignIn(req, res));
   }
 
-  /** A browser callback: without a session it goes to sign in instead of answering 401. */
+  /**
+   * A browser callback: without a session it goes to sign in instead of answering 401. Manual, so
+   * AccessGuard does not run: an unconfirmed user is treated as signed out (sign-in sends them on to the code step).
+   */
   @Route(e.telegramBind, { session: 'manual' })
   async telegramBind(@Param(new ZodValidationPipe(e.telegramBind.params)) { state }: { state: string }, @Req() req: ApiRequest, @Res() res: Response): Promise<void> {
-    const user = await this.sessions.currentUser(req);
+    const signedIn = await this.sessions.currentUser(req);
+    const user = signedIn?.verified ? signedIn : null;
     const session = await this.sessions.forSignIn(req, res);
     go(res, await telegramBindCallback(session, user, state, queryPairs(req)));
   }
