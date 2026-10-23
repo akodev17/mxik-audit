@@ -1,11 +1,10 @@
 // The guided tour's steps: order, spotlight targets and the section each one links to. Copy lives in
 // the i18n package (ta.tourX.steps[key]); delete a step here and the tour simply skips it.
+import { TOUR_STEP_KEYS, type TourStepKey } from '@tasnivo/i18n/i18n-parts/tour';
 
-export const STEP_KEYS = [
-  'welcome', 'dashboard', 'upload', 'catalogs', 'queue', 'clients', 'products',
-  'bank', 'didox', 'onec', 'dictionary', 'activity', 'settings', 'done',
-] as const;
-export type StepKey = (typeof STEP_KEYS)[number];
+// The copy's keys: a step without words in ta.tourX.steps does not typecheck.
+export const STEP_KEYS = TOUR_STEP_KEYS;
+export type StepKey = TourStepKey;
 
 /**
  * What the signed-in frame lets this user do (ShellData carries no role, only these flags):

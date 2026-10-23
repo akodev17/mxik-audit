@@ -132,6 +132,8 @@ async function main(): Promise<void> {
       passwordHash: await hashPassword(DEMO_PASSWORD),
       // Our own account: confirmed, or every page would wait for a mailed code.
       emailVerifiedAt: new Date(),
+      // The guided tour counts as seen, so the sample account opens straight on its data.
+      tourCompletedAt: new Date(),
     },
   });
 
