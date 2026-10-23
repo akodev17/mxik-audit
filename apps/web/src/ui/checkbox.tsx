@@ -31,12 +31,12 @@ export function Checkbox({ label, description, hideLabel = false, indeterminate 
         ref={setRef}
         type="checkbox"
         disabled={disabled}
-        className="mt-0.5 size-4 shrink-0 cursor-[inherit] accent-brand"
+        className="mt-px size-4 shrink-0 cursor-[inherit] rounded-sm accent-brand"
         {...rest}
       />
       <span className={hideLabel ? 'sr-only' : 'min-w-0'}>
         <span className="block">{label}</span>
-        {description ? <span className="block text-small text-muted">{description}</span> : null}
+        {description ? <span className="mt-0.5 block text-small text-muted">{description}</span> : null}
       </span>
     </label>
   );
