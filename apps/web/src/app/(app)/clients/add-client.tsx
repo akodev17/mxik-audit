@@ -2,11 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type FormEvent } from 'react';
-import { addClient } from '@/app/actions/clients';
+import { api } from '@/lib/api/browser';
+import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Dialog } from '@/ui/dialog';
 import { Field, Input } from '@/ui/input';
+import { serverChange } from '@/ui/shell/router-cache';
 import { goTo } from '@/ui/shell/same-route-links';
 
 /** The page's primary action for writers: a dialog that creates the client and opens it. */
@@ -26,10 +28,12 @@ export function AddClient({ scoped, initialOpen = false }: { scoped: boolean; in
   // The dialog closes before navigating, so it can never stay stuck behind a slow page load.
   const submit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
-    const data = new FormData(e.currentTarget);
+    const value = new FormData(e.currentTarget).get('name');
+    const name = typeof value === 'string' ? value : '';
     setError(undefined);
     start(async () => {
-      const result = await addClient(data).catch(() => ({ ok: false as const, error: words.createFailed }));
+      // Makes the new client the active one; the lists that will show it refresh when next opened (router-cache).
+      const result = await orRefused(serverChange(api.clients.create({ name })), words.createFailed);
       if (!result.ok) {
         setError(result.error);
         return;

@@ -2,8 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { restartDoc } from '@/app/actions/docs';
 import { Notice } from '@/app/(app)/upload/notice';
+import { api } from '@/lib/api/browser';
+import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 
@@ -20,7 +21,7 @@ export function RestartDocButton({ listId }: { listId: string }) {
         onClick={() => {
           setError(null);
           start(async () => {
-            const result = await restartDoc(listId).catch(() => ({ ok: false as const, error: ta.importX.errors.network }));
+            const result = await orRefused(api.imports.restartDoc({ listId }), ta.importX.errors.network);
             if (!result.ok) { setError(result.error); return; }
             router.refresh();
           });

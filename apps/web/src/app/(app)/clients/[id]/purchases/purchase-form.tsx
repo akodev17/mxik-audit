@@ -2,11 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
-import { applyPurchases, uploadPurchases, type ListPreview } from '@/app/actions/purchases';
+import type { endpoints, ResponseOf } from '@tasnivo/contracts';
+import type { PurchaseMap } from '@/lib/pure/types';
 import { Dropzone } from '@/app/(app)/upload/dropzone';
 import { Notice } from '@/app/(app)/upload/notice';
+import { api } from '@/lib/api/browser';
+import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
-import type { PurchaseMap } from '@tasnivo/domain/purchases';
 import { useToast } from '@/ui/toast';
 import { ListMapper, type MapperField } from './list-mapper';
 
@@ -30,7 +32,7 @@ export function PurchaseMapper({ listId, filename, headers, rows, map, notes, on
       title={ta.importX.lists.resumeTitle(filename)} headers={headers} rows={rows} initial={map} notes={notes}
       fields={purchaseFields(ta.importX.fields)} submitLabel={t.purchasesApply} onClose={onClose}
       onSubmit={async (chosen) => {
-        const outcome = await applyPurchases({ listId, map: chosen });
+        const outcome = await orRefused(api.imports.applyPurchases({ listId, map: chosen }), ta.importX.errors.network);
         if (!outcome.ok) return outcome;
         toast(ta.importX.purchases.applied(outcome.codes));
         onClose?.();
@@ -41,22 +43,21 @@ export function PurchaseMapper({ listId, filename, headers, rows, map, notes, on
   );
 }
 
+type PurchasePreview = Extract<ResponseOf<typeof endpoints.imports.uploadPurchases>, { ok: true }>['preview'];
+
 /** Upload a purchase file, then choose its columns. */
 export function PurchaseForm({ clientId }: { clientId: string }) {
   const { ta } = useI18n();
   const router = useRouter();
-  const [preview, setPreview] = useState<(ListPreview & { map: PurchaseMap }) | null>(null);
+  const [preview, setPreview] = useState<PurchasePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reading, start] = useTransition();
 
   const choose = (file: File): void => {
-    const form = new FormData();
-    form.set('file', file);
-    form.set('clientId', clientId);
     setError(null);
     setPreview(null);
     start(async () => {
-      const result = await uploadPurchases(form).catch(() => ({ ok: false as const, error: ta.importX.errors.network }));
+      const result = await orRefused(api.imports.uploadPurchases({ file }, { clientId }), ta.importX.errors.network);
       if (!result.ok) { setError(result.error); return; }
       setPreview(result.preview);
       // The stored list now shows below as "columns not chosen", resumable later.

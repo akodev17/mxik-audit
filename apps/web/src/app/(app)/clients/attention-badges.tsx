@@ -1,4 +1,4 @@
-import type { AttentionReason } from '@tasnivo/domain/client-attention';
+import type { AttentionReason } from '@/lib/pure/types';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import type { AppDict } from '@tasnivo/i18n/i18n-app';

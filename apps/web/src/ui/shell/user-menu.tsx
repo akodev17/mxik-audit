@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { setTheme } from '@/app/actions/shell';
+import { useEffect, useState, type FormEvent } from 'react';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { LanguageSwitch } from '../language-switch';
 import { Segmented } from '../segmented';
@@ -21,6 +21,7 @@ export function UserMenu({ email }: { email: string }) {
   const dd = useDropdown();
   const themeCtx = useTheme();
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (dd.open) dd.panel.current?.focus({ preventScroll: true });
@@ -32,14 +33,23 @@ export function UserMenu({ email }: { email: string }) {
     themeCtx.applyTheme(next);
     setSaving(true);
     try {
-      const result = await setTheme(next);
-      if (!result.ok) throw new Error(result.error);
+      if (!(await api.account.setTheme({ theme: next }))) throw new Error('invalid');
     } catch {
       themeCtx.applyTheme(previous);
       toast(ta.shellX.theme.failed, { tone: 'error' });
     } finally {
       setSaving(false);
     }
+  };
+
+  // The API ends the session and clears its cookie; the sign-in page then loads as a whole document.
+  const signOut = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    if (signingOut) return;
+    setSigningOut(true);
+    api.auth.signOut()
+      .then((r) => window.location.assign(r.redirect))
+      .catch(() => { setSigningOut(false); toast(ta.shellX.ui.confirmFailed, { tone: 'error' }); });
   };
 
   const themes: { value: Theme; label: string }[] = [
@@ -91,8 +101,8 @@ export function UserMenu({ email }: { email: string }) {
             <Link href="/settings" onClick={() => dd.close(false)} className={ITEM}>{ta.nav.settings}</Link>
             <Link href={helpHref(locale)} onClick={() => dd.close(false)} className={ITEM}>{ta.shellX.user.help}</Link>
           </div>
-          <form action="/api/sign-out" method="post" className="border-t border-line pt-1">
-            <button type="submit" className={ITEM}>{t.signOut}</button>
+          <form onSubmit={signOut} className="border-t border-line pt-1">
+            <button type="submit" className={ITEM} aria-busy={signingOut || undefined}>{t.signOut}</button>
           </form>
         </div>
       ) : null}

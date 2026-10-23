@@ -9,6 +9,8 @@ import { ReminderSchedule } from './reminders';
 
 export const CLIENT_FILTERS = ['all', 'attention', 'overdue', 'stale', 'empty', 'archived'] as const;
 export const CLIENT_SORTS = ['attention', 'name', 'open', 'progress', 'oldest', 'newest'] as const;
+/** client-stats.ts STALE_DAYS: days without an audit after which a client counts as stale; the first is the default. */
+export const STALE_DAYS = [30, 60, 90] as const;
 
 /** client-stats.ts ClientStats. */
 export const ClientStats = z.object({

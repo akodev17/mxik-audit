@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { cache } from 'react';
+import type { endpoints, ResponseOf } from '@tasnivo/contracts';
 import { Notice } from '@/app/(app)/upload/notice';
-import { canSeeClient, canWrite } from '@tasnivo/domain/access';
-import { codeDetails } from '@tasnivo/domain/code-details';
-import { db } from '@tasnivo/db';
-import { docCheckStale, readDocMeta, type GroupDetail } from '@tasnivo/domain/docs';
+import { canWrite } from '@/lib/pure/access';
 import { fmtNumber } from '@tasnivo/i18n/format';
+import { pageData } from '@/lib/api/page-data';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { currentUser } from '@/lib/session';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { AutoRefresh } from '@/ui/catalog-status-client';
@@ -19,13 +19,19 @@ import { Progress } from '@/ui/progress';
 import { Table, Td, Th } from '@/ui/table';
 import { RestartDocButton } from '../restart-button';
 
+type Report = ResponseOf<typeof endpoints.imports.doc>;
+type ReportList = Report['list'];
+type ReportGroup = Report['groups'][number];
+
+/** One API read per request, shared by generateMetadata and the page. */
+const readReport = cache((listId: string) => serverApi().imports.doc({ listId }));
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string; listId: string }> }): Promise<Metadata> {
   const { t, ta } = await getI18n();
   const { id, listId } = await params;
-  const user = await currentUser();
-  const list = user ? await db.docList.findFirst({ where: { id: listId, orgId: user.orgId, clientId: id }, select: { kind: true, clientId: true } }) : null;
-  // The tab names the list's kind only for someone who may open it.
-  const title = list && user && canSeeClient(user, list.clientId) ? ta.docs.reportTitle[list.kind === 'sales' ? 'sales' : 'cheques'] : ta.docs.title;
+  const list = await readReport(listId).then((r) => r.list, () => null);
+  // The tab names the list's kind only for someone who may open it (the API answers 404 otherwise).
+  const title = list && list.clientId === id ? ta.docs.reportTitle[list.kind === 'sales' ? 'sales' : 'cheques'] : ta.docs.title;
   return { title: `${title} — ${t.appName}` };
 }
 
@@ -34,19 +40,17 @@ const SHOWN = 300;
 
 export default async function DocReportPage({ params, searchParams }: { params: Promise<{ id: string; listId: string }>; searchParams: Promise<{ issue?: string }> }) {
   const { locale, t, ta } = await getI18n();
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
   const { id, listId } = await params;
-  const list = await db.docList.findFirst({ where: { id: listId, orgId: user.orgId, clientId: id }, include: { client: { select: { name: true } } } });
-  if (!list || !canSeeClient(user, list.clientId)) notFound();
+  const [user, report] = await Promise.all([pageData(serverApi().auth.me()), pageData(readReport(listId))]);
+  const list: ReportList = report.list;
+  if (list.clientId !== id) notFound();
   const kind = list.kind === 'sales' ? 'sales' : 'cheques';
   const writable = canWrite(user) && !user.demo;
   const crumbs = [
     { label: t.clientsTitle, href: '/clients' },
-    { label: list.client.name, href: `/clients/${id}` },
+    { label: list.clientName, href: `/clients/${id}` },
     { label: ta.docs.title, href: `/clients/${id}/imports?kind=${kind}` },
   ];
-  const meta = readDocMeta(list.meta);
   const d = ta.importX.docs;
 
   if (list.status === 'uploaded') {
@@ -60,7 +64,7 @@ export default async function DocReportPage({ params, searchParams }: { params: 
     );
   }
   if (list.status === 'analyzing') {
-    const stale = docCheckStale(list);
+    const stale = list.stale;
     const heading = ta.docs.analyzing(list.progressDone, list.progressTotal);
     return (
       <Page title={ta.docs.reportTitle[kind]} crumbs={crumbs}>
@@ -82,18 +86,24 @@ export default async function DocReportPage({ params, searchParams }: { params: 
     );
   }
   const notes = [
-    ...(meta.truncated && meta.totalSeen ? [d.rowsCapped(list.rowCount, meta.totalSeen)] : []),
-    ...(meta.groupsTotal !== undefined && meta.groupsChecked !== undefined && meta.groupsTotal > meta.groupsChecked ? [d.groupsCapped(meta.groupsChecked, meta.groupsTotal)] : []),
-    ...(meta.ambiguous ? [ta.importX.lists.ambiguous(meta.ambiguous)] : []),
+    ...(list.truncated && list.totalSeen ? [d.rowsCapped(list.rowCount, list.totalSeen)] : []),
+    ...(list.groupsTotal !== null && list.groupsChecked !== null && list.groupsTotal > list.groupsChecked ? [d.groupsCapped(list.groupsChecked, list.groupsTotal)] : []),
+    ...(list.ambiguous ? [ta.importX.lists.ambiguous(list.ambiguous)] : []),
   ];
 
-
-  const groups = await db.docGroup.findMany({ where: { listId }, orderBy: [{ amount: { sort: 'desc', nulls: 'last' } }, { lines: 'desc' }] });
+  // Every group of the finished check, largest amount first; the issue filter stays here because the
+  // summary cards and totals count all of them.
+  const groups: ReportGroup[] = report.groups;
   const sp = await searchParams;
   const issue = ISSUES.find((i) => i === sp.issue) ?? null;
   const flagged = groups.filter((g) => g.issues.length > 0);
   const shown = (issue ? flagged.filter((g) => g.issues.includes(issue)) : flagged).slice(0, SHOWN);
-  const details = await codeDetails(shown.flatMap((g) => [g.mxik, g.suggestedMxik]));
+  // The classifier names of the codes used and suggested, as the API sends them with each group.
+  const codeNames = new Map<string, string>();
+  for (const g of groups) {
+    if (g.mxik && g.mxikName) codeNames.set(g.mxik, g.mxikName);
+    if (g.suggestedMxik && g.suggestedName) codeNames.set(g.suggestedMxik, g.suggestedName);
+  }
   const num = (n: number): string => fmtNumber(locale, n);
   const totalLines = groups.reduce((n, g) => n + g.lines, 0);
   const flaggedLines = flagged.reduce((n, g) => n + g.lines, 0);
@@ -102,7 +112,7 @@ export default async function DocReportPage({ params, searchParams }: { params: 
     const hit = flagged.filter((g) => g.issues.includes(i));
     return { issue: i, groups: hit.length, lines: hit.reduce((n, g) => n + g.lines, 0), amount: hit.reduce((n, g) => n + Number(g.amount ?? 0), 0), hasAmount: hit.some((g) => g.amount !== null) };
   }).filter((s) => s.groups > 0);
-  const named = (code: string | null) => (code ? <span className="flex min-w-0 flex-col items-start gap-0.5"><CodeChip code={code} /><span className="max-w-full truncate text-xs text-muted" title={details.get(code)?.name}>{details.get(code)?.name ?? ta.drawer.unknown}</span></span> : <span className="text-muted">—</span>);
+  const named = (code: string | null) => (code ? <span className="flex min-w-0 flex-col items-start gap-0.5"><CodeChip code={code} /><span className="max-w-full truncate text-xs text-muted" title={codeNames.get(code)}>{codeNames.get(code) ?? ta.drawer.unknown}</span></span> : <span className="text-muted">—</span>);
 
   return (
     <Page title={ta.docs.reportTitle[kind]} hint={ta.docs.reportHint[kind]} wide crumbs={crumbs}>
@@ -128,15 +138,15 @@ export default async function DocReportPage({ params, searchParams }: { params: 
             <thead><tr><Th>{ta.docs.colProduct}</Th><Th>{ta.docs.colUsed}</Th><Th>{ta.docs.colUnit}</Th><Th className="text-right">{ta.docs.colLines}</Th><Th className="text-right">{ta.docs.colAmount}</Th><Th>{ta.docs.colIssues}</Th><Th>{ta.docs.colSuggested}</Th><Th>{ta.docs.colCatalog}</Th></tr></thead>
             <tbody>
               {shown.map((g) => {
-                const detail = g.detail as unknown as GroupDetail;
-                const names = Array.isArray(g.names) ? (g.names as string[]) : [];
+                const detail = g.detail;
+                const names = g.names;
                 return (
                   <tr key={g.id} className="align-top hover:bg-surface/60">
                     <Td className="max-w-xs"><span className="block truncate font-medium" title={names.join('\n')}>{g.name ?? '—'}</span>{names.length > 1 ? <span className="text-xs text-muted">+{names.length - 1}</span> : null}</Td>
                     <Td className="max-w-[240px]">{named(g.mxik)}</Td>
                     <Td className="text-muted">{g.unit ?? ''}</Td>
                     <Td className="text-right">{num(g.lines)}</Td>
-                    <Td className="text-right">{g.amount === null ? '' : num(Number(g.amount))}</Td>
+                    <Td className="text-right">{g.amount === null ? '' : num(g.amount)}</Td>
                     <Td><span className="flex flex-wrap gap-1">{g.issues.map((i) => <Badge key={i} tone={i === 'INVALID_CODE' || i === 'MISSING_CODE' ? 'danger' : 'warn'}>{ta.docs.issues[i as (typeof ISSUES)[number]] ?? i}</Badge>)}</span></Td>
                     <Td className="max-w-[240px]">{named(g.suggestedMxik)}</Td>
                     <Td className="max-w-[200px]">

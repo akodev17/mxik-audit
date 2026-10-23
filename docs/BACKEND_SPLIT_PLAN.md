@@ -396,3 +396,48 @@ Verified on the branch, merged with main 96d3ef5:
   `forbidden`) instead of the server action.
 - Run servers and e2e with `connection_limit=4` in DATABASE_URL while several sessions share the dev Postgres
   (max_connections 100).
+## Wave 3d result (23 Oct 2026)
+Branch `claude/w3d-web-clients-257f1e`. The clients area (list, client page and its forms,
+purchases, cheque/sales imports, schedule and activity), the app shell, the billing pay buttons,
+the demo pages, the landing lead form, the admin pages and /api-docs read and write through
+`@tasnivo/api-client` only (`MIGRATED_WEB_PATHS` in `apps/web/eslint.migrated.mjs` enforces it).
+- **Shared scaffolding: W3a's files, taken from its branch unchanged** (lint rule: no @tasnivo/domain,
+  @tasnivo/core or @tasnivo/db in migrated files, types included). Db-free helpers the W3d pages need are
+  web-local copies in `src/lib/pure/` (access, query-string, relative-day, reminder-dates, client-kpi,
+  activity-groups, constants) checked against their originals by `lib/pure/pure.test.ts`; shapes come from
+  `@tasnivo/contracts` (`lib/pure/types.ts`). Before that, W3d had written its own copies: `src/lib/api/browser.ts`
+  (`api`), `src/lib/api/server.ts` (`serverApi()`), `src/ui/query-provider.tsx` in the root layout,
+  the `/api/:path*` afterFiles rewrite to `API_INTERNAL_URL` when `NEXT_PUBLIC_API_URL` is empty
+  (Next bakes rewrites in at build time: build with the `API_INTERNAL_URL` it will run with), and the
+  ESLint rule (a regex allows only the pure `@tasnivo/domain` modules in `PURE_DOMAIN_MODULES`; types
+  are always allowed). W3d helpers: `lib/api/refusal.ts` (a 4xx refusal back to the actions'
+  `{ ok: false, error }` with the API's translated message), `lib/api/page-data.ts` (401 → sign-in,
+  403/404 → notFound), `lib/api/me.ts` (`auth.me` once per render).
+- **New endpoint `GET /api/shell`** (`endpoints.notifications.shell`, domain `shell-frame.ts`): the
+  frame's visible clients, active client (an unscoped user without clients still gets the default
+  one created), unread count and plan warnings. The `(app)` layout reads only this.
+- **Shell:** bell and palette are React Query reads (`ui/shell/shell-queries.ts`); the bell preview
+  is fetched when the pointer rests on the bell. Client switch, demo open and sign-out run in the
+  browser and then load the next page as a document. `router-cache.ts` keeps its contract for API
+  calls: `serverChange(api.x(...))` makes the next page opened refresh once (the API cannot
+  revalidate Next's router cache) and drops the shell's React Query answers; components that stay on
+  their page call `router.refresh()` once after a successful call. `intent-prefetch.ts` is unchanged
+  (pages are server components reading the API, so `router.prefetch` still fetches them whole).
+- **Contract changes:** `clients.STALE_DAYS`; doc lists carry `sample`, `totalSeen`, `truncated`;
+  report groups carry `names` and `suggestedName` (domain `list-pages.ts` sends them).
+  `rowProgress` moved to the pure `client-kpi.ts` (re-exported from `client-stats.ts`).
+- **Deleted:** actions `clients`, `shell`, `locale`, `purchases`, `docs`, `billing`, `demo`, `lead`
+  and `saveSchedule` from `reminders.ts`; route handlers `api/admin/metrics`, `api/doc-template`,
+  `api/purchase-template`; `lib/shell-data.ts`.
+- **e2e:** `E2E_CHANNEL=msedge` runs the suite with an installed browser.
+**At the W3a + W3d merge:** delete `app/api/sign-out/route.ts`, `lib/security/redirect.ts` and
+`lib/security/sign-in.ts` (with both branches in, nothing uses them; on W3d's branch alone W3a's pages still do).
+**Left for W4 (still used outside W3d's files):** `lib/guard.ts`, `lib/session.ts` (`currentUser`),
+`lib/plan.ts`, `lib/demo.ts`, `lib/locale.ts` (`getI18n` stays for server components; only its
+cookie part is web-only), `lib/workspace-redirect.ts` + `lib/catalog-page.ts`, `lib/download.ts`,
+`lib/request-facts.ts`, `lib/security/*`, `lib/demo-limits.ts` (test only); `finishTask` in
+`actions/reminders.ts` (W3c's dashboard); `app/api/sign-out` (the account-deleted page still posts to
+it); the remaining `app/api/*` route handlers; `instrumentation.ts` (audit resume) and
+`experimental.serverActions.bodySizeLimit` in `next.config.ts`; `billing.plan` for the layout row
+(the layout reads `/api/shell` instead) and `PREF_COOKIE_OPTIONS`/`readSidebar` in `ui/shell`,
+which nothing calls any more.

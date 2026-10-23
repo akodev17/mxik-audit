@@ -42,4 +42,17 @@ export const MIGRATED_WEB_PATHS = [
   'apps/web/src/app/(app)/dashboard/{dashboard-data.ts,tasks.tsx}',
   'apps/web/src/lib/workspace-url.ts',
   'apps/web/src/lib/api-failure.ts',
+  // W3a: auth, account, team, settings — on W3a's branch (claude/w3a-web-auth-772588); the merge takes the union.
+  // W3d: clients, purchases, cheque/sales imports, the app shell, billing buttons, demo, lead form, admin, api-docs
+  'apps/web/src/lib/api/refusal.ts',
+  'apps/web/src/lib/api/page-data.ts',
+  'apps/web/src/lib/pure/**',
+  'apps/web/src/app/(app)/layout.tsx',
+  'apps/web/src/app/(app)/clients/**',
+  'apps/web/src/app/(app)/admin/**',
+  'apps/web/src/app/demo/**',
+  'apps/web/src/app/api-docs/**',
+  'apps/web/src/app/lead-form.tsx',
+  'apps/web/src/ui/shell/**',
+  'apps/web/src/ui/pay-buttons.tsx',
 ];

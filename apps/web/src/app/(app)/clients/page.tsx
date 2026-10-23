@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { canWrite } from '@tasnivo/domain/access';
-import { clientAttention, pendingAudits } from '@tasnivo/domain/client-attention';
-import { clientStats, CLIENT_FILTERS, CLIENT_SORTS, rowProgress, STALE_DAYS, type ClientStats } from '@tasnivo/domain/client-stats';
+import type { ResponseOf, endpoints } from '@tasnivo/contracts';
+import { CLIENT_FILTERS, CLIENT_SORTS, STALE_DAYS } from '@tasnivo/contracts/modules/clients';
+import { canWrite } from '@/lib/pure/access';
+import { rowProgress } from '@/lib/pure/client-kpi';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import { getI18n } from '@/lib/locale';
-import { withQuery } from '@tasnivo/domain/query-string';
-import { agoText, daysSince } from '@tasnivo/domain/relative-day';
-import { currentUser, inDemoOrg } from '@/lib/session';
+import { withQuery } from '@/lib/pure/query-string';
+import { agoText, daysSince } from '@/lib/pure/relative-day';
+import { signedIn } from '@/lib/api/me';
+import { pageData } from '@/lib/api/page-data';
+import { serverApi } from '@/lib/api/server';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
@@ -29,21 +32,21 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t.clientsTitle} — ${t.appName}` };
 }
 
-const PAGE = 50;
-
 type Params = { q?: string; filter?: string; sort?: string; days?: string; page?: string; new?: string };
 
-function Freshness({ c, ta, locale }: { c: ClientStats; ta: AppDict; locale: Locale }) {
+type ClientRow = ResponseOf<typeof endpoints.clients.list>['rows'][number];
+
+function Freshness({ c, ta, locale }: { c: ClientRow; ta: AppDict; locale: Locale }) {
   if (!c.auditedAt) return <span className="text-muted">{ta.firmX.clients.never}</span>;
   return (
     <span className="whitespace-nowrap">
-      <time dateTime={c.auditedAt.toISOString()}>{agoText(ta.firmX.ago, daysSince(c.auditedAt))}</time>
+      <time dateTime={c.auditedAt}>{agoText(ta.firmX.ago, daysSince(new Date(c.auditedAt)))}</time>
       <span className="block text-small text-muted">{fmtDate(locale, c.auditedAt)}</span>
     </span>
   );
 }
 
-function ReviewProgress({ c, ta, locale }: { c: ClientStats; ta: AppDict; locale: Locale }) {
+function ReviewProgress({ c, ta, locale }: { c: ClientRow; ta: AppDict; locale: Locale }) {
   const p = rowProgress(c);
   if (!p) return <span className="text-muted">{ta.firmX.dash}</span>;
   const text = ta.firmX.progress.of(fmtNumber(locale, p.done), fmtNumber(locale, p.total), p.total);
@@ -57,7 +60,7 @@ function ReviewProgress({ c, ta, locale }: { c: ClientStats; ta: AppDict; locale
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<Params> }) {
   const { locale, t, ta } = await getI18n();
-  const user = await currentUser();
+  const user = await signedIn();
   if (!user) redirect('/sign-in');
   const sp = await searchParams;
   const words = ta.firmX.clients;
@@ -67,13 +70,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const search = (sp.q ?? '').trim().slice(0, 100);
   const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
 
-  const [data, demo] = await Promise.all([
-    clientStats({ orgId: user.orgId, clientIds: user.clientIds, search, filter, staleDays, sort, limit: PAGE, offset: (page - 1) * PAGE }),
-    inDemoOrg(user),
-  ]);
-  const pending = await pendingAudits(user.orgId, data.rows.filter((c) => !c.archivedAt));
-  const reasonsOf = (c: ClientStats) => (c.archivedAt ? [] : clientAttention(c, pending));
-  const pages = Math.max(1, Math.ceil(data.total / PAGE));
+  // The API pages from 0; the address keeps counting from 1.
+  const data = await pageData(serverApi().clients.list({ q: search || undefined, filter, sort, days: staleDays, page: page - 1 }));
+  const demo = user.demo;
+  const reasonsOf = (c: ClientRow) => c.attention;
+  const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
   const fmt = (n: number): string => fmtNumber(locale, n);
   const writer = canWrite(user) && !demo;
   const params: Record<string, string | undefined> = { ...sp, new: undefined };
@@ -154,7 +155,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                     {reasons.length > 0 ? <span className="mt-2 block"><AttentionBadges reasons={reasons} ta={ta} locale={locale} openLabel={words.needsReview} /></span> : null}
                     <span className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-small">
                       <span><span className="block text-muted">{words.colOpen}</span><span className="font-medium tabular-nums">{c.catalogId ? fmt(c.openRows) : ta.firmX.dash}</span></span>
-                      <span><span className="block text-muted">{words.colLastAudit}</span>{c.auditedAt ? <>{agoText(ta.firmX.ago, daysSince(c.auditedAt))} <span className="text-muted">· {fmtDate(locale, c.auditedAt)}</span></> : words.never}</span>
+                      <span><span className="block text-muted">{words.colLastAudit}</span>{c.auditedAt ? <>{agoText(ta.firmX.ago, daysSince(new Date(c.auditedAt)))} <span className="text-muted">· {fmtDate(locale, c.auditedAt)}</span></> : words.never}</span>
                       <span className="col-span-2"><span className="block text-muted">{words.colProgress}</span><ReviewProgress c={c} ta={ta} locale={locale} /></span>
                       <span className="col-span-2 [overflow-wrap:anywhere]"><span className="block text-muted">{words.colAccountants}</span>{c.accountants.length === 0 ? words.unassigned : c.accountants.join(', ')}</span>
                     </span>

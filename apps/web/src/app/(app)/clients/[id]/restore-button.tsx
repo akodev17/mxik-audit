@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { restoreClientAction } from '@/app/actions/clients';
+import { api } from '@/lib/api/browser';
+import { refusalText } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { useToast } from '@/ui/toast';
@@ -15,12 +16,12 @@ export function RestoreButton({ clientId }: { clientId: string }) {
   async function restore(): Promise<void> {
     setBusy(true);
     try {
-      const result = await restoreClientAction(clientId);
+      const result = await api.clients.restore({ clientId });
       if (!result.ok) { toast(result.error, { tone: 'error' }); return; }
       toast(ta.firmX.client.restored);
       router.refresh();
-    } catch {
-      toast(ta.shellX.ui.confirmFailed, { tone: 'error' });
+    } catch (e) {
+      toast(refusalText(e, ta.shellX.ui.confirmFailed), { tone: 'error' });
     } finally {
       setBusy(false);
     }

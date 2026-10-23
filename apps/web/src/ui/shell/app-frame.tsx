@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import type { ShellData } from '@/lib/shell-data';
+import type { ShellData } from './shell-queries';
 import { Badge } from '../badge';
 import { IconButton } from '../icon-button';
 import { IconMenu } from '../icons';

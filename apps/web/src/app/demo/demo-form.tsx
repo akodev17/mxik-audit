@@ -1,22 +1,47 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { requestDemo, type DemoState } from '@/app/actions/demo';
-import { DEMO_LIMITS, USE_CASES } from '@tasnivo/domain/demo-access-fields';
+import { useState, useTransition, type FormEvent } from 'react';
+import { DEMO_LIMITS } from '@tasnivo/contracts/modules/demo';
+import { DEMO_USE_CASES as USE_CASES } from '@/lib/pure/constants';
+import { api } from '@/lib/api/browser';
+import { refusalText } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Field, Input } from '@/ui/input';
 import { Select } from '@/ui/select';
 
+type DemoState = Awaited<ReturnType<typeof api.demo.request>>;
+
+const text = (form: FormData, name: string): string => {
+  const v = form.get(name);
+  return typeof v === 'string' ? v : '';
+};
+
 /** Asks for the demo: name, company, work e-mail and intended use. The access link goes to the e-mail address. */
 export function DemoForm({ linkMinutes }: { linkMinutes: number }) {
   const { t } = useI18n();
   const d = t.demoAccess;
-  const [state, action, pending] = useActionState<DemoState, FormData>(requestDemo, {});
-  // Controlled, so a refused request keeps what was typed (the form action resets uncontrolled fields).
+  const [state, setState] = useState<DemoState>({});
+  const [pending, start] = useTransition();
+  // Controlled, so a refused request keeps what was typed.
   const [values, setValues] = useState({ name: '', company: '', email: '', useCase: '' });
   const set = (key: keyof typeof values) => (e: { target: { value: string } }): void => setValues((cur) => ({ ...cur, [key]: e.target.value }));
   const [another, setAnother] = useState(false);
+  const submit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setAnother(false);
+    start(async () => {
+      try {
+        setState(await api.demo.request({
+          name: text(form, 'name'), company: text(form, 'company'), email: text(form, 'email'),
+          useCase: text(form, 'useCase'), website: text(form, 'website'),
+        }));
+      } catch (error) {
+        setState({ error: refusalText(error, t.errorGeneric) });
+      }
+    });
+  };
   if (state.sentTo && !another) {
     return (
       <div role="status" className="mt-6 rounded-ctl border border-line bg-surface p-4 text-sm">
@@ -28,7 +53,7 @@ export function DemoForm({ linkMinutes }: { linkMinutes: number }) {
     );
   }
   return (
-    <form action={(form) => { setAnother(false); action(form); }} className="relative mt-6 space-y-4">
+    <form onSubmit={submit} className="relative mt-6 space-y-4">
       <Field label={d.name}>
         <Input name="name" required maxLength={DEMO_LIMITS.name} autoComplete="name" value={values.name} onChange={set('name')} />
       </Field>

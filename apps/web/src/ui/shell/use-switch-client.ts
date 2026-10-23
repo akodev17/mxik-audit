@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useCallback, useState } from 'react';
-import { switchClient } from '@/app/actions/shell';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { useToast } from '../toast';
 import { switchTarget } from './nav';
@@ -24,7 +24,7 @@ export function useSwitchClient() {
   const switchTo = useCallback(async (clientId: string): Promise<Switched | null> => {
     setSwitching(clientId);
     try {
-      const result = await switchClient(clientId);
+      const result = await api.clients.switchActive({ clientId });
       if (!result.ok) throw new Error(result.error);
       const target = switchTarget(pathname, window.location.search, clientId);
       if (target) window.location.assign(target);

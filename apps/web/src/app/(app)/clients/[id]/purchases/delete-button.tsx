@@ -2,8 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { removeDoc } from '@/app/actions/docs';
-import { removePurchases } from '@/app/actions/purchases';
+import { api } from '@/lib/api/browser';
+import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
@@ -24,7 +24,8 @@ export function DeleteListButton({ listId, kind, scope, rows }: { listId: string
         title={copy.deleteTitle} description={copy.deleteDescription} scope={scope} count={rows}
         confirmLabel={copy.deleteConfirm}
         onConfirm={async () => {
-          const result = kind === 'purchases' ? await removePurchases(listId) : await removeDoc(listId);
+          const call = kind === 'purchases' ? api.imports.removePurchases({ listId }) : api.imports.removeDoc({ listId });
+          const result = await orRefused(call, ta.shellX.ui.confirmFailed);
           if (!result.ok) return result;
           toast(ta.importX.lists.deleted);
           router.refresh();

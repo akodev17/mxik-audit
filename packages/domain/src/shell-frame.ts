@@ -1,13 +1,14 @@
-// What the app frame needs on every page: the user's visible clients, the active one, unread count, plan.
-import { canWrite, isAdminRole } from '@tasnivo/domain/access';
-import { resolveVisibleClient, visibleClients, type VisibleClient } from '@tasnivo/domain/active-client';
-import type { LimitKey } from '@tasnivo/domain/billing/limits';
-import { defaultClient } from '@tasnivo/domain/clients';
+// What the signed-in frame shows on every page: the user's visible clients and the active one, the
+// unread count and the plan's warnings (GET /api/shell; the web layout read this itself before).
+import { canWrite, isAdminRole } from './access';
+import { resolveVisibleClient, visibleClients, type VisibleClient } from './active-client';
+import type { LimitKey } from './billing/limits';
+import { defaultClient } from './clients';
+import { unreadCount } from './notifications';
 import { planStatus, type PlanState } from './plan';
-import { unreadCount } from '@tasnivo/domain/notifications';
 import type { CurrentUser } from './session';
 
-export type ShellData = {
+export type ShellFrame = {
   email: string;
   demo: boolean;
   canWrite: boolean;
@@ -30,7 +31,7 @@ async function activeFor(user: CurrentUser): Promise<VisibleClient | null> {
   return resolveVisibleClient(user);
 }
 
-export async function shellData(user: CurrentUser): Promise<ShellData> {
+export async function shellFrame(user: CurrentUser): Promise<ShellFrame> {
   const [active, listed, unread, plan] = await Promise.all([
     activeFor(user),
     visibleClients(user),
@@ -45,7 +46,7 @@ export async function shellData(user: CurrentUser): Promise<ShellData> {
     canWrite: canWrite(user),
     canManageTeam: isAdminRole(user) && !user.demo,
     plan: { state: plan.state, daysLeft: plan.daysLeft, warnings: plan.warnings, full: plan.full },
-    clients,
+    clients: clients.map((c) => ({ id: c.id, name: c.name })),
     activeClient: active ? { id: active.id, name: active.name } : null,
     unread,
   };

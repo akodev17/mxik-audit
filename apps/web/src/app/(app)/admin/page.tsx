@@ -1,17 +1,14 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Page, Section } from '@/ui/page';
 import { Stat } from '@/ui/stat';
 import { StatusIcon } from '@/ui/badge';
 import { typeLabels } from '@/ui/labels';
-import { isPlatformAdmin } from '@tasnivo/domain/admin';
 import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
-import { currentUser } from '@/lib/session';
-import { pipelineStatus } from '@tasnivo/domain/pipeline-status';
-import { tractionMetrics } from '@tasnivo/domain/traction';
+import { pageData } from '@/lib/api/page-data';
+import { serverApi } from '@/lib/api/server';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -31,12 +28,11 @@ function Rows({ rows, locale }: { rows: [string, number][]; locale: Locale }) {
   );
 }
 
-/** Cross-org traction numbers. Platform admins only (src/lib/admin.ts); everyone else gets a 404. */
+/** Cross-org traction numbers. Platform admins only; everyone else gets a 404 (the API's, via pageData). */
 export default async function AdminPage() {
   const { locale, t, ta } = await getI18n();
-  const user = await currentUser();
-  if (!user || !(await isPlatformAdmin(user.userId))) notFound();
-  const [m, pipeline] = await Promise.all([tractionMetrics(), pipelineStatus()]);
+  const api = serverApi();
+  const [m, pipeline] = await pageData(Promise.all([api.admin.traction(), api.admin.pipeline()]));
   const fmt = (n: number): string => fmtNumber(locale, n);
 
   return (
@@ -83,7 +79,7 @@ export default async function AdminPage() {
         </dl>
       </Section>
 
-      <p className="mt-6 text-micro text-muted">{t.adminGenerated}: {fmtDateTime(locale, m.generatedAt)}</p>
+      <p className="mt-6 text-micro text-muted">{t.adminGenerated}: {fmtDateTime(locale, new Date(m.generatedAt))}</p>
     </Page>
   );
 }

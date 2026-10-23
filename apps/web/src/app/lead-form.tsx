@@ -1,23 +1,42 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
-import { submitLead, type LeadState } from '@/app/actions/lead';
-import { HONEYPOT_FIELD, LEAD_LIMITS } from '@tasnivo/domain/lead-guard';
+import { useRef, useState, useTransition, type FormEvent } from 'react';
+import { HONEYPOT_FIELD, LEAD_LIMITS } from '@tasnivo/contracts/modules/demo';
+import { api } from '@/lib/api/browser';
+import { refusalText } from '@/lib/api/refusal';
+
+type LeadState = Awaited<ReturnType<typeof api.demo.lead>>;
+
+const SAVE_FAILED = 'Soʻrovni saqlab boʻlmadi. Birozdan keyin qayta urinib koʻring.';
 
 export function LeadForm() {
-  const [state, action, pending] = useActionState<LeadState, FormData>(submitLead, {});
+  const [state, setState] = useState<LeadState>({});
+  const [pending, start] = useTransition();
   const [file, setFile] = useState<{ name: string; size: number } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  // React resets the form after every submit, which empties the file input. On
-  // an error the "ready to send" card must not keep claiming a file is staged,
-  // so drop it when a new error arrives (adjusting state during render, not in
-  // an effect, so there is no frame where the two disagree).
-  const [seen, setSeen] = useState(state);
-  if (state !== seen) {
-    setSeen(state);
-    if (state.error) setFile(null);
-  }
+  const submit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    start(async () => {
+      let next: LeadState;
+      try {
+        next = await api.demo.lead(form);
+      } catch (error) {
+        const contact = form.get('contact');
+        next = { error: refusalText(error, SAVE_FAILED), contact: typeof contact === 'string' ? contact.trim().slice(0, LEAD_LIMITS.contact) : undefined };
+      }
+      // A refused submit empties the file input, as the form action's reset did: the
+      // "ready to send" card must not keep claiming a file is staged, and the message
+      // asks for the file again.
+      if (next.error) {
+        if (fileInput.current) fileInput.current.value = '';
+        setFile(null);
+      }
+      setState(next);
+    });
+  };
 
   if (state.ok) {
     return (
@@ -53,7 +72,7 @@ export function LeadForm() {
   const fileError = state.error && state.field === 'file';
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form onSubmit={submit} className="space-y-5" noValidate>
       <div>
         <label htmlFor="lead-contact" className="block text-[16px] font-bold">
           Telegram yoki telefon <span className="text-lp-risk" aria-hidden="true">*</span>
@@ -111,6 +130,7 @@ export function LeadForm() {
           </span>
         </span>
         <input
+          ref={fileInput}
           id="lead-file"
           name="file"
           type="file"

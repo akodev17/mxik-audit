@@ -2,14 +2,10 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ERROR_CODES, ERROR_STATUS, IDEMPOTENCY, PAGE } from '@tasnivo/domain/api/contract';
-import { apiConfig } from '@tasnivo/domain/api/limits';
-import { appOrigin } from '@tasnivo/domain/app-url';
-import { planLimits } from '@tasnivo/domain/billing/limits';
-import { MAX_UPLOAD_BYTES } from '@tasnivo/domain/catalog-import';
+import { ERROR_CODES, ERROR_STATUS, IDEMPOTENCY, PAGE } from '@tasnivo/contracts/modules/public-api';
 import { fmtNumber } from '@tasnivo/i18n/format';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { currentUser } from '@/lib/session';
 import { readTheme } from '@/ui/shell/server-prefs';
 import { Table, Td, Th } from '@/ui/table';
 import { CodeBlock } from './code-block';
@@ -22,9 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${ta.setX.docs.title} — ${t.appName}`, description: ta.apiDocs.intro };
 }
 
-/** The public origin for the examples' $BASE: APP_URL when set, else this request's host. */
-async function baseUrl(): Promise<string> {
-  const configured = appOrigin();
+/** The public origin for the examples' $BASE: APP_URL when set (the API's config answers it), else this request's host. */
+async function baseUrl(configured: string | null): Promise<string> {
   if (configured) return configured;
   const h = await headers();
   const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
@@ -58,10 +53,12 @@ export default async function ApiDocsPage() {
   await cookies();
   const { locale, ta } = await getI18n();
   const d = ta.setX.docs;
-  const user = await currentUser().catch(() => null);
-  const config = apiConfig();
-  const limits = planLimits();
-  const ex = docExamples(await baseUrl(), config.ratePerMinute, d.keyWhere);
+  const api = serverApi();
+  // Signed in or not only picks the back link; any failure reads as signed out.
+  const [user, settings] = await Promise.all([api.auth.me().catch(() => null), api.account.config()]);
+  const config = settings.api;
+  const limits = settings.plans;
+  const ex = docExamples(await baseUrl(settings.origin), config.ratePerMinute, d.keyWhere);
   const n = (v: number): string => fmtNumber(locale, v);
   const cap = (v: number | null): string => (v === null ? d.unlimited : d.upTo(n(v)));
   const toc: [string, string][] = [
@@ -76,7 +73,7 @@ export default async function ApiDocsPage() {
     [d.limitRows.checksFirm, cap(config.checksPerMonth.firm)],
     [d.limitRows.rowsTrial, cap(limits.trial.rowsPerMonth)],
     [d.limitRows.rowsFirm, cap(limits.firm.rowsPerMonth)],
-    [d.limitRows.fileSize, d.megabytes(n(MAX_UPLOAD_BYTES / 1024 / 1024))],
+    [d.limitRows.fileSize, d.megabytes(n(settings.uploadMaxBytes / 1024 / 1024))],
     [d.limitRows.pageCatalogs, d.upTo(n(PAGE.catalogs.max))],
     [d.limitRows.pageFindings, d.upTo(n(PAGE.findings.max))],
   ];

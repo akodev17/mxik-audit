@@ -90,6 +90,10 @@ export async function docListsPage(user: Viewer, clientId: string, kind: DocKind
 export type DocGroupRow = {
   id: string; name: string | null; mxik: string | null; mxikName: string | null; unit: string | null; lines: number;
   quantity: number | null; amount: number | null; issues: string[]; suggestedMxik: string | null; confidence: number | null;
+  /** Every product name the group's lines carried (the first is `name`). */
+  names: string[];
+  /** The classifier name of the suggested code. */
+  suggestedName: string | null;
   detail: GroupDetail;
 };
 
@@ -118,6 +122,8 @@ export async function docReport(user: Viewer, listId: string, issue?: string) {
         id: g.id, name: g.name, mxik: g.mxik, mxikName: name(g.mxik), unit: g.unit, lines: g.lines,
         quantity: g.quantity === null ? null : Number(g.quantity), amount: g.amount === null ? null : Number(g.amount),
         issues: g.issues, suggestedMxik: g.suggestedMxik, confidence: g.confidence,
+        names: Array.isArray(g.names) ? g.names.filter((n): n is string => typeof n === 'string') : [],
+        suggestedName: name(g.suggestedMxik),
         detail: { reasons: detail?.reasons ?? [], alternatives: detail?.alternatives ?? [], catalogMatches: detail?.catalogMatches ?? [] },
       };
     }),
