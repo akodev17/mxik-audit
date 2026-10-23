@@ -25,7 +25,8 @@ export type FileSettings = {
 
 export type BuiltFile = { bytes: Buffer; filename: string; contentType: string };
 
-const ascii = (text: string): string => text.normalize('NFKD').replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 60);
+/** A file-name part: letters (any script), digits, dots and dashes; the download header carries UTF-8 with an ASCII fallback. */
+const safe = (text: string): string => text.normalize('NFC').replace(/[^\p{L}\p{N}.-]+/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 60);
 
 function bankFile(batch: PlanBatch, rows: Included[], s: FileSettings): BuiltFile {
   const meta = accounting.BankStatementMeta.partial().safeParse(batch.meta);
@@ -99,7 +100,7 @@ async function receiptFile(batch: PlanBatch, rows: Included[], s: FileSettings):
     seller: { name: meta.seller.name, inn: meta.seller.inn }, buyer: { name: meta.buyer.name, inn: meta.buyer.inn }, currency: meta.currency,
     lines, totals: { amount: fromMicros(amount), vat: lines.some((l) => l.vatAmount !== null) ? fromMicros(vat) : null, total: fromMicros(total) },
   }], s.now);
-  return { bytes, filename: `postuplenie-${ascii(meta.number) || 'schet'}-${meta.date}.xlsx`, contentType: XLSX_CONTENT_TYPE };
+  return { bytes, filename: `postuplenie-${safe(meta.number) || 'schet'}-${meta.date}.xlsx`, contentType: XLSX_CONTENT_TYPE };
 }
 
 function counterpartyRows(batch: PlanBatch, rows: Included[]): CounterpartyRow[] {
@@ -121,7 +122,7 @@ function counterpartyRows(batch: PlanBatch, rows: Included[]): CounterpartyRow[]
 }
 
 export async function buildFile(batch: PlanBatch, plan: Plan, format: OneCFormat, s: FileSettings): Promise<BuiltFile> {
-  const base = ascii(baseName(s.filename ?? '')) || batch.id.slice(-8);
+  const base = safe(baseName(s.filename ?? '')) || batch.id.slice(-8);
   switch (format) {
     case 'bank_exchange_1_02':
       return bankFile(batch, plan.included, s);

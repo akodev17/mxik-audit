@@ -178,8 +178,9 @@ export type ParsedExchange = {
 export function decodeBankExchange(bytes: Uint8Array): string {
   const buffer = Buffer.from(bytes);
   if (buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) return buffer.subarray(3).toString('utf8');
-  const asWindows = iconv.decode(buffer, 'win1251');
-  return /Кодировка=DOS/i.test(asWindows) ? iconv.decode(buffer, 'cp866') : asWindows;
+  // The key itself is Cyrillic, so each reading is tried: the one that finds 'Кодировка=DOS' is a DOS file.
+  const asDos = iconv.decode(buffer, 'cp866');
+  return /Кодировка=DOS/i.test(asDos) ? asDos : iconv.decode(buffer, 'win1251');
 }
 
 /** Parses the key=value lines into the header, the account sections and the documents. */
