@@ -9,7 +9,7 @@ import { useI18n } from '@/lib/locale-client';
 import { apiFilter, type WsFilter } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import { Dialog } from '@/ui/dialog';
-import { IconError } from '@/ui/icons';
+import { IconAlert, IconCheck, IconError } from '@/ui/icons';
 import { Segmented } from '@/ui/segmented';
 import { Spinner } from '@/ui/spinner';
 import { typeLabels } from '@/ui/labels';
@@ -94,19 +94,19 @@ export function SureAcceptDialog({ open, catalogId, filter, filterNarrows, onClo
         {preview === null ? <Spinner label={s.loading} /> : null}
         {preview && !preview.ok ? <p role="alert" className="text-small text-danger-ink">{preview.error}</p> : null}
         {ready ? (
-          ready.total === 0 ? <p className="text-muted">{s.none}</p> : (
-            <>
-              <p className="font-medium tabular-nums">{count(locale, s.willAccept, ready.willAccept)}</p>
-              <div>
-                <p className="text-small text-muted">{s.byType}</p>
-                <ul className="mt-1 space-y-0.5 text-small">
-                  {Object.entries(ready.byType).map(([type, n]) => (
-                    <li key={type} className="flex justify-between gap-4"><span>{typeLabels(t)[type] ?? type}</span><span className="tabular-nums">{fmtNumber(locale, n)}</span></li>
-                  ))}
-                </ul>
-              </div>
-              {skipped ? <p className="text-small text-warn-ink">{skipped}</p> : null}
-            </>
+          ready.total === 0 ? <p className="rounded-md border border-dashed border-line-strong px-3 py-4 text-center text-muted">{s.none}</p> : (
+            <div className="overflow-hidden rounded-md border border-line">
+              <p className="flex items-center gap-2 bg-good-tint px-3 py-2.5 font-semibold tabular-nums text-good-ink">
+                <IconCheck size={16} className="shrink-0" />{count(locale, s.willAccept, ready.willAccept)}
+              </p>
+              <p className="border-t border-line px-3 pb-1 pt-2 text-micro font-medium text-muted">{s.byType}</p>
+              <ul className="divide-y divide-line px-3 text-small">
+                {Object.entries(ready.byType).map(([type, n]) => (
+                  <li key={type} className="flex justify-between gap-4 py-1.5"><span>{typeLabels(t)[type] ?? type}</span><span className="font-medium tabular-nums">{fmtNumber(locale, n)}</span></li>
+                ))}
+              </ul>
+              {skipped ? <p className="flex items-start gap-1.5 border-t border-line bg-warn-tint px-3 py-2 text-small text-warn-ink"><IconAlert size={16} className="mt-px shrink-0" />{skipped}</p> : null}
+            </div>
           )
         ) : null}
         <p className="text-micro text-muted">{s.excluded}</p>

@@ -4,12 +4,16 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
 import type { endpoints, ResponseOf } from '@tasnivo/contracts';
 import type { PurchaseMap } from '@/lib/pure/types';
-import { Dropzone } from '@/app/(app)/upload/dropzone';
-import { Notice } from '@/app/(app)/upload/notice';
 import { api } from '@/lib/api/browser';
 import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
+import { ButtonLink } from '@/ui/button';
+import { IconDownload } from '@/ui/icons';
 import { useToast } from '@/ui/toast';
+import { Card } from '../../../_manage/card';
+import { FileDrop } from '../../../_manage/file-drop';
+import { ListFlow } from '../../../_manage/list-flow';
+import { Notice } from '../../../_manage/notice';
 import { ListMapper, type MapperField } from './list-mapper';
 
 export function purchaseFields(labels: { mxik: string; name: string; unit: string }): MapperField<keyof PurchaseMap>[] {
@@ -45,9 +49,9 @@ export function PurchaseMapper({ listId, filename, headers, rows, map, notes, on
 
 type PurchasePreview = Extract<ResponseOf<typeof endpoints.imports.uploadPurchases>, { ok: true }>['preview'];
 
-/** Upload a purchase file, then choose its columns. */
+/** Upload a purchase file, then choose its columns: the same file → columns → result stages as every list. */
 export function PurchaseForm({ clientId }: { clientId: string }) {
-  const { ta } = useI18n();
+  const { t, ta } = useI18n();
   const router = useRouter();
   const [preview, setPreview] = useState<PurchasePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,16 +70,24 @@ export function PurchaseForm({ clientId }: { clientId: string }) {
   };
 
   return (
-    <div className="space-y-4">
-      {preview ? null : <Dropzone onFile={choose} busy={reading} compact />}
-      {error ? <Notice tone="danger">{error}</Notice> : null}
+    <ListFlow step={preview ? 1 : 0}>
       {preview ? (
         <PurchaseMapper
           listId={preview.listId} filename={preview.filename} headers={preview.headers} rows={preview.rows} map={preview.map}
           notes={preview.truncated ? <Notice tone="danger">{ta.importX.lists.truncated(preview.totalRows, preview.totalSeen)}</Notice> : undefined}
           onClose={() => setPreview(null)}
         />
-      ) : null}
-    </div>
+      ) : (
+        <Card
+          title={ta.mgX.clients.upload.purchases} hint={ta.mgX.clients.upload.hint} as="h2"
+          actions={<ButtonLink href="/api/purchase-template" download variant="ghost" size="sm"><IconDownload size={16} />{t.purchasesTemplate}</ButtonLink>}
+        >
+          <div className="space-y-3">
+            <FileDrop onFile={choose} busy={reading} />
+            {error ? <Notice tone="danger">{error}</Notice> : null}
+          </div>
+        </Card>
+      )}
+    </ListFlow>
   );
 }

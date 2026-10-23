@@ -6,7 +6,10 @@ import { DEMO_USE_CASES as USE_CASES } from '@/lib/pure/constants';
 import { api } from '@/lib/api/browser';
 import { refusalText } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
+import { Alert } from '@/ui/alert';
+import { AUTH_FIELD, AuthResult } from '@/ui/auth-parts';
 import { Button } from '@/ui/button';
+import { IconMail } from '@/ui/icons';
 import { Field, Input } from '@/ui/input';
 import { Select } from '@/ui/select';
 
@@ -44,26 +47,27 @@ export function DemoForm({ linkMinutes }: { linkMinutes: number }) {
   };
   if (state.sentTo && !another) {
     return (
-      <div role="status" className="mt-6 rounded-ctl border border-line bg-surface p-4 text-sm">
-        <p className="font-medium">{d.sentTitle}</p>
-        <p className="mt-1 text-muted">{d.sentBody(state.sentTo, linkMinutes)}</p>
-        <p className="mt-1 text-muted">{d.sentSpam}</p>
-        <Button variant="ghost" size="sm" className="mt-3" onClick={() => setAnother(true)}>{d.another}</Button>
-      </div>
+      <AuthResult
+        icon={<IconMail size={24} />} title={d.sentTitle}
+        action={<Button variant="secondary" size="lg" className="w-full" onClick={() => setAnother(true)}>{d.another}</Button>}
+      >
+        <p>{d.sentBody(state.sentTo, linkMinutes)}</p>
+        <p>{d.sentSpam}</p>
+      </AuthResult>
     );
   }
   return (
-    <form onSubmit={submit} className="relative mt-6 space-y-4">
+    <form onSubmit={submit} className="relative space-y-5">
       <Field label={d.name}>
-        <Input name="name" required maxLength={DEMO_LIMITS.name} autoComplete="name" value={values.name} onChange={set('name')} />
+        <Input name="name" required maxLength={DEMO_LIMITS.name} autoComplete="name" size="lg" className={AUTH_FIELD} value={values.name} onChange={set('name')} />
       </Field>
       <Field label={d.company}>
-        <Input name="company" required maxLength={DEMO_LIMITS.company} autoComplete="organization" value={values.company} onChange={set('company')} />
+        <Input name="company" required maxLength={DEMO_LIMITS.company} autoComplete="organization" size="lg" className={AUTH_FIELD} value={values.company} onChange={set('company')} />
       </Field>
       <Field label={d.email} hint={d.emailHint} error={state.field === 'email' ? state.error : undefined}>
-        <Input name="email" type="email" required maxLength={DEMO_LIMITS.email} autoComplete="email" invalid={state.field === 'email'} value={values.email} onChange={set('email')} />
+        <Input name="email" type="email" required maxLength={DEMO_LIMITS.email} autoComplete="email" inputMode="email" size="lg" leadingIcon={<IconMail size={16} />} className={AUTH_FIELD} invalid={state.field === 'email'} value={values.email} onChange={set('email')} />
       </Field>
-      <Select label={d.useCase} name="useCase" required value={values.useCase} onChange={set('useCase')}>
+      <Select label={d.useCase} name="useCase" required size="lg" className={AUTH_FIELD} value={values.useCase} onChange={set('useCase')}>
         <option value="" disabled>—</option>
         {USE_CASES.map((u) => <option key={u} value={u}>{d.uses[u]}</option>)}
       </Select>
@@ -71,8 +75,8 @@ export function DemoForm({ linkMinutes }: { linkMinutes: number }) {
       <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
         <label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
       </div>
-      {state.error && state.field !== 'email' ? <p role="alert" className="rounded-ctl bg-danger-tint px-3 py-2 text-sm text-danger">{state.error}</p> : null}
-      <Button type="submit" variant="primary" disabled={pending} className="w-full">{pending ? t.loading : d.submit}</Button>
+      {state.error && state.field !== 'email' ? <Alert tone="danger">{state.error}</Alert> : null}
+      <Button type="submit" variant="primary" size="lg" loading={pending} className="w-full">{d.submit}</Button>
     </form>
   );
 }

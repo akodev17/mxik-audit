@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { fmtPercent } from '@tasnivo/i18n/format';
 import { api } from '@/lib/api/browser';
 import { catalogKeys } from '@/lib/catalogs/client';
 import type { UploadProgress } from '@/lib/catalogs/types';
@@ -10,6 +11,7 @@ import { useI18n } from '@/lib/locale-client';
 import { Button, ButtonLink } from './button';
 import { EmptyState } from './empty-state';
 import { Progress } from './progress';
+import { Spinner } from './spinner';
 
 export type CatalogState = {
   id: string;
@@ -31,7 +33,7 @@ function progressOf(catalog: CatalogState): UploadProgress | null {
  * every 2 s (GET /api/catalogs/{id}/progress); once it is ready the page renders again with the results.
  */
 export function CatalogStatus({ catalog }: { catalog: CatalogState }) {
-  const { t, ta } = useI18n();
+  const { locale, t, ta } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
   const key = catalogKeys.progress(catalog.id);
@@ -63,18 +65,23 @@ export function CatalogStatus({ catalog }: { catalog: CatalogState }) {
 
   if (state.status === 'analyzing') {
     const heading = t.catalogAnalyzing(state.done, state.total);
+    const ratio = state.total > 0 ? Math.min(1, state.done / state.total) : null;
     return (
-      <section aria-live="polite" className="mx-auto max-w-xl px-6 py-16">
-        <h2 className="text-section">{heading}</h2>
-        <Progress
-          className="mt-4"
-          label={heading}
-          hideLabel
-          value={state.done}
-          max={Math.max(state.total, 1)}
-        />
-        <p className="mt-3 text-small text-muted">{t.catalogAnalyzingHint}</p>
-      </section>
+      <div className="px-4 py-10 sm:py-16">
+        <section aria-live="polite" className="mx-auto max-w-xl rounded-lg border border-line bg-raised p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-info-tint text-info-ink"><Spinner size={16} /></span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <h2 className="text-section">{heading}</h2>
+                {ratio !== null ? <span aria-hidden className="text-title tabular-nums">{fmtPercent(locale, ratio, { maximumFractionDigits: 0 })}</span> : null}
+              </div>
+              <Progress className="mt-3" label={heading} hideLabel value={state.done} max={Math.max(state.total, 1)} />
+              <p className="mt-3 text-small text-muted">{t.catalogAnalyzingHint}</p>
+            </div>
+          </div>
+        </section>
+      </div>
     );
   }
 

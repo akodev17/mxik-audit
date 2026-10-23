@@ -46,11 +46,16 @@ describe('settings navigation', () => {
     await page.locator('main h1').first().waitFor();
     assert.equal(await headerNav(page).getByRole('link', { name: TA.nav.settings, exact: true }).count(), 0, 'no Sozlamalar tab in the header');
     const links = await rail(page).getByRole('link').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')));
-    assert.deepEqual(links.slice(0, 3), [TA.shellX.bell.title, TA.shellX.nav.help, TA.nav.settings], 'bell and help keep their places, the gear follows');
+    const order = [TA.shellX.bell.title, TA.shellX.nav.help, TA.nav.settings].map((name) => links.indexOf(name));
+    assert.ok(order.every((at, i) => at >= 0 && (i === 0 || at > (order[i - 1] ?? -1))), `bell, then help, then the gear (${links.join(', ')})`);
 
     const gear = rail(page).getByRole('link', { name: TA.nav.settings, exact: true });
+    // From xl the sidebar names it; as an icon (below xl) it has a tooltip.
+    assert.equal(await gear.getByText(TA.nav.settings, { exact: true }).isVisible(), true, 'named on screen at 1440');
+    await page.setViewportSize({ width: 1024, height: 900 });
     await gear.hover();
     await rail(page).getByRole('tooltip').filter({ hasText: TA.nav.settings }).waitFor();
+    await page.setViewportSize({ width: 1440, height: 900 });
     assert.equal(await gear.getAttribute('aria-current'), null, 'not current on another page');
     await Promise.all([page.waitForURL((u) => u.pathname === '/settings', COMMIT), gear.click()]);
     await page.locator('main h1').first().waitFor();

@@ -13,7 +13,7 @@ export async function ReviewField({ user, catalogId, demo }: { user: Me; catalog
   // A reader with nothing assigned has nothing to see.
   if (!initial.review && !writes) return null;
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
       <dt className="text-muted">{ta.review.field}:</dt>
       <dd className="min-w-0">
         <ReviewControl

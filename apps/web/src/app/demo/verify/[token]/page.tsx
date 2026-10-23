@@ -1,7 +1,7 @@
-import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { getI18n } from '@/lib/locale';
 import { serverApi } from '@/lib/api/server';
+import { AuthResult, AuthTitle } from '@/ui/auth-parts';
 import { ButtonLink } from '@/ui/button';
 import { OpenDemoButton } from './open-button';
 
@@ -23,24 +23,20 @@ export default async function VerifyDemoPage({ params }: { params: Promise<{ tok
   const { token } = await params;
   const usable = token.length >= 20 && token.length <= 100;
   const [link, config] = await Promise.all([usable ? serverApi().demo.peek({ token }) : null, serverApi().demo.config()]);
+  if (!link) {
+    return (
+      <AuthResult
+        tone="danger" role="none" title={d.invalidTitle}
+        action={<ButtonLink href="/demo" variant="primary" size="lg" className="w-full">{d.requestNew}</ButtonLink>}
+      >
+        <p>{d.invalidBody}</p>
+      </AuthResult>
+    );
+  }
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
-      <Link href="/" className="text-xl font-bold tracking-tight">{t.appName}</Link>
-      <div className="mt-6 rounded-ctl border border-line bg-base p-6 shadow-pop">
-        {link ? (
-          <>
-            <h1 className="text-xl">{d.verifyHello(link.name)}</h1>
-            <p className="mt-2 text-sm text-muted">{d.verifyBody(config.ttlHours, config.idleMinutes)}</p>
-            <OpenDemoButton token={token} />
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl">{d.invalidTitle}</h1>
-            <p className="mt-2 text-sm text-muted">{d.invalidBody}</p>
-            <ButtonLink href="/demo" variant="primary" className="mt-6 w-full">{d.requestNew}</ButtonLink>
-          </>
-        )}
-      </div>
-    </main>
+    <>
+      <AuthTitle title={d.verifyHello(link.name)} lead={d.verifyBody(config.ttlHours, config.idleMinutes)} />
+      <OpenDemoButton token={token} />
+    </>
   );
 }

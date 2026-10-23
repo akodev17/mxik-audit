@@ -46,11 +46,11 @@ export function Drawer({ open, title, onClose, children, footer, backdrop = fals
         style={style}
         className="no-print fixed bottom-0 right-0 top-14 z-drawer flex w-[var(--drawer-width,460px)] max-w-full flex-col border-l border-line bg-raised shadow-overlay motion-safe:animate-slide-in"
       >
-        <header className="flex items-center justify-between gap-3 border-b border-line py-2 pl-5 pr-3">
+        <header className="flex min-h-14 items-center justify-between gap-3 border-b border-line py-2 pl-5 pr-3">
           <h2 ref={heading} id={titleId} tabIndex={-1} className="truncate text-section focus-visible:outline-none">{title}</h2>
           <IconButton label={ta.shell.close} icon={<IconX size={18} />} onClick={onClose} tooltipSide="bottom" tooltipAlign="end" />
         </header>
-        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">{children}</div>
         {footer ? <footer className="border-t border-line bg-surface px-5 py-3">{footer}</footer> : null}
       </aside>
     </>

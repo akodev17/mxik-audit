@@ -104,15 +104,15 @@ export function Dialog({ open, onClose, title, description, children, footer, si
           )}
         >
           {/* The icon sits on the title line only; description and body share the dialog's full width and left edge. */}
-          <header className="px-5 pb-2 pt-4">
+          <header className="px-5 pb-3 pt-5">
             <div className="flex items-start gap-2.5">
               {icon ? <span className="mt-0.5 shrink-0">{icon}</span> : null}
               <h2 id={titleId} className="min-w-0 flex-1 text-section">{title}</h2>
               <IconButton label={ta.shell.close} icon={<IconX size={18} />} onClick={onClose} disabled={!dismissible} tooltipAlign="end" className="-mr-1 -mt-1" />
             </div>
-            {description ? <div id={descriptionId} className="mt-1.5 text-data text-muted">{description}</div> : null}
+            {description ? <div id={descriptionId} className="mt-1 text-body text-muted">{description}</div> : null}
           </header>
-          {children ? <div ref={body} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3">{children}</div> : null}
+          {children ? <div ref={body} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 pt-2">{children}</div> : null}
           {footer ? <div ref={footerRef} className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface px-5 py-3">{footer}</div> : null}
         </div>
       </div>

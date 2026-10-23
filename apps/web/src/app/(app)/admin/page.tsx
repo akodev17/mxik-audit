@@ -1,30 +1,37 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Page, Section } from '@/ui/page';
+import { Page } from '@/ui/page';
 import { Stat } from '@/ui/stat';
-import { StatusIcon } from '@/ui/badge';
+import { StatusChip, StatusIcon } from '@/ui/badge';
+import { ButtonLink } from '@/ui/button';
 import { typeLabels } from '@/ui/labels';
+import { Table, Td } from '@/ui/table';
 import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { pageData } from '@/lib/api/page-data';
 import { serverApi } from '@/lib/api/server';
+import { Card, FLUSH_TABLE } from '../_manage/card';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return { title: `${t.adminTitle} — ${t.appName}`, robots: { index: false } };
 }
 
-function Rows({ rows, locale }: { rows: [string, number][]; locale: Locale }) {
+/** Counts by name as a two-column table in a flush card; the card title names the table. */
+function CountCard({ title, rows, locale }: { title: string; rows: [string, number][]; locale: Locale }) {
   return (
-    <dl className="divide-y divide-line rounded-ctl border border-line bg-raised">
-      {rows.map(([label, value]) => (
-        <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-2">
-          <dt className="text-small text-muted">{label}</dt>
-          <dd className="tabular-nums">{fmtNumber(locale, value)}</dd>
-        </div>
-      ))}
-    </dl>
+    <Card title={title} flush>
+      <Table label={title} className={FLUSH_TABLE}>
+        <tbody>
+          {rows.map(([name, value]) => (
+            <tr key={name} className="hover:bg-surface">
+              <Td className="text-muted">{name}</Td>
+              <Td numeric className="font-medium">{fmtNumber(locale, value)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </Card>
   );
 }
 
@@ -36,20 +43,24 @@ export default async function AdminPage() {
   const fmt = (n: number): string => fmtNumber(locale, n);
 
   return (
-    <Page title={t.adminTitle} hint={t.adminHint} wide actions={<Link href="/admin/metrics" className="text-small font-medium text-brand-ink hover:underline">{ta.metrics.title}</Link>}>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label={t.adminOrgs} value={fmt(m.orgs.customers)} hint={t.adminLast30(m.orgs.newLast30Days)} />
-        <Stat label={t.adminCatalogs} value={fmt(m.catalogs.total)} hint={t.adminLast30(m.catalogs.last30Days)} />
-        <Stat label={t.adminRowsAudited} value={fmt(m.rows.audited)} />
-        <Stat label={t.adminRiskyRows} value={fmt(m.rows.risky)} />
-      </div>
+    <Page title={t.adminTitle} hint={t.adminHint} wide actions={<ButtonLink href="/admin/metrics" variant="secondary">{ta.metrics.title}</ButtonLink>}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label={t.adminOrgs} value={fmt(m.orgs.customers)} hint={t.adminLast30(m.orgs.newLast30Days)} />
+          <Stat label={t.adminCatalogs} value={fmt(m.catalogs.total)} hint={t.adminLast30(m.catalogs.last30Days)} />
+          <Stat label={t.adminRowsAudited} value={fmt(m.rows.audited)} />
+          <Stat label={t.adminRiskyRows} value={fmt(m.rows.risky)} tone={m.rows.risky > 0 ? 'danger' : 'neutral'} />
+        </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <Section title={t.adminByType}>
-          <Rows locale={locale} rows={Object.entries(m.findingsByType).map(([type, n]) => [typeLabels(t)[type] ?? type, n])} />
-        </Section>
-        <Section title={t.adminDecisions}>
-          <Rows locale={locale} rows={[
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Stat label={t.adminReviewTime} value={t.adminReviewValue(m.review.medianSecondsPerRow)} hint={t.adminReviewNote(m.review.sampleIntervals)} />
+          <Stat label={t.adminDemo} value={fmt(m.demo.sessions)} hint={t.adminLast30(m.demo.last30Days)} />
+          <Stat label={t.adminLeads} value={fmt(m.leads.total)} hint={`${t.adminLeadsFiles(m.leads.withFile)}, ${t.adminLast30(m.leads.last30Days)}`} />
+        </div>
+
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <CountCard title={t.adminByType} locale={locale} rows={Object.entries(m.findingsByType).map(([type, n]) => [typeLabels(t)[type] ?? type, n])} />
+          <CountCard title={t.adminDecisions} locale={locale} rows={[
             [t.adminAccepted, m.decisions.accepted],
             [t.adminEdited, m.decisions.edited],
             [t.adminRejected, m.decisions.rejected],
@@ -57,29 +68,26 @@ export default async function AdminPage() {
             [t.adminBulk, m.decisions.bulkAcceptedRows],
             [t.adminUndone, m.decisions.undone],
           ]} />
-        </Section>
+        </div>
+
+        <Card title={t.adminPipeline} flush>
+          <Table label={t.adminPipeline} className={FLUSH_TABLE}>
+            <tbody>
+              {pipeline.map((line) => {
+                const tone = line.ok ? 'good' : 'danger';
+                return (
+                  <tr key={line.label} className="hover:bg-surface">
+                    <Td className="text-muted">{line.label}</Td>
+                    <Td className="text-right"><StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{line.value}</StatusChip></Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        </Card>
+
+        <p className="text-micro text-muted">{t.adminGenerated}: {fmtDateTime(locale, new Date(m.generatedAt))}</p>
       </div>
-
-      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label={t.adminReviewTime} value={t.adminReviewValue(m.review.medianSecondsPerRow)} hint={t.adminReviewNote(m.review.sampleIntervals)} />
-        <Stat label={t.adminDemo} value={fmt(m.demo.sessions)} hint={t.adminLast30(m.demo.last30Days)} />
-        <Stat label={t.adminLeads} value={fmt(m.leads.total)} hint={`${t.adminLeadsFiles(m.leads.withFile)}, ${t.adminLast30(m.leads.last30Days)}`} />
-      </div>
-
-      <Section title={t.adminPipeline}>
-        <dl className="divide-y divide-line rounded-ctl border border-line bg-raised">
-          {pipeline.map((line) => (
-            <div key={line.label} className="flex items-baseline justify-between gap-4 px-4 py-2">
-              <dt className="text-small text-muted">{line.label}</dt>
-              <dd className={`flex items-center gap-1.5 text-small font-medium ${line.ok ? 'text-good-ink' : 'text-danger-ink'}`}>
-                <StatusIcon tone={line.ok ? 'good' : 'danger'} />{line.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </Section>
-
-      <p className="mt-6 text-micro text-muted">{t.adminGenerated}: {fmtDateTime(locale, new Date(m.generatedAt))}</p>
     </Page>
   );
 }

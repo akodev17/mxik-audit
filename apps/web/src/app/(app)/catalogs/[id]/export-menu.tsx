@@ -5,13 +5,18 @@ import { isApiError, type DownloadedFile } from '@tasnivo/api-client';
 import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
-import { IconDownload } from '@/ui/icons';
+import { IconBook, IconDownload, IconList, IconTable, IconUsers } from '@/ui/icons';
 import { Menu, type MenuItem } from '@/ui/menu';
 import { Popover } from '@/ui/popover';
 import { Spinner } from '@/ui/spinner';
 import { useToast } from '@/ui/toast';
 
 type Kind = 'xlsx' | 'oneCXlsx' | 'oneCCsv' | 'pdf' | 'pdfClient';
+
+/** One mark per file kind, so the menu scans as Excel, 1C, CSV and the two PDFs. */
+const ICON: Record<Kind, ReactNode> = {
+  xlsx: <IconTable size={16} />, oneCXlsx: <IconTable size={16} />, oneCCsv: <IconList size={16} />, pdf: <IconBook size={16} />, pdfClient: <IconUsers size={16} />,
+};
 
 /** The kept download URLs (/api/export, /api/report-pdf), fetched through the API client. */
 function fetchFile(catalog: string, kind: Kind): Promise<DownloadedFile> {
@@ -73,14 +78,14 @@ export function ExportMenu({ catalogId, ready, locked, panel, share }: Props) {
   if (!ready) {
     return (
       <div className="no-print flex flex-wrap items-center gap-2">
-        <Button disabled><IconDownload />{x.menu}</Button>
-        <span className="text-small text-muted">{x.notReady}</span>
+        <Button disabled aria-describedby="export-not-ready"><IconDownload />{x.menu}</Button>
+        <span id="export-not-ready" className="max-w-56 text-small text-muted">{x.notReady}</span>
         {share}
       </div>
     );
   }
 
-  const item = (kind: Kind): MenuItem => ({ label: x.items[kind], description: x.hints[kind], onSelect: () => { void download(kind); }, disabled: busy !== null });
+  const item = (kind: Kind): MenuItem => ({ label: x.items[kind], description: x.hints[kind], icon: ICON[kind], onSelect: () => { void download(kind); }, disabled: busy !== null });
   const items = locked ? [item('pdf'), item('pdfClient')] : [item('xlsx'), item('oneCXlsx'), item('oneCCsv'), item('pdf'), item('pdfClient')];
 
   return (

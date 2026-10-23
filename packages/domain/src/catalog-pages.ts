@@ -36,7 +36,7 @@ export type CatalogListPage = { items: CatalogListItem[]; total: number; pageSiz
  * or of drafts. Without a client the one being worked on is shown, "all" shows every client;
  * with a single client there is nothing to filter. Drafts are only for those who can finish them.
  */
-export async function catalogListPage(user: Viewer, input: { clientId?: string; page: number; kind: 'catalogs' | 'drafts' }): Promise<CatalogListPage> {
+export async function catalogListPage(user: Viewer, input: { clientId?: string; page: number; kind: 'catalogs' | 'drafts'; status?: 'ready' | 'analyzing' | 'failed' }): Promise<CatalogListPage> {
   const clients = await db.client.findMany({
     where: { orgId: user.orgId, archivedAt: null, ...clientScope(user) },
     orderBy: { name: 'asc' },
@@ -47,7 +47,7 @@ export async function catalogListPage(user: Viewer, input: { clientId?: string; 
   const writer = canWrite(user) && !user.demo;
   const { items, total } = input.kind === 'drafts' && !writer
     ? { items: [], total: 0 }
-    : await catalogList(user, clientId, input.page, input.kind);
+    : await catalogList(user, clientId, input.page, input.kind, input.kind === 'catalogs' ? input.status : undefined);
   return { items, total, pageSize: CATALOG_PAGE, clients };
 }
 

@@ -9,7 +9,6 @@ import { hasUploadExtension } from '@/lib/catalogs/upload';
 import { useI18n } from '@/lib/locale-client';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Select } from '@/ui/select';
-import { Stepper } from '@/ui/stepper';
 import { ConfirmStep } from './confirm-step';
 import { DoneStep } from './done-step';
 import { Dropzone } from './dropzone';
@@ -17,7 +16,9 @@ import { FileCheck } from './file-check';
 import { MappingStep } from './mapping-step';
 import { Notice } from './notice';
 import { ProcessingStep } from './processing-step';
+import { UploadTips } from './upload-tips';
 import { followsStart, phaseOf, startKey, type WizardStart } from './wizard-start';
+import { WizardStepper } from './wizard-stepper';
 
 export type { WizardStart } from './wizard-start';
 
@@ -129,22 +130,25 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
 
   return (
     <div className="space-y-6">
-      <Stepper stages={x.steps} current={STEP_INDEX[state.step]} />
+      <WizardStepper steps={x.steps} current={STEP_INDEX[state.step]} />
 
       {state.step === 'select' ? (
-        <div className="space-y-4">
-          {clients.length > 1 ? (
-            <Select
-              label={x.select.client} hint={x.select.clientHint} value={clientId} wrapperClassName="max-w-md"
-              disabled={reading} onChange={(e) => setClientId(e.target.value)}
-            >
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          ) : (
-            <p className="text-data"><span className="text-muted">{x.select.client}:</span> <span className="font-medium">{clients[0]?.name}</span></p>
-          )}
-          <Dropzone onFile={readFile} busy={reading} />
-          {error ? <Notice tone="danger">{error}</Notice> : null}
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-6">
+          <section aria-label={x.steps[0]} className="relative space-y-4 rounded-lg border border-line bg-raised p-4 sm:p-6">
+            {clients.length > 1 ? (
+              <Select
+                label={x.select.client} hint={x.select.clientHint} value={clientId} wrapperClassName="max-w-md"
+                disabled={reading} onChange={(e) => setClientId(e.target.value)}
+              >
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            ) : (
+              <p className="text-data"><span className="text-muted">{x.select.client}:</span> <span className="font-medium">{clients[0]?.name}</span></p>
+            )}
+            <Dropzone onFile={readFile} busy={reading} />
+            {error ? <Notice tone="danger">{error}</Notice> : null}
+          </section>
+          <UploadTips />
         </div>
       ) : null}
 

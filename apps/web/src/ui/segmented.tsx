@@ -14,7 +14,8 @@ type Props<T extends string> = {
   onChange: (value: T) => void;
   /** Form field name; defaults to a generated one. */
   name?: string;
-  size?: 'compact' | 'md';
+  /** compact (32), md (36) or lg (40): the group matches h-control-* of the same name. */
+  size?: 'compact' | 'md' | 'lg';
   disabled?: boolean;
   className?: string;
 };
@@ -38,8 +39,8 @@ export function Segmented<T extends string>({ label, options, value, onChange, n
             'has-[:checked]:bg-brand-tint has-[:checked]:text-brand-ink has-[:checked]:shadow-[inset_0_0_0_1px_var(--color-brand)]',
             'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-focus',
             'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50',
-            // With the 2px inset and 1px border the group matches h-control-compact (32) or -md (36).
-            size === 'compact' ? 'h-6.5 text-small' : 'h-7.5 text-data',
+            // With the 2px inset and 1px border the group matches h-control-compact (32), -md (36) or -lg (40).
+            size === 'compact' ? 'h-6.5 text-small' : size === 'md' ? 'h-7.5 text-data' : 'h-8.5 px-3 text-data',
           )}
         >
           <input

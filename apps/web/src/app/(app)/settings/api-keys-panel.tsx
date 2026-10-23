@@ -9,12 +9,15 @@ import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { api } from '@/lib/api/browser';
 import { queryKey, useSeededQuery } from '@/lib/api/query';
 import { useI18n } from '@/lib/locale-client';
-import { Badge } from '@/ui/badge';
+import { StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { CopyField } from '@/ui/copy-field';
+import { EmptyState } from '@/ui/empty-state';
 import { Field, Input } from '@/ui/input';
+import { Table, Td, Th } from '@/ui/table';
 import { useToast } from '@/ui/toast';
+import { Card, FLUSH_TABLE } from '../_manage/card';
 
 type Keys = OutputOf<typeof endpoints.account.apiKeys>;
 
@@ -27,6 +30,7 @@ export type ApiKeyRow = {
 function KeyRow({ apiKey }: { apiKey: ApiKeyRow }) {
   const { ta } = useI18n();
   const s = ta.setX.integrations;
+  const k = ta.mgX.settings.keys;
   const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -39,47 +43,53 @@ function KeyRow({ apiKey }: { apiKey: ApiKeyRow }) {
     return { ok: true };
   };
 
+  const tone = apiKey.revoked ? 'neutral' : 'good';
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5">
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{apiKey.name}</span>
-          <code className="font-mono text-mono text-muted">{apiKey.prefix}…</code>
-          {apiKey.revoked ? <Badge>{s.revoked}</Badge> : null}
-        </p>
-        <p className="text-small text-muted">{s.keyMeta(apiKey.created, apiKey.lastUsed, apiKey.checks)}</p>
-        {apiKey.creator ? <p className="text-small text-muted">{s.createdBy(apiKey.creator)}</p> : null}
-        {apiKey.creatorRemoved ? <p className="text-small text-muted">{s.creatorRemoved}</p> : null}
-      </div>
-      {apiKey.revoked ? null : <Button size="sm" variant="danger-ghost" onClick={() => setOpen(true)}>{s.revoke}</Button>}
-      <ConfirmDialog
-        open={open} onClose={() => setOpen(false)} tone="danger"
-        title={s.revokeTitle(apiKey.name)} description={s.revokeText} confirmLabel={s.revokeConfirm}
-        onConfirm={revoke}
-      />
-    </li>
+    <tr className={apiKey.revoked ? 'text-muted' : 'hover:bg-surface'}>
+      <Td className="max-w-[16rem] py-2.5">
+        <span className="block truncate font-medium" title={apiKey.name}>{apiKey.name}</span>
+        {apiKey.creator ? <span className="block truncate text-small text-muted">{s.createdBy(apiKey.creator)}</span> : null}
+        {apiKey.creatorRemoved ? <span className="block text-small text-muted">{s.creatorRemoved}</span> : null}
+      </Td>
+      <Td><code className="whitespace-nowrap rounded-sm bg-sunken px-1.5 py-0.5 font-mono text-mono">{apiKey.prefix}…</code></Td>
+      <Td className="hidden whitespace-nowrap text-small md:table-cell">{apiKey.created}</Td>
+      <Td className="hidden whitespace-nowrap text-small md:table-cell">{apiKey.lastUsed ?? ta.firmX.dash}</Td>
+      <Td numeric className="hidden sm:table-cell">{apiKey.checks}</Td>
+      <Td><StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{apiKey.revoked ? s.revoked : k.active}</StatusChip></Td>
+      <Td>
+        <span className="flex justify-end">
+          {apiKey.revoked ? null : <Button size="sm" variant="danger-ghost" onClick={() => setOpen(true)}>{s.revoke}</Button>}
+        </span>
+        <ConfirmDialog
+          open={open} onClose={() => setOpen(false)} tone="danger"
+          title={s.revokeTitle(apiKey.name)} description={s.revokeText} confirmLabel={s.revokeConfirm}
+          onConfirm={revoke}
+        />
+      </Td>
+    </tr>
   );
 }
 
 /** Admin: create a key (shown once, with a copy button), see this month's use, revoke a key by name. */
-export function ApiKeysPanel({ initial }: { initial: Keys }) {
+export function ApiKeysPanel({ initial, title }: { initial: Keys; title: string }) {
   const { locale, ta } = useI18n();
   const s = ta.setX.integrations;
+  const k = ta.mgX.settings.keys;
   const queryClient = useQueryClient();
   const { data } = useSeededQuery(api.account.apiKeys, initial);
   const n = (v: number): string => fmtNumber(locale, v);
   const max = data.maxActive;
   const usage = { checks: n(data.usage.checks), requests: n(data.usage.requests), cap: data.monthlyCap === null ? null : n(data.monthlyCap) };
-  const keys: ApiKeyRow[] = data.keys.map((k) => ({
-    id: k.id, name: k.name, prefix: k.prefix, created: fmtDate(locale, k.createdAt),
-    lastUsed: k.lastUsedAt ? fmtDate(locale, k.lastUsedAt) : null, revoked: k.revokedAt !== null, checks: n(k.checksThisMonth),
+  const keys: ApiKeyRow[] = data.keys.map((x) => ({
+    id: x.id, name: x.name, prefix: x.prefix, created: fmtDate(locale, x.createdAt),
+    lastUsed: x.lastUsedAt ? fmtDate(locale, x.lastUsedAt) : null, revoked: x.revokedAt !== null, checks: n(x.checksThisMonth),
     // Admins see whose keys exist; a creator who left the team no longer resolves to an email.
-    creator: k.createdBy, creatorRemoved: k.creatorRemoved,
+    creator: x.createdBy, creatorRemoved: x.creatorRemoved,
   }));
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const full = keys.filter((k) => !k.revoked).length >= max;
+  const full = keys.filter((x) => !x.revoked).length >= max;
 
   const add = useMutation({
     mutationFn: (keyName: string) => api.account.createApiKey({ name: keyName }).catch(() => ({ error: 'failed' as const })),
@@ -102,34 +112,51 @@ export function ApiKeysPanel({ initial }: { initial: Keys }) {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="max-w-xl space-y-1 text-small">
-        <p className="text-muted">{s.apiHint} <Link href="/api-docs" className="font-medium text-brand-ink underline">{s.docs}</Link></p>
-        <p>{s.usage(usage.checks, usage.requests)} {usage.cap === null ? s.usageNoCap : s.usageCap(usage.cap)}</p>
+    <Card
+      id="api-keys" title={title} flush
+      hint={<>{s.apiHint} <Link href="/api-docs" className="font-medium text-brand-ink underline">{s.docs}</Link></>}
+    >
+      <div className="space-y-4 px-4 py-4 sm:px-5">
+        <p className="text-small">{s.usage(usage.checks, usage.requests)} <span className="text-muted">{usage.cap === null ? s.usageNoCap : s.usageCap(usage.cap)}</span></p>
+
+        {full ? <p className="max-w-xl text-small text-muted">{s.limitReached(max)}</p> : (
+          <form className="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-start" onSubmit={(e) => { e.preventDefault(); create(); }} noValidate>
+            <Field label={s.keyName} hint={s.keyNameHint} error={error ?? undefined} className="min-w-0 flex-1">
+              <Input value={name} onChange={(e) => { setName(e.target.value); setError(null); }} maxLength={60} autoComplete="off" />
+            </Field>
+            <Button type="submit" variant="primary" loading={add.isPending} className="sm:mt-6">{s.create}</Button>
+          </form>
+        )}
+
+        {token ? (
+          <div role="status" className="max-w-2xl space-y-3 rounded-md border border-warn/50 bg-warn-tint p-3.5">
+            <p className="text-small font-medium text-warn-ink">{s.once}</p>
+            <CopyField label={s.newKey} value={token} mono />
+            <Button size="sm" variant="secondary" onClick={() => setToken(null)}>{s.hideKey}</Button>
+          </div>
+        ) : null}
       </div>
 
-      {full ? <p className="max-w-xl text-small text-muted">{s.limitReached(max)}</p> : (
-        <form className="flex max-w-xl flex-wrap items-start gap-2" onSubmit={(e) => { e.preventDefault(); create(); }} noValidate>
-          <Field label={s.keyName} hint={s.keyNameHint} error={error ?? undefined} className="min-w-0 flex-1 basis-56">
-            <Input value={name} onChange={(e) => { setName(e.target.value); setError(null); }} maxLength={60} autoComplete="off" />
-          </Field>
-          <Button type="submit" variant="secondary" loading={add.isPending} className="sm:mt-6">{s.create}</Button>
-        </form>
-      )}
-
-      {token ? (
-        <div role="status" className="max-w-xl space-y-2 rounded-md border border-warn bg-warn-tint p-3">
-          <p className="text-small font-medium text-warn-ink">{s.once}</p>
-          <CopyField label={s.newKey} value={token} mono />
-          <Button size="sm" variant="ghost" onClick={() => setToken(null)}>{s.hideKey}</Button>
-        </div>
-      ) : null}
-
-      {keys.length === 0 ? <p className="text-small text-muted">{s.none}</p> : (
-        <ul className="max-w-2xl divide-y divide-line rounded-md border border-line">
-          {keys.map((k) => <KeyRow key={k.id} apiKey={k} />)}
-        </ul>
-      )}
-    </div>
+      <div className="border-t border-line">
+        {keys.length === 0 ? <EmptyState size="compact" as="h3" title={s.none} /> : (
+          <Table label={title} className={FLUSH_TABLE}>
+            <thead>
+              <tr>
+                <Th>{k.name}</Th>
+                <Th>{k.key}</Th>
+                <Th className="hidden md:table-cell">{k.created}</Th>
+                <Th className="hidden md:table-cell">{k.lastUsed}</Th>
+                <Th numeric className="hidden sm:table-cell">{k.checks}</Th>
+                <Th>{k.status}</Th>
+                <Th><span className="sr-only">{ta.mgX.actions}</span></Th>
+              </tr>
+            </thead>
+            <tbody>
+              {keys.map((x) => <KeyRow key={x.id} apiKey={x} />)}
+            </tbody>
+          </Table>
+        )}
+      </div>
+    </Card>
   );
 }

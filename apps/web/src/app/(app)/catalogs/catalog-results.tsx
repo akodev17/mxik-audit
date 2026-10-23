@@ -9,14 +9,18 @@ import type { CatalogListItem } from '@/lib/catalogs/types';
 import { useI18n } from '@/lib/locale-client';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
+import { IconUpload } from '@/ui/icons';
 import { CatalogList } from './catalog-list';
 import { DraftUploads } from './draft-uploads';
+
+export type CatalogStatusFilter = 'ready' | 'analyzing' | 'failed';
 
 type ListPage = { items: CatalogListItem[]; total: number; pageSize: number };
 
 type Props = {
-  /** The page's query: the client filter as written in the URL, the 1-based page. */
+  /** The page's query: the client and status filters as written in the URL, the 1-based page. */
   client: string | undefined;
+  status: CatalogStatusFilter | undefined;
   page: number;
   /** What the server page read, so the first paint needs no request. */
   initial: ListPage;
@@ -31,15 +35,17 @@ type Props = {
  * The catalogues and open drafts of /catalogs as React Query reads (catalogs.list), seeded by the
  * server render: deleting a catalogue invalidates them instead of rendering the page again.
  */
-export function CatalogResults({ client, page, initial, initialDrafts, writer, showClient, uploadHref }: Props) {
+export function CatalogResults({ client, status, page, initial, initialDrafts, writer, showClient, uploadHref }: Props) {
   const { locale, t, ta } = useI18n();
   const words = ta.firmX.catalogs;
+  const f = ta.importX.flow;
   const filter = client ? { clientId: client } : {};
-  const withDrafts = writer && page === 1;
+  // Drafts are not catalogues in any status: a status filter hides them.
+  const withDrafts = writer && page === 1 && !status;
 
   const list = useQuery({
-    queryKey: [...catalogKeys.all, 'list', client ?? null, page],
-    queryFn: () => api.catalogs.list({ ...filter, page: page - 1, kind: 'catalogs' }),
+    queryKey: [...catalogKeys.all, 'list', client ?? null, status ?? null, page],
+    queryFn: () => api.catalogs.list({ ...filter, ...(status ? { status } : {}), page: page - 1, kind: 'catalogs' }),
     initialData: { ...initial, clients: [] },
     // Nothing kept between visits: the server render is always the starting point.
     gcTime: 0,
@@ -56,17 +62,24 @@ export function CatalogResults({ client, page, initial, initialDrafts, writer, s
 
   const { items, total, pageSize } = list.data;
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  const params = { client };
+  const params = { client, status };
 
   return (
     <>
       <DraftUploads drafts={withDrafts ? drafts.data.items : []} showClient={showClient} />
 
       {items.length === 0 ? (
-        <EmptyState
-          title={ta.catalogs.emptyTitle} hint={ta.catalogs.emptyHint}
-          action={writer ? <ButtonLink href={uploadHref} variant="secondary">{ta.catalogs.uploadCta}</ButtonLink> : null}
-        />
+        status ? (
+          <EmptyState
+            title={f.filteredEmpty} hint={f.filteredEmptyHint}
+            action={<ButtonLink href={withQuery('/catalogs', { client }, {})} variant="secondary">{f.resetFilter}</ButtonLink>}
+          />
+        ) : (
+          <EmptyState
+            icon={<IconUpload size={22} />} title={ta.catalogs.emptyTitle} hint={ta.catalogs.emptyHint}
+            action={writer ? <ButtonLink href={uploadHref} variant="secondary">{ta.catalogs.uploadCta}</ButtonLink> : null}
+          />
+        )
       ) : (
         <>
           <p className="mb-2 text-small text-muted">{words.total(fmtNumber(locale, total), total)}</p>

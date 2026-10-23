@@ -25,23 +25,24 @@ export async function ClientFilters({ params, filter, sort, staleDays, search, c
   const stale = filter === 'stale';
   const changed = search !== '' || sort !== 'attention' || (stale && staleDays !== STALE_DAYS[0]);
   return (
-    <div className="mb-5 space-y-3">
-      <nav aria-label={words.show}>
-        <ul className="flex flex-wrap gap-2">
+    <div className="mb-4 space-y-4">
+      <nav aria-label={words.show} className="relative -mx-4 sm:mx-0">
+        {/* One row that scrolls sideways on a phone; the baseline is an inset shadow the active underline covers. */}
+        <ul className="flex gap-1 overflow-x-auto px-4 shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden">
           {CLIENT_FILTERS.map((f) => {
             const current = f === filter;
             return (
-              <li key={f}>
+              <li key={f} className="shrink-0">
                 <Link
                   href={withQuery('/clients', params, { filter: f === 'all' ? null : f, page: null })}
                   aria-current={current ? 'page' : undefined}
                   className={cx(
-                    'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-small',
-                    current ? 'border-brand bg-brand-tint font-medium text-brand-ink' : 'border-line-strong bg-raised text-fg hover:bg-surface',
+                    'inline-flex h-10 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-data font-medium transition-colors duration-(--duration-fast) focus-visible:outline-offset-[-2px]',
+                    current ? 'border-brand text-fg' : 'border-transparent text-muted hover:text-fg',
                   )}
                 >
                   {f === 'stale' ? `${words.filters.stale} (${words.staleTab(staleDays)})` : words.filters[f]}
-                  <span className="tabular-nums text-muted">{fmtNumber(locale, counts[f])}</span>
+                  <span className={cx('rounded-full px-1.5 text-micro tabular-nums', current ? 'bg-brand-tint text-brand-ink' : 'bg-sunken text-muted')}>{fmtNumber(locale, counts[f])}</span>
                 </Link>
               </li>
             );

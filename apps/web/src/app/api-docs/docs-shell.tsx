@@ -17,11 +17,11 @@ export function DocsShell({ locale, theme, title, back, children }: Props) {
     <div className={`app ${onest.variable} min-h-screen bg-base`} lang={locale} data-theme={theme}>
       <HtmlLang lang={locale} />
       <LocaleProvider locale={locale}>
-        <header className="border-b border-line bg-base">
-          <div className="mx-auto flex max-w-page-wide flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
-            <p className="flex min-w-0 items-baseline gap-3">
+        <header className="relative z-sticky border-b sm:sticky sm:top-0 border-line bg-base/95 backdrop-blur">
+          <div className="mx-auto flex min-h-14 max-w-page-wide flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
+            <p className="flex min-w-0 items-center gap-3">
               <Link href="/" className="text-section font-semibold"><TasnivoLogo markClassName="size-6" /></Link>
-              <span className="truncate text-small text-muted">{title}</span>
+              <span aria-hidden className="hidden h-5 w-px bg-line sm:block" /><span className="hidden truncate text-small font-medium text-muted sm:inline">{title}</span>
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <LanguageSwitch />
@@ -29,7 +29,7 @@ export function DocsShell({ locale, theme, title, back, children }: Props) {
             </div>
           </div>
         </header>
-        <main id="main" className="relative mx-auto max-w-page-wide px-4 py-8 sm:px-6">{children}</main>
+        <main id="main" className="relative mx-auto max-w-page-wide px-4 py-8 sm:px-6 lg:py-12">{children}</main>
       </LocaleProvider>
     </div>
   );

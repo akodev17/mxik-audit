@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { EmptyState } from '@/ui/empty-state';
+import { AuthResult, AuthTitle } from '@/ui/auth-parts';
+import { ButtonLink } from '@/ui/button';
 import { ResetForm } from './reset-form';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,24 +12,23 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ResetPage({ params }: { params: Promise<{ token: string }> }) {
-  const { t, ta } = await getI18n();
+  const { ta } = await getI18n();
   const { token } = await params;
   const { email, passwordMin } = await serverApi().auth.resetTarget({ token });
   if (!email) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-        <EmptyState
-          tone="danger" title={ta.secX.reset.bad} hint={ta.secX.reset.badHint}
-          action={<Link href="/sign-in/forgot" className="text-brand hover:underline">{ta.secX.reset.again}</Link>}
-        />
-      </main>
+      <AuthResult
+        tone="danger" role="none" title={ta.secX.reset.bad}
+        action={<ButtonLink href="/sign-in/forgot" variant="primary" size="lg" className="w-full">{ta.secX.reset.again}</ButtonLink>}
+      >
+        <p>{ta.secX.reset.badHint}</p>
+      </AuthResult>
     );
   }
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <p className="text-xl font-bold tracking-tight">{t.appName}</p>
-      <p className="mb-6 mt-1 text-sm text-muted">{ta.secX.reset.intro(email)}</p>
+    <>
+      <AuthTitle title={ta.secX.reset.title} lead={ta.authX.reset.lead(email)} />
       <ResetForm token={token} min={passwordMin} />
-    </main>
+    </>
   );
 }

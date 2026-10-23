@@ -163,7 +163,15 @@ export const account = defineModule('account', {
   telegramCode: endpoint({
     method: 'POST', path: '/api/account/telegram/code', auth: 'session', role: 'admin', noDemo: true,
     summary: 'A one-time code to send the bot as "/start CODE"',
-    responds: 'json', response: z.union([z.object({ ok: z.literal(true), code: z.string(), minutes: z.number().int() }), z.object({ ok: z.literal(false) })]),
+    responds: 'json',
+    response: z.union([
+      z.object({
+        ok: z.literal(true), code: z.string(), minutes: z.number().int(),
+        /** The bot's deep link (it sends "/start CODE" itself) and its QR code; absent while the bot's username is unknown. */
+        link: z.string().optional(), qr: z.object({ size: z.number(), path: z.string() }).optional(),
+      }),
+      z.object({ ok: z.literal(false) }),
+    ]),
     replaces: ['action:settings.ts#telegramCode'],
   }),
   telegramUnlink: endpoint({

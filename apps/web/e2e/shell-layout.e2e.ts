@@ -1,7 +1,8 @@
 // The signed-in frame at the four widths the UI is checked at (1440, 1024, 768, 375): both navigation
 // areas from md, every header destination reachable (tabs that do not fit move into the "more" menu
-// instead of scrolling out of sight), rail tooltips that do not cover the next icon, and a phone
-// header that keeps the account menu on screen with a long client name.
+// instead of scrolling out of sight), a sidebar that names its items from xl and folds to icons whose
+// tooltips do not cover the next icon (the choice kept in a cookie), and a phone header that keeps the
+// account menu on screen with a long client name.
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Page } from 'playwright';
@@ -86,8 +87,28 @@ describe('app shell layout', () => {
     await page.locator('main h1').first().waitFor();
   });
 
-  test('23 rail tooltips open beside the icon, so the next icon stays clickable', { timeout: 90_000 }, async () => {
+  test('23 the sidebar names its items from xl; folded to icons, its tooltips open beside the icon and the choice survives a reload', { timeout: 120_000 }, async () => {
     const { page } = session;
+    const width = (): Promise<number> => rail(page).evaluate((nav) => nav.parentElement?.getBoundingClientRect().width ?? 0);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/dashboard');
+    const bellLink = rail(page).getByRole('link', { name: TA.shellX.bell.title });
+    assert.equal(await bellLink.getByText(TA.shellX.bell.title, { exact: true }).isVisible(), true, '1440: the bell is named on screen');
+    assert.ok((await width()) > 200, '1440: the sidebar is wide enough for the names');
+
+    // Fold it: icons only, at every width, also after the next server render.
+    await rail(page).getByRole('button', { name: TA.shellX.nav.collapse, exact: true }).click();
+    await page.waitForFunction(() => (document.querySelector('[data-rail]') as HTMLElement | null)?.dataset['rail'] === 'collapsed');
+    for (const w of DESKTOP) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await page.goto('/dashboard');
+      await page.waitForFunction(() => {
+        const nav = document.querySelector('[data-rail="collapsed"] nav[aria-label]');
+        return (nav?.parentElement?.getBoundingClientRect().width ?? 999) <= 64.5;
+      });
+      assert.equal(await rail(page).getByRole('link', { name: TA.shellX.bell.title }).getByText(TA.shellX.bell.title, { exact: true }).isVisible(), false, `${w}: icons only`);
+    }
+
     for (const width of DESKTOP) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/dashboard');
@@ -102,9 +123,17 @@ describe('app shell layout', () => {
       assert.ok(tipBox && helpBox && bellBox);
       assert.ok(tipBox.x >= bellBox.x + bellBox.width - 0.5, `${width}: the tooltip is to the right of the icon`);
       assert.ok(tipBox.x >= 0 && tipBox.y + tipBox.height <= 900, `${width}: the tooltip is inside the window`);
-      // The way a person moves: straight down from the bell onto help, then click (no forced click).
+      // The way a person moves: from the bell onto help, then click (no forced click).
       await Promise.all([page.waitForURL((url) => url.pathname.startsWith('/yordam'), COMMIT), help.click()]);
     }
+
+    // Unfold again: the names come back and stay.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/dashboard');
+    await rail(page).getByRole('button', { name: TA.shellX.nav.expand, exact: true }).click();
+    await rail(page).getByRole('link', { name: TA.shellX.bell.title }).getByText(TA.shellX.bell.title, { exact: true }).waitFor();
+    await page.reload();
+    assert.equal(await rail(page).getByRole('link', { name: TA.shellX.bell.title }).getByText(TA.shellX.bell.title, { exact: true }).isVisible(), true, 'expanded after a reload');
   });
 
   test('24 on a phone a long client name truncates and the account menu stays on screen', { timeout: 90_000 }, async () => {

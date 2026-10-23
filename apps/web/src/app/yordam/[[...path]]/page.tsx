@@ -8,7 +8,7 @@ import { Children, isValidElement, type ComponentType, type ReactNode } from 're
 import { CONTAINER } from '@/components/landing/container';
 import { LandingShell } from '@/components/landing/shell';
 import {
-  findArticle, HELP_ARTICLES, HELP_COPY, HELP_LANG_NAMES, HELP_LANG_PARAM, headingId, helpHeadings, helpPath, type HelpHeading, type HelpLang,
+  findArticle, HELP_ARTICLES, HELP_COPY, HELP_LANG_NAMES, HELP_LANG_PARAM, headingId, helpHeadings, helpPath, type HelpArticle, type HelpHeading, type HelpLang,
 } from '@/lib/help';
 import { signedIn } from '@/lib/api/me';
 import { serverApi } from '@/lib/api/server';
@@ -61,14 +61,28 @@ function textOf(node: ReactNode): string {
 }
 
 function H2({ children }: { children?: ReactNode }) {
-  return <h2 id={headingId(textOf(children))} className="scroll-mt-6">{children}</h2>;
+  return <h2 id={headingId(textOf(children))} className="scroll-mt-24">{children}</h2>;
 }
 
 async function articleSource(lang: HelpLang, slug: string): Promise<string> {
   return readFile(path.join(process.cwd(), 'apps', 'web', 'src', 'content', 'yordam', lang, `${slug}.mdx`), 'utf8');
 }
 
-const ARTICLE_STYLE = 'space-y-4 text-[17px] leading-relaxed [&_h2]:mt-10 [&_h2]:text-[24px] [&_li]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-lp-brand [&_a]:underline [&_code]:rounded [&_code]:bg-lp-surface [&_code]:px-1';
+// Readable long-form text: a 17px body with generous leading, clear section breaks, lists with
+// quiet markers, links that read as links, code and tables in the landing's surface tokens.
+const ARTICLE_STYLE = [
+  'text-[17px] leading-[1.75] text-lp-ink',
+  '[&>*+*]:mt-5',
+  '[&_h2]:mt-12 [&_h2]:border-t [&_h2]:border-lp-line [&_h2]:pt-8 [&_h2]:text-[24px] [&_h2]:font-semibold [&_h2]:leading-tight [&_h2]:tracking-tight',
+  '[&_h2:first-child]:mt-0 [&_h2:first-child]:border-t-0 [&_h2:first-child]:pt-0',
+  '[&_h3]:mt-8 [&_h3]:text-[19px] [&_h3]:font-semibold',
+  '[&_strong]:font-semibold',
+  '[&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mt-2 [&_li]:pl-1 [&_li::marker]:text-lp-muted',
+  '[&_a]:font-medium [&_a]:text-lp-brand [&_a]:underline [&_a]:decoration-lp-brand/40 [&_a]:underline-offset-4 hover:[&_a]:decoration-lp-brand',
+  '[&_code]:rounded [&_code]:bg-lp-surface [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em]',
+  '[&_blockquote]:border-l-4 [&_blockquote]:border-lp-line-strong [&_blockquote]:pl-4 [&_blockquote]:text-lp-muted',
+  '[&_table]:w-full [&_table]:text-[15px] [&_th]:border-b [&_th]:border-lp-line-strong [&_th]:py-2 [&_th]:text-left [&_td]:border-b [&_td]:border-lp-line [&_td]:py-2',
+].join(' ');
 
 /** Both languages as a two-part switch; the current one is marked, the other links to the same article. */
 function LangSwitch({ lang, slug, label }: { lang: HelpLang; slug: string | null; label: string }) {
@@ -91,14 +105,59 @@ function LangSwitch({ lang, slug, label }: { lang: HelpLang; slug: string | null
   );
 }
 
+/** The headings of the article being read. */
 function Toc({ headings, title }: { headings: HelpHeading[]; title: string }) {
   return (
     <nav aria-label={title} className="text-[15px]">
-      <p className="mb-2 font-semibold">{title}</p>
-      <ol className="space-y-1.5 border-l border-lp-line pl-3">
-        {headings.map((h) => <li key={h.id}><a href={`#${h.id}`} className="text-lp-muted hover:text-lp-brand hover:underline">{h.text}</a></li>)}
+      <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-lp-muted">{title}</p>
+      <ol className="space-y-2 border-l border-lp-line">
+        {headings.map((h) => (
+          <li key={h.id}>
+            <a href={`#${h.id}`} className="-ml-px block border-l-2 border-transparent pl-3 leading-snug text-lp-muted hover:border-lp-brand hover:text-lp-ink">{h.text}</a>
+          </li>
+        ))}
       </ol>
     </nav>
+  );
+}
+
+/** Every article of the help centre, the open one marked. */
+function ArticleNav({ lang, current, title }: { lang: HelpLang; current: string; title: string }) {
+  return (
+    <nav aria-label={title} className="text-[15px]">
+      <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-lp-muted">{title}</p>
+      <ul className="space-y-0.5">
+        {HELP_ARTICLES.map((a) => {
+          const open = a.slug === current;
+          return (
+            <li key={a.slug}>
+              <Link
+                href={helpPath(lang, a.slug)} aria-current={open ? 'page' : undefined}
+                className={`block rounded-lp px-3 py-2 leading-snug ${open ? 'bg-lp-surface font-semibold text-lp-ink' : 'text-lp-muted hover:bg-lp-surface hover:text-lp-ink'}`}
+              >
+                {a.title[lang]}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/** An article on the index as a card: title, one line, an arrow. */
+function ArticleCard({ lang, article }: { lang: HelpLang; article: HelpArticle }) {
+  return (
+    <Link
+      href={helpPath(lang, article.slug)}
+      className="group flex h-full flex-col rounded-lp-lg border border-lp-line bg-lp-base p-5 transition-colors hover:border-lp-line-strong hover:bg-lp-surface"
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span className="text-[19px] font-semibold leading-snug text-lp-ink group-hover:text-lp-brand">{article.title[lang]}</span>
+        <span aria-hidden className="mt-0.5 text-lp-muted transition-transform group-hover:translate-x-0.5 group-hover:text-lp-brand">→</span>
+      </span>
+      <span className="mt-2 text-[15px] leading-relaxed text-lp-muted">{article.description[lang]}</span>
+    </Link>
   );
 }
 
@@ -123,39 +182,49 @@ export default async function HelpPage({ params, searchParams }: { params: Param
     <LandingShell lang={lang} signedIn={user !== null} theme={theme}>
       <div className={`${CONTAINER} py-10 sm:py-14`}>
         <div className="flex flex-wrap items-center justify-between gap-3 text-[15px]">
-          {article ? <Link href={helpPath(lang)} className="text-lp-brand underline">{copy.back}</Link> : <span />}
+          {article ? (
+            <nav aria-label={copy.back}>
+              <ol className="flex flex-wrap items-center gap-2 text-lp-muted">
+                <li><Link href={helpPath(lang)} className="hover:text-lp-ink hover:underline">{copy.back}</Link></li>
+                <li aria-hidden>/</li>
+                <li aria-current="page" className="text-lp-ink">{article.title[lang]}</li>
+              </ol>
+            </nav>
+          ) : <span />}
           <LangSwitch lang={lang} slug={slug} label={copy.language} />
         </div>
+
         {Body && article && config ? (
-          <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,46rem)_15rem] lg:gap-16">
+          <div className="mt-8 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-12 xl:grid-cols-[14rem_minmax(0,44rem)_13rem]">
+            <aside className="hidden lg:block">
+              <div className="sticky top-8"><ArticleNav lang={lang} current={article.slug} title={copy.articles} /></div>
+            </aside>
             <article className="min-w-0">
-              <h1 className="text-[34px] sm:text-[44px]">{article.title[lang]}</h1>
+              <h1 className="text-[34px] font-semibold leading-tight tracking-tight sm:text-[42px]">{article.title[lang]}</h1>
+              <p className="mt-3 text-[18px] leading-relaxed text-lp-muted">{article.description[lang]}</p>
               {headings.length > 1 ? (
-                <details className="mt-6 rounded-lp border border-lp-line p-3 lg:hidden">
+                <details className="mt-6 rounded-lp border border-lp-line p-4 xl:hidden">
                   <summary className="cursor-pointer text-[15px] font-semibold">{copy.onPage}</summary>
-                  <div className="mt-3"><Toc headings={headings} title={copy.onPage} /></div>
+                  <div className="mt-4"><Toc headings={headings} title={copy.onPage} /></div>
                 </details>
               ) : null}
-              <div className={`mt-8 ${ARTICLE_STYLE}`}><Body components={{ h2: H2, ...liveComponents(lang, config) }} /></div>
-              <p className="mt-12 text-[15px]"><Link href={helpPath(lang)} className="text-lp-brand underline">{copy.home}</Link></p>
+              <div className={`mt-10 ${ARTICLE_STYLE}`}><Body components={{ h2: H2, ...liveComponents(lang, config) }} /></div>
+              <div className="mt-14 border-t border-lp-line pt-8 lg:hidden">
+                <ArticleNav lang={lang} current={article.slug} title={copy.home} />
+              </div>
             </article>
             {headings.length > 1 ? (
-              <aside className="hidden lg:block">
+              <aside className="hidden xl:block">
                 <div className="sticky top-8"><Toc headings={headings} title={copy.onPage} /></div>
               </aside>
             ) : null}
           </div>
         ) : (
-          <div className="mt-4 max-w-5xl">
-            <h1 className="text-[34px] sm:text-[44px]">{copy.title}</h1>
-            <p className="mt-3 max-w-[44rem] text-[17px] text-lp-muted">{copy.description}</p>
-            <ul className="mt-10 grid gap-x-10 gap-y-7 md:grid-cols-2">
-              {HELP_ARTICLES.map((a) => (
-                <li key={a.slug}>
-                  <Link href={helpPath(lang, a.slug)} className="text-[20px] text-lp-brand underline">{a.title[lang]}</Link>
-                  <p className="mt-1 text-[16px] text-lp-muted">{a.description[lang]}</p>
-                </li>
-              ))}
+          <div className="mt-8">
+            <h1 className="text-[34px] font-semibold leading-tight tracking-tight sm:text-[44px]">{copy.title}</h1>
+            <p className="mt-3 max-w-[44rem] text-[18px] leading-relaxed text-lp-muted">{copy.description}</p>
+            <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {HELP_ARTICLES.map((a) => <li key={a.slug}><ArticleCard lang={lang} article={a} /></li>)}
             </ul>
           </div>
         )}

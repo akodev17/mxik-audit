@@ -3,6 +3,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/locale-client';
 import { CodeChip } from '@/ui/code-chip';
+import { cx } from '@/ui/cx';
+import { Kbd } from '@/ui/kbd';
 import { Portal } from '@/ui/portal';
 import { Spinner } from '@/ui/spinner';
 import { useCodeLookup } from './code-lookup';
@@ -70,6 +72,7 @@ export function InlineCodePicker({ onPick, onCancel }: Props) {
             style={{ left: box.left, top: box.top, width: box.width }}
             className="fixed z-dropdown max-h-72 overflow-y-auto rounded-md border border-line bg-raised py-1 shadow-pop"
           >
+            {hits.length > 0 ? <li role="presentation" className="border-b border-line px-3 pb-1.5 pt-1 text-micro text-muted">{ta.wsUi.drawer.pickHint}</li> : null}
             {failed ? <li role="presentation" className="px-3 py-2 text-small text-danger-ink">{ta.wsX.toast.network}</li> : null}
             {!failed && hits.length === 0 ? <li role="presentation" className="px-3 py-2 text-small text-muted">{ta.drawer.searchEmpty}</li> : null}
             {hits.map((h, i) => (
@@ -77,11 +80,14 @@ export function InlineCodePicker({ onPick, onCancel }: Props) {
                 key={h.code} id={optionId(i)} role="option" aria-selected={i === cursor}
                 onMouseDown={(e) => { e.preventDefault(); onPick(h.code, h.name); }}
                 onMouseEnter={() => setCursor(i)}
-                className={`cursor-pointer px-3 py-1.5 ${i === cursor ? 'bg-brand-tint' : 'hover:bg-surface'}`}
+                className={cx('flex cursor-pointer items-center gap-3 px-3 py-2', i === cursor ? 'bg-brand-tint' : 'hover:bg-surface')}
               >
-                <CodeChip code={h.code} />
-                <span className="mt-0.5 block truncate text-small text-fg" title={h.name}>{h.name}</span>
-                {h.path ? <span className="block truncate text-micro text-muted" title={h.path}>{h.path}</span> : null}
+                <span className="min-w-0 flex-1">
+                  <CodeChip code={h.code} />
+                  <span className="mt-0.5 block truncate text-small text-fg" title={h.name}>{h.name}</span>
+                  {h.path ? <span className="block truncate text-micro text-muted" title={h.path}>{h.path}</span> : null}
+                </span>
+                {i === cursor ? <Kbd className="shrink-0">Enter</Kbd> : null}
               </li>
             ))}
           </ul>

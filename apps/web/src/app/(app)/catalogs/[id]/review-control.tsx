@@ -86,12 +86,13 @@ export function ReviewControl({ catalogId, initial, canAssign, finisher, today }
   const summary = !review
     ? <span className="text-muted">{r.none}</span>
     : (
-      <span className="flex flex-wrap items-center gap-1.5">
-        <span className="truncate" title={review.assigneeEmail}>{review.assigneeEmail}</span>
+      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded-full bg-brand-tint text-micro font-semibold uppercase text-brand-ink">{review.assigneeEmail.slice(0, 1)}</span>
+        <span className="min-w-0 max-w-56 truncate text-fg" title={review.assigneeEmail}>{review.assigneeEmail}</span>
         {review.status === 'done'
           ? <Badge tone="good">{r.done}</Badge>
           : review.overdue ? <Badge tone="danger">{r.overdue}</Badge> : <Badge tone="info">{r.open}</Badge>}
-        {review.dueOn && review.status === 'open' ? <span className="text-muted">{fmtDate(locale, review.dueOn)}</span> : null}
+        {review.dueOn && review.status === 'open' ? <span className="tabular-nums text-muted">{fmtDate(locale, review.dueOn)}</span> : null}
         {review.doneAt && review.status === 'done' ? <span className="text-muted">{fmtDate(locale, review.doneAt)}</span> : null}
       </span>
     );

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { cache } from 'react';
+import { cache, type ReactNode } from 'react';
 import { isApiError } from '@tasnivo/api-client';
 import { canWrite, isAdminRole } from '@/lib/pure/access';
 import { groupDecisions } from '@/lib/pure/activity-groups';
@@ -14,13 +14,17 @@ import { getI18n } from '@/lib/locale';
 import { agoText, daysSince } from '@/lib/pure/relative-day';
 import { Badge } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
-import { IconAlert, IconChevron } from '@/ui/icons';
+import { EmptyState } from '@/ui/empty-state';
+import { IconBell, IconChevron, IconTable, IconUpload } from '@/ui/icons';
 import { Page, Section } from '@/ui/page';
 import { Stat } from '@/ui/stat';
 import { ActivityFeed } from '../../activity/activity-feed';
 import { actionText, actorText } from '../../activity/entry-text';
 import { CatalogList } from '../../catalogs/catalog-list';
 import { DraftUploads } from '../../catalogs/draft-uploads';
+import { PersonChip } from '../../_manage/avatar';
+import { Card } from '../../_manage/card';
+import { Notice } from '../../_manage/notice';
 import { RememberClient } from '../client-forms';
 import { AccountantsEditor } from './accountants-editor';
 import { ActivityForm } from './activity-form';
@@ -45,6 +49,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 const HISTORY = 10;
 
+/** One fact of the header line: a muted label and its value. */
+function Meta({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      {icon ? <span aria-hidden className="shrink-0 text-subtle">{icon}</span> : null}
+      <dt className="sr-only">{label}</dt>
+      <dd className="min-w-0 text-small text-muted">{children}</dd>
+    </div>
+  );
+}
+
 export default async function ClientPage({ params }: Props) {
   const { locale, t, ta } = await getI18n();
   const id = (await params).id;
@@ -53,6 +68,7 @@ export default async function ClientPage({ params }: Props) {
   if (!user) redirect('/sign-in');
   const { client, stats, catalogs, schedule, accountants, dependants } = data;
   const words = ta.firmX.client;
+  const mg = ta.mgX.clients;
   const admin = isAdminRole(user);
   const writer = canWrite(user) && !user.demo;
   const archived = client.archivedAt !== null;
@@ -68,6 +84,10 @@ export default async function ClientPage({ params }: Props) {
   const fmt = (n: number): string => fmtNumber(locale, n);
   const last = history[0];
   const assigned = accountants ? accountants.filter((a) => a.assigned).map((a) => a.email) : stats?.accountants ?? [];
+  const lists = [
+    { href: `/clients/${client.id}/purchases`, title: t.purchasesNav, hint: words.purchasesCard },
+    { href: `/clients/${client.id}/imports`, title: ta.docs.title, hint: words.docsCard },
+  ];
 
   return (
     <Page
@@ -75,7 +95,7 @@ export default async function ClientPage({ params }: Props) {
       crumbs={[{ label: t.clientsTitle, href: '/clients' }]}
       actions={(
         <>
-          {writer && !archived ? <ButtonLink href={`/upload?client=${client.id}`} variant="primary">{t.clientUpload}</ButtonLink> : null}
+          {writer && !archived ? <ButtonLink href={`/upload?client=${client.id}`} variant="primary"><IconUpload size={16} />{t.clientUpload}</ButtonLink> : null}
           {admin && !user.demo ? (
             <ClientMenu
               clientId={client.id} name={client.name} isDefault={client.isDefault} archived={archived} catalogs={stats?.catalogs ?? catalogs.total}
@@ -86,13 +106,34 @@ export default async function ClientPage({ params }: Props) {
       )}
     >
       {archived ? null : <RememberClient clientId={client.id} />}
-      {client.isDefault ? <p className="-mt-3 mb-4"><Badge>{t.clientsDefault}</Badge>{admin ? <span className="ml-2 text-small text-muted">{words.defaultNote}</span> : null}</p> : null}
+
+      {/* The header line under the name: what kind of business, when it is checked, who works on it. */}
+      <div className="-mt-2 mb-6 space-y-3">
+        <dl className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          {client.isDefault ? (
+            <div className="flex items-center gap-2">
+              <dt className="sr-only">{t.clientsDefault}</dt>
+              <dd><Badge tone="brand">{t.clientsDefault}</Badge>{admin ? <span className="ml-2 text-small text-muted">{words.defaultNote}</span> : null}</dd>
+            </div>
+          ) : null}
+          <Meta label={t.activityLabel} icon={<IconTable size={16} />}><span aria-hidden>{t.activityLabel}: </span><span className="font-medium text-fg">{t.activityOptions[activity]}</span></Meta>
+          <Meta label={ta.reminders.title} icon={<IconBell size={16} />}>
+            {schedule?.enabled ? mg.scheduleOn(schedule.dayOfMonth) : mg.scheduleOff}
+          </Meta>
+        </dl>
+        <section aria-labelledby="client-accountants" className="relative flex flex-wrap items-center gap-2">
+          <h2 id="client-accountants" className="sr-only">{words.accountants}</h2>
+          {assigned.length === 0
+            ? <p className="text-small text-muted">{words.accountantsNone}</p>
+            : <ul className="flex flex-wrap gap-1.5">{assigned.map((email) => <li key={email} className="min-w-0 max-w-full"><PersonChip email={email} /></li>)}</ul>}
+          {accountants && !user.demo && !archived ? <AccountantsEditor clientId={client.id} people={accountants} /> : null}
+        </section>
+      </div>
 
       {archived ? (
-        <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-ctl border border-line bg-warn-tint px-4 py-3 text-warn-ink">
-          <p className="flex items-start gap-2 text-small font-medium"><IconAlert size={16} className="mt-0.5 shrink-0" />{words.archivedBanner}</p>
-          {admin && !user.demo ? <RestoreButton clientId={client.id} /> : null}
-        </div>
+        <Notice tone="warn" className="mb-5" action={admin && !user.demo ? <RestoreButton clientId={client.id} /> : undefined}>
+          <span className="font-medium">{words.archivedBanner}</span>
+        </Notice>
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -117,87 +158,84 @@ export default async function ClientPage({ params }: Props) {
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <section aria-labelledby="client-accountants" className="rounded-ctl border border-line bg-raised px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="client-accountants" className="text-small font-medium text-muted">{words.accountants}</h2>
-            {accountants && !user.demo && !archived ? <AccountantsEditor clientId={client.id} people={accountants} /> : null}
-          </div>
-          {assigned.length === 0
-            ? <p className="mt-1 text-small text-muted">{words.accountantsNone}</p>
-            : <ul className="mt-1 flex flex-wrap gap-1.5">{assigned.map((email) => <li key={email}><Badge tone="brand">{email}</Badge></li>)}</ul>}
-        </section>
-        <section aria-labelledby="client-last" className="rounded-ctl border border-line bg-raised px-4 py-3">
-          <h2 id="client-last" className="text-small font-medium text-muted">{words.lastActivity}</h2>
-          {last ? (
-            <p className="mt-1">
-              <span className="font-medium">{actionText(last, ta, locale)}</span>
-              <span className="block text-small text-muted">{actorText(last, ta)} · {fmtDateTime(locale, last.at)}</span>
-            </p>
-          ) : <p className="mt-1 text-small text-muted">{words.lastActivityNone}</p>}
-        </section>
-      </div>
+      <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-4">
+          {/* The catalogue list draws its own frame, so this block is a titled section rather than a card around it. */}
+          <Section
+            title={t.clientCatalogs} hint={words.catalogsHint}
+            actions={catalogs.total > items.length ? <Link href={`/catalogs?client=${client.id}&page=2`} className="text-small font-medium text-brand-ink hover:underline">{ta.firmX.clients.next}</Link> : undefined}
+          >
+            <DraftUploads drafts={drafts} showClient={false} />
+            {items.length === 0 ? (
+              <Card>
+                <EmptyState
+                  size="compact" as="h3" icon={<IconTable size={22} />} title={mg.catalogsEmpty} hint={drafts.length === 0 ? mg.catalogsEmptyHint : t.clientNoCatalogs}
+                  action={writer && !archived ? <ButtonLink href={`/upload?client=${client.id}`} variant="secondary"><IconUpload size={16} />{t.clientUpload}</ButtonLink> : undefined}
+                />
+              </Card>
+            ) : <CatalogList items={items} showClient={false} canDelete={writer} />}
+          </Section>
 
-      {/* Purchases and receipts are sections of their own, so they get cards, not bare links. */}
-      <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {[
-          { href: `/clients/${client.id}/purchases`, title: t.purchasesNav, hint: words.purchasesCard },
-          { href: `/clients/${client.id}/imports`, title: ta.docs.title, hint: words.docsCard },
-        ].map((x) => (
-          <li key={x.href}>
-            <Link href={x.href} className="flex h-full items-center justify-between gap-3 rounded-ctl border border-line bg-raised px-4 py-3 transition-colors duration-(--duration-fast) hover:border-line-strong hover:bg-surface">
-              <span className="min-w-0">
-                <span className="block font-medium text-brand-ink">{x.title}</span>
-                <span className="block text-small text-muted">{x.hint}</span>
-              </span>
-              <IconChevron size={16} className="shrink-0 text-subtle" />
-            </Link>
-          </li>
-        ))}
-      </ul>
+          <Card
+            id="client-history" title={t.clientHistory} hint={words.historyHint}
+            actions={<Link href={`/activity?client=${client.id}`} className="text-small font-medium text-brand-ink hover:underline">{ta.log.openAll}</Link>}
+          >
+            {history.length === 0
+              ? <EmptyState size="compact" as="h3" title={mg.activityEmpty} hint={t.clientHistoryEmpty} />
+              : <ActivityFeed entries={groupDecisions(history).slice(0, HISTORY)} showClient={false} />}
+          </Card>
+        </div>
 
-      <Section title={words.settings}>
-        {writer ? (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <ActivityForm clientId={client.id} activity={activity} />
-            <div>
-              <h3 className="mb-2 font-medium">{ta.reminders.title}</h3>
+        <div className="min-w-0 space-y-4">
+          <Card title={words.lastActivity} as="h2">
+            {last ? (
+              <p>
+                <span className="font-medium">{actionText(last, ta, locale)}</span>
+                <span className="mt-0.5 block text-small text-muted">{actorText(last, ta)} · {fmtDateTime(locale, last.at)}</span>
+              </p>
+            ) : <p className="text-small text-muted">{words.lastActivityNone}</p>}
+          </Card>
+
+          {/* Purchases and receipts are sections of their own: one card with a row each. */}
+          <Card title={mg.lists} flush>
+            <ul className="divide-y divide-line">
+              {lists.map((x) => (
+                <li key={x.href}>
+                  <Link href={x.href} className="flex items-center justify-between gap-3 px-4 py-3 transition-colors duration-(--duration-fast) hover:bg-surface sm:px-5">
+                    <span className="min-w-0">
+                      <span className="block font-medium text-brand-ink">{x.title}</span>
+                      <span className="block text-small text-muted">{x.hint}</span>
+                    </span>
+                    <IconChevron size={16} className="shrink-0 text-subtle" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          {writer ? (
+            <>
+              <h2 className="sr-only">{words.settings}</h2>
+              <ActivityForm clientId={client.id} activity={activity} />
               <ScheduleForm
                 clientId={client.id} people={people}
                 initial={schedule ? { dayOfMonth: schedule.dayOfMonth, assigneeId: schedule.assigneeId, enabled: schedule.enabled, lastPeriod: schedule.lastPeriod } : null}
               />
-            </div>
-          </div>
-        ) : (
-          <dl className="grid grid-cols-1 gap-3 text-small sm:grid-cols-2">
-            <div><dt className="text-muted">{t.activityLabel}</dt><dd className="font-medium">{t.activityOptions[activity]}</dd></div>
-            <div>
-              <dt className="text-muted">{ta.reminders.title}</dt>
-              <dd className="font-medium">{schedule?.enabled ? `${ta.reminders.day} ${schedule.dayOfMonth}` : ta.firmX.reminders.offNote}</dd>
-            </div>
-            <p className="text-muted sm:col-span-2">{user.demo ? ta.firmX.sample.hint : words.readOnly}</p>
-          </dl>
-        )}
-      </Section>
-
-      <Section title={t.clientCatalogs} hint={words.catalogsHint}>
-        <DraftUploads drafts={drafts} showClient={false} />
-        {items.length === 0
-          ? <p className="text-small text-muted">{t.clientNoCatalogs}</p>
-          : <CatalogList items={items} showClient={false} canDelete={writer} />}
-        {catalogs.total > items.length ? (
-          <Link href={`/catalogs?client=${client.id}&page=2`} className="mt-2 inline-block text-small font-medium text-brand-ink hover:underline">{ta.firmX.clients.next}</Link>
-        ) : null}
-      </Section>
-
-      <Section
-        title={t.clientHistory} hint={words.historyHint}
-        actions={<Link href={`/activity?client=${client.id}`} className="text-small font-medium text-brand-ink hover:underline">{ta.log.openAll}</Link>}
-      >
-        {history.length === 0
-          ? <p className="text-small text-muted">{t.clientHistoryEmpty}</p>
-          : <ActivityFeed entries={groupDecisions(history).slice(0, HISTORY)} showClient={false} />}
-      </Section>
+            </>
+          ) : (
+            <Card title={words.settings}>
+              <dl className="grid grid-cols-1 gap-3 text-small">
+                <div><dt className="text-muted">{t.activityLabel}</dt><dd className="font-medium">{t.activityOptions[activity]}</dd></div>
+                <div>
+                  <dt className="text-muted">{ta.reminders.title}</dt>
+                  <dd className="font-medium">{schedule?.enabled ? `${ta.reminders.day} ${schedule.dayOfMonth}` : ta.firmX.reminders.offNote}</dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-small text-muted">{user.demo ? ta.firmX.sample.hint : words.readOnly}</p>
+            </Card>
+          )}
+        </div>
+      </div>
     </Page>
   );
 }

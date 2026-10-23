@@ -8,6 +8,8 @@ import { useI18n } from '@/lib/locale-client';
 import { apiFilter, type WsFilter } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import { ConfirmDialog, type ConfirmResult } from '@/ui/confirm-dialog';
+import { IconButton } from '@/ui/icon-button';
+import { IconX } from '@/ui/icons';
 import { CodeSearch } from './code-search';
 import { needsBulkConfirm } from './bulk-confirm';
 import { count } from './ws-text';
@@ -75,28 +77,35 @@ export function BulkBar(p: Props) {
         ].filter(Boolean).join(' ');
 
   return (
-    <div className="no-print border-b border-line bg-brand-tint px-4 py-2 md:px-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-small font-semibold text-fg" aria-live="polite">
-          {p.allFiltered ? count(locale, b.allFiltered, p.count) : count(locale, b.selected, p.count)}
-        </span>
-        {p.filterTotal !== null && !p.allFiltered ? (
-          <Button size="compact" variant="ghost" onClick={p.onSelectFiltered}>{count(locale, b.selectFiltered, p.filterTotal)}</Button>
+    // Floats over the bottom of the grid while rows are selected; pointer events pass around it.
+    <div className="no-print pointer-events-none absolute inset-x-0 bottom-4 z-dropdown flex justify-center px-4">
+      <div
+        role="toolbar" aria-label={ta.wsUi.bulk.label}
+        className="pointer-events-auto w-full max-w-4xl rounded-lg border border-line bg-raised p-2 shadow-overlay motion-safe:animate-pop-in"
+      >
+        {assigning ? (
+          <div className="mb-2 border-b border-line px-1 pb-3">
+            <p className="mb-1.5 text-small text-muted">{count(locale, b.assignHint, p.count)}</p>
+            <CodeSearch disabled={p.busy} onPick={(code, name) => { setAssigning(false); start({ kind: 'assign', code }, { code, name }); }} />
+          </div>
         ) : null}
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="primary" disabled={p.busy} onClick={() => start({ kind: 'accept' })}>{b.accept}</Button>
-          <Button size="sm" disabled={p.busy} aria-expanded={assigning} onClick={() => setAssigning((a) => !a)}>{b.assign}</Button>
-          <Button size="sm" variant="danger" disabled={p.busy} onClick={() => start({ kind: 'reject' })}>{b.reject}</Button>
-          <Button size="sm" disabled={p.busy} onClick={() => start({ kind: 'flag', flag: 'ask_client' })}>{b.ask}</Button>
-          <Button size="sm" variant="ghost" onClick={p.onClear}>{b.clear}</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex h-8 items-center rounded-md bg-brand-tint px-3 text-small font-semibold tabular-nums text-brand-ink" aria-live="polite">
+            {p.allFiltered ? count(locale, b.allFiltered, p.count) : count(locale, b.selected, p.count)}
+          </span>
+          {p.filterTotal !== null && !p.allFiltered ? (
+            <Button size="sm" variant="ghost" className="text-brand-ink" onClick={p.onSelectFiltered}>{count(locale, b.selectFiltered, p.filterTotal)}</Button>
+          ) : null}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="primary" disabled={p.busy} onClick={() => start({ kind: 'accept' })}>{b.accept}</Button>
+            <Button size="sm" disabled={p.busy} aria-expanded={assigning} onClick={() => setAssigning((a) => !a)}>{b.assign}</Button>
+            <Button size="sm" disabled={p.busy} onClick={() => start({ kind: 'flag', flag: 'ask_client' })}>{b.ask}</Button>
+            <Button size="sm" variant="danger" disabled={p.busy} onClick={() => start({ kind: 'reject' })}>{b.reject}</Button>
+            <span aria-hidden className="mx-0.5 h-5 w-px bg-line" />
+            <IconButton size="sm" variant="ghost" label={b.clear} icon={<IconX size={16} />} onClick={p.onClear} tooltipSide="top" tooltipAlign="end" />
+          </div>
         </div>
       </div>
-      {assigning ? (
-        <div className="mt-2 max-w-xl">
-          <p className="mb-1 text-micro text-muted">{count(locale, b.assignHint, p.count)}</p>
-          <CodeSearch disabled={p.busy} onPick={(code, name) => { setAssigning(false); start({ kind: 'assign', code }, { code, name }); }} />
-        </div>
-      ) : null}
       <ConfirmDialog
         open={pending !== null}
         onClose={() => setPending(null)}

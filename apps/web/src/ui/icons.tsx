@@ -35,3 +35,16 @@ export const IconSuccess = (p: IconProps) => <Svg {...p}><circle cx="10" cy="10"
 export const IconInfo = (p: IconProps) => <Svg {...p}><circle cx="10" cy="10" r="7.5" /><path d="M10 9v4.5M10 6.4v.1" /></Svg>;
 /** Nothing here yet: an empty tray. */
 export const IconEmpty = (p: IconProps) => <Svg {...p}><path d="M2.5 11.5 5 4.5h10l2.5 7v4h-15v-4Z" /><path d="M2.5 11.5h4.2l1 2h4.6l1-2h4.2" /></Svg>;
+export const IconEye = (p: IconProps) => <Svg {...p}><path d="M1.8 10S4.8 4.5 10 4.5 18.2 10 18.2 10 15.2 15.5 10 15.5 1.8 10 1.8 10Z" /><circle cx="10" cy="10" r="2.5" /></Svg>;
+export const IconEyeOff = (p: IconProps) => <Svg {...p}><path d="M8.2 4.7A8 8 0 0 1 10 4.5c5.2 0 8.2 5.5 8.2 5.5a14 14 0 0 1-2.1 2.8M5.4 6.1C3 7.5 1.8 10 1.8 10s3 5.5 8.2 5.5a7.6 7.6 0 0 0 3.5-.8" /><path d="M8.2 8.3a2.5 2.5 0 0 0 3.5 3.5M3 3l14 14" /></Svg>;
+export const IconMail = (p: IconProps) => <Svg {...p}><rect x="2.5" y="4.5" width="15" height="11" rx="1.5" /><path d="m3 5.5 7 5.5 7-5.5" /></Svg>;
+export const IconLock = (p: IconProps) => <Svg {...p}><rect x="4" y="9" width="12" height="8.5" rx="1.5" /><path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" /></Svg>;
+export const IconKey = (p: IconProps) => <Svg {...p}><circle cx="6.5" cy="13.5" r="3.5" /><path d="m9 11 7.5-7.5M14 6l2 2M12 8l1.5 1.5" /></Svg>;
+export const IconShield = (p: IconProps) => <Svg {...p}><path d="M10 2.5 4 5v4.5c0 3.8 2.6 6.8 6 8 3.4-1.2 6-4.2 6-8V5l-6-2.5Z" /><path d="m7.3 10 2 2 3.5-3.8" /></Svg>;
+export const IconArrowRight = (p: IconProps) => <Svg {...p}><path d="M4 10h12M11 5l5 5-5 5" /></Svg>;
+export const IconArrowLeft = (p: IconProps) => <Svg {...p}><path d="M16 10H4M9 5l-5 5 5 5" /></Svg>;
+export const IconBuilding = (p: IconProps) => <Svg {...p}><path d="M3.5 17.5V4a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v13.5M12.5 8h3a1 1 0 0 1 1 1v8.5M2 17.5h16" /><path d="M6.5 6.5h3M6.5 9.5h3M6.5 12.5h3" /></Svg>;
+export const IconClock = (p: IconProps) => <Svg {...p}><circle cx="10" cy="10" r="7.5" /><path d="M10 6v4.2l2.8 1.8" /></Svg>;
+export const IconSparkle = (p: IconProps) => <Svg {...p}><path d="M10 2.5c.6 3.7 1.8 4.9 5.5 5.5-3.7.6-4.9 1.8-5.5 5.5-.6-3.7-1.8-4.9-5.5-5.5 3.7-.6 4.9-1.8 5.5-5.5Z" /><path d="M15.5 13.5c.3 1.6.8 2.1 2.4 2.4-1.6.3-2.1.8-2.4 2.4-.3-1.6-.8-2.1-2.4-2.4 1.6-.3 2.1-.8 2.4-2.4Z" /></Svg>;
+/** Telegram: the paper plane (a generic mark, not the brand logo). */
+export const IconSend = (p: IconProps) => <Svg {...p}><path d="M17.5 2.5 2.5 8.6l5.7 2.3 2.3 5.7 7-14.1Z" /><path d="m17.5 2.5-9.3 8.4" /></Svg>;

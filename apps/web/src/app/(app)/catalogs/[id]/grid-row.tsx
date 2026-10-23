@@ -11,10 +11,10 @@ import { typeLabels, typeTone } from '@/ui/labels';
 import { CellChip } from './cell-chip';
 import { CodeCell } from './code-cell';
 import type { ColumnKey, Layout } from './columns';
+import { ConfidenceMeter } from './confidence-meter';
 import { DecisionCell, type DecisionHandlers } from './decision-cell';
 import { InlineCodePicker } from './inline-code-picker';
-import { MatchChip } from './match-chip';
-import { SuggestionCell } from './suggestion-cell';
+import { showsMatch, SuggestionCell } from './suggestion-cell';
 
 type Props = DecisionHandlers & {
   row: GridRow;
@@ -34,18 +34,23 @@ type Props = DecisionHandlers & {
   onChoose: (code: string, name: string) => void;
 };
 
-/** The sticky decision cell needs an opaque background matching its row. */
-export const rowSurface = (active: boolean, inGroup: boolean): string =>
-  active ? 'bg-brand-tint' : inGroup ? 'bg-surface' : 'bg-base group-hover:bg-surface';
+/**
+ * Row backgrounds: the active row is the grid's one accent (brand tint and a brand edge); a hovered
+ * row and a group header take the surface tone. The sticky decision cell repeats its row's background.
+ */
+export const rowSurface = (active: boolean, header = false): string =>
+  active ? 'bg-brand-tint' : header ? 'bg-surface group-hover:bg-sunken' : 'bg-base group-hover:bg-surface';
 
-/** One finding as a grid row. Memoised: a decision re-renders only its own row. */
+export const ACTIVE_EDGE = 'shadow-[inset_3px_0_0_var(--color-brand)]';
+
+/** One finding as a grid row, one line high in both densities. Memoised: a decision re-renders only its own row. */
 export const GridRowView = memo(function GridRowView(p: Props) {
   const { t, ta } = useI18n();
   const { row, compact, readOnly, editing } = p;
   const x = ta.wsX;
   const canEdit = !readOnly && row.decision === 'pending';
-  const suggests = row.mode === 'suggest' || (row.decision !== 'pending' && !row.noSuggestion && row.mode !== 'confirm' && row.suggestedMxik !== null);
-  const surface = rowSurface(p.active, p.inGroup);
+  const decided = row.decision !== 'pending';
+  const surface = rowSurface(p.active);
 
   const cell = (key: ColumnKey): ReactNode => {
     switch (key) {
@@ -61,22 +66,19 @@ export const GridRowView = memo(function GridRowView(p: Props) {
           </span>
         );
       case 'no':
-        return <span role="gridcell" key={key} className="overflow-hidden px-3 text-small tabular-nums text-muted">{row.rowIndex + 1}</span>;
+        return <span role="gridcell" key={key} className="overflow-hidden px-3 text-right text-small tabular-nums text-muted">{row.rowIndex + 1}</span>;
       case 'product':
         return (
-          <span role="gridcell" key={key} className="flex min-w-0 flex-col justify-center overflow-hidden px-3">
-            <span className={cx('font-medium text-fg', compact ? 'truncate' : 'line-clamp-2 break-words leading-5')} title={row.productName}>{row.productName}</span>
-            {compact ? null : (
-              <span className="flex min-w-0 items-center gap-2 text-micro text-muted">
-                {row.unit ? <span className="truncate">{row.unit}</span> : null}
-                {row.marking ? <Badge tone="warn" title={ta.ws.marking_title}>{ta.ws.marking}</Badge> : null}
-                {row.comments > 0 ? (
-                  <span className="inline-flex items-center gap-1" title={ta.comments.title}>
-                    <IconComment /><span className="sr-only">{ta.comments.title}: </span>{row.comments}
-                  </span>
-                ) : null}
+          <span role="gridcell" key={key} className={cx('flex min-w-0 items-center gap-2 overflow-hidden px-3', p.inGroup && 'pl-7')}>
+            {p.inGroup ? <span aria-hidden className="absolute inset-y-0 ml-[-0.875rem] w-px bg-line-strong" /> : null}
+            <span className={cx('min-w-0 truncate', decided ? 'text-muted' : 'font-medium text-fg')} title={row.productName}>{row.productName}</span>
+            {!compact && row.unit ? <span className="shrink-0 text-micro text-muted">{row.unit}</span> : null}
+            {row.marking ? <span className="shrink-0"><Badge tone="warn" title={ta.ws.marking_title}>{ta.ws.marking}</Badge></span> : null}
+            {row.comments > 0 ? (
+              <span className="inline-flex shrink-0 items-center gap-1 text-micro text-muted" title={ta.comments.title}>
+                <IconComment /><span className="sr-only">{ta.comments.title}: </span>{row.comments}
               </span>
-            )}
+            ) : null}
           </span>
         );
       case 'status': {
@@ -86,7 +88,7 @@ export const GridRowView = memo(function GridRowView(p: Props) {
       case 'current':
         return (
           <span role="gridcell" key={key} className="min-w-0 overflow-hidden px-3">
-            <CodeCell code={row.currentMxik} name={row.currentName} state={row.currentState} empty={x.noCode} compact={compact} />
+            <CodeCell code={row.currentMxik} name={row.currentName} state={row.currentState} empty={x.noCode} compact />
           </span>
         );
       case 'suggested':
@@ -97,11 +99,11 @@ export const GridRowView = memo(function GridRowView(p: Props) {
             title={canEdit && !editing ? ta.bulk.editHint : undefined}
             onClick={canEdit ? (e) => { e.stopPropagation(); p.onPick(); } : undefined}
           >
-            {editing ? <InlineCodePicker onPick={p.onChoose} onCancel={p.onCancelEdit} /> : <SuggestionCell row={row} compact={compact} />}
+            {editing ? <InlineCodePicker onPick={p.onChoose} onCancel={p.onCancelEdit} /> : <SuggestionCell row={row} compact meter={!p.layout.keys.includes('match')} />}
           </span>
         );
       case 'match':
-        return <span role="gridcell" key={key} className="min-w-0 overflow-hidden px-2"><MatchChip confidence={row.confidence} stage={row.stage} show={suggests} short /></span>;
+        return <span role="gridcell" key={key} className="min-w-0 overflow-hidden px-2"><ConfidenceMeter confidence={row.confidence} stage={row.stage} show={showsMatch(row)} /></span>;
       case 'decision':
         return (
           <span role="gridcell" key={key} className={cx('sticky right-0 flex h-full items-center border-l border-line px-3', surface)}>
@@ -122,8 +124,8 @@ export const GridRowView = memo(function GridRowView(p: Props) {
       onClick={p.onSelect}
       style={{ gridTemplateColumns: p.layout.template }}
       className={cx(
-        'dense group grid h-full cursor-pointer items-center border-b border-line',
-        p.active ? 'bg-brand-tint shadow-[inset_3px_0_0_var(--color-brand)]' : p.inGroup ? 'bg-surface' : 'bg-base hover:bg-surface',
+        'dense group relative grid h-full cursor-pointer items-center border-b border-line text-data transition-colors duration-(--duration-fast)',
+        p.active ? cx('bg-brand-tint', ACTIVE_EDGE) : 'bg-base hover:bg-surface',
       )}
     >
       {p.layout.keys.map(cell)}
