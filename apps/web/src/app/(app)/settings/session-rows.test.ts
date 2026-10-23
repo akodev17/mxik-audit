@@ -23,14 +23,14 @@ describe('sessions list', () => {
     assert.equal(agoLabel('uz', at('2026-10-19T12:05:00Z'), now), 'hozir', 'a clock a little ahead is "now"');
     const original = Intl.RelativeTimeFormat;
     // A browser without Uzbek data: the root locale's "-1 min" must not reach the page.
-    Intl.RelativeTimeFormat = function () { throw new Error('Intl used for uz'); } as unknown as typeof Intl.RelativeTimeFormat;
+    Reflect.set(Intl, 'RelativeTimeFormat', function () { throw new Error('Intl used for uz'); });
     try {
       for (const m of [0, 1, 59, 60, 23 * 60, 24 * 60, 29 * 24 * 60]) {
         const label = agoLabel('uz', new Date(now.getTime() - m * 60_000), now) ?? '';
         assert.ok(!label.startsWith('-'), label);
       }
     } finally {
-      Intl.RelativeTimeFormat = original;
+      Reflect.set(Intl, 'RelativeTimeFormat', original);
     }
   });
 });
