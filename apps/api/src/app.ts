@@ -19,7 +19,18 @@ export const BODY_LIMIT = '1mb';
 export type AppOptions = {
   /** Request log writer; false = no request log (tests). Default: one Nest Logger line per request. */
   requestLog?: false | ((line: LogLine) => void);
+  /** Serve Swagger at /api/docs and /api/docs-json. Default: apiDocsEnabled(process.env). */
+  docs?: boolean;
 };
+
+/**
+ * The first-party Swagger lists every internal route (admin, cron, ...): a map of the attack surface,
+ * so a production API serves it only with API_DOCS_PUBLIC=1 (Q9). External developers have
+ * /api/v1/openapi.json and the web's /api-docs either way.
+ */
+export function apiDocsEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env['NODE_ENV'] !== 'production' || env['API_DOCS_PUBLIC']?.trim() === '1';
+}
 
 /** Prefix, headers, request log and Swagger: everything main.ts and the tests share. */
 export function configureApp(app: INestApplication, options: AppOptions = {}): INestApplication {
@@ -33,6 +44,7 @@ export function configureApp(app: INestApplication, options: AppOptions = {}): I
   express.useBodyParser('urlencoded', { limit: BODY_LIMIT, extended: true });
   app.enableShutdownHooks();
 
+  if (!(options.docs ?? apiDocsEnabled())) return app;
   const document = SwaggerModule.createDocument(app, new DocumentBuilder()
     .setTitle('Tasnivo API')
     .setDescription('First-party API of the Tasnivo web app (session cookie) and, from Wave 2, the public /api/v1 (API keys). '

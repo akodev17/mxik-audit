@@ -226,6 +226,14 @@ model Organization {
   reviewAssignments ReviewAssignment[]
   apiKeys   ApiKey[]
   usageLedger UsageLedger[]
+  importBatches ImportBatch[]
+  counterparties Counterparty[]
+  onecConnection OneCConnection?
+  products  Product[]
+  bankFormats BankFormat[]
+  bankRules BankRule[]
+  didoxConnection DidoxConnection?
+  didoxDocuments DidoxDocument[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -667,6 +675,10 @@ model Client {
   reminderTasks ReminderTask[]
   docLists DocList[]
   reviewAssignments ReviewAssignment[]
+  importBatches ImportBatch[]
+  counterparties Counterparty[]
+  products Product[]
+  bankRules BankRule[]
 
   @@index([orgId])
   @@map("client")
@@ -1243,3 +1255,440 @@ model ApiIdempotency {
   @@id([keyId, idemKey])
   @@map("api_idempotency")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Accounting workflows (programme of 23 Oct 2026, docs/TASNIVO_AI_PLAN_2026-10-23.md).
+// Shared models first (owned by Agent 1, 1C integration); then one section per workstream.
+// Each workstream appends its own models inside its own section only, so the sections merge
+// without conflicts. Every migration is additive (new tables, nullable columns, indexes).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+// ── Shared: import batches, records, counterparties (owner: Agent 1) ─────────────────────
+
+/// What a batch came from and what it holds.
+enum ImportKind {
+  bank_statement
+  didox_invoice
+  product_catalog
+}
+
+/// uploaded → parsed → review → approved → exported; failed from any state.
+enum ImportStatus {
+  uploaded
+  parsed
+  review
+  approved
+  exported
+  failed
+}
+
+/// A record's place in the review: valid as parsed, corrected by a person, suspicious (a
+/// warning stands), unresolved (an error stands), skipped by a person, exported to 1C.
+enum RecordStatus {
+  valid
+  corrected
+  suspicious
+  unresolved
+  skipped
+  exported
+}
+
+/// One source file or one pulled document set: a bank statement, a Didox invoice (one batch per
+/// invoice), or a product catalogue export. Everything the accountant reviews hangs off a batch,
+/// and every 1C export names the batch it came from (traceability).
+model ImportBatch {
+  id          String       @id @default(cuid())
+  orgId       String
+  /// The client the batch belongs to (firms keep one per client); null = the org's own books.
+  clientId    String?
+  kind        ImportKind
+  /// 'upload' | 'didox_api' | 'didox_zip' | 'api' | 'telegram'.
+  source      String
+  filename    String?
+  /// The source system's id (Didox document id, bank statement number); null for plain uploads.
+  externalRef String?
+  /// SHA-256 of the source bytes (or of the normalised external document). Unique per org and
+  /// kind: the same file or document is refused as a duplicate import.
+  fingerprint String
+  status      ImportStatus @default(uploaded)
+  /// Counts by RecordStatus plus total, kept current by the workstream that owns the kind.
+  counts      Json?
+  /// Kind-specific: the bank column mapping, the detected format, the Didox document header, the
+  /// catalogue column map. Shape per kind is in packages/contracts/src/accounting.ts.
+  meta        Json?
+  error       String?
+  createdBy   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client  Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  records ImportRecord[]
+  exports OneCExport[]
+
+  @@unique([orgId, kind, fingerprint])
+  @@index([orgId, kind, createdAt])
+  @@index([clientId, createdAt])
+  @@map("import_batch")
+}
+
+/// One normalised record of a batch: a bank transaction, an invoice line, or a product. The
+/// payload follows the zod schema of its kind in packages/contracts/src/accounting.ts
+/// (BankTransaction, InvoiceLine, ProductRecord); issues are ValidationIssue[]; decision is the
+/// reviewer's ReviewDecision; outcome is the 1C ImportOutcome for this record.
+model ImportRecord {
+  id          String       @id @default(cuid())
+  batchId     String
+  rowIndex    Int
+  status      RecordStatus @default(valid)
+  payload     Json
+  issues      Json
+  /// A per-record duplicate key within the org and kind (bank: date+amount+account+docNumber,
+  /// invoice line: invoice externalRef + line number, product: normalised name + unit).
+  fingerprint String?
+  decision    Json?
+  decidedBy   String?
+  decidedAt   DateTime?
+  outcome     Json?
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowIndex])
+  @@index([batchId, status])
+  @@index([fingerprint])
+  @@map("import_record")
+}
+
+/// A counterparty known to the org (from 1C exports, earlier statements or invoices). Matching
+/// is by ИНН/ПИНФЛ first, then account, then normalised name and aliases.
+model Counterparty {
+  id        String   @id @default(cuid())
+  orgId     String
+  clientId  String?
+  /// 9-digit ИНН of a legal entity or 14-digit ПИНФЛ of an individual; null when unknown.
+  inn       String?
+  name      String
+  /// Lower-cased, punctuation-free name used for matching.
+  normalizedName String
+  /// 20-digit settlement account and 5-digit МФО of its bank, when known.
+  account   String?
+  mfo       String?
+  /// Other spellings seen in statements and invoices.
+  aliases   String[]
+  /// The 1C catalogue reference (code or GUID) once the counterparty is known to exist there.
+  onecRef   String?
+  /// 'onec_export' | 'bank_statement' | 'didox' | 'manual'.
+  source    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, inn])
+  @@index([orgId, normalizedName])
+  @@index([orgId, account])
+  @@map("counterparty")
+}
+
+/// One generated 1C import (a file download or a direct transfer) of a batch: what went, in which
+/// format, and what came back. A batch may be exported more than once (a retry of failed rows).
+model OneCExport {
+  id          String   @id @default(cuid())
+  batchId     String
+  /// 'bank_exchange_1_02' | 'nomenclature_xlsx' | 'receipt_xlsx' | 'counterparties_xlsx' | 'odata' | 'http'.
+  format      String
+  filename    String?
+  recordCount Int
+  /// ImportOutcome summary: imported, skipped, rejected with reasons; per-record outcomes live on
+  /// import_record.outcome.
+  outcome     Json?
+  /// The generated file (a download export); null for a direct transfer. Kept so the same file can
+  /// be downloaded again and an idempotent repeat answers it unchanged.
+  file        Bytes?
+  contentType String?
+  /// SHA-256 of format + the requested record ids ('*' = the batch's approved records): a repeat of
+  /// the same request within a few minutes answers this export instead of a new one.
+  requestKey  String?
+  /// SHA-256 of the exported records' fingerprints, sorted: the same set exported again is flagged.
+  recordSetHash String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, createdAt])
+  @@index([recordSetHash])
+  @@map("onec_export")
+}
+
+// ── Agent 1: 1C integration (connections, settings) ─────────────────────────────────────
+
+/// The org's 1C settings: how bank-exchange files name the МФО, and an optional direct connection
+/// (OData standard interface or an HTTP service of the client's 1C). One row per org.
+model OneCConnection {
+  id        String    @id @default(cuid())
+  orgId     String    @unique
+  /// 'none' (files only) | 'odata' | 'http'.
+  kind      String    @default("none")
+  /// The published base: `https://host/base` (OData answers under /odata/standard.odata/).
+  baseUrl   String?
+  username  String?
+  /// The password, sealed with a key derived from SESSION_SECRET (AES-256-GCM, like the 2FA secrets).
+  secret    String?
+  /// Entity sets and attribute names per record kind (onec/connection.ts DEFAULT_OBJECT_MAP shape).
+  objectMap Json?
+  /// 'standard' (МФО in ПлательщикБИК/ПолучательБИК) | 'uz_mfo' (also ПлательщикМФО/ПолучательМФО).
+  bankKeys  String    @default("standard")
+  lastTestedAt DateTime?
+  /// The last test's or transfer's error, without secrets; null after a successful test.
+  lastError String?
+  /// Whether the last connection test succeeded.
+  lastOk    Boolean?
+  updatedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("onec_connection")
+}
+
+// ── Agent 2: bank statements (formats, saved column mappings) ───────────────────────────
+
+/// A bank statement layout the org taught Tasnivo by choosing its columns once (the manual
+/// mapping step of /bank): the next file whose header signature matches is read with this
+/// mapping and needs no mapping step. Built-in layouts live in code (packages/domain/src/bank/formats).
+model BankFormat {
+  id              String   @id @default(cuid())
+  orgId           String
+  /// What the user called it ("Kapitalbank, so'm"), shown when the format is recognised.
+  name            String
+  /// Normalised header names in column order joined with '|' (bank/formats/signature.ts).
+  headerSignature String
+  /// Role → source column index (BankColumnMap in packages/contracts/src/modules/bank.ts).
+  columnMap       Json
+  /// Date order, decimal mark, direction convention (BankConventions).
+  conventions     Json
+  /// Stays false until a real statement of that bank was read and checked against its totals.
+  verified        Boolean  @default(false)
+  usedCount       Int      @default(0)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, headerSignature])
+  @@map("bank_format")
+}
+
+/// A deterministic statement-line rule: when a line matches (`kind` + `value`), its 1C operation
+/// and cash-flow item are set, explained as `rule:<id>`. Remembered from a reviewer's correction
+/// ("remember for this counterparty / purpose") or added by hand. Applied before the built-in
+/// rules, highest priority first.
+model BankRule {
+  id           String   @id @default(cuid())
+  orgId        String
+  /// The client the rule was learnt for; null = every statement of the org.
+  clientId     String?
+  /// 'purpose_contains' | 'inn_equals' | 'counterparty_equals' | 'amount_sign'.
+  kind         String
+  /// The text to find (purpose), the ИНН, the normalised counterparty name, or 'debit' / 'credit'.
+  value        String
+  operation    String
+  cashFlowItem String?
+  priority     Int      @default(100)
+  /// Statement lines this rule decided, counted when a statement is read.
+  hits         Int      @default(0)
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, clientId, priority])
+  @@map("bank_rule")
+}
+
+// ── Agent 3: Didox invoices (connections, document cache) ───────────────────────────────
+
+/// An org's Didox access (one per org). Two auth models exist (research note §1): 'token' = the
+/// user's Didox token sent as api-key + user-key (Didox's 1C library), 'partner' = a partner
+/// token as Bearer plus the user's token as user-key (npm SDK). The user's token is sealed with a
+/// key derived from SESSION_SECRET; the partner token is never stored: partnerTokenRef names the
+/// environment variable that holds it.
+model DidoxConnection {
+  id              String    @id @default(cuid())
+  orgId           String    @unique
+  /// The client synced invoices are filed under; null = the org's own books.
+  clientId        String?
+  /// 'token' | 'partner'.
+  kind            String
+  /// The company's ИНН (9) or ПИНФЛ (14) the token belongs to.
+  companyTin      String
+  tokenSealed     String?
+  tokenExpiresAt  DateTime?
+  partnerTokenRef String?
+  lastSyncAt      DateTime?
+  /// The last sync or test failure as a machine code (unauthorized, timeout, ...); null after a success.
+  lastError       String?
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("didox_connection")
+}
+
+/// The raw Didox document as fetched (API) or uploaded (zip/JSON), keyed by its Didox id, with the
+/// PDF print form when one came with it. The invoice's batch (import_batch, kind didox_invoice)
+/// points back through externalRef; batchId is a plain column so the shared model stays untouched.
+model DidoxDocument {
+  id        String   @id @default(cuid())
+  orgId     String
+  /// The Didox document id (API), or the factura id / file fingerprint for uploads.
+  didoxId   String
+  /// 'didox_api' | 'didox_zip' | 'didox_json' | 'xlsx'.
+  source    String
+  docType   String?
+  status    String?
+  json      Json
+  pdf       Bytes?
+  batchId   String?
+  fetchedAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, didoxId])
+  @@index([batchId])
+  @@map("didox_document")
+}
+
+// ── Agent 4: product catalogue and MXIK intelligence (products, packaging codes) ────────
+
+/// A product the org (or one of its clients) buys or sells, as its 1C «Номенклатура» knows it.
+/// One row per normalised name + unit within the org and client. Filled by the product catalogue
+/// import, the audit's "Add to product catalogue" and the Didox workflow (upsertProducts); matched
+/// by matchProducts. Confirmed MXIK codes are not kept a second time: a reviewer's confirmation
+/// writes FirmMapping, the org's one source of confirmed mappings.
+model Product {
+  id              String    @id @default(cuid())
+  orgId           String
+  /// The client whose books the product belongs to; null = the org's own catalogue.
+  clientId        String?
+  name            String
+  /// Folded name with sizes kept (packages/domain/src/products/keys.ts productNameKey); trigram-indexed.
+  normalizedName  String
+  /// Canonical unit id (as text) or the lower-cased unit; '' when none. Part of the identity.
+  unitKey         String    @default("")
+  /// 1C catalogue code or GUID, when the product came from a 1C export.
+  onecRef         String?
+  mxik            String?   @db.Char(17)
+  mxikName        String?
+  /// Tasnif packaging code (packaging_code.code) and its name.
+  packageCode     String?
+  packageName     String?
+  unit            String?
+  barcode         String?
+  /// 'catalog_import' | 'audit' | 'didox' | 'manual'.
+  source          String
+  /// ProductRecord.mxikStatus: ok, missing, invalid, inactive, restricted, suspicious, unchecked.
+  mxikStatus      String    @default("unchecked")
+  /// ValidationIssue[] of the last classification.
+  mxikIssues      Json?
+  /// MatchCandidate of the last classification, when it suggested a code.
+  mxikSuggestion  Json?
+  /// Up to five runner-up MatchCandidates of the last classification, for the product drawer.
+  mxikAlternatives Json?
+  mxikCheckedAt   DateTime?
+  /// Set when a reviewer confirmed `mxik` ("Confirm MXIK"); the mapping itself is in FirmMapping.
+  mxikConfirmedAt DateTime?
+  mxikConfirmedBy String?
+  markingRequired Boolean?
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client  Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  aliases ProductAlias[]
+
+  // Identity: unique (orgId, COALESCE(clientId, ''), normalizedName, unitKey) and a trigram index
+  // on normalizedName, both created in the migration (Prisma cannot declare them).
+  @@index([orgId, clientId])
+  @@index([orgId, mxik])
+  @@index([orgId, barcode])
+  @@index([orgId, onecRef])
+  @@index([orgId, mxikStatus])
+  @@map("product")
+}
+
+/// Another name the same product was seen under (an invoice line, an earlier spelling).
+model ProductAlias {
+  id              String   @id @default(cuid())
+  productId       String
+  /// Copied from the product so an alias is found by org without a join.
+  orgId           String
+  alias           String
+  normalizedAlias String
+  createdAt       DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, normalizedAlias])
+  @@index([orgId, normalizedAlias])
+  @@map("product_alias")
+}
+
+/// One Tasnif packaging code of a classifier code (cls-api /mxik/get/by-mxik `packages[]`),
+/// fetched lazily the first time a line needs a packaging check, then cached
+/// (mxik_code_state.packagesFetchedAt). See docs/accounting-2026-10-23/tasnif-catalog.md.
+model PackagingCode {
+  /// The package id (`code`, e.g. 1074787); unique across the classifier.
+  code          String   @id
+  mxikCode      String   @db.Char(17)
+  parentCode    String?
+  containerCode Int?
+  containerName String?
+  unitId        Int?
+  unitName      String?
+  /// How many of the parent (or of the unit) the package holds, e.g. 14.
+  parentValue   Float?
+  name          String
+  /// Raw `type` ("1" seen) and `isUnitPackage` ("1"/"2" seen); semantics not documented.
+  type          String?
+  isUnitPackage String?
+  /// From /integration-mxik/get/history packageNames when fetched: "қадоқ=1 флакон * 14 дона".
+  nameUz        String?
+  nameRu        String?
+  fetchedAt     DateTime @default(now())
+
+  @@index([mxikCode])
+  @@map("packaging_code")
+}
+
+/// What the live Tasnif API says about a code beyond the Excel export: activity
+/// (/integration-mxik/get/history/{code} isActive/status) and whether its packages were fetched.
+/// Filled on demand and for codes a classifier update finds missing from the export.
+model MxikCodeState {
+  code              String    @id @db.Char(17)
+  /// isActive "1" → true, "0" → false; null = not asked, or the API did not say.
+  isActive          Boolean?
+  /// Raw `status` (only 0 seen so far).
+  apiStatus         Int?
+  /// The API answered "Mxik code not found!" for this code.
+  apiNotFound       Boolean   @default(false)
+  statusFetchedAt   DateTime?
+  packagesFetchedAt DateTime?
+  packageCount      Int?
+  lastError         String?
+  updatedAt         DateTime  @default(now()) @updatedAt
+
+  @@map("mxik_code_state")
+}
+
+// ── Agent 5: platform quality ───────────────────────────────────────────────────────────

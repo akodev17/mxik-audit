@@ -102,7 +102,7 @@ describe('notifications module (e2e)', { skip }, () => {
     assert.equal((await http().get('/api/search?q=sut')).status, 401);
   });
 
-  it("shell: the frame's clients in the user's scope, the active one, unread count and plan; a new org gets its default client", async () => {
+  it("shell: the frame's clients in the user's scope, the active one, unread count and plan; it creates no client (Q4)", async () => {
     const frame = shaped(n.shell, (await get('/api/shell', admin)).body) as { email: string; canWrite: boolean; canManageTeam: boolean; clients: { name: string }[]; activeClient: { id: string } | null; unread: number | null; plan: { state: string } };
     assert.equal(frame.email, admin.email);
     assert.equal(frame.canWrite, true);
@@ -114,8 +114,8 @@ describe('notifications module (e2e)', { skip }, () => {
     assert.deepEqual(narrow.clients.map((c) => c.name), ['Boshqa mijoz']);
     assert.equal(narrow.canManageTeam, false);
     const fresh = shaped(n.shell, (await get('/api/shell', stranger)).body) as { clients: unknown[]; activeClient: unknown };
-    assert.equal(fresh.clients.length, 1, 'the default client was created');
-    assert.ok(fresh.activeClient);
+    // Sign-up creates the default client with the org; the shell GET no longer writes one (Q4/Q15).
+    assert.equal(fresh.clients.length, await db.client.count({ where: { orgId: stranger.orgId, archivedAt: null } }));
     assert.equal((await http().get('/api/shell')).status, 401);
   });
 });

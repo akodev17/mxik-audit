@@ -2,8 +2,8 @@
 
 import { useMemo, type ReactNode } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import { IconBook, IconGear, IconHome, IconList, IconTable, IconUpload, IconUsers } from '../icons';
-import { IconHelp, IconQueue, IconTeam } from './icons';
+import { IconBook, IconBuilding, IconGear, IconHome, IconList, IconSend, IconTable, IconUpload, IconUsers } from '../icons';
+import { IconBox, IconHelp, IconQueue, IconSwitch, IconTeam } from './icons';
 import { navGroups, type NavEntry, type NavGroupKey, type NavKey } from './nav';
 
 export type NavItemView = NavEntry & { label: string; icon: ReactNode };
@@ -20,6 +20,10 @@ export const NAV_ICONS: Record<NavKey, ReactNode> = {
   activity: <IconList />,
   help: <IconHelp />,
   settings: <IconGear />,
+  bank: <IconBuilding />,
+  didox: <IconSend />,
+  products: <IconBox />,
+  onec: <IconSwitch />,
 };
 
 /** Page names as the sidebar shows them. */
@@ -36,6 +40,10 @@ export function useNavLabels(): Record<NavKey, string> {
     activity: ta.nav.activity,
     help: ta.shellX.nav.help,
     settings: ta.nav.settings,
+    bank: ta.accountingX.nav.bank,
+    didox: ta.accountingX.nav.didox,
+    products: ta.accountingX.nav.products,
+    onec: ta.accountingX.nav.onec,
   }), [ta]);
 }
 
@@ -48,6 +56,7 @@ export function useNav(canWrite: boolean, canTeam = false): NavGroupView[] {
     const groupLabels: Record<NavGroupKey, string | null> = {
       work: ta.shellX.nav.work,
       clients: ta.shellX.nav.clients,
+      accounting: ta.accountingX.nav.group,
       knowledge: ta.shellX.nav.knowledge,
       settings: null,
     };

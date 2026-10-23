@@ -19,6 +19,7 @@
     "dejavu-fonts-ttf": "^2.37.3",
     "exceljs": "^4.4.0",
     "grammy": "^1.46.0",
+    "iconv-lite": "^0.7.3",
     "ioredis": "^5.11.1",
     "iron-session": "^8.0.4",
     "jszip": "^3.10.1",

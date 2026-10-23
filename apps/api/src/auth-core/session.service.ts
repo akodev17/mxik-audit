@@ -4,6 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Response } from 'express';
 import { serialize, type SerializeOptions } from 'cookie';
 import { sealData, unsealData } from 'iron-session';
+import { decoyUser } from '@tasnivo/domain/security/decoy';
 import { recordAccepted } from '@tasnivo/domain/security/session-store';
 import type { SignInSession } from '@tasnivo/domain/security/sign-in';
 import { loadAccess, sessionOptions, type SessionData, type SignedInUser } from '@tasnivo/domain/session';
@@ -72,6 +73,11 @@ export class SessionService {
     if (!access) return null;
     if (!(await this.deps.recordAccepted(session.sid, userId, access.demoOrg))) return null;
     return { userId, orgId, email, demo: session.demo === true, clientId: session.clientId ?? null, role: access.role, clientIds: access.clientIds, verified: access.verified };
+  }
+
+  /** The sign-up decoy the cookie holds (Q3), shaped as a new unconfirmed admin; null otherwise. */
+  async decoy(req: ApiRequest): Promise<SignedInUser | null> {
+    return decoyUser(await this.read(req));
   }
 
   async seal(data: SessionData): Promise<string> {

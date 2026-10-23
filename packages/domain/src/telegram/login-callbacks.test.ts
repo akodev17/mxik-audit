@@ -74,7 +74,9 @@ describe('Telegram sign-in callback (database)', { skip: await dbSkipReason() },
     orgs.push((await db.user.findUniqueOrThrow({ where: { telegramUserId: id } })).orgId);
     assert.equal(await telegramSignIn(session(), data, req()), '/sign-in?error=telegram_expired', 'the same hash twice');
     assert.equal(await telegramSignIn(session(), signed({ id }, 600), req()), '/sign-in?error=telegram_expired', 'older than five minutes');
-    assert.equal(await telegramSignIn(session(), { ...signed({ id: newId() }), id }, req()), '/sign-in?error=telegram_expired', 'a changed id');
+    assert.equal(await telegramSignIn(session(), { ...signed({ id: newId() }), id }, req()), '/sign-in?error=telegram_invalid', 'a changed id (Q14: not "expired")');
+    assert.equal(await telegramSignIn(session(), { ...signed({ id: newId() }), hash: 'ab'.repeat(32) }, req()), '/sign-in?error=telegram_invalid', 'a forged hash');
+    assert.equal(await telegramSignIn(session(), { auth_date: String(Math.floor(Date.now() / 1000)), hash: 'ab' }, req()), '/sign-in?error=telegram_invalid', 'no id');
   });
 
   it('without a bot configured the callback goes back to sign-in', async () => {

@@ -128,6 +128,28 @@ function readText(buffer: Buffer): { grid: string[][]; encoding: TextEncodingNam
   return { grid: parseDelimited(text, delimiter), encoding, delimiter };
 }
 
+export type RawGrid = {
+  kind: 'xlsx' | 'text';
+  /** Rows at their sheet row (file line) index; undefined = an empty row. */
+  grid: (string[] | undefined)[];
+  /** Non-empty rows past the reader's limit, counted and not kept. */
+  extra: number;
+  encoding: TextEncodingName | null;
+  delimiter: Delimiter | null;
+};
+
+/**
+ * The cell grid of an upload by its content, before any header detection: for readers that need
+ * the rows above the header too (a bank statement's title rows carry its account and period).
+ * Throws ParseError with a stable code.
+ */
+export async function readGrid(buffer: Buffer): Promise<RawGrid> {
+  const kind = sniffKind(buffer);
+  if (kind === 'xls') throw new ParseError('legacy_xls');
+  if (kind === 'xlsx') return { kind, ...(await readXlsx(buffer)), encoding: null, delimiter: null };
+  return { kind, extra: 0, ...readText(buffer) };
+}
+
 /**
  * Parses an upload by its content: .xlsx (after the zip-bomb check) or text
  * (UTF-8 or windows-1251, ';' ',' or tab). Title rows above the header are
@@ -135,19 +157,7 @@ function readText(buffer: Buffer): { grid: string[][]; encoding: TextEncodingNam
  * Throws ParseError with a stable code.
  */
 export async function parseUpload(buffer: Buffer, filename?: string): Promise<ParseResult> {
-  const kind = sniffKind(buffer);
-  if (kind === 'xls') throw new ParseError('legacy_xls');
-
-  let grid: (string[] | undefined)[];
-  let extra = 0;
-  let encoding: TextEncodingName | null = null;
-  let delimiter: Delimiter | null = null;
-  if (kind === 'xlsx') {
-    ({ grid, extra } = await readXlsx(buffer));
-  } else {
-    ({ grid, encoding, delimiter } = readText(buffer));
-  }
-
+  const { kind, grid, extra, encoding, delimiter } = await readGrid(buffer);
   const shaped = shapeGrid(grid, extra);
   // Named .xlsx but not a zip, and no table in it as text either (no rows, not even two columns): a damaged
   // or renamed file, not an empty one (B11). A header-only CSV renamed to .xlsx is still "no rows".

@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import { startHeartbeat } from './audit-heartbeat.js';
 import { db } from '@tasnivo/db';
 import { runPool } from './work-pool.js';
-import { embeddingProviderFromEnv } from '@tasnivo/core/embed/index';
+import { embeddingProviderFromEnv, sharedEmbeddingProvider } from '@tasnivo/core/embed/index';
 import { matchProduct, timed, type DisableableStage, type StageTimer } from '@tasnivo/core/match/pipeline';
 import { lexicalQuery } from '@tasnivo/core/match/query';
 import { NoopRerankProvider, rerankFromEnv } from '@tasnivo/core/match/rerank';
@@ -146,6 +146,25 @@ export function useEmbedderSource(source: EmbedderSource | null): void {
   embedders = source ?? freshEmbedders;
 }
 
+/** An EmbedderSource that also says which providers it holds (for health checks and tests). */
+export type KeptEmbedders = EmbedderSource & { names(): string[] };
+
+/**
+ * The source for a long-lived process (the API, the worker): the configured provider is built once
+ * per configuration, and the first provider seen under a name is kept for the process's life, so a
+ * local model (470 MB of weights) is loaded once instead of once per audit, check or doc check (Q1).
+ */
+export function keptEmbedders(configured: () => EmbeddingProvider = () => sharedEmbeddingProvider()): KeptEmbedders {
+  const byName = new Map<string, EmbeddingProvider>();
+  const keep = (embedder: EmbeddingProvider): EmbeddingProvider => {
+    const kept = byName.get(embedder.name);
+    if (kept) return kept;
+    byName.set(embedder.name, embedder);
+    return embedder;
+  };
+  return { configured: () => keep(configured()), reuse: keep, names: () => [...byName.keys()] };
+}
+
 /** The vector stage's state for the configured provider, on the shared pool. */
 export async function vectorReadiness(): Promise<VectorReadiness> {
   const readiness = await checkVectorReadiness(pool, embedders.configured());
@@ -195,6 +214,10 @@ export type ItemCheck = {
   markingRequired: boolean;
   /** What stages 4 and 6 did for this row, for the run's pipeline metadata. */
   match: { rerank: RerankOutcome; vector: VectorOutcome };
+  /** The ranked suggestions the checks saw (the row's own code included when it was scorable). */
+  suggestions: ScoredCandidate[];
+  /** What the classifier says about the row's own code. */
+  existing: ResolvedRow['existing'];
 };
 
 const SUGGESTIONS = 5;
@@ -266,6 +289,8 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     findings,
     markingRequired: markingRequired(existing.candidate?.isMarked === true, findings, suggestions),
     match: { rerank: match.rerank, vector: match.vector },
+    suggestions,
+    existing,
   };
 }
 

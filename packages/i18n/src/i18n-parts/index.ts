@@ -10,6 +10,11 @@ import * as auth from './auth';
 import * as manage from './manage';
 import * as pricing from './pricing';
 import * as http from './http';
+import * as accounting from './accounting';
+import * as onec from './onec';
+import * as bank from './bank';
+import * as didox from './didox';
+import * as products from './products';
 
 export const partsUz = {
   ...shell.uz,
@@ -23,6 +28,11 @@ export const partsUz = {
   ...manage.uz,
   ...pricing.uz,
   ...http.uz,
+  ...accounting.uz,
+  ...onec.uz,
+  ...bank.uz,
+  ...didox.uz,
+  ...products.uz,
 };
 
 export const partsRu: typeof partsUz = {
@@ -37,4 +47,9 @@ export const partsRu: typeof partsUz = {
   ...manage.ru,
   ...pricing.ru,
   ...http.ru,
+  ...accounting.ru,
+  ...onec.ru,
+  ...bank.ru,
+  ...didox.ru,
+  ...products.ru,
 };

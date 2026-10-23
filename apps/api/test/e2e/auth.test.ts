@@ -178,14 +178,70 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     const code = await issueCode(row.id);
     const wrong = code === '000000' ? '111111' : '000000';
     assert.deepEqual(bodyOf<State>(await call(pair).post('/api/auth/verify-code').send({ code: wrong })), { error: ta.verifyX.wrong });
-    assert.deepEqual(bodyOf<State>(await call(pair).post('/api/auth/verify-code').send({ code })), { redirect: '/dashboard' });
-    assert.equal((await call(pair).get('/api/auth/sessions')).status, 200);
-    assert.equal(bodyOf<{ verified: boolean }>(await me(pair)).verified, true);
+    const confirmed = await call(pair).post('/api/auth/verify-code').send({ code });
+    assert.deepEqual(bodyOf<State>(confirmed), { redirect: '/dashboard' });
+    // Q2: the right code renews the session; the cookie from before the code is worthless now.
+    const renewed = sessionPair(confirmed);
+    assert.ok(renewed && renewed !== pair, 'a new session cookie is set');
+    const before = await unsealPair(pair ?? '');
+    const after = await unsealPair(renewed);
+    assert.ok(before.sid && after.sid && after.sid !== before.sid, 'a new sid');
+    assert.ok((await db.userSession.findUniqueOrThrow({ where: { id: before.sid } })).revokedAt, 'the pre-code session record is ended');
+    assert.equal((await call(pair).get('/api/dashboard')).status, 401);
+    assert.equal((await me(pair)).status, 401);
+    assert.equal((await call(renewed).get('/api/auth/sessions')).status, 200);
+    assert.equal(bodyOf<{ verified: boolean }>(await me(renewed)).verified, true);
+    assert.equal((await call(renewed).get('/api/dashboard')).status, 200);
 
-    // The address is taken: the owner gets a mail, the visitor the "check your e-mail" answer.
-    assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email, password: 'long-enough-1', firm: 'x' })), { checkEmail: true });
+    // The address is taken: the visitor gets the new-account answer (Q3, covered below).
+    assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email, password: 'long-enough-1', firm: 'x' })), { redirect: '/sign-up/verify' });
     assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email: 'bad', password: 'long-enough-1', firm: 'x' })), { error: ta.msg.account.emailBad });
     assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email: 'x@example.com', password: 'short', firm: 'x' })), { error: ta.msg.account.passwordShort });
+  });
+
+  it('Q3: sign-up answers a registered address like a new one; the owner is mailed; the decoy session opens nothing', async () => {
+    const owner = await fx.realEmail(await fx.user());
+    const fresh = `fresh-${testIp()}@example.com`.toLowerCase();
+    const caught = catchMail();
+    let taken: Awaited<ReturnType<ReturnType<typeof call>['post']>>;
+    let created: typeof taken;
+    try {
+      created = await call().post('/api/auth/sign-up').send({ email: fresh, password: 'long-enough-1', firm: 'Yangi' });
+      await fx.adopt(fresh);
+      taken = await call().post('/api/auth/sign-up').send({ email: owner.email, password: 'other-pass-123', firm: 'Boshqa' });
+    } finally {
+      caught.restore();
+    }
+    // Same status, body and cookie (name and attributes); only the sealed value differs.
+    assert.equal(taken.status, created.status);
+    assert.deepEqual(bodyOf<State>(taken), bodyOf<State>(created));
+    assert.deepEqual(bodyOf<State>(taken), { redirect: '/sign-up/verify' });
+    const attrs = (res: typeof taken) => setCookies(res).map((l) => l.replace(/=[^;]*/, '=…').replace(/; Expires=[^;]*/i, ''));
+    assert.deepEqual(attrs(taken), attrs(created));
+    // The registered owner is told someone tried.
+    assert.deepEqual(caught.mails.filter((m) => m.to === owner.email).map((m) => m.subject), [i18nFor('uz').ta.secX.mail.existsSubject]);
+
+    const decoy = sessionPair(taken) ?? '';
+    const who = await me(decoy);
+    assert.equal(who.status, 200);
+    const user = bodyOf<CurrentUser & { verified: boolean }>(who);
+    assert.equal(user.email, owner.email);
+    assert.equal(user.verified, false);
+    assert.equal(user.role, 'admin');
+    assert.notEqual(user.userId, owner.userId);
+    assert.deepEqual(Object.keys(user).sort(), Object.keys(bodyOf<object>(await me(sessionPair(created)))).sort());
+    for (const path of ['/api/auth/sessions', '/api/catalogs', '/api/shell', '/api/dashboard']) {
+      const refused = await call(decoy).get(path);
+      assert.equal(refused.status, 403, path);
+      assert.equal(bodyOf(refused).error.code, 'unverified');
+    }
+    const code = await issueCode(owner.userId);
+    assert.deepEqual(bodyOf<State>(await call(decoy).post('/api/auth/verify-code').send({ code })), { error: ta.verifyX.wrong });
+    assert.deepEqual(bodyOf<State>(await call(decoy).post('/api/auth/verify-code/resend')), { info: ta.verifyX.resent });
+    // Nothing reached the real account: its code is still usable and no session was opened for it.
+    assert.equal(await db.userSession.count({ where: { userId: owner.userId } }), 0);
+    assert.ok((await db.emailCode.findFirstOrThrow({ where: { userId: owner.userId }, orderBy: { createdAt: 'desc' } })).usedAt === null);
+    assert.deepEqual(bodyOf<State>(await call(decoy).post('/api/auth/sign-out')), { redirect: '/sign-in' });
   });
 
   it('sign-up is limited per client address (8 an hour)', async () => {

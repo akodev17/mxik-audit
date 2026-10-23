@@ -48,7 +48,9 @@ No-signup demo: `http://localhost:3000/demo`. Sign-in org: `buxgalter@demo.uz` /
 Locally the app is two processes: the API (`npm run dev:api`, port 4000), which owns the
 database and every `/api/*` address, and the web app (`npm run dev`, port 3000), which renders
 pages from the API's answers and sends the browser's `/api/*` calls on to it (a rewrite in
-`apps/web/next.config.ts`; `API_INTERNAL_URL` when the API is not on localhost:4000). Without
+`apps/web/next.config.ts`; `API_INTERNAL_URL` when the API is not on localhost:4000). A production
+build bakes that destination in: run `API_INTERNAL_URL=http://localhost:<api> npm run build` before
+`next start`, not only for `next start` (the build prints `[next.config] /api/* -> …`). Without
 `JOBS_MODE=bullmq` the API runs audits and other jobs itself; with it, start Redis and
 `npm run dev:worker` too. Docker runs only the database and Redis (plain `docker compose up -d`
 starts just `db` and `redis`). The

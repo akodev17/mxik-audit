@@ -2,8 +2,8 @@
 // and the tests share one definition.
 import type { Locale } from '@tasnivo/i18n/i18n';
 
-export type NavKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'help' | 'settings' | 'team';
-export type NavGroupKey = 'work' | 'clients' | 'knowledge' | 'settings';
+export type NavKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'help' | 'settings' | 'team' | 'bank' | 'didox' | 'products' | 'onec';
+export type NavGroupKey = 'work' | 'clients' | 'accounting' | 'knowledge' | 'settings';
 export type NavEntry = { key: NavKey; href: string };
 export type NavGroup = { key: NavGroupKey; items: NavEntry[] };
 
@@ -22,6 +22,11 @@ export function navGroups({ canWrite, canTeam = false, locale }: { canWrite: boo
         { key: 'catalogs', href: '/catalogs' },
         ...(canWrite ? [{ key: 'upload' as const, href: '/upload' }] : []),
       ],
+    },
+    // The accounting workflows (docs/TASNIVO_AI_PLAN_2026-10-23.md §5): source documents in, 1C-ready data out.
+    {
+      key: 'accounting',
+      items: [{ key: 'bank', href: '/bank' }, { key: 'didox', href: '/didox' }, { key: 'products', href: '/products' }, { key: 'onec', href: '/onec' }],
     },
     {
       key: 'knowledge',
@@ -52,7 +57,7 @@ export function fittingTabs(widths: readonly number[], available: number, more: 
 const CLIENT_PAGE =/^\/clients\/([^/]+)/;
 const CATALOG_PAGE = /^\/catalogs\/[^/]+/;
 /** Lists that filter by a `client` query parameter. */
-const CLIENT_LISTS = ['/queue', '/activity', '/catalogs'];
+const CLIENT_LISTS = ['/queue', '/activity', '/catalogs', '/bank', '/didox', '/products', '/onec'];
 
 /**
  * Where to go after switching to `clientId`, so the switch always shows: a client's page moves to

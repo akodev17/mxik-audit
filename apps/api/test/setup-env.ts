@@ -8,3 +8,6 @@ loadRootEnv();
 // The docker-compose development database (.env.example); a real .env or environment wins.
 process.env['DATABASE_URL'] ||= 'postgresql://mxik:mxik@127.0.0.1:54329/mxik?schema=public';
 process.env['SESSION_SECRET'] ||= 'apps-api-test-session-secret-0123456789abcdef';
+// The tests stand where Caddy would: each request names its client in X-Real-IP (testIp()), so
+// per-address limits never carry over between tests. client-ip.test.ts covers the unset case (Q5).
+process.env['TRUST_PROXY'] ||= '1';

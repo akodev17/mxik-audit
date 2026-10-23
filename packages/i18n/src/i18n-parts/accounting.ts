@@ -1,0 +1,139 @@
+// The accounting workflows' shared copy: the navigation group and the four module entries (1C,
+// bank statements, Didox invoices, product catalogue), the record statuses, and the validation
+// issue codes of packages/contracts/src/accounting.ts. Module-specific copy lives in the
+// module's own part (onec.ts, bank.ts, didox.ts, products.ts). Uzbek Latin first; the Russian
+// object must have the same shape (the type enforces it).
+
+export const uz = {
+  accountingX: {
+    _area: 'accounting',
+    nav: {
+      group: 'Buxgalteriya',
+      bank: 'Bank koʻchirmalari',
+      didox: 'Didox hisob-fakturalar',
+      products: 'Mahsulotlar katalogi',
+      onec: '1C import va tarix',
+    },
+    status: {
+      uploaded: 'Yuklandi',
+      parsed: 'Oʻqildi',
+      review: 'Koʻrib chiqilmoqda',
+      approved: 'Tasdiqlandi',
+      exported: '1C ga tayyorlandi',
+      failed: 'Xato',
+    },
+    record: {
+      valid: 'Toʻgʻri',
+      corrected: 'Tuzatildi',
+      suspicious: 'Shubhali',
+      unresolved: 'Hal qilinmagan',
+      skipped: 'Oʻtkazib yuborildi',
+      exported: '1C ga yuborildi',
+    },
+    placeholder: {
+      title: 'Bu boʻlim tayyorlanmoqda',
+      hint: 'Bank koʻchirmalari, Didox hisob-fakturalar va mahsulotlar katalogini 1C ga tayyorlash shu yerda boʻladi.',
+    },
+    kinds: {
+      bank_statement: 'Bank koʻchirmasi',
+      didox_invoice: 'Didox hisob-faktura',
+      product_catalog: 'Mahsulotlar katalogi',
+    },
+    /** Generic issue codes of packages/contracts/src/accounting.ts ONEC_ISSUE_CODES; workstreams add theirs in their own part. */
+    issues: {
+      duplicate_row: 'Shu toʻplamda takrorlangan yozuv',
+      duplicate_export: '1C ga avval yuborilgan',
+      amount_invalid: 'Summa yoki miqdor notoʻgʻri',
+      date_invalid: 'Sana notoʻgʻri',
+      account_invalid: 'Hisob raqami yoki MFO notoʻgʻri',
+      inn_invalid: 'STIR (INN) notoʻgʻri',
+      counterparty_unknown: 'Kontragent bazada yoʻq: 1C yangisini yaratadi',
+      counterparty_ambiguous: 'Bir nechta kontragent mos keladi: tanlang',
+      balance_mismatch: 'Qoldiq mos emas: boshlangʻich + kirim − chiqim ≠ yakuniy',
+      totals_mismatch: 'Satrlar yigʻindisi sarlavhaga mos emas',
+      unresolved: 'Qoidalar hal qila olmadi: tekshiring',
+      payload_invalid: 'Yozuv tuzilmasi notoʻgʻri',
+      name_missing: 'Nomi yoʻq',
+    } as Record<string, string>,
+    /** RecordOutcome.reason of a record left out of an export or refused by 1C. */
+    reasons: {
+      unresolved: 'Xato tuzatilmagan',
+      not_approved: 'Tasdiqlanmagan',
+      skipped: 'Oʻtkazib yuborilgan',
+      invalid: '1C formati tekshiruvidan oʻtmadi',
+      duplicate_row: 'Takror yozuv',
+      duplicate_export: 'Avval yuborilgan',
+      onec_refused: '1C qabul qilmadi',
+      auth_failed: '1C ga kirish rad etildi',
+      timeout: '1C javob bermadi',
+      unreachable: '1C ga ulanib boʻlmadi',
+    } as Record<string, string>,
+    outcome: { imported: 'Yuborildi', skipped: 'Oʻtkazildi', rejected: 'Rad etildi' },
+  },
+};
+
+export const ru: typeof uz = {
+  accountingX: {
+    _area: 'accounting',
+    nav: {
+      group: 'Бухгалтерия',
+      bank: 'Банковские выписки',
+      didox: 'Счета-фактуры Didox',
+      products: 'Каталог товаров',
+      onec: 'Импорт в 1С и история',
+    },
+    status: {
+      uploaded: 'Загружено',
+      parsed: 'Прочитано',
+      review: 'На проверке',
+      approved: 'Подтверждено',
+      exported: 'Подготовлено для 1С',
+      failed: 'Ошибка',
+    },
+    record: {
+      valid: 'Корректно',
+      corrected: 'Исправлено',
+      suspicious: 'Сомнительно',
+      unresolved: 'Не решено',
+      skipped: 'Пропущено',
+      exported: 'Передано в 1С',
+    },
+    placeholder: {
+      title: 'Раздел готовится',
+      hint: 'Здесь будут банковские выписки, счета-фактуры Didox и каталог товаров, подготовленные для 1С.',
+    },
+    kinds: {
+      bank_statement: 'Банковская выписка',
+      didox_invoice: 'Счёт-фактура Didox',
+      product_catalog: 'Каталог товаров',
+    },
+    issues: {
+      duplicate_row: 'Повтор записи в этом наборе',
+      duplicate_export: 'Уже передано в 1С',
+      amount_invalid: 'Неверная сумма или количество',
+      date_invalid: 'Неверная дата',
+      account_invalid: 'Неверный расчётный счёт или МФО',
+      inn_invalid: 'Неверный ИНН',
+      counterparty_unknown: 'Контрагента нет в базе: 1С создаст нового',
+      counterparty_ambiguous: 'Подходят несколько контрагентов: выберите',
+      balance_mismatch: 'Остаток не сходится: начальный + приход − расход ≠ конечный',
+      totals_mismatch: 'Сумма строк не равна итогу документа',
+      unresolved: 'Правила не смогли решить: нужна проверка',
+      payload_invalid: 'Неверная структура записи',
+      name_missing: 'Нет наименования',
+    },
+    reasons: {
+      unresolved: 'Ошибка не исправлена',
+      not_approved: 'Не подтверждено',
+      skipped: 'Пропущено',
+      invalid: 'Не прошло проверку формата 1С',
+      duplicate_row: 'Повтор',
+      duplicate_export: 'Уже передано',
+      onec_refused: '1С не приняла',
+      auth_failed: '1С отказала во входе',
+      timeout: '1С не ответила',
+      unreachable: 'Нет связи с 1С',
+    },
+    outcome: { imported: 'Передано', skipped: 'Пропущено', rejected: 'Отклонено' },
+  },
+};

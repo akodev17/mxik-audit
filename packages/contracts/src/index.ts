@@ -1,6 +1,7 @@
 // @tasnivo/contracts: every endpoint's method, path, auth and zod schemas, by module.
 export * from './endpoint';
 export * from './common';
+export * as accounting from './accounting';
 export { named, openapi, metaOf, type OpenApiMeta } from './meta';
 export { endpoints, allEndpoints, byOperationId, type Endpoints } from './registry';
 export { buildOpenApi, DEFAULT_DOC_CONFIG, SESSION_COOKIE, SchemaConverter, type BuildOptions } from './openapi';

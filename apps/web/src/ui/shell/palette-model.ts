@@ -2,7 +2,7 @@
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { navGroups } from './nav';
 
-export type CommandKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'notifications' | 'settings' | 'help' | 'switchClient' | 'team';
+export type CommandKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'notifications' | 'settings' | 'help' | 'switchClient' | 'team' | 'bank' | 'didox' | 'products' | 'onec';
 
 /** A command either opens a page or, for switchClient, turns the palette into a client picker. */
 export type CommandSpec = { key: CommandKey; href: string | null };

@@ -5,6 +5,21 @@ import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 import { securityHeaders } from '@tasnivo/contracts/security-headers';
 
+/**
+ * Copy of src/lib/api-rewrite.ts apiRewrites (that file is the tested specification; Next transpiles
+ * only next.config.ts itself, so a TS module cannot be imported here). Keep the two in step.
+ */
+function apiRewrites(env: Record<string, string | undefined>, log: (line: string) => void = console.log): { source: string; destination: string }[] {
+  if (env['NEXT_PUBLIC_API_URL']) {
+    log(`[next.config] /api/* is not rewritten: the browser calls NEXT_PUBLIC_API_URL (${env['NEXT_PUBLIC_API_URL']}) itself`);
+    return [];
+  }
+  const set = env['API_INTERNAL_URL']?.trim();
+  const api = (set || 'http://localhost:4000').replace(/\/$/, '');
+  log(`[next.config] /api/* -> ${api}/api/* (${set ? 'API_INTERNAL_URL' : 'default, API_INTERNAL_URL not set'}); a production build keeps this destination, so set API_INTERNAL_URL when building`);
+  return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
+}
+
 const config: NextConfig = {
   // The workspace packages are TypeScript source (package.json "exports" point at .ts files). The web app
   // reads and writes through the API only: no @tasnivo/domain, @tasnivo/db or @tasnivo/core here (ESLint).
@@ -37,9 +52,7 @@ const config: NextConfig = {
   // when building, not only when starting (behind Caddy /api/* never reaches the web app, so there it
   // does not matter).
   async rewrites() {
-    if (process.env.NEXT_PUBLIC_API_URL) return [];
-    const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
-    return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
+    return apiRewrites(process.env);
   },
   webpack: (webpackConfig) => {
     // packages/* are also run directly by tsx (scripts, eval, tests),

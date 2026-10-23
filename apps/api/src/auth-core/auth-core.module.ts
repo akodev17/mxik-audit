@@ -2,7 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { authenticate } from '@tasnivo/domain/api/keys';
 import { API_KEY_AUTH, ApiKeyGuard } from './api-key.guard';
 import { CronGuard } from './cron.guard';
-import { InMemoryRateLimitStore, RATE_LIMIT_STORE } from './rate-limit.store';
+import { RATE_LIMIT_STORE } from './rate-limit.store';
+import { rateLimitStoreProvider } from './redis-rate-limit.store';
 import { OptionalSessionGuard, SessionGuard } from './session.guard';
 import { SESSION_DEPS, sessionDeps, SessionService } from './session.service';
 
@@ -17,7 +18,8 @@ import { SESSION_DEPS, sessionDeps, SessionService } from './session.service';
     SessionService,
     { provide: SESSION_DEPS, useValue: sessionDeps },
     { provide: API_KEY_AUTH, useValue: authenticate },
-    { provide: RATE_LIMIT_STORE, useClass: InMemoryRateLimitStore },
+    // The one RATE_LIMIT_STORE (Q16): Redis when REDIS_URL is set, so no module's ApiKeyGuard silently gets a per-process window.
+    rateLimitStoreProvider(),
     SessionGuard, OptionalSessionGuard, ApiKeyGuard, CronGuard,
   ],
   exports: [SessionService, API_KEY_AUTH, RATE_LIMIT_STORE, SessionGuard, OptionalSessionGuard, ApiKeyGuard, CronGuard],

@@ -7,7 +7,7 @@ import { PrismaService } from '../db/prisma.service';
 
 /**
  * 200 when the API can serve audits: database reachable and the classifier loaded; 503 otherwise.
- * The same answer as the web app's /api/health (apps/web/src/app/api/health/route.ts): booleans,
+ * The web app's /api/health is this route (its /api rewrite reaches the API): booleans,
  * the classifier copy's age and how its last update ended, nothing about customers or keys.
  */
 @ApiTags('health')

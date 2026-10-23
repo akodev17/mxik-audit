@@ -1,6 +1,6 @@
 // What an org may do right now: trial or subscription-tier limits, usage against them,
-// warnings at 80% and a paywall at 100% or when the trial has ended. The web app's
-// src/lib/plan.ts memoises planStatus once per render and builds its gates on that copy.
+// warnings at 80% and a paywall at 100% or when the trial has ended. The API answers it
+// (GET /api/billing/plan, the plan part of GET /api/shell); the web app reads it from there.
 import { db } from '@tasnivo/db';
 import { planLimits, WARN_AT, type LimitKey, type Limits } from './billing/limits';
 import { PLAN_FEATURES, planById, SUBSCRIPTION_IDS, type Feature, type Plan, type Tier } from './billing/plans';
@@ -52,7 +52,7 @@ export async function lastSubscription(orgId: string): Promise<Plan | null> {
   return order ? planById(order.planId) : null;
 }
 
-/** Reads the plan and usage each call; the web app wraps it once per render (apps/web/src/lib/plan.ts). */
+/** Reads the plan and usage each call (nothing is cached between requests). */
 export async function planStatus(orgId: string, now = new Date()): Promise<PlanStatus> {
   const [org, usage] = await Promise.all([
     db.organization.findUnique({ where: { id: orgId }, select: { kind: true, trialEndsAt: true, subscriptionUntil: true } }),

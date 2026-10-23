@@ -73,9 +73,9 @@ export class RedisRateLimitStore implements RateLimitStore, OnApplicationShutdow
 }
 
 /**
- * RATE_LIMIT_STORE for the modules whose routes use ApiKeyGuard: Redis when REDIS_URL is set,
- * otherwise the per-process store. A guard listed in @UseGuards() is instantiated in the module of
- * the controller using it, so this provider (not AuthCoreModule's default) is what it receives there.
+ * RATE_LIMIT_STORE, provided once by the global AuthCoreModule (Q16): Redis when REDIS_URL is set,
+ * otherwise the per-process store. Every module's ApiKeyGuard resolves it from there; no module
+ * provides its own.
  */
 export function rateLimitStoreProvider(env: Record<string, string | undefined> = process.env): Provider {
   return {
