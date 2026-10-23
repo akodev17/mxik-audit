@@ -60,7 +60,7 @@ function stubDeps(timer: { match: number }): CheckDeps {
       timer.match += performance.now() - t;
       return Promise.resolve(out);
     },
-    classifyProducts: (_o, queries) => Promise.resolve(queries.map((q) => ({ mxik: q.mxik ?? null, mxikName: null, mxikStatus: 'ok' as const, mxikSuggestion: null, packageCode: null, packageName: null, markingRequired: null }))),
+    classifyProducts: (_o, queries) => Promise.resolve(queries.map((q) => ({ mxik: q.mxik ?? null, mxikName: null, mxikStatus: 'ok' as const, mxikSuggestion: null, packageCode: null, packageName: null, markingRequired: null, issues: [] }))),
     matchCounterparties: (_o, refs) => Promise.resolve(refs),
     productRecords: (_o, ids) => Promise.resolve(ids.flatMap((id) => [...catalogue.values()].filter((p) => p.productId === id).slice(0, 1))),
   };

@@ -39,7 +39,7 @@ function stubDeps(catalogue: Record<string, ProductRecord | 'ambiguous'>, classi
       return {
         mxik: q.mxik ?? null, mxikName: null, mxikStatus: status ?? (q.mxik ? 'ok' : 'missing'),
         mxikSuggestion: !q.mxik ? { id: '11111111111111111', label: 'Suggested', confidence: 0.7, basis: 'ai' as const, reason: 'by name' } : null,
-        packageCode: null, packageName: null, markingRequired: null,
+        packageCode: null, packageName: null, markingRequired: null, issues: [],
       };
     })),
     matchCounterparties: (_o, refs) => Promise.resolve(refs.map((r) => ({ ...r, match: { status: 'new' as const, chosen: null, candidates: [] } }))),
