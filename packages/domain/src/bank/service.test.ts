@@ -217,7 +217,7 @@ describe('bank statements (database)', { skip }, () => {
 
     const first = await exportStatement(admin, 'uz', ruBatch);
     assert.ok(first.ok, JSON.stringify(first));
-    const file1 = parseBankExchange(first.file.body as Uint8Array);
+    const file1 = parseBankExchange(first.file.body);
     assert.equal(file1.documents.length, valid.approved);
     assert.equal(await db.importRecord.count({ where: { batchId: ruBatch, status: 'exported' } }), valid.approved);
     assert.equal((await statementDetail(admin, ruBatch))?.statement.approved, 0, 'nothing approved is left unexported');
@@ -227,7 +227,7 @@ describe('bank statements (database)', { skip }, () => {
     assert.equal(valid.approved + rest.approved, 10, 'the RU fixture has no errors');
     const second = await exportStatement(admin, 'uz', ruBatch);
     assert.ok(second.ok, JSON.stringify(second));
-    const file2 = parseBankExchange(second.file.body as Uint8Array);
+    const file2 = parseBankExchange(second.file.body);
     assert.equal(file2.documents.length, rest.approved, 'the retry carries only the lines not exported yet');
     const numbers = (f: typeof file1): string[] => f.documents.map((d) => d['Номер'] ?? '');
     assert.deepEqual(numbers(file1).filter((n) => n !== '' && numbers(file2).includes(n)), [], 'no document in both files');
