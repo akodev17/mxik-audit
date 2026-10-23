@@ -59,6 +59,21 @@ describe('app tokens', () => {
         assert.ok(ratio(set, 'inverse', 'fg') >= 4.5, 'inverse on fg');
       });
 
+      it('muted and subtle text stay >= 4.5:1 on wells and every tint (hints inside chips, rows and notices)', () => {
+        for (const text of ['muted', 'subtle']) {
+          for (const bg of ['sunken', 'brand-tint', 'good-tint', 'warn-tint', 'danger-tint', 'info-tint']) {
+            assert.ok(ratio(set, text, bg) >= 4.5, `${text} on ${bg}: ${ratio(set, text, bg).toFixed(2)}`);
+          }
+        }
+        // muted is the stronger of the two: it carries labels and header cells.
+        assert.ok(ratio(set, 'muted', 'base') > ratio(set, 'subtle', 'base'), 'muted is darker than subtle');
+      });
+
+      it('lines: line-strong reads stronger than line, and both stay visible on base', () => {
+        assert.ok(ratio(set, 'line', 'base') >= 1.2, `line on base: ${ratio(set, 'line', 'base').toFixed(2)}`);
+        assert.ok(ratio(set, 'line-strong', 'base') > ratio(set, 'line', 'base') + 0.2, 'line-strong vs line');
+      });
+
       it('status ink >= 4.5:1 on its tint and on base', () => {
         for (const family of ['good', 'warn', 'danger', 'info', 'brand']) {
           assert.ok(ratio(set, `${family}-ink`, `${family}-tint`) >= 4.5, `${family}-ink on tint: ${ratio(set, `${family}-ink`, `${family}-tint`).toFixed(2)}`);
@@ -86,6 +101,19 @@ describe('app tokens', () => {
       });
     });
   }
+
+  it('implements the type scale of docs/UI_REFRESH_PLAN.md §2 (size / line height in px)', () => {
+    const px = (name: string): string => {
+      const size = theme.get(`--text-${name}`);
+      const line = theme.get(`--text-${name}--line-height`);
+      assert.ok(size && line, `missing --text-${name}`);
+      return `${parseFloat(size) * 16}/${parseFloat(line) * 16}`;
+    };
+    assert.deepEqual(
+      Object.fromEntries(['h1', 'title', 'h2', 'section', 'body', 'data', 'small'].map((n) => [n, px(n)])),
+      { h1: '24/32', title: '24/32', h2: '18/28', section: '18/28', body: '14/20', data: '13/18', small: '12/16' },
+    );
+  });
 
   it('fixes the audited danger chip (was 4.27:1)', () => {
     assert.ok(ratio(light, 'danger-ink', 'danger-tint') > 6);

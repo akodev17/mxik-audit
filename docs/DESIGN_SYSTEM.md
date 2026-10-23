@@ -18,7 +18,7 @@ below on every `npm test`.
 | Primitives | `src/ui/*.tsx` (shell in `src/ui/shell/**`) |
 | Contrast maths | `src/styles/contrast.ts` |
 | Visual QA page (dev only, 404 in production) | `/dev/ui` (`src/app/(app)/dev/ui`) |
-| Strings used by primitives | `src/lib/i18n-parts/shell.ts` → `ta.shellX.ui` |
+| Strings used by primitives | `packages/i18n/src/i18n-parts/shell.ts` → `ta.shellX.ui`; those added in the UI refresh in `i18n-parts/auth.ts` → `ta.uiX` |
 
 All base rules sit in `@layer base`, component classes (`.dense`, `.skeleton`) in
 `@layer components`, so any Tailwind utility on an element wins over them.
@@ -51,11 +51,11 @@ Utilities follow the token name: `--color-danger-ink` → `text-danger-ink`, `bg
 | `sunken` | `#edf1f5` | `#0a0f14` | Wells, code chips, neutral badges, disabled fields, inside of the progress track |
 | `overlay` | `rgb(16 24 32 / .45)` | `rgb(0 0 0 / .6)` | Modal and drawer scrim |
 | `fg` | `#15202b` | `#e5eaef` | Primary text |
-| `muted` | `#5b6875` | `#9ba7b3` | Secondary text, labels, header cells |
-| `subtle` | `#63707d` | `#8794a1` | Placeholders, separators, tertiary icons (still ≥ 4.5:1) |
+| `muted` | `#4f5c69` | `#a3afbb` | Secondary text, labels, header cells (≥ 4.5:1 on wells and every tint too) |
+| `subtle` | `#5a6774` | `#8f9ca9` | Placeholders, separators, tertiary icons (still ≥ 4.5:1, also on tints) |
 | `inverse` | `#ffffff` | `#0f151b` | Text on an `fg` fill (tooltip, selected segment) |
-| `line` | `#e2e8ee` | `#263039` | Dividers, card borders |
-| `line-strong` | `#cbd5df` | `#34404b` | Table head rule, button borders |
+| `line` | `#dce3ea` | `#2c3742` | Dividers, card borders |
+| `line-strong` | `#c5cfd9` | `#3a4651` | Table head rule, button borders |
 | `line-input` | `#7a8896` | `#687686` | Borders of inputs, selects, textareas; the progress track edge (≥ 3:1) |
 | `brand` | `#2457f5` | `#7aa0ff` | Primary buttons, links, progress, selection |
 | `brand-hover` | `#1c47d6` | `#93b3ff` | Primary button hover |
@@ -64,6 +64,7 @@ Utilities follow the token name: `--color-danger-ink` → `text-danger-ink`, `bg
 | `brand-ink` | `#1a44cc` | `#a9c1ff` | Text on `brand-tint`, quiet links |
 | `on-fill` | `#ffffff` | `#0b1220` | Text and icons on solid brand, good, danger, info fills |
 | `focus` | `#2457f5` | `#7aa0ff` | Focus ring |
+| `focus-halo` | `rgb(36 87 245 / .16)` | `rgb(122 160 255 / .24)` | Soft 4px halo outside a focused field (decoration; the ring is the signal) |
 | `good` / `good-tint` / `good-ink` | `#1a7f4c` / `#e7f4ec` / `#14653c` | `#4dc28a` / `#11291d` / `#83d9ab` | Verified, accepted, done |
 | `warn` / `warn-tint` / `warn-ink` | `#e39b12` / `#fdf4e1` / `#8a5a00` | `#e2a63c` / `#2d2412` / `#f1c46e` | Doubtful, needs a look. The `warn` fill is never text |
 | `danger` / `danger-tint` / `danger-ink` | `#cc3324` / `#fcefed` / `#a52a1d` | `#f27b6f` / `#341b19` / `#ff9f94` | Wrong or missing code, destructive actions, invalid fields |
@@ -78,17 +79,24 @@ Status families: **fill** for dots, bars and solid marks; **tint** for chip and 
 ## Type scale
 
 Onest for all text (weights 400, 500, 600, 700), IBM Plex Mono for codes. `.app` sets
-`text-body` and tabular figures by default.
+`text-body` and tabular figures by default. The scale is the one in `docs/UI_REFRESH_PLAN.md` §2
+(`tokens.test.ts` checks it); use these utilities and nothing else (no `text-sm`, `text-lg`,
+`text-[1.75rem]`).
 
 | Utility | Size / line | Weight | Use |
 | --- | --- | --- | --- |
-| `text-title` | 22 / 28 | 600 | Page `h1` (Page) |
-| `text-section` | 16 / 24 | 600 | Section `h2`, dialog and drawer titles |
-| `text-body` | 15 / 22 | 400 | Running text (the `.app` default) |
-| `text-data` | 14 / 20 | 400 | Tables, grids (`.dense`), controls, buttons |
-| `text-small` | 13 / 18 | 400–500 | Labels, hints, header cells, breadcrumbs |
-| `text-micro` | 12 / 16 | 500 | Badges, field hints and errors, tooltips |
+| `text-display` | 32 / 40 | 600 | Hero lines only: the auth brand panel, a first-run empty state |
+| `text-h1` = `text-title` | 24 / 32 | 600 | Page `h1` (Page), auth form titles |
+| `text-h2` = `text-section` | 18 / 28 | 600 | Section `h2`, card, dialog and drawer titles |
+| `text-body` | 14 / 20 | 400 | Running text, page hints (the `.app` default), `lg` controls |
+| `text-data` | 13 / 18 | 400 | Tables, grids (`.dense`), `md` controls, buttons, field labels |
+| `text-small` | 12 / 16 | 400–500 | Hints and errors under fields, header cells, breadcrumbs |
+| `text-micro` | 12 / 16 | 500 (add `font-medium`) | Badges, counts, tooltips |
 | `text-mono` + `font-mono` | 13 / 18 | 400 | MXIK codes (CodeChip), keys, tokens |
+
+`text-h1`/`text-h2` (the plan's names) and `text-title`/`text-section` (older) are the same sizes;
+both stay. Phones: a field whose text is under 16px makes iOS zoom in on focus, so pages a phone
+user types into first (auth) add `max-sm:text-[16px]` to their fields.
 
 ## Shape, depth, stacking, motion, sizing
 
@@ -103,7 +111,7 @@ Onest for all text (weights 400, 500, 600, 700), IBM Plex Mono for codes. `.app`
 | `--duration-fast` / `--duration-base` | 120 / 180 ms | Colour changes / entrances (`duration-(--duration-fast)`) |
 | `ease-standard` | `cubic-bezier(.2,0,0,1)` | All motion |
 | `animate-fade-in` / `animate-pop-in` / `animate-slide-in` | base duration | Always behind `motion-safe:` |
-| `h-control-compact` / `-md` / `-lg` | 32 / 36 / 40 px | Inputs, selects, buttons |
+| `h-control-compact` / `-md` / `-lg` | 32 / 36 / 40 px | Inputs, selects, buttons, segmented. **Forms use `lg`** (40, §2), toolbars and filters `md`, dense bars `compact`; Button, Input, Select and Segmented of the same size are the same height |
 | `h-control-inline` | 28 px | Buttons inside dense table and grid rows |
 | `max-w-page` / `max-w-page-wide` | 64 / 80 rem | Page containers (`pageContainerClass(wide)`) |
 
@@ -116,21 +124,25 @@ All in `src/ui`. States listed are the ones the dev gallery renders.
 
 | Component | Props (beyond native) | States |
 | --- | --- | --- |
-| `Button`, `ButtonLink`, `buttonClass()` | `variant`: primary · secondary · ghost · danger · danger-ghost; `size`: compact (28) · sm (32) · md (36, default); `loading` (Button) | rest, hover, pressed, focus, disabled, loading (`aria-busy`, spinner, clicks ignored, focus kept) |
+| `Button`, `ButtonLink`, `buttonClass()` | `variant`: primary · secondary · ghost · danger · danger-ghost; `size`: compact (28) · sm (32) · md (36, default) · lg (40, forms); `loading` (Button); `leadingIcon`, `trailingIcon` (decorative slots; the spinner takes the leading slot while loading); `BUTTON_ICON_SIZE[size]` is the matching icon size | rest, hover, pressed, focus, disabled, loading (`aria-busy`, spinner, clicks ignored, focus kept) |
 | `IconButton` | `label` (required: aria-label and tooltip), `icon`, `variant` ghost · secondary · danger-ghost, `size`, `tooltipSide`, `tooltipAlign`, `loading` | as Button; tooltip on hover and keyboard focus |
 | `Tooltip` | `content`, `side`, `align`, `describe` (adds aria-describedby) | hidden, shown on hover (300 ms) or focus-visible, hoverable, Escape hides |
 | `Badge`, `StatusChip`, `StatusIcon` | `tone`: neutral · good · warn · danger · info · brand; `icon`, `title` | text always present; StatusIcon gives tick / triangle / cross / i; when space is tight only the label shortens with an ellipsis (`min-w-0` label, `shrink-0` icon, chip capped at `max-w-full`) and the full text stays in the DOM; StatusChip repeats a plain-text label as `title`, Badge only when given one (badges often sit in Tooltip triggers) |
-| `Input` | `size` compact · md · lg, `invalid` | rest, hover, focus (one 2px ring over the border), invalid, disabled, read-only |
-| `Field` | `label`, `hint`, `error`, `required` | links label, hint and error to its control by id (`aria-describedby`, `aria-invalid`) |
-| `Select` | `size`, `invalid`, `label`, `hint`, `error`, `wrapperClassName` | native select, chevron, same states as Input |
+| `Input` | `size` compact · md · lg, `invalid`, `leadingIcon`, `trailingIcon` (decorative), `trailing` (an interactive element at the end, with its own name), `wrapperClassName` | rest, hover, focus (2px ring over the border plus the `focus-halo`), invalid, disabled, read-only |
+| `PasswordInput` (`password-input.tsx`) | as Input, without `type`/`trailing` | show/hide toggle: a real button named "Parolni koʻrsatish / yashirish" (`ta.uiX`), `aria-pressed`, `aria-controls` the field; never submits |
+| `Field` | `label`, `hint`, `error`, `required`, `labelAside` (a link at the right of the label row, e.g. "Forgot password?") | links label, hint and error to its control by id (`aria-describedby`, `aria-invalid`); label `text-data` medium, hint and error `text-small` |
+| `Select` | `size`, `invalid`, `label`, `hint`, `error`, `wrapperClassName`, `leadingIcon` | native select, chevron, same states as Input; a pointer-focused select shows the ring too |
 | `Textarea` | `invalid` | as Input, vertical resize |
 | `Checkbox` | `label`, `description`, `hideLabel`, `indeterminate` | unchecked, checked, mixed, disabled |
-| `Segmented` | `label`, `options` ({ value, label, icon, lang }), `value`, `onChange`, `size`, `name`, `disabled` | native radios: arrows move, Tab leaves, posts with forms; selected = `brand-tint` fill, `brand-ink` text and a 1px `brand` ring (>= 3:1 on the `surface` track, tested) |
+| `Segmented` | `label`, `options` ({ value, label, icon, lang }), `value`, `onChange`, `size` compact · md · lg, `name`, `disabled` | native radios: arrows move, Tab leaves, posts with forms; selected = `brand-tint` fill, `brand-ink` text and a 1px `brand` ring (>= 3:1 on the `surface` track, tested) |
 | `CopyField` | `label`, `value`, `mono`, `size` | idle, copied (announced politely), failed (fallback to selection, message shown) |
 | `Progress`, `progressPercent()` | `label`, `value`, `max`, `valueText`, `tone`, `hideLabel`, `size` | determinate (`aria-valuenow/min/max/text`), indeterminate; track = `sunken` well with a 1px `line-input` edge (≥ 3:1 on surface, raised and base in both themes; brand, good and danger fills ≥ 3:1 on the well; tested in `progress.test.ts`). The light `warn` fill is about 2:1 on the well, so a warn bar keeps its visible value text (no `hideLabel`) |
 | `Stat` | `label`, `value` (pre-formatted), `hint`, `href`, `tone` | static tile, whole tile as link; the label wraps to two lines before an ellipsis and values line up across a row |
-| `Table`, `Th`, `Td`, `Tr` | Table: `label` (region name), `stickyHeader`, `maxHeight`; Th/Td: `numeric`; Tr: `interactive`, `selected` | horizontal scroll inside a positioned frame with edge fades; hover only on interactive rows |
-| `Page`, `Section`, `pageContainerClass()` | Page: `title`, `hint`, `actions`, `wide`, `crumbs`; Section: `title`, `hint`, `actions` | breadcrumbs above the `h1`; container is `relative` |
+| `Table`, `Th`, `Td`, `Tr` | Table: `label` (region name), `stickyHeader`, `maxHeight`, `density` comfortable (40px rows, default) · compact (32px), `hoverRows`; Th/Td: `numeric`; Tr: `interactive`, `selected` | horizontal scroll inside a positioned frame with edge fades; hover on interactive rows, or on every row with `hoverRows`; cell padding comes from `--cell-py` |
+| `Page`, `Section`, `pageContainerClass()` | Page: `title`, `hint`, `actions`, `wide`, `crumbs`; Section: `title`, `hint`, `actions` | breadcrumbs above the `h1` (`text-title`, 24/32); the hint is one sentence in `text-body` muted; container is `relative` |
+| `Card`, `cardClass()` (`page.tsx`) | `title`, `description`, `actions`, `footer`, `padding` none · sm (16) · md (20, default), `as`, `headingAs` | raised surface, `line` border, 12px radius, `shadow-sm`; header row (title and description left, actions right), footer bar on `surface`; never nest cards |
+| `Alert` | `tone` info · good · warn · danger, `title`, `action`, `icon` | tint fill, ink text, softened border of the fill colour; danger is `role=alert`, the rest `role=status` |
+| `Skeleton`, `SkeletonLine`, `SkeletonText`, `SkeletonCard`, `PageSkeleton` | Line: `size` (a type-scale step), `width`; Text: `lines`, `size`; Card: `lines` | every line box has the real line height, so nothing shifts when content arrives |
 | `Breadcrumbs` | `items` (last = current page), `label` | `nav` + `ol`, `aria-current="page"` |
 | `EmptyState` | `title`, `hint`, `action` (slot), `tone` neutral · danger, `icon`, `size` default · compact, `as` h2 · h3 | empty, failed |
 | `Dialog` | `open`, `onClose`, `title`, `description`, `footer`, `size` sm · md · lg, `initialFocus`, `dismissible`, `role`, `icon` (on the title line only; description and body use the full width), `placement` center · top (top keeps the panel still while results grow: the command palette) | portal into `.app`, scrim, focus trap, Escape, backdrop click, scroll lock, focus returns to opener, `aria-modal`, `aria-labelledby` |
@@ -144,7 +156,12 @@ All in `src/ui`. States listed are the ones the dev gallery renders.
 | `Kbd` | — | — |
 | `VisuallyHidden` | — | screen-reader text pinned to its containing block |
 | `LanguageSwitch` | `className` | built on `Segmented`; each name carries its own `lang`; a change reloads the page |
-| `CodeChip`, `Stepper`, `Skeleton`, `Sparkline` | unchanged APIs, now token-only | — |
+| `Stepper` | `stages`, `current` | done (good fill, tick), current (brand fill with a tint halo), upcoming (outlined); the connector after a done step is green |
+| `TelegramLogin` | `bot`, `authUrl`, `radius` (8 = the control radius), `className` | Telegram's own iframe button (it cannot be restyled); its 40px height is reserved, so nothing moves when it loads |
+| `AuthLayout` (`auth-layout.tsx`, server) | `children`, `aside` (false: no brand panel), `languageSwitch` | auth pages: split on ≥ 1024px (form column ≤ 440px, brand panel with a CSS-drawn product preview), stacked on phones (form, brand section, footer); logo to `/`, language switch, legal links; renders the `<main>` |
+| `AuthTitle`, `AuthResult`, `AuthDivider`, `AuthSwitch`, `AUTH_FIELD` (`auth-parts.tsx`) | Title: `title`, `lead`; Result: `tone` good · info · danger, `icon`, `title`, `action`, `role` | the pieces auth pages share; `AuthResult` is the "link sent" / "link expired" state (icon tile, title, next step); `AUTH_FIELD` gives fields 16px text on phones |
+| `OtpInput` (`otp-input.tsx`) | `value`, `onChange`, `onComplete`, `length` (6), `digitLabel(n, total)`, `labelledBy`, `describedBy`, `invalid`, `disabled`, `autoFocus`, `name` | one box per digit: typing advances, Backspace goes back, arrows/Home/End move, paste and one-time-code autofill spread over the boxes; a group with a label, each box named "digit n of 6"; posts the joined value under `name` |
+| `CodeChip`, `Sparkline` | unchanged APIs, now token-only | — |
 
 Escape handling is shared: every open overlay registers in a layer stack (`src/ui/layers.ts`) and
 only the topmost one reacts, so Escape in a menu inside a dialog inside a drawer closes the menu.

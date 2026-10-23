@@ -62,12 +62,12 @@ export function Tabs({ items }: { items: TabItem[] }) {
             {...(i.active ? {} : intent(i.href))}
             aria-current={i.active ? 'page' : undefined}
             className={cx(
-              'shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-offset-[-2px]',
-              i.active ? 'border-brand text-fg' : 'border-transparent text-muted hover:text-fg',
+              'inline-flex shrink-0 items-center whitespace-nowrap border-b-2 px-3 py-2.5 text-body font-medium transition-colors duration-(--duration-fast) focus-visible:outline-offset-[-2px]',
+              i.active ? 'border-brand text-fg' : 'border-transparent text-muted hover:border-line-strong hover:text-fg',
             )}
           >
             {i.label}
-            {i.count !== undefined ? <span className="ml-1.5 text-xs text-muted">{i.count}</span> : null}
+            {i.count !== undefined ? <span className={cx('ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-micro font-medium', i.active ? 'bg-brand-tint text-brand-ink' : 'bg-sunken text-muted')}>{i.count}</span> : null}
           </Link>
         ))}
       </nav>
