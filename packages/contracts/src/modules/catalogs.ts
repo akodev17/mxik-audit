@@ -213,7 +213,11 @@ export const catalogs = defineModule('catalogs', {
   list: endpoint({
     method: 'GET', path: '/api/catalogs', auth: 'session', role: 'any',
     summary: 'Audited catalogues or open drafts, newest first',
-    query: z.object({ clientId: z.string().optional(), page: QueryPage, kind: z.enum(['catalogs', 'drafts']).default('catalogs') }),
+    query: z.object({
+      clientId: z.string().optional(), page: QueryPage, kind: z.enum(['catalogs', 'drafts']).default('catalogs'),
+      /** Only catalogues in this state (kind 'catalogs'). */
+      status: z.enum(['ready', 'analyzing', 'failed']).optional(),
+    }),
     responds: 'json',
     response: z.object({
       items: z.array(CatalogListItem),

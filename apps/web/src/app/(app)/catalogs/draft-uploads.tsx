@@ -5,6 +5,7 @@ import { fmtDateTime } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { ButtonLink } from '@/ui/button';
 import type { ListedCatalog } from './catalog-list';
+import { IconAlert } from '@/ui/icons';
 import { VisuallyHidden } from '@/ui/visually-hidden';
 
 /**
@@ -16,12 +17,17 @@ export function DraftUploads({ drafts, showClient }: { drafts: ListedCatalog[]; 
   if (drafts.length === 0) return null;
   const words = ta.firmX.catalogs;
   return (
-    <section aria-labelledby="draft-uploads" className="mb-5 rounded-ctl border border-line bg-surface px-4 py-3">
-      <h2 id="draft-uploads" className="font-medium">{words.draftsTitle}</h2>
-      <p className="text-small text-muted">{words.draftsHint}</p>
-      <ul className="mt-2 divide-y divide-line">
+    <section aria-labelledby="draft-uploads" className="relative mb-5 overflow-hidden rounded-lg border border-line bg-raised">
+      <div className="flex items-start gap-3 border-b border-line bg-warn-tint px-4 py-3">
+        <IconAlert size={18} className="mt-px shrink-0 text-warn-ink" />
+        <div className="min-w-0">
+          <h2 id="draft-uploads" className="text-data font-semibold text-warn-ink">{words.draftsTitle}</h2>
+          <p className="text-small text-warn-ink">{words.draftsHint}</p>
+        </div>
+      </div>
+      <ul className="divide-y divide-line px-4">
         {drafts.map((d) => (
-          <li key={d.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
+          <li key={d.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
             <span className="min-w-0">
               <span className="block truncate font-medium" title={d.filename}>{d.filename}</span>
               <span className="block text-small text-muted">
