@@ -12,7 +12,7 @@ export const VERIFY_HOURS = 48;
 export async function sendVerification(userId: string, email: string, locale: Locale): Promise<boolean> {
   const ta = appDict(locale);
   const token = await issueToken(userId, 'verify', VERIFY_HOURS * 3_600_000);
-  return sendMail({ to: email, subject: ta.msg.mail.verifySubject, text: ta.msg.mail.verifyBody(absoluteUrl(`/verify/${token}`), VERIFY_HOURS) });
+  return sendMail({ to: email, subject: ta.msg.mail.verifySubject, text: ta.msg.mail.verifyBody(absoluteUrl(`/api/auth/verify/${token}`), VERIFY_HOURS) });
 }
 
 /** Marks the address confirmed; the user to sign in, or null for a bad, used or non-verify link. */

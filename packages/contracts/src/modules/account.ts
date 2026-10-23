@@ -56,6 +56,8 @@ export const account = defineModule('account', {
       rawRetentionDays: z.number().int().nullable(),
       rawRetentionSince: IsoDateTime.nullable(),
       retentionChoices: z.array(z.number().int()),
+      /** Days a closed account is kept before it is erased (ACCOUNT_DELETE_AFTER_DAYS). */
+      closeAfterDays: z.number().int(),
     }),
     replaces: ['page:(app)/settings#account', 'page:(app)/settings#data'],
     notes: 'Shape confirmed in W2; until W3 account-tab.tsx and data-tab.tsx select these columns from db.organization.',

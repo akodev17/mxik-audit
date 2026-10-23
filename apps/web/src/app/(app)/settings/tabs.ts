@@ -1,5 +1,5 @@
 // Which settings tabs a user sees, and which one a URL opens. Pure; the page enforces it on the server.
-import type { Role } from '@/lib/session';
+import type { Role } from '@/lib/api/me';
 
 export const SETTINGS_TABS = ['account', 'security', 'plan', 'integrations', 'data'] as const;
 export type SettingsTab = (typeof SETTINGS_TABS)[number];

@@ -6,6 +6,7 @@ import { after, before, describe, it } from 'node:test';
 import type { INestApplication } from '@nestjs/common';
 import JSZip from 'jszip';
 import { db } from '@tasnivo/db';
+import { deleteAfterDays } from '@tasnivo/domain/security/account';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { SESSION_COOKIE } from '../../src/auth-core/session.service';
 import { bodyOf, dbSkipReason, setCookies, startApp } from '../helpers';
@@ -48,7 +49,7 @@ describe('account (database)', { skip }, () => {
     const org = await db.organization.findUniqueOrThrow({ where: { id: u.orgId } });
     assert.deepEqual(bodyOf(res), {
       name: org.name, brandName: null, logoUrl: null, dictAutoAccept: org.dictAutoAccept,
-      rawRetentionDays: org.rawRetentionDays, rawRetentionSince: org.rawRetentionSince?.toISOString() ?? null, retentionChoices: [7, 30, 90],
+      rawRetentionDays: org.rawRetentionDays, rawRetentionSince: org.rawRetentionSince?.toISOString() ?? null, retentionChoices: [7, 30, 90], closeAfterDays: deleteAfterDays(),
     });
     const viewer = await fx.member(u, 'viewer');
     const refused = await call(await sessionCookie(viewer)).get('/api/account');

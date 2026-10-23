@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SUPPORT_EXTERNAL, SUPPORT_URL } from '@/components/landing/config';
 import { getI18n } from '@/lib/locale';
-import { mailEnabled } from '@tasnivo/domain/mailer';
+import { serverApi } from '@/lib/api/server';
 import { ButtonLink } from '@/ui/button';
 import { ForgotForm } from './forgot-form';
 
@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Password reset request. Without e-mail it says so and offers a way to reach us instead. */
 export default async function ForgotPage() {
   const { t, ta } = await getI18n();
-  const mail = mailEnabled();
+  const { mailEnabled: mail } = await serverApi().auth.config();
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
       <Link href="/sign-in" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-fg">

@@ -119,6 +119,8 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     const pending = sessionPair(res)!;
     assert.equal((await unsealPair(pending)).pendingUserId, u.userId);
     assert.equal((await me(pending)).status, 401);
+    assert.deepEqual(bodyOf(await call(pending).get('/api/auth/2fa/pending')), { pending: true });
+    assert.deepEqual(bodyOf(await call().get('/api/auth/2fa/pending')), { pending: false });
 
     const wrong = await call(pending).post('/api/auth/2fa/submit').send({ code: '000000' });
     assert.deepEqual(bodyOf<State>(wrong), { error: ta.security.codeWrong });

@@ -8,7 +8,7 @@ import { cache } from 'react';
 import { recordAccepted } from '@tasnivo/domain/security/session-store';
 import { assertSecret, loadAccess as readAccess, sessionOptions, type CurrentUser, type SessionData } from '@tasnivo/domain/session';
 
-export { sessionOptions, type CurrentUser, type Role, type SessionData } from '@tasnivo/domain/session';
+export type { CurrentUser } from '@tasnivo/domain/session';
 
 export async function getSession() {
   // cookies() first: it marks the page dynamic, so `next build` never tries to

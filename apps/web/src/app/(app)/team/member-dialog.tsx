@@ -1,8 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { updateMember } from '@/app/actions/team';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Dialog } from '@/ui/dialog';
@@ -10,6 +9,7 @@ import { IconAlert } from '@/ui/icons';
 import { useToast } from '@/ui/toast';
 import { AccessFields, type ClientOption } from './access-fields';
 import { draftError, draftOf, lastAdminLocked, sameAccess, widening, type AccessDraft, type Widening } from './team-access';
+import { useRefreshTeam } from './team-data';
 import type { Member } from './team-members';
 
 type Props = { member: Member; clients: readonly ClientOption[]; adminCount: number; open: boolean; onClose: () => void };
@@ -18,7 +18,7 @@ type Props = { member: Member; clients: readonly ClientOption[]; adminCount: num
 export function MemberDialog({ member, clients, adminCount, open, onClose }: Props) {
   const { ta } = useI18n();
   const s = ta.setX.team;
-  const router = useRouter();
+  const refresh = useRefreshTeam();
   const toast = useToast();
   const start = draftOf(member);
   const [draft, setDraft] = useState<AccessDraft>(start);
@@ -43,7 +43,7 @@ export function MemberDialog({ member, clients, adminCount, open, onClose }: Pro
   const save = async (): Promise<void> => {
     setBusy(true);
     setError(null);
-    const result = await updateMember({ userId: member.id, role: draft.role, access: draft.access, clientIds: draft.clientIds }).catch(() => ({ ok: false as const, error: s.errors.invalid }));
+    const result = await api.team.updateMember({ userId: member.id, role: draft.role, access: draft.access, clientIds: draft.clientIds }).catch(() => ({ ok: false as const, error: s.errors.invalid }));
     setBusy(false);
     if (!result.ok) {
       setConfirming(null);
@@ -52,7 +52,7 @@ export function MemberDialog({ member, clients, adminCount, open, onClose }: Pro
     }
     toast(s.saved(member.email));
     onClose();
-    router.refresh();
+    void refresh();
   };
 
   const submit = (): void => {

@@ -275,3 +275,37 @@ domain as a dependency). `packages/db/prisma/seed.ts` imports domain's `load-env
 **Not changed:** matching/audit logic, the schema and migrations, `scripts/` names (all root
 `npm run` names kept), docker-compose services. The web app still imports @tasnivo/domain and
 @tasnivo/db directly; the ESLint ban from section 3 comes in W3.
+
+## Wave 3a (23 Oct 2026): web scaffolding; auth, account, team and settings on the API
+
+**Scaffolding every W3 area uses (apps/web):**
+- `src/lib/api/browser.ts`: `api = createApiClient({ baseUrl: process.env.NEXT_PUBLIC_API_URL ?? '' })`
+  (same origin, cookies included, `X-Requested-With: tasnivo` on mutations).
+- `src/lib/api/server.ts`: `serverApi()`, one shared `createServerApiClient({ baseUrl: API_INTERNAL_URL ??
+  'http://localhost:4000', incoming: () => headers() })`; forwards cookie and Accept-Language per request.
+- `src/lib/api/me.ts`: `signedIn()`, React-cached `auth.me()`, `null` on 401 (pages redirect to /sign-in);
+  `me.demo` stands in for the old "demo org" check (demo users only enter through the demo link).
+- `src/lib/api/query.ts`: `queryKey(method, input?)` = `[operationId, input]`; `useSeededQuery(method, initial)`
+  keeps data a server component fetched current in the browser (staleTime Infinity, gcTime 0): mutations call
+  `queryClient.invalidateQueries({ queryKey: queryKey(api.x.y) })` instead of `router.refresh()`.
+- `src/lib/api/follow.ts`: `useFollow()` navigates on `{ redirect }` answers and keeps the form busy until the
+  next page; `formFields(form)`.
+- `src/ui/query-provider.tsx` (one QueryClient, no retries) wraps `<body>` in `src/app/layout.tsx`.
+- `next.config.ts`: `transpilePackages` gains `@tasnivo/api-client` and `@tasnivo/contracts`; `rewrites()` sends
+  `/api/:path*` to `${API_INTERNAL_URL}/api/:path*` as an afterFiles rule (route handlers not yet moved still win)
+  unless NEXT_PUBLIC_API_URL is set (the destination is fixed at `next build`: build with API_INTERNAL_URL set
+  for `next start` without Caddy); `/verify/:token` redirects to `/api/auth/verify/:token` for mails already
+  sent (new mails link to the API directly).
+- `apps/web/eslint.migrated.mjs` exports `MIGRATED_WEB_PATHS`; `eslint.config.js` forbids `@tasnivo/domain`,
+  `@tasnivo/db`, `@tasnivo/core` (and their subpaths, type imports included) and `@/app/actions/*` there.
+  Tests are exempt, so a web copy of a pure rule (safe-next, WARN_AT) is held to the domain original by a test.
+- Session-changing calls (sign-in, 2FA, sign-up, invite join, Telegram bind start, close, reopen, sign-out) run
+  in the browser; a Set-Cookie from an SSR call never reaches it.
+
+**Moved:** sign-in (2FA, forgot, reset), sign-up, invite join, the closed-account page, every settings tab (account
+and branding, data with export and retention, integrations, plan, security), the team page, the language switch.
+Deleted: actions auth, security, signup, team, settings, api-keys, locale; routes /api/auth/telegram(+bind),
+/api/account/export, /verify/[token]; lib/request-facts.ts. Contract additions: `auth.twoFactorPending`
+(GET /api/auth/2fa/pending, the 2FA page's hasPending check) and `account.get.closeAfterDays`.
+**Left for other areas:** /api/sign-out (the shell's user menu still posts to it), settings/theme-setting.tsx
+(setTheme), ui/pay-buttons.tsx (billing checkout), lib/security/sign-in.ts (clearPending for the demo action).

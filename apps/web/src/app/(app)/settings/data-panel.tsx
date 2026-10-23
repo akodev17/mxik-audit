@@ -1,56 +1,50 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { changeRetention } from '@/app/actions/security';
+import { fmtDate } from '@tasnivo/i18n/format';
+import { api } from '@/lib/api/browser';
+import { queryKey, useSeededQuery } from '@/lib/api/query';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { IconDownload } from '@/ui/icons';
 import { Select } from '@/ui/select';
 import { useToast } from '@/ui/toast';
+import type { Account } from './brand-form';
 
 const FALLBACK_NAME = 'mxik-audit-export.zip';
-
-/** The filename the server suggests in Content-Disposition. */
-function fileNameOf(response: Response): string {
-  const header = response.headers.get('content-disposition') ?? '';
-  return /filename="?([^";]+)"?/i.exec(header)?.[1] ?? FALLBACK_NAME;
-}
 
 /** Downloads the account zip with visible progress; a failed export says so instead of saving an error page. */
 export function ExportButton() {
   const { ta } = useI18n();
   const s = ta.setX.data;
   const toast = useToast();
-  const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-
-  const download = async (): Promise<void> => {
-    setBusy(true);
-    setFailed(false);
-    try {
-      const response = await fetch('/api/account/export', { credentials: 'same-origin' });
-      if (!response.ok) throw new Error(String(response.status));
-      const url = URL.createObjectURL(await response.blob());
+  const download = useMutation({
+    mutationFn: () => api.account.exportZip(),
+    onMutate: () => setFailed(false),
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = fileNameOf(response);
+      link.download = filename ?? FALLBACK_NAME;
       document.body.append(link);
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       toast(s.exportDone);
-    } catch {
+    },
+    onError: () => {
       setFailed(true);
       toast(s.exportFailed, { tone: 'error' });
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
+  const busy = download.isPending;
 
   return (
     <div className="space-y-2">
-      <Button variant="secondary" loading={busy} onClick={() => void download()}><IconDownload size={16} />{busy ? s.exporting : s.exportButton}</Button>
+      <Button variant="secondary" loading={busy} onClick={() => download.mutate()}><IconDownload size={16} />{busy ? s.exporting : s.exportButton}</Button>
       {failed ? <p role="alert" className="text-small text-danger-ink">{s.exportFailed}</p> : null}
     </div>
   );
@@ -61,30 +55,31 @@ const daysOf = (value: string): number | null => (value === NEVER ? null : Numbe
 /** Shorter means more gets erased sooner: "keep" is the longest. */
 const shortens = (from: number | null, to: number | null): boolean => to !== null && (from === null || to < from);
 
-type RetentionProps = { value: number | null; choices: readonly number[]; since: string | null };
-
 /** Raw-file retention. Shortening asks first; a failed save goes back to the saved value. */
-export function RetentionSetting({ value, choices, since }: RetentionProps) {
-  const { ta } = useI18n();
+export function RetentionSetting({ initial }: { initial: Account }) {
+  const { locale, ta } = useI18n();
   const s = ta.setX.data;
   const toast = useToast();
-  const [saved, setSaved] = useState<number | null>(value);
-  const [shown, setShown] = useState<string>(value === null ? NEVER : String(value));
+  const queryClient = useQueryClient();
+  const { data } = useSeededQuery(api.account.get, initial);
+  const choices = data.retentionChoices;
+  const since = data.rawRetentionSince ? fmtDate(locale, data.rawRetentionSince) : null;
+  const [saved, setSaved] = useState<number | null>(data.rawRetentionDays);
+  const [shown, setShown] = useState<string>(saved === null ? NEVER : String(saved));
   const [asking, setAsking] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
   const label = (days: number | null): string => (days === null ? s.keep : s.days(days));
 
-  const save = async (days: number | null): Promise<boolean> => {
-    setBusy(true);
-    const ok = await changeRetention(days).catch(() => false);
-    setBusy(false);
-    if (ok) {
+  const change = useMutation({
+    mutationFn: (days: number | null) => api.account.setRetention({ days }).catch(() => false),
+    onSuccess: async (ok, days) => {
+      if (!ok) return;
       setSaved(days);
       setShown(days === null ? NEVER : String(days));
       toast(s.saved);
-    }
-    return ok;
-  };
+      await queryClient.invalidateQueries({ queryKey: queryKey(api.account.get) });
+    },
+  });
+  const save = (days: number | null): Promise<boolean> => change.mutateAsync(days);
 
   const choose = (next: string): void => {
     const days = daysOf(next);
@@ -100,7 +95,7 @@ export function RetentionSetting({ value, choices, since }: RetentionProps) {
 
   return (
     <div className="max-w-xl space-y-2">
-      <Select label={s.retentionLabel} value={shown} disabled={busy} onChange={(e) => choose(e.target.value)} wrapperClassName="max-w-xs">
+      <Select label={s.retentionLabel} value={shown} disabled={change.isPending} onChange={(e) => choose(e.target.value)} wrapperClassName="max-w-xs">
         {choices.map((n) => <option key={n} value={String(n)}>{s.days(n)}</option>)}
         <option value={NEVER}>{s.keep}</option>
       </Select>

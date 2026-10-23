@@ -1,9 +1,13 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { addApiKey, removeApiKey } from '@/app/actions/api-keys';
+import { useState } from 'react';
+import type { OutputOf } from '@tasnivo/api-client';
+import type { endpoints } from '@tasnivo/contracts';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
+import { api } from '@/lib/api/browser';
+import { queryKey, useSeededQuery } from '@/lib/api/query';
 import { useI18n } from '@/lib/locale-client';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -12,25 +16,26 @@ import { CopyField } from '@/ui/copy-field';
 import { Field, Input } from '@/ui/input';
 import { useToast } from '@/ui/toast';
 
+type Keys = OutputOf<typeof endpoints.account.apiKeys>;
+
 /** `creator`: the email of the member who made the key, null when not recorded or `creatorRemoved`. */
 export type ApiKeyRow = {
   id: string; name: string; prefix: string; created: string; lastUsed: string | null; revoked: boolean; checks: string;
   creator: string | null; creatorRemoved: boolean;
 };
-type Usage = { checks: string; requests: string; cap: string | null };
 
 function KeyRow({ apiKey }: { apiKey: ApiKeyRow }) {
   const { ta } = useI18n();
   const s = ta.setX.integrations;
-  const router = useRouter();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const revoke = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    const ok = await removeApiKey(apiKey.id).catch(() => false);
+    const ok = await api.account.revokeApiKey({ keyId: apiKey.id }).catch(() => false);
     if (!ok) return { ok: false, error: s.revokeFailed };
     toast(s.revokedToast(apiKey.name));
-    router.refresh();
+    await queryClient.invalidateQueries({ queryKey: queryKey(api.account.apiKeys) });
     return { ok: true };
   };
 
@@ -57,30 +62,43 @@ function KeyRow({ apiKey }: { apiKey: ApiKeyRow }) {
 }
 
 /** Admin: create a key (shown once, with a copy button), see this month's use, revoke a key by name. */
-export function ApiKeysPanel({ keys, usage, max }: { keys: ApiKeyRow[]; usage: Usage; max: number }) {
-  const { ta } = useI18n();
+export function ApiKeysPanel({ initial }: { initial: Keys }) {
+  const { locale, ta } = useI18n();
   const s = ta.setX.integrations;
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data } = useSeededQuery(api.account.apiKeys, initial);
+  const n = (v: number): string => fmtNumber(locale, v);
+  const max = data.maxActive;
+  const usage = { checks: n(data.usage.checks), requests: n(data.usage.requests), cap: data.monthlyCap === null ? null : n(data.monthlyCap) };
+  const keys: ApiKeyRow[] = data.keys.map((k) => ({
+    id: k.id, name: k.name, prefix: k.prefix, created: fmtDate(locale, k.createdAt),
+    lastUsed: k.lastUsedAt ? fmtDate(locale, k.lastUsedAt) : null, revoked: k.revokedAt !== null, checks: n(k.checksThisMonth),
+    // Admins see whose keys exist; a creator who left the team no longer resolves to an email.
+    creator: k.createdBy, creatorRemoved: k.creatorRemoved,
+  }));
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [busy, start] = useTransition();
   const full = keys.filter((k) => !k.revoked).length >= max;
 
-  const create = (): void => {
-    if (name.trim() === '') { setError(s.keyNameRequired); return; }
-    start(async () => {
-      const result = await addApiKey(name).catch(() => ({ error: 'failed' as const }));
+  const add = useMutation({
+    mutationFn: (keyName: string) => api.account.createApiKey({ name: keyName }).catch(() => ({ error: 'failed' as const })),
+    onSuccess: async (result) => {
       if ('token' in result && result.token) {
         setToken(result.token);
         setName('');
         setError(null);
-        router.refresh();
+        await queryClient.invalidateQueries({ queryKey: queryKey(api.account.apiKeys) });
         return;
       }
       const reason = 'error' in result ? result.error : 'failed';
       setError(reason === 'limit' ? s.limitReached(max) : reason === 'name' ? s.keyNameRequired : s.createFailed);
-    });
+    },
+  });
+
+  const create = (): void => {
+    if (name.trim() === '') { setError(s.keyNameRequired); return; }
+    add.mutate(name);
   };
 
   return (
@@ -95,7 +113,7 @@ export function ApiKeysPanel({ keys, usage, max }: { keys: ApiKeyRow[]; usage: U
           <Field label={s.keyName} hint={s.keyNameHint} error={error ?? undefined} className="min-w-0 flex-1 basis-56">
             <Input value={name} onChange={(e) => { setName(e.target.value); setError(null); }} maxLength={60} autoComplete="off" />
           </Field>
-          <Button type="submit" variant="secondary" loading={busy} className="sm:mt-6">{s.create}</Button>
+          <Button type="submit" variant="secondary" loading={add.isPending} className="sm:mt-6">{s.create}</Button>
         </form>
       )}
 

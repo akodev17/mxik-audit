@@ -20,7 +20,8 @@ function oldName(replaces: string): string {
 const rowKey = (line: string): string => line.replace(/\[[ x]\]/g, '[ ]');
 
 export function renderChecklist(previous = ''): string {
-  const ticked = new Map(previous.split('\n').filter((l) => l.startsWith('|')).map((l) => [rowKey(l), l]));
+  // A CRLF working copy (core.autocrlf) keeps its ticks too.
+  const ticked = new Map(previous.split(/\r?\n/).filter((l) => l.startsWith('|')).map((l) => [rowKey(l), l]));
   const out: string[] = [BEGIN, ''];
   const all = allEndpoints();
   out.push(`${all.length} operations; ${all.filter((e) => e.provisional).length} with a provisional shape (⚠, listed below the table).`, '');

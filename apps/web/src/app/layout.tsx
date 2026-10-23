@@ -3,6 +3,7 @@ import { IBM_Plex_Mono } from 'next/font/google';
 import { SITE_URL } from '@/components/landing/config';
 import { getI18n, getLocale } from '@/lib/locale';
 import { onest } from '@/ui/onest';
+import { QueryProvider } from '@/ui/query-provider';
 import './globals.css';
 
 // Self-hosted by next/font at build time: no runtime request to Google, and no
@@ -35,7 +36,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={await getLocale()} className={`${onest.variable} ${plexMono.variable}`}>
-      <body>{children}</body>
+      <body><QueryProvider>{children}</QueryProvider></body>
     </html>
   );
 }
