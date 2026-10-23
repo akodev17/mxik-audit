@@ -124,6 +124,11 @@ export async function uploadCatalogOperation(caller: ApiCaller, input: UploadInp
     const mapping = await mappingFor(caller.orgId, parsed.headers);
     const { catalogId } = await storeCatalog({ orgId: caller.orgId, userId: null, clientId: client.id, filename: file.name, parsed, mapping });
     const applied = await applyMapping(caller.orgId, catalogId, mapping);
+    if ('error' in applied && applied.error === 'over_allowance') {
+      // Another upload took the room since the gate above; the stored preview is of no use to an API caller.
+      await db.catalog.deleteMany({ where: { id: catalogId, status: 'uploaded' } });
+      return failure(op, 'plan_limit', 'The monthly row allowance of the plan would be exceeded.');
+    }
     if ('error' in applied) return failure(op, 'unreadable_file', 'No product name column was found in the file.');
 
     await startAudit(catalogId, null, { mapping, via: 'api' });

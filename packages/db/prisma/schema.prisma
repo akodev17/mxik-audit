@@ -225,6 +225,7 @@ model Organization {
   docLists  DocList[]
   reviewAssignments ReviewAssignment[]
   apiKeys   ApiKey[]
+  usageLedger UsageLedger[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -1108,6 +1109,31 @@ model ApiKey {
 
   @@index([orgId])
   @@map("api_key")
+}
+
+/// Consumption of a plan allowance (today only the monthly rows), one entry per committed catalogue.
+/// Written in the transaction that commits the catalogue and never removed with it, so deleting a
+/// catalogue does not give its rows back. usageOf sums an org's entries for the current month.
+model UsageLedger {
+  id        String   @id @default(cuid())
+  orgId     String
+  /// The limit consumed (billing/limits LimitKey): 'rowsPerMonth'.
+  key       String
+  amount    Int
+  /// UTC start of the calendar month the entry counts in.
+  period    DateTime
+  /// The catalogue that consumed it. No relation: the entry outlives the catalogue. Unique per key,
+  /// so a catalogue consumes once however often it is audited.
+  catalogId String?
+  /// 'catalog.committed', or 'backfill' for what was counted before the ledger existed.
+  reason    String
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([catalogId, key])
+  @@index([orgId, key, period])
+  @@map("usage_ledger")
 }
 
 /// Calls per key and calendar month (UTC "YYYY-MM"): checks count against the plan allowance.
