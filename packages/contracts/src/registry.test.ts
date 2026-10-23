@@ -82,7 +82,8 @@ describe('registry covers the Next app', () => {
       cron: ['daily', 'classifierUpdate'],
       health: ['get'],
       // Accounting workflows (docs/TASNIVO_AI_PLAN_2026-10-23.md): slots filled by their workstreams.
-      onec: [], bank: [], didox: [], products: [],
+      onec: ['batches', 'batch', 'prepare', 'exportBatch', 'transfer', 'exportFile', 'decide', 'decideMany', 'connection', 'saveConnection', 'testConnection'],
+      bank: [], didox: [], products: [],
     };
     assert.deepEqual(Object.keys(plan).sort(), [...MODULES].sort());
     for (const [module, keys] of Object.entries(plan)) {

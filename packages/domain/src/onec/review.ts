@@ -69,6 +69,18 @@ function recordRow(r: { id: string; rowIndex: number; status: RecordStatus; payl
   };
 }
 
+/** Whether the reader may open the batch (the API checks this before prepare, export and transfer). */
+export async function visibleBatch(reader: Reader, batchId: string): Promise<boolean> {
+  return (await db.importBatch.count({ where: { id: batchId, ...batchScope(reader) } })) > 0;
+}
+
+/** Whether the reader may work with this client's data (null = the org's own: only an unrestricted reader). */
+export async function visibleClient(reader: Reader, clientId: string | null): Promise<boolean> {
+  if (clientId === null) return reader.clientIds === null;
+  if (reader.clientIds !== null && !reader.clientIds.includes(clientId)) return false;
+  return (await db.client.count({ where: { id: clientId, orgId: reader.orgId } })) > 0;
+}
+
 export type BatchQuery = { kind?: ImportKind; status?: ImportStatus; client?: string; page: number };
 
 /** `/onec`: every batch of the org the reader may see, newest first. */

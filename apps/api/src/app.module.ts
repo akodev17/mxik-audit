@@ -17,6 +17,7 @@ import { ApiExceptionFilter } from './http/exception.filter';
 import { LocaleInterceptor } from './http/locale.interceptor';
 import { ImportsModule } from './imports/imports.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OnecModule } from './onec/onec.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ShareModule } from './share/share.module';
@@ -46,6 +47,7 @@ import { WorkspaceModule } from './workspace/workspace.module';
     CronModule,
     TelegramModule,
     PublicApiModule,
+    OnecModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },

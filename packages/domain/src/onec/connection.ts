@@ -10,6 +10,7 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { accounting } from '@tasnivo/contracts';
+import { ObjectMap, ObjectTarget } from '@tasnivo/contracts/modules/onec';
 import { db } from '@tasnivo/db';
 import { z } from 'zod';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
@@ -18,23 +19,9 @@ import { derivedKey } from '../security/secret.js';
 export type ConnectionKind = (typeof accounting.ONEC_CONNECTION_KINDS)[number];
 export type BankKeys = (typeof accounting.ONEC_BANK_KEYS)[number];
 
-/** One 1C object a record kind becomes: the entity set, our field → 1C attribute, fixed values. */
-export const ObjectTarget = z.object({
-  entitySet: z.string().min(1).max(200),
-  fields: z.record(z.string().max(60), z.string().max(200)),
-  constants: z.record(z.string().max(200), z.union([z.string().max(500), z.number(), z.boolean()])).optional(),
-  /** Invoice only: the table part the lines go to, and our line field → its column. */
-  linesPart: z.string().max(200).optional(),
-  lineFields: z.record(z.string().max(60), z.string().max(200)).optional(),
-});
+/** One 1C object a record kind becomes (entity set, our field → 1C attribute, fixed values): the contract's shape. */
+export { ObjectMap, ObjectTarget };
 export type ObjectTarget = z.infer<typeof ObjectTarget>;
-
-export const ObjectMap = z.object({
-  bankCredit: ObjectTarget,
-  bankDebit: ObjectTarget,
-  invoice: ObjectTarget,
-  product: ObjectTarget,
-});
 export type ObjectMap = z.infer<typeof ObjectMap>;
 
 /** Typical names of the Uzbek edition (unverified; research note §2). Every org can edit them. */
