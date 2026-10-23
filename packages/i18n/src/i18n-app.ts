@@ -434,7 +434,7 @@ const coreUz = {
     keys: { clients: 'mijozlar', rowsPerMonth: 'oylik qatorlar', seats: 'foydalanuvchilar' } as Record<'clients' | 'rowsPerMonth' | 'seats', string>,
     usage: 'Foydalanish',
     unlimited: 'cheklanmagan',
-    stateLabel: { unlimited: 'Cheklovsiz', trial: 'Sinov muddati', firm: 'Firma obunasi', expired: 'Sinov tugagan' } as Record<'unlimited' | 'trial' | 'firm' | 'expired', string>,
+    stateLabel: { unlimited: 'Cheklovsiz', trial: 'Sinov muddati', firm: 'Obuna', expired: 'Sinov tugagan' } as Record<'unlimited' | 'trial' | 'firm' | 'expired', string>,
     until: (date: string) => `${date} gacha`,
   },
   msg: {

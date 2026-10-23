@@ -1,15 +1,17 @@
 // Plans and payments: plan status and usage, what can be bought, checkout, and the Click and
 // Payme callbacks (signature-checked by the provider handlers; paths registered with the providers).
 import { z } from 'zod';
-import { Id, IsoDateTime, PAYMENT_PROVIDERS, PLAN_RESOURCES } from '../common';
+import { Id, IsoDateTime, PAYMENT_PROVIDERS, PLAN_RESOURCES, PLAN_TIERS, PlanLimitsOf, PlanOf, TierOffers } from '../common';
 import { defineModule, endpoint } from '../endpoint';
 
-const Limits = z.object({ clients: z.number().int().nullable(), rowsPerMonth: z.number().int().nullable(), seats: z.number().int().nullable() });
+const Limits = PlanLimitsOf;
 const Resource = z.enum(PLAN_RESOURCES);
 
 /** plan.ts planStatus(). */
 export const PlanStatus = z.object({
   state: z.enum(['unlimited', 'trial', 'firm', 'expired']),
+  /** The subscription tier while state is 'firm' (any paid subscription). Added with the tiers. */
+  tier: z.enum(PLAN_TIERS).nullable(),
   trialEndsAt: IsoDateTime.nullable(),
   daysLeft: z.number().int().nullable(),
   limits: Limits,
@@ -37,14 +39,18 @@ export const billing = defineModule('billing', {
     response: z.object({
       status: PlanStatus,
       subscriptionUntil: IsoDateTime.nullable(),
-      limits: z.object({ trial: Limits, firm: Limits }),
+      /** company and accountant were added with the tiers; firm is the top tier. */
+      limits: z.object({ trial: Limits, company: Limits, accountant: Limits, firm: Limits }),
       trialDays: z.number().int(),
-      plan: z.object({ id: z.string(), price: z.number(), kind: z.enum(['catalog', 'subscription']), maxRows: z.number().int().nullable() }).nullable(),
+      /** The subscription the org pays for, or the top tier's monthly plan when it has none. */
+      plan: PlanOf.nullable(),
+      /** Whether a subscription can be bought here; the same for every tier. */
       purchase: Purchase,
+      tiers: TierOffers,
       api: z.object({ checks: z.number().int(), requests: z.number().int(), monthlyCap: z.number().int().nullable() }),
     }),
     replaces: ['page:(app)/settings#plan', 'page:(app)/layout#plan'],
-    provisional: 'plan-tab.tsx and shell-data.ts combine planStatus, planLimits, firmPlan, purchaseOf and usageThisMonth themselves',
+    provisional: 'plan-tab.tsx and shell-data.ts combine planStatus, planLimits, tierOffers, purchaseOf and usageThisMonth themselves',
   }),
   catalogPurchase: endpoint({
     method: 'GET', path: '/api/catalogs/{catalogId}/purchase', auth: 'session', role: 'any',

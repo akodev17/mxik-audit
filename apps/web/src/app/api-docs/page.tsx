@@ -103,6 +103,9 @@ function Endpoint({ id, endpoint, title, text, request, response, d, m }: {
   );
 }
 
+/** The free check, then the subscription tiers cheapest first. */
+const PLAN_COLUMNS = ['trial', 'company', 'accountant', 'firm'] as const;
+
 export default async function ApiDocsPage() {
   await cookies();
   const { locale, ta } = await getI18n();
@@ -127,10 +130,8 @@ export default async function ApiDocsPage() {
   const limitRows: [string, string][] = [
     [d.limitRows.rate, d.perMinute(n(config.ratePerMinute))],
     [d.limitRows.items, d.upTo(n(config.maxCheckItems))],
-    [d.limitRows.checksTrial, cap(config.checksPerMonth.trial)],
-    [d.limitRows.checksFirm, cap(config.checksPerMonth.firm)],
-    [d.limitRows.rowsTrial, cap(limits.trial.rowsPerMonth)],
-    [d.limitRows.rowsFirm, cap(limits.firm.rowsPerMonth)],
+    ...PLAN_COLUMNS.map((p): [string, string] => [d.limitRows.checksOf(ta.prX.names[p]), cap(config.checksPerMonth[p])]),
+    ...PLAN_COLUMNS.map((p): [string, string] => [d.limitRows.rowsOf(ta.prX.names[p]), cap(limits[p].rowsPerMonth)]),
     [d.limitRows.fileSize, d.megabytes(n(settings.uploadMaxBytes / 1024 / 1024))],
     [d.limitRows.pageCatalogs, d.upTo(n(PAGE.catalogs.max))],
     [d.limitRows.pageFindings, d.upTo(n(PAGE.findings.max))],

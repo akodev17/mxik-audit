@@ -86,6 +86,26 @@ describe('billing module (database)', { skip }, () => {
     assert.deepEqual(bad.body, { ok: false, error: t.errorGeneric });
   });
 
+  it('subscriptions: the plan lists every tier, and a yearly checkout orders ten months\' price for no catalogue', async () => {
+    const plan = fits(e.plan.response, (await http().get('/api/billing/plan').set('Cookie', adminCookie)).body);
+    assert.deepEqual(plan.tiers.map((t) => [t.monthly.id, t.yearly.id]), [
+      ['company_monthly', 'company_yearly'], ['accountant_monthly', 'accountant_yearly'], ['firm_monthly', 'firm_yearly'],
+    ]);
+    for (const t of plan.tiers) assert.equal(t.yearly.price, t.monthly.price * 10);
+    assert.equal(plan.status.tier, null);
+
+    const yearly = plan.tiers[0]?.yearly;
+    assert.ok(yearly);
+    const res = await withEnv(CLICK, () => http().post('/api/billing/checkout').set(CSRF).set('Cookie', adminCookie).send({ planId: yearly.id, catalogId: null, provider: 'click' }));
+    const answer = fits(e.checkout.response, res.body);
+    assert.ok(answer.ok, JSON.stringify(answer));
+    const order = await db.order.findUniqueOrThrow({ where: { id: new URL(answer.url).searchParams.get('transaction_param') ?? '' } });
+    assert.deepEqual([order.planId, order.amount, order.catalogId], [yearly.id, yearly.price, null]);
+    // The id the single firm subscription had still checks out, at the top tier's monthly price.
+    const legacy = await withEnv(CLICK, () => http().post('/api/billing/checkout').set(CSRF).set('Cookie', adminCookie).send({ planId: 'firm_monthly', catalogId: null, provider: 'click' }));
+    assert.ok(fits(e.checkout.response, legacy.body).ok);
+  });
+
   it('the callbacks are 404 while their provider is not configured', async () => {
     await withEnv(NO_PROVIDERS, async () => {
       const click = await http().post('/api/payments/click').type('form').send({ action: '0' });

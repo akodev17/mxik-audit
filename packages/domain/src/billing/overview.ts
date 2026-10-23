@@ -4,13 +4,13 @@
 import { db } from '@tasnivo/db';
 import { catalogScope, isAdminRole } from '../access';
 import { apiConfig, monthlyCheckCap, usageThisMonth } from '../api/limits';
-import { planStatus, type PlanStatus } from '../plan';
+import { lastSubscription, planStatus, type PlanStatus } from '../plan';
 import type { CurrentUser } from '../session';
 import { catalogPurchase, purchaseOf, type CatalogPurchase, type Purchase } from './availability';
 import { billingConfig } from './config';
-import { planLimits, TRIAL_DAYS, type Limits } from './limits';
+import { planLimits, TRIAL_DAYS, type PlanLimits } from './limits';
 import { catalogPaid } from './orders';
-import { catalogPlan, firmPlan, type Plan } from './plans';
+import { catalogPlan, subscriptionPlan, tierOffers, type Plan, type TierOffer } from './plans';
 
 type Viewer = Pick<CurrentUser, 'orgId' | 'role'>;
 
@@ -18,11 +18,14 @@ export type BillingPlan = {
   status: PlanStatus;
   /** The paid subscription's end, while it is in the future. */
   subscriptionUntil: Date | null;
-  limits: { trial: Limits; firm: Limits };
+  limits: PlanLimits;
   trialDays: number;
-  /** The firm subscription; null while its price is unset. */
+  /** The subscription the org pays for (its latest paid one), or the top tier's monthly plan when it has none. */
   plan: Plan | null;
+  /** Whether a subscription can be bought here; the same for every tier, only the price differs. */
   purchase: Purchase;
+  /** Every tier with its monthly and yearly plan, cheapest first. */
+  tiers: TierOffer[];
   api: { checks: number; requests: number; monthlyCap: number | null };
 };
 
@@ -33,7 +36,8 @@ export async function billingPlan(viewer: Viewer, demo: boolean, now = new Date(
     db.organization.findUnique({ where: { id: viewer.orgId }, select: { subscriptionUntil: true } }),
     usageThisMonth(viewer.orgId),
   ]);
-  const plan = firmPlan();
+  const paidFor = status.state === 'firm' ? await lastSubscription(viewer.orgId) : null;
+  const plan = paidFor ?? subscriptionPlan('firm', 'monthly');
   return {
     status,
     subscriptionUntil: org?.subscriptionUntil && org.subscriptionUntil > now ? org.subscriptionUntil : null,
@@ -41,7 +45,8 @@ export async function billingPlan(viewer: Viewer, demo: boolean, now = new Date(
     trialDays: TRIAL_DAYS,
     plan,
     purchase: purchaseOf({ plan, config: billingConfig(), admin: isAdminRole(viewer), demo }),
-    api: { checks: api.checks, requests: api.requests, monthlyCap: monthlyCheckCap(status.state, apiConfig()) },
+    tiers: tierOffers(),
+    api: { checks: api.checks, requests: api.requests, monthlyCap: monthlyCheckCap(status, apiConfig()) },
   };
 }
 

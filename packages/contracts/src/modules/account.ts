@@ -2,7 +2,7 @@
 // reopening, the account export, language, theme, sidebar, Telegram chats, API keys, and the
 // activity log.
 import { z } from 'zod';
-import { IsoDateTime, LIMITS, LOCALES, OkFlag, Ok, Redirect, RETENTION_CHOICES, ShellFail, THEMES } from '../common';
+import { IsoDateTime, LIMITS, LOCALES, OkFlag, Ok, PlanLimitsOf, Redirect, RETENTION_CHOICES, ShellFail, THEMES, TierOffers } from '../common';
 import { defineModule, endpoint } from '../endpoint';
 import { ErrorState } from './auth';
 
@@ -22,7 +22,7 @@ export const ApiKeyRow = z.object({
   creatorRemoved: z.boolean(),
 });
 
-const Limits = z.object({ clients: z.number().int().nullable(), rowsPerMonth: z.number().int().nullable(), seats: z.number().int().nullable() });
+const Limits = PlanLimitsOf;
 
 /** activity.ts activityPage() rows. */
 export const ActivityRow = z.object({
@@ -68,12 +68,14 @@ export const account = defineModule('account', {
     responds: 'json',
     response: z.object({
       uploadMaxBytes: z.number().int(),
-      api: z.object({ ratePerMinute: z.number().int(), maxCheckItems: z.number().int(), checksPerMonth: z.object({ trial: z.number().int().nullable(), firm: z.number().int().nullable() }) }),
-      plans: z.object({ trial: Limits, firm: Limits }),
+      api: z.object({ ratePerMinute: z.number().int(), maxCheckItems: z.number().int(), checksPerMonth: z.object({ trial: z.number().int().nullable(), company: z.number().int().nullable(), accountant: z.number().int().nullable(), firm: z.number().int().nullable() }) }),
+      plans: z.object({ trial: Limits, company: Limits, accountant: Limits, firm: Limits }),
+      /** Every subscription tier with its limits and prices (added with the tiers). */
+      tiers: TierOffers,
       trialDays: z.number().int(),
       retentionChoices: z.array(z.number().int()),
       origin: z.string().nullable(),
-      /** The firm plan's monthly price in soʻm (PLAN_FIRM_PRICE); null while it is not for sale. */
+      /** The top tier's monthly price in soʻm (billing/plans.ts); nullable as before the tiers, when it came from PLAN_FIRM_PRICE. */
       firmPrice: z.number().int().nullable(),
       /** Days a closed account is kept before it is erased (ACCOUNT_DELETE_AFTER_DAYS). */
       closeAfterDays: z.number().int(),

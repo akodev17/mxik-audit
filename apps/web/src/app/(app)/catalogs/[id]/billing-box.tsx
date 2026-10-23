@@ -1,5 +1,7 @@
 // "Toʻgʻrilangan katalog" payment for this catalogue. Never a pretend checkout: when nothing can be
-// paid here it says exactly why (no provider, demo, or only an admin pays).
+// paid here it says exactly why (no provider, demo, or only an admin pays). While it is unpaid, it
+// also points at the subscriptions, which cover every catalogue.
+import Link from 'next/link';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
@@ -42,6 +44,12 @@ export async function BillingBox({ catalogId, rowCount }: Props) {
             </div>
           </div>
         </>
+      ) : null}
+      {purchase.kind === 'available' || purchase.kind === 'no_provider' || purchase.kind === 'admin_only' ? (
+        <p className="text-micro text-muted">
+          {ta.setX.billing.subscribe}{' '}
+          <Link href="/settings?tab=plan" className="font-medium text-brand-ink underline">{ta.setX.billing.plans}</Link>
+        </p>
       ) : null}
     </section>
   );

@@ -15,7 +15,7 @@ import { revokeApiKey } from '@tasnivo/domain/api/keys';
 import { apiConfig } from '@tasnivo/domain/api/limits';
 import { appOrigin } from '@tasnivo/domain/app-url';
 import { planLimits, TRIAL_DAYS } from '@tasnivo/domain/billing/limits';
-import { firmPrice } from '@tasnivo/domain/billing/plans';
+import { firmPrice, tierOffers } from '@tasnivo/domain/billing/plans';
 import { MAX_UPLOAD_BYTES } from '@tasnivo/domain/catalog-import';
 import { deleteAfterDays, RETENTION_CHOICES, setRetention } from '@tasnivo/domain/security/account';
 import { closeAccountForm, closedAccountStatus, reopenAccount } from '@tasnivo/domain/security/account-security';
@@ -62,6 +62,7 @@ export class AccountController {
       uploadMaxBytes: MAX_UPLOAD_BYTES,
       api: { ratePerMinute: api.ratePerMinute, maxCheckItems: api.maxCheckItems, checksPerMonth: api.checksPerMonth },
       plans: planLimits(),
+      tiers: tierOffers(),
       trialDays: TRIAL_DAYS,
       retentionChoices: [...RETENTION_CHOICES],
       origin: appOrigin(),

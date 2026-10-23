@@ -26,6 +26,8 @@ export const OPTIONAL_COLUMNS = ['status', 'current', 'suggested', 'match'] as c
 export const COLUMN_FIELDS = ['name', 'barcode', 'mxik', 'unit', 'price', 'sales'] as const;
 export const PLAN_RESOURCES = ['clients', 'rowsPerMonth', 'seats'] as const;
 export const PAYMENT_PROVIDERS = ['click', 'payme'] as const;
+/** packages/domain/src/billing/plans.ts TIERS, cheapest first; `firm` is the top tier. */
+export const PLAN_TIERS = ['company', 'accountant', 'firm'] as const;
 export const RETENTION_CHOICES = [7, 30, 90] as const;
 
 /** Upload caps of the old actions (catalog-import.ts MAX_UPLOAD_BYTES, lead.ts, settings.ts). */
@@ -138,3 +140,17 @@ export const QueryFlag = z.enum(['1', '0', 'true', 'false']).transform((v) => v 
 
 /** A page number in the query string, from 0. */
 export const QueryPage = z.coerce.number().int().min(0).default(0);
+
+/** billing/limits.ts Limits: a cap per resource, null = no cap. */
+export const PlanLimitsOf = z.object({ clients: z.number().int().nullable(), rowsPerMonth: z.number().int().nullable(), seats: z.number().int().nullable() });
+
+/** billing/plans.ts Plan. `tier` and `months` (1 or 12) are set for subscriptions only. */
+export const PlanOf = z.object({
+  id: z.string(), price: z.number(), kind: z.enum(['catalog', 'subscription']), maxRows: z.number().int().nullable(),
+  tier: z.enum(PLAN_TIERS).optional(), months: z.number().int().optional(),
+});
+
+/** billing/plans.ts tierOffers(): each tier's limits, monthly API checks and both of its plans. */
+export const TierOffers = z.array(z.object({
+  tier: z.enum(PLAN_TIERS), limits: PlanLimitsOf, apiChecks: z.number().int().nullable(), monthly: PlanOf, yearly: PlanOf,
+}));

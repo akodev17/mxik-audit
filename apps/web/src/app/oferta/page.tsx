@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { fmtNumber } from '@tasnivo/i18n/format';
+import { uz as pricingUz } from '@tasnivo/i18n/i18n-parts/pricing';
 import { PRICING } from '@/components/landing/config';
 import { Todo } from '@/components/landing/legal-page';
 import { LegalDoc, type LegalSection } from '../maxfiylik/legal-doc';
@@ -14,6 +16,9 @@ export const metadata: Metadata = {
   // Not indexed while it still carries TODO blanks.
   robots: { index: false, follow: true },
 };
+
+const c = pricingUz.prX;
+const n = (v: number): string => fmtNumber('uz', v);
 
 const SECTIONS: LegalSection[] = [
   {
@@ -33,13 +38,18 @@ const SECTIONS: LegalSection[] = [
     body: (
       <ul>
         <li>
-          {PRICING.free.name} ({PRICING.free.price.toLowerCase()}): katalogdagi riskli
-          MXIK pozitsiyalari roʻyxati.
+          {c.names.trial} ({c.free.toLowerCase()}, {c.trialTerm(PRICING.trial.days)}): katalogdagi riskli
+          MXIK pozitsiyalari roʻyxati va kod takliflari.
         </li>
-        {PRICING.plans.map((p) => (
-          <li key={p.rows}>
-            {PRICING.planName}, {p.rows}: {p.price} {PRICING.currency}.{' '}
-            {PRICING.planDetail}.
+        {PRICING.tiers.map((t) => (
+          <li key={t.tier}>
+            {c.names[t.tier]} obunasi: {n(t.monthly)} {c.currency} {c.perMonth} yoki{' '}
+            {n(t.monthly * PRICING.yearlyPaidMonths)} {c.currency} {c.perYear}. {c.features.export}.
+          </li>
+        ))}
+        {PRICING.catalog.map((t) => (
+          <li key={t.maxRows}>
+            {c.oneOff.title}, {c.oneOff.size(n(t.maxRows))}: {n(t.price)} {c.currency}. {c.oneOff.text}
           </li>
         ))}
       </ul>
@@ -62,7 +72,7 @@ const SECTIONS: LegalSection[] = [
     title: 'Toʻlov va muddatlar',
     body: (
       <p>
-        {PRICING.paymentNote} Bepul audit natijasi fayl olinganidan keyin bir ish kuni
+        {c.payTransfer} Bepul audit natijasi fayl olinganidan keyin bir ish kuni
         ichida yuboriladi. Pullik xizmat muddati: <Todo>muddat</Todo>.
       </p>
     ),

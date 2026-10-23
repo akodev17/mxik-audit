@@ -11,6 +11,7 @@ import { LOGO_MAX_BYTES } from '@tasnivo/domain/account-settings';
 import { DIMENSIONS } from '@tasnivo/domain/accuracy';
 import { CheckItemSchema } from '@tasnivo/domain/api/check';
 import * as domainContract from '@tasnivo/domain/api/contract';
+import { TIERS as DOMAIN_TIERS } from '@tasnivo/domain/billing/plans';
 import { MAX_UPLOAD_BYTES } from '@tasnivo/domain/catalog-import';
 import { CLIENT_FILTERS as DOMAIN_CLIENT_FILTERS, CLIENT_SORTS as DOMAIN_CLIENT_SORTS, STALE_DAYS as DOMAIN_STALE_DAYS } from '@tasnivo/domain/client-stats';
 import { COLUMN_FIELDS as DOMAIN_COLUMN_FIELDS, ColumnMapSchema } from '@tasnivo/domain/column-map';
@@ -33,7 +34,7 @@ import { LOCALES as DOMAIN_LOCALES } from '@tasnivo/i18n/i18n';
 import type { ZodTypeAny } from 'zod';
 import {
   CATALOG_STATUSES, CLIENT_ACTIVITIES, CODE_STATES, ColumnMap, COLUMN_FIELDS, DECISION_FILTERS, DECISION_SOURCES, DECISIONS, DOC_KINDS, DocMap,
-  FilterInput, FINDING_TYPES, FLAG_FILTERS, LIMITS, LOCALES, MATCH_STAGES, OPTIONAL_COLUMNS, PurchaseMap, RETENTION_CHOICES, ROLES, SEVERITIES,
+  FilterInput, FINDING_TYPES, FLAG_FILTERS, LIMITS, LOCALES, MATCH_STAGES, OPTIONAL_COLUMNS, PLAN_TIERS, PurchaseMap, RETENTION_CHOICES, ROLES, SEVERITIES,
   THEMES, ViewParams, WRONG_REASONS,
 } from './common';
 import { ACTIVITY_CATEGORIES } from './modules/account';
@@ -76,6 +77,7 @@ describe('value lists equal their sources', () => {
     assert.deepEqual(WRONG_REASONS, DOMAIN_WRONG_REASONS);
     assert.deepEqual(DOC_KINDS, DOMAIN_DOC_KINDS);
     assert.deepEqual(RETENTION_CHOICES, DOMAIN_RETENTION);
+    assert.deepEqual(PLAN_TIERS, DOMAIN_TIERS);
     assert.deepEqual(LOCALES, DOMAIN_LOCALES);
     assert.deepEqual(CLIENT_FILTERS, DOMAIN_CLIENT_FILTERS);
     assert.deepEqual(CLIENT_SORTS, DOMAIN_CLIENT_SORTS);

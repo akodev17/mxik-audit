@@ -411,7 +411,7 @@ the repository root. Ticks are kept.
 - `imports.purchases`: purchases/page.tsx queries db.purchaseList and db.purchaseItem itself.
 - `imports.docs`: imports/page.tsx queries db.docList and db.docItem itself.
 - `imports.doc`: imports/[listId]/page.tsx queries db.docList and db.docGroup and joins codeDetails itself.
-- `billing.plan`: plan-tab.tsx and shell-data.ts combine planStatus, planLimits, firmPlan, purchaseOf and usageThisMonth themselves.
+- `billing.plan`: plan-tab.tsx and shell-data.ts combine planStatus, planLimits, tierOffers, purchaseOf and usageThisMonth themselves.
 - `billing.catalogPurchase`: billing-box.tsx calls catalogPlan, catalogPaid and catalogPurchase itself.
 - `demo.config`: demo/page.tsx and demo/verify read demo-config.ts directly.
 
