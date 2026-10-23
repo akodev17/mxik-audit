@@ -61,7 +61,7 @@ export async function WorkspaceHeader({ catalog, user, canShare, showReview }: P
             </div>
             <div className={cx('flex gap-1', dot)}><dt className="sr-only">{ta.ws.date}</dt><dd className="tabular-nums">{fmtDate(locale, catalog.createdAt)}</dd></div>
             <div className={cx('flex gap-1', dot)}><dt className="sr-only">{t.catalogsRows}</dt><dd className="tabular-nums">{f.rows(catalog.rowCount)}</dd></div>
-            <div className={cx('flex flex-wrap items-center gap-1.5', dot)}>
+            <div className={cx('flex flex-wrap items-center gap-1.5 max-sm:w-full max-sm:before:content-none', dot)}>
               <dt>{ta.ws.classifier}:</dt>
               <dd className="flex flex-wrap items-center gap-1.5 text-fg">
                 {used
