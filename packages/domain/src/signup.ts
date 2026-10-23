@@ -15,6 +15,7 @@ import { MIN_PASSWORD } from './security/password-check.js';
 import { sendPendingAccountLink } from './security/password-reset.js';
 import { hit, minutesOf, RULES } from './security/rate-limit.js';
 import { EMAIL_PATTERN, emailAcceptable } from './security/reserved-email.js';
+import { openDecoy } from './security/decoy.js';
 import { openSession, type SignInSession } from './security/sign-in.js';
 import { confirmEmail, sendVerification, VERIFY_PATH } from './security/verification.js';
 
@@ -90,7 +91,8 @@ export async function createAccount(input: Input): Promise<SignupResult> {
  * The public sign-up form: opens a 14-day trial org under the per-address signup limit and signs
  * the new admin in with an unconfirmed address, so the browser goes to the code step
  * (`{ redirect: VERIFY_PATH }`); every other page stays closed until the code is entered. An
- * address that is already registered gets "check your e-mail" and its owner a mail. Without a way
+ * address that is already registered gets the same answer with a decoy session that no code
+ * confirms (security/decoy.ts, Q3), and its owner a mail. Without a way
  * to deliver the code (production without SMTP) sign-up is refused, never let through unconfirmed.
  */
 export async function signUpForm(
@@ -106,7 +108,12 @@ export async function signUpForm(
     return { error: ta.verifyX.mailOff };
   }
   const result = await createAccount({ email: input.email, password: input.password, firmName: input.firm, locale: req.locale });
-  if (!result.ok) return 'mailed' in result ? { checkEmail: true } : { error: ta.msg.account[result.error] };
+  if (!result.ok && 'mailed' in result) {
+    // Registered (Q3): the owner was mailed; the visitor gets the new-account answer and a decoy session.
+    await openDecoy(session, input.email.trim().toLowerCase());
+    return { redirect: VERIFY_PATH };
+  }
+  if (!result.ok) return { error: ta.msg.account[result.error] };
   const { userId, orgId, email } = result.account;
   const next = await openSession(session, { id: userId, orgId, email }, { via: 'signup', landing: VERIFY_PATH }, req.userAgent);
   return { redirect: next ?? '/sign-in' };

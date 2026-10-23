@@ -348,7 +348,7 @@ Address confirmation and invites:
 docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" u SET \"emailVerifiedAt\" = now() FROM invite i WHERE u.\"emailVerifiedAt\" IS NULL AND i.\"usedAt\" IS NOT NULL AND i.\"orgId\" = u.\"orgId\" AND lower(i.email) = u.email;"
 ```
 
-Signing up with an address that already has an account answers "check your email" (a new address goes to the code step instead, so the difference is visible; sign-up is rate-limited per client address); the owner gets either a "someone tried to sign up" note (confirmed account) or a link to confirm and choose a password (unconfirmed account), so the sign-up page never reveals which addresses are registered and nobody can pre-register someone else's address with a password they know.
+Signing up with an address that already has an account answers exactly like a new address: the same `{ redirect: "/sign-up/verify" }`, status and session cookie, so the sign-up form and the API cannot tell registered addresses apart. The cookie is a decoy (`packages/domain/src/security/decoy.ts`): it names no user, `/api/auth/me` shows it as a new unconfirmed admin, every other signed-in endpoint answers 403 `unverified`, no code confirms it ("wrong code", with the same per-user limit) and "send again" says the code was sent without mailing anything. Sign-up stays rate-limited per client address (8 an hour, 7g). The owner gets either a "someone tried to sign up" note (confirmed account) or a link to confirm and choose a password (unconfirmed account), so the sign-up page never reveals which addresses are registered and nobody can pre-register someone else's address with a password they know.
 
 ## 7d. Signup, trial and plan limits
 

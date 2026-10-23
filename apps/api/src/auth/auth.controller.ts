@@ -13,6 +13,7 @@ import {
   forgotPasswordForm, resendCodeForm, resendConfirmationForm, resetPasswordForm, signInForm, twoFactorForm, verifyCodeForm, verifyEmailLink,
 } from '@tasnivo/domain/security/auth-forms';
 import { googleCallback, googleEnabled, startGoogle } from '@tasnivo/domain/security/google';
+import { decoyResendCode, decoyVerifyCode } from '@tasnivo/domain/security/decoy';
 import { deviceLabel } from '@tasnivo/domain/security/device';
 import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
 import { resetTarget } from '@tasnivo/domain/security/password-reset';
@@ -139,12 +140,14 @@ export class AuthController {
     @Req() req: ApiRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<Answer<'verifyCode'>> {
+    if (req.decoy) return decoyVerifyCode(user.userId, locale);
     const session = await this.sessions.forSignIn(req, res);
     return verifyCodeForm(user, body.code, { locale, session: { session, userAgent: requestFacts(req).userAgent } });
   }
 
   @Route(e.resendCode)
   resendCode(@CurrentUser() user: User, @Req() req: ApiRequest): Promise<Answer<'resendCode'>> {
+    if (req.decoy) return decoyResendCode(user.email, requestFacts(req));
     return resendCodeForm(user, requestFacts(req));
   }
 
