@@ -34,6 +34,11 @@ export function barcodeKey(barcode: string | null | undefined): { stored: string
   return { stored: identity ?? raw, identity };
 }
 
+/** A stored GTIN-14 as people write it: a leading 0 dropped (EAN-13), anything else as stored. */
+export function displayBarcode(stored: string | null): string | null {
+  return stored && /^0\d{13}$/.test(stored) ? stored.slice(1) : stored;
+}
+
 /** Every number in a name key, in order: two products whose numbers differ are never the same product by similarity. */
 export function numbersOf(key: string): string {
   return (key.match(/\d+/g) ?? []).join(' ');

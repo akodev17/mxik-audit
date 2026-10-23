@@ -14,6 +14,7 @@ import { ExportActions } from './export-actions';
 import { InfoHint } from './info-hint';
 import { ReviewField } from './review-field';
 import { ShareButton } from './share-button';
+import { AddFromAudit } from '../../products/add-from-audit';
 
 type Props = {
   /** The catalogue as the API's header read answers it (catalogs.get). */
@@ -84,6 +85,7 @@ export async function WorkspaceHeader({ catalog, user, canShare, showReview }: P
                 <nav aria-label={ta.importX.report.details} className="no-print -ml-2 flex flex-wrap items-center gap-1">
                   {ready ? <Link href={`/catalogs/${catalog.id}/report`} className={quietLink}><IconBook size={14} />{ta.importX.report.title}</Link> : null}
                   {catalog.previousId ? <Link href={`/catalogs/${catalog.id}/diff`} className={quietLink}><IconList size={14} />{ta.diff.title}</Link> : null}
+                  {ready && user.role !== 'viewer' && !catalog.demo ? <AddFromAudit catalogId={catalog.id} /> : null}
                 </nav>
               ) : null}
             </div>

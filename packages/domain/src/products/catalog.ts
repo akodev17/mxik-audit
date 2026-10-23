@@ -17,7 +17,7 @@ import { codeUnits, exportItems, exportUnit } from '../export-rows.js';
 import { buildExport, prepareExport } from '../onec/index.js';
 import type { CurrentUser } from '../session.js';
 import { classifyDetailed, type DetailedClassification } from './classify.js';
-import { productNameKey } from './keys.js';
+import { displayBarcode, productNameKey } from './keys.js';
 import { packagesFor } from './packaging.js';
 import { upsertRecords } from './upsert.js';
 
@@ -59,7 +59,7 @@ type RowIn = Prisma.ProductGetPayload<{ select: typeof ROW_SELECT }>;
 function rowOut(p: RowIn): ProductRowOut {
   return {
     id: p.id, name: p.name, clientId: p.clientId, clientName: p.client?.name ?? null, onecRef: p.onecRef, mxik: p.mxik?.trim() ?? null, mxikName: p.mxikName,
-    packageCode: p.packageCode, packageName: p.packageName, unit: p.unit, barcode: p.barcode, source: p.source, mxikStatus: asStatus(p.mxikStatus),
+    packageCode: p.packageCode, packageName: p.packageName, unit: p.unit, barcode: displayBarcode(p.barcode), source: p.source, mxikStatus: asStatus(p.mxikStatus),
     issues: asIssues(p.mxikIssues), suggestion: asCandidate(p.mxikSuggestion), markingRequired: p.markingRequired,
     checkedAt: p.mxikCheckedAt?.toISOString() ?? null, confirmedAt: p.mxikConfirmedAt?.toISOString() ?? null, updatedAt: p.updatedAt.toISOString(),
   };
@@ -258,7 +258,7 @@ export async function exportProducts(user: CurrentUser, input: { clientId?: stri
           rowIndex, status: 'valid', issues: [], fingerprint: r.id, decision: { action: 'approve' },
           payload: {
             productId: r.id, name: r.name, onecRef: r.onecRef, mxik: r.mxik?.trim() ?? null, mxikName: r.mxikName, packageCode: r.packageCode, packageName: r.packageName,
-            unit: r.unit, barcode: r.barcode, aliases: [], mxikStatus: asStatus(r.mxikStatus), mxikSuggestion: null, markingRequired: r.markingRequired,
+            unit: r.unit, barcode: displayBarcode(r.barcode), aliases: [], mxikStatus: asStatus(r.mxikStatus), mxikSuggestion: null, markingRequired: r.markingRequired,
           } satisfies ProductRecord,
         })),
       },

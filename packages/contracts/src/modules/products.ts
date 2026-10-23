@@ -96,7 +96,11 @@ export const products = defineModule('products', {
     responds: 'json',
     response: z.object({
       rows: z.array(ProductRow),
-      counts: z.record(z.enum(PRODUCT_FILTERS), z.number().int()),
+      /** Products per MXIK status under the search and client filter (not the status filter), plus all. */
+      counts: z.object({
+        all: z.number().int(), ok: z.number().int(), missing: z.number().int(), invalid: z.number().int(), inactive: z.number().int(),
+        restricted: z.number().int(), suspicious: z.number().int(), unchecked: z.number().int(),
+      }),
       total: z.number().int(),
       pageSize: z.number().int(),
       clients: z.array(ClientRef),

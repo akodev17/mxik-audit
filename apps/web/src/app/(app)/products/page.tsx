@@ -1,26 +1,41 @@
-// Placeholder from the base commit of the accounting programme (docs/TASNIVO_AI_PLAN_2026-10-23.md).
-// The owning workstream replaces this page; keeping the route from day one lets the shell, the
-// command palette and the tests know the section before its screens land.
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { signedIn } from '@/lib/api/me';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { EmptyState } from '@/ui/empty-state';
+import { ButtonLink } from '@/ui/button';
+import { IconUpload } from '@/ui/icons';
 import { Page } from '@/ui/page';
+import { PRODUCT_FILTERS, type ProductFilter } from './labels';
+import { ProductsView } from './products-view';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, ta } = await getI18n();
-  return { title: `${ta.accountingX.nav.products} — ${t.appName}` };
+  return { title: `${ta.productsX.title} — ${t.appName}` };
 }
 
-export default async function ProductsPage() {
+type Search = { q?: string; status?: string; client?: string; page?: string; product?: string };
+
+/** The product catalogue: search, MXIK status chips, client filter, the drawer and the bulk actions. */
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const { ta } = await getI18n();
+  const sp = await searchParams;
+  const q = (sp.q ?? '').trim().slice(0, 100);
+  const status: ProductFilter = (PRODUCT_FILTERS as readonly string[]).includes(sp.status ?? '') ? sp.status as ProductFilter : 'all';
+  const client = sp.client?.slice(0, 64) ?? '';
+  const page = Math.max(0, Math.floor(Number(sp.page) || 0));
+  const listing = serverApi().products.list({ ...(q ? { q } : {}), ...(status !== 'all' ? { status } : {}), ...(client ? { client } : {}), page });
+  listing.catch(() => undefined); // awaited below, after a missing session has redirected
   const user = await signedIn();
   if (!user) redirect('/sign-in');
-  const a = ta.accountingX;
+  const data = await listing;
+  const editable = user.role !== 'viewer';
   return (
-    <Page title={a.nav.products} hint={a.placeholder.hint}>
-      <EmptyState title={a.placeholder.title} hint={a.placeholder.hint} />
+    <Page
+      title={ta.productsX.title} hint={ta.productsX.hint} wide
+      actions={editable ? <ButtonLink href="/products/import" variant="primary" leadingIcon={<IconUpload size={16} />}>{ta.productsX.actions.import}</ButtonLink> : null}
+    >
+      <ProductsView key={`${q}|${status}|${client}|${page}`} q={q} status={status} client={client} page={page} initial={data} editable={editable} openId={sp.product ?? null} />
     </Page>
   );
 }
