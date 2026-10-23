@@ -228,6 +228,7 @@ model Organization {
   usageLedger UsageLedger[]
   importBatches ImportBatch[]
   counterparties Counterparty[]
+  onecConnection OneCConnection?
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -1347,6 +1348,7 @@ model ImportRecord {
 
   @@unique([batchId, rowIndex])
   @@index([batchId, status])
+  @@index([fingerprint])
   @@map("import_record")
 }
 
@@ -1394,16 +1396,56 @@ model OneCExport {
   /// ImportOutcome summary: imported, skipped, rejected with reasons; per-record outcomes live on
   /// import_record.outcome.
   outcome     Json?
+  /// The generated file (a download export); null for a direct transfer. Kept so the same file can
+  /// be downloaded again and an idempotent repeat answers it unchanged.
+  file        Bytes?
+  contentType String?
+  /// SHA-256 of format + the requested record ids ('*' = the batch's approved records): a repeat of
+  /// the same request within a few minutes answers this export instead of a new one.
+  requestKey  String?
+  /// SHA-256 of the exported records' fingerprints, sorted: the same set exported again is flagged.
+  recordSetHash String?
   createdBy   String?
   createdAt   DateTime @default(now())
 
   batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@index([batchId, createdAt])
+  @@index([recordSetHash])
   @@map("onec_export")
 }
 
 // ── Agent 1: 1C integration (connections, settings) ─────────────────────────────────────
+
+/// The org's 1C settings: how bank-exchange files name the МФО, and an optional direct connection
+/// (OData standard interface or an HTTP service of the client's 1C). One row per org.
+model OneCConnection {
+  id        String    @id @default(cuid())
+  orgId     String    @unique
+  /// 'none' (files only) | 'odata' | 'http'.
+  kind      String    @default("none")
+  /// The published base: `https://host/base` (OData answers under /odata/standard.odata/).
+  baseUrl   String?
+  username  String?
+  /// The password, sealed with a key derived from SESSION_SECRET (AES-256-GCM, like the 2FA secrets).
+  secret    String?
+  /// Entity sets and attribute names per record kind (onec/connection.ts DEFAULT_OBJECT_MAP shape).
+  objectMap Json?
+  /// 'standard' (МФО in ПлательщикБИК/ПолучательБИК) | 'uz_mfo' (also ПлательщикМФО/ПолучательМФО).
+  bankKeys  String    @default("standard")
+  lastTestedAt DateTime?
+  /// The last test's or transfer's error, without secrets; null after a successful test.
+  lastError String?
+  /// Whether the last connection test succeeded.
+  lastOk    Boolean?
+  updatedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("onec_connection")
+}
 
 // ── Agent 2: bank statements (formats, saved column mappings) ───────────────────────────
 
