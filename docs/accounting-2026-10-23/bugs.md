@@ -261,6 +261,17 @@ was asked to fix (`docs/BUGFIX_PLAN_2026-10-23.md` §1–2).
   idle flake) did not recur. **Verdict:** defer; optionally skip `refresh` "router.refresh() commits"
   on `isDevServer` like its test 4.
 
+### Q20. S3. `npm test` is red on the base commit: the new module sections are not in robots.txt (fixed on this branch)
+
+- **Steps:** `npm test` on `36ef476` → 1 729 tests, 1 fail: `apps/web/src/app/robots.test.ts` "B16: every
+  section of the signed-in app is disallowed" → `/bank`. The base commit added the `(app)/bank`,
+  `didox`, `products`, `onec` placeholder pages; `PRIVATE_PATHS` in `apps/web/src/app/robots.ts` did not list them,
+  so search engines were told the four signed-in sections may be crawled.
+- **Fix (commit on `fix/platform-quality`):** the four paths added to `PRIVATE_PATHS`; the existing test is
+  the regression test (2/2 pass). Agents 1–4 will each see this failure on their branches; the
+  coordinator should take this one-line change and drop any duplicate at merge.
+- **Verdict:** fixed.
+
 ## e2e on the production build
 
 `API_INTERNAL_URL=http://localhost:4025 npm run build`, `next start -p 3025`,
@@ -269,7 +280,8 @@ was asked to fix (`docs/BUGFIX_PLAN_2026-10-23.md` §1–2).
 baseline on this machine was also 60/60; the four new module pages have no specs yet.
 
 `npm run typecheck` exit 0; `npm run lint` 0 errors, 1 warning (`scripts/lib/xlsx.ts:131`, as in
-the QA baseline). `npm test`: see `agent5-result.md`.
+the QA baseline). `npm test` on the base commit: 1 729 tests, 1 726 pass, **1 fail** (Q20), 2 skipped
+(the weighted-search tests, as in the QA baseline).
 
 ## Not reproduced / not tested here
 
