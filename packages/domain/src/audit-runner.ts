@@ -195,6 +195,10 @@ export type ItemCheck = {
   markingRequired: boolean;
   /** What stages 4 and 6 did for this row, for the run's pipeline metadata. */
   match: { rerank: RerankOutcome; vector: VectorOutcome };
+  /** The ranked suggestions the checks saw (the row's own code included when it was scorable). */
+  suggestions: ScoredCandidate[];
+  /** What the classifier says about the row's own code. */
+  existing: ResolvedRow['existing'];
 };
 
 const SUGGESTIONS = 5;
@@ -266,6 +270,8 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     findings,
     markingRequired: markingRequired(existing.candidate?.isMarked === true, findings, suggestions),
     match: { rerank: match.rerank, vector: match.vector },
+    suggestions,
+    existing,
   };
 }
 
