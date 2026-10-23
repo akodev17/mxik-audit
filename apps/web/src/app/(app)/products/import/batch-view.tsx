@@ -20,7 +20,7 @@ import { Table, Td, Th } from '@/ui/table';
 import { useToast } from '@/ui/toast';
 import { fill, issueText, RECORD_TONE, STATUS_TONE, type RecordStatus } from '../labels';
 
-const RECORD_FILTERS: readonly RecordStatus[] = ['unresolved', 'suspicious', 'valid', 'corrected', 'skipped'];
+const RECORD_FILTERS: readonly RecordStatus[] = ['unresolved', 'suspicious', 'valid', 'corrected', 'skipped', 'exported'];
 
 /** One catalogue import: the check's progress, then its records with decisions, "save to catalogue" and "prepare for 1C". */
 export function BatchView({ batchId, stages }: { batchId: string; stages: readonly string[] }) {

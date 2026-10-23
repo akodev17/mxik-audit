@@ -89,7 +89,7 @@ export function ProductsView({ q, status, client, page, initial, editable, openI
     try {
       const r = await api.products.exportAll({ ...(client && client !== 'own' ? { clientId: client } : {}), ...(status !== 'all' ? { status } : {}) });
       if (r.ok) {
-        toast(fill(x.toast.exportReady, { n: fmtNumber(locale, r.records) }), { tone: 'ok', action: { label: x.importWizard.download, run: () => { window.location.href = `/api/onec/exports/${r.exportId}/file`; } } });
+        toast(fill(x.importWizard.exportDone, { n: fmtNumber(locale, r.records), left: fmtNumber(locale, r.leftOut) }), { tone: 'ok', action: { label: x.importWizard.download, run: () => { window.location.href = `/api/onec/exports/${r.exportId}/file`; } } });
       }
       else toast(r.error, { tone: r.unavailable ? 'ok' : 'error' });
     } catch (error) {

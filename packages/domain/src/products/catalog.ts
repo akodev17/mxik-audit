@@ -14,7 +14,7 @@ import { canSeeClient, canWrite } from '../access.js';
 import { visibleClients } from '../active-client.js';
 import { learn } from '../dictionary.js';
 import { codeUnits, exportItems, exportUnit } from '../export-rows.js';
-import { buildExport, prepareExport } from '../onec/index.js';
+import { buildExport, prepareExport, refreshCounts } from '../onec/index.js';
 import type { CurrentUser } from '../session.js';
 import { classifyDetailed, type DetailedClassification } from './classify.js';
 import { displayBarcode, productNameKey } from './keys.js';
@@ -244,6 +244,28 @@ export async function getProductRecords(orgId: string, ids: readonly string[]): 
   });
 }
 
+/** The issue a product's MXIK status stands for when its last check stored none (audit rows, older checks). */
+const STATUS_ISSUE: Partial<Record<Status, ValidationIssue>> = {
+  missing: { code: 'mxik_missing', severity: 'error', field: 'mxik' },
+  invalid: { code: 'mxik_not_found', severity: 'error', field: 'mxik' },
+  inactive: { code: 'mxik_inactive', severity: 'error', field: 'mxik' },
+  restricted: { code: 'mxik_restricted', severity: 'error', field: 'mxik' },
+  suspicious: { code: 'mxik_suspicious', severity: 'warning', field: 'mxik' },
+};
+
+/**
+ * A product's record state in a catalogue export: its stored issues (or the one its status stands
+ * for); an error keeps it unresolved and a warning suspicious, so the 1C module leaves it out and says
+ * why; a clean or unchecked product is valid and approved.
+ */
+export function exportState(p: { mxikStatus: string; mxikIssues: Prisma.JsonValue | null }): { status: 'valid' | 'suspicious' | 'unresolved'; issues: Prisma.InputJsonValue; decision?: Prisma.InputJsonValue } {
+  const stored = asIssues(p.mxikIssues).filter((i) => i.severity !== 'info');
+  const fallback = STATUS_ISSUE[asStatus(p.mxikStatus)];
+  const issues = stored.length > 0 ? stored : fallback ? [fallback] : [];
+  const status = issues.some((i) => i.severity === 'error') ? 'unresolved' : issues.length > 0 ? 'suspicious' : 'valid';
+  return { status, issues: issues as unknown as Prisma.InputJsonValue, ...(status === 'valid' ? { decision: { action: 'approve' } } : {}) };
+}
+
 /** Asks the 1C module for a nomenclature_xlsx of a batch: prepare (validate, dedupe), then build. */
 export async function handOverBatch(user: CurrentUser, batchId: string, locale: Locale): Promise<Handover> {
   const unavailable = i18nFor(locale).ta.productsX.importWizard.exportUnavailable;
@@ -254,8 +276,9 @@ export async function handOverBatch(user: CurrentUser, batchId: string, locale: 
   // The file name travels in Content-Disposition, as for every other download.
   const disposition = built.file.headers['Content-Disposition'] ?? built.file.headers['content-disposition'] ?? '';
   const filename = /filename*?=(?:UTF-8'')?"?([^";]+)/i.exec(disposition)?.[1] ?? null;
-  const total = await db.importRecord.count({ where: { batchId } });
-  return { ok: true, exportId: built.exportId, filename: filename ? decodeURIComponent(filename) : null, records: built.records, leftOut: Math.max(0, total - built.records) };
+  // After the export its own records are `exported`; everything else of the batch stayed out.
+  const left = await db.importRecord.count({ where: { batchId, status: { not: 'exported' } } });
+  return { ok: true, exportId: built.exportId, filename: filename ? decodeURIComponent(filename) : null, records: built.records, leftOut: left };
 }
 
 /**
@@ -270,21 +293,20 @@ export async function exportProducts(user: CurrentUser, input: { clientId?: stri
   const status = input.status && STATUSES.includes(input.status as Status) ? { mxikStatus: input.status } : {};
   const rows = await db.product.findMany({
     where: { AND: [productScope(user), clientId ? { clientId } : {}, status] }, orderBy: { name: 'asc' },
-    select: { id: true, name: true, onecRef: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true, mxikStatus: true, markingRequired: true, updatedAt: true },
+    select: { id: true, name: true, onecRef: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true, mxikStatus: true, mxikIssues: true, markingRequired: true, updatedAt: true },
   });
   if (rows.length === 0) return { ok: false, unavailable: false, error: i18nFor(locale).ta.productsX.empty.filtered };
   const fingerprint = createHash('sha256').update(rows.map((r) => `${r.id}@${r.updatedAt.toISOString()}`).join('\n')).digest('hex');
   const existing = await db.importBatch.findUnique({ where: { orgId_kind_fingerprint: { orgId: user.orgId, kind: 'product_catalog', fingerprint } }, select: { id: true } });
   const batchId = existing?.id ?? (await db.importBatch.create({
     data: {
-      orgId: user.orgId, clientId, kind: 'product_catalog', source: 'products', filename: 'nomenklatura.xlsx', fingerprint, status: 'approved', createdBy: user.userId,
+      orgId: user.orgId, clientId, kind: 'product_catalog', source: 'products', filename: 'katalog.xlsx', fingerprint, status: 'approved', createdBy: user.userId,
       meta: { source: 'products', headers: [], columnMap: {}, catalogId: null },
-      counts: { total: rows.length, valid: rows.length, corrected: 0, suspicious: 0, unresolved: 0, skipped: 0, exported: 0 },
       records: {
         create: rows.map((r, rowIndex) => ({
-          rowIndex, status: 'valid', issues: [],
+          rowIndex, ...exportState(r),
           // Product + version: an unchanged product another export already carried is left out as a duplicate; a changed one goes again.
-          fingerprint: `product:${r.id}@${r.updatedAt.toISOString()}`, decision: { action: 'approve' },
+          fingerprint: `product:${r.id}@${r.updatedAt.toISOString()}`,
           payload: {
             productId: r.id, name: r.name, onecRef: r.onecRef, mxik: r.mxik?.trim() ?? null, mxikName: r.mxikName, packageCode: r.packageCode, packageName: r.packageName,
             unit: r.unit, barcode: displayBarcode(r.barcode), aliases: [], mxikStatus: asStatus(r.mxikStatus), mxikSuggestion: null, markingRequired: r.markingRequired,
@@ -294,6 +316,7 @@ export async function exportProducts(user: CurrentUser, input: { clientId?: stri
     },
     select: { id: true },
   })).id;
+  if (!existing) await refreshCounts(batchId);
   const out = await handOverBatch(user, batchId, locale);
   if (!out.ok && out.unavailable && !existing) await db.importBatch.delete({ where: { id: batchId } });
   return out.ok || !out.unavailable ? out : { ok: false, unavailable: true, error: unavailable };

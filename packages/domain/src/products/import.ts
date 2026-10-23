@@ -319,8 +319,9 @@ export async function productBatchView(user: Viewer, batchId: string, params: { 
 async function oneCPreview(orgId: string, batchId: string) {
   const prepared = await prepareExport({ orgId, batchId, format: 'nomenclature_xlsx' });
   if (!prepared.ok) return null;
-  const all = await db.importRecord.count({ where: { batchId } });
-  return { records: prepared.records, leftOut: Math.max(0, all - prepared.records), issues: prepared.issues.slice(0, 20) };
+  // Records an earlier export already carried are neither going nor left out.
+  const pending = await db.importRecord.count({ where: { batchId, status: { not: 'exported' } } });
+  return { records: prepared.records, leftOut: Math.max(0, pending - prepared.records), issues: prepared.issues.slice(0, 20) };
 }
 
 /** Accept the suggestion / set a code (re-checked at once), skip, or reopen one record. */
