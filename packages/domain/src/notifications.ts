@@ -2,15 +2,20 @@
 // org's linked Telegram chats when the bot is configured. Read state is per user.
 import type { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
+import type { Locale } from '@tasnivo/i18n/i18n';
 import { jobs } from './jobs/dispatcher.js';
+import type { NoticeText, NoticeTexts } from './notification-text.js';
 import type { CurrentUser } from './session.js';
 
 export type NewNotification = {
   orgId: string;
   clientId?: string | null;
   kind: string;
+  /** In the org's language: what Telegram sends and what a reader without `text` sees. */
   title: string;
   body: string;
+  /** The same in every interface language, so each reader gets theirs (B13). */
+  text?: NoticeTexts;
   href?: string | null;
   /** Addressed to this person alone; null or absent = everyone who may see the notice. */
   userId?: string | null;
@@ -28,7 +33,7 @@ export async function notify(input: NewNotification): Promise<string | null> {
   const data = {
     orgId: input.orgId, clientId: input.clientId ?? null, kind: input.kind,
     title: input.title, body: input.body, href: input.href ?? null,
-    userId: input.userId ?? null, dedupeKey: input.dedupeKey ?? null,
+    userId: input.userId ?? null, dedupeKey: input.dedupeKey ?? null, text: input.text,
   };
   let id: string;
   if (data.dedupeKey) {
@@ -117,7 +122,17 @@ export function groupWhere(group: NoticeGroup | undefined): Prisma.NotificationW
   return { kind: { in: [...GROUP_KINDS[group]] } };
 }
 
-export type ListOptions = { page?: number; pageSize?: number; unreadOnly?: boolean; group?: NoticeGroup };
+export type ListOptions = { page?: number; pageSize?: number; unreadOnly?: boolean; group?: NoticeGroup; locale?: Locale };
+
+/** The notice in the reader's language when it was stored in every language; older rows as stored (B13). */
+export function noticeText(row: { title: string; body: string; text: Prisma.JsonValue | null }, locale: Locale | undefined): NoticeText {
+  const all = row.text && typeof row.text === 'object' && !Array.isArray(row.text) ? row.text : null;
+  const mine = locale && all ? all[locale] : null;
+  if (mine && typeof mine === 'object' && !Array.isArray(mine) && typeof mine['title'] === 'string' && typeof mine['body'] === 'string') {
+    return { title: mine['title'], body: mine['body'] };
+  }
+  return { title: row.title, body: row.body };
+}
 
 export const NOTICE_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 50;
@@ -135,7 +150,7 @@ export async function listNotifications(user: NoticeUser, opts: ListOptions = {}
       skip: page * pageSize,
       take: pageSize,
       select: {
-        id: true, kind: true, title: true, body: true, href: true, createdAt: true, readAt: true,
+        id: true, kind: true, title: true, body: true, text: true, href: true, createdAt: true, readAt: true,
         client: { select: { id: true, name: true } },
         reads: { where: { userId: user.userId }, select: { readAt: true } },
       },
@@ -143,7 +158,7 @@ export async function listNotifications(user: NoticeUser, opts: ListOptions = {}
   ]);
   return {
     items: rows.map((r) => ({
-      id: r.id, kind: r.kind, title: r.title, body: r.body, href: noticeHref(r.href), createdAt: r.createdAt,
+      id: r.id, kind: r.kind, ...noticeText(r, opts.locale), href: noticeHref(r.href), createdAt: r.createdAt,
       unread: r.readAt === null && r.reads.length === 0,
       client: r.client,
     })),
