@@ -109,7 +109,7 @@ describe('bank_exchange_1_02 (1CClientBankExchange)', () => {
       assert.ok(d);
       assert.equal(d.date, t.date);
       assert.equal(d.direction, t.direction);
-      assert.equal(money2(d.amount), money2(t.amount));
+      assert.equal(money2(d.amount), money2(t.amount ?? ''));
       assert.equal(d.number, t.docNumber ?? String(i + 1));
       assert.equal(d.counterparty.inn, t.counterparty.inn);
       assert.equal(d.counterparty.account, t.counterparty.account);
@@ -240,6 +240,16 @@ describe('plan: what goes and what is left out', () => {
     assert.equal(plan.included.length, 0);
     const codes = plan.issues.map((i) => `${i.params?.['row']}:${i.code}`);
     assert.ok(codes.includes('1:date_invalid') && codes.includes('2:amount_invalid') && codes.includes('3:amount_invalid') && codes.includes('1:account_invalid'), codes.join());
+  });
+
+  it('an unresolved line with no date, amount or direction never reaches a file, even when explicitly chosen', () => {
+    const t = { ...BANK_TRANSACTIONS[0]!, date: null, amount: null, direction: null, raw: ['?', '1 5OO'], operationSuggestion: null };
+    accounting.BankTransaction.parse(t);
+    const plan = planExport(bankBatch, records([t]), 'bank_exchange_1_02', ['r0'], none);
+    assert.equal(plan.included.length, 0);
+    assert.deepEqual(plan.issues.filter((i) => i.severity === 'error').map((i) => [i.code, i.field]).sort(), [
+      ['amount_invalid', 'amount'], ['date_invalid', 'date'], ['payload_invalid', 'direction'],
+    ]);
   });
 
   it('balance: opening + credits − debits must equal closing', () => {

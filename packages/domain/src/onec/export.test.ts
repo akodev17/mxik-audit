@@ -99,6 +99,18 @@ describe('1C exports (database)', { skip }, () => {
     assert.deepEqual(await buildExport({ orgId: a.orgId, batchId: twin, format: 'bank_exchange_1_02', actorId: a.userId }), { ok: false, error: 'nothing_to_export' });
   });
 
+  it('refreshCounts recounts by status, computes approved and keeps a workstream\'s progress', async () => {
+    const batchId = await seedBankBatch({ orgId: a.orgId }, { transactions: BANK_TRANSACTIONS.map((t) => ({ ...t, docNumber: `c${t.docNumber ?? ''}` })) });
+    await db.importBatch.update({ where: { id: batchId }, data: { counts: { total: 0, progress: { done: 3, total: 6 } } } });
+    const recs = await recordsOf(batchId);
+    await decideMany({ orgId: a.orgId, clientIds: null, userId: a.userId }, batchId, { recordIds: [recs[0]!.id, recs[1]!.id], decision: { action: 'approve' } });
+    const counts = (await db.importBatch.findUniqueOrThrow({ where: { id: batchId } })).counts as Record<string, unknown>;
+    assert.equal(counts['total'], 6);
+    assert.equal(counts['valid'], 6);
+    assert.equal(counts['approved'], 2);
+    assert.deepEqual(counts['progress'], { done: 3, total: 6 });
+  });
+
   it('refusals: another org, an unknown or unsupported format, an invoice without its header', async () => {
     const other = await makeOrg();
     orgs.push(other.orgId);

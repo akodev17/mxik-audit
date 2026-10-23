@@ -15,6 +15,7 @@ import { db } from '@tasnivo/db';
 import { z } from 'zod';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { derivedKey } from '../security/secret.js';
+import type { ReadyTransaction } from './plan.js';
 
 export type ConnectionKind = (typeof accounting.ONEC_CONNECTION_KINDS)[number];
 export type BankKeys = (typeof accounting.ONEC_BANK_KEYS)[number];
@@ -260,7 +261,6 @@ export async function testConnection(orgId: string, fetcher: typeof fetch = fetc
 
 // ── Documents for the OData transfer (pure) ───────────────────────────────────────────────
 
-type BankTransaction = z.infer<typeof accounting.BankTransaction>;
 type InvoiceLine = z.infer<typeof accounting.InvoiceLine>;
 type IncomingInvoiceMeta = z.infer<typeof accounting.IncomingInvoiceMeta>;
 type ProductRecord = z.infer<typeof accounting.ProductRecord>;
@@ -277,7 +277,7 @@ function mapped(target: ObjectTarget, values: Record<string, string | number | n
   return body;
 }
 
-export function bankDocument(map: ObjectMap, t: BankTransaction): { entitySet: string; body: Record<string, unknown> } {
+export function bankDocument(map: ObjectMap, t: ReadyTransaction): { entitySet: string; body: Record<string, unknown> } {
   const target = t.direction === 'credit' ? map.bankCredit : map.bankDebit;
   return {
     entitySet: target.entitySet,

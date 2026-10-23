@@ -14,6 +14,8 @@ export type OneCFormat = z.infer<typeof accounting.ImportOutcome>['format'];
 export type ImportKind = (typeof accounting.IMPORT_KINDS)[number];
 type RecordStatus = (typeof accounting.RECORD_STATUSES)[number];
 type BankTransaction = z.infer<typeof accounting.BankTransaction>;
+/** A bank line that can go into a file: date, amount and direction read (only an unresolved line lacks them). */
+export type ReadyTransaction = BankTransaction & { date: string; amount: string; direction: 'debit' | 'credit' };
 type InvoiceLine = z.infer<typeof accounting.InvoiceLine>;
 type ProductRecord = z.infer<typeof accounting.ProductRecord>;
 
@@ -31,7 +33,7 @@ export type PlanBatch = { id: string; kind: ImportKind; meta: unknown };
 
 /** A record that goes into the file, with its payload parsed for the format. */
 export type Included =
-  | { record: PlanRecord; kind: 'bank_statement'; payload: BankTransaction }
+  | { record: PlanRecord; kind: 'bank_statement'; payload: ReadyTransaction }
   | { record: PlanRecord; kind: 'didox_invoice'; payload: InvoiceLine }
   | { record: PlanRecord; kind: 'product_catalog'; payload: ProductRecord };
 
@@ -106,8 +108,9 @@ function recordIssues(batch: PlanBatch, rec: PlanRecord, format: OneCFormat): { 
   const out: ValidationIssue[] = [];
   if (batch.kind === 'bank_statement') {
     const t = parsed.data as BankTransaction;
-    if (!realDate(t.date)) out.push(issue('date_invalid', 'error', rec, 'date'));
+    if (t.date === null || !realDate(t.date)) out.push(issue('date_invalid', 'error', rec, 'date'));
     if ((toMicros(t.amount) ?? 0n) <= 0n) out.push(issue('amount_invalid', 'error', rec, 'amount'));
+    if (t.direction === null) out.push(issue('payload_invalid', 'error', rec, 'direction'));
     if (format === 'bank_exchange_1_02' || format === 'odata') {
       const meta = accounting.BankStatementMeta.safeParse(batch.meta);
       if (!t.ourAccount && !(meta.success && meta.data.account)) out.push(issue('account_invalid', 'error', rec, 'ourAccount'));
@@ -115,7 +118,8 @@ function recordIssues(batch: PlanBatch, rec: PlanRecord, format: OneCFormat): { 
       if (!cp.counterpartyId && cp.match?.status === 'ambiguous') out.push(issue('counterparty_ambiguous', 'warning', rec, 'counterparty', { name: cp.name }));
       else if (!cp.counterpartyId && (cp.inn || cp.account || normalizeName(cp.name))) out.push(issue('counterparty_unknown', 'warning', rec, 'counterparty', { name: cp.name }));
     }
-    return { issues: out, parsed: { record: rec, kind: 'bank_statement', payload: t } };
+    // With an error the record is left out, so the narrowing holds for everything that is included.
+    return { issues: out, parsed: { record: rec, kind: 'bank_statement', payload: t as ReadyTransaction } };
   }
   if (batch.kind === 'didox_invoice') {
     const l = parsed.data as InvoiceLine;

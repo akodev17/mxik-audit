@@ -16,7 +16,7 @@ type ProductRecord = z.infer<typeof accounting.ProductRecord>;
 
 const hash = (parts: (string | number | null | undefined)[]): string => createHash('sha256').update(parts.map((p) => p ?? '').join('|')).digest('hex').slice(0, 40);
 /** "1500", "1500.0" and "1500.00" are the same amount. */
-const amountKey = (a: string): string => { const m = toMicros(a); return m === null ? a : fromMicros(m); };
+const amountKey = (a: string | null): string => { const m = toMicros(a); return m === null ? a ?? '' : fromMicros(m); };
 
 export function bankFingerprint(t: BankTransaction, statementAccount: string | null = null): string {
   const number = t.docNumber?.trim() || null;

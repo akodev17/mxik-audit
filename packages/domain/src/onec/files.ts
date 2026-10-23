@@ -67,14 +67,14 @@ function bankFile(batch: PlanBatch, rows: Included[], s: FileSettings): BuiltFil
 function productOf(r: Included): NomenclatureRow {
   if (r.kind === 'product_catalog') {
     const p = r.payload;
-    return { name: p.name, mxik: p.mxik, packageCode: p.packageCode, unit: p.unit, barcode: p.barcode, article: null };
+    return { name: p.name, mxik: p.mxik, packageCode: p.packageCode, unit: p.unit, barcode: p.barcode, article: p.article ?? null };
   }
   if (r.kind === 'didox_invoice') {
     const l = r.payload;
     const p = l.resolved;
     return {
       name: p?.name || l.name, mxik: p?.mxik ?? l.mxik, packageCode: p?.packageCode ?? l.packageCode, unit: p?.unit ?? l.unit,
-      barcode: p?.barcode ?? l.barcode, article: null,
+      barcode: p?.barcode ?? l.barcode, article: p?.article ?? null,
     };
   }
   return { name: '', mxik: null, packageCode: null, unit: null, barcode: null, article: null };

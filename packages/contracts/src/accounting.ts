@@ -35,7 +35,7 @@ export const IMPORT_STATUSES = ['uploaded', 'parsed', 'review', 'approved', 'exp
 export const RECORD_STATUSES = ['valid', 'corrected', 'suspicious', 'unresolved', 'skipped', 'exported'] as const;
 export const ISSUE_SEVERITIES = ['error', 'warning', 'info'] as const;
 /** How a match was made, strongest first. `ai` is a suggestion, never a match on its own. */
-export const MATCH_BASES = ['onec_ref', 'inn', 'account', 'barcode', 'mxik', 'name_exact', 'name_normalized', 'alias', 'confirmed_mapping', 'ai'] as const;
+export const MATCH_BASES = ['onec_ref', 'inn', 'account', 'barcode', 'mxik', 'name_exact', 'name_normalized', 'alias', 'confirmed_mapping', 'ai', 'name_similar'] as const;
 /** What 1C import a batch can be turned into. */
 export const ONEC_FORMATS = ['bank_exchange_1_02', 'nomenclature_xlsx', 'receipt_xlsx', 'counterparties_xlsx', 'odata', 'http'] as const;
 
@@ -136,11 +136,14 @@ export type CounterpartyRef = z.infer<typeof CounterpartyRef>;
  * that lists both columns yields one record per non-zero amount.
  */
 export const BankTransaction = z.object({
-  date: IsoDate,
+  /** Null only on an unresolved line the parser could not read (with an error issue); never guessed. */
+  date: IsoDate.nullable(),
   /** Payment document number as the bank prints it. */
   docNumber: z.string().max(40).nullable(),
-  direction: z.enum(['debit', 'credit']),
-  amount: DecimalString,
+  /** Null only on an unresolved line, like `date`. */
+  direction: z.enum(['debit', 'credit']).nullable(),
+  /** Null only on an unresolved line, like `date`. */
+  amount: DecimalString.nullable(),
   currency: Currency,
   /** The org's own account the statement is for. */
   ourAccount: BankAccount.nullable(),
@@ -159,6 +162,10 @@ export const BankTransaction = z.object({
   contract: z.string().max(120).nullable(),
   /** How `operation` / `counterparty` were decided: `rule:<id>`, `mapping`, `ai`, `manual`; null = not yet. */
   decidedBy: z.string().max(60).nullable(),
+  /** The source row's cells as read (shown in the correction form). */
+  raw: z.array(z.string()).max(60).optional(),
+  /** A suggested operation (basis `ai`) for a line no rule decided; never applied without a decision. */
+  operationSuggestion: MatchCandidate.nullable().optional(),
 });
 export type BankTransaction = z.infer<typeof BankTransaction>;
 
@@ -189,6 +196,8 @@ export const BankStatementMeta = z.object({
   ownerInn: Inn.nullable().optional(),
   /** МФО of the bank that holds `account`. */
   mfo: Mfo.nullable().optional(),
+  /** The bank workstream's own header (format name, verified flag, title lines, the bank's totals row, progress). */
+  bank: z.record(z.string(), z.unknown()).optional(),
 });
 export type BankStatementMeta = z.infer<typeof BankStatementMeta>;
 
@@ -216,6 +225,12 @@ export const ProductRecord = z.object({
   mxikSuggestion: MatchCandidate.nullable(),
   /** Whether the row is marked for digital marking (classifier label). */
   markingRequired: z.boolean().nullable(),
+  /** 1C «Артикул», when the source has one (written to nomenclature_xlsx). */
+  article: z.string().max(100).nullable().optional(),
+  /** A catalogue import record's match against the org's existing products. */
+  match: MatchResult.optional(),
+  /** Runner-up MXIK codes the classifier considered. */
+  alternatives: z.array(MatchCandidate).max(10).optional(),
 });
 export type ProductRecord = z.infer<typeof ProductRecord>;
 
@@ -269,6 +284,8 @@ export const IncomingInvoiceMeta = z.object({
   didoxStatus: z.string().max(40).nullable(),
   /** Whether the source document was signed by both parties when read. */
   signed: z.boolean().nullable(),
+  /** Problems of the document itself, not of a line (seller_unknown, seller_tin_invalid, ...). */
+  issues: z.array(ValidationIssue).max(50).optional(),
 });
 export type IncomingInvoiceMeta = z.infer<typeof IncomingInvoiceMeta>;
 
@@ -280,6 +297,12 @@ export const ProductCatalogMeta = z.object({
   columnMap: z.record(z.number().int()),
   /** The Tasnivo audit catalogue this batch was built from, when it came through the MXIK audit. */
   catalogId: z.string().nullable(),
+  /** Progress of a chunked check while the import runs. */
+  progress: z.object({ done: z.number().int(), total: z.number().int() }).optional(),
+  /** The language the catalogue's names are in, when detected. */
+  locale: z.string().max(10).optional(),
+  /** How many source rows the parser dropped (no name, blank). */
+  dropped: z.number().int().optional(),
 });
 export type ProductCatalogMeta = z.infer<typeof ProductCatalogMeta>;
 
@@ -327,6 +350,10 @@ export const BatchCounts = z.object({
   unresolved: z.number().int(),
   skipped: z.number().int(),
   exported: z.number().int(),
+  /** Valid or corrected with a reviewer's decision, not exported yet (refreshCounts computes it). */
+  approved: z.number().int().optional(),
+  /** Processing progress a producing workstream keeps while it reads a batch (refreshCounts keeps it). */
+  progress: z.object({ done: z.number().int(), total: z.number().int() }).optional(),
 });
 export type BatchCounts = z.infer<typeof BatchCounts>;
 
