@@ -32,7 +32,7 @@ export async function dashboardView(user: CurrentUser, opts: { accountant?: stri
     dashboard(user, admin ? opts.accountant ?? null : null),
     openTasks(user.orgId, user.clientIds),
     onboardingSteps(user),
-    activityPage(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: DASHBOARD_ACTIVITY }),
+    activityPage(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: DASHBOARD_ACTIVITY, committedOnly: true }),
     openReviews(user, { mineOnly: opts.mine === true }),
     reviewCounts(user),
   ]);

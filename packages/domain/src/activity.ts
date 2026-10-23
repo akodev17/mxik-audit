@@ -66,8 +66,22 @@ type Raw = {
 
 const catalogOf = Prisma.sql`COALESCE(e.payload->>'catalogId', CASE WHEN e.action LIKE 'catalog.%' THEN e."targetId" END)`;
 
-function conditions(user: ActivityViewer, f: ActivityFilter): Prisma.Sql[] {
+/**
+ * A `catalog.uploaded` event is written when the file is read, before the user confirms the columns (B19).
+ * One whose catalogue is still a draft, or was discarded, never became a catalogue: shown as
+ * `catalog.previewed` ("file read"), and left out of the dashboard and client summaries.
+ */
+const NEVER_COMMITTED = Prisma.sql`(e.action = 'catalog.uploaded' AND (
+  EXISTS (SELECT 1 FROM catalog p WHERE p.id = e."targetId" AND p."orgId" = e."orgId" AND p.status = 'uploaded')
+  OR EXISTS (SELECT 1 FROM audit_event d WHERE d."orgId" = e."orgId" AND d.action = 'catalog.upload_discarded' AND d."targetId" = e."targetId")))`;
+
+/** The product of a single-row event: named in the payload, or the one finding an undo lists (B19). */
+const productOf = Prisma.sql`COALESCE(e.payload->>'productName', CASE WHEN jsonb_typeof(e.payload->'findings') = 'array' THEN
+  CASE WHEN jsonb_array_length(e.payload->'findings') = 1 THEN e.payload->'findings'->0->>'productName' END END)`;
+
+function conditions(user: ActivityViewer, f: ActivityFilter, committedOnly = false): Prisma.Sql[] {
   const where: Prisma.Sql[] = [Prisma.sql`e."orgId" = ${user.orgId}`, Prisma.sql`e.action <> 'user.signed_in'`];
+  if (committedOnly) where.push(Prisma.sql`NOT ${NEVER_COMMITTED}`, Prisma.sql`e.action <> 'catalog.upload_discarded'`);
   if (f.category !== 'all') {
     where.push(f.category === 'other'
       ? Prisma.sql`NOT (e.action = ANY(${KNOWN}))`
@@ -96,17 +110,19 @@ function conditions(user: ActivityViewer, f: ActivityFilter): Prisma.Sql[] {
 
 /** One page of the log, newest first, with the number of matching events. */
 export async function activityPage(
-  user: ActivityViewer, f: ActivityFilter, opts: { pageSize?: number; withTotal?: boolean } = {},
+  user: ActivityViewer, f: ActivityFilter,
+  /** committedOnly: leave out uploads that never became catalogues (the dashboard and client summaries). */
+  opts: { pageSize?: number; withTotal?: boolean; committedOnly?: boolean } = {},
 ): Promise<{ rows: ActivityRow[]; hasMore: boolean; total: number | null; pageSize: number }> {
   const pageSize = Math.min(Math.max(opts.pageSize ?? PAGE_SIZE, 1), 200);
-  const where = Prisma.join(conditions(user, f), ' AND ');
+  const where = Prisma.join(conditions(user, f, opts.committedOnly), ' AND ');
   const [rows, counted] = await Promise.all([
     db.$queryRaw<Raw[]>(Prisma.sql`
-      SELECT e.id, e.action, e."createdAt" AS at, e."actorId" AS actor_id, u.email, ${catalogOf} AS catalog_id,
+      SELECT e.id, CASE WHEN ${NEVER_COMMITTED} THEN 'catalog.previewed' ELSE e.action END AS action, e."createdAt" AS at, e."actorId" AS actor_id, u.email, ${catalogOf} AS catalog_id,
         c.filename AS catalog_name, c.id IS NOT NULL AS catalog_exists,
         cl.id AS client_id,
         COALESCE(cl.name, CASE WHEN e.action LIKE 'client.%' THEN e.payload->>'name' END) AS client_name,
-        e.payload->>'count' AS count, e.payload->>'productName' AS product
+        e.payload->>'count' AS count, ${productOf} AS product
       FROM audit_event e
         LEFT JOIN "user" u ON u.id = e."actorId" AND u."orgId" = e."orgId"
         LEFT JOIN catalog c ON c.id = ${catalogOf} AND c."orgId" = e."orgId"
