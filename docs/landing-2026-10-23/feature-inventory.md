@@ -271,7 +271,7 @@ Not stale (checked): the footer classifier figures (generated); the sticky CTA; 
 
 | # | Question | Default in this brief |
 |---|---|---|
-| O1 | Q3 assumed the file paths are proven. They are proven only on synthetic data (P1). Badge the bank and Didox intake lines, and add the one section-wide sentence that the 1C files have not yet been loaded into a real 1C? | **Yes**, as drafted in §3.3–3.4: three line badges (bank intake, Didox intake/sync, 1C OData) plus one section sentence. The badges and the sentence go once a real bank file, a real Didox export and one load into a 1C test base are done (FINAL_REPORT §5 items 1–3). |
+| O1 | Q3 assumed the file paths are proven. They are proven only on synthetic data (P1). Badge the bank and Didox intake lines, and add the one section-wide sentence that the 1C files have not yet been loaded into a real 1C? | **Decided by the owner, 23 Oct 2026: keep, as drafted.** §3.3–3.4: three line badges (bank intake, Didox intake/sync, 1C OData) plus one section sentence. The badges and the sentence go once a real bank file, a real Didox export and one load into a 1C test base are done (FINAL_REPORT §5 items 1–3). |
 | O2 | Hero headline A or B (§3.1)? | **A**: keeps today's three-beat rhythm and promises "tayyorlang" (prepare), not "ready". |
 | O3 | Should the hero visual stay the catalogue workspace only? | **Yes** (T2.2 says keep it; it is real). There are no document screenshots on the landing (T2.3 constraint). |
 | O4 | Mention the restricted / privilege / not-purchased findings and the marking flag on the landing (row 2)? | **No** in this wave. Capabilities stays as the measured four-check story; candidate for a later Capabilities tile. |
