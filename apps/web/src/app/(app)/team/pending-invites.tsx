@@ -58,11 +58,11 @@ function InviteRow({ invite, mailOn }: { invite: PendingInvite; mailOn: boolean 
     <tr className="hover:bg-surface">
       <Td className="max-w-[20rem] py-2.5">
         <span className={invite.email ? 'block truncate font-medium' : 'block truncate font-medium text-muted'} title={who}>{who}</span>
-        <span className="block text-small text-muted md:hidden">{access}</span>
+        <span className="block text-small text-muted md:hidden"><Badge tone={ROLE_TONE[invite.role]} className="mr-1.5 sm:hidden">{ta.team.roles[invite.role]}</Badge>{access}</span>
         {/* On a phone the actions column is hidden: the buttons sit under the address. */}
         <span className="mt-2 flex flex-wrap gap-1.5 sm:hidden">{actions}</span>
       </Td>
-      <Td><Badge tone={ROLE_TONE[invite.role]}>{ta.team.roles[invite.role]}</Badge></Td>
+      <Td className="hidden sm:table-cell"><Badge tone={ROLE_TONE[invite.role]}>{ta.team.roles[invite.role]}</Badge></Td>
       <Td className="hidden text-small text-muted md:table-cell">{access}</Td>
       <Td>
         <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{invite.expired ? s.pending.statusExpired : s.pending.statusPending}</StatusChip>
@@ -106,7 +106,7 @@ export function PendingInvites({ initial }: { initial: Team }) {
           <thead>
             <tr>
               <Th>{ta.setX.account.email}</Th>
-              <Th>{s.role}</Th>
+              <Th className="hidden sm:table-cell">{s.role}</Th>
               <Th className="hidden md:table-cell">{s.access}</Th>
               <Th>{ta.mgX.settings.keys.status}</Th>
               <Th className="hidden sm:table-cell">{ta.mgX.team.colExpires}</Th>

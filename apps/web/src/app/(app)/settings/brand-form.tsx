@@ -69,7 +69,7 @@ export function BrandForm({ initial, title, hint }: { initial: Account; title: s
         </>
       )}
     >
-      <form id={FORM_ID} key={round} onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
+      <form id={FORM_ID} key={round} onSubmit={submit} className="grid gap-5 lg:grid-cols-2">
         <Field label={t.brandName}>
           <Input name="brandName" defaultValue={brandName ?? ''} placeholder={orgName} maxLength={120} />
         </Field>
@@ -79,7 +79,7 @@ export function BrandForm({ initial, title, hint }: { initial: Account; title: s
             ref={file} name="logo" type="file" accept="image/png,image/jpeg" tabIndex={-1} aria-hidden className="sr-only"
             onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="grid h-12 w-24 shrink-0 place-items-center overflow-hidden rounded-md border border-line bg-base p-1">
               {logoUrl ? <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" /> : <span aria-hidden className="text-micro text-subtle">PNG · JPG</span>}
             </span>
@@ -93,7 +93,7 @@ export function BrandForm({ initial, title, hint }: { initial: Account; title: s
           <p id="brand-logo-hint" className="mt-1.5 text-micro text-muted">{t.brandLogoHint}</p>
           {logoUrl ? <Checkbox name="removeLogo" label={t.brandRemoveLogo} className="mt-2" /> : null}
         </div>
-        {state.error ? <p role="alert" className="text-small font-medium text-danger-ink sm:col-span-2">{state.error}</p> : null}
+        {state.error ? <p role="alert" className="text-small font-medium text-danger-ink lg:col-span-2">{state.error}</p> : null}
       </form>
     </Card>
   );

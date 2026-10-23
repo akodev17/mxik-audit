@@ -64,14 +64,14 @@ function MemberRow({ member, clients, adminCount }: { member: Member; clients: r
               {member.you ? <Badge tone="brand" className="shrink-0">{s.you}</Badge> : null}
             </p>
             {/* On a phone the access column is hidden: say it here instead. */}
-            <p className="text-small text-muted md:hidden">{access}</p>
+            <p className="text-small text-muted md:hidden"><Badge tone={ROLE_TONE[member.role]} className="mr-1.5 sm:hidden">{ta.team.roles[member.role]}</Badge>{access}</p>
             {member.you ? <p className="text-micro text-muted">{s.removeSelf}</p> : null}
             {/* On a phone the actions column is hidden too: the buttons sit under the member. */}
             <div className="mt-2 flex flex-wrap gap-1.5 sm:hidden">{actions}</div>
           </div>
         </div>
       </Td>
-      <Td><Badge tone={ROLE_TONE[member.role]}>{ta.team.roles[member.role]}</Badge></Td>
+      <Td className="hidden sm:table-cell"><Badge tone={ROLE_TONE[member.role]}>{ta.team.roles[member.role]}</Badge></Td>
       <Td className="hidden text-small text-muted md:table-cell">{access}</Td>
       <Td className="hidden whitespace-nowrap text-small text-muted sm:table-cell"><LastSeen at={member.lastSeenAt} /></Td>
       <Td className="hidden sm:table-cell">
@@ -98,7 +98,7 @@ export function TeamMembers({ members, clients }: { members: Member[]; clients: 
       <thead>
         <tr>
           <Th>{m.team.colMember}</Th>
-          <Th>{s.role}</Th>
+          <Th className="hidden sm:table-cell">{s.role}</Th>
           <Th className="hidden md:table-cell">{s.access}</Th>
           <Th className="hidden sm:table-cell">{m.team.colLastSeen}</Th>
           <Th className="hidden sm:table-cell"><span className="sr-only">{m.actions}</span></Th>
