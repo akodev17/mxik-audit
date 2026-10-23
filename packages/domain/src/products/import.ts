@@ -178,7 +178,7 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
   const batch = await db.importBatch.create({
     data: {
       orgId: user.orgId, clientId: client.id, kind: 'product_catalog', source: 'upload', filename: input.file?.name ?? null, fingerprint, status: 'parsed',
-      createdBy: user.userId, meta: meta as unknown as Prisma.InputJsonValue,
+      createdBy: user.userId, meta: meta,
       counts: { total: kept.length, valid: 0, corrected: 0, suspicious: 0, unresolved: 0, skipped: 0, exported: 0 },
     },
     select: { id: true },
@@ -190,7 +190,7 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
         return {
           batchId: batch.id, rowIndex: i + j, status: 'valid' as const, fingerprint: `${productNameKey(r.name)}|${unitKeyOf(r.unit)}`,
           // A malformed code is remembered as written so classification can say so.
-          payload: { ...r, ...(malformed ? { rawMxik: cell(row, mapping.mxik) } : {}) } as unknown as Prisma.InputJsonValue,
+          payload: { ...r, ...(malformed ? { rawMxik: cell(row, mapping.mxik) } : {}) },
           issues: [],
         };
       }),
@@ -252,13 +252,13 @@ export async function runProductBatch(batchId: string): Promise<void> {
         const payload = classifiedPayload(payloads[i] as StoredPayload, c, matches[i] ?? null);
         return db.importRecord.update({
           where: { id: r.id },
-          data: { payload: payload as unknown as Prisma.InputJsonValue, issues: c.issues as unknown as Prisma.InputJsonValue, status: statusOfIssues(c.issues) },
+          data: { payload: payload, issues: c.issues, status: statusOfIssues(c.issues) },
         });
       }));
       done = (records.at(-1)?.rowIndex ?? done) + 1;
       await db.importBatch.update({
         where: { id: batchId },
-        data: { meta: { ...meta, progress: { done, total } } as unknown as Prisma.InputJsonValue, counts: await batchCounts(batchId) },
+        data: { meta: { ...meta, progress: { done, total } }, counts: await batchCounts(batchId) },
       });
     }
     await db.importBatch.update({ where: { id: batchId }, data: { status: 'review', counts: await batchCounts(batchId), error: null } });
@@ -288,8 +288,9 @@ async function batchFor(user: Viewer, batchId: string) {
 
 const recordOut = (r: { id: string; rowIndex: number; status: RecordStatus; payload: Prisma.JsonValue; issues: Prisma.JsonValue }) => {
   const p = r.payload as unknown as StoredPayload;
-  const { match = null, alternatives: _alternatives, ...payload } = p;
-  return { id: r.id, rowIndex: r.rowIndex, status: r.status, payload: accounting.ProductRecord.parse(payload), issues: (r.issues as unknown as ValidationIssue[]) ?? [], match };
+  const { match = null } = p;
+  // The shared schema strips the extra keys (match, alternatives, rawMxik).
+  return { id: r.id, rowIndex: r.rowIndex, status: r.status, payload: accounting.ProductRecord.parse(p), issues: (r.issues as unknown as ValidationIssue[]) ?? [], match };
 };
 
 /** A batch with a page of its records; resumes a batch whose run stopped (an API restart). */
@@ -341,8 +342,8 @@ export async function decideProductRecord(
     await db.importRecord.update({
       where: { id: r.id },
       data: {
-        payload: { ...classifiedPayload(p, c, p.match ?? null), mxikSuggestion: null } as unknown as Prisma.InputJsonValue,
-        issues: issues as unknown as Prisma.InputJsonValue, status, decision: { action: 'correct', corrections: { mxik: code } }, ...decided,
+        payload: { ...classifiedPayload(p, c, p.match ?? null), mxikSuggestion: null },
+        issues: issues, status, decision: { action: 'correct', corrections: { mxik: code } }, ...decided,
       },
     });
   }
@@ -367,8 +368,8 @@ export async function applyProductBatch(user: CurrentUser, batchId: string, loca
     const id = result.ids[i];
     if (!id) return [];
     return [
-      db.product.update({ where: { id }, data: { mxikIssues: r.issues as Prisma.InputJsonValue, mxikAlternatives: (payloads[i]?.alternatives ?? []) as unknown as Prisma.InputJsonValue } }),
-      db.importRecord.update({ where: { id: r.id }, data: { payload: { ...(payloads[i] as StoredPayload), productId: id } as unknown as Prisma.InputJsonValue } }),
+      db.product.update({ where: { id }, data: { mxikIssues: r.issues as Prisma.InputJsonValue, mxikAlternatives: payloads[i]?.alternatives ?? [] } }),
+      db.importRecord.update({ where: { id: r.id }, data: { payload: { ...(payloads[i] as StoredPayload), productId: id } } }),
     ];
   }));
   await db.importBatch.update({ where: { id: b.id }, data: { status: 'approved', counts: await batchCounts(b.id) } });

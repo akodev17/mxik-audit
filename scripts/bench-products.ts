@@ -6,6 +6,7 @@
 //
 //   npx tsx scripts/bench-products.ts            (prints a Markdown block for benchmarks.md)
 //   npx tsx scripts/bench-products.ts --no-live  (skips the Tasnif packaging calls)
+//   npx tsx scripts/bench-products.ts --match-only (matchProducts and its precision only)
 //
 // The rows: the demo catalogue (prisma/demo-catalog.json, with barcodes and codes) and the eval
 // cases (golden, real-construction, real-metal, synthetic), cycled with seeded name noise
@@ -29,7 +30,8 @@ import { makeRng, noisify } from '../eval/noise.js';
 
 const ROWS = 1_000;
 const CHUNK = 100;
-const live = !process.argv.includes('--no-live');
+const matchOnly = process.argv.includes('--match-only');
+const live = !process.argv.includes('--no-live') && !matchOnly;
 const rng = makeRng(20261023);
 
 type Line = { name: string; mxik: string | null; barcode: string | null; unit: string | null };
@@ -55,14 +57,17 @@ function baseLines(): Line[] {
   return out.filter((l) => l.name.trim());
 }
 
-function thousand(): Line[] {
+/** The rows, and for each the base row it was made from (itself, or the row a noisy copy came from). */
+function thousand(): { lines: Line[]; source: number[] } {
   const base = baseLines();
-  const out: Line[] = [...base];
-  for (let i = 0; out.length < ROWS; i++) {
+  const lines: Line[] = [...base];
+  const source = base.map((_, i) => i);
+  for (let i = 0; lines.length < ROWS; i++) {
     const b = base[i % base.length] as Line;
-    out.push({ ...b, name: noisify(b.name, rng).name });
+    lines.push({ ...b, name: noisify(b.name, rng).name });
+    source.push(i % base.length);
   }
-  return out.slice(0, ROWS);
+  return { lines: lines.slice(0, ROWS), source: source.slice(0, ROWS) };
 }
 
 /** Counts what the gate would send, never calls anything (eval/run.ts DryRunReranker). */
@@ -82,7 +87,7 @@ const stages = new Map<string, number>();
 const timer = { add(stage: string, ms: number) { stages.set(stage, (stages.get(stage) ?? 0) + ms); } };
 const ms = (t0: number): number => Math.round(performance.now() - t0);
 
-const lines = thousand();
+const { lines, source } = thousand();
 const org = await makeOrg('internal');
 const out: string[] = [];
 try {
@@ -97,6 +102,7 @@ try {
 
   t0 = performance.now();
   const ctx = await auditContext(org.orgId, timer);
+  if (matchOnly) lines.length = Math.min(lines.length, ROWS);
   const contextMs = ms(t0);
   const dry = new DryRunReranker();
   const configured = ctx.reranker;
@@ -106,7 +112,7 @@ try {
   t0 = performance.now();
   const chunkMs: number[] = [];
   const statuses = new Map<string, number>();
-  for (let i = 0; i < lines.length; i += CHUNK) {
+  for (let i = 0; !matchOnly && i < lines.length; i += CHUNK) {
     const c0 = performance.now();
     const res = await classifyDetailed(org.orgId, lines.slice(i, i + CHUNK), { ctx, locale: 'ru', packaging: 'off' });
     chunkMs.push(ms(c0));
@@ -120,9 +126,17 @@ try {
   const matchMs = ms(t0);
   const byStatus = new Map<string, number>();
   const byBasis = new Map<string, number>();
-  for (const m of matched) {
+  // Precision: a row made from one of the first 600 base rows should find that row's product; one
+  // from a later base row has none (it is new). Base rows that fold to one identity share a product.
+  const truth = { right: 0, wrong: 0, ambiguousWithRight: 0, ambiguousWithout: 0, newRight: 0, newMissed: 0 };
+  for (const [i, m] of matched.entries()) {
     byStatus.set(m.status, (byStatus.get(m.status) ?? 0) + 1);
     if (m.chosen) byBasis.set(m.chosen.basis, (byBasis.get(m.chosen.basis) ?? 0) + 1);
+    const b = source[i] ?? -1;
+    const expected = b >= 0 && b < 600 ? seeded.ids[b] || null : null;
+    if (m.status === 'matched') { if (expected && m.chosen?.id === expected) truth.right++; else truth.wrong++; }
+    else if (m.status === 'ambiguous') { if (expected && m.candidates.some((c) => c.id === expected)) truth.ambiguousWithRight++; else truth.ambiguousWithout++; }
+    else if (expected) truth.newMissed++; else truth.newRight++;
   }
   t0 = performance.now();
   await matchProducts(org.orgId, null, lines.slice(0, 100));
@@ -174,6 +188,7 @@ try {
     '',
     `MXIK status of the 1 000 rows: ${[...statuses.entries()].map(([k, v]) => `${k} ${v}`).join(', ')}.`,
     `matchProducts: ${[...byStatus.entries()].map(([k, v]) => `${k} ${v}`).join(', ')}; matched by ${[...byBasis.entries()].map(([k, v]) => `${k} ${v}`).join(', ')}.`,
+    `matchProducts against the known answer: matched right ${truth.right}, matched wrong ${truth.wrong} (precision ${((truth.right / Math.max(1, truth.right + truth.wrong)) * 100).toFixed(1)}%); ambiguous with the right product among the candidates ${truth.ambiguousWithRight}, without it ${truth.ambiguousWithout}; new and truly new ${truth.newRight}, new although the product existed ${truth.newMissed}.`,
     '',
     `Reranker (stage 6) estimate: the gate would send ${dry.rows} of ${lines.length} rows (${((dry.rows / lines.length) * 100).toFixed(1)}%) in ${calls} calls of ${config.batchSize} (RERANK_BATCH_SIZE), ` +
       `~${inputTokens.toLocaleString('en')} input + ${outputTokens.toLocaleString('en')} output tokens on ${config.model} → ` +

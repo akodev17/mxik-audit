@@ -128,9 +128,9 @@ export async function productPackages(user: Scoped, productId: string) {
 function classifiedData(c: DetailedClassification, now: Date): Prisma.ProductUpdateInput {
   return {
     mxikStatus: c.mxikStatus,
-    mxikIssues: c.issues as unknown as Prisma.InputJsonValue,
-    mxikSuggestion: c.mxikSuggestion ? c.mxikSuggestion as unknown as Prisma.InputJsonValue : Prisma.DbNull,
-    mxikAlternatives: c.alternatives as unknown as Prisma.InputJsonValue,
+    mxikIssues: c.issues,
+    mxikSuggestion: c.mxikSuggestion ? c.mxikSuggestion : Prisma.DbNull,
+    mxikAlternatives: c.alternatives,
     mxikCheckedAt: now,
     ...(c.mxikName ? { mxikName: c.mxikName } : {}),
     ...(c.packageName ? { packageName: c.packageName } : {}),

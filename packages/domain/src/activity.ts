@@ -24,7 +24,7 @@ export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[
     'telegram.linked', 'telegram.unlinked', 'account.deletion_requested', 'account.restored', 'retention.changed', 'retention.purged', 'billing.order_created', 'billing.paid',
   ],
   classifier: ['classifier.updated'],
-  dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept'],
+  dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept', 'product.mxik_confirmed', 'product.from_audit', 'product.import_applied'],
 };
 const KNOWN = Object.values(GROUPS).flat();
 

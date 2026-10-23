@@ -44,7 +44,8 @@ export function ProductsView({ q, status, client, page, initial, editable, openI
     queryFn: ({ signal }) => api.products.list({ ...(q ? { q } : {}), ...(status !== 'all' ? { status } : {}), ...(client ? { client } : {}), page }, { signal }),
     initialData: initial, staleTime: Infinity, gcTime: 0,
   });
-  useEffect(() => { queryClient.setQueryData(key, initial); }, [queryClient, initial]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A new server render of the same URL brings a fresh copy.
+  useEffect(() => { queryClient.setQueryData([...PRODUCTS, { q, status, client, page }], initial); }, [queryClient, q, status, client, page, initial]);
   const [open, setOpen] = useState<string | null>(openId);
   const [checking, setChecking] = useState<{ done: number; total: number } | null>(null);
   const [exporting, setExporting] = useState(false);

@@ -12,7 +12,7 @@ type Reply = { status: number; body: unknown } | Error;
 function scriptedFetch(script: (url: string, n: number) => Reply | Promise<Reply>) {
   const stats = { calls: 0, inFlight: 0, peak: 0 };
   const fetchFn = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input);
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     stats.calls++;
     stats.inFlight++;
     stats.peak = Math.max(stats.peak, stats.inFlight);

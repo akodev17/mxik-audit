@@ -57,7 +57,7 @@ const skip = await dbSkipReason();
 
 const csvFile = (name: string, rows: string[][]) => {
   const text = rows.map((r) => r.map((c) => (/[;"\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(';')).join('\r\n');
-  const bytes = Buffer.from(`﻿${text}`, 'utf8');
+  const bytes = Buffer.from(`${String.fromCharCode(0xfeff)}${text}`, 'utf8');
   return { name, size: bytes.length, read: () => Promise.resolve(bytes) };
 };
 

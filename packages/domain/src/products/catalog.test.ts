@@ -87,7 +87,8 @@ describe('product catalogue operations (database, fake Tasnif)', { skip }, () =>
   it('lists the packaging codes of the product’s MXIK, and says none without a code', async () => {
     await db.product.update({ where: { id: org.ids[20] }, data: { mxik: RECORDED_CODE } });
     const pk = await productPackages(admin, org.ids[20] ?? '');
-    assert.equal(pk?.source, 'live');
+    // Another test file running in parallel may have cached the same recorded code a moment earlier.
+    assert.ok(pk?.source === 'live' || pk?.source === 'cache', pk?.source);
     assert.deepEqual(pk?.packages.map((p) => p.code), ['1074787', '1070335', '1062101']);
     const none = await productPackages(admin, org.ids[30] ?? '');
     assert.equal(none?.source, 'none');

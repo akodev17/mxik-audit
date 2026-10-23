@@ -53,3 +53,15 @@ what Agent 4 does meanwhile.
 - A page that calls `history.replaceState` with a new query is remounted by the shell's page
   boundary (`apps/web/src/ui/shell/navigation.ts`); `/products` therefore keeps the open drawer in
   state only (`?product=` still opens one on arrival). No change requested; documenting the trap.
+
+## At merge with Agent 1's `feat/onec-integration-core` (from its note of 2026-10-23)
+
+- Agent 1 exports only records with status `valid` or `corrected`. A product import record left
+  `suspicious` or `unresolved` is therefore not in the 1C file until a reviewer accepts a code (→
+  `corrected`); "save to catalogue" does not change record statuses. Intended, but the import page
+  should then say how many records the 1C file will leave out (Agent 1's `prepareExport` reports it).
+- Switch the import's record fingerprint (`productNameKey|unitKey`, `products/import.ts`) to Agent 1's
+  `productFingerprint(p)` so duplicate checks across batches agree, and call its `refreshCounts(batchId)`
+  instead of the local `batchCounts` after writing records.
+- Replace the import's own review table with Agent 1's `onec/review/review-grid.tsx` when it lands
+  (the decisions API here maps 1:1: accept suggestion = correct with `{ mxik }`, skip, reopen).
