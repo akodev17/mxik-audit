@@ -10,7 +10,9 @@ import { mappingIssues, type ColumnField, type ColumnMap } from './column-map.js
 import { db } from '@tasnivo/db';
 import { importDiagnostics, type ImportMeta } from './import-diagnostics.js';
 import { suggestMapping, type FieldSource, type MemorySource } from './mapping-memory.js';
+import { planStatus } from './plan.js';
 import type { ParseResult } from './spreadsheet.js';
+import { consumeRows, OverAllowance } from './usage-ledger.js';
 
 export { guessMapping } from './mapping-guess.js';
 export { parseAmount } from './amount.js';
@@ -115,7 +117,8 @@ export async function storedRows(catalogId: string): Promise<string[][]> {
   return stored.map((item) => StoredAttrs.safeParse(item.attrs).data?.original ?? []);
 }
 
-export type ApplyError = 'not_uploaded' | 'bad_mapping' | 'no_names' | 'failed';
+/** over_allowance: the rows would pass the plan's monthly cap, checked again inside the commit. */
+export type ApplyError = 'not_uploaded' | 'bad_mapping' | 'no_names' | 'over_allowance' | 'failed';
 
 /** Puts a claimed catalogue back to "uploaded" so its mapping can be fixed. */
 async function release(catalogId: string): Promise<void> {
@@ -128,6 +131,10 @@ async function release(catalogId: string): Promise<void> {
  * a double click or a commit of an audited catalogue finds nothing to claim and
  * changes nothing, so no decision can be lost. On any failure the claim is
  * released and the preview stays as it was.
+ *
+ * The commit is what consumes the monthly allowance: the rows go to the usage ledger in the same
+ * transaction, re-checked against the cap there (callers gate first, for the message), so
+ * concurrent commits cannot pass it together and deleting the catalogue later gives nothing back.
  */
 export async function applyMapping(orgId: string, catalogId: string, mapping: ColumnMap): Promise<{ rows: number } | { error: ApplyError }> {
   const claimed = await db.catalog.updateMany({
@@ -153,6 +160,7 @@ export async function applyMapping(orgId: string, catalogId: string, mapping: Co
       return { error: 'no_names' };
     }
     const previous = (catalog.importMeta ?? {}) as Record<string, unknown>;
+    const cap = (await planStatus(orgId)).limits.rowsPerMonth;
     const importMeta = { ...previous, diagnostics: importDiagnostics(rows, mapping) } as Prisma.InputJsonValue;
 
     await db.$transaction(async (tx) => {
@@ -161,10 +169,12 @@ export async function applyMapping(orgId: string, catalogId: string, mapping: Co
         await tx.catalogItem.createMany({ data: rebuilt.slice(i, i + CHUNK) });
       }
       await tx.catalog.update({ where: { id: catalogId }, data: { rowCount: rebuilt.length, columnMap: mapping, importMeta } });
+      // Last, so the per-org lock is held only for the moment of the commit.
+      await consumeRows(tx, { orgId, catalogId, amount: rebuilt.length, cap });
     }, { timeout: TX_TIMEOUT });
     return { rows: rebuilt.length };
-  } catch {
+  } catch (error) {
     await release(catalogId);
-    return { error: 'failed' };
+    return { error: error instanceof OverAllowance ? 'over_allowance' : 'failed' };
   }
 }

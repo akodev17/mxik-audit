@@ -181,7 +181,9 @@ export async function commitCatalogUpload(user: Writer, locale: Locale, payload:
 
   const applied = await applyMapping(user.orgId, catalogId, mapping);
   if ('error' in applied) {
-    const message = { not_uploaded: e.alreadyCommitted, bad_mapping: e.badMapping, no_names: e.noNames, failed: e.commitFailed }[applied.error];
+    const message = {
+      not_uploaded: e.alreadyCommitted, bad_mapping: e.badMapping, no_names: e.noNames, over_allowance: ta.msg.gate.rowsPerMonth, failed: e.commitFailed,
+    }[applied.error];
     return fail(message, applied.error === 'not_uploaded');
   }
 
