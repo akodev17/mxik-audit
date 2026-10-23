@@ -58,7 +58,7 @@ const PackageRow = z.object({
 
 /** Outcome of a hand-over to the 1C module: a file, or "available after integration" while it is a stub. */
 const OneCHandover = z.union([
-  z.object({ ok: z.literal(true), exportId: z.string(), filename: z.string().nullable(), records: z.number().int() }),
+  z.object({ ok: z.literal(true), exportId: z.string(), filename: z.string().nullable(), records: z.number().int(), leftOut: z.number().int() }),
   z.object({ ok: z.literal(false), unavailable: z.boolean(), error: z.string() }),
 ]);
 
@@ -181,7 +181,11 @@ export const products = defineModule('products', {
     params: z.object({ batchId: Id }),
     query: z.object({ page: QueryPage, status: z.enum(RECORD_STATUSES).optional() }),
     responds: 'json',
-    response: z.object({ batch: ProductBatch, records: z.array(ProductImportRecord), total: z.number().int(), pageSize: z.number().int() }),
+    response: z.object({
+      batch: ProductBatch, records: z.array(ProductImportRecord), total: z.number().int(), pageSize: z.number().int(),
+      /** What a nomenclature_xlsx would carry now (1C module prepareExport); null while checking or when it cannot say. */
+      onec: z.object({ records: z.number().int(), leftOut: z.number().int(), issues: z.array(ValidationIssue) }).nullable(),
+    }),
     replaces: ['page:(app)/products/import'],
   }),
   importDecide: endpoint({

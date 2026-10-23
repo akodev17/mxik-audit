@@ -88,7 +88,9 @@ export function ProductsView({ q, status, client, page, initial, editable, openI
     setExporting(true);
     try {
       const r = await api.products.exportAll({ ...(client && client !== 'own' ? { clientId: client } : {}), ...(status !== 'all' ? { status } : {}) });
-      if (r.ok) toast(fill(x.toast.exportReady, { n: fmtNumber(locale, r.records) }), { tone: 'ok' });
+      if (r.ok) {
+        toast(fill(x.toast.exportReady, { n: fmtNumber(locale, r.records) }), { tone: 'ok', action: { label: x.importWizard.download, run: () => { window.location.href = `/api/onec/exports/${r.exportId}/file`; } } });
+      }
       else toast(r.error, { tone: r.unavailable ? 'ok' : 'error' });
     } catch (error) {
       toast(isNetworkFailure(error) ? x.toast.network : x.toast.failed, { tone: 'error' });
