@@ -5,7 +5,7 @@ import { absoluteUrl } from './app-url';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { db } from '@tasnivo/db';
-import { mailEnabled, sendMail } from './mailer';
+import { mailDeliverable, mailEnabled, sendMail } from './mailer';
 import { orgLocale } from './org-locale';
 import { hashPassword } from './password';
 import { MIN_PASSWORD } from './security/password-check';
@@ -78,7 +78,7 @@ export type AcceptResult = { ok: true; userId: string; orgId: string; email: str
 
 /**
  * An invite sent to an address confirms that address (the admin chose it); a link without one
- * lets the person type any address, so it is confirmed by mail when SMTP is on.
+ * lets the person type any address, so it is confirmed with a mailed code.
  */
 export async function acceptInvite(token: string, emailInput: string, password: string): Promise<AcceptResult> {
   const invite = await db.invite.findUnique({ where: { tokenHash: hash(token) } });
@@ -105,6 +105,7 @@ export async function acceptInvite(token: string, emailInput: string, password: 
     return created;
   }).catch(() => null);
   if (!user) return { ok: false, error: 'inviteUsed' };
-  if (!emailBound && mailEnabled()) await sendVerification(user.id, email, await orgLocale(user.orgId));
+  // The address must be confirmed with the mailed code before anything opens (AccessGuard).
+  if (!emailBound && mailDeliverable()) await sendVerification(user.id, email, await orgLocale(user.orgId));
   return { ok: true, userId: user.id, orgId: user.orgId, email };
 }

@@ -5,6 +5,7 @@ import { signedIn } from '@/lib/api/me';
 import { serverApi } from '@/lib/api/server';
 import { safeNext } from '@/lib/safe-next';
 import { AuthDivider, AuthSwitch, AuthTitle } from '@/ui/auth-parts';
+import { GoogleLogin } from '@/ui/google-login';
 import { TelegramLogin } from '@/ui/telegram-login';
 import { SignInForm } from './sign-in-form';
 
@@ -19,18 +20,22 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const { ta } = await getI18n();
   const { error, notice, next } = await searchParams;
   const landing = safeNext(next);
-  if (await signedIn()) redirect(landing ?? '/dashboard');
-  const { telegramBot } = await serverApi().auth.config();
-  const problem = error ? ta.secX.notices[error] ?? ta.msg.notices[error] ?? null : null;
+  const me = await signedIn();
+  if (me) redirect(me.verified ? landing ?? '/dashboard' : '/sign-up/verify');
+  const { telegramBot, google } = await serverApi().auth.config();
+  const problem = error ? ta.secX.notices[error] ?? ta.msg.notices[error] ?? ta.verifyX.notices[error] ?? null : null;
   const a = ta.authX.signIn;
   return (
     <>
       <AuthTitle title={a.title} lead={a.lead} />
       <SignInForm notice={problem} info={notice ? ta.secX.info[notice] ?? null : null} next={landing} offerResend={error === 'verify'} />
-      {telegramBot ? (
+      {telegramBot || google ? (
         <>
           <AuthDivider label={a.or} />
-          <TelegramLogin bot={telegramBot} />
+          <div className="space-y-3">
+            {google ? <GoogleLogin label={ta.verifyX.google} next={landing} /> : null}
+            {telegramBot ? <TelegramLogin bot={telegramBot} /> : null}
+          </div>
         </>
       ) : null}
       <AuthSwitch text={ta.signup.noAccount} href="/sign-up" action={ta.signup.create} />

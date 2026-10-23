@@ -3,9 +3,11 @@ import '../setup-env';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { Reflector } from '@nestjs/core';
+import { allEndpoints, endpoints, type Endpoint } from '@tasnivo/contracts';
 import type { ApiCaller } from '@tasnivo/domain/api/keys';
 import type { RateResult } from '@tasnivo/domain/api/limits';
-import type { Access } from '@tasnivo/domain/session';
+import type { Access, SignedInUser } from '@tasnivo/domain/session';
+import { AccessGuard, ENDPOINT } from '../../src/auth-core/access.guard';
 import { ApiKeyGuard, type Authenticate } from '../../src/auth-core/api-key.guard';
 import { bearerMatches, CronGuard } from '../../src/auth-core/cron.guard';
 import { CsrfGuard } from '../../src/auth-core/csrf.guard';
@@ -14,7 +16,7 @@ import { OptionalSessionGuard, SessionGuard } from '../../src/auth-core/session.
 import { SESSION_COOKIE, SessionService, type SessionDeps } from '../../src/auth-core/session.service';
 import { SkipCsrf } from '../../src/http/decorators';
 import { ApiError } from '../../src/http/errors';
-import { fakeReq, fakeRes, httpContext, testConfig } from '../helpers';
+import { fakeReq, fakeRes, httpContext, testConfig, type FakeReq } from '../helpers';
 
 async function rejects(promise: Promise<unknown> | (() => unknown), status: number, code: string): Promise<ApiError> {
   try {
@@ -29,7 +31,7 @@ async function rejects(promise: Promise<unknown> | (() => unknown), status: numb
 }
 
 describe('SessionGuard', () => {
-  const access: Access = { role: 'accountant', clientIds: ['c1'], demoOrg: false };
+  const access: Access = { role: 'accountant', clientIds: ['c1'], demoOrg: false, verified: true };
   const calls: string[] = [];
   const deps = (over: Partial<SessionDeps> = {}): SessionDeps => ({
     loadAccess: (userId, orgId) => { calls.push(`access ${userId} ${orgId}`); return Promise.resolve(access); },
@@ -48,7 +50,7 @@ describe('SessionGuard', () => {
     const svc = service();
     const req = await reqWith(signedIn, svc);
     assert.equal(await new SessionGuard(svc).canActivate(httpContext(req)), true);
-    assert.deepEqual(req['user'], { userId: 'u1', orgId: 'o1', email: 'a@test.local', demo: false, clientId: 'c1', role: 'accountant', clientIds: ['c1'] });
+    assert.deepEqual(req['user'], { userId: 'u1', orgId: 'o1', email: 'a@test.local', demo: false, clientId: 'c1', role: 'accountant', clientIds: ['c1'], verified: true });
     assert.deepEqual(calls, ['access u1 o1', 'record s1 u1 false']);
   });
 
@@ -69,11 +71,18 @@ describe('SessionGuard', () => {
   it('answers 401 when the session record is revoked or idle, and passes demoOrg to the idle check', async () => {
     let demoSeen: boolean | null = null;
     const svc = service({
-      loadAccess: () => Promise.resolve({ role: 'admin', clientIds: null, demoOrg: true }),
+      loadAccess: () => Promise.resolve({ role: 'admin', clientIds: null, demoOrg: true, verified: true }),
       recordAccepted: (_sid, _user, demo) => { demoSeen = demo; return Promise.resolve(false); },
     });
     await rejects(new SessionGuard(svc).canActivate(httpContext(await reqWith(signedIn, svc))), 401, 'unauthorized');
     assert.equal(demoSeen, true);
+  });
+
+  it('carries an unconfirmed address through as verified: false (AccessGuard decides, so `me` can still answer)', async () => {
+    const svc = service({ loadAccess: () => Promise.resolve({ ...access, verified: false }) });
+    const req = await reqWith(signedIn, svc);
+    assert.equal(await new SessionGuard(svc).canActivate(httpContext(req)), true);
+    assert.equal((req['user'] as SignedInUser).verified, false);
   });
 
   it('a pending two-factor cookie (no userId) is not signed in', async () => {
@@ -93,6 +102,44 @@ describe('SessionGuard', () => {
 
   it('refuses to start when SESSION_SECRET was read before the .env was loaded', () => {
     assert.throws(() => new SessionService(testConfig({ sessionSecret: 'x'.repeat(40) }), deps()), /SESSION_SECRET was read before/);
+  });
+});
+
+describe('AccessGuard: e-mail confirmation', () => {
+  const user = (over: Partial<SignedInUser> = {}): SignedInUser =>
+    ({ userId: 'u1', orgId: 'o1', email: 'a@test.local', demo: false, clientId: null, role: 'admin', clientIds: null, verified: true, ...over });
+  /** A handler carrying the registry entry, as Route() leaves it. */
+  const handlerFor = (e: Endpoint): (() => void) => {
+    const handler = (): void => undefined;
+    Reflect.defineMetadata(ENDPOINT, e, handler);
+    return handler;
+  };
+  const check = (e: Endpoint, u: SignedInUser) => new AccessGuard(new Reflector()).canActivate(httpContext({ ...fakeReq(), user: u } as FakeReq, fakeRes(), handlerFor(e)));
+
+  it('refuses an unconfirmed user on every ordinary session endpoint with 403 unverified', async () => {
+    for (const e of [endpoints.auth.sessions, endpoints.auth.twoFactorStart, endpoints.auth.changePassword, endpoints.auth.security]) {
+      await rejects(check(e, user({ verified: false })), 403, 'unverified');
+    }
+    const ordinary = allEndpoints().filter((e) => e.auth === 'session' && !e.allowUnverified && e.role !== 'platformAdmin');
+    assert.ok(ordinary.length > 50, 'the whole registry is covered');
+    for (const e of ordinary) await rejects(check(e, user({ verified: false, role: 'admin' })), 403, 'unverified');
+  });
+
+  it('lets an unconfirmed user reach only me, the code step and its resend', async () => {
+    const open = allEndpoints().filter((e) => e.allowUnverified).map((e) => e.operationId).sort();
+    assert.deepEqual(open, ['auth.me', 'auth.resendCode', 'auth.verifyCode']);
+    for (const e of [endpoints.auth.me, endpoints.auth.verifyCode, endpoints.auth.resendCode]) assert.equal(await check(e, user({ verified: false })), true);
+  });
+
+  it('lets a confirmed user through to the role check as before', async () => {
+    assert.equal(await check(endpoints.auth.sessions, user()), true);
+    await rejects(check(endpoints.team.removeMember, user({ role: 'viewer' })), 403, 'forbidden');
+  });
+
+  it('answers the refusal in the request language', async () => {
+    const error = await rejects(new AccessGuard(new Reflector()).canActivate(httpContext(
+      { ...fakeReq({ headers: { cookie: 'mxik_locale=ru' } }), user: user({ verified: false }) } as FakeReq, fakeRes(), handlerFor(endpoints.auth.sessions))), 403, 'unverified');
+    assert.match(error.message, /Подтвердите/);
   });
 });
 

@@ -1,4 +1,5 @@
-// Sign-in, sign-up, password, two-factor, sessions, e-mail confirmation and Telegram sign-in.
+// Sign-in, sign-up, password, two-factor, sessions, e-mail confirmation (a mailed code), and
+// Telegram and Google sign-in.
 // Form actions that ended in redirect() answer `{ redirect }` instead; the browser navigates.
 import { z } from 'zod';
 import { IsoDateTime, Redirect, ROLES } from '../common';
@@ -31,6 +32,8 @@ export const CurrentUser = z.object({
   role: z.enum(ROLES),
   /** Clients this user may open; null = every client of the org. */
   clientIds: z.array(z.string()).nullable(),
+  /** The e-mail address is confirmed (always true for a demo). Until it is, only the code step is open. */
+  verified: z.boolean(),
 });
 
 export const QrPath = z.object({ size: z.number(), path: z.string() });
@@ -66,7 +69,7 @@ const TelegramLogin = z.object({
 
 export const auth = defineModule('auth', {
   me: endpoint({
-    method: 'GET', path: '/api/auth/me', auth: 'session', role: 'any',
+    method: 'GET', path: '/api/auth/me', auth: 'session', role: 'any', allowUnverified: true,
     summary: 'The signed-in user, role and client scope',
     responds: 'json', response: CurrentUser,
     replaces: ['page:(app)/layout'],
@@ -74,8 +77,8 @@ export const auth = defineModule('auth', {
   }),
   config: endpoint({
     method: 'GET', path: '/api/auth/config', auth: 'public',
-    summary: 'What the sign-in pages offer: Telegram sign-in, password reset by mail',
-    responds: 'json', response: z.object({ telegramBot: z.string().nullable(), mailEnabled: z.boolean() }),
+    summary: 'What the sign-in pages offer: Telegram and Google sign-in, password reset by mail',
+    responds: 'json', response: z.object({ telegramBot: z.string().nullable(), mailEnabled: z.boolean(), google: z.boolean() }),
     replaces: ['page:sign-in', 'page:sign-up', 'page:sign-in/forgot'],
     notes: 'Shape confirmed in W2; until W3 the pages read telegramConfig() and mailEnabled() directly.',
   }),
@@ -144,6 +147,37 @@ export const auth = defineModule('auth', {
     responds: 'redirect',
     replaces: ['route:GET /verify/[token]'],
     notes: 'Mails already sent link to /verify/<token>: keep that URL redirecting here (Caddy or a Next redirect).',
+  }),
+  verifyCode: endpoint({
+    method: 'POST', path: '/api/auth/verify-code', auth: 'session', role: 'any', allowUnverified: true,
+    summary: 'The code step: the six-digit code from the confirmation mail',
+    body: z.object({ code: z.string().max(32) }),
+    responds: 'json', response: z.union([Redirect, ErrorState]),
+    replaces: [],
+    notes: 'Limited per user (RULES.verifyCodeUser) and per code (CODE_TRIES wrong entries, then a new code is needed). Answers { redirect: "/dashboard" } once confirmed.',
+  }),
+  resendCode: endpoint({
+    method: 'POST', path: '/api/auth/verify-code/resend', auth: 'session', role: 'any', allowUnverified: true,
+    summary: 'Mail a new confirmation code (the earlier one stops working)',
+    responds: 'json', response: z.union([Redirect, SignInState]),
+    replaces: [],
+    notes: 'Limited by RULES.resendIp and RULES.resendEmail. An already confirmed user is sent to the dashboard.',
+  }),
+  google: endpoint({
+    method: 'GET', path: '/api/auth/google', auth: 'public',
+    summary: 'Start Google sign-in: redirect to Google with PKCE and a one-time state',
+    query: z.object({ next: z.string().max(512).optional() }),
+    responds: 'redirect',
+    replaces: [],
+    notes: 'The state, the PKCE verifier and the nonce live in a short-lived httpOnly cookie. Without GOOGLE_CLIENT_ID it goes back to /sign-in.',
+  }),
+  googleCallback: endpoint({
+    method: 'GET', path: '/api/auth/google/callback', auth: 'public',
+    summary: 'Google redirects here: checks the state, exchanges the code, verifies the ID token and signs in',
+    query: z.object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() }).passthrough(),
+    responds: 'redirect',
+    replaces: [],
+    notes: 'ID token checked against the Google JWKS (signature, issuer, audience, expiry, nonce). A verified Google address counts as confirmed; it joins an existing user only when that address is confirmed there.',
   }),
   twoFactorSubmit: endpoint({
     method: 'POST', path: '/api/auth/2fa/submit', auth: 'public',

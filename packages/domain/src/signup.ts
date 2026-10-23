@@ -1,5 +1,6 @@
-// Self-serve accounts: an org on the 14-day trial plus its first admin, and
-// email confirmation when SMTP is configured.
+// Self-serve accounts: an org on the 14-day trial plus its first admin. A password sign-up always
+// confirms its address with a mailed code before anything else opens (security/verification.ts);
+// Telegram and Google accounts arrive confirmed.
 import { absoluteUrl } from './app-url.js';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import type { Locale } from '@tasnivo/i18n/i18n';
@@ -7,14 +8,14 @@ import { i18nFor } from '@tasnivo/i18n/locale';
 import { TRIAL_DAYS } from './billing/limits.js';
 import { db } from '@tasnivo/db';
 import { jobs } from './jobs/dispatcher.js';
-import { mailEnabled } from './mailer.js';
+import { mailDeliverable } from './mailer.js';
 import { hashPassword } from './password.js';
 import { MIN_PASSWORD } from './security/password-check.js';
 import { sendPendingAccountLink } from './security/password-reset.js';
 import { hit, minutesOf, RULES } from './security/rate-limit.js';
 import { EMAIL_PATTERN, emailAcceptable } from './security/reserved-email.js';
 import { openSession, type SignInSession } from './security/sign-in.js';
-import { confirmEmail, sendVerification } from './security/verification.js';
+import { confirmEmail, sendVerification, VERIFY_PATH } from './security/verification.js';
 
 export { confirmEmail };
 
@@ -23,23 +24,25 @@ export type SignupError = 'emailBad' | 'passwordShort' | 'emailTaken';
 export type SignupResult =
   | { ok: true; account: NewAccount }
   | { ok: false; error: SignupError }
-  /** SMTP is on and the address was already registered: a mail went there and nothing was created. Answer as for a new account. */
+  /** The address was already registered: a mail went there and nothing was created. */
   | { ok: false; mailed: true };
 
 type Input = {
   email: string; password: string; firmName: string;
-  /** The address needs no confirmation (an account opened with Telegram). */
+  /** The address needs no confirmation (an account opened with Telegram or a verified Google address). */
   verified?: boolean;
   locale?: Locale;
   /** Binds the new user's Telegram sign-in. */
   telegramUserId?: string;
+  /** Binds the new user's Google sign-in (the ID token's sub). */
+  googleSub?: string;
 };
 
 type Existing = { id: string; email: string; emailVerifiedAt: Date | null };
 
-/** The address is taken. With SMTP on the owner gets a mail instead of the visitor getting an answer that reveals the account. */
+/** The address is taken. When mail can be delivered the owner gets a mail instead of the visitor getting an answer that names the account. */
 async function alreadyRegistered(user: Existing, input: Input): Promise<SignupResult> {
-  if (input.verified || !mailEnabled()) return { ok: false, error: 'emailTaken' };
+  if (input.verified || !mailDeliverable()) return { ok: false, error: 'emailTaken' };
   const locale = input.locale ?? 'uz';
   if (!(await hit(RULES.resendEmail, user.email)).allowed) return { ok: false, mailed: true };
   if (user.emailVerifiedAt) {
@@ -55,6 +58,7 @@ async function alreadyRegistered(user: Existing, input: Input): Promise<SignupRe
 export async function createAccount(input: Input): Promise<SignupResult> {
   const email = input.email.trim().toLowerCase();
   const viaTelegram = input.telegramUserId !== undefined;
+  const via = viaTelegram ? 'telegram' : input.googleSub !== undefined ? 'google' : 'signup';
   // Telegram accounts get a placeholder in a reserved domain; everyone else needs an address a person can own.
   if (viaTelegram ? !EMAIL_PATTERN.test(email) : !emailAcceptable(email)) return { ok: false, error: 'emailBad' };
   if (input.password.length < MIN_PASSWORD) return { ok: false, error: 'passwordShort' };
@@ -64,25 +68,27 @@ export async function createAccount(input: Input): Promise<SignupResult> {
   const existing = await db.user.findUnique({ where: { email }, select: { id: true, email: true, emailVerifiedAt: true } });
   if (existing) return alreadyRegistered(existing, input);
 
-  const needsVerification = mailEnabled() && !input.verified;
+  const needsVerification = !input.verified;
   const user = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({ data: { name, kind: 'customer', trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000) } });
     const created = await tx.user.create({
-      data: { orgId: org.id, email, passwordHash, role: 'admin', emailVerifiedAt: needsVerification ? null : new Date(), telegramUserId: input.telegramUserId ?? null },
+      data: { orgId: org.id, email, passwordHash, role: 'admin', emailVerifiedAt: needsVerification ? null : new Date(), telegramUserId: input.telegramUserId ?? null, googleSub: input.googleSub ?? null },
     });
-    await tx.auditEvent.create({ data: { orgId: org.id, actorId: created.id, action: 'account.created', payload: { via: viaTelegram ? 'telegram' : 'signup' } } });
+    await tx.auditEvent.create({ data: { orgId: org.id, actorId: created.id, action: 'account.created', payload: { via } } });
     return created;
   }).catch(() => null);
-  // A parallel request took the address (or the Telegram id) first.
+  // A parallel request took the address (or the Telegram id, or the Google account) first.
   if (!user) return { ok: false, error: 'emailTaken' };
   if (needsVerification) await sendVerification(user.id, email, input.locale ?? 'uz');
   return { ok: true, account: { userId: user.id, orgId: user.orgId, email, needsVerification } };
 }
 
 /**
- * The public sign-up form: opens a 14-day trial org under the per-address signup limit. With SMTP
- * configured the address must be confirmed first, and an address that is already registered gets
- * the same "check your e-mail" answer. Otherwise the new admin is signed in (`{ redirect }`).
+ * The public sign-up form: opens a 14-day trial org under the per-address signup limit and signs
+ * the new admin in with an unconfirmed address, so the browser goes to the code step
+ * (`{ redirect: VERIFY_PATH }`); every other page stays closed until the code is entered. An
+ * address that is already registered gets "check your e-mail" and its owner a mail. Without a way
+ * to deliver the code (production without SMTP) sign-up is refused, never let through unconfirmed.
  */
 export async function signUpForm(
   session: SignInSession,
@@ -92,10 +98,13 @@ export async function signUpForm(
   const { ta } = i18nFor(req.locale);
   const verdict = await hit(RULES.signupIp, req.ip);
   if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
+  if (!mailDeliverable()) {
+    console.error('[signup] refused: SMTP_URL and MAIL_FROM are not set, so the verification code cannot be sent (NODE_ENV=production).');
+    return { error: ta.verifyX.mailOff };
+  }
   const result = await createAccount({ email: input.email, password: input.password, firmName: input.firm, locale: req.locale });
   if (!result.ok) return 'mailed' in result ? { checkEmail: true } : { error: ta.msg.account[result.error] };
-  if (result.account.needsVerification) return { checkEmail: true };
   const { userId, orgId, email } = result.account;
-  const next = await openSession(session, { id: userId, orgId, email }, { via: 'signup', landing: '/dashboard' }, req.userAgent);
+  const next = await openSession(session, { id: userId, orgId, email }, { via: 'signup', landing: VERIFY_PATH }, req.userAgent);
   return { redirect: next ?? '/sign-in' };
 }

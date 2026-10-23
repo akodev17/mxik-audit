@@ -276,6 +276,7 @@ function operation(e: Endpoint, conv: SchemaConverter): Json {
     'x-auth': e.auth,
     ...(e.role ? { 'x-role': e.role } : {}),
     ...(e.noDemo ? { 'x-no-demo': true } : {}),
+    ...(e.allowUnverified ? { 'x-allow-unverified': true } : {}),
     ...(e.provisional ? { 'x-provisional': e.provisional } : {}),
     'x-replaces': [...e.replaces],
   };

@@ -42,6 +42,26 @@
         "dev:api"
       ],
       "port": 4000
+    },
+    {
+      "name": "agent1-api-4011",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4011'; npm run dev:api"
+      ],
+      "port": 4011
+    },
+    {
+      "name": "agent1-web-3011",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4011'; npx next dev apps/web -p 3011"
+      ],
+      "port": 3011
     }
   ]
 }

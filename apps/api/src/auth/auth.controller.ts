@@ -1,7 +1,7 @@
-// endpoints.auth: sign-in and sign-up, password, two-factor, sessions, e-mail confirmation and
-// Telegram sign-in. Thin: each handler parses with the registry's schemas and calls the same
+// endpoints.auth: sign-in and sign-up, password, two-factor, sessions, e-mail confirmation (code)
+// and Telegram and Google sign-in. Thin: each handler parses with the registry's schemas and calls the same
 // @tasnivo/domain function as the web app's server action or route handler it replaces.
-import { Body, Controller, Inject, Param, Req, Res } from '@nestjs/common';
+import { Body, Controller, Inject, Param, Query, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { endpoints, type ResponseOf } from '@tasnivo/contracts';
@@ -10,8 +10,9 @@ import {
   changePasswordForm, finishTwoFactor, newRecoveryCodes, securityExtras, startTelegramBind, startTwoFactor, turnOffTwoFactor,
 } from '@tasnivo/domain/security/account-security';
 import {
-  forgotPasswordForm, resendConfirmationForm, resetPasswordForm, signInForm, twoFactorForm, verifyEmailLink,
+  forgotPasswordForm, resendCodeForm, resendConfirmationForm, resetPasswordForm, signInForm, twoFactorForm, verifyCodeForm, verifyEmailLink,
 } from '@tasnivo/domain/security/auth-forms';
+import { googleCallback, googleEnabled, startGoogle } from '@tasnivo/domain/security/google';
 import { deviceLabel } from '@tasnivo/domain/security/device';
 import { MIN_PASSWORD } from '@tasnivo/domain/security/password-check';
 import { resetTarget } from '@tasnivo/domain/security/password-reset';
@@ -19,7 +20,7 @@ import { hasPending } from '@tasnivo/domain/security/sign-in';
 import { orderSessions } from '@tasnivo/domain/security/session-order';
 import { endRecord, listSessions, revokeOthers, revokeSession } from '@tasnivo/domain/security/session-store';
 import { twoFactorState } from '@tasnivo/domain/security/two-factor';
-import type { CurrentUser as User } from '@tasnivo/domain/session';
+import type { SignedInUser, CurrentUser as User } from '@tasnivo/domain/session';
 import { signUpForm } from '@tasnivo/domain/signup';
 import { telegramConfig } from '@tasnivo/domain/telegram/config';
 import { unbindTelegram } from '@tasnivo/domain/telegram/identity';
@@ -29,7 +30,7 @@ import { i18nFor } from '@tasnivo/i18n/locale';
 import { setLocaleCookie } from '../account/prefs';
 import { SessionService } from '../auth-core/session.service';
 import { CurrentUser, Locale } from '../http/decorators';
-import { queryPairs, requestFacts } from '../http/facts';
+import { queryPairs, requestFacts, requestOrigin } from '../http/facts';
 import type { ApiRequest } from '../http/request';
 import { Route } from '../http/route';
 import { ZodValidationPipe } from '../http/zod-validation.pipe';
@@ -49,15 +50,16 @@ function go(res: Response, path: string): void {
 export class AuthController {
   constructor(@Inject(SessionService) private readonly sessions: SessionService) {}
 
+  /** Open to an unconfirmed user too: the web app reads `verified` to send them to the code step. */
   @Route(e.me)
-  me(@CurrentUser() user: User): Answer<'me'> {
+  me(@CurrentUser() user: SignedInUser): Answer<'me'> {
     return user;
   }
 
   @Route(e.config)
   config(): Answer<'config'> {
     const tg = telegramConfig();
-    return { telegramBot: tg.enabled && tg.username ? tg.username : null, mailEnabled: mailEnabled() };
+    return { telegramBot: tg.enabled && tg.username ? tg.username : null, mailEnabled: mailEnabled(), google: googleEnabled() };
   }
 
   @Route(e.signIn)
@@ -126,6 +128,32 @@ export class AuthController {
   async verifyEmail(@Param(new ZodValidationPipe(e.verifyEmail.params)) { token }: { token: string }, @Req() req: ApiRequest, @Res() res: Response): Promise<void> {
     const session = await this.sessions.forSignIn(req, res);
     go(res, await verifyEmailLink(session, token, requestFacts(req).userAgent));
+  }
+
+  @Route(e.verifyCode)
+  verifyCode(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.verifyCode.body)) body: { code: string }, @Locale() locale: LocaleCode): Promise<Answer<'verifyCode'>> {
+    return verifyCodeForm(user, body.code, { locale });
+  }
+
+  @Route(e.resendCode)
+  resendCode(@CurrentUser() user: User, @Req() req: ApiRequest): Promise<Answer<'resendCode'>> {
+    return resendCodeForm(user, requestFacts(req));
+  }
+
+  /** To Google, or back to sign-in while Google sign-in is not configured. */
+  @Route(e.google)
+  async google(@Query(new ZodValidationPipe(e.google.query)) query: { next?: string }, @Req() req: ApiRequest, @Res() res: Response): Promise<void> {
+    const session = await this.sessions.forSignIn(req, res);
+    const url = await startGoogle(session, query.next, requestOrigin(req));
+    if (url) res.redirect(302, url);
+    else go(res, '/sign-in');
+  }
+
+  @Route(e.googleCallback)
+  async googleCallback(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
+    const session = await this.sessions.forSignIn(req, res);
+    const facts = requestFacts(req);
+    go(res, await googleCallback(session, queryPairs(req), { ip: facts.ip, userAgent: facts.userAgent, origin: requestOrigin(req) }));
   }
 
   @Route(e.twoFactorSubmit)

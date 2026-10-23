@@ -6,7 +6,7 @@ import { serialize, type SerializeOptions } from 'cookie';
 import { sealData, unsealData } from 'iron-session';
 import { recordAccepted } from '@tasnivo/domain/security/session-store';
 import type { SignInSession } from '@tasnivo/domain/security/sign-in';
-import { loadAccess, sessionOptions, type CurrentUser, type SessionData } from '@tasnivo/domain/session';
+import { loadAccess, sessionOptions, type SessionData, type SignedInUser } from '@tasnivo/domain/session';
 import { APP_CONFIG } from '../config/config.module';
 import type { AppConfig } from '../config/env';
 import { readCookie, type ApiRequest } from '../http/request';
@@ -61,16 +61,17 @@ export class SessionService {
 
   /**
    * The web app's currentUser(): a cookie names the user, the database confirms the org still has
-   * them (a demo past its end does not), and the server-side session record is live.
+   * them (a demo past its end does not), and the server-side session record is live. `verified`
+   * says whether the e-mail address is confirmed (AccessGuard refuses an unconfirmed user).
    */
-  async currentUser(req: ApiRequest): Promise<CurrentUser | null> {
+  async currentUser(req: ApiRequest): Promise<SignedInUser | null> {
     const session = await this.read(req);
     const { userId, orgId, email } = session;
     if (!userId || !orgId || !email) return null;
     const access = await this.deps.loadAccess(userId, orgId);
     if (!access) return null;
     if (!(await this.deps.recordAccepted(session.sid, userId, access.demoOrg))) return null;
-    return { userId, orgId, email, demo: session.demo === true, clientId: session.clientId ?? null, role: access.role, clientIds: access.clientIds };
+    return { userId, orgId, email, demo: session.demo === true, clientId: session.clientId ?? null, role: access.role, clientIds: access.clientIds, verified: access.verified };
   }
 
   async seal(data: SessionData): Promise<string> {

@@ -58,6 +58,7 @@ function docs(e: Endpoint): MethodDecorator[] {
   ];
   if (e.role) out.push(ApiExtension('x-role', e.role));
   if (e.noDemo) out.push(ApiExtension('x-no-demo', true));
+  if (e.allowUnverified) out.push(ApiExtension('x-allow-unverified', true));
   if (e.provisional) out.push(ApiExtension('x-provisional', e.provisional));
   if (e.auth === 'session') out.push(ApiCookieAuth('session'));
   if (e.csrf) out.push(ApiHeader({ name: CSRF_HEADER, required: true, description: `Must be "${CSRF_VALUE}" (CSRF check).`, schema: { type: 'string', enum: [CSRF_VALUE] } }));
