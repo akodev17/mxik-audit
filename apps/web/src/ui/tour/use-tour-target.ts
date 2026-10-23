@@ -1,7 +1,8 @@
 'use client';
 
 // Tracks the current step's target on screen: waits for it, scrolls it into view once and follows it
-// through resizes and scrolling. A tab that moves into the "more" menu is found again by its next key.
+// through resizes, scrolling and DOM changes. A tab that moves into the "more" menu is found again by its
+// next key; a target that renders after the wait (a slow page) still gets its spotlight then.
 import { useLayoutEffect, useState } from 'react';
 import { findVisible, resolveTarget, sameRect, TARGET_WAIT_MS, type Rect } from './tour-target';
 
@@ -29,6 +30,7 @@ export function useTourTarget(keys: readonly string[], active: boolean, spotligh
     let poll = 0;
     let frame = 0;
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => schedule());
+    const mutations = new MutationObserver(() => schedule());
 
     function measure(): void {
       frame = 0;
@@ -53,6 +55,7 @@ export function useTourTarget(keys: readonly string[], active: boolean, spotligh
     }
 
     measure();
+    mutations.observe(document.querySelector('.app') ?? document.body, { childList: true, subtree: true });
     window.addEventListener('resize', schedule);
     window.addEventListener('scroll', schedule, true);
     return () => {
@@ -61,6 +64,7 @@ export function useTourTarget(keys: readonly string[], active: boolean, spotligh
       window.removeEventListener('resize', schedule);
       window.removeEventListener('scroll', schedule, true);
       observer?.disconnect();
+      mutations.disconnect();
     };
   }, [active, spotlight, joined, stepId]);
 
