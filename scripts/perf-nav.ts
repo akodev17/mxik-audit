@@ -18,7 +18,8 @@
 // PERF_VERBOSE=1      prints every switch as it is measured
 // --no-save           print only
 // PERF_BASE_URL (default http://localhost:3001), PERF_EMAIL / PERF_PASSWORD (default: the seed org
-// from the README, `npm run seed`).
+// from the README, `npm run seed`). PERF_CHANNEL=msedge (or E2E_CHANNEL, as the e2e suite) uses an
+// installed browser where Playwright's own Chromium is not downloaded.
 import '@tasnivo/domain/load-env';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -399,7 +400,8 @@ const git = (cmd: string): string => { try { return execSync(`git ${cmd}`, { enc
 
 async function main(): Promise<void> {
   if (SERVER_LOG && !existsSync(SERVER_LOG)) throw new Error(`--server-log ${SERVER_LOG} does not exist`);
-  const browser = await chromium.launch({ headless: process.env['PERF_HEADED'] !== '1' });
+  const channel = process.env['PERF_CHANNEL'] ?? process.env['E2E_CHANNEL'];
+  const browser = await chromium.launch({ headless: process.env['PERF_HEADED'] !== '1', ...(channel ? { channel } : {}) });
   const results: Record<string, unknown> = {};
   try {
     const first = await newProfile(browser);
@@ -568,7 +570,7 @@ async function main(): Promise<void> {
     conditions: {
       baseUrl: BASE, build: `next start (production), BUILD_ID ${buildId ?? 'unknown'}`,
       org: 'seed org (npm run seed): 2 clients, 5 catalogues, 213 rows', database: 'local Postgres 16 in Docker (shared)',
-      browser: `Chromium ${browser.version()} headless, ${VIEWPORT.width}x${VIEWPORT.height}`,
+      browser: `${channel ?? 'Chromium'} ${browser.version()} headless, ${VIEWPORT.width}x${VIEWPORT.height}`,
       machine: { cpu: cpus()[0]?.model.trim(), threads: cpus().length, memGb: Math.round(totalmem() / 1073741824), os: process.platform },
       passes: PASSES, dwellMs: DWELL_MS, settleMs: SETTLE_MS, profiling: process.env['NEXT_PUBLIC_PERF_PROFILE'] === '1' ? 'yes' : 'unknown (commitMs is null unless the build is a profiling one)',
     },
