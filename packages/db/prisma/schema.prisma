@@ -1445,6 +1445,8 @@ model Product {
   mxikIssues      Json?
   /// MatchCandidate of the last classification, when it suggested a code.
   mxikSuggestion  Json?
+  /// Up to five runner-up MatchCandidates of the last classification, for the product drawer.
+  mxikAlternatives Json?
   mxikCheckedAt   DateTime?
   /// Set when a reviewer confirmed `mxik` ("Confirm MXIK"); the mapping itself is in FirmMapping.
   mxikConfirmedAt DateTime?
