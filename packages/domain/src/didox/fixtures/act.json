@@ -1,0 +1,20 @@
+{
+  "actdoc": {
+    "actno": "A-5",
+    "actdate": "2026-10-01",
+    "acttext": "Выполненные работы"
+  },
+  "sellertin": "302345678",
+  "buyertin": "305123456",
+  "productlist": {
+    "products": [
+      {
+        "ordno": 1,
+        "name": "Монтаж",
+        "count": 1,
+        "summa": 1000000,
+        "totalsum": 1000000
+      }
+    ]
+  }
+}

@@ -13,6 +13,7 @@ import { ConfigModule } from './config/config.module';
 import { CronModule } from './cron/cron.module';
 import { DemoModule } from './demo/demo.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
+import { DidoxModule } from './didox/didox.module';
 import { HealthModule } from './health/health.module';
 import { ApiExceptionFilter } from './http/exception.filter';
 import { LocaleInterceptor } from './http/locale.interceptor';
@@ -54,6 +55,8 @@ import { WorkspaceModule } from './workspace/workspace.module';
     OnecModule,
 
     ProductsModule,
+
+    DidoxModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },
