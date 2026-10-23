@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { ActivityRow } from '@tasnivo/domain/activity';
-import { groupDecisions } from '@tasnivo/domain/activity-groups';
 import { appDict } from '@tasnivo/i18n/i18n-app';
+import { groupDecisions, type ActivityRow } from '@/lib/pure/activity-groups';
 import { actorText, entryTitle, isAutomaticEntry } from './entry-text';
 
 const base = new Date('2026-10-20T10:00:00Z').getTime();

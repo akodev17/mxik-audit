@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import { db } from '@tasnivo/db';
-import { claimDemoAccess, peekDemoLink, purgeDemoRequests, requestDemoAccess, type DemoMail } from '@tasnivo/domain/demo-access';
-import { demoExportRefusal } from './demo-limits.js';
+import { demoExportRefused } from './catalog-exports.js';
+import { claimDemoAccess, peekDemoLink, purgeDemoRequests, requestDemoAccess, type DemoMail } from './demo-access.js';
 import { isDemoOrg } from './demo.js';
-import { attemptKey } from '@tasnivo/domain/security/rate-limit';
-import { createRecord, recordAccepted } from '@tasnivo/domain/security/session-store';
-import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from '@tasnivo/domain/test-fixtures';
+import { attemptKey } from './security/rate-limit.js';
+import { createRecord, recordAccepted } from './security/session-store.js';
+import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg, type TestActor } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
 const tag = (): string => randomBytes(4).toString('hex');
@@ -167,11 +167,10 @@ describe('demo access (database)', { skip }, () => {
     demoOrgs.push(opened.session.orgId);
     process.env['DEMO_MAX_EXPORTS'] = '2';
     try {
-      assert.equal(await demoExportRefusal(opened.session.orgId), null);
-      assert.equal(await demoExportRefusal(opened.session.orgId), null);
-      const refused = await demoExportRefusal(opened.session.orgId);
-      assert.equal(refused?.status, 429);
-      for (let i = 0; i < 5; i++) assert.equal(await demoExportRefusal(customer.orgId), null, 'a real org is never limited by the demo cap');
+      assert.equal(await demoExportRefused(opened.session.orgId), false);
+      assert.equal(await demoExportRefused(opened.session.orgId), false);
+      assert.equal(await demoExportRefused(opened.session.orgId), true, 'the third download is refused (the API answers 429)');
+      for (let i = 0; i < 5; i++) assert.equal(await demoExportRefused(customer.orgId), false, 'a real org is never limited by the demo cap');
     } finally {
       delete process.env['DEMO_MAX_EXPORTS'];
       await db.authAttempt.deleteMany({ where: { key: attemptKey(opened.session.orgId) } });

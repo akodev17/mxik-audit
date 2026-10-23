@@ -9,7 +9,7 @@
 // src/core/match/confidence-labels.ts. A score ranks matches; it is not a
 // probability, so nothing here says "ishonch". Not imported: this runs in the
 // browser and that module pulls in the normaliser. The test holds them together.
-import type { SampleCatalogRow, SampleCode, SampleFindingType } from '@tasnivo/domain/sample-report.generated';
+import type { SampleCatalogRow, SampleCode, SampleFindingType } from './sample-report.generated';
 
 export type Filter = 'risky' | SampleFindingType | 'clean' | 'all';
 

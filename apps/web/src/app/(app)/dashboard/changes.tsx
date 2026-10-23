@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import type { Change } from '@tasnivo/domain/dashboard';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { StatusChip, StatusIcon } from '@/ui/badge';
+import type { Change } from './dashboard-data';
 
 /** Clients whose latest upload replaced an earlier version: risky rows before and after. */
 export async function Changes({ changes }: { changes: Change[] }) {

@@ -1,6 +1,7 @@
 // Classifier units and packaging in the viewer's language. Pure. The official
 // unit table is Uzbek (Latin and Cyrillic); Russian readers get the usual
-// Russian abbreviation where there is one, otherwise the Cyrillic form.
+// Russian abbreviation where there is one, otherwise the Cyrillic form. The row drawer gets them
+// through rowDetail's `labels` (row-detail.ts).
 import { latinToCyrillic } from '@tasnivo/core/normalize/script';
 import { resolveUnit } from '@tasnivo/core/normalize/units';
 import type { Locale } from '@tasnivo/i18n/i18n';

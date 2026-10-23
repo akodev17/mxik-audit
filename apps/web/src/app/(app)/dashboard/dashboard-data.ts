@@ -19,6 +19,18 @@ export function reviveDashboard(a: Answer) {
   return { ...a, clients, changes, workload, pending, reviews: { open: reviews, counts: a.reviews.counts }, activity };
 }
 
+/** The page's data after reviveDashboard, and the parts the components take. */
+export type Dashboard = ReturnType<typeof reviveDashboard>;
+export type DashboardClient = Dashboard['clients'][number];
+export type Totals = Dashboard['totals'];
+export type TypeCount = Dashboard['byType'][number];
+export type Change = Dashboard['changes'][number];
+export type WorkloadRow = NonNullable<Dashboard['workload']>[number];
+export type AccountantOption = Dashboard['accountants'][number];
+export type Step = Dashboard['onboarding'][number];
+export type OpenReview = Dashboard['reviews']['open'][number];
+export type ReviewCounts = Dashboard['reviews']['counts'];
+
 /** One read for the page: an admin's accountant filter and the reviews tab ("mine") travel as the URL has them. */
 export async function dashboardData(sp: { accountant?: string; rv?: string }) {
   const api = serverApi();

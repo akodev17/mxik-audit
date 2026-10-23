@@ -1,4 +1,4 @@
-// Checks the frozen landing-page sample (src/lib/sample-report.generated.ts).
+// Checks the frozen landing-page sample (sample-report.generated.ts next to this file).
 //
 // The static checks always run: they hold the generated file to the promises
 // the landing page makes about it. The classifier check runs only when the
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, describe, it } from 'node:test';
 import { Pool } from 'pg';
-import { SAMPLE_ROWS } from '../../../scripts/landing-sample/catalog.js';
+import { SAMPLE_ROWS } from '../../../../../scripts/landing-sample/catalog.js';
 import { SAMPLE_REPORT } from './sample-report.generated.js';
 
 const TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT'] as const;

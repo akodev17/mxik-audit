@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import type { WorkloadRow } from '@tasnivo/domain/dashboard';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Table, Td, Th } from '@/ui/table';
+import type { WorkloadRow } from './dashboard-data';
 
 /** Admins only: per accountant, what waits in their clients and when they last decided something. */
 export async function Workload({ rows }: { rows: WorkloadRow[] }) {

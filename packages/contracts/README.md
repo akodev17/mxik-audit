@@ -80,7 +80,7 @@ Moved under `/api` (Caddy sends only `/api/*` to the API):
 | `GET /upload/progress?catalog=<id>` | `GET /api/catalogs/{catalogId}/progress` | no (only the wizard polls it) |
 | `GET /r/<token>/pdf` | `GET /api/share/{token}/pdf` | no (only the share page links it) |
 | `GET /verify/<token>` | `GET /api/auth/verify/{token}` | **yes**: confirmation mails already sent link to it; redirect it (Caddy or Next) |
-| `POST /api/sign-out` | `POST /api/auth/sign-out` | until W3 changes the sign-out form |
+| `POST /api/sign-out` | `POST /api/auth/sign-out` | no (the web route was deleted in Wave 3) |
 
 ## OpenAPI
 
@@ -182,7 +182,7 @@ the repository root. Ticks are kept.
 | [ ] | [x] | page `(app)/settings#account` | `account.get` | `GET /api/account` | session (admin) |
 | [ ] | [x] | page `(app)/settings#data` | `account.get` | `GET /api/account` | session (admin) |
 | [ ] | [ ] | page `api-docs` | `account.config` | `GET /api/config` | public |
-| [ ] | [ ] | page `yordam/[[...path]]` | `account.config` | `GET /api/config` | public |
+| [ ] | [x] | page `yordam/[[...path]]` | `account.config` | `GET /api/config` | public |
 | [ ] | [x] | action `settings.ts#saveBranding` | `account.saveBranding` | `POST /api/account/branding` | session (admin, no demo) |
 | [ ] | [x] | action `security.ts#changeRetention` | `account.setRetention` | `PUT /api/account/retention` | session (admin, no demo) |
 | [ ] | [x] | action `security.ts#closeAccount` | `account.close` | `POST /api/account/close` | session (admin, no demo) |
@@ -195,11 +195,11 @@ the repository root. Ticks are kept.
 | [ ] | [x] | page `(app)/settings#integrations` | `account.telegramLinks` | `GET /api/account/telegram` | session (admin) |
 | [ ] | [x] | action `settings.ts#telegramCode` | `account.telegramCode` | `POST /api/account/telegram/code` | session (admin, no demo) |
 | [ ] | [x] | action `settings.ts#telegramUnlink` | `account.telegramUnlink` | `DELETE /api/account/telegram/{linkId}` | session (admin) |
-| [ ] | [ ] | route `POST /api/telegram/webhook` | `account.telegramWebhook` | `POST /api/telegram/webhook` | providerSignature |
+| [ ] | [x] | route `POST /api/telegram/webhook` | `account.telegramWebhook` | `POST /api/telegram/webhook` | providerSignature |
 | [ ] | [x] | page `(app)/settings#integrations` | `account.apiKeys` | `GET /api/account/api-keys` | session (admin) |
 | [ ] | [x] | action `api-keys.ts#addApiKey` | `account.createApiKey` | `POST /api/account/api-keys` | session (admin, no demo) |
 | [ ] | [x] | action `api-keys.ts#removeApiKey` | `account.revokeApiKey` | `DELETE /api/account/api-keys/{keyId}` | session (admin) |
-| [ ] | [ ] | page `(app)/activity` | `account.activity` | `GET /api/activity` | session (any) |
+| [ ] | [x] | page `(app)/activity` | `account.activity` | `GET /api/activity` | session (any) |
 
 ### clients
 
@@ -277,7 +277,7 @@ the repository root. Ticks are kept.
 | [ ] | [ ] | action `feedback.ts#reportWrongSuggestion` | `workspace.wrongSuggestion` | `POST /api/findings/{findingId}/wrong-suggestion` | session (writer) |
 | [ ] | [ ] | action `barcode-name.ts#fillNameFromBarcode` | `workspace.nameFromBarcode` | `POST /api/findings/{findingId}/name-from-barcode` | session (writer) |
 | [ ] | [ ] | page `(app)/queue` | `workspace.queue` | `GET /api/queue` | session (any) |
-| [ ] | [ ] | page `(app)/dashboard` | `workspace.dashboard` | `GET /api/dashboard` | session (any) |
+| [ ] | [x] | page `(app)/dashboard` | `workspace.dashboard` | `GET /api/dashboard` | session (any) |
 
 ### dictionary
 
@@ -326,7 +326,7 @@ the repository root. Ticks are kept.
 |---|---|---|---|---|---|
 | [ ] | [ ] | page `(app)/clients/[id]#schedule` | `reminders.schedule` | `GET /api/clients/{clientId}/reminder` | session (any) |
 | [ ] | [ ] | action `reminders.ts#saveSchedule` | `reminders.saveSchedule` | `PUT /api/clients/{clientId}/reminder` | session (writer, no demo) |
-| [ ] | [ ] | page `(app)/dashboard#tasks` | `reminders.tasks` | `GET /api/reminders/tasks` | session (any) |
+| [ ] | [x] | page `(app)/dashboard#tasks` | `reminders.tasks` | `GET /api/reminders/tasks` | session (any) |
 | [ ] | [ ] | action `reminders.ts#finishTask` | `reminders.finishTask` | `POST /api/reminders/tasks/{taskId}/done` | session (writer, no demo) |
 
 ### notifications
@@ -348,8 +348,8 @@ the repository root. Ticks are kept.
 | [ ] | [ ] | page `(app)/layout#plan` | `billing.plan` ⚠ | `GET /api/billing/plan` | session (any) |
 | [ ] | [x] | page `(app)/catalogs/[id]#billing` | `billing.catalogPurchase` ⚠ | `GET /api/catalogs/{catalogId}/purchase` | session (any) |
 | [ ] | [ ] | action `billing.ts#startCheckout` | `billing.checkout` | `POST /api/billing/checkout` | session (admin) |
-| [ ] | [ ] | route `POST /api/payments/click` | `billing.click` | `POST /api/payments/click` | providerSignature |
-| [ ] | [ ] | route `POST /api/payments/payme` | `billing.payme` | `POST /api/payments/payme` | providerSignature |
+| [ ] | [x] | route `POST /api/payments/click` | `billing.click` | `POST /api/payments/click` | providerSignature |
+| [ ] | [x] | route `POST /api/payments/payme` | `billing.payme` | `POST /api/payments/payme` | providerSignature |
 
 ### demo
 
@@ -365,11 +365,11 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | route `POST /api/v1/check` | `check` | `POST /api/v1/check` | apiKey |
-| [ ] | [ ] | route `GET /api/v1/catalogs` | `listCatalogs` | `GET /api/v1/catalogs` | apiKey |
-| [ ] | [ ] | route `POST /api/v1/catalogs` | `uploadCatalog` | `POST /api/v1/catalogs` | apiKey |
-| [ ] | [ ] | route `GET /api/v1/catalogs/[id]/report` | `report` | `GET /api/v1/catalogs/{id}/report` | apiKey |
-| [ ] | [ ] | route `GET /api/v1/openapi.json` | `openapi` | `GET /api/v1/openapi.json` | public |
+| [ ] | [x] | route `POST /api/v1/check` | `check` | `POST /api/v1/check` | apiKey |
+| [ ] | [x] | route `GET /api/v1/catalogs` | `listCatalogs` | `GET /api/v1/catalogs` | apiKey |
+| [ ] | [x] | route `POST /api/v1/catalogs` | `uploadCatalog` | `POST /api/v1/catalogs` | apiKey |
+| [ ] | [x] | route `GET /api/v1/catalogs/[id]/report` | `report` | `GET /api/v1/catalogs/{id}/report` | apiKey |
+| [ ] | [x] | route `GET /api/v1/openapi.json` | `openapi` | `GET /api/v1/openapi.json` | public |
 
 ### admin
 
@@ -391,14 +391,14 @@ the repository root. Ticks are kept.
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | route `POST /api/cron/daily` | `cron.daily` | `POST /api/cron/daily` | cron |
-| [ ] | [ ] | route `POST /api/cron/classifier-update` | `cron.classifierUpdate` | `POST /api/cron/classifier-update` | cron |
+| [ ] | [x] | route `POST /api/cron/daily` | `cron.daily` | `POST /api/cron/daily` | cron |
+| [ ] | [x] | route `POST /api/cron/classifier-update` | `cron.classifierUpdate` | `POST /api/cron/classifier-update` | cron |
 
 ### health
 
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
-| [ ] | [ ] | route `GET /api/health` | `health.get` | `GET /api/health` | public |
+| [ ] | [x] | route `GET /api/health` | `health.get` | `GET /api/health` | public |
 
 ### Provisional shapes (page data assembled in server components today; W2 confirms or changes)
 

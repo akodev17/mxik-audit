@@ -1,8 +1,7 @@
 // Display labels and tones for finding types and confidence, shared by every screen.
-import { confidenceLabel, labelKey, type ConfidenceLabel, type LabelKey } from '@tasnivo/core/match/confidence-labels';
-import type { MatchStage } from '@tasnivo/core/match/types';
 import type { Dict } from '@tasnivo/i18n/i18n';
 import type { AppDict } from '@tasnivo/i18n/i18n-app';
+import { confidenceLabel, labelKey, type ConfidenceLabel, type LabelKey, type MatchStage } from '@/lib/pure/confidence-labels';
 import type { Tone } from './badge';
 
 export { typeLabels } from '@tasnivo/i18n/type-labels';
@@ -37,7 +36,7 @@ export type SuggestionLabel = { key: LabelKey; label: string; tone: Tone; percen
 /**
  * The label a suggestion carries: "Shtrix-kod boʻyicha" or "Firma lugʻatidan"
  * when the code came from an identity, otherwise the score band. Decided by
- * labelKey() in core/match/confidence-labels, like every other surface.
+ * labelKey() (core/match/confidence-labels, copied in lib/pure), like every other surface.
  */
 export function suggestionLabel(t: Dict, ta: AppDict, input: { confidence: number | null; stage?: MatchStage | null }): SuggestionLabel | null {
   const key = labelKey(input.confidence, input.stage);

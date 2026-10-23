@@ -64,7 +64,7 @@ export const account = defineModule('account', {
   }),
   config: endpoint({
     method: 'GET', path: '/api/config', auth: 'public',
-    summary: 'Limits the help and API docs pages quote: upload cap, API rate, plan limits, retention choices',
+    summary: 'Limits the help and API docs pages quote: upload cap, API rate, plan limits and price, retention and closing',
     responds: 'json',
     response: z.object({
       uploadMaxBytes: z.number().int(),
@@ -73,9 +73,13 @@ export const account = defineModule('account', {
       trialDays: z.number().int(),
       retentionChoices: z.array(z.number().int()),
       origin: z.string().nullable(),
+      /** The firm plan's monthly price in soʻm (PLAN_FIRM_PRICE); null while it is not for sale. */
+      firmPrice: z.number().int().nullable(),
+      /** Days a closed account is kept before it is erased (ACCOUNT_DELETE_AFTER_DAYS). */
+      closeAfterDays: z.number().int(),
     }),
     replaces: ['page:api-docs', 'page:yordam/[[...path]]'],
-    notes: 'Shape confirmed in W2; until W3 the help and API docs pages read apiConfig(), planLimits(), MAX_UPLOAD_BYTES directly.',
+    notes: 'firmPrice and closeAfterDays added in W4a for the help articles (they read the configuration through this endpoint).',
   }),
   saveBranding: endpoint({
     method: 'POST', path: '/api/account/branding', auth: 'session', role: 'admin', noDemo: true,

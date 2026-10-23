@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { SampleCatalogRow, SampleCode } from '@tasnivo/domain/sample-report.generated';
+import type { SampleCatalogRow, SampleCode } from './sample-report.generated';
 import { ScanPanel } from './scan-panel';
 import { FILTERS, TYPE_META, countsFor, primaryFinding } from './workspace-model';
 

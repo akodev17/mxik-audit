@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { groupDecisions } from '@tasnivo/domain/activity-groups';
-import { rowProgress } from '@tasnivo/domain/client-stats';
-import { parseQueueParams, type QueueFilter, type QueueSort } from '@tasnivo/domain/work-queue';
 import { redirect } from 'next/navigation';
 import { signedIn } from '@/lib/api/me';
 import { getI18n } from '@/lib/locale';
+import { groupDecisions } from '@/lib/pure/activity-groups';
+import { rowProgress } from '@/lib/pure/client-kpi';
+import { parseQueueParams, type QueueFilter, type QueueSort } from '@/lib/pure/work-queue';
 import { Badge } from '@/ui/badge';
 import { EmptyState } from '@/ui/empty-state';
 import { TabPanels, type TabPanel } from '@/ui/tab-panels';

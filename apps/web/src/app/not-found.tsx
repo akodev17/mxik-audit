@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getI18n } from '@/lib/locale';
-import { currentUser } from '@/lib/session';
+import { signedIn } from '@/lib/api/me';
 import { ButtonLink } from '@/ui/button';
 import { onest } from '@/ui/onest';
 import { helpHref } from '@/ui/shell/nav';
@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Any unknown address outside the app frame. Signed-in people get app links, others the public ones. */
 export default async function NotFound() {
-  const [{ locale, ta }, theme, user] = await Promise.all([getI18n(), readTheme(), currentUser().catch(() => null)]);
+  const [{ locale, ta }, theme, user] = await Promise.all([getI18n(), readTheme(), signedIn().catch(() => null)]);
   const n = ta.shellX.notFound;
   return (
     <div className={`app ${onest.variable} grid min-h-dvh place-items-center bg-surface`} data-theme={theme}>

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { SAMPLE_FILENAME as SCRIPT_FILENAME } from '../../../../../scripts/landing-sample/catalog.js';
-import { CONFIDENCE_LABELS, confidenceLabel } from '@tasnivo/core/match/confidence-labels';
 import { dict } from '@tasnivo/i18n/i18n';
-import { SAMPLE_REPORT } from '@tasnivo/domain/sample-report.generated';
+import { CONFIDENCE_LABELS, confidenceLabel } from '@/lib/pure/confidence-labels';
+import { SAMPLE_REPORT } from './sample-report.generated';
 import { SAMPLE_FILENAME, nf } from './data.js';
 import { firstDivergence, splitCode } from './mxik-code.js';
 import {

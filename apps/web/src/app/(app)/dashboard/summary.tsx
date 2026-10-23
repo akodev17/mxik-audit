@@ -1,8 +1,8 @@
-import { openRowsHint, reviewedShare } from '@tasnivo/domain/client-kpi';
-import type { Totals } from '@tasnivo/domain/dashboard';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
+import { openRowsHint, reviewedShare } from '@/lib/pure/client-kpi';
 import { StatRow, type StatRowItem } from '@/ui/stat-row';
+import type { Totals } from './dashboard-data';
 
 /**
  * Four measures in one hairline-divided row: rows to review, rows reviewed, clients needing

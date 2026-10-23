@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { ActivityRow } from '@tasnivo/domain/activity';
-import type { ActivityEntry } from '@tasnivo/domain/activity-groups';
+import type { ActivityEntry, ActivityRow } from '@/lib/pure/activity-groups';
 import { fmtDateTime, isoDay } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Table, Td, Th } from '@/ui/table';

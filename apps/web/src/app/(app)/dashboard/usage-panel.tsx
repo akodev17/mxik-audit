@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { WARN_AT } from '@tasnivo/domain/billing/limits';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Progress } from '@/ui/progress';
+import { WARN_AT } from '../settings/plan-meter';
 
 type Key = 'clients' | 'rowsPerMonth' | 'seats';
 const KEYS: Key[] = ['clients', 'rowsPerMonth', 'seats'];

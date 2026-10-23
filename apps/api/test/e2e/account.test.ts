@@ -60,12 +60,17 @@ describe('account (database)', { skip }, () => {
   });
 
   it('GET /api/config is public', async () => {
-    const res = await call().get('/api/config');
+    type Config = { uploadMaxBytes: number; trialDays: number; retentionChoices: number[]; firmPrice: number | null; closeAfterDays: number };
+    const res = await withEnv({ PLAN_FIRM_PRICE: undefined, ACCOUNT_DELETE_AFTER_DAYS: '45' }, async () => call().get('/api/config'));
     assert.equal(res.status, 200);
-    const body = bodyOf<{ uploadMaxBytes: number; trialDays: number; retentionChoices: number[] }>(res);
+    const body = bodyOf<Config>(res);
     assert.equal(body.uploadMaxBytes, 20 * 1024 * 1024);
     assert.equal(body.trialDays, 14);
     assert.deepEqual(body.retentionChoices, [7, 30, 90]);
+    assert.equal(body.firmPrice, null, 'the firm plan is not for sale while its price is unset');
+    assert.equal(body.closeAfterDays, 45);
+    const priced = await withEnv({ PLAN_FIRM_PRICE: '450 000' }, async () => call().get('/api/config'));
+    assert.equal(bodyOf<Config>(priced).firmPrice, 450_000);
   });
 
   it('branding: name and PNG/JPEG logo by content, a refused file, removal; admin of a real org only', async () => {

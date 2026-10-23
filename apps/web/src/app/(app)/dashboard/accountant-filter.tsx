@@ -1,4 +1,4 @@
-import type { AccountantOption } from '@tasnivo/domain/dashboard';
+import type { AccountantOption } from './dashboard-data';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
 import { Button } from '@/ui/button';

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { fmtNumber } from '@tasnivo/i18n/format';
-import { helpPath } from '@tasnivo/domain/help';
+import { helpPath } from '@/lib/help';
 import { TasnivoLogo } from '@/ui/logo';
 import { pluralRu } from '@tasnivo/i18n/plural';
 import { TELEGRAM_URL } from './config';

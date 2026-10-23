@@ -1,4 +1,4 @@
-// The help-center articles: one MDX file per language under src/content/yordam.
+// The help-center articles: one MDX file per language under apps/web/src/content/yordam.
 export type HelpLang = 'uz' | 'ru';
 
 export type HelpArticle = { slug: string; title: Record<HelpLang, string>; description: Record<HelpLang, string> };

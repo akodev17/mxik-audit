@@ -1,9 +1,9 @@
-import type { TypeCount } from '@tasnivo/domain/dashboard';
 import { fmtNumber, fmtPercent } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { issueShares } from '@tasnivo/domain/work-queue';
+import { issueShares } from '@/lib/pure/work-queue';
 import { typeLabels } from '@/ui/labels';
 import { RankedBars } from '@/ui/ranked-bars';
+import type { TypeCount } from './dashboard-data';
 
 /**
  * Which checks fail most among undecided findings, ranked: a bar for each check's share of all
