@@ -50,7 +50,7 @@ model MxikCode {
   barcode String? @db.Char(14)
 
   /// Verbatim column J of the export, packaging detail included.
-  unitRaw       String?
+  unitRaw String?
   /// Acceptable canonical units. Column J is sometimes a comma-separated list.
   unitCanonical String[]
   /// Official unit ids resolved from unitCanonical; empty when unresolvable.
@@ -58,7 +58,7 @@ model MxikCode {
   unitContainer String?
   unitQuantity  Float?
   /// strict = column J present (87.8%), recommended = only M/N, none = neither.
-  unitBinding   UnitBinding
+  unitBinding UnitBinding
 
   recommendedUnits      String[]
   recommendedUnitGroups String[]
@@ -66,12 +66,12 @@ model MxikCode {
   taxPrivilegeIds       String[]
 
   /// Last six digits are 000000: the officially safe fallback for a subposition.
-  isBase   Boolean
+  isBase Boolean
   /// From the API `label` field. Null for the 8.7% the portal leaves unset.
   isMarked Boolean?
 
   /// Folded match keys for every name variant and both readings of ц.
-  matchKeys  String[]
+  matchKeys String[]
   /// Concatenated searchable text, used for trigram and full-text retrieval.
   searchText String
 
@@ -142,12 +142,12 @@ model RestrictedCode {
 
 /// Each catalogue import, so codes that vanish between imports can be detected.
 model CatalogSnapshot {
-  id               Int       @id @default(autoincrement())
-  takenAt          DateTime  @default(now())
-  codeCount        Int
-  source           String
+  id         Int      @id @default(autoincrement())
+  takenAt    DateTime @default(now())
+  codeCount  Int
+  source     String
   /// Codes present in the previous snapshot but absent from this one.
-  retiredCodes     String[]
+  retiredCodes String[]
   addedCount       Int       @default(0)
   retiredCount     Int       @default(0)
   unitChangedCount Int       @default(0)
@@ -207,46 +207,46 @@ model Organization {
   name      String
   createdAt DateTime @default(now())
 
-  users             User[]
-  clients           Client[]
-  notifications     Notification[]
-  telegramLinks     TelegramLink[]
-  orders            Order[]
-  catalogs          Catalog[]
-  events            AuditEvent[]
-  invites           Invite[]
-  mappings          FirmMapping[]
-  feedback          SuggestionFeedback[]
-  shareLinks        ShareLink[]
-  comments          FindingComment[]
-  savedViews        SavedView[]
-  schedules         ClientSchedule[]
-  reminderTasks     ReminderTask[]
-  docLists          DocList[]
+  users     User[]
+  clients   Client[]
+  notifications Notification[]
+  telegramLinks TelegramLink[]
+  orders    Order[]
+  catalogs  Catalog[]
+  events    AuditEvent[]
+  invites   Invite[]
+  mappings  FirmMapping[]
+  feedback  SuggestionFeedback[]
+  shareLinks ShareLink[]
+  comments  FindingComment[]
+  savedViews SavedView[]
+  schedules ClientSchedule[]
+  reminderTasks ReminderTask[]
+  docLists  DocList[]
   reviewAssignments ReviewAssignment[]
-  apiKeys           ApiKey[]
+  apiKeys   ApiKey[]
   /// Accept dictionary matches automatically when a catalogue is audited.
-  dictAutoAccept    Boolean              @default(false)
+  dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
-  trialEndsAt       DateTime?
+  trialEndsAt DateTime?
   /// Paid firm subscription runs until this moment; null = none.
   subscriptionUntil DateTime?
   /// Firm name printed on client PDF reports; null = the org name.
-  brandName         String?
+  brandName String?
   /// Logo printed on client PDF reports (PNG or JPEG, small).
-  logoData          Bytes?
-  logoMime          String?
+  logoData  Bytes?
+  logoMime  String?
   /// Remembered column mapping, so a repeat upload does not re-ask.
-  columnMap         Json?
-  kind              OrgKind              @default(customer)
+  columnMap Json?
+  kind      OrgKind  @default(customer)
   /// Demo copies are deleted after this by `npm run purge:expired`.
-  expiresAt         DateTime?
+  expiresAt DateTime?
   /// The account was closed at this moment; restorable until the daily job purges it.
-  deletedAt         DateTime?
+  deletedAt DateTime?
   /// Uploaded cells outside the mapped columns are blanked after this many days; null = keep.
-  rawRetentionDays  Int?                 @default(30)
+  rawRetentionDays Int? @default(30)
   /// Retention applies only to uploads created after this moment (no retroactive purge).
-  rawRetentionSince DateTime?            @default(now())
+  rawRetentionSince DateTime? @default(now())
 
   @@index([kind, expiresAt])
   @@map("organization")
@@ -305,34 +305,34 @@ model User {
   createdAt    DateTime @default(now())
 
   /// admin manages the org; accountant works on assigned clients; viewer is read-only.
-  role              UserRole           @default(admin)
+  role         UserRole @default(admin)
   /// Set when the address was confirmed (or the account predates verification).
-  emailVerifiedAt   DateTime?
-  emailTokens       EmailToken[]
-  savedViews        SavedView[]
+  emailVerifiedAt DateTime?
+  emailTokens  EmailToken[]
+  savedViews   SavedView[]
   /// Interface language, uz or ru; null = the default.
-  locale            String?
+  locale       String?
   /// TOTP secret, encrypted (src/lib/security/totp.ts). Null = no two-factor.
-  totpSecret        String?
-  totpEnabledAt     DateTime?
+  totpSecret    String?
+  totpEnabledAt DateTime?
   /// Last accepted 30-second step, so one code cannot be used twice.
-  totpLastStep      Int?
-  recoveryCodes     RecoveryCode[]
-  sessions          UserSession[]
+  totpLastStep  Int?
+  recoveryCodes RecoveryCode[]
+  sessions      UserSession[]
   notificationReads NotificationRead[]
   /// Catalogue reviews handed to this person.
-  assignedReviews   ReviewAssignment[] @relation("ReviewAssignee")
+  assignedReviews ReviewAssignment[] @relation("ReviewAssignee")
   /// Notifications addressed to this person alone.
-  notices           Notification[]     @relation("NoticeTarget")
+  notices Notification[] @relation("NoticeTarget")
   /// Platform operator (cross-org admin pages). Set by hand in the database, never by email.
-  platformAdmin     Boolean            @default(false)
+  platformAdmin Boolean @default(false)
   /// Telegram user id this person bound for signing in; separate from notification chats.
-  telegramUserId    String?            @unique
+  telegramUserId String? @unique
   /// Google account (the ID token's sub) this person signs in with.
-  googleSub         String?            @unique
-  emailCodes        EmailCode[]
+  googleSub String? @unique
+  emailCodes EmailCode[]
 
-  org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   assignments ClientAssignment[]
 
   @@index([orgId])
@@ -382,26 +382,26 @@ model Invite {
 
 /// What an org decided before: normalised name + unit (or a barcode) to a code.
 model FirmMapping {
-  id            String    @id @default(cuid())
-  orgId         String
+  id        String    @id @default(cuid())
+  orgId     String
   /// name = normalised name + unit, barcode = the row's barcode.
-  kind          String
-  key           String
+  kind      String
+  key       String
   /// The normalised name (or barcode) as shown in the dictionary page.
-  label         String
-  unit          String?
-  code          String
-  uses          Int       @default(1)
-  createdBy     String?
-  updatedBy     String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now())
+  label     String
+  unit      String?
+  code      String
+  uses      Int       @default(1)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
   /// Set when the code left the classifier; the mapping is then ignored.
-  staleAt       DateTime?
+  staleAt   DateTime?
   /// Individual (single-row) confirmations; bulk accepts do not count.
-  confirmations Int       @default(0)
+  confirmations Int @default(0)
   /// How the entry was last learned: manual, group, bulk, edit.
-  source        String?
+  source    String?
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -561,7 +561,7 @@ model ReminderTask {
 
 /// An uploaded list of what a client sold: kind cheques (the tax cabinet's wrong-code list) or sales (cheque or EHF lines).
 model DocList {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   orgId         String
   clientId      String
   kind          String
@@ -570,11 +570,11 @@ model DocList {
   headers       String[]
   columnMap     Json
   /// uploaded = waiting for the column mapping; analyzing; ready; failed.
-  status        String    @default("uploaded")
-  progressDone  Int       @default(0)
-  progressTotal Int       @default(0)
+  status        String   @default("uploaded")
+  progressDone  Int      @default(0)
+  progressTotal Int      @default(0)
   error         String?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime @default(now())
   rawPurgedAt   DateTime?
   /// Check metadata: group total, truncation, diagnostics.
   meta          Json?
@@ -645,26 +645,26 @@ enum CatalogStatus {
 /// A business whose catalogues an organization audits. An accounting firm has
 /// many; a company audits itself through its one default client.
 model Client {
-  id         String         @id @default(cuid())
-  orgId      String
-  name       String
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
   /// Catalogues uploaded before clients existed, or without naming a client,
   /// land here. Exactly one per org (partial unique index in the migration).
-  isDefault  Boolean        @default(false)
+  isDefault Boolean  @default(false)
   /// Decides how a sale without a matching purchase is rated (NOT_PURCHASED).
-  activity   ClientActivity @default(boshqa)
-  createdAt  DateTime       @default(now())
+  activity  ClientActivity @default(boshqa)
+  createdAt DateTime @default(now())
   /// Archived clients are hidden from lists and the switcher; their data is kept.
   archivedAt DateTime?
 
-  org               Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  catalogs          Catalog[]
-  notifications     Notification[]
-  purchaseLists     PurchaseList[]
-  assignments       ClientAssignment[]
-  schedule          ClientSchedule?
-  reminderTasks     ReminderTask[]
-  docLists          DocList[]
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalogs Catalog[]
+  notifications Notification[]
+  purchaseLists PurchaseList[]
+  assignments ClientAssignment[]
+  schedule ClientSchedule?
+  reminderTasks ReminderTask[]
+  docLists DocList[]
   reviewAssignments ReviewAssignment[]
 
   @@index([orgId])
@@ -685,19 +685,19 @@ enum ClientActivity {
 /// EHF export or any list), mapped like a catalogue. Its MXIK codes are the
 /// set the NOT_PURCHASED check compares sales against.
 model PurchaseList {
-  id          String    @id @default(cuid())
-  orgId       String
-  clientId    String
-  filename    String
-  rowCount    Int
-  headers     String[]
-  columnMap   Json
+  id        String   @id @default(cuid())
+  orgId     String
+  clientId  String
+  filename  String
+  rowCount  Int
+  headers   String[]
+  columnMap Json
   /// uploaded = waiting for the column mapping; ready = in use.
-  status      String    @default("uploaded")
-  createdAt   DateTime  @default(now())
+  status    String   @default("uploaded")
+  createdAt DateTime @default(now())
   rawPurgedAt DateTime?
   /// Import metadata: sample rows for resuming the mapping, truncation, diagnostics.
-  meta        Json?
+  meta      Json?
 
   client Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items  PurchaseItem[]
@@ -725,22 +725,22 @@ model PurchaseItem {
 }
 
 model Catalog {
-  id               String        @id @default(cuid())
-  orgId            String
+  id        String        @id @default(cuid())
+  orgId     String
   /// NOT NULL in the database: a BEFORE INSERT trigger fills the org's default
   /// client when a caller omits it (see the clients migration). Optional here
   /// only so callers that predate clients keep compiling.
-  clientId         String?
-  filename         String
-  rowCount         Int
-  status           CatalogStatus @default(uploaded)
-  createdAt        DateTime      @default(now())
+  clientId  String?
+  filename  String
+  rowCount  Int
+  status    CatalogStatus @default(uploaded)
+  createdAt DateTime      @default(now())
   /// Header row as uploaded, so Export can reproduce the original shape.
-  headers          String[]
+  headers   String[]
   /// Which uploaded column feeds which field.
-  columnMap        Json
+  columnMap Json
   /// Rows before this index are fully audited; a restarted audit resumes here.
-  progressDone     Int           @default(0)
+  progressDone     Int       @default(0)
   auditStartedAt   DateTime?
   /// Bumped while an audit runs; a stale one means the worker died.
   auditHeartbeatAt DateTime?
@@ -758,10 +758,10 @@ model Catalog {
   /// What the import saw: rows seen, truncated, dropped rows, encoding, delimiter.
   importMeta       Json?
 
-  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client           Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  items            CatalogItem[]
-  shareLinks       ShareLink[]
+  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items    CatalogItem[]
+  shareLinks ShareLink[]
   reviewAssignment ReviewAssignment?
 
   @@index([orgId])
@@ -771,22 +771,22 @@ model Catalog {
 }
 
 model CatalogItem {
-  id              String   @id @default(cuid())
-  catalogId       String
-  rowIndex        Int
-  rawName         String
-  normalizedName  String
-  barcode         String?
-  existingMxik    String?
-  unit            String?
-  price           Decimal? @db.Decimal(18, 2)
+  id             String  @id @default(cuid())
+  catalogId      String
+  rowIndex       Int
+  rawName        String
+  normalizedName String
+  barcode        String?
+  existingMxik   String?
+  unit           String?
+  price          Decimal? @db.Decimal(18, 2)
   /// Sales amount from a mapped "Sotuv summasi" column, if the file has one.
-  salesAmount     Decimal? @db.Decimal(20, 2)
+  salesAmount    Decimal? @db.Decimal(20, 2)
   /// Attributes parsed out of the name, plus every original cell for re-export.
-  attrs           Json
+  attrs          Json
   /// The current code or a suggested code is flagged for digital marking
   /// (classifier `label` = 1). Set by the audit; drives the report filter.
-  markingRequired Boolean  @default(false)
+  markingRequired Boolean @default(false)
 
   catalog  Catalog   @relation(fields: [catalogId], references: [id], onDelete: Cascade)
   findings Finding[]
@@ -839,40 +839,40 @@ enum Decision {
 }
 
 model Finding {
-  id              String      @id @default(cuid())
-  itemId          String
-  type            FindingType
-  severity        Severity
-  suggestedMxik   String?
-  confidence      Float?
+  id            String      @id @default(cuid())
+  itemId        String
+  type          FindingType
+  severity      Severity
+  suggestedMxik String?
+  confidence    Float?
   /// Runner-up candidates, each with code, name, path, confidence and reason.
-  alternatives    Json
-  reason          String
+  alternatives  Json
+  reason        String
   /// Why the suggested code was proposed (src/core/match/evidence.ts). Null on older audits.
-  evidence        Json?
+  evidence      Json?
   /// True when this code existed in an earlier snapshot and has since vanished.
   /// Carries the archive signal until there is enough history to surface it.
-  wasRetired      Boolean     @default(false)
+  wasRetired    Boolean     @default(false)
   /// The reviewer took this row out of its group of similar rows.
-  groupSplit      Boolean     @default(false)
+  groupSplit    Boolean     @default(false)
   /// The classifier import that caused this finding; null = the original audit.
-  snapshotId      Int?
-  decision        Decision    @default(pending)
+  snapshotId    Int?
+  decision      Decision    @default(pending)
   /// Code the reviewer actually chose, which may differ from suggestedMxik.
-  chosenMxik      String?
-  decidedBy       String?
-  decidedAt       DateTime?
+  chosenMxik    String?
+  decidedBy     String?
+  decidedAt     DateTime?
   /// The AuditEvent that set the current decision; undo targets it. Null while pending.
   decisionEventId String?
   /// ask_client = waiting on the client; resolved = settled. Null = no flag.
-  flag            String?
+  flag          String?
   /// Where the current decision came from: manual, group, bulk, bulk_sure, dictionary, dictionary_auto, carry_over.
-  decisionSource  String?
+  decisionSource String?
   /// RESTRICTED only: the restricted code this finding is about, and when EHF stops accepting it.
-  restrictedMxik  String?
-  restrictedFrom  DateTime?   @db.Date
+  restrictedMxik String?
+  restrictedFrom DateTime? @db.Date
 
-  item     CatalogItem      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   comments FindingComment[]
 
   @@index([itemId])
@@ -904,28 +904,28 @@ model AuditEvent {
 /// Something an org should know about, shown in the app and sent to its linked
 /// Telegram chats. Not an audit record: AuditEvent keeps that.
 model Notification {
-  id             String    @id @default(cuid())
-  orgId          String
-  clientId       String?
+  id        String    @id @default(cuid())
+  orgId     String
+  clientId  String?
   /// e.g. classifier.updated
-  kind           String
-  title          String
-  body           String
+  kind      String
+  title     String
+  body      String
   /// Site-relative link to what the notification is about.
-  href           String?
-  createdAt      DateTime  @default(now())
-  readAt         DateTime?
+  href      String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
   /// Set once delivered to the org's Telegram chats; null = not sent (yet).
   telegramSentAt DateTime?
   /// Addressed to one person (e.g. a review assigned to them); null = everyone who may see the notice.
-  userId         String?
+  userId    String?
   /// Names the event that produced it, so a retried job cannot raise it twice. Null = never deduplicated.
-  dedupeKey      String?
+  dedupeKey String?
 
   user User? @relation("NoticeTarget", fields: [userId], references: [id], onDelete: Cascade)
 
-  org    Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  client Client?            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   reads  NotificationRead[]
 
   @@unique([orgId, dedupeKey])
@@ -1050,7 +1050,7 @@ enum OrderStatus {
 /// state and times their protocols require us to remember.
 model PaymentTransaction {
   /// Also Click's merchant_prepare_id / merchant_confirm_id, hence an integer.
-  id           Int     @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   orderId      String
   provider     String
   /// click_trans_id or the Payme transaction id.
@@ -1091,18 +1091,18 @@ model RerankCache {
 /// A free-audit request from the landing page. Deliberately minimal: a file and
 /// one way to reach the person. No email drip, no signup wall.
 model Lead {
-  id            String    @id @default(cuid())
+  id        String   @id @default(cuid())
   /// Phone or Telegram handle, as typed.
-  contact       String
-  company       String?
-  filename      String?
-  fileBytes     Int?
-  rowGuess      Int?
+  contact   String
+  company   String?
+  filename  String?
+  fileBytes Int?
+  rowGuess  Int?
   /// Uploaded catalogue, held only until the audit is delivered.
-  fileData      Bytes?
-  note          String?
-  createdAt     DateTime  @default(now())
-  handledAt     DateTime?
+  fileData  Bytes?
+  note      String?
+  createdAt DateTime @default(now())
+  handledAt DateTime?
   /// When fileData was erased, on request or by retention (`npm run purge:expired`).
   fileDeletedAt DateTime?
 
@@ -1123,8 +1123,8 @@ model ApiKey {
   lastUsedAt DateTime?
   revokedAt  DateTime?
 
-  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  usage       ApiUsage[]
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  usage ApiUsage[]
   idempotency ApiIdempotency[]
 
   @@index([orgId])
