@@ -28,7 +28,7 @@ export async function PlanTab({ user }: { user: Me }) {
   const s = ta.setX.plan;
   const pr = ta.prX;
   const admin = user.role === 'admin';
-  const [billing, { api: config }] = await Promise.all([serverApi().billing.plan(), serverApi().account.config()]);
+  const [billing, { api: config, features }] = await Promise.all([serverApi().billing.plan(), serverApi().account.config()]);
   const { status, limits, plan, purchase, tiers, subscriptionUntil: until } = billing;
   const byRequest = purchase.kind === 'not_for_sale' || purchase.kind === 'no_provider';
   const n = (v: number): string => fmtNumber(locale, v);
@@ -40,6 +40,8 @@ export async function PlanTab({ user }: { user: Me }) {
     { label: s.rows.duration, values: each((c) => (c === 'trial' ? s.days(billing.trialDays) : s.paidTerm)) },
     { label: pr.period.monthly, values: each((c) => (c === 'trial' ? s.free : s.perMonth(n(tierOf(c)?.monthly.price ?? 0)))), nowrap: true },
     { label: pr.period.yearly, values: each((c) => (c === 'trial' ? s.free : s.perYear(n(tierOf(c)?.yearly.price ?? 0)))), nowrap: true },
+    // The plan cards' feature lines, marked as the app enforces them.
+    ...(Object.keys(pr.features) as (keyof typeof pr.features)[]).map((f): Row => ({ label: pr.features[f], values: each((c) => (features[c][f] ? '✓' : '—')) })),
     limitRow('clients'), limitRow('rowsPerMonth'), limitRow('seats'),
     { label: s.rows.apiChecks, values: each((c) => cap(config.checksPerMonth[c])) },
     { label: s.rows.apiRate, values: each(() => s.perMinute(n(config.ratePerMinute))) },

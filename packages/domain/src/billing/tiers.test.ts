@@ -3,12 +3,18 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 import { db } from '@tasnivo/db';
+import { i18nFor } from '@tasnivo/i18n/locale';
+import { saveBrandingForm } from '../account-settings';
 import { monthlyCheckCap } from '../api/limits';
+import { makeClient, makePerson } from '../firm-test-fixtures';
+import { reportPdfData } from '../pdf/report-data';
 import { planStatus } from '../plan';
+import { saveClientSchedule } from '../reminder-ops';
+import { shareCreateFor } from '../share';
 import { dbSkipReason, dropOrgs, makeCatalog, makeOrg } from '../test-fixtures';
 import { billingPlan } from './overview';
 import { catalogPaid, markPaid, recordTransfer } from './orders';
-import { PLANS } from './plans';
+import { planById, PLANS } from './plans';
 
 const skip = await dbSkipReason();
 const DAY = 86_400_000;
@@ -79,6 +85,51 @@ describe('subscription tiers (database)', { skip }, () => {
     const status = await planStatus(manual.orgId);
     assert.equal(status.tier, 'firm');
     assert.deepEqual(status.limits, PLANS.tiers.firm.limits);
+  });
+
+  it('features: the app refuses what the plan card marks "—" (reminders, branded PDF, client links)', async () => {
+    const { ta } = i18nFor('uz');
+    const refused = (feature: string) => ({ error: ta.prX.notInPlan(feature) });
+    const setUp = async (planId: string | null) => {
+      const o = await org();
+      if (planId) await paidOrder(o.orgId, planId, planById(planId)?.price ?? 0);
+      else await db.organization.update({ where: { id: o.orgId }, data: { trialEndsAt: new Date(Date.now() + 14 * DAY) } });
+      const admin = await makePerson(o.orgId, 'admin');
+      const clientId = await makeClient(o.orgId, 'Mijoz');
+      const { catalogId } = await makeCatalog(o.orgId, [{ rawName: 'Sement', suggestedMxik: null, confidence: null }]);
+      const who = { ...admin, orgId: o.orgId, clientIds: null };
+      return {
+        reminders: await saveClientSchedule(who, clientId, { dayOfMonth: 5, assigneeId: null, enabled: true }, 'uz'),
+        branding: await saveBrandingForm(who, { brandName: 'Hisob Pro', removeLogo: false, logo: null }, 'uz'),
+        clearBranding: await saveBrandingForm(who, { brandName: '', removeLogo: true, logo: null }, 'uz'),
+        share: await shareCreateFor(who, { catalogId, days: 7, includePdf: true }),
+        pdfFirm: (await reportPdfData(o.orgId, catalogId))?.firmName,
+      };
+    };
+
+    const trial = await setUp(null);
+    assert.deepEqual(trial.reminders, { ok: false, error: ta.prX.notInPlan(ta.prX.features.reminders) });
+    assert.deepEqual(trial.branding, refused(ta.prX.features.branding));
+    assert.deepEqual(trial.clearBranding, { saved: true }, 'clearing is always allowed');
+    assert.equal(trial.share, null);
+
+    const company = await setUp('company_monthly');
+    assert.equal(company.reminders.ok, true);
+    assert.deepEqual(company.branding, refused(ta.prX.features.branding));
+    assert.equal(company.share, null);
+
+    const accountant = await setUp('accountant_monthly');
+    assert.equal(accountant.reminders.ok, true);
+    assert.deepEqual(accountant.branding, { saved: true });
+    assert.ok(accountant.share?.url);
+
+    // A name saved while the plan had branded PDFs is not printed once the plan no longer has them.
+    const o = await org();
+    await db.organization.update({ where: { id: o.orgId }, data: { brandName: 'Eski brend', trialEndsAt: new Date(Date.now() + DAY) } });
+    const { catalogId } = await makeCatalog(o.orgId, [{ rawName: 'Gʻisht', suggestedMxik: null, confidence: null }]);
+    assert.notEqual((await reportPdfData(o.orgId, catalogId))?.firmName, 'Eski brend');
+    await paidOrder(o.orgId, 'firm_monthly', 1_800_000);
+    assert.equal((await reportPdfData(o.orgId, catalogId))?.firmName, 'Eski brend');
   });
 
   it('a bank transfer: a paid "bank" order, the agreed amount, the same effects as a callback', async () => {

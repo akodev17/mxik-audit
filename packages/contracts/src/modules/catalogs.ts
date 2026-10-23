@@ -410,6 +410,7 @@ export const catalogs = defineModule('catalogs', {
     body: z.object({ days: z.union([z.literal(7), z.literal(30)]), includePdf: z.boolean() }),
     responds: 'json', response: z.object({ url: z.string() }).nullable(),
     replaces: ['action:share.ts#shareCreate'],
+    notes: 'A plan without client links (billing/plans.ts PLAN_FEATURES) answers 403 plan_feature with a message to show.',
   }),
   revokeShareLink: endpoint({
     method: 'DELETE', path: '/api/share-links/{linkId}', auth: 'session', role: 'writer',

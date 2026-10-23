@@ -66,6 +66,8 @@ export function liveComponents(lang: HelpLang, config: HelpConfig): Record<strin
   const tier = (col: Exclude<Column, 'trial'>) => config.tiers.find((t) => t.tier === col);
   const row = (label: string, value: (col: Column) => string): string[] => [label, ...COLUMNS.map(value)];
   const limit = (label: string, key: keyof Limits): string[] => row(label, (col) => cap(limits[col][key]));
+  // The plan cards' feature lines, in their order, marked as on the landing page.
+  const features = (Object.keys(pr.features) as (keyof typeof pr.features)[]).map((f) => row(pr.features[f], (col) => (config.features[col][f] ? '✓' : '—')));
   const choices = RETENTION_CHOICES.map((d) => n(d));
 
   return {
@@ -77,6 +79,7 @@ export function liveComponents(lang: HelpLang, config: HelpConfig): Record<strin
           row(c.duration, (col) => (col === 'trial' ? c.days(TRIAL_DAYS) : c.paidTerm)),
           row(c.monthly, (col) => (col === 'trial' ? c.free : c.perMonth(n(tier(col)?.monthly.price ?? 0)))),
           row(c.yearly, (col) => (col === 'trial' ? c.free : c.perYear(n(tier(col)?.yearly.price ?? 0)))),
+          ...features,
           limit(c.clients, 'clients'), limit(c.rows, 'rowsPerMonth'), limit(c.seats, 'seats'),
           row(c.apiChecks, (col) => cap(api.checksPerMonth[col])),
           row(c.apiRate, () => c.perMinute(n(api.ratePerMinute))),

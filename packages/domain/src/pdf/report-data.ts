@@ -8,6 +8,7 @@ import { effectiveRow } from '../export-effective.js';
 import { findingTypeCounts } from '../finding-type-counts.js';
 import { readImportMeta } from '../import-diagnostics.js';
 import { readPipelineMeta, type PipelineMeta } from '../pipeline-meta.js';
+import { orgHasFeature } from '../plan.js';
 import { RISKY_FINDING, RISKY_ITEM } from '../risk.js';
 
 export const PDF_ROW_LIMIT = 5000;
@@ -119,9 +120,11 @@ export async function reportPdfData(orgId: string, catalogId: string): Promise<R
   const reviews = riskyItems.map((item) => effectiveRow(item.existingMxik, item.findings).review);
   const riskyRows = riskyItems.length;
 
+  // A firm name and logo saved on a plan with branded PDFs stop showing after a downgrade.
+  const branded = await orgHasFeature(orgId, 'branding');
   return {
-    firmName: catalog.org.brandName?.trim() || catalog.org.name,
-    logo: catalog.org.logoData && catalog.org.logoMime
+    firmName: (branded && catalog.org.brandName?.trim()) || catalog.org.name,
+    logo: branded && catalog.org.logoData && catalog.org.logoMime
       ? { data: Buffer.from(catalog.org.logoData), mime: catalog.org.logoMime }
       : null,
     clientName: catalog.client?.name ?? catalog.org.name,

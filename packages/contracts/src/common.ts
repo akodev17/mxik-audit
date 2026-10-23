@@ -28,6 +28,8 @@ export const PLAN_RESOURCES = ['clients', 'rowsPerMonth', 'seats'] as const;
 export const PAYMENT_PROVIDERS = ['click', 'payme'] as const;
 /** packages/domain/src/billing/plans.ts TIERS, cheapest first; `firm` is the top tier. */
 export const PLAN_TIERS = ['company', 'accountant', 'firm'] as const;
+/** packages/domain/src/billing/plans.ts FEATURES, in the order a plan card lists them. */
+export const PLAN_FEATURE_KEYS = ['risks', 'suggestions', 'team', 'activity', 'dictionary', 'export', 'reminders', 'api', 'branding', 'clientLinks'] as const;
 export const RETENTION_CHOICES = [7, 30, 90] as const;
 
 /** Upload caps of the old actions (catalog-import.ts MAX_UPLOAD_BYTES, lead.ts, settings.ts). */
@@ -149,6 +151,11 @@ export const PlanOf = z.object({
   id: z.string(), price: z.number(), kind: z.enum(['catalog', 'subscription']), maxRows: z.number().int().nullable(),
   tier: z.enum(PLAN_TIERS).optional(), months: z.number().int().optional(),
 });
+
+const FeatureMarks = z.object(Object.fromEntries(PLAN_FEATURE_KEYS.map((k) => [k, z.boolean()])) as Record<(typeof PLAN_FEATURE_KEYS)[number], z.ZodBoolean>);
+
+/** billing/plans.ts PLAN_FEATURES: which plan (the free one, then each tier) has which feature. */
+export const PlanFeatures = z.object({ trial: FeatureMarks, company: FeatureMarks, accountant: FeatureMarks, firm: FeatureMarks });
 
 /** billing/plans.ts tierOffers(): each tier's limits, monthly API checks and both of its plans. */
 export const TierOffers = z.array(z.object({

@@ -8,7 +8,7 @@ import { parseLocale, type Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { createApiKey, listApiKeys, MAX_ACTIVE_KEYS, type ApiKeyView } from './api/keys.js';
 import { apiConfig, monthlyCheckCap, usageThisMonth } from './api/limits.js';
-import { planStatus } from './plan.js';
+import { orgHasFeature, planStatus } from './plan.js';
 import { deleteAfterDays, RETENTION_CHOICES } from './security/account.js';
 import { buildAccountExport } from './security/export.js';
 import { qrPath, type QrPath } from './security/qr.js';
@@ -37,9 +37,12 @@ export type BrandState = { error?: string; saved?: boolean };
 export async function saveBrandingForm(
   user: Pick<Actor, 'orgId'>, input: { brandName: unknown; removeLogo: boolean; logo: Uint8Array | null }, locale: Locale,
 ): Promise<BrandState> {
-  const { t } = i18nFor(locale);
+  const { t, ta } = i18nFor(locale);
   const name = z.string().max(120).safeParse(input.brandName ?? '');
   if (!name.success) return { error: t.errorGeneric };
+  // Clearing the name or the logo is always allowed; setting either needs a plan with branded PDFs.
+  const brands = name.data.trim() !== '' || (!input.removeLogo && input.logo !== null && input.logo.length > 0);
+  if (brands && !(await orgHasFeature(user.orgId, 'branding'))) return { error: ta.prX.notInPlan(ta.prX.features.branding) };
   const data: { brandName: string | null; logoData?: Uint8Array<ArrayBuffer> | null; logoMime?: string | null } = {
     brandName: name.data.replace(/\s+/g, ' ').trim() || null,
   };

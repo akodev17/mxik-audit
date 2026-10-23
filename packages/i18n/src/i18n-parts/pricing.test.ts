@@ -29,15 +29,16 @@ describe('pricing dictionary', () => {
     }
   });
 
-  it('describes every all-plans feature with a name and a sentence, the same features in both languages', () => {
-    const features = (dict: typeof uz) => Object.values(dict.prX.everywhere.groups).flatMap((g) => Object.entries(g.items));
-    assert.deepEqual(features(ru).map(([id]) => id), features(uz).map(([id]) => id));
+  it('labels every card feature line in both languages, short enough to scan (at most six words, no sentence)', () => {
+    assert.deepEqual(Object.keys(ru.prX.features), Object.keys(uz.prX.features));
     for (const dict of [uz, ru]) {
-      for (const [id, item] of features(dict)) {
-        assert.ok(item.name.trim(), `${id} name`);
-        assert.match(item.text, /\.$/, `${id} is a sentence`);
+      for (const [id, label] of Object.entries(dict.prX.features)) {
+        assert.ok(label.trim(), id);
+        assert.ok(label.split(/\s+/).length <= 6, `${id}: ${label}`);
+        assert.doesNotMatch(label, /\.$/, `${id} ends without a full stop`);
       }
     }
+    assert.equal(uz.prX.notInPlan(uz.prX.features.reminders), '«Oylik eslatmalar» joriy tarifingizga kirmaydi. Tarifni Sozlamalar → Tarif boʻlimida oʻzgartirish mumkin.');
   });
 
   it('is part of the app dictionary in both languages', () => {

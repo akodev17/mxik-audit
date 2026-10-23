@@ -3,7 +3,7 @@
 // src/lib/plan.ts memoises planStatus once per render and builds its gates on that copy.
 import { db } from '@tasnivo/db';
 import { planLimits, WARN_AT, type LimitKey, type Limits } from './billing/limits';
-import { planById, SUBSCRIPTION_IDS, type Plan, type Tier } from './billing/plans';
+import { PLAN_FEATURES, planById, SUBSCRIPTION_IDS, type Feature, type Plan, type Tier } from './billing/plans';
 import { rowsUsed } from './usage-ledger';
 
 export type PlanState = 'unlimited' | 'trial' | 'firm' | 'expired';
@@ -83,6 +83,20 @@ export async function planStatus(orgId: string, now = new Date()): Promise<PlanS
     warnings: capped.filter((k) => usage[k] >= (active[k] ?? Infinity) * WARN_AT),
     full: state === 'expired' ? KEYS : capped.filter((k) => usage[k] >= (active[k] ?? Infinity)),
   };
+}
+
+/**
+ * Whether the org's plan includes a feature (PLAN_FEATURES). An account without limits (internal,
+ * demo) has everything; an ended trial keeps the free plan's features (and its uploads are closed).
+ */
+export function planHas(status: Pick<PlanStatus, 'state' | 'tier'>, feature: Feature): boolean {
+  if (status.state === 'unlimited') return true;
+  return PLAN_FEATURES[status.state === 'firm' ? status.tier ?? 'firm' : 'trial'][feature];
+}
+
+/** planHas straight from the database, for the write paths that refuse a feature the plan lacks. */
+export async function orgHasFeature(orgId: string, feature: Feature): Promise<boolean> {
+  return planHas(await planStatus(orgId), feature);
 }
 
 export type Gate = { ok: true } | { ok: false; reason: 'expired' | LimitKey };

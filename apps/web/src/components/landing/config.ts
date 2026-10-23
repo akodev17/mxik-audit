@@ -68,11 +68,6 @@ export const SHOW_MULTI_CLIENT = process.env.NEXT_PUBLIC_FEATURE_MULTI_CLIENT ==
  */
 export const ONLINE_PAYMENT = process.env.NEXT_PUBLIC_ONLINE_PAYMENT === 'true';
 
-/**
- * The Telegram bot (notifications, files sent to the bot) works on this deployment: the API has
- * TELEGRAM_BOT_TOKEN and the webhook. Off until then: the pricing section does not list Telegram.
- */
-export const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT === 'true';
 
 /* Prices and limits the pricing section shows, as numbers. They are a copy of PLANS in
    packages/domain/src/billing/plans.ts, which the app enforces and charges: the web app does not
@@ -87,6 +82,22 @@ export const PRICING = {
     { tier: 'company', monthly: 390_000, limits: { clients: 1, rowsPerMonth: 20_000, seats: 3 }, apiChecks: 1_000 },
     { tier: 'accountant', monthly: 900_000, limits: { clients: 10, rowsPerMonth: 50_000, seats: 5 }, apiChecks: 10_000 },
     { tier: 'firm', monthly: 1_800_000, limits: { clients: null, rowsPerMonth: 200_000, seats: 10 }, apiChecks: 50_000 },
+  ],
+  /**
+   * The card's feature lines in order, each with its mark for [Koʻrik, Korxona, Buxgalter, Byuro]:
+   * PLAN_FEATURES in plans.ts, which the app enforces.
+   */
+  features: [
+    ['risks', [true, true, true, true]],
+    ['suggestions', [true, true, true, true]],
+    ['team', [true, true, true, true]],
+    ['activity', [true, true, true, true]],
+    ['dictionary', [true, true, true, true]],
+    ['export', [false, true, true, true]],
+    ['reminders', [false, true, true, true]],
+    ['api', [true, true, true, true]],
+    ['branding', [false, false, true, true]],
+    ['clientLinks', [false, false, true, true]],
   ],
   /** The one-off corrected catalogue, by size. */
   catalog: [

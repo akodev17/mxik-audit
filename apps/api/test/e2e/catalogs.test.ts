@@ -301,6 +301,8 @@ describe('catalogs + share (database)', { skip }, () => {
   it('another org\'s catalogue is a 404 everywhere; a viewer may not write; a demo org may not upload', async () => {
     const stranger = await makeUser();
     orgs.push(stranger.orgId);
+    // A paid plan, so the share-link refusal below is about the catalogue, not about the plan.
+    await db.organization.update({ where: { id: stranger.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
     const other = await sessionCookie(stranger);
     for (const path of [
       `/api/catalogs/${catalogId}`, `/api/catalogs/${catalogId}/progress`, `/api/catalogs/${catalogId}/summary`, `/api/catalogs/${catalogId}/report`,
