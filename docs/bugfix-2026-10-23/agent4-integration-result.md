@@ -114,3 +114,81 @@ These are B6–B8 in Agent 2's list and are expected to be fixed on the Agent 2 
 
 Nothing new beyond Agents 1 and 3's lists (`SMTP_URL` + `MAIL_FROM`, `GOOGLE_CLIENT_ID` +
 `GOOGLE_CLIENT_SECRET`, Telegram bot settings).
+
+---
+
+# Round 2: Agent 2's fixes, `main`'s pricing follow-up, Agent 1's follow-up
+
+## Merged
+
+| Order | Branch | Tip | Merge commit |
+|---|---|---|---|
+| 3 | `agent2-bug-fixes` (cut from `claude/agent2-bug-discovery-b07a47`, so it also brings `bugs.md` and the discovery docs) | `788a4ba` | `e2866c2` |
+| 4 | `main` (pricing follow-up `f95b173`, merged there as `cd7f066`) | `cd7f066` | `9c09995` |
+| 5 | `claude/agent1-auth-e2dff1` again (one commit after round 1) | `ce124a7` | `7259cf7` |
+
+### Conflicts and how each was resolved
+
+| File | Merge | Resolution |
+|---|---|---|
+| `packages/domain/src/demo.test.ts` | Agent 2 | Both sides fixed the `demo_visit` count race (my `022057a`, Agent 2's B10). I kept Agent 2's version, which counts visits since the test began and records the sessions first for cleanup; it supersedes `022057a`. |
+| `packages/domain/src/plan.ts` | main | Import lines only. Both are kept: `main`'s `PLAN_FEATURES`/`Feature` (for `planHas` and `orgHasFeature`) and Agent 3's `rowsUsed`. The new feature gates (branding, reminders, client links) are separate from the clients, seats and rows caps. |
+| `apps/api/test/unit/http.test.ts` | Agent 1 again | `ce124a7` contains the same one-line `requestOrigin` regex fix as my `ab3de5d`, so `facts.ts` merged identically, with no source diff. Both branches had added a `requestOrigin` test: I kept Agent 1's (it also covers a forwarded host list) and dropped mine. The imports were merged. |
+| auto-merged, checked by hand | Agent 2 | `packages/domain/src/api/handlers.ts` (Agent 3's ledger gate plus Agent 2's B12 draft filter), `schema.prisma` (`Notification.text`), i18n `security.ts`/`imports.ts`/`i18n-app*.ts`, e2e specs (Agent 1's account flows plus Agent 2's selector fixes), `notifications.controller.ts`. The listed overlaps (`session-rows.ts`, `mapping-guess.ts`, `workspace.ts`, the CSV writers) were changed by Agent 2 only. No branch changed `app.module.ts`, the i18n index, `package.json` or the lockfile, so the lockfile was not regenerated. |
+| `.claude/launch.json` | — | Agent 2's 4016/3016 entries are uncommitted on its branch; I added them (`0a86d47`). I also added `tasnivo-web-3014-prod` (`c4768a1`) for the production-build check below. |
+
+### Migrations
+
+- New: `20261027130000_notification_text` (Agent 2; additive nullable `notification.text`), already applied to the shared DB. `main` adds none.
+- **Empty database:** `npx prisma migrate deploy` on a scratch database `agent4_scratch` → `All migrations have been successfully applied.` (47 migrations, ending with `20261027100000_email_code_google`, `20261027100000_usage_ledger`, `20261027130000_notification_text`). `migrate status` → `Database schema is up to date!`. The schema diff mentions none of the new tables or columns. Re-run on the final union; the scratch database was dropped afterwards.
+- **Shared dev DB:** `Database schema is up to date!` `npx prisma generate` was run after the merges.
+
+### Duplicated helpers
+
+Only one duplicate: the `requestOrigin` test, removed as described above. Agent 2's fixes add no second mail, token or rate-limit helper.
+
+## Fixed in round 2 (items handed over in round 1 that nobody picked up)
+
+| Commit | What | Test |
+|---|---|---|
+| `1583925` | **Agent 3's hand-over item 2:** deleting a catalogue while it is audited made the running audit fail on a foreign key (P2003) and log an error with a stack trace. `runAudit` now checks whether the catalogue still exists and, if it was deleted, logs one info line and returns. | `audit-jobs.test.ts` "stops quietly … when the catalogue was deleted under the audit" (fails without the fix) |
+| `472ceaf` | **Agent 1's hand-over item 1 / plan §4 Agent 1 item 5** ("the 14 days show on the dashboard"): the shell banner only speaks in the last 5 days, by design; the dashboard's Tarif card now shows "Sinov muddati: N kun qoldi" for every trial day. | Browser: `agent4/3-dashboard-trial-days-and-clients-cap.jpg` (new trial: "14 kun qoldi", clients 3/3 after the parallel-create check) |
+
+## Checks (verbatim summaries)
+
+The full set ran on `9c09995` (Agent 2 plus `main` merged). The two later commits only change
+`launch.json`, one unit test file and docs, so for them I re-ran typecheck and the API unit tests,
+as the coordinator asked.
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | exit 0 (107 s); again on `7259cf7`: exit 0 |
+| `npm run lint` | exit 0 (83 s): `✖ 1 problem (0 errors, 1 warning)`, the known `scripts/lib/xlsx.ts:131:11` warning |
+| `npm test` without `REDIS_URL` | exit 0: `# tests 1728 # suites 423 # pass 1726 # fail 0 # cancelled 0 # skipped 2` |
+| `npm test` with `REDIS_URL=redis://127.0.0.1:63799` | exit 0: `# tests 1737 # suites 423 # pass 1735 # fail 0 # cancelled 0 # skipped 2` |
+| API unit tests on `7259cf7` (`apps/api/test/unit/*.test.ts`) | `# tests 52 # pass 52 # fail 0 # skipped 0` |
+| `npm run build` | exit 0 |
+| `npm run build:api` | exit 0 |
+| `npm run build:worker` | exit 0 |
+| `npx prisma migrate deploy` on an empty DB | 47 applied |
+| `E2E_BASE_URL=http://localhost:3014 E2E_CHANNEL=msedge npm run test:e2e` (`next dev`) | exit 1: `# tests 60 # pass 58 # fail 1 # cancelled 0 # skipped 1` |
+
+The 2 skipped unit tests are the weighted full-text ranking tests (they need `npm run search:weighted`), as before.
+
+### e2e: what is left
+
+| Test | Status | Cause |
+|---|---|---|
+| `refresh` 20 "router.refresh() on the dashboard commits without any other update" | **fail on `next dev`** | Baseline F3, pre-existing. Dev-server timing: the renamed client does not show within `SETTLE_MS` = 2 000 ms after the first refresh. It also fails alone on `next dev`. **It passes on the production build:** `next build` + `next start` on 3014 (`tasnivo-web-3014-prod`), `refresh.e2e.ts` → `# tests 4 # pass 4 # fail 0 # skipped 0`. Agent 2 records the same (`agent2-fixes-result.md`, Checks). Not a product bug. |
+| `refresh` 20 "a section fetched ahead …" | skip on `next dev` | Baseline F4, now skipped by design on a dev server (Agent 2's B8: "router.prefetch is a no-op under next dev"). It runs and passes on the production build (included in the 4/4 above). |
+
+Everything else in the baseline is fixed: F1, the 6 review-flow/scale failures and their 9 skips (Agent 2's B7), and F2, shell-layout 23 (B6). Agent 2 added 3 tests (B14, B17, B18 in `navigation.e2e.ts`) and they pass. Agent 1's sign-up code-step test passes.
+
+## Left open after round 2
+
+- **Agent 1 hand-over item 2:** a browser-side call does not redirect on 403 `unverified`. It cannot happen today, so it stays deferred, as in round 1.
+- **Agent 2:** B9 (demo-access flake) not reproduced. B15 (landing and legal pages in Uzbek only) is a product decision that needs the owner's Russian legal texts.
+- **Prisma `maxWait`** under a cold-pool burst: a capacity note for QA, as in round 1.
+- The `architecture-review.md` §1 items listed as deferred in round 1.
+
+The branch is ready for Agent 5.
