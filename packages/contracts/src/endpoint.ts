@@ -20,6 +20,8 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 export const MODULES = [
   'auth', 'account', 'clients', 'catalogs', 'workspace', 'dictionary', 'imports', 'team', 'reminders',
   'notifications', 'billing', 'demo', 'publicApi', 'admin', 'share', 'cron', 'health',
+  // Accounting workflows (docs/TASNIVO_AI_PLAN_2026-10-23.md): 1C, bank statements, Didox, products.
+  'onec', 'bank', 'didox', 'products',
 ] as const;
 export type ModuleName = (typeof MODULES)[number];
 

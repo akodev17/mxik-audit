@@ -141,6 +141,10 @@ the repository root. Ticks are kept.
 | share | 2 |
 | cron | 2 |
 | health | 1 |
+| onec | 0 |
+| bank | 0 |
+| didox | 0 |
+| products | 0 |
 
 ### auth
 
@@ -404,6 +408,26 @@ the repository root. Ticks are kept.
 | W2 | W3 | Replaces | Operation | Endpoint | Auth |
 |---|---|---|---|---|---|
 | [ ] | [x] | route `GET /api/health` | `health.get` | `GET /api/health` | public |
+
+### onec
+
+| W2 | W3 | Replaces | Operation | Endpoint | Auth |
+|---|---|---|---|---|---|
+
+### bank
+
+| W2 | W3 | Replaces | Operation | Endpoint | Auth |
+|---|---|---|---|---|---|
+
+### didox
+
+| W2 | W3 | Replaces | Operation | Endpoint | Auth |
+|---|---|---|---|---|---|
+
+### products
+
+| W2 | W3 | Replaces | Operation | Endpoint | Auth |
+|---|---|---|---|---|---|
 
 ### Provisional shapes (page data assembled in server components today; W2 confirms or changes)
 

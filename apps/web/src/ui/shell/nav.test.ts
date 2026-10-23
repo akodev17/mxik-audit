@@ -8,8 +8,8 @@ import { parseSidebar, sidebarCookie, sidebarLabelled, toggledSidebar } from './
 describe('shell navigation', () => {
   it('groups the links and shows upload only to writers', () => {
     const writer = navGroups({ canWrite: true, locale: 'uz' });
-    assert.deepEqual(writer.map((g) => g.key), ['work', 'clients', 'knowledge', 'settings']);
-    assert.deepEqual(writer.flatMap((g) => g.items.map((i) => i.href)), ['/dashboard', '/queue', '/clients', '/catalogs', '/upload', '/dictionary', '/activity', '/yordam', '/settings']);
+    assert.deepEqual(writer.map((g) => g.key), ['work', 'clients', 'accounting', 'knowledge', 'settings']);
+    assert.deepEqual(writer.flatMap((g) => g.items.map((i) => i.href)), ['/dashboard', '/queue', '/clients', '/catalogs', '/upload', '/bank', '/didox', '/products', '/onec', '/dictionary', '/activity', '/yordam', '/settings']);
     const viewer = navGroups({ canWrite: false, locale: 'ru' });
     assert.ok(!viewer.flatMap((g) => g.items).some((i) => i.key === 'upload'));
     assert.equal(viewer.flatMap((g) => g.items).find((i) => i.key === 'help')?.href, '/yordam/ru');
@@ -119,7 +119,7 @@ describe('shell navigation', () => {
 describe('palette commands', () => {
   it('offers upload to writers only and client switching only with a choice to make', () => {
     const writer = paletteCommands({ canWrite: true, locale: 'uz', clientCount: 3 }).map((c) => c.key);
-    assert.deepEqual(writer, ['dashboard', 'queue', 'clients', 'catalogs', 'upload', 'dictionary', 'activity', 'help', 'notifications', 'settings', 'switchClient']);
+    assert.deepEqual(writer, ['dashboard', 'queue', 'clients', 'catalogs', 'upload', 'bank', 'didox', 'products', 'onec', 'dictionary', 'activity', 'help', 'notifications', 'settings', 'switchClient']);
     const viewer = paletteCommands({ canWrite: false, locale: 'uz', clientCount: 1 }).map((c) => c.key);
     assert.ok(!viewer.includes('upload'));
     assert.ok(!viewer.includes('switchClient'));

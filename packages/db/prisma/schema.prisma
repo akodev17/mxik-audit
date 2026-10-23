@@ -226,6 +226,8 @@ model Organization {
   reviewAssignments ReviewAssignment[]
   apiKeys   ApiKey[]
   usageLedger UsageLedger[]
+  importBatches ImportBatch[]
+  counterparties Counterparty[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -667,6 +669,8 @@ model Client {
   reminderTasks ReminderTask[]
   docLists DocList[]
   reviewAssignments ReviewAssignment[]
+  importBatches ImportBatch[]
+  counterparties Counterparty[]
 
   @@index([orgId])
   @@map("client")
@@ -1243,3 +1247,168 @@ model ApiIdempotency {
   @@id([keyId, idemKey])
   @@map("api_idempotency")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Accounting workflows (programme of 23 Oct 2026, docs/TASNIVO_AI_PLAN_2026-10-23.md).
+// Shared models first (owned by Agent 1, 1C integration); then one section per workstream.
+// Each workstream appends its own models inside its own section only, so the sections merge
+// without conflicts. Every migration is additive (new tables, nullable columns, indexes).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+// ── Shared: import batches, records, counterparties (owner: Agent 1) ─────────────────────
+
+/// What a batch came from and what it holds.
+enum ImportKind {
+  bank_statement
+  didox_invoice
+  product_catalog
+}
+
+/// uploaded → parsed → review → approved → exported; failed from any state.
+enum ImportStatus {
+  uploaded
+  parsed
+  review
+  approved
+  exported
+  failed
+}
+
+/// A record's place in the review: valid as parsed, corrected by a person, suspicious (a
+/// warning stands), unresolved (an error stands), skipped by a person, exported to 1C.
+enum RecordStatus {
+  valid
+  corrected
+  suspicious
+  unresolved
+  skipped
+  exported
+}
+
+/// One source file or one pulled document set: a bank statement, a Didox invoice (one batch per
+/// invoice), or a product catalogue export. Everything the accountant reviews hangs off a batch,
+/// and every 1C export names the batch it came from (traceability).
+model ImportBatch {
+  id          String       @id @default(cuid())
+  orgId       String
+  /// The client the batch belongs to (firms keep one per client); null = the org's own books.
+  clientId    String?
+  kind        ImportKind
+  /// 'upload' | 'didox_api' | 'didox_zip' | 'api' | 'telegram'.
+  source      String
+  filename    String?
+  /// The source system's id (Didox document id, bank statement number); null for plain uploads.
+  externalRef String?
+  /// SHA-256 of the source bytes (or of the normalised external document). Unique per org and
+  /// kind: the same file or document is refused as a duplicate import.
+  fingerprint String
+  status      ImportStatus @default(uploaded)
+  /// Counts by RecordStatus plus total, kept current by the workstream that owns the kind.
+  counts      Json?
+  /// Kind-specific: the bank column mapping, the detected format, the Didox document header, the
+  /// catalogue column map. Shape per kind is in packages/contracts/src/accounting.ts.
+  meta        Json?
+  error       String?
+  createdBy   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client  Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  records ImportRecord[]
+  exports OneCExport[]
+
+  @@unique([orgId, kind, fingerprint])
+  @@index([orgId, kind, createdAt])
+  @@index([clientId, createdAt])
+  @@map("import_batch")
+}
+
+/// One normalised record of a batch: a bank transaction, an invoice line, or a product. The
+/// payload follows the zod schema of its kind in packages/contracts/src/accounting.ts
+/// (BankTransaction, InvoiceLine, ProductRecord); issues are ValidationIssue[]; decision is the
+/// reviewer's ReviewDecision; outcome is the 1C ImportOutcome for this record.
+model ImportRecord {
+  id          String       @id @default(cuid())
+  batchId     String
+  rowIndex    Int
+  status      RecordStatus @default(valid)
+  payload     Json
+  issues      Json
+  /// A per-record duplicate key within the org and kind (bank: date+amount+account+docNumber,
+  /// invoice line: invoice externalRef + line number, product: normalised name + unit).
+  fingerprint String?
+  decision    Json?
+  decidedBy   String?
+  decidedAt   DateTime?
+  outcome     Json?
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowIndex])
+  @@index([batchId, status])
+  @@map("import_record")
+}
+
+/// A counterparty known to the org (from 1C exports, earlier statements or invoices). Matching
+/// is by ИНН/ПИНФЛ first, then account, then normalised name and aliases.
+model Counterparty {
+  id        String   @id @default(cuid())
+  orgId     String
+  clientId  String?
+  /// 9-digit ИНН of a legal entity or 14-digit ПИНФЛ of an individual; null when unknown.
+  inn       String?
+  name      String
+  /// Lower-cased, punctuation-free name used for matching.
+  normalizedName String
+  /// 20-digit settlement account and 5-digit МФО of its bank, when known.
+  account   String?
+  mfo       String?
+  /// Other spellings seen in statements and invoices.
+  aliases   String[]
+  /// The 1C catalogue reference (code or GUID) once the counterparty is known to exist there.
+  onecRef   String?
+  /// 'onec_export' | 'bank_statement' | 'didox' | 'manual'.
+  source    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, inn])
+  @@index([orgId, normalizedName])
+  @@index([orgId, account])
+  @@map("counterparty")
+}
+
+/// One generated 1C import (a file download or a direct transfer) of a batch: what went, in which
+/// format, and what came back. A batch may be exported more than once (a retry of failed rows).
+model OneCExport {
+  id          String   @id @default(cuid())
+  batchId     String
+  /// 'bank_exchange_1_02' | 'nomenclature_xlsx' | 'receipt_xlsx' | 'counterparties_xlsx' | 'odata' | 'http'.
+  format      String
+  filename    String?
+  recordCount Int
+  /// ImportOutcome summary: imported, skipped, rejected with reasons; per-record outcomes live on
+  /// import_record.outcome.
+  outcome     Json?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, createdAt])
+  @@map("onec_export")
+}
+
+// ── Agent 1: 1C integration (connections, settings) ─────────────────────────────────────
+
+// ── Agent 2: bank statements (formats, saved column mappings) ───────────────────────────
+
+// ── Agent 3: Didox invoices (connections, document cache) ───────────────────────────────
+
+// ── Agent 4: product catalogue and MXIK intelligence (products, packaging codes) ────────
+
+// ── Agent 5: platform quality ───────────────────────────────────────────────────────────

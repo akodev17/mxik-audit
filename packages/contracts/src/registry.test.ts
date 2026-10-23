@@ -81,6 +81,8 @@ describe('registry covers the Next app', () => {
       share: ['view', 'pdf'],
       cron: ['daily', 'classifierUpdate'],
       health: ['get'],
+      // Accounting workflows (docs/TASNIVO_AI_PLAN_2026-10-23.md): slots filled by their workstreams.
+      onec: [], bank: [], didox: [], products: [],
     };
     assert.deepEqual(Object.keys(plan).sort(), [...MODULES].sort());
     for (const [module, keys] of Object.entries(plan)) {
