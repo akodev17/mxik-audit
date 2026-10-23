@@ -119,20 +119,25 @@ export async function previewStatement(user: CurrentUser, locale: Locale, input:
   const parsed = readLines(file, layout);
   if (file.sheet.body.length === 0) return { ok: false, error: i18nFor(locale).ta.bankX.errors.empty };
   const earlier = await earlierBatch(user.orgId, file.fingerprint);
+  // A guess that cannot read amounts yet (no date or amount column) judges no row: the mapping step shows the file as it is.
+  const usable = mappingProblem(layout.columnMap, layout.conventions) === null;
+  const dropped = usable ? parsed.dropped : [];
+  const droppedLines = new Set(dropped.map((d) => d.rowIndex));
   return {
     ok: true,
     preview: {
       filename: read.filename,
       headers: file.sheet.headers,
-      rows: file.sheet.body.slice(0, PREVIEW_ROWS).map((r) => r.cells),
+      // The first lines that will be read: rows left out (column numbers, balances) are listed apart.
+      rows: file.sheet.body.filter((r) => !droppedLines.has(r.line)).slice(0, PREVIEW_ROWS).map((r) => r.cells),
       headerRow: file.sheet.headerRow,
       titleLines: file.sheet.titleLines,
       format: chosen ? null : known?.summary ?? null,
       columnMap: layout.columnMap,
       conventions: layout.conventions,
       recognised: !chosen && known !== null,
-      dropped: parsed.dropped.slice(0, PREVIEW_DROPPED),
-      dataRows: parsed.lines.length,
+      dropped: dropped.slice(0, PREVIEW_DROPPED),
+      dataRows: usable ? parsed.lines.length : file.sheet.body.length,
       totalRows: parsed.extra.totalRows,
       truncated: parsed.extra.truncated,
       duplicateOf: earlier ? { batchId: earlier.id, filename: earlier.filename, createdAt: earlier.createdAt.toISOString() } : null,
@@ -693,6 +698,7 @@ export async function reconcileCsvFile(user: CurrentUser, locale: Locale, batchI
     summary: r.summary, opening: r.opening, credits: r.credits, debits: r.debits, computed: r.computed, closing: r.closing, difference: r.difference,
     columns: r.csvColumns,
     operation: (op) => (op && isOperation(op) ? b.operations[op] : b.operations.none),
+    direction: (d) => (d ? b.edit.directions[d] : ''),
     status: (s) => ta.accountingX.record[s],
     issue: (code) => (b.issues as Record<string, string>)[code] ?? code,
   });

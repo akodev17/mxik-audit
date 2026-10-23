@@ -37,6 +37,13 @@ describe('built-in operation rules', () => {
     assert.equal(op(line({ purpose: 'Погашение кредита по договору 5' })), 'loan');
   });
 
+  it('a supplier\'s service fee is not a bank fee: generic fee words count only on the bank\'s side', () => {
+    assert.equal(op(line({ purpose: 'Xizmat haqi', name: '"Beta Servis" XK' })), 'payment_out');
+    assert.equal(op(line({ purpose: 'Комиссия за посредничество', name: 'ООО Агент' })), 'payment_out');
+    assert.equal(op(line({ purpose: 'Bank xizmat haqi', name: '"Beta Servis" XK' })), 'bank_fee');
+    assert.equal(op(line({ purpose: 'Komissiya', name: 'AKB Namuna Bank' })), 'bank_fee');
+  });
+
   it('a supplier payment that mentions VAT is not a tax payment', () => {
     assert.equal(op(line({ purpose: 'Оплата за товар, в т.ч. НДС 12%' })), 'payment_out');
     assert.equal(op(line({ purpose: 'Оплата за услуги без налога' })), 'payment_out');
@@ -183,10 +190,11 @@ describe('reconciliation CSV', () => {
     const b = i18nFor('ru').ta.bankX;
     const csv = reconcileCsv(report, records, {
       summary: 'Итог', opening: 'Вх', credits: 'Пр', debits: 'Рс', computed: 'Расч', closing: 'Исх', difference: 'Разн', columns: b.reconcile.csvColumns,
-      operation: (o) => (o ? b.operations[o as 'payment_in'] : b.operations.none), status: (s) => s, issue: (c) => (b.issues as Record<string, string>)[c] ?? c,
+      operation: (o) => (o ? b.operations[o as 'payment_in'] : b.operations.none), direction: (d) => (d ? b.edit.directions[d] : ''), status: (s) => s, issue: (c) => (b.issues as Record<string, string>)[c] ?? c,
     });
     assert.ok(csv.startsWith('﻿Итог'));
     assert.ok(csv.includes('Оплата от покупателя'));
+    assert.ok(csv.includes('Приход (кредит);1000,00;UZS'), 'decimal comma and the direction in words');
     assert.ok(csv.includes(`"'=HYPERLINK(""x"")"`), csv);
   });
 });

@@ -60,7 +60,11 @@ export function orgRuleMatches(rule: Pick<OrgRule, 'kind' | 'value'>, line: Line
 const VAT_MENTION = /(в\s*т\.?\s*ч\.?|в том числе|включая|без|shu jumladan|bilan|siz)\s*(ндс|qqs|налог)/u;
 const TAX = /налог|уплата ндс|ндс в бюджет|\bендс\b|(^|[^\p{L}])(енп|есп|ндфл|инпс)([^\p{L}]|$)|подоходн|soliq|солиқ|qqs to.lov|бюджет/u;
 const SALARY = /заработн|зарплат|з\/п|оплата труда|oylik|ish haqi|иш ҳақи|иш хаки|ойлик/u;
-const BANK_FEE = /комисси|за обслуживание|обслуживание сч|услуги банка|xizmat haqi|bank xizmat|komissiya|дебетовый оборот|за ведение сч|абонентская плата/u;
+/** Words that name the bank's own fee whoever the counterparty is. */
+const BANK_FEE = /комисси\S* банка|банковск\S* комисси|обслуживание (расчетного )?сч|услуги банка|bank xizmat|bank komissiya|дебетовый оборот|за ведение сч|абонентская плата/u;
+/** Generic fee words ("комиссия", "xizmat haqi"): the bank's fee only when the counterparty is the bank or none is named. */
+const FEE_WORD = /комисси|komissiya|xizmat haqi|за обслуживание/u;
+const bankSide = (line: Line): boolean => (!line.counterparty.name.trim() && line.counterparty.inn === null) || /банк|bank/iu.test(line.counterparty.name);
 const ACQUIRING = /smartvista|эквайринг|ekvayring|терминал|terminal|uzcard|humo|(^|[^\p{L}])pos([^\p{L}]|$)/u;
 const TRANSFER = /между (своими|собственными) сч|перевод собственных|собственных средств|o.z hisob|ўз ҳисоб|own account/u;
 const LOAN = /погашение кредит|погашение основного долга|выдача кредит|кредитн\S* договор|займ|qarz|kredit (to.lov|qaytar)/u;
@@ -76,7 +80,7 @@ export const BUILT_IN_RULES: readonly BuiltIn[] = [
   },
   { name: 'tax', operation: 'tax', test: (line, purpose) => line.direction === 'debit' && TAX.test(purpose) && !VAT_MENTION.test(purpose) },
   { name: 'salary', operation: 'salary', test: (line, purpose) => line.direction === 'debit' && SALARY.test(purpose) },
-  { name: 'bank_fee', operation: 'bank_fee', test: (line, purpose) => line.direction === 'debit' && BANK_FEE.test(purpose) },
+  { name: 'bank_fee', operation: 'bank_fee', test: (line, purpose) => line.direction === 'debit' && (BANK_FEE.test(purpose) || (FEE_WORD.test(purpose) && bankSide(line))) },
   { name: 'acquiring', operation: 'acquiring', test: (line, purpose) => line.direction === 'credit' && ACQUIRING.test(purpose) },
   { name: 'loan', operation: 'loan', test: (_line, purpose) => LOAN.test(purpose) },
   // The usual line: money from or to a named counterparty is a customer's or a supplier's payment.

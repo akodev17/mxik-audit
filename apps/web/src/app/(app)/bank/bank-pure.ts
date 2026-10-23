@@ -10,6 +10,10 @@ export const STATUS_TONE: Record<string, Tone> = { uploaded: 'info', parsed: 'in
 /** Line (record) status → chip tone. */
 export const RECORD_TONE: Record<string, Tone> = { valid: 'good', corrected: 'info', suspicious: 'warn', unresolved: 'danger', skipped: 'neutral', exported: 'brand' };
 
+/** The review grid's status filters (records endpoint `status`). */
+export const REVIEW_FILTERS = ['open', 'valid', 'approved', 'unresolved', 'skipped', 'exported', 'all'] as const;
+export type ReviewFilter = (typeof REVIEW_FILTERS)[number];
+
 const columnOf = (map: BankColumnMap, role: BankRole): number => map[role] ?? -1;
 
 /** formats/index.ts mappingProblem. */

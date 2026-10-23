@@ -19,11 +19,9 @@ import { Segmented } from '@/ui/segmented';
 import { Table, Td, Th } from '@/ui/table';
 import { useToast } from '@/ui/toast';
 import { Card } from '../../_manage/card';
-import { decidedKind, money, RECORD_TONE } from '../bank-pure';
+import { decidedKind, money, RECORD_TONE, REVIEW_FILTERS, type ReviewFilter } from '../bank-pure';
 import { EditDrawer } from './edit-drawer';
 
-export const REVIEW_FILTERS = ['open', 'valid', 'approved', 'unresolved', 'skipped', 'exported', 'all'] as const;
-export type ReviewFilter = (typeof REVIEW_FILTERS)[number];
 
 type Counts = { total: number; valid: number; corrected: number; suspicious: number; unresolved: number; skipped: number; exported: number } | null;
 
@@ -103,7 +101,7 @@ export function ReviewGrid({ batchId, writable, filter, q, page, pageSize, total
           </form>
           {writable ? (
             <span className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => void approveMany('valid')}>{r.approveValid(counts?.valid ?? 0)}</Button>
+              <Button size="sm" onClick={() => void approveMany('valid')}>{r.approveValid}</Button>
               <Button size="sm" variant="ghost" onClick={() => setConfirmAll(true)}>{r.approveReviewable}</Button>
             </span>
           ) : null}
@@ -118,13 +116,11 @@ export function ReviewGrid({ batchId, writable, filter, q, page, pageSize, total
             <tr>
               <Th numeric>{r.columns.row}</Th>
               <Th>{r.columns.date}</Th>
-              <Th>{r.columns.counterparty}</Th>
-              <Th>{r.columns.purpose}</Th>
+              <Th>{r.columns.counterparty} · {r.columns.purpose}</Th>
               <Th numeric>{r.columns.debit}</Th>
               <Th numeric>{r.columns.credit}</Th>
               <Th>{r.columns.operation}</Th>
-              <Th>{r.columns.status}</Th>
-              <Th>{r.columns.issues}</Th>
+              <Th>{r.columns.status} · {r.columns.issues}</Th>
               <Th><span className="sr-only">{r.columns.actions}</span></Th>
             </tr>
           </thead>
@@ -145,11 +141,13 @@ export function ReviewGrid({ batchId, writable, filter, q, page, pageSize, total
                     {p.date ? fmtDate(locale, p.date) : <span className="text-danger-ink">—</span>}
                     {p.docNumber ? <span className="block text-small text-muted">№ {p.docNumber}</span> : null}
                   </Td>
-                  <Td className="max-w-56">
-                    <span className="block truncate" title={p.counterparty.name}>{p.counterparty.name || '—'}</span>
-                    {p.counterparty.inn ? <span className="block font-mono text-small text-muted">{p.counterparty.inn}</span> : null}
+                  <Td className="min-w-64 max-w-md">
+                    <span className="block truncate font-medium" title={p.counterparty.name}>
+                      {p.counterparty.name || '—'}
+                      {p.counterparty.inn ? <span className="ml-2 font-mono text-small font-normal text-muted">{p.counterparty.inn}</span> : null}
+                    </span>
+                    <span className="line-clamp-2 text-small text-muted" title={p.purpose}>{p.purpose || '—'}</span>
                   </Td>
-                  <Td className="max-w-72"><span className="line-clamp-2 text-small" title={p.purpose}>{p.purpose || '—'}</span></Td>
                   <Td numeric className="whitespace-nowrap">{p.direction === 'debit' ? money(p.amount) : ''}</Td>
                   <Td numeric className="whitespace-nowrap">{p.direction === 'credit' ? money(p.amount) : ''}</Td>
                   <Td className="min-w-44">
@@ -174,12 +172,10 @@ export function ReviewGrid({ batchId, writable, filter, q, page, pageSize, total
                       </span>
                     ) : null}
                   </Td>
-                  <Td className="whitespace-nowrap">
+                  <Td className="min-w-44 max-w-64">
                     <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{ta.accountingX.record[rec.status]}</StatusChip>
                     {isApproved && !exported ? <span className="mt-0.5 block text-micro text-good-ink">{r.approved}</span> : null}
-                  </Td>
-                  <Td className="max-w-64">
-                    <span className="flex flex-wrap gap-1">
+                    <span className="mt-1 flex flex-wrap gap-1">
                       {shownIssues.map((i, k) => <Badge key={k} tone={SEVERITY_TONE[i.severity] ?? 'neutral'} title={issueText(i.code, i.params)}>{(b.issues as Record<string, string>)[i.code] ?? i.code}</Badge>)}
                     </span>
                   </Td>

@@ -9,7 +9,6 @@ import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Drawer } from '@/ui/drawer';
 import { Field, Input } from '@/ui/input';
-import { Segmented } from '@/ui/segmented';
 import { Select } from '@/ui/select';
 import { Textarea } from '@/ui/textarea';
 import { useToast } from '@/ui/toast';
@@ -87,12 +86,11 @@ export function EditDrawer({ record, onClose, onSaved }: { record: BankRecordRow
           <option value="">{b.operations.none}</option>
           {BANK_OPERATIONS.map((o) => <option key={o} value={o}>{b.operations[o]}</option>)}
         </Select>
-        <Field label={e.remember}>
-          <Segmented
-            label={e.remember} value={remember} onChange={setRemember} size="compact"
-            options={[{ value: 'none', label: e.rememberNone }, { value: 'counterparty', label: e.rememberCounterparty }, { value: 'purpose', label: e.rememberPurpose }]}
-          />
-        </Field>
+        <Select label={e.remember} value={remember} onChange={(ev) => setRemember(ev.target.value as Remember)}>
+          <option value="none">{e.rememberNone}</option>
+          <option value="counterparty">{e.rememberCounterparty}</option>
+          <option value="purpose">{e.rememberPurpose}</option>
+        </Select>
         {remember === 'purpose' ? <Field label={e.rememberText}><Input value={text} maxLength={200} onChange={(ev) => setText(ev.target.value)} /></Field> : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={e.cashFlowItem}><Input value={values.cashFlowItem} maxLength={120} onChange={(ev) => set('cashFlowItem', ev.target.value)} /></Field>

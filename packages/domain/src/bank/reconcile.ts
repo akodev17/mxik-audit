@@ -6,7 +6,7 @@ import type { accounting } from '@tasnivo/contracts';
 import type { BankRecordPayload, ReconcileReport } from '@tasnivo/contracts/modules/bank';
 import type { z } from 'zod';
 import { formulaSafe } from '../csv-safe.js';
-import { addDecimals, sameDecimal, subDecimals } from './decimal.js';
+import { addDecimals, formatDecimal, sameDecimal, subDecimals } from './decimal.js';
 
 type ValidationIssue = z.infer<typeof accounting.ValidationIssue>;
 type RecordStatus = (typeof accounting.RECORD_STATUSES)[number];
@@ -88,6 +88,7 @@ export type CsvLabels = {
   summary: string; opening: string; credits: string; debits: string; computed: string; closing: string; difference: string;
   columns: readonly string[];
   operation: (op: string | null) => string;
+  direction: (direction: 'debit' | 'credit' | null) => string;
   status: (status: RecordStatus) => string;
   issue: (code: string) => string;
 };
@@ -97,23 +98,26 @@ const cell = (value: string): string => {
   return /[";\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 };
 
+/** Amounts as Excel in a RU/UZ locale reads them from a ';' CSV: decimal comma, no grouping. */
+const csvAmount = (value: string | null): string => (value === null ? '' : formatDecimal(value, '', ','));
+
 /** The report and every line as a ';' CSV with a BOM (opens in Excel in a RU/UZ locale as is). */
 export function reconcileCsv(report: Omit<ReconcileReport, 'statement'>, records: readonly ReconcileRecord[], labels: CsvLabels): string {
   const rows: string[][] = [
     [labels.summary],
-    [labels.opening, report.openingBalance ?? ''],
-    [labels.credits, report.totalCredit],
-    [labels.debits, report.totalDebit],
-    [labels.computed, report.computedClosing ?? ''],
-    [labels.closing, report.closingBalance ?? ''],
-    [labels.difference, report.difference ?? ''],
+    [labels.opening, csvAmount(report.openingBalance)],
+    [labels.credits, csvAmount(report.totalCredit)],
+    [labels.debits, csvAmount(report.totalDebit)],
+    [labels.computed, csvAmount(report.computedClosing)],
+    [labels.closing, csvAmount(report.closingBalance)],
+    [labels.difference, csvAmount(report.difference)],
     [],
     [...labels.columns],
   ];
   for (const r of [...records].sort((a, b) => a.rowIndex - b.rowIndex)) {
     const p = r.payload;
     rows.push([
-      String(r.rowIndex), p.date ?? '', p.docNumber ?? '', p.direction ?? '', p.amount ?? '', p.currency,
+      String(r.rowIndex), p.date ?? '', p.docNumber ?? '', labels.direction(p.direction), csvAmount(p.amount), p.currency,
       p.counterparty.name, p.counterparty.inn ?? '', labels.operation(p.operation), labels.status(r.status),
       r.issues.map((i) => labels.issue(i.code)).join(', '), p.purpose,
     ]);

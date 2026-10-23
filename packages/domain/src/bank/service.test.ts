@@ -126,6 +126,8 @@ describe('bank statements (database)', { skip }, () => {
     assert.ok(first.ok);
     assert.equal(first.preview.recognised, false);
     assert.equal(first.preview.format, null);
+    assert.equal(first.preview.rows.length, 2, 'an unusable guess shows the rows as they are');
+    assert.deepEqual(first.preview.dropped, []);
     const columnMap = { date: 0, counterpartyName: 1, inn: 2, amount: 3, direction: 4, purpose: 5 };
     const conventions = { dateOrder: 'dmy', decimal: 'auto', direction: 'flag', negativeIs: 'debit', currency: 'UZS' };
     const mapped = await previewStatement(admin, 'uz', { clientId, file: csv('kun.csv', text('1')), columnMap: JSON.stringify(columnMap), conventions: JSON.stringify(conventions) });
