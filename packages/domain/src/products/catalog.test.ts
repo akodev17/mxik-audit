@@ -7,10 +7,21 @@ import { dictionaryKeys } from '@tasnivo/core/match/dictionary';
 import { db } from '@tasnivo/db';
 import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs } from '../test-fixtures.js';
-import { checkProducts, confirmProductMxik, listProducts, productDetail, productPackages } from './catalog.js';
+import { checkProducts, confirmProductMxik, exportState, listProducts, productDetail, productPackages } from './catalog.js';
 import { getProducts } from './index.js';
 import { useTasnifClient } from './tasnif-client.js';
 import { FakeTasnifClient, PRODUCT_NAMES, RECORDED_CODE, seedProductOrg, type ProductOrg } from './test-fixtures.js';
+
+describe('catalogue export record state', () => {
+  it('keeps products with a bad or missing code out of the 1C file, with the reason', () => {
+    assert.deepEqual(exportState({ mxikStatus: 'ok', mxikIssues: null }), { status: 'valid', issues: [], decision: { action: 'approve' } });
+    assert.equal(exportState({ mxikStatus: 'unchecked', mxikIssues: null }).status, 'valid');
+    assert.deepEqual(exportState({ mxikStatus: 'missing', mxikIssues: null }), { status: 'unresolved', issues: [{ code: 'mxik_missing', severity: 'error', field: 'mxik' }] });
+    assert.equal(exportState({ mxikStatus: 'suspicious', mxikIssues: null }).status, 'suspicious');
+    const stored = [{ code: 'unit_conflict', severity: 'warning' }, { code: 'marking_required', severity: 'info' }];
+    assert.deepEqual(exportState({ mxikStatus: 'ok', mxikIssues: stored }).issues, [stored[0]]);
+  });
+});
 
 const skip = await dbSkipReason();
 
