@@ -34,7 +34,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
 
   return (
     <Page title={n.title} hint={n.hint} wide actions={list.unread > 0 ? <MarkAllReadButton params={params} initial={list} /> : null}>
-      <NoticeList key={`${requested}|${unreadOnly}|${topic ?? ''}`} params={params} initial={list} />
+      <NoticeList key={`${requested}|${unreadOnly}|${topic ?? ''}`} params={params} initial={list} now={Date.now()} />
     </Page>
   );
 }

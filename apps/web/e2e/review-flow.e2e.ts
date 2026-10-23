@@ -459,8 +459,8 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     const { page } = admin;
     current = page;
     await page.goto('/activity');
-    // The user filter lists e-mails as <option>s; wait for the log table itself.
-    const table = main(page).getByRole('table');
+    // The user filter lists e-mails as <option>s; wait for the log timeline itself.
+    const table = main(page).getByRole('region', { name: TA.log.title, exact: true });
     await table.getByRole('link', { name: state.v1Name ?? '§' }).first().waitFor();
     const text = (await table.textContent()) ?? '';
     assert.ok(text.includes(fx.admin.email), 'the actor is named');
