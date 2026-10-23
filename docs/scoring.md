@@ -582,7 +582,7 @@ does not apply.
    tableware in 069, glassware in 070, kitchen hardware in 073 …). A scope
    list would be our invention. The official construction-resources
    classifier (NKSR) would be the right source; cross-referencing it is out of
-   scope (SESSION_STATE "Out of Scope").
+   scope (declared out of scope in the retired SESSION_STATE doc).
 2. **Some subpositions have no general code.** Portland cement
    (`02523002001`) has only manufacturer-specific codes
    (e.g. `02523002001001001` "Portlandsement: QIZILQUMSEMENT, II/A-I 42.5 N,
@@ -595,7 +595,7 @@ does not apply.
    ranks the identifying code first.
 4. **The rule is unverified.** Gate 0 and the official guidance used so far
    treat a base code as an acceptable classification when no exact code
-   applies (SESSION_STATE, Important Decisions). We found no verified source
+   applies (an "important decision" recorded in the retired SESSION_STATE doc). We found no verified source
    that requires detailed codes for construction materials on e-invoices.
    Flagging base codes as wrong would be a legal claim we cannot support.
 
