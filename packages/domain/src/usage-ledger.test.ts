@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { after, before, describe, it } from 'node:test';
 import { db } from '@tasnivo/db';
 import { applyMapping, storeCatalog } from './catalog-import.js';
 import { deleteCatalog } from './catalogs.js';
+import { archiveClient, deleteClient, restoreClient } from './client-lifecycle.js';
 import { defaultClient } from './clients.js';
 import type { ColumnMap } from './column-map.js';
+import { makeClient } from './firm-test-fixtures.js';
+import { acceptInvite, createInvite } from './invites.js';
 import { gate, usageOf } from './plan.js';
 import { parseUpload } from './spreadsheet.js';
+import { revokeTeamInvite } from './team-members.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 import { consumeRows, monthStart, OverAllowance, rowsUsed } from './usage-ledger.js';
 
@@ -165,5 +170,56 @@ describe('usage ledger backfill (database)', { skip }, () => {
     assert.equal(old, 123);
     assert.ok(seen.every((e) => e.reason === 'backfill' && e.period.getTime() === monthStart(now).getTime()));
     assert.equal(await db.usageLedger.count({ where: { orgId: actor.orgId } }), 0, 'rolled back');
+  });
+});
+
+// Clients and seats are standing capacity (how many exist now), not consumption: freeing one by a
+// delete is meant. What costs processing, the rows, stays in the ledger whatever is deleted.
+describe('clients and seats cannot be recycled into more processing (database)', { skip }, () => {
+  const orgs: string[] = [];
+  let a: TestActor & { role: 'admin' };
+  before(async () => {
+    a = { ...(await makeOrg()), role: 'admin' };
+    orgs.push(a.orgId);
+    await db.organization.update({ where: { id: a.orgId }, data: { trialEndsAt: new Date(Date.now() + 14 * 86_400_000) } });
+  });
+  after(async () => {
+    await dropOrgs(orgs);
+    await db.$disconnect();
+  });
+
+  it('archived clients still count; deleting one frees its slot but not the rows its catalogues used', async () => {
+    await defaultClient(a.orgId);
+    const kept = await makeClient(a.orgId, 'Ikkinchi');
+    const gone = await makeClient(a.orgId, 'Uchinchi');
+    assert.deepEqual(await gate(a.orgId, 'clients'), { ok: false, reason: 'clients' }, 'trial: 3 clients');
+    assert.ok((await archiveClient(a, kept)).ok);
+    assert.deepEqual(await gate(a.orgId, 'clients'), { ok: false, reason: 'clients' }, 'archiving frees nothing');
+    assert.ok((await restoreClient(a, kept)).ok);
+    assert.equal((await usageOf(a.orgId)).clients, 3);
+
+    const parsed = await parseUpload(Buffer.from(csv(30), 'utf8'), 'k.csv');
+    const { catalogId } = await storeCatalog({ orgId: a.orgId, userId: a.userId, clientId: gone, filename: 'k.csv', parsed, mapping: MAP });
+    assert.deepEqual(await applyMapping(a.orgId, catalogId, MAP), { rows: 30 });
+    assert.ok((await deleteClient(a, gone, 'Uchinchi')).ok);
+    const usage = await usageOf(a.orgId);
+    assert.equal(usage.clients, 2);
+    assert.equal(usage.rowsPerMonth, 30, 'the deleted client\'s rows stay consumed');
+  });
+
+  it('an open invite holds a seat; accepting it keeps the count, revoking frees it', async () => {
+    assert.equal((await usageOf(a.orgId)).seats, 1);
+    const to = `test-${randomBytes(5).toString('hex')}@example.uz`;
+    const { url } = await createInvite(a, { email: to, role: 'accountant', clientIds: [] });
+    assert.deepEqual(await gate(a.orgId, 'seats'), { ok: false, reason: 'seats' }, 'trial: 2 seats');
+    assert.ok((await acceptInvite(url.split('/invite/')[1] ?? '', to, 'password-123')).ok);
+    assert.deepEqual(await gate(a.orgId, 'seats'), { ok: false, reason: 'seats' });
+    assert.equal((await usageOf(a.orgId)).seats, 2);
+
+    await db.user.deleteMany({ where: { orgId: a.orgId, email: to } });
+    await createInvite(a, { email: null, role: 'viewer', clientIds: [] });
+    const open = await db.invite.findFirstOrThrow({ where: { orgId: a.orgId, usedAt: null } });
+    assert.ok((await revokeTeamInvite(a, open.id)).ok);
+    assert.equal((await usageOf(a.orgId)).seats, 1);
   });
 });
