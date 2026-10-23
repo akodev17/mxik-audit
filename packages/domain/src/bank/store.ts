@@ -253,7 +253,7 @@ export async function processStatement(input: ProcessInput): Promise<void> {
       const refs = chunk.map((l) => ({ ...l.payload.counterparty }));
       const matched = await time(timings, 'match', async () => {
         try {
-          const out = await matchCounterparties(orgId, refs);
+          const out = await matchCounterparties(orgId, refs, { clientId });
           return out.length === refs.length ? out : refs;
         } catch {
           return refs.map((r) => ({ ...r, match: { status: 'unknown' as const, chosen: null, candidates: [] } }));

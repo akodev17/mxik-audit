@@ -282,7 +282,9 @@ export async function clientOptions(user: CurrentUser): Promise<{ id: string; na
 export async function statementDetail(user: CurrentUser, batchId: string): Promise<{ statement: BankStatementRow; dropped: { rowIndex: number; reason: string }[] } | null> {
   const b = await visibleBatch(user, batchId);
   if (!b) return null;
-  return { statement: statementRow(b), dropped: batchMeta(b.meta)?.dropped ?? [] };
+  // Counted live: the 1C layer's refreshCounts rewrites import_batch.counts without the bank's `approved` key.
+  const approved = await db.importRecord.count({ where: approvedWhere(batchId) });
+  return { statement: { ...statementRow(b), approved }, dropped: batchMeta(b.meta)?.dropped ?? [] };
 }
 
 type RecordQuery = { status?: string; page?: number; q?: string };
@@ -465,7 +467,7 @@ export async function decideRecord(user: CurrentUser, locale: Locale, recordId: 
     payload = applied.payload;
     issues = reissue(issues, payload, applied.fields);
     if (applied.fields.some((f) => f.startsWith('counterparty.'))) {
-      const [ref] = await matchCounterparties(user.orgId, [payload.counterparty]).catch(() => [undefined]);
+      const [ref] = await matchCounterparties(user.orgId, [payload.counterparty], { clientId: batch.clientId }).catch(() => [undefined]);
       if (ref) {
         payload.counterparty = { name: ref.name, inn: ref.inn, account: ref.account, mfo: ref.mfo, counterpartyId: ref.counterpartyId, ...(ref.match ? { match: ref.match } : {}) };
         if ((ref.name.trim() || ref.inn) && ref.match?.status !== 'matched') {
@@ -656,7 +658,7 @@ export async function exportStatement(user: CurrentUser, locale: Locale, batchId
 
   // Counterparties that go to 1C are recorded (matched or created) first, so the file can name them.
   const payloads = ready.map((r) => readPayload(r.payload));
-  const refs = await recordCounterparties(user.orgId, payloads.map((p) => p?.counterparty ?? { name: '', inn: null, account: null, mfo: null, counterpartyId: null })).catch(() => null);
+  const refs = await recordCounterparties(user.orgId, payloads.map((p) => p?.counterparty ?? { name: '', inn: null, account: null, mfo: null, counterpartyId: null }), { clientId: batch.clientId, source: 'bank_statement' }).catch(() => null);
   if (refs) {
     for (const [i, ref] of refs.entries()) {
       const p = payloads[i];

@@ -1,7 +1,7 @@
 // endpoints.bank: bank statements (Agent 2 of docs/TASNIVO_AI_PLAN_2026-10-23.md). Thin: parse the
 // path and query, call @tasnivo/domain/bank/service, map refusals. The 1C file comes from the 1C
 // interface (Agent 1) through the domain; this module never builds one.
-import { Body, Controller, Param, Query, Res, UseInterceptors, type StreamableFile } from '@nestjs/common';
+import { Body, Controller, HttpCode, Param, Query, Res, UseInterceptors, type StreamableFile } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { z } from 'zod';
@@ -78,6 +78,8 @@ export class BankController {
   }
 
   @Route(e.export)
+  // A download answered to a POST: 200, not Nest's 201 for POST.
+  @HttpCode(200)
   async export(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(new ZodValidationPipe(e.export.params)) { batchId }: StatementPath, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
     const out = await exportStatement(user, locale, batchId);
     if (!out.ok) throw new ApiError(out.status, out.code, out.message);

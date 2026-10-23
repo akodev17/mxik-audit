@@ -12,6 +12,7 @@ import type { UploadedFile } from '../catalog-upload.js';
 import { makeClient, makePerson } from '../firm-test-fixtures.js';
 import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs, makeOrg } from '../test-fixtures.js';
+import { parseBankExchange } from '../onec/bank-exchange.js';
 import { setOperationSuggester, type OperationSuggester } from './ai.js';
 import {
   approveMany, bankFormats, bankRules, clientOptions, createStatement, decideRecord, exportStatement, listStatements, prepareStatement, previewStatement, processing,
@@ -83,7 +84,7 @@ describe('bank statements (database)', { skip }, () => {
     assert.equal(await db.importBatch.count({ where: { orgId: admin.orgId } }), before);
   });
 
-  it('read: 10 records, header meta, counts, statuses, rules applied, counterparty stub warns', async () => {
+  it('read: 10 records, header meta, counts, statuses, rules applied, counterparties matched by the 1C layer', async () => {
     const { batchId } = await read(fixture('ru-debit-credit.xlsx'));
     ruBatch = batchId;
     const detail = await statementDetail(admin, batchId);
@@ -104,8 +105,9 @@ describe('bank statements (database)', { skip }, () => {
     assert.equal(byRow.get(21)?.payload.operation, 'transfer');
     assert.equal(byRow.get(12)?.payload.operation, 'payment_in');
     assert.equal(byRow.get(12)?.payload.decidedBy, 'rule:builtin:counterparty_in');
-    // The 1C interface is the base-commit stub: matching answers "unknown" → a warning, never a guess.
-    assert.ok(byRow.get(12)?.issues.some((i) => i.code === 'counterparty_unknown' && i.severity === 'warning'));
+    // A fresh org knows no counterparty: the 1C layer's matcher answers "new" (created on export), an info, never a guess.
+    assert.equal(byRow.get(12)?.payload.counterparty.match?.status, 'new');
+    assert.ok(byRow.get(12)?.issues.some((i) => i.code === 'counterparty_new' && i.severity === 'info'));
     assert.equal(byRow.get(12)?.payload.counterparty.counterpartyId, null);
     assert.equal(byRow.get(14)?.status, 'valid', 'a bank fee without a counterparty is not suspicious');
     const sum = (s.counts?.valid ?? 0) + (s.counts?.suspicious ?? 0) + (s.counts?.unresolved ?? 0);
@@ -200,46 +202,60 @@ describe('bank statements (database)', { skip }, () => {
     assert.equal(reopened.record.status, 'unresolved');
   });
 
-  it('bulk approval: valid lines only, then everything without an error; prepare and export through the 1C interface', async () => {
+  it('export in two steps: the valid lines, then the rest — an exported line is never sent again', async () => {
     const valid = await approveMany(admin, 'uz', ruBatch, { scope: 'valid' });
     assert.ok(valid.ok);
-    const counts = (await statementDetail(admin, ruBatch))?.statement;
-    assert.equal(counts?.approved, valid.approved);
-    const rest = await approveMany(admin, 'uz', ruBatch, { scope: 'reviewable' });
-    assert.ok(rest.ok);
-    assert.equal(valid.approved + rest.approved, 10, 'the RU fixture has no errors');
-    const after = (await statementDetail(admin, ruBatch))?.statement;
-    assert.equal(after?.status, 'approved');
-    assert.equal(after?.counts?.suspicious, 0, 'approving accepts the warnings: the 1C layer exports valid and corrected lines');
-    assert.equal((after?.counts?.valid ?? 0) + (after?.counts?.corrected ?? 0), 10);
+    assert.ok(valid.approved > 0 && valid.approved < 10, String(valid.approved));
+    assert.equal((await statementDetail(admin, ruBatch))?.statement.approved, valid.approved);
 
     const prep = await prepareStatement(admin, 'uz', ruBatch);
     assert.ok(prep.ok, JSON.stringify(prep));
-    assert.equal(prep.ready, 10);
+    assert.equal(prep.ready, valid.approved);
     assert.deepEqual(prep.checks.map((c) => [c.code, c.ok]), [['ready', true], ['balance_reconciles', true], ['bank_totals_match', true], ['no_unresolved', true], ['no_exported_duplicates', true]]);
-    assert.deepEqual(prep.onec, { ok: false, error: 'not_implemented' }, 'the base-commit stub');
-    const exported = await exportStatement(admin, 'uz', ruBatch);
-    assert.deepEqual(exported, { ok: false, status: 501, code: 'not_implemented', message: e.onecUnavailable });
+    assert.ok(prep.onec.ok, JSON.stringify(prep.onec));
+    assert.equal(prep.onec.records, valid.approved);
+
+    const first = await exportStatement(admin, 'uz', ruBatch);
+    assert.ok(first.ok, JSON.stringify(first));
+    const file1 = parseBankExchange(first.file.body);
+    assert.equal(file1.documents.length, valid.approved);
+    assert.equal(await db.importRecord.count({ where: { batchId: ruBatch, status: 'exported' } }), valid.approved);
+    assert.equal((await statementDetail(admin, ruBatch))?.statement.approved, 0, 'nothing approved is left unexported');
+
+    const rest = await approveMany(admin, 'uz', ruBatch, { scope: 'reviewable' });
+    assert.ok(rest.ok);
+    assert.equal(valid.approved + rest.approved, 10, 'the RU fixture has no errors');
+    const second = await exportStatement(admin, 'uz', ruBatch);
+    assert.ok(second.ok, JSON.stringify(second));
+    const file2 = parseBankExchange(second.file.body);
+    assert.equal(file2.documents.length, rest.approved, 'the retry carries only the lines not exported yet');
+    const numbers = (f: typeof file1): string[] => f.documents.map((d) => d['Номер'] ?? '');
+    assert.deepEqual(numbers(file1).filter((n) => n !== '' && numbers(file2).includes(n)), [], 'no document in both files');
+    assert.equal(await db.importRecord.count({ where: { batchId: ruBatch, status: 'exported' } }), 10);
+    assert.deepEqual(await exportStatement(admin, 'uz', ruBatch), { ok: false, status: 409, code: 'nothing_to_export', message: e.nothingToExport });
+    const after = (await statementDetail(admin, ruBatch))?.statement;
+    assert.equal(after?.status, 'exported');
+    assert.equal(after?.counts?.exported, 10);
+    assert.equal(after?.exports.length, 2);
   });
 
-  it('exported is final: a retry sends only the rest, decisions are refused, the next statement flags the duplicate', async () => {
-    // Agent 1's buildExport marks what it wrote; until it lands, do what it will do for five lines.
-    const firstFive = (await statementRecords(admin, ruBatch, {}))?.records.slice(0, 5) ?? [];
-    await db.importRecord.updateMany({ where: { id: { in: firstFive.map((r) => r.id) } }, data: { status: 'exported' } });
-    const prep = await prepareStatement(admin, 'uz', ruBatch);
-    assert.ok(prep.ok);
-    assert.deepEqual([prep.ready, prep.alreadyExported], [5, 5]);
-    assert.deepEqual(await decideRecord(admin, 'uz', firstFive[0]?.id ?? '', { action: 'reopen' }), { ok: false, error: e.exported });
+  it('exported is final: decisions and deletion are refused, the next statement flags the duplicate', async () => {
+    const lines = (await statementRecords(admin, ruBatch, {}))?.records ?? [];
+    assert.deepEqual(await decideRecord(admin, 'uz', lines[0]?.id ?? '', { action: 'reopen' }), { ok: false, error: e.exported });
     assert.deepEqual(await removeStatement(admin, 'uz', ruBatch), { ok: false, error: e.removeExported });
 
-    // A later statement of the same account repeats row 12 (2026-10-01, 12 500 000 credit, doc 15, ИНН 302345678).
+    // A later statement of the same account repeats row 12 (2026-10-01, 12 500 000 credit, doc 15).
     const overlap = csv('overlap.csv', 'Счет: 20208000900123456001\nДата;№ док;Контрагент;ИНН;Дебет;Кредит;Назначение\n01.10.2026;15;ООО «Альфа Трейд»;302345678;;12 500 000,00;Оплата\n02.11.2026;30;ООО «Альфа Трейд»;302345678;;1 000,00;Оплата\n');
     const { batchId } = await read(overlap);
-    const lines = (await statementRecords(admin, batchId, {}))?.records ?? [];
-    const dup = lines.find((l) => l.payload.docNumber === '15');
+    const later = (await statementRecords(admin, batchId, {}))?.records ?? [];
+    const dup = later.find((l) => l.payload.docNumber === '15');
     assert.deepEqual(dup?.issues.find((i) => i.code === 'duplicate_row')?.params, { source: 'exported', batchId: ruBatch });
     assert.equal(dup?.status, 'suspicious');
-    assert.ok(!lines.find((l) => l.payload.docNumber === '30')?.issues.some((i) => i.code.startsWith('duplicate')));
+    assert.ok(!later.find((l) => l.payload.docNumber === '30')?.issues.some((i) => i.code.startsWith('duplicate')));
+    // The counterparty the export created is known now: matched, with its id.
+    const known = later.find((l) => l.payload.docNumber === '30');
+    assert.equal(known?.payload.counterparty.match?.status, 'matched');
+    assert.ok(known?.payload.counterparty.counterpartyId);
   });
 
   it('a line repeated in the same file is flagged with the earlier row', async () => {
@@ -254,7 +270,7 @@ describe('bank statements (database)', { skip }, () => {
     assert.ok(report);
     assert.equal(report.balanced, true);
     assert.equal(report.computedClosing, '24405346');
-    assert.equal(report.exported, 5);
+    assert.equal(report.exported, 10);
     assert.ok(report.byOperation.some((o) => o.key === 'loan' && o.count === 2));
     const file = await reconcileCsvFile(admin, 'ru', ruBatch);
     assert.ok(file.ok);
