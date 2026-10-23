@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Page } from 'playwright';
-import { db, E2E_PASSWORDS, gridRows, launch, localDate, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
+import { db, E2E_PASSWORDS, gridRows, isDevServer, launch, localDate, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
 
 /** Below the 4 s toast, whose dismissal used to be what committed a held refresh. */
 const SETTLE_MS = 2_000;
@@ -76,8 +76,13 @@ describe('refresh after a change', () => {
 
   // A page fetched ahead on hover (src/ui/shell/intent-prefetch.ts) is kept for 30 s. A workspace
   // decision does not revalidate, so the next page opened must refresh itself (src/ui/shell/router-cache.ts).
-  test('20 a section fetched ahead before a workspace decision shows the decision', { timeout: 120_000 }, async () => {
+  test('20 a section fetched ahead before a workspace decision shows the decision', { timeout: 120_000 }, async (t) => {
     const { page } = session;
+    // B8: next dev never prefetches, so the hover below fetches nothing there; run e2e against next start for this one.
+    if (await isDevServer(page)) {
+      t.skip('router.prefetch is a no-op under next dev; needs a production build (next build && next start)');
+      return;
+    }
     const finding = await db.finding.findFirst({ where: { item: { catalogId: fx.clientBCatalogId } }, select: { id: true, item: { select: { rawName: true } } } });
     assert.ok(finding, 'client B has a finding');
     await page.goto(`/catalogs/${fx.clientBCatalogId}`);
