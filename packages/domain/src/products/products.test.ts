@@ -15,6 +15,8 @@ import { DisabledTasnifClient } from './tasnif-client.js';
 import { FakeTasnifClient, gtin13, PRODUCT_NAMES, RECORDED_CODE, seedProductOrg, type ProductOrg } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
+/** A restricted code already in force, when the list is loaded (npm run load:restricted). */
+const restricted = skip ? null : await db.restrictedCode.findFirst({ where: { effectiveFrom: { lte: new Date() } }, select: { code: true, effectiveFrom: true } });
 
 const record = (over: Partial<ProductRecord> & { name: string }): ProductRecord => ({
   productId: null, onecRef: null, mxik: null, mxikName: null, packageCode: null, packageName: null, unit: null, barcode: null,
@@ -229,11 +231,9 @@ describe('packaging cache (database, fake Tasnif)', { skip }, () => {
 
 describe('classifyProducts (database + classifier, fake Tasnif)', { skip }, () => {
   let actor: TestActor;
-  let restricted: { code: string; effectiveFrom: Date } | null;
   const inactive = '00101001001000000';
   before(async () => {
     actor = await makeOrg('internal');
-    restricted = await db.restrictedCode.findFirst({ where: { effectiveFrom: { lte: new Date() } }, select: { code: true, effectiveFrom: true } });
     await db.mxikCodeState.upsert({ where: { code: inactive }, create: { code: inactive, isActive: false, apiStatus: 1, statusFetchedAt: new Date() }, update: { isActive: false, apiStatus: 1, statusFetchedAt: new Date() } });
   });
   after(async () => {
