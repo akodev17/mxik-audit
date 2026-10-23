@@ -1,10 +1,9 @@
 'use client';
 
 import type { RefObject } from 'react';
-import { decisionSourceLabel } from '@tasnivo/domain/decision-source';
+import { decisionSourceLabel } from '@/lib/workspace-url';
 import { useI18n } from '@/lib/locale-client';
-import type { OptionalColumn, ViewParams } from '@tasnivo/domain/view-params';
-import type { WsFilter } from '@tasnivo/domain/workspace-filter';
+import type { OptionalColumn, ViewParams, WsFilter } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import { IconButton } from '@/ui/icon-button';
 import { IconX } from '@/ui/icons';

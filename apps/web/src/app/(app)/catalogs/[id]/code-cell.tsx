@@ -1,7 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/locale-client';
-import type { CodeState } from '@tasnivo/domain/workspace-rows';
+import type { CodeState } from './ws-types';
 import { CodeChip } from '@/ui/code-chip';
 
 type Props = {

@@ -1,16 +1,11 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { acceptDictionary } from '@/app/actions/dictionary';
-import { bulkAction, type BulkActionInput } from '@/app/actions/bulk';
-import { splitRow, type ManyOutcome } from '@/app/actions/review';
-import { loadRows } from '@/app/actions/workspace';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { useI18n } from '@/lib/locale-client';
-import { OPTIONAL_COLUMNS, readHidden, type OptionalColumn, type ViewParams } from '@tasnivo/domain/view-params';
-import type { ChipCounts, WsSummary } from '@tasnivo/domain/workspace';
-import { filterQuery, type WsFilter } from '@tasnivo/domain/workspace-filter';
-import type { GridRow } from '@tasnivo/domain/workspace-rows';
+import { apiFilter, filterKey, OPTIONAL_COLUMNS, readHidden, type OptionalColumn, type ViewParams, type WsFilter } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import type { ConfirmResult } from '@/ui/confirm-dialog';
 import { cx } from '@/ui/cx';
@@ -32,24 +27,25 @@ import { keysReachWorkspace, ownsKeys, shortcutFor } from './shortcuts';
 import { SummaryStrip } from './summary-strip';
 import { SureAcceptDialog } from './sure-accept-dialog';
 import { Toolbar } from './toolbar';
-import { useDecisions } from './use-decisions';
+import { useDecisions, type MapRows } from './use-decisions';
 import { useDrawerWidth } from './use-drawer-width';
 import { PHONE_QUERY, TOUCH_QUERY, useMedia } from './use-media';
 import { useWidth } from './use-width';
 import { decisionText, shortName } from './ws-text';
+import type { BulkActionInput, Counts, GridRow, ManyOutcome, RowsPage, WsSummary } from './ws-types';
 import { serverChange } from '@/ui/shell/router-cache';
 
 export type WorkspaceProps = {
   catalogId: string;
   clientId: string;
+  /** The workspace totals as the page read them; refetched after changes to many rows. */
   summary: WsSummary;
-  /** Findings per type chip under the rest of the filter. */
-  chips: ChipCounts;
-  initialRows: GridRow[];
-  initialNext: string | null;
-  count: number;
+  /** Rows matching the filter, and findings per type chip under the rest of the filter. */
+  counts: Counts;
+  /** The first page of rows (and the cursor of the next) as the page read them. */
+  firstPage: RowsPage;
   filter: WsFilter;
-  /** A finding a link asked for (?row=): its drawer opens once and the grid scrolls to it. Always among initialRows. */
+  /** A finding a link asked for (?row=): its drawer opens once and the grid scrolls to it. Always on the first page. */
   focusRow: string | null;
   /** Storage key for the one-time demo tips; null when they do not apply. */
   hintKey: string | null;
@@ -67,27 +63,83 @@ export type WorkspaceProps = {
 const DENSITY_KEY = 'mxik.density';
 const COLUMNS_KEY = 'mxik.columns.hidden';
 
+/** Rows, totals and counts of one catalogue and filter in React Query's cache. */
+const keys = {
+  rows: (catalogId: string, filter: string) => ['catalog', catalogId, 'rows', filter] as const,
+  summary: (catalogId: string) => ['catalog', catalogId, 'summary'] as const,
+  counts: (catalogId: string, filter: string) => ['catalog', catalogId, 'counts', filter] as const,
+};
+
 export function Workspace(props: WorkspaceProps) {
-  const { catalogId, summary, filter, readOnly } = props;
+  const { catalogId, filter, readOnly } = props;
   const { ta } = useI18n();
   const x = ta.wsX;
   const toast = useToast();
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const fkey = filterKey(filter);
   const go = useFilterNav();
   const phone = useMedia(PHONE_QUERY);
   const touch = useMedia(TOUCH_QUERY);
   const [drawerWidth, setDrawerWidth] = useDrawerWidth();
 
+  // The page's reads seed the cache, and nothing refetches on its own: the rows carry optimistic
+  // decisions. Leaving the workspace drops them, so the next visit starts from the page's reads.
+  const summaryQuery = useQuery({
+    queryKey: keys.summary(catalogId),
+    queryFn: ({ signal }) => api.catalogs.summary({ catalogId }, { signal }),
+    initialData: props.summary, staleTime: Infinity, gcTime: 0,
+  });
+  const countsQuery = useQuery({
+    queryKey: keys.counts(catalogId, fkey),
+    queryFn: ({ signal }) => api.workspace.counts({ catalogId, ...apiFilter(filter) }, { signal }),
+    initialData: props.counts, staleTime: Infinity, gcTime: 0,
+  });
+  const rowsKey = useMemo(() => keys.rows(catalogId, fkey), [catalogId, fkey]);
+  const pages = useInfiniteQuery({
+    queryKey: rowsKey,
+    queryFn: async ({ pageParam, signal }) => {
+      const page = await api.workspace.rows({ catalogId, ...apiFilter(filter), cursor: pageParam }, { signal });
+      if (!page) throw new Error('no data');
+      return page;
+    },
+    initialPageParam: '',
+    getNextPageParam: (last) => last.next ?? undefined,
+    initialData: { pages: [props.firstPage], pageParams: [''] },
+    staleTime: Infinity, gcTime: 0, retry: false,
+  });
+  // A new server render (router.refresh from the header) brings fresh totals.
+  useEffect(() => { queryClient.setQueryData(keys.summary(catalogId), props.summary); }, [queryClient, catalogId, props.summary]);
+  useEffect(() => { queryClient.setQueryData(keys.counts(catalogId, fkey), props.counts); }, [queryClient, catalogId, fkey, props.counts]);
+  const summary = summaryQuery.data;
+  const { count: filterCount, chips } = countsQuery.data;
+
+  // A row seen on an earlier page keeps its place (the linked row may come again later).
+  const rows = useMemo(() => {
+    const seen = new Set<string>();
+    return (pages.data?.pages ?? []).flatMap((p) => p.rows).filter((r) => {
+      if (seen.has(r.findingId)) return false;
+      seen.add(r.findingId);
+      return true;
+    });
+  }, [pages.data]);
+  const mapRows: MapRows = useCallback((fn) => {
+    queryClient.setQueryData<InfiniteData<RowsPage, string>>(rowsKey, (cur) => cur && { ...cur, pages: cur.pages.map((p) => ({ ...p, rows: p.rows.map(fn) })) });
+  }, [queryClient, rowsKey]);
+
   const [delta, setDelta] = useState(0);
   const [message, setMessage] = useState('');
   const onReviewed = useCallback((d: number) => setDelta((v) => v + d), []);
-  const refresh = useCallback(() => router.refresh(), [router]);
+  // After a change to many rows (some maybe not loaded) the server recounts totals and chips.
+  const recount = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: keys.summary(catalogId), exact: true });
+    void queryClient.invalidateQueries({ queryKey: keys.counts(catalogId, fkey), exact: true });
+  }, [queryClient, catalogId, fkey]);
   // A fresh server summary already counts what the local delta tracked.
-  useEffect(() => { setDelta(0); }, [summary]);
-  const { rows, apply, applyGroup, applyMany, reportMany, revert, append, flagMany, setCommentMeta, ungroup } = useDecisions(props.initialRows, onReviewed, setMessage, refresh);
+  useEffect(() => { setDelta(0); }, [summaryQuery.dataUpdatedAt]);
+  const { apply, applyGroup, applyMany, reportMany, revert, flagMany, setCommentMeta, ungroup } = useDecisions(rows, mapRows, onReviewed, setMessage, recount);
 
-  const [next, setNext] = useState(props.initialNext);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const next = pages.hasNextPage ? 'more' : null;
+  const loadFailed = pages.isFetchNextPageError && !pages.isFetchingNextPage;
   const loading = useRef(false);
   const [compact, setCompact] = useState(false);
   const [grouped, setGrouped] = useState(props.initialGrouped);
@@ -167,21 +219,16 @@ export function Workspace(props: WorkspaceProps) {
     setMessage(x.a11y.row(String(row.rowIndex + 1), shortName(row.productName), decisionText(row, ta)));
   }, [activeKey, activeEntry, ta, x]);
 
+  const { fetchNextPage } = pages;
   const loadMore = useCallback(async () => {
     if (!next || loading.current) return;
     loading.current = true;
-    setLoadFailed(false);
     try {
-      const data = await loadRows({ catalogId, cursor: next, filter: filterQuery(filter) });
-      if (!data) throw new Error('no data');
-      append(data.rows);
-      setNext(data.next);
-    } catch {
-      setLoadFailed(true);
+      await fetchNextPage({ cancelRefetch: false });
     } finally {
       loading.current = false;
     }
-  }, [next, filter, catalogId, append]);
+  }, [next, fetchNextPage]);
 
   const select = useCallback((index: number) => {
     const entry = entries[index];
@@ -283,8 +330,8 @@ export function Workspace(props: WorkspaceProps) {
     if (readOnly) return { ok: false };
     setBulkBusy(true);
     try {
-      const target = allFiltered ? { filter: filterQuery(filter) } : { ids: [...selected] };
-      const result = await serverChange(bulkAction({ catalogId, target, action }));
+      const target = allFiltered ? { filter: apiFilter(filter) } : { ids: [...selected] };
+      const result = await serverChange(api.workspace.bulkApply({ catalogId, target, action }));
       if (!result.ok) {
         if (!inDialog) toast(result.error, { tone: 'error' });
         return { ok: false, error: result.error };
@@ -300,9 +347,10 @@ export function Workspace(props: WorkspaceProps) {
       setSelected(new Set());
       setAllFiltered(false);
       return { ok: true };
-    } catch {
-      if (!inDialog) toast(x.toast.network, { tone: 'error' });
-      return { ok: false, error: x.toast.network };
+    } catch (error) {
+      const text = isNetworkFailure(error) ? x.toast.network : x.toast.failed;
+      if (!inDialog) toast(text, { tone: 'error' });
+      return { ok: false, error: text };
     } finally {
       setBulkBusy(false);
     }
@@ -317,11 +365,11 @@ export function Workspace(props: WorkspaceProps) {
     if (readOnly) return;
     setBulkBusy(true);
     try {
-      const result = await acceptDictionary(catalogId);
+      const result = await serverChange(api.dictionary.acceptForCatalog({ catalogId }));
       if (!result.ok) { toast(result.error, { tone: 'error' }); return; }
       manyDone(result, 'dictionary');
-    } catch {
-      toast(x.toast.network, { tone: 'error' });
+    } catch (error) {
+      toast(isNetworkFailure(error) ? x.toast.network : x.toast.failed, { tone: 'error' });
     } finally {
       setBulkBusy(false);
     }
@@ -329,12 +377,12 @@ export function Workspace(props: WorkspaceProps) {
 
   const split = useCallback(async (row: GridRow) => {
     try {
-      const result = await serverChange(splitRow(row.findingId));
+      const result = await serverChange(api.workspace.split({ findingId: row.findingId }));
       if (!result.ok) { toast(x.toast.failed, { tone: 'error' }); return; }
       ungroup(row.findingId);
       toast(x.toast.split);
-    } catch {
-      toast(x.toast.network, { tone: 'error' });
+    } catch (error) {
+      toast(isNetworkFailure(error) ? x.toast.network : x.toast.failed, { tone: 'error' });
     }
   }, [toast, ungroup, x]);
 
@@ -432,7 +480,7 @@ export function Workspace(props: WorkspaceProps) {
   } else {
     body = (
       <Grid
-        entries={entries} total={grouped ? null : props.count} activeIndex={activeIndex} compact={compact} expanded={expanded}
+        entries={entries} total={grouped ? null : filterCount} activeIndex={activeIndex} compact={compact} expanded={expanded}
         hasMore={next !== null && !loadFailed} scrollEl={scrollEl} gridRef={gridRef} handlers={handlers} readOnly={readOnly}
         selected={selected} allChecked={allChecked} editingId={editingId} layout={layout}
       />
@@ -442,7 +490,7 @@ export function Workspace(props: WorkspaceProps) {
   return (
     <div ref={rootRef} style={style} className="relative flex min-h-0 flex-1 flex-col">
       <div aria-live="polite" className="sr-only">{message}</div>
-      <SummaryStrip summary={summary} chips={props.chips} reviewedDelta={delta} activeType={filter.type} />
+      <SummaryStrip summary={summary} chips={chips} reviewedDelta={delta} activeType={filter.type} />
       {showCompletion ? (
         <Completion
           catalogId={catalogId} clientId={props.clientId} findings={summary.riskyFindings} exportLocked={props.exportLocked}
@@ -450,7 +498,7 @@ export function Workspace(props: WorkspaceProps) {
         />
       ) : null}
       <Toolbar
-        filter={filter} count={props.count} compact={compact} grouped={grouped} hidden={hidden} phone={phone} touch={touch}
+        filter={filter} count={filterCount} compact={compact} grouped={grouped} hidden={hidden} phone={phone} touch={touch}
         readOnly={readOnly} busy={bulkBusy} saveBlocked={props.saveBlocked} searchRef={searchRef}
         surePending={summary.surePending} dictionaryPending={summary.dictionaryPending} partialGroups={next !== null}
         onCompact={setDensity} onGrouped={setGrouped} onHidden={setColumns} onApplyView={applyView}
@@ -459,9 +507,9 @@ export function Workspace(props: WorkspaceProps) {
       {!phone && !readOnly && (selected.size > 0 || allFiltered) ? (
         <BulkBar
           catalogId={catalogId} filter={filter}
-          count={allFiltered ? props.count : selected.size}
+          count={allFiltered ? filterCount : selected.size}
           ids={selectedIds} everyLoaded={allChecked && selected.size > 1}
-          filterTotal={allChecked && props.count > selected.size ? props.count : null} allFiltered={allFiltered} busy={bulkBusy}
+          filterTotal={allChecked && filterCount > selected.size ? filterCount : null} allFiltered={allFiltered} busy={bulkBusy}
           onSelectFiltered={() => setAllFiltered(true)}
           onClear={() => { setSelected(new Set()); setAllFiltered(false); }}
           onRun={runBulk}

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { reportWrongSuggestion } from '@/app/actions/feedback';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { useI18n } from '@/lib/locale-client';
-import { WRONG_REASONS } from '@tasnivo/domain/wrong-reasons';
+import { WRONG_REASONS } from '@tasnivo/contracts';
 import { Button } from '@/ui/button';
 import { Textarea } from '@/ui/textarea';
 import { useToast } from '@/ui/toast';
@@ -20,12 +21,12 @@ export function WrongFeedback({ findingId }: { findingId: string }) {
   async function send(): Promise<void> {
     setBusy(true);
     try {
-      const result = await reportWrongSuggestion({ findingId, reason, note });
+      const result = await api.workspace.wrongSuggestion({ findingId, reason, note });
       if (!result.ok) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
       toast(ta.wrong.thanks);
       setOpen(false);
-    } catch {
-      toast(ta.wsX.toast.network, { tone: 'error' });
+    } catch (error) {
+      toast(isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed, { tone: 'error' });
     } finally {
       setBusy(false);
     }

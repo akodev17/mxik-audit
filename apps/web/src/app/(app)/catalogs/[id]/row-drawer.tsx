@@ -1,10 +1,10 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { loadRowDetail } from '@/app/actions/workspace';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
-import type { RowDetail } from '@tasnivo/domain/row-detail';
-import type { GridRow } from '@tasnivo/domain/workspace-rows';
+import type { GridRow, RowDetail } from './ws-types';
 import { Button } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { Drawer } from '@/ui/drawer';
@@ -42,8 +42,6 @@ export function RowDrawer({ row, readOnly, canSplit, phone, touch, onClose, onAc
   const { ta } = useI18n();
   const x = ta.wsX;
   const [shown, setShown] = useState<Shown | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRef = useRef(row);
   rowRef.current = row;
@@ -51,19 +49,21 @@ export function RowDrawer({ row, readOnly, canSplit, phone, touch, onClose, onAc
   // A decision (or its undo) changes who/when, so the detail reloads.
   const version = row?.decisionEventId ?? 'none';
 
+  // Moving on (j/k) leaves the previous request unobserved, and React Query cancels it.
+  const loaded = useQuery({
+    queryKey: ['finding', id, 'detail', version],
+    queryFn: ({ signal }) => api.workspace.rowDetail({ findingId: id ?? '' }, { signal }),
+    enabled: id !== null,
+    staleTime: 0,
+    retry: false,
+  });
+  const failed = id !== null && !loaded.isFetching && (loaded.isError || loaded.data === null);
+
   useEffect(() => {
     if (!id) { setShown(null); return; }
-    let live = true;
-    setFailed(false);
-    loadRowDetail(id)
-      .then((d) => {
-        if (!live) return;
-        const current = rowRef.current;
-        if (d && current) setShown({ row: current, detail: d }); else setFailed(true);
-      })
-      .catch(() => { if (live) setFailed(true); });
-    return () => { live = false; };
-  }, [id, version, attempt]);
+    const current = rowRef.current;
+    if (loaded.data && current) setShown({ row: current, detail: loaded.data });
+  }, [id, loaded.data]);
 
   const pick = useCallback(() => { searchRef.current?.focus(); }, []);
   const current = shown && row && shown.detail.findingId === row.findingId;
@@ -96,7 +96,7 @@ export function RowDrawer({ row, readOnly, canSplit, phone, touch, onClose, onAc
       {failed ? (
         <EmptyState
           tone="danger" size="compact" title={x.drawer.failed}
-          action={<Button size="sm" onClick={() => setAttempt((a) => a + 1)}>{x.drawer.retry}</Button>}
+          action={<Button size="sm" onClick={() => { void loaded.refetch(); }}>{x.drawer.retry}</Button>}
         />
       ) : null}
       {!failed && shown && row ? (

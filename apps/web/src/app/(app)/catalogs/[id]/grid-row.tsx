@@ -2,7 +2,7 @@
 
 import { memo, type ReactNode } from 'react';
 import { useI18n } from '@/lib/locale-client';
-import type { GridRow } from '@tasnivo/domain/workspace-rows';
+import type { GridRow } from './ws-types';
 import { Badge } from '@/ui/badge';
 import { Checkbox } from '@/ui/checkbox';
 import { cx } from '@/ui/cx';

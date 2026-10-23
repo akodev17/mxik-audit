@@ -3,8 +3,8 @@
 import { useState, type RefObject } from 'react';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { RowDetail } from '@tasnivo/domain/row-detail';
-import type { GridRow } from '@tasnivo/domain/workspace-rows';
+import type { RowDetail } from './ws-types';
+import type { GridRow } from './ws-types';
 import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';

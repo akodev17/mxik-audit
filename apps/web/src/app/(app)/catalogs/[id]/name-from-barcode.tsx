@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { fillNameFromBarcode } from '@/app/actions/barcode-name';
-import type { NameFromBarcode } from '@tasnivo/domain/barcode-name';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
+import type { NameFromBarcode } from './ws-types';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { useToast } from '@/ui/toast';
@@ -18,12 +19,12 @@ export function NameFromBarcodeOffer({ findingId, offer, readOnly, onFilled }: {
   async function apply(): Promise<void> {
     setBusy(true);
     try {
-      if (!(await serverChange(fillNameFromBarcode(findingId)))) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
+      if (!(await serverChange(api.workspace.nameFromBarcode({ findingId })))) { toast(ta.wsX.toast.failed, { tone: 'error' }); return; }
       toast(ta.barcodeName.done);
       setDone(true);
       onFilled(offer.name);
-    } catch {
-      toast(ta.wsX.toast.network, { tone: 'error' });
+    } catch (error) {
+      toast(isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed, { tone: 'error' });
     } finally {
       setBusy(false);
     }

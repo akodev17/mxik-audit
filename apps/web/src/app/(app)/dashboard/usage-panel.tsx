@@ -2,14 +2,13 @@ import Link from 'next/link';
 import { WARN_AT } from '@tasnivo/domain/billing/limits';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import type { PlanStatus } from '@/lib/plan';
 import { Progress } from '@/ui/progress';
 
 type Key = 'clients' | 'rowsPerMonth' | 'seats';
 const KEYS: Key[] = ['clients', 'rowsPerMonth', 'seats'];
 
 /** Usage against the plan's limits, for the limits that exist; nothing at all when the plan has none. */
-export async function UsagePanel({ status }: { status: PlanStatus }) {
+export async function UsagePanel({ status }: { status: { limits: Record<Key, number | null>; usage: Record<Key, number> } }) {
   const { locale, ta } = await getI18n();
   const meters = KEYS.flatMap((key) => {
     const cap = status.limits[key];

@@ -1,8 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { deleteMapping, updateMapping } from '@/app/actions/dictionary';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Badge, StatusIcon } from '@/ui/badge';
@@ -46,8 +47,10 @@ function Trust({ row }: { row: DictRow }) {
 function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
   const { ta, locale } = useI18n();
   const x = ta.wsX.dict;
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const toast = useToast();
+  // The listing on screen is refetched: counts, stale marks and the row itself change.
+  const refetch = (): void => { void queryClient.invalidateQueries({ queryKey: ['dictionary'] }); };
   const [editing, setEditing] = useState(false);
   const [code, setCode] = useState(row.code);
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +63,13 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
     setBusy(true);
     setError(null);
     try {
-      const result = await updateMapping({ id: row.id, code: value });
+      const result = await api.dictionary.update({ entryId: row.id, code: value });
       if (!result.ok) { setError(result.error ?? ta.wsX.toast.failed); return; }
       setEditing(false);
       toast(x.savedToast);
-      router.refresh();
-    } catch {
-      setError(ta.wsX.toast.network);
+      refetch();
+    } catch (error) {
+      setError(isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed);
     } finally {
       setBusy(false);
     }
@@ -113,10 +116,10 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
           open={confirmDelete} onClose={() => setConfirmDelete(false)}
           title={x.deleteTitle} description={x.deleteBody} scope={row.label} tone="danger" confirmLabel={x.deleteConfirm}
           onConfirm={async () => {
-            const result = await deleteMapping(row.id);
+            const result = await api.dictionary.remove({ entryId: row.id }).catch((error: unknown) => ({ ok: false, error: isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed }));
             if (!result.ok) return { ok: false, error: result.error };
             toast(x.deleted);
-            router.refresh();
+            refetch();
             return { ok: true };
           }}
         />

@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { workspaceHref, type QueueRow } from '@tasnivo/domain/queue';
+import type { endpoints, ResponseOf } from '@tasnivo/contracts';
+import { workspaceHref } from './queue-params';
 import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
 import { IconComment } from '@/ui/icons';
 import { suggestionLabel, typeLabels, typeTone } from '@/ui/labels';
 import { Table, Td, Th } from '@/ui/table';
+
+type QueueRow = ResponseOf<typeof endpoints.workspace.queue>['rows'][number];
 
 /** Pending risky findings: a table from the small breakpoint up, stacked cards on a phone. */
 export async function QueueList({ rows }: { rows: QueueRow[] }) {

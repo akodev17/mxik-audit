@@ -1,7 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/locale-client';
-import { OPTIONAL_COLUMNS, type OptionalColumn } from '@tasnivo/domain/view-params';
+import { OPTIONAL_COLUMNS, type OptionalColumn } from '@/lib/workspace-url';
 import { Checkbox } from '@/ui/checkbox';
 import { Popover } from '@/ui/popover';
 import { Segmented } from '@/ui/segmented';

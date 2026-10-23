@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { newCodeRequest } from '@/app/actions/review';
+import { api } from '@/lib/api/browser';
+import { isNetworkFailure } from '@/lib/api-failure';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Textarea } from '@/ui/textarea';
@@ -21,10 +22,10 @@ export function RequestText({ findingId, readOnly }: { findingId: string; readOn
     setBusy(true);
     setError(null);
     try {
-      const draft = await newCodeRequest(findingId);
+      const draft = await api.workspace.newCodeRequest({ findingId });
       if (draft === null) setError(ta.wsX.drawer.failed); else setText(draft);
-    } catch {
-      setError(ta.wsX.toast.network);
+    } catch (error) {
+      setError(isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.drawer.failed);
     } finally {
       setBusy(false);
     }

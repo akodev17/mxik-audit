@@ -341,3 +341,58 @@ API rows; `lib/catalogs/server.ts` and W3a's `lib/api/me.ts` both wrap `auth.me`
 (domain). Small known differences: a legacy catalogue without a client shows writers the review
 field (the API answers an empty one); the report history is two 50-row activity pages filtered to
 the catalogue (it was one 100-row read).
+## Wave 3c result: review workspace, dictionary, queue, dashboard, notifications (23 Oct 2026)
+These areas now read and write through `@tasnivo/api-client` (branch `claude/w3c-web-workspace-ce3bbf`).
+- **Workspace grid** (`catalogs/[id]`, the grid half): page.tsx reads the default view, `catalogs.summary`,
+  `workspace.counts` and the first `workspace.rows` page (with `row` for queue links) through `serverApi()`.
+  `workspace.tsx` keeps rows in a `useInfiniteQuery` (key `['catalog', id, 'rows', filterKey]`) and summary/counts in
+  queries, all seeded from the server render (`staleTime: Infinity`, `gcTime: 0`). `use-decisions.ts` patches the
+  rows cache optimistically and rolls back as before. A change to many rows invalidates summary and counts
+  (`recount()`) instead of calling `router.refresh()`. The drawer (`workspace.rowDetail`, cancelled on j/k), comments,
+  saved views and code lookup (`useCodeLookup`) are queries; every write calls `api.*` wrapped in `serverChange()`,
+  so W3d's router-cache refresh-on-next-navigation still works. The filter sent to the API is `apiFilter()`
+  (lib/workspace-url.ts, the web copy of the domain's filter/view helpers, with parity tests). `apiFilter()` also
+  fixes the old case where `?source=…&dec=pending` loaded later pages as `dec=all`.
+- **Dictionary**: page + `DictionaryView` (query `['dictionary', …]`, invalidated by edit and delete); the settings
+  toggle (`settings/dictionary-setting.tsx`) calls `dictionary.setAutoAccept`.
+- **Notifications page**: `NoticeList` + `useNotices` (key `['notifications', 'list', …]`); "mark read" and
+  "mark all read" invalidate `['notifications']` (W3d's bell can share the prefix).
+- **Queue**: one `workspace.queue` read (queue-params.ts holds the web copies of readQueueFilter, workspaceHref and
+  withQuery, with parity tests). **Dashboard**: one `workspace.dashboard` + `billing.plan` read (dashboard-data.ts
+  turns the ISO dates back into Date for the existing components). Closing a task calls `reminders.finishTask`,
+  hides the task at once and still calls `router.refresh()`: the totals (overdue checks) are part of the one
+  server read.
+- **Deleted actions:** review, workspace, bulk, comments, views, feedback, barcode-name, dictionary, and
+  `reminders.ts#finishTask`. `reminders.ts#saveSchedule` stays: `clients/[id]/schedule-form.tsx` (W3d) uses it.
+  shell.ts (notifications preview/mark read, used by the bell) is W3d's.
+- **Session in pages:** W3a's `signedIn()` (lib/api/me.ts) with a redirect to /sign-in; writers are `role !== 'viewer'`.
+Seams:
+- `catalogs/[id]/page.tsx` is shared with W3b: W3b owns the top (catalog header read), W3c the grid half. At
+  merge, the grid half should use W3b's `catalog.client.id`, `catalog.exportLocked` and `user` (auth.me). Both
+  branches changed money-at-risk.tsx to `workspace.moneyAtRisk`; the two versions are equivalent.
+- notifications/notice-actions.tsx: take W3c's version (W3d agreed and dropped its glob). W3d's bell uses the key
+  ['notifications', 'preview'], so W3c's ['notifications'] invalidation refreshes it too.
+- actions/reminders.ts: W3c removed finishTask and W3d removed saveSchedule. With both merged nothing is left, so
+  delete the file.
+For W4:
+- Files left out of MIGRATED_WEB_PATHS, because they still use pure domain/core helpers:
+  - the dashboard's presentational parts: work-queue (arrangeQueue …), client-stats rowProgress/attentionReasons
+    (that module also imports the db), client-attention, client-kpi, activity-groups, billing/limits;
+  - `catalogs/[id]/unit-label.ts` (`@tasnivo/core` unit tables);
+  - `catalogs/[id]/page.tsx` until W3b's half lands.
+  Move those helpers into apps/web or contracts, then make the rule repo-wide.
+- The dashboard is still one server read refreshed with `router.refresh()` after a task closes. A client query for
+  the totals would remove that last refresh.
+- The web copies (workspace-url.ts, queue-params.ts, dictionary-params.ts) are tested against the domain. Drop the
+  tests and keep the copies when the web stops depending on @tasnivo/domain.
+Verified on the branch, merged with main 96d3ef5:
+- Root typecheck, lint (only the known xlsx.ts warning) and `npm run build` pass.
+- Unit tests: 1552, all green after rerunning three API e2e files on their own. Run alongside the other W3
+  sessions, those files failed on the shared database's rate-limit rows and on audit timeouts.
+- E2E against `next start` on 3103 (built with `API_INTERNAL_URL=http://localhost:4203`), the API on 4203 and the dev
+  database, in Edge (`E2E_CHANNEL=msedge`, new in fixture.ts): dictionary-review 2/2, navigation 5/5, refresh 4/4,
+  review-flow 17/17, scale 3/3 (j/k).
+- review-flow tests 8 and 14 now capture `POST /api/findings/{id}/decision` and replay it as the viewer (403
+  `forbidden`) instead of the server action.
+- Run servers and e2e with `connection_limit=4` in DATABASE_URL while several sessions share the dev Postgres
+  (max_connections 100).
