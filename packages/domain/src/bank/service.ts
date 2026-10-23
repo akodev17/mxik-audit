@@ -279,13 +279,18 @@ function recordRow(r: { id: string; rowIndex: number; status: BankRecordRow['sta
 
 const recordSelect = { id: true, rowIndex: true, status: true, payload: true, issues: true, decision: true, decidedAt: true, outcome: true } satisfies Prisma.ImportRecordSelect;
 
+/** No decision yet, or one other than approve. (A plain NOT on the JSON path would drop the NULL decisions too.) */
+const NOT_APPROVED = {
+  OR: [{ decision: { equals: Prisma.AnyNull } }, { NOT: { decision: { path: ['action'], equals: 'approve' } } }],
+} satisfies Prisma.ImportRecordWhereInput;
+
 function statusWhere(batchId: string, status: string | undefined): Prisma.ImportRecordWhereInput {
   switch (status) {
     case undefined: case 'all': return { batchId };
     case 'approved': return approvedWhere(batchId);
     // What still needs a person: errors and warnings not decided yet.
-    case 'open': return { batchId, status: { in: ['unresolved', 'suspicious'] }, NOT: { decision: { path: ['action'], equals: 'approve' } } };
-    case 'valid': return { batchId, status: 'valid', NOT: { decision: { path: ['action'], equals: 'approve' } } };
+    case 'open': return { batchId, status: { in: ['unresolved', 'suspicious'] }, ...NOT_APPROVED };
+    case 'valid': return { batchId, status: 'valid', ...NOT_APPROVED };
     default: return { batchId, status: status as BankRecordRow['status'] };
   }
 }
@@ -484,7 +489,7 @@ export async function decideRecord(user: CurrentUser, locale: Locale, recordId: 
     where: { id: record.id },
     data: {
       payload: payload, issues: issues, status, fingerprint,
-      decision: decision === null ? (null as unknown as Prisma.InputJsonValue) : (decision as unknown as Prisma.InputJsonValue),
+      decision: decision === null ? Prisma.DbNull : (decision as unknown as Prisma.InputJsonValue),
       decidedBy: decision ? user.userId : null, decidedAt: decision ? new Date() : null,
     },
     select: recordSelect,
@@ -504,7 +509,7 @@ export async function decideRecord(user: CurrentUser, locale: Locale, recordId: 
 /** A new rule on the statement's other lines that no person decided: their operation follows it. */
 async function applyRuleToBatch(batchId: string, exceptId: string, rule: { id: string; kind: 'inn_equals' | 'counterparty_equals' | 'purpose_contains'; value: string; operation: BankOperation; cashFlowItem: string | null }): Promise<number> {
   const rows = await db.importRecord.findMany({
-    where: { batchId, id: { not: exceptId }, status: { notIn: ['exported', 'skipped'] }, decision: { equals: Prisma.DbNull } },
+    where: { batchId, id: { not: exceptId }, status: { notIn: ['exported', 'skipped'] }, decision: { equals: Prisma.AnyNull } },
     select: { id: true, payload: true, issues: true, status: true },
   });
   let applied = 0;
@@ -535,7 +540,7 @@ export async function approveMany(user: CurrentUser, locale: Locale, batchId: st
   if (!batch) return { ok: false, error: e.notFound };
   const statuses: Prisma.EnumRecordStatusFilter<'ImportRecord'> = parsed.data.scope === 'valid' ? { equals: 'valid' } : { in: ['valid', 'corrected', 'suspicious'] };
   const where: Prisma.ImportRecordWhereInput = {
-    batchId, status: statuses, NOT: { decision: { path: ['action'], equals: 'approve' } },
+    batchId, status: statuses, ...NOT_APPROVED,
     ...(parsed.data.scope === 'ids' ? { id: { in: parsed.data.ids ?? [] } } : {}),
   };
   const rows = await db.importRecord.findMany({ where, select: { id: true, decision: true } });
