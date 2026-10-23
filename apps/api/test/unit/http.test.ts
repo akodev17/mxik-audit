@@ -52,6 +52,19 @@ describe('error envelope', () => {
     assert.deepEqual(toErrorResponse(new BadRequestException(['a', 'b']), false).body, { error: { code: 'invalid_request', message: 'a; b' } });
   });
 
+  it('keeps the status of body-parser\'s client errors (413, 415, 400) instead of a 500', () => {
+    // http-errors as raw-body throws them: status plus expose: true.
+    const tooLarge = Object.assign(new Error('request entity too large'), { status: 413, statusCode: 413, expose: true, type: 'entity.too.large' });
+    assert.deepEqual(toErrorResponse(tooLarge, false), { status: 413, headers: {}, body: { error: { code: 'too_large', message: 'request entity too large' } } });
+    assert.deepEqual(toErrorResponse(tooLarge, true).body.error, { code: 'too_large', message: 'request entity too large' });
+    const charset = Object.assign(new Error('unsupported charset "UTF-7"'), { status: 415, expose: true });
+    assert.equal(toErrorResponse(charset, false).status, 415);
+    // Not marked safe to show, or a server status: still the generic 500.
+    assert.equal(toErrorResponse(Object.assign(new Error('secret'), { status: 413 }), false).status, 500);
+    assert.deepEqual(toErrorResponse(Object.assign(new Error('secret'), { status: 502, expose: true }), false).body,
+      { error: { code: 'server_error', message: 'The request could not be completed. Try again later.' } });
+  });
+
   it('never leaks an unexpected error\'s message', () => {
     const out = toErrorResponse(new Error('password=hunter2 in a stack'), false);
     assert.equal(out.status, 500);
