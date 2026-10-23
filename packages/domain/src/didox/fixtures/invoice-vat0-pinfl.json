@@ -1,0 +1,55 @@
+{
+  "facturaid": "6a20bb22c0ffee0000000077",
+  "facturatype": 0,
+  "facturadoc": {
+    "facturano": "17",
+    "facturadate": "2026-10-20"
+  },
+  "contractdoc": {
+    "contractno": "3",
+    "contractdate": "2026-01-10"
+  },
+  "sellertin": "31503820150012",
+  "buyertin": "305123456",
+  "seller": {
+    "name": "YaTT Rahimova Dilnoza"
+  },
+  "buyer": {
+    "name": "OOO \"TASNIVO TEST BUYER\"",
+    "account": "20208000400987654002",
+    "bankid": "00873"
+  },
+  "productlist": {
+    "hasvat": false,
+    "products": [
+      {
+        "ordno": 1,
+        "name": "Услуги по уборке помещений, октябрь",
+        "catalogcode": "10202001001000000",
+        "catalogname": "Услуги по уборке",
+        "packagename": "услуга",
+        "count": 1,
+        "summa": 4500000,
+        "deliverysum": 4500000,
+        "vatrate": 0,
+        "vatsum": 0,
+        "deliverysumwithvat": 4500000,
+        "withoutvat": true
+      },
+      {
+        "ordno": 2,
+        "name": "Моющее средство 5л",
+        "catalogcode": "34022090001000000",
+        "catalogname": "Средства моющие",
+        "packagename": "штук",
+        "count": 6,
+        "summa": 85000,
+        "deliverysum": 510000,
+        "vatrate": 0,
+        "vatsum": 0,
+        "deliverysumwithvat": 510000,
+        "withoutvat": true
+      }
+    ]
+  }
+}

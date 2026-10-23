@@ -228,6 +228,8 @@ model Organization {
   usageLedger UsageLedger[]
   importBatches ImportBatch[]
   counterparties Counterparty[]
+  didoxConnection DidoxConnection?
+  didoxDocuments DidoxDocument[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -1408,6 +1410,60 @@ model OneCExport {
 // ── Agent 2: bank statements (formats, saved column mappings) ───────────────────────────
 
 // ── Agent 3: Didox invoices (connections, document cache) ───────────────────────────────
+
+/// An org's Didox access (one per org). Two auth models exist (research note §1): 'token' = the
+/// user's Didox token sent as api-key + user-key (Didox's 1C library), 'partner' = a partner
+/// token as Bearer plus the user's token as user-key (npm SDK). The user's token is sealed with a
+/// key derived from SESSION_SECRET; the partner token is never stored: partnerTokenRef names the
+/// environment variable that holds it.
+model DidoxConnection {
+  id              String    @id @default(cuid())
+  orgId           String    @unique
+  /// The client synced invoices are filed under; null = the org's own books.
+  clientId        String?
+  /// 'token' | 'partner'.
+  kind            String
+  /// The company's ИНН (9) or ПИНФЛ (14) the token belongs to.
+  companyTin      String
+  tokenSealed     String?
+  tokenExpiresAt  DateTime?
+  partnerTokenRef String?
+  lastSyncAt      DateTime?
+  /// The last sync or test failure as a machine code (unauthorized, timeout, ...); null after a success.
+  lastError       String?
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("didox_connection")
+}
+
+/// The raw Didox document as fetched (API) or uploaded (zip/JSON), keyed by its Didox id, with the
+/// PDF print form when one came with it. The invoice's batch (import_batch, kind didox_invoice)
+/// points back through externalRef; batchId is a plain column so the shared model stays untouched.
+model DidoxDocument {
+  id        String   @id @default(cuid())
+  orgId     String
+  /// The Didox document id (API), or the factura id / file fingerprint for uploads.
+  didoxId   String
+  /// 'didox_api' | 'didox_zip' | 'didox_json' | 'xlsx'.
+  source    String
+  docType   String?
+  status    String?
+  json      Json
+  pdf       Bytes?
+  batchId   String?
+  fetchedAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, didoxId])
+  @@index([batchId])
+  @@map("didox_document")
+}
 
 // ── Agent 4: product catalogue and MXIK intelligence (products, packaging codes) ────────
 
