@@ -31,13 +31,11 @@ export default async function CatalogsPage({ searchParams }: { searchParams: Pro
   const api = serverApi();
   const client = sp.client ? { clientId: sp.client } : {};
   // Unconfirmed uploads are listed apart, on the first page, for those who can finish them.
-  const [{ items, total, pageSize, clients }, drafts] = await Promise.all([
+  const [{ items, total, pageSize, clients, clientId }, drafts] = await Promise.all([
     api.catalogs.list({ ...client, ...(status ? { status } : {}), page: page - 1, kind: 'catalogs' }),
     writer && page === 1 && !status ? api.catalogs.list({ ...client, page: 0, kind: 'drafts' }) : Promise.resolve({ items: [] }),
   ]);
-  // No choice made: the client being worked on; "all" or a single client shows everything (the API chose the same).
-  const requested = sp.client === 'all' ? null : clients.find((c) => c.id === (sp.client ?? user.clientId))?.id ?? null;
-  const clientId = clients.length > 1 ? requested : null;
+  // The API chose the client: no choice made = the header switcher's active one (B4); "all" or a single client = everything.
   const uploadHref = clientId ? `/upload?client=${clientId}` : '/upload';
 
   return (

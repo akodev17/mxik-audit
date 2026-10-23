@@ -49,7 +49,8 @@ export async function buildAccountExport(orgId: string, locale?: Locale): Promis
     db.organization.findUniqueOrThrow({ where: { id: orgId }, select: { name: true, brandName: true, createdAt: true, rawRetentionDays: true } }),
     db.client.findMany({ where: { orgId }, select: { id: true, name: true, activity: true, createdAt: true } }),
     db.user.findMany({ where: { orgId }, select: { email: true, role: true, createdAt: true, totpEnabledAt: true, assignments: { select: { clientId: true } } } }),
-    db.catalog.findMany({ where: { orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, clientId: true, filename: true, rowCount: true, status: true, createdAt: true } }),
+    // Unconfirmed uploads (drafts) are not catalogues yet and are deleted after 48 h (B12).
+    db.catalog.findMany({ where: { orgId, status: { not: 'uploaded' } }, orderBy: { createdAt: 'asc' }, select: { id: true, clientId: true, filename: true, rowCount: true, status: true, createdAt: true } }),
     db.firmMapping.findMany({ where: { orgId }, select: { kind: true, label: true, unit: true, code: true, uses: true, createdAt: true, updatedAt: true } }),
     db.auditEvent.findMany({ where: { orgId }, orderBy: { createdAt: 'desc' }, take: MAX_EVENTS, select: { action: true, actorId: true, targetId: true, payload: true, createdAt: true } }),
   ]);

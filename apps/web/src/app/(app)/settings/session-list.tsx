@@ -13,7 +13,7 @@ import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Table, Td, Th } from '@/ui/table';
 import { Card, FLUSH_TABLE } from '../_manage/card';
-import { agoLabel } from './session-rows';
+import { agoLabel, shownSessions } from './session-rows';
 
 type Sessions = OutputOf<typeof endpoints.auth.sessions>;
 
@@ -25,6 +25,8 @@ export function SessionList({ initial }: { initial: Sessions }) {
   const queryClient = useQueryClient();
   const { data: sessions } = useSeededQuery(api.auth.sessions, initial);
   const [confirming, setConfirming] = useState(false);
+  const [all, setAll] = useState(false);
+  const shown = shownSessions(sessions, all);
   const refresh = (): Promise<void> => queryClient.invalidateQueries({ queryKey: queryKey(api.auth.sessions) });
   const end = useMutation({ mutationFn: (sid: string) => api.auth.endSession({ sid }), onSettled: refresh });
   const endOthers = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
@@ -52,7 +54,7 @@ export function SessionList({ initial }: { initial: Sessions }) {
           </tr>
         </thead>
         <tbody>
-          {sessions.map((row) => {
+          {shown.map((row) => {
             const seenAt = fmtDateTime(locale, row.lastSeenAt);
             return (
               <tr key={row.id} className={row.current ? 'bg-good-tint/40' : 'hover:bg-surface'}>
@@ -75,6 +77,13 @@ export function SessionList({ initial }: { initial: Sessions }) {
           })}
         </tbody>
       </Table>
+      {sessions.length > shown.length || all ? (
+        <div className="flex justify-center border-t border-line px-4 py-2">
+          <Button variant="ghost" size="sm" aria-expanded={all} onClick={() => setAll((v) => !v)}>
+            {all ? s.showFewer : s.showAll(sessions.length)}
+          </Button>
+        </div>
+      ) : null}
       <ConfirmDialog
         open={confirming} onClose={() => setConfirming(false)} tone="danger"
         title={s.endOthersTitle} description={s.endOthersText} confirmLabel={ta.security.endOthers}

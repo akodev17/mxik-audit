@@ -452,7 +452,6 @@ const coreUz = {
       verify: 'Tasdiqlash havolasi yaroqsiz yoki muddati tugagan. Qaytadan roʻyxatdan oʻting.',
       closed: 'Hisob oʻchirishga qoʻyildi. Administrator uni oʻchirish muddati tugamaguncha tiklay oladi.',
     } as Record<string, string>,
-    verifyNeeded: 'Elektron pochtani tasdiqlang: xatdagi havolani oching.',
     lastAdmin: 'Kamida bitta administrator qolishi kerak.',
     gate: {
       expired: 'Sinov muddati tugadi. Davom etish uchun Sozlamalar sahifasida tarifni faollashtiring.',
@@ -471,8 +470,6 @@ const coreUz = {
     mail: {
       inviteSubject: (org: string) => `${org}: taklifnoma`,
       inviteBody: (org: string, url: string, days: number) => `Sizni ${org} jamoasiga taklif qilishdi.\nQabul qilish: ${url}\nHavola ${days} kun amal qiladi.`,
-      verifySubject: 'Tasnivo: elektron pochtani tasdiqlang',
-      verifyBody: (url: string, hours: number) => `Hisobni faollashtirish uchun havolani oching:\n${url}\nHavola ${hours} soat amal qiladi.`,
     },
     signals: {
       dictionaryLabel: 'Lugʻat',
@@ -564,6 +561,7 @@ const coreUz = {
       'purchases.mapped': 'Xaridlar roʻyxati ustunlari tasdiqlandi',
       'purchases.deleted': 'Xaridlar roʻyxati oʻchirildi',
       'catalog.upload_discarded': 'Tasdiqlanmagan yuklash bekor qilindi',
+      'catalog.previewed': 'Fayl oʻqildi (tasdiqlanmagan)',
       'cheques.deleted': 'Cheklardagi xato kodlar roʻyxati oʻchirildi',
       'sales.deleted': 'Sotuv fayli oʻchirildi',
       'telegram.linked': 'Telegram ulandi',
@@ -587,6 +585,7 @@ const coreUz = {
       'security.password_reset': 'Parol tiklandi',
       'security.telegram_bound': 'Telegram orqali kirish ulandi',
       'security.telegram_unbound': 'Telegram orqali kirish uzildi',
+      'security.google_bound': 'Google orqali kirish ulandi',
       'finding.auto_accepted': 'Lugʻat boʻyicha avtomatik tasdiqlandi',
       'account.deletion_requested': 'Hisob oʻchirishga qoʻyildi',
       'account.restored': 'Hisob tiklandi',

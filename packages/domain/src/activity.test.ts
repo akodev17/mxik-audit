@@ -85,6 +85,35 @@ describe('activity log scoping (database)', { skip }, () => {
     assert.ok(rows.some((r) => r.action === 'catalog.deleted'));
   });
 
+  it('B19: an upload never confirmed reads "file read" and stays out of the summaries; a one-row undo names its product', async () => {
+    const org = await makeOrg();
+    const boss = await makePerson(org.orgId, 'admin');
+    const client = await makeClient(org.orgId, 'Mijoz');
+    const draft = (await makeClientCatalog(org.orgId, client, [{ name: 'Non', findings: [] }], { status: 'uploaded' })).catalogId;
+    const real = (await makeClientCatalog(org.orgId, client, [{ name: 'Sut', findings: [] }])).catalogId;
+    const ev = (action: string, targetId: string | null, payload: Prisma.InputJsonObject) =>
+      db.auditEvent.create({ data: { orgId: org.orgId, actorId: boss.userId, action, targetId, payload } });
+    try {
+      await ev('catalog.uploaded', draft, { clientId: client });
+      await ev('catalog.uploaded', 'discarded-one', { clientId: client });
+      await ev('catalog.upload_discarded', 'discarded-one', { catalogId: 'discarded-one', clientId: client });
+      await ev('catalog.uploaded', real, { clientId: client });
+      await ev('finding.undone', 'some-event', { catalogId: real, findings: [{ id: 'f1', productName: 'Sut' }] });
+
+      const full = (await activityPage(boss, all)).rows;
+      const byTarget = (action: string) => full.filter((r) => r.action === action).length;
+      assert.equal(byTarget('catalog.previewed'), 2, 'the draft and the discarded upload');
+      assert.equal(byTarget('catalog.uploaded'), 1, 'only the confirmed one');
+      assert.equal(full.find((r) => r.action === 'finding.undone')?.product, 'Sut');
+
+      const summary = (await activityPage(boss, all, { committedOnly: true })).rows.map((r) => r.action);
+      assert.ok(!summary.includes('catalog.previewed') && !summary.includes('catalog.upload_discarded'), summary.join());
+      assert.ok(summary.includes('catalog.uploaded'));
+    } finally {
+      await dropOrgs([org.orgId]);
+    }
+  });
+
   it('date filters use Tashkent calendar days', async () => {
     const start = tashkentDayStart('2026-10-19');
     assert.equal(start?.toISOString(), '2026-10-18T19:00:00.000Z');

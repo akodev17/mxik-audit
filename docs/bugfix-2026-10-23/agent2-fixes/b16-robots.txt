@@ -1,0 +1,24 @@
+User-Agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /catalogs
+Disallow: /clients
+Disallow: /queue
+Disallow: /activity
+Disallow: /notifications
+Disallow: /dictionary
+Disallow: /team
+Disallow: /upload
+Disallow: /settings
+Disallow: /admin
+Disallow: /review
+Disallow: /report
+Disallow: /export
+Disallow: /account-deleted
+Disallow: /styleguide
+Disallow: /r/
+Disallow: /invite/
+Disallow: /reset/
+Disallow: /demo/verify/
+Disallow: /api/
+

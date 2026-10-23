@@ -102,7 +102,8 @@ that reads it. At minimum:
 | `POSTGRES_PASSWORD` | a long random string: `openssl rand -hex 24` |
 | `SESSION_SECRET` | 32+ characters: `openssl rand -hex 32` (64 hex chars). Never rotate it casually (7g) |
 | `CRON_SECRET` | 16+ characters: `openssl rand -hex 24`; only for the HTTP cron routes (section 7) |
-| `SMTP_URL`, `MAIL_FROM` | your mail provider, e.g. `smtps://user:password@smtp.example.com:465` and `"Tasnivo <no-reply@tasnivo.uz>"`; required for demo requests, invites and password reset |
+| `SMTP_URL`, `MAIL_FROM` | your mail provider, e.g. `smtps://user:password@smtp.example.com:465` and `"Tasnivo <no-reply@tasnivo.uz>"`; **required**: sign-up is refused without them (the verification code cannot be sent), and demo requests, invites and password reset need them. Gmail: 7c. Test with `npm run mail:test -- you@example.com` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional: "Google orqali kirish" (7c); empty hides the button |
 | `APP_URL` | `https://tasnivo.uz` |
 | `NEXT_PUBLIC_SITE_URL` | `https://tasnivo.uz` |
 | `NEXT_PUBLIC_DEMO_URL` | `/demo` |
@@ -281,6 +282,58 @@ orders and provider transactions are in the `order` and `payment_transaction` ta
 
 ## 7c. Team, email and roles (optional)
 
+### Email delivery (required) and Gmail
+
+Every password sign-up must confirm its address with a 6-digit code sent by mail before anything
+else in the app opens, so production needs `SMTP_URL` and `MAIL_FROM`. Without them the API logs
+an error at start-up and `/sign-up` answers "temporarily unavailable"; it never lets an account in
+unconfirmed. (In development, without SMTP, every message goes to the API log and to
+`tmp/outbox/<time>.txt`; read the code there.)
+
+With a Gmail or Google Workspace mailbox:
+
+1. Turn on 2-Step Verification for the account (myaccount.google.com → Security).
+2. Create an app password: myaccount.google.com/apppasswords → name it "Tasnivo" → copy the
+   16 letters (leave the spaces out).
+3. In `.env`:
+   ```
+   SMTP_URL=smtps://you%40gmail.com:abcdefghijklmnop@smtp.gmail.com:465
+   MAIL_FROM="Tasnivo <you@gmail.com>"
+   ```
+   The `@` of the address is written `%40` inside the URL. `MAIL_FROM` must be that mailbox
+   (or an alias set up in Gmail → "Send mail as"), or Gmail rewrites the sender.
+4. Recreate the api and worker (`docker compose up -d api worker`) and send a test:
+   `docker compose exec api npm run mail:test -- you@example.com` (locally:
+   `npm run mail:test -- you@example.com`). "Sent to …" means Gmail accepted it; `Invalid login`
+   means the app password or the address is wrong. Gmail limits a personal account to about 500
+   recipients a day; for more, use Workspace or a transactional provider (any `smtp://` /
+   `smtps://` URL works).
+
+Codes are valid 15 minutes, a code allows 5 wrong entries, a new code replaces the old one, code
+entries are limited to 10 per 15 minutes per user, and "Kodni qayta yuborish" to 3 an hour per
+address. Links from confirmation mails sent before the codes still work for their 48 hours.
+
+### Google sign-in (optional)
+
+1. Google Cloud Console → APIs & Services → OAuth consent screen: External, app name Tasnivo,
+   scopes `openid`, `email`, `profile`; publish it.
+2. Credentials → Create credentials → OAuth client ID → Web application. Authorised redirect URI:
+   `https://tasnivo.uz/api/auth/google/callback` (for local testing add
+   `http://localhost:3011/api/auth/google/callback` and set `GOOGLE_REDIRECT_URI` to it).
+3. Put the client ID and secret in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and recreate the
+   api. The button appears on /sign-in and /sign-up.
+
+The flow is the authorization-code flow with PKCE, a one-time `state` and a `nonce` (kept in the
+session cookie for 10 minutes); the ID token is checked against Google's published keys
+(signature, issuer, audience, expiry, nonce). A Google account whose address Google has verified
+signs in as the user bound to it; else as the user with the same address **if that address is
+already confirmed** (the Google account is then bound to them, `security.google_bound`); an
+unconfirmed account with that address is refused (sign in with the password and confirm it
+first). Otherwise a new 14-day trial account is opened, confirmed. A Google-only account has a
+random password; "Parolni unutdingizmi?" sets one.
+
+### Team
+
 Members join through invite links created in Sozlamalar. To also email the link set `SMTP_URL` and `MAIL_FROM`; without them the link is only shown on screen. `APP_URL` makes links absolute (emailed confirmation and password-reset links need it). Roles: admin (everything), accountant (works on assigned clients), viewer (read-only). An accountant or viewer with no assigned clients sees every client of the org.
 
 Removing a member (Sozlamalar → Jamoa) is one transaction, checked first so the last admin can never be removed: their sessions end, the API keys they created are revoked (an `apikey.revoked` event per key; programs using those keys get 401), the Telegram chats they linked are unlinked and their pending invites are deleted; `team.removed` records the counts. The API key list shows who created each key.
@@ -288,24 +341,37 @@ Removing a member (Sozlamalar → Jamoa) is one transaction, checked first so th
 Address confirmation and invites:
 
 - An invite created **with** an email address confirms that address when it is accepted (the admin chose it).
-- An invite created **without** one lets the person type any address. With SMTP on, a confirmation link is mailed on join; until it is opened the member cannot sign in again with the password. Without SMTP the address stays unconfirmed, and once you configure SMTP the member is asked to confirm it at the next sign-in ("Tasdiqlash havolasini qayta yuborish" on the sign-in page sends a new link; it needs the right email and password, and answers the same either way).
+- An invite created **without** one lets the person type any address. A verification code is mailed on join and the member lands on the code step; nothing else opens until the code is entered (a new code can be requested there, and signing in again leads back to it).
 - Members who joined through an emailed invite before this version were never marked confirmed. Before turning SMTP on, confirm them once:
 
 ```bash
 docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" u SET \"emailVerifiedAt\" = now() FROM invite i WHERE u.\"emailVerifiedAt\" IS NULL AND i.\"usedAt\" IS NOT NULL AND i.\"orgId\" = u.\"orgId\" AND lower(i.email) = u.email;"
 ```
 
-With SMTP on, signing up with an address that already has an account answers "check your email" exactly like a new signup; the owner gets either a "someone tried to sign up" note (confirmed account) or a link to confirm and choose a password (unconfirmed account), so the sign-up page never reveals which addresses are registered and nobody can pre-register someone else's address with a password they know.
+Signing up with an address that already has an account answers "check your email" (a new address goes to the code step instead, so the difference is visible; sign-up is rate-limited per client address); the owner gets either a "someone tried to sign up" note (confirmed account) or a link to confirm and choose a password (unconfirmed account), so the sign-up page never reveals which addresses are registered and nobody can pre-register someone else's address with a password they know.
 
 ## 7d. Signup, trial and plan limits
 
-/sign-up opens a 14-day trial organisation. With SMTP configured (7c) the address must be confirmed by email before first sign-in; without SMTP it signs in at once. Limits (clients, rows per month, seats, API checks) are each plan's, in `packages/domain/src/billing/plans.ts` (the trial and the tiers; the tier is that of the org's latest paid subscription order, the top tier when a subscription was set by hand). At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the Click/Payme flow or a recorded bank transfer (7b).
+/sign-up opens a 14-day trial organisation (`trialEndsAt` = now + 14 days, set when the organisation is created) and signs the new admin in to the code step: the address must be confirmed with the mailed code (7c) before any other page or API call works (the API answers 403 `unverified`). Accounts opened with Telegram or Google get the same trial and count as confirmed. Limits (clients, rows per month, seats, API checks) are each plan's, in `packages/domain/src/billing/plans.ts` (the trial and the tiers; the tier is that of the org's latest paid subscription order, the top tier when a subscription was set by hand). At 80% the app warns, at 100% (or after the trial) uploads, new clients and invites are refused while everything stays readable; upgrade goes through the Click/Payme flow or a recorded bank transfer (7b).
 
 An upload waits at the column-mapping step as an uncommitted preview, and its rows count against the monthly allowance only once the mapping is confirmed. Previews are limited on their own: a user's new upload deletes their earlier open preview, an upload is refused (with a message) when the org's open preview rows from the last 24 hours would exceed the plan's monthly row limit (200,000 when the plan has none; `PREVIEW_ROWS_UNCAPPED` in `packages/domain/src/plan.ts`), and the daily job (7e) deletes previews left for 48 hours. Each deletion writes `catalog.upload_discarded` with `reason` `replaced` or `expired` (the latter without an actor). These numbers are not `.env` settings.
 
 Uploads are limited to 20 MB by the app and to 30 MB per request body by Caddy (`infra/routes.caddy`); catalogue uploads, exports and the public API may take up to 300 s, other `/api` requests 60 s to start answering.
 
-"Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (`/setdomain` → `tasnivo.uz`); it has not been tested against a live bot. How Telegram sign-in decides who you are is in 7g.
+"Telegram orqali kirish" appears when TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME are set and the bot domain is registered with BotFather (`/setdomain` → `tasnivo.uz`). It is covered by automated tests of the signature check and the account logic, not yet by a live bot. How Telegram sign-in decides who you are is in 7g.
+
+Manual check with a real bot (once, after deploy):
+
+1. @BotFather → `/newbot` (or the existing bot) → note the token and the @username; `/setdomain` →
+   the bot → `tasnivo.uz` (for a local test, a tunnel's HTTPS host: the widget refuses `localhost`).
+2. `.env`: `TELEGRAM_BOT_TOKEN=…`, `TELEGRAM_BOT_USERNAME=…` (without @); recreate the api and web.
+3. In a private window open /sign-in → the Telegram button → confirm in Telegram. A Telegram account
+   never seen before lands on /dashboard of a new trial org (the plan banner shows 14 days left);
+   the audit log has `account.created` with `via: telegram`.
+4. Sign out, sign in with the same Telegram account → the same org (no second org).
+5. As a password user: Settings → Xavfsizlik → bind Telegram, sign out, sign in with Telegram →
+   that user. A Telegram id that is only a notification chat of some org, never bound, is refused
+   (`telegram_unbound`).
 
 ## 7e. Daily jobs (monthly reminders)
 

@@ -4,6 +4,7 @@
 import { db } from '@tasnivo/db';
 import { planLimits, WARN_AT, type LimitKey, type Limits } from './billing/limits';
 import { PLAN_FEATURES, planById, SUBSCRIPTION_IDS, type Feature, type Plan, type Tier } from './billing/plans';
+import { rowsUsed } from './usage-ledger';
 
 export type PlanState = 'unlimited' | 'trial' | 'firm' | 'expired';
 
@@ -24,21 +25,21 @@ export type PlanStatus = {
 };
 
 const KEYS: LimitKey[] = ['clients', 'rowsPerMonth', 'seats'];
-const monthStart = (now: Date): Date => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
 /**
- * Rows count once a catalogue is committed (its mapping confirmed): a preview
- * left at "uploaded", then abandoned or discarded, never uses the allowance.
- * Previews have their own cap instead (previewGate) and are swept after 48 hours.
+ * Rows count once a catalogue is committed (its mapping confirmed) and stay counted for the month
+ * when it is deleted: they are read from the usage ledger (usage-ledger.ts), not from the catalogues
+ * that still exist. A preview left at "uploaded", then abandoned or discarded, never uses the
+ * allowance; previews have their own cap instead (previewGate) and are swept after 48 hours.
  */
 export async function usageOf(orgId: string, now = new Date()): Promise<Usage> {
   const [clients, rows, users, invites] = await Promise.all([
     db.client.count({ where: { orgId } }),
-    db.catalog.aggregate({ where: { orgId, createdAt: { gte: monthStart(now) }, status: { not: 'uploaded' } }, _sum: { rowCount: true } }),
+    rowsUsed(orgId, now),
     db.user.count({ where: { orgId } }),
     db.invite.count({ where: { orgId, usedAt: null, expiresAt: { gt: now } } }),
   ]);
-  return { clients, rowsPerMonth: rows._sum.rowCount ?? 0, seats: users + invites };
+  return { clients, rowsPerMonth: rows, seats: users + invites };
 }
 
 /** The org's latest paid subscription plan (its tier and period); null when it never paid for one. */

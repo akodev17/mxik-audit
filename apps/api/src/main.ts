@@ -4,6 +4,7 @@
 import 'reflect-metadata';
 import './config/bootstrap-env';
 import { Logger } from '@nestjs/common';
+import { mailEnabled } from '@tasnivo/domain/mailer';
 import { parseEnv, InvalidEnvError } from './config/env';
 import { createApp } from './app';
 
@@ -14,6 +15,8 @@ async function main(): Promise<void> {
     const config = parseEnv(process.env);
     port = config.port;
     if (config.production && !config.siteOrigin) logger.warn('NEXT_PUBLIC_SITE_URL is unset: CSRF checks the X-Requested-With header only, not the Origin.');
+    // Sign-up needs the verification code to reach the mailbox; without SMTP it is refused (never skipped).
+    if (config.production && !mailEnabled()) logger.error('SMTP_URL and MAIL_FROM are not set: sign-up is refused until they are (the e-mail verification code cannot be sent). See DEPLOY.md.');
   } catch (error) {
     if (error instanceof InvalidEnvError) {
       console.error(error.message);

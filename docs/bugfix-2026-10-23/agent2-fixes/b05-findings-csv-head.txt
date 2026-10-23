@@ -1,0 +1,9 @@
+GET /api/catalog-report-csv?catalog=cmt1jk6jw0004vj646ukct7x7 (demo-katalog.xlsx, seed user, web 127.0.0.1:3016 → API 4016), first lines:
+
+Qator,Tovar,Topilma turi,Hozirgi kod,Hozirgi kod nomi,Taklif,Taklif nomi,Qaror,Tanlangan kod,Manba,Qaror qabul qilgan
+1,TIRIK TOLSTOLOBIK 330 ML,Nomga mos emas,"=""00204004001000000""","Bo’lingan yangi, sovutilgan echki go’shti","=""00301001005000000""",Tirik tolstolobik,Koʻrib chiqilmagan,,,
+2,"Baliq ikrasi: Putina, qizil donador 240 g 1,5 L",Nomga mos emas,"=""00210004003000000""",Dudlangan cho’chqa go’shti va uning ozuqabop mahsulotlari,"=""00302003002002005""","Baliq ikrasi: Putina, qizil donador 240 g",Koʻrib chiqilmagan,,,
+
+Each code cell is the CSV field "=""00204004001000000""", i.e. the cell ="00204004001000000",
+which Excel and LibreOffice read as the text 00204004001000000 (leading zeros, all 17 digits).
+Before the fix the same cell was the bare 00204004001000000, read by Excel as 2.04004E+14.

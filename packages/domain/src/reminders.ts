@@ -5,6 +5,7 @@ import { appLink, telegramConfig } from './telegram/config.js';
 import { db } from '@tasnivo/db';
 import type { Result } from './decisions.js';
 import { appDict } from '@tasnivo/i18n/i18n-app';
+import { inEveryLocale } from './notification-text.js';
 import { orgLocale } from './org-locale.js';
 import { orgHasFeature } from './plan.js';
 import { localDate, nextReminderDate, skipsThisMonth } from './reminder-dates.js';
@@ -144,11 +145,11 @@ export async function runReminders(now = new Date()): Promise<{ created: number;
     await db.reminderTask.upsert({ where: { clientId_period: { clientId: s.clientId, period } }, create: { orgId: s.orgId, clientId: s.clientId, period, dueOn }, update: {} });
     created += 1;
 
-    const ta = appDict(await orgLocale(s.orgId));
-    const title = ta.reminders.message(s.client.name);
+    const text = inEveryLocale((l) => ({ title: appDict(l).reminders.message(s.client.name), body: appDict(l).reminders.body }));
+    const { title, body } = text[await orgLocale(s.orgId)];
     const href = `/clients/${s.clientId}`;
     const link = appLink(telegramConfig(), href);
-    await db.notification.create({ data: { orgId: s.orgId, clientId: s.clientId, kind: 'reminder.monthly', title, body: ta.reminders.body, href, telegramSentAt: new Date() } });
+    await db.notification.create({ data: { orgId: s.orgId, clientId: s.clientId, kind: 'reminder.monthly', title, body, text, href, telegramSentAt: new Date() } });
     messaged += await telegram(s.orgId, await recipients(s.orgId, s.clientId, s.assigneeId), link ? `${title}\n${link}` : title);
     await db.auditEvent.create({ data: { orgId: s.orgId, actorId: null, action: 'reminder.sent', targetId: s.clientId, payload: { clientId: s.clientId, period } } });
   }

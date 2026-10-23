@@ -47,4 +47,12 @@ describe('guessMapping name column', () => {
     assert.equal(guessMapping(['№', 'Артикул', 'Описание']).name, 2);
     assert.equal(guessMapping(['Код', 'ИКПУ']).name, 0);
   });
+
+  it('B2: reads an Uzbek-Cyrillic list: "Т/р" is the row number, the Latin "МХИК номи" is the name', () => {
+    const m = guessMapping(['Т/р', 'МХИК коди', 'МХИК номи (Лотин алифбосида)', 'МХИК номи (Ўзб)', 'МХИК номи (Рус)']);
+    assert.deepEqual([m.name, m.mxik], [2, 1]);
+    assert.equal(guessMapping(['Т/р', 'МХИК номи (Ўзб)', 'МХИК номи (Лотин алифбосида)']).name, 2, 'the Latin one wins anywhere');
+    assert.equal(guessMapping(['№', 'Маҳсулот номи', 'Нархи']).name, 1);
+    for (const h of ['Т/р', 'т/р', 'П/п', '№ п/п', 't/r', 'TR']) assert.equal(guessMapping([h, 'Kolonka']).name, 1, h);
+  });
 });

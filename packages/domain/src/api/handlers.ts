@@ -70,7 +70,8 @@ export async function listCatalogsOperation(caller: ApiCaller, query: { limit: s
   const limit = pageLimit(query.limit, PAGE.catalogs);
   const { cursor, clientId } = query;
   if (clientId && !(await ownedClient(caller.orgId, clientId))) return plain(failure(op, 'not_found', 'Unknown clientId.'));
-  const where = { orgId: caller.orgId, ...(clientId ? { clientId } : {}) };
+  // Unconfirmed uploads (drafts) are not catalogues yet: the web list keeps them apart and they expire (B12).
+  const where = { orgId: caller.orgId, status: { not: 'uploaded' as const }, ...(clientId ? { clientId } : {}) };
   if (cursor && !(await db.catalog.findFirst({ where: { ...where, id: cursor }, select: { id: true } }))) {
     return plain(failure(op, 'invalid_request', BAD_CURSOR));
   }
@@ -124,6 +125,11 @@ export async function uploadCatalogOperation(caller: ApiCaller, input: UploadInp
     const mapping = await mappingFor(caller.orgId, parsed.headers);
     const { catalogId } = await storeCatalog({ orgId: caller.orgId, userId: null, clientId: client.id, filename: file.name, parsed, mapping });
     const applied = await applyMapping(caller.orgId, catalogId, mapping);
+    if ('error' in applied && applied.error === 'over_allowance') {
+      // Another upload took the room since the gate above; the stored preview is of no use to an API caller.
+      await db.catalog.deleteMany({ where: { id: catalogId, status: 'uploaded' } });
+      return failure(op, 'plan_limit', 'The monthly row allowance of the plan would be exceeded.');
+    }
     if ('error' in applied) return failure(op, 'unreadable_file', 'No product name column was found in the file.');
 
     await startAudit(catalogId, null, { mapping, via: 'api' });

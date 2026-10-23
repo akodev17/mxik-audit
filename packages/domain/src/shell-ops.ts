@@ -12,9 +12,11 @@ export type ShellFail = { ok: false; error: 'auth' | 'invalid' | 'not_found' | '
 const failed: ShellFail = { ok: false, error: 'failed' };
 
 /** One page of the notifications page (from 0), and the unread count for its tab. */
-export async function noticesPage(user: NoticeUser, opts: { page: number; unreadOnly: boolean; group?: NoticeGroup | undefined }): Promise<NoticePage & { unread: number }> {
+export async function noticesPage(
+  user: NoticeUser, opts: { page: number; unreadOnly: boolean; group?: NoticeGroup | undefined; locale?: Locale },
+): Promise<NoticePage & { unread: number }> {
   const [list, unread] = await Promise.all([
-    listNotifications(user, { page: opts.page, unreadOnly: opts.unreadOnly, group: opts.group }),
+    listNotifications(user, { page: opts.page, unreadOnly: opts.unreadOnly, group: opts.group, locale: opts.locale }),
     unreadCount(user),
   ]);
   return { ...list, unread };
@@ -25,10 +27,10 @@ export const BELL_SIZE = 6;
 
 export type BellPreview = { ok: true; items: NoticeView[]; unread: number; total: number };
 
-/** Latest notifications for the bell; reading them does not mark them read. */
-export async function bellPreview(user: NoticeUser): Promise<BellPreview | ShellFail> {
+/** Latest notifications for the bell, in the reader's language; reading them does not mark them read. */
+export async function bellPreview(user: NoticeUser, locale?: Locale): Promise<BellPreview | ShellFail> {
   try {
-    const [page, unread] = await Promise.all([listNotifications(user, { pageSize: BELL_SIZE }), unreadCount(user)]);
+    const [page, unread] = await Promise.all([listNotifications(user, { pageSize: BELL_SIZE, locale }), unreadCount(user)]);
     return { ok: true, items: page.items, unread, total: page.total };
   } catch {
     return failed;

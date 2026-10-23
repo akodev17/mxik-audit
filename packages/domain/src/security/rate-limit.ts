@@ -23,6 +23,8 @@ export const RULES = {
   resetEmail: { kind: 'reset', limit: 3, windowMs: 60 * MINUTE },
   resetIp: { kind: 'reset_ip', limit: 10, windowMs: 60 * MINUTE },
   resendEmail: { kind: 'resend', limit: 3, windowMs: 60 * MINUTE },
+  /** E-mail confirmation codes entered by one user, across codes (each code also allows only CODE_TRIES). */
+  verifyCodeUser: { kind: 'verify_code', limit: 10, windowMs: 15 * MINUTE },
   resendIp: { kind: 'resend_ip', limit: 10, windowMs: 60 * MINUTE },
   signupIp: { kind: 'signup', limit: 8, windowMs: 60 * MINUTE },
   /** Public lead form submissions from one address. */

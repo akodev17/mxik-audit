@@ -64,6 +64,8 @@ export type WorkspaceProps = {
 
 const DENSITY_KEY = 'mxik.density';
 const COLUMNS_KEY = 'mxik.columns.hidden';
+/** Quiet time after the last single decision before the count and the chips are read again. */
+const RECOUNT_MS = 600;
 
 /** Rows, totals and counts of one catalogue and filter in React Query's cache. */
 const keys = {
@@ -136,9 +138,18 @@ export function Workspace(props: WorkspaceProps) {
     void queryClient.invalidateQueries({ queryKey: keys.summary(catalogId), exact: true });
     void queryClient.invalidateQueries({ queryKey: keys.counts(catalogId, fkey), exact: true });
   }, [queryClient, catalogId, fkey]);
+  // A single decision or undo moves the toolbar's count and the chips too (B18): recounted once the clicks settle.
+  const chipsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recountChips = useCallback(() => {
+    if (chipsTimer.current) clearTimeout(chipsTimer.current);
+    chipsTimer.current = setTimeout(() => {
+      void queryClient.invalidateQueries({ queryKey: keys.counts(catalogId, fkey), exact: true });
+    }, RECOUNT_MS);
+  }, [queryClient, catalogId, fkey]);
+  useEffect(() => () => { if (chipsTimer.current) clearTimeout(chipsTimer.current); }, []);
   // A fresh server summary already counts what the local delta tracked.
   useEffect(() => { setDelta(0); }, [summaryQuery.dataUpdatedAt]);
-  const { apply, applyGroup, applyMany, reportMany, revert, flagMany, setCommentMeta, ungroup } = useDecisions(rows, mapRows, onReviewed, setMessage, recount);
+  const { apply, applyGroup, applyMany, reportMany, revert, flagMany, setCommentMeta, ungroup } = useDecisions(rows, mapRows, onReviewed, setMessage, recount, recountChips);
 
   const next = pages.hasNextPage ? 'more' : null;
   const loadFailed = pages.isFetchNextPageError && !pages.isFetchingNextPage;

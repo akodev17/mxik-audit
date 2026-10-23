@@ -22,6 +22,8 @@ export type SessionData = {
   /** One-time state for binding Telegram from Settings, and when it was issued. */
   tgBind?: string;
   tgBindAt?: number;
+  /** Google sign-in under way (security/google.ts): one-time state, PKCE verifier, nonce, when it began, where to land. */
+  google?: { state: string; verifier: string; nonce: string; at: number; next?: string };
 };
 
 const PASSWORD = process.env['SESSION_SECRET'] ?? '';
@@ -55,17 +57,24 @@ export type CurrentUser = {
   clientIds: string[] | null;
 };
 
-export type Access = { role: Role; clientIds: string[] | null; demoOrg: boolean };
+/**
+ * A CurrentUser plus whether their e-mail address is confirmed. The API refuses an unconfirmed user
+ * everything but the code step (AccessGuard); a demo user needs no address and counts as confirmed.
+ */
+export type SignedInUser = CurrentUser & { verified: boolean };
+
+export type Access = { role: Role; clientIds: string[] | null; demoOrg: boolean; verified: boolean };
 
 /** Role and client scope come from the database, so a change applies at once. */
 export async function loadAccess(userId: string, orgId: string): Promise<Access | null> {
   const user = await db.user.findFirst({
     where: { id: userId, orgId, org: { deletedAt: null } },
-    select: { role: true, assignments: { select: { clientId: true } }, org: { select: { kind: true, expiresAt: true } } },
+    select: { role: true, emailVerifiedAt: true, assignments: { select: { clientId: true } }, org: { select: { kind: true, expiresAt: true } } },
   });
   if (!user) return null;
   // A demo is over at its fixed end, whatever the cookie says; the purge job only tidies up afterwards.
   if (user.org.kind === 'demo' && (!user.org.expiresAt || user.org.expiresAt <= new Date())) return null;
   const assigned = user.assignments.map((a) => a.clientId);
-  return { role: user.role, clientIds: user.role === 'admin' || assigned.length === 0 ? null : assigned, demoOrg: user.org.kind === 'demo' };
+  const demoOrg = user.org.kind === 'demo';
+  return { role: user.role, clientIds: user.role === 'admin' || assigned.length === 0 ? null : assigned, demoOrg, verified: demoOrg || user.emailVerifiedAt !== null };
 }

@@ -74,6 +74,40 @@ export const uz = {
       lead: 'Hisob yopilgan. Maʼlumotlar belgilangan sanagacha saqlanadi.',
     },
   },
+  /** E-mail confirmation by code (sign-up and unconfirmed sign-in), and Google sign-in (Agent 1, 23 Oct). */
+  verifyX: {
+    _area: 'auth',
+    title: 'Elektron pochtani tasdiqlang',
+    lead: (email: string) => `${email} manziliga 6 xonali kod yubordik. Davom etish uchun kodni kiriting.`,
+    codeLabel: 'Tasdiqlash kodi',
+    submit: 'Tasdiqlash',
+    resend: 'Kodni qayta yuborish',
+    resent: 'Yangi kod yuborildi. Pochtani, jumladan “Spam” jildini tekshiring.',
+    resendFailed: 'Kodni yuborib boʻlmadi. Birozdan keyin qayta urinib koʻring.',
+    wrong: 'Kod notoʻgʻri. Qayta tekshirib kiriting.',
+    locked: 'Notoʻgʻri urinishlar juda koʻp. Yangi kod soʻrang.',
+    expired: 'Kod eskirgan yoki allaqachon ishlatilgan. Yangi kod soʻrang.',
+    spam: 'Xat bir necha daqiqada kelmasa, “Spam” jildini tekshiring.',
+    otherAccount: 'Boshqa hisob bilan kirish',
+    /** The API's 403 for an unconfirmed address. */
+    required: 'Davom etish uchun elektron pochtani tasdiqlang.',
+    /** Production without SMTP: sign-up refuses instead of skipping the confirmation. */
+    mailOff: 'Roʻyxatdan oʻtish vaqtincha ishlamayapti: tasdiqlash xatini yuborib boʻlmaydi. Keyinroq urinib koʻring.',
+    mailSubject: (code: string) => `Tasnivo tasdiqlash kodi: ${code}`,
+    mailBody: (code: string, minutes: number) => `Tasnivo hisobingizni tasdiqlash kodi:
+
+${code}
+
+Kod ${minutes} daqiqa amal qiladi. Agar siz Tasnivoda roʻyxatdan oʻtmagan boʻlsangiz, bu xatga eʼtibor bermang.`,
+    google: 'Google orqali kirish',
+    notices: {
+      google: 'Google orqali kirib boʻlmadi. Qayta urinib koʻring.',
+      google_state: 'Google orqali kirish muddati tugadi. Qayta urinib koʻring.',
+      google_unverified: 'Google hisobingizdagi elektron pochta tasdiqlanmagan.',
+      google_conflict: 'Bu elektron pochta bilan hisob bor, lekin u hali tasdiqlanmagan. Parol bilan kiring va pochtani tasdiqlang.',
+      google_limit: 'Bu manzildan juda koʻp roʻyxatdan oʻtish. Birozdan keyin urinib koʻring.',
+    } as Record<string, string>,
+  },
 };
 
 export const ru: typeof uz = {
@@ -147,6 +181,37 @@ export const ru: typeof uz = {
     },
     closed: {
       lead: 'Аккаунт закрыт. Данные хранятся до указанной даты.',
+    },
+  },
+  verifyX: {
+    _area: 'auth',
+    title: 'Подтвердите электронную почту',
+    lead: (email: string) => `Мы отправили 6-значный код на ${email}. Введите его, чтобы продолжить.`,
+    codeLabel: 'Код подтверждения',
+    submit: 'Подтвердить',
+    resend: 'Отправить код ещё раз',
+    resent: 'Новый код отправлен. Проверьте почту, в том числе папку «Спам».',
+    resendFailed: 'Не удалось отправить код. Попробуйте чуть позже.',
+    wrong: 'Неверный код. Проверьте и введите ещё раз.',
+    locked: 'Слишком много неверных попыток. Запросите новый код.',
+    expired: 'Код устарел или уже использован. Запросите новый код.',
+    spam: 'Если письмо не пришло за несколько минут, проверьте папку «Спам».',
+    otherAccount: 'Войти с другим аккаунтом',
+    required: 'Подтвердите электронную почту, чтобы продолжить.',
+    mailOff: 'Регистрация временно недоступна: не удаётся отправить письмо с подтверждением. Попробуйте позже.',
+    mailSubject: (code: string) => `Код подтверждения Tasnivo: ${code}`,
+    mailBody: (code: string, minutes: number) => `Код подтверждения вашего аккаунта Tasnivo:
+
+${code}
+
+Код действует ${minutes} мин. Если вы не регистрировались в Tasnivo, просто проигнорируйте это письмо.`,
+    google: 'Войти через Google',
+    notices: {
+      google: 'Не удалось войти через Google. Попробуйте ещё раз.',
+      google_state: 'Время входа через Google истекло. Попробуйте ещё раз.',
+      google_unverified: 'Электронная почта вашего аккаунта Google не подтверждена.',
+      google_conflict: 'Аккаунт с этой почтой уже есть, но почта ещё не подтверждена. Войдите по паролю и подтвердите почту.',
+      google_limit: 'Слишком много регистраций с этого адреса. Попробуйте чуть позже.',
     },
   },
 };

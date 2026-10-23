@@ -6,7 +6,7 @@ import type { ClassifierChangeKind } from '@prisma/client';
 import { auditContext, checkItem, findingData, type AuditContext } from './audit-runner.js';
 import { db } from '@tasnivo/db';
 import { orgLocale } from './org-locale.js';
-import { updateBody, updateTitle, type UpdateCounts } from './notification-text.js';
+import { inEveryLocale, updateBody, updateTitle, type UpdateCounts } from './notification-text.js';
 import { notify } from './notifications.js';
 
 export type ClientRecheck = UpdateCounts & { clientId: string; clientName: string; catalogId: string; affectedRows: number };
@@ -137,6 +137,7 @@ export async function recheckAfterUpdate(snapshotId: number, log: (line: string)
         kind: 'classifier.updated',
         title,
         body: updateBody(result, target.filename, snapshot.takenAt, locale),
+        text: inEveryLocale((l) => ({ title: updateTitle(target.clientName, result, l), body: updateBody(result, target.filename, snapshot.takenAt, l) })),
         href: `/catalogs/${target.catalogId}`,
       });
     }
