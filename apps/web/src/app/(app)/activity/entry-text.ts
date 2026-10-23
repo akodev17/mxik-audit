@@ -46,3 +46,32 @@ export function entryTitle(entry: ActivityEntry, ta: AppDict, locale: Locale): s
 export function entryHead(entry: ActivityEntry): ActivityRow | undefined {
   return entry.kind === 'event' ? entry.row : entry.rows[0];
 }
+
+/** Text split around 17-digit classifier codes, so they can be shown as code chips. */
+export function codeParts(text: string): { text: string; code: boolean }[] {
+  const parts: { text: string; code: boolean }[] = [];
+  let last = 0;
+  for (const m of text.matchAll(/(?<!\d)\d{17}(?!\d)/g)) {
+    const at = m.index ?? 0;
+    if (at > last) parts.push({ text: text.slice(last, at), code: false });
+    parts.push({ text: m[0], code: true });
+    last = at + m[0].length;
+  }
+  if (last < text.length || parts.length === 0) parts.push({ text: text.slice(last), code: false });
+  return parts;
+}
+
+export type EntryKind = 'decision' | 'upload' | 'export' | 'share' | 'client' | 'team' | 'classifier' | 'dictionary' | 'other';
+
+/** The kind of an action, for the mark beside it in the timeline (the words say what happened). */
+export function entryKind(action: string): EntryKind {
+  if (/^(finding|item|suggestion)\./.test(action)) return 'decision';
+  if (/export/.test(action)) return 'export';
+  if (/^(catalog|purchases|sales|cheques)\./.test(action)) return 'upload';
+  if (action.startsWith('share.')) return 'share';
+  if (/^(client|schedule|reminder|review)\./.test(action)) return 'client';
+  if (action.startsWith('classifier.')) return 'classifier';
+  if (action.startsWith('dictionary.')) return 'dictionary';
+  if (/^(team|account|apikey|security|telegram|billing|retention|demo)\./.test(action)) return 'team';
+  return 'other';
+}

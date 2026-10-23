@@ -4,14 +4,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { fmtDateTime } from '@tasnivo/i18n/format';
+import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
 import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '../button';
 import { cx } from '../cx';
-import { IconBell } from '../icons';
+import { IconBell, IconCheck } from '../icons';
 import { Spinner } from '../spinner';
 import { useToast } from '../toast';
+import { NoticeMark } from './notice-kind';
 import { bellQuery, type BellPreview } from './shell-queries';
 import { useDropdown } from './use-dropdown';
 
@@ -110,10 +111,15 @@ export function NotificationBell({ initialUnread }: { initialUnread: number | nu
             'max-sm:fixed max-sm:inset-x-2 max-sm:top-14 sm:absolute sm:right-0 sm:top-full sm:mt-1 sm:w-96',
           )}
         >
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-line px-3 py-2">
-            <h2 id={`${dd.panelId}-title`} className="text-data font-semibold">{ta.shellX.bell.title}</h2>
+          <div className="flex items-center justify-between gap-2 border-b border-line py-2 pl-4 pr-2">
+            <h2 id={`${dd.panelId}-title`} className="flex min-w-0 items-center gap-2 text-data font-semibold">
+              <span className="truncate">{ta.shellX.bell.title}</span>
+              {count > 0 ? <span className="shrink-0 rounded-full bg-brand-tint px-2 py-0.5 text-micro font-medium tabular-nums text-brand-ink">{ta.shellX.bell.newCount(fmtNumber(locale, count))}</span> : null}
+            </h2>
             {count > 0 ? (
-              <Button variant="ghost" size="compact" loading={marking} onClick={() => { void markAll(); }}>{ta.shellX.bell.markAll}</Button>
+              <Button variant="ghost" size="compact" loading={marking} onClick={() => { void markAll(); }} aria-label={ta.shellX.bell.markAll} title={ta.shellX.bell.markAll}>
+                <IconCheck size={14} />{ta.shellX.bell.markAllShort}
+              </Button>
             ) : null}
           </div>
           <div className="relative min-h-0 flex-1 overflow-y-auto">
@@ -125,19 +131,22 @@ export function NotificationBell({ initialUnread }: { initialUnread: number | nu
                 <Button size="sm" onClick={load}>{ta.shellX.bell.retry}</Button>
               </div>
             ) : preview.items.length === 0 ? (
-              <p className="px-3 py-8 text-center text-small text-muted">{ta.shellX.bell.empty}</p>
+              <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                <span aria-hidden className="grid size-10 place-items-center rounded-full bg-sunken text-muted"><IconBell size={18} /></span>
+                <p className="text-small text-muted">{ta.shellX.bell.empty}</p>
+              </div>
             ) : (
-              <ul className="divide-y divide-line">
+              <ul className="p-1">
                 {preview.items.map((n) => (
                   <li key={n.id}>
                     <Link
                       href={n.href ?? '/notifications'}
                       onClick={() => openItem(n)}
-                      className="relative flex gap-2.5 px-3 py-2.5 hover:bg-surface focus-visible:outline-offset-[-2px]"
+                      className={cx('relative flex gap-3 rounded-sm px-3 py-2.5 hover:bg-surface focus-visible:outline-offset-[-2px]', n.unread && 'bg-brand-tint/40')}
                     >
-                      <span aria-hidden className={cx('mt-1.5 size-2 shrink-0 rounded-full', n.unread ? 'bg-brand' : 'bg-transparent')} />
+                      <NoticeMark kind={n.kind} className="mt-0.5" />
                       <span className="min-w-0 flex-1">
-                        <span className={cx('line-clamp-2 text-data', n.unread ? 'font-semibold' : 'font-normal')}>
+                        <span className={cx('line-clamp-2 text-data', n.unread ? 'font-semibold text-fg' : 'font-normal text-muted')}>
                           {n.unread ? <span className="sr-only">{ta.shellX.bell.unread}: </span> : null}
                           {n.title}
                         </span>
@@ -145,6 +154,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number | nu
                           {n.client?.name ?? ta.shellX.bell.general} · {fmtDateTime(locale, n.createdAt)}
                         </span>
                       </span>
+                      <span aria-hidden className={cx('mt-2 size-2 shrink-0 rounded-full', n.unread ? 'bg-brand' : 'bg-transparent')} />
                     </Link>
                   </li>
                 ))}

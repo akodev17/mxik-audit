@@ -148,3 +148,56 @@ temporary seeded tokens.
   `loading`, the call and `window.location.assign` are unchanged); re-run it first. navigation —
   two client-list tests timed out (not auth pages). empty-states and review-flow were not run.
 - `npm run build` not run (it shares `.next` with the dev server).
+## U2 result (shell + dashboard + notifications + activity)
+Branch `claude/u2-shell-dashboard-ebf217`. Screenshots: **not captured** (wrap-up called first); the script that takes
+them (375 / 768 / 1280 light+dark, 1536, folded sidebar, new firm) is ready in the session scratchpad and should write
+to `docs/ui-refresh/u2/`.
+**Shell** (`apps/web/src/ui/shell/**`, `(app)/layout.tsx`, `(app)/loading.tsx`)
+- The frame is a grid: a full-height sidebar from md (brand, "Katalog yuklash", notifications with the unread count,
+  up to five clients with the active one first, help, settings, fold toggle) beside the header and the page. Names show
+  from xl (or lg once expanded); folded it is a column of icons with tooltips to the right. The choice goes to the
+  existing `mxik_sidebar` cookie through `api.account.setSidebar` and is server-rendered (`data-rail` on the frame,
+  CSS decides per width: `RAIL` in `prefs.ts`), so it never flashes.
+- Header: the section tabs are unchanged (fit, or overflow into "Yana"); the client control is a combobox (search,
+  "Barcha mijozlar" first — `allClientsTarget()` sends it to the same page unfiltered —, initials, list/add links);
+  search is a field with the shortcut from xl; the bell panel has kind marks, read/unread, the new count and a compact
+  "mark all read"; the account button shows initials.
+- Command palette: a "Yaqinda ochilgan" group (clients, catalogues, products opened from it or visited) before any
+  text, ↵ hint on the selected row; the store is per browser and validated (internal addresses only).
+- Plan banner is a quiet status strip (icon + words on the page surface). Navigation progress grows, completes and
+  fades; it stays invisible for commits within a frame or two. Route skeletons follow the page being opened
+  (dashboard, lists, settings, workspace, client, upload) and keep `aria-busy` / `data-page-skeleton`.
+- Phone: the drawer lists upload, notifications, every section, help, settings and the signed-in account.
+**Dashboard**: KPI cards (icon, label, primary number — the first card wider and status-coloured —, one line of context,
+change in risky rows since the previous versions, each a link); the work queue card (filter chips with counts, order
+menu, per-client rows with one action); a side column with the checklist (closable once work has started, remembered
+in the `mxik_onboarding` cookie the page reads; a link brings it back), assigned reviews, monthly checks, the issue
+chart (RankedBars as is) and plan usage; activity, changes and workload share one tabbed card. A firm that has uploaded
+nothing sees the checklist alone (empty-states e2e).
+**Notifications**: grouped by day (Bugun / Kecha / date), kind marks, unread tint + dot + bold, mark read and open per
+notice, all/unread segmented control and topic chips. **Activity**: kind chips, a compact client/person/date form,
+removable chips for the filters in use, a day-grouped timeline with a mark per kind, 17-digit codes as code chips and
+catalogue chips, "Yana koʻrsatish" reading the next pages from the API. **Not-found / error**: brand tile, code, one
+sentence, primary way home plus "back"; the error page shows its digest as the reference.
+**Copy**: shorter helper sentences in uz and ru (dashboard, queue, issue chart, notifications, log, not-found).
+**e2e changed with the behaviour**: shell-layout 23 (names on screen at 1440; folded → tooltips beside the icon at
+1440/1024/768, the fold survives a reload, then unfold), settings-nav 1 (bell → help → gear order instead of "first
+three links", gear named at 1440 and its tooltip at 1024), review-flow 10 (the log is a region, not a table).
+**Primitive requests for U1** (local wrappers today, consolidate after merge):
+1. `Card` (raised, 12px, h2 + one-line hint + actions + footer) — `dashboard/card.tsx`.
+2. Filter chip (link with `aria-current`, optional count, `bg-fg`/`text-inverse` when active) — four local `chip()`s.
+3. Avatar / initials mark (sizes 20–36, neutral and brand tone) — rail, switcher, queue, user menu.
+4. `Tooltip` `disabled` (or "only when the trigger's label is hidden") — the rail has its own bubble for this.
+5. `animate-slide-in-left` for left-side drawers (the phone menu fades in today).
+6. `StatusIcon` taking its tone colour (wrapped in an ink span today).
+7. `RowList` without the outer border when inside a card (`ActivityFeed` in the dashboard card).
+8. `Page` title at the plan's 24/32 (the dashboard uses `Page` now, so it follows U1's change).
+**Verified / not verified** (wrap-up called before the e2e run finished):
+- Green: web typecheck, root typecheck, lint on every touched path, unit tests of shell/activity (nav, shell-model,
+  entry-text), `next build` of apps/web. Checked by hand in the browser at 1440/1280/375: sidebar labelled and folded
+  (cookie survives reload), dashboard, notifications, activity (load more 50 → 100 of 108), bell, client switcher.
+- **Not run to the end**: the five e2e specs (navigation, shell-layout, settings-nav, refresh, empty-states) — the
+  machine was saturated by sibling sessions (1–2 GB free RAM, dev compiles of 80 s) and the run stalled at sign-in;
+  root `npm test` and full `npm run lint` not run. Run them before merging.
+- Done pages: shell (all parts), dashboard, notifications, activity, not-found, (app) error. Untouched in my area:
+  nothing; the palette's "recent" group was not exercised in a browser (the pane could not type into it).

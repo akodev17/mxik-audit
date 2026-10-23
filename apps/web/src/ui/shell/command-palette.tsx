@@ -20,6 +20,7 @@ import { useToast } from '../toast';
 import { IconArrowLeft, IconBox, IconHash, IconSwitch } from './icons';
 import { NAV_ICONS, useNavLabels } from './nav-items';
 import { matchesQuery, paletteCommands, type CommandKey } from './palette-model';
+import { rememberRecent, useRecent, type RecentItem, type RecentKind } from './palette-recent';
 import { goTo } from './same-route-links';
 import { searchQuery, type SearchResults } from './shell-queries';
 import { useSwitchClient } from './use-switch-client';
@@ -28,8 +29,9 @@ type ClientRef = { id: string; name: string };
 type Props = { open: boolean; onClose: () => void; canWrite: boolean; canTeam: boolean; clients: ClientRef[]; activeClientId: string | null };
 
 type Action = { kind: 'go'; href: string } | { kind: 'copy'; text: string } | { kind: 'mode' } | { kind: 'switch'; clientId: string };
-type GroupKey = 'commands' | 'clients' | 'catalogs' | 'products' | 'codes' | 'switch';
-type Option = { key: string; label: ReactNode; detail?: ReactNode; meta?: ReactNode; icon: ReactNode; action: Action; mono?: boolean };
+type GroupKey = 'recent' | 'commands' | 'clients' | 'catalogs' | 'products' | 'codes' | 'switch';
+/** `recent`: opening the option puts it first among the recent items. */
+type Option = { key: string; label: ReactNode; detail?: ReactNode; meta?: ReactNode; icon: ReactNode; action: Action; mono?: boolean; recent?: RecentItem };
 type Group = { key: GroupKey; label: string; hint?: string; options: Option[] };
 type ProductStatus = SearchResults['products'][number]['status'];
 type Answer = { text: string; results: SearchResults };
@@ -43,6 +45,7 @@ function keepWhileLoading(last: Answer | null, text: string): Answer | null {
 
 const DEBOUNCE_MS = 250;
 const STATUS_TONE: Record<ProductStatus, Tone> = { attention: 'warn', decided: 'good', auto: 'brand', info: 'info', clean: 'neutral' };
+const RECENT_ICON: Record<RecentKind, ReactNode> = { client: <IconUsers />, catalog: <IconTable />, product: <IconBox /> };
 
 /**
  * Ctrl+K palette: page commands, client switching, and search over clients, catalogues, products and
@@ -56,6 +59,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
   const queryClient = useQueryClient();
   const navLabels = useNavLabels();
   const { switching, switchTo } = useSwitchClient();
+  const recentItems = useRecent();
   const [mode, setMode] = useState<'root' | 'switch'>('root');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
@@ -123,11 +127,22 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
       }));
       return [{ key: 'switch', label: s.groups.switch, options }];
     }
-    const list: Group[] = [{ key: 'commands', label: s.groups.commands, options: commands }];
+    const list: Group[] = [];
+    // Before anything is typed: what was opened last, then the commands.
+    if (query.trim() === '' && recentItems.length > 0) {
+      list.push({
+        key: 'recent', label: s.groups.recent,
+        options: recentItems.map((r) => ({ key: `recent-${r.kind}-${r.id}`, label: r.label, detail: r.detail, icon: RECENT_ICON[r.kind], action: { kind: 'go', href: r.href }, recent: r })),
+      });
+    }
+    list.push({ key: 'commands', label: s.groups.commands, options: commands });
     if (!results || !searching) return list;
     list.push({
       key: 'clients', label: s.groups.clients,
-      options: results.clients.map((c) => ({ key: `client-${c.id}`, label: c.name, icon: <IconUsers />, action: { kind: 'go', href: c.href } })),
+      options: results.clients.map((c) => ({
+        key: `client-${c.id}`, label: c.name, icon: <IconUsers />, action: { kind: 'go', href: c.href },
+        recent: { kind: 'client', id: c.id, label: c.name, href: c.href },
+      })),
     });
     list.push({
       key: 'catalogs', label: s.groups.catalogs,
@@ -136,6 +151,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
         detail: [c.clientName, fmtDate(locale, c.createdAt)].filter(Boolean).join(' · '),
         meta: c.status === 'ready' ? undefined : <Badge tone={c.status === 'failed' ? 'danger' : 'info'}>{t.catalogStatus[c.status]}</Badge>,
         action: { kind: 'go', href: c.href },
+        recent: { kind: 'catalog', id: c.id, label: c.filename, href: c.href, ...(c.clientName ? { detail: c.clientName } : {}) },
       })),
     });
     list.push({
@@ -146,6 +162,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
         detail: <>{[p.clientName, p.status === 'clean' ? s.cleanRow(String(p.row)) : s.row(String(p.row))].filter(Boolean).join(' · ')}{p.code ? <> · <span className="font-mono">{p.code}</span></> : null}</>,
         meta: p.status === 'clean' ? undefined : <Badge tone={STATUS_TONE[p.status]}>{s.status[p.status]}</Badge>,
         action: { kind: 'go', href: p.href },
+        recent: { kind: 'product', id: p.id, label: p.name, href: p.href, ...(p.clientName ? { detail: p.clientName } : {}) },
       })),
     });
     list.push({
@@ -158,7 +175,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
       })),
     });
     return list;
-  }, [mode, clients, query, activeClientId, s, ta, t, commands, results, searching, locale]);
+  }, [mode, clients, query, activeClientId, s, ta, t, commands, results, searching, locale, recentItems]);
 
   const visible = groups.filter((g) => g.options.length > 0);
   const flat = visible.flatMap((g) => g.options);
@@ -179,7 +196,12 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
 
   const activate = async (option: Option): Promise<void> => {
     const action = option.action;
-    if (action.kind === 'go') { onClose(); goTo(action.href, (href) => router.push(href)); return; }
+    if (action.kind === 'go') {
+      if (option.recent) rememberRecent(option.recent);
+      onClose();
+      goTo(action.href, (href) => router.push(href));
+      return;
+    }
     if (action.kind === 'mode') { setMode('switch'); setQuery(''); input.current?.focus(); return; }
     if (action.kind === 'copy') {
       try {
@@ -294,6 +316,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
                     {switching && o.action.kind === 'switch' && o.action.clientId === switching ? <Spinner size={14} label={ta.shellX.client.switching} /> : null}
                     {selected && o.action.kind === 'copy' ? <span className="hidden shrink-0 text-micro sm:inline">{s.copyHint}</span> : null}
                     {o.meta ? <span className="shrink-0">{o.meta}</span> : null}
+                    {selected && o.action.kind !== 'copy' ? <Kbd className="hidden shrink-0 sm:inline-flex">↵</Kbd> : null}
                   </div>
                 );
               })}

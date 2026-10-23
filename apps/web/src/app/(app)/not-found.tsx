@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getI18n } from '@/lib/locale';
 import { ButtonLink } from '@/ui/button';
 import { pageContainerClass } from '@/ui/page';
+import { BackButton } from '@/ui/shell/back-button';
 import { helpHref } from '@/ui/shell/nav';
 import { NotFoundBody } from '@/ui/shell/not-found-body';
 
@@ -22,6 +23,7 @@ export default async function AppNotFound() {
         actions={(
           <>
             <ButtonLink href="/dashboard" variant="primary">{n.dashboard}</ButtonLink>
+            <BackButton label={n.back} />
             <ButtonLink href="/catalogs">{n.catalogs}</ButtonLink>
             <ButtonLink href={helpHref(locale)} variant="ghost">{n.help}</ButtonLink>
           </>

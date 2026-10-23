@@ -22,11 +22,11 @@ export function SearchButton({ onOpen, expanded, controls }: { onOpen: () => voi
       aria-controls={controls}
       aria-keyshortcuts="Control+K Meta+K /"
       aria-label={ta.shellX.search.button}
-      className="flex h-control-md shrink-0 items-center gap-2 rounded-ctl px-2 text-data text-muted transition-colors duration-(--duration-fast) hover:bg-surface hover:text-fg xl:w-64 xl:bg-surface xl:px-3"
+      className="flex h-control-md shrink-0 items-center gap-2 rounded-ctl border border-transparent px-2 text-data text-muted transition-colors duration-(--duration-fast) hover:bg-surface hover:text-fg xl:w-40 xl:border-line xl:bg-surface xl:px-2.5 xl:hover:border-line-strong 2xl:w-60"
     >
-      <IconSearch size={18} />
-      <span className="hidden xl:inline">{ta.shellX.search.button}</span>
-      <span className="ml-auto hidden xl:inline-flex"><Kbd>{shortcut}</Kbd></span>
+      <IconSearch size={18} className="shrink-0" />
+      <span className="hidden truncate xl:inline">{ta.shellX.search.button}</span>
+      <span className="ml-auto hidden xl:inline-flex"><Kbd className="bg-raised">{shortcut}</Kbd></span>
     </button>
   );
 }

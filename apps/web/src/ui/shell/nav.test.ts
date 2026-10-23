@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { fittingTabs, helpHref, isActive, navGroups, switcherScope, switchTarget } from './nav';
+import { emailInitials, nameInitials } from './initials';
+import { allClientsTarget, fittingTabs, helpHref, isActive, navGroups, switcherScope, switchTarget } from './nav';
 import { paletteCommands } from './palette-model';
-import { parseSidebar } from './prefs';
+import { parseSidebar, sidebarLabelled, toggledSidebar } from './prefs';
 
 describe('shell navigation', () => {
   it('groups the links and shows upload only to writers', () => {
@@ -32,6 +33,36 @@ describe('shell navigation', () => {
     assert.equal(fittingTabs(widths, 389, 70, 2), 4);
     assert.equal(fittingTabs(widths, 60, 70, 2), 0, 'no room: everything in the menu');
     assert.equal(fittingTabs([], 300, 70, 2), 0);
+  });
+
+  it('sends "all clients" to the unfiltered view of the same page', () => {
+    assert.equal(allClientsTarget('/queue', 'client=c1&flag=ask_client&page=3'), '/queue?flag=ask_client');
+    assert.equal(allClientsTarget('/activity', 'client=c1'), '/activity');
+    assert.equal(allClientsTarget('/catalogs', 'client=c1'), '/catalogs?client=all', 'the list defaults to the active client');
+    assert.equal(allClientsTarget('/clients/c1', ''), '/clients');
+    assert.equal(allClientsTarget('/catalogs/k9', 'dec=all'), '/catalogs?client=all');
+    assert.equal(allClientsTarget('/dashboard', 'accountant=u1'), '/dashboard?accountant=u1', 'firm-wide pages already show everyone');
+    assert.equal(allClientsTarget('/upload', ''), null, 'upload always works on one client');
+  });
+
+  it('labels the sidebar from xl, from lg when expanded, never when collapsed; the toggle flips what is shown', () => {
+    assert.equal(sidebarLabelled('auto', 1440), true);
+    assert.equal(sidebarLabelled('auto', 1100), false);
+    assert.equal(sidebarLabelled('expanded', 1100), true);
+    assert.equal(sidebarLabelled('expanded', 900), false);
+    assert.equal(sidebarLabelled('collapsed', 1920), false);
+    assert.equal(toggledSidebar(true), 'collapsed');
+    assert.equal(toggledSidebar(false), 'expanded');
+  });
+
+  it('marks clients and people with two letters, skipping legal forms', () => {
+    assert.equal(nameInitials('MChJ Baraka Savdo'), 'BS');
+    assert.equal(nameInitials("Mas'uliyati cheklangan jamiyat"), 'MC');
+    assert.equal(nameInitials('ООО «Ромашка»'), 'Р');
+    assert.equal(nameInitials('—'), '·');
+    assert.equal(emailInitials('akromjon.rahimjonov@newproweb.com'), 'AR');
+    assert.equal(emailInitials('buxgalter@demo.uz'), 'B');
+    assert.equal(emailInitials('42admin@x.uz'), '4');
   });
 
   it('marks a section active on its own path and below it only', () => {
