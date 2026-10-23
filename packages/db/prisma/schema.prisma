@@ -229,12 +229,9 @@ model Organization {
   importBatches ImportBatch[]
   counterparties Counterparty[]
   onecConnection OneCConnection?
-
   products  Product[]
-
   bankFormats BankFormat[]
   bankRules BankRule[]
-
   didoxConnection DidoxConnection?
   didoxDocuments DidoxDocument[]
   /// Accept dictionary matches automatically when a catalogue is audited.
@@ -681,7 +678,6 @@ model Client {
   importBatches ImportBatch[]
   counterparties Counterparty[]
   products Product[]
-
   bankRules BankRule[]
 
   @@index([orgId])
