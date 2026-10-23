@@ -4,9 +4,11 @@
 import { Catch, HttpException, Logger, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
 import type { Response } from 'express';
 import { ERROR_STATUS, type ApiErrorCode } from '@tasnivo/domain/api/contract';
+import type { Locale } from '@tasnivo/i18n/i18n';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import { ApiError, codeForStatus, v1CodeForStatus } from './errors';
 import { loggablePath } from './middleware';
-import { isPublicApi, type ApiRequest } from './request';
+import { isPublicApi, requestLocale, type ApiRequest } from './request';
 
 export type ErrorResponse = { status: number; headers: Record<string, string>; body: Record<string, unknown> };
 
@@ -34,8 +36,34 @@ function middlewareClientError(exception: unknown): { status: number; message: s
   return { status, message: exception.message };
 }
 
-/** The status, headers and JSON body an exception becomes. */
-export function toErrorResponse(exception: unknown, publicApi: boolean): ErrorResponse {
+/**
+ * The English texts the API's generic refusals are thrown with (SessionGuard, CsrfGuard, notFound()
+ * and the services' "not found"). The web app shows a 4xx message to the user as it is
+ * (apps/web/src/lib/api/refusal.ts), so on first-party routes these leave in the request's language.
+ */
+const GENERIC_TEXTS = new Set([
+  'Sign in to continue.', 'Not found.', 'not found', 'Client not found.', 'Catalogue not found.',
+  'Missing header "X-Requested-With: tasnivo".', 'Cross-origin request refused.',
+]);
+
+/** The message in the reader's language for a generic refusal; any other message as it is. */
+function localized(code: string, message: string, generic: boolean, locale: Locale): string {
+  if (!generic && !GENERIC_TEXTS.has(message)) return message;
+  const h = i18nFor(locale).ta.httpX;
+  switch (code) {
+    case 'unauthorized': return h.unauthorized;
+    case 'not_found': return h.notFound;
+    case 'too_large': return h.tooLarge;
+    case 'csrf': return h.csrf;
+    default: return message;
+  }
+}
+
+/**
+ * The status, headers and JSON body an exception becomes. With `locale`, first-party generic
+ * refusals (401, 404, 413, CSRF) are worded in that language; /api/v1 stays English.
+ */
+export function toErrorResponse(exception: unknown, publicApi: boolean, locale?: Locale): ErrorResponse {
   let status = 500;
   let code: string | null = null;
   let message = SERVER_ERROR_MESSAGE;
@@ -56,7 +84,9 @@ export function toErrorResponse(exception: unknown, publicApi: boolean): ErrorRe
     const v1 = code !== null && isV1Code(code) ? code : v1CodeForStatus(status);
     return { status, headers, body: { error: { code: v1, message } } };
   }
-  return { status, headers, body: { error: { code: code ?? codeForStatus(status), message }, ...extra } };
+  const firstParty = code ?? codeForStatus(status);
+  if (locale && status < 500) message = localized(firstParty, message, !(exception instanceof ApiError), locale);
+  return { status, headers, body: { error: { code: firstParty, message }, ...extra } };
 }
 
 @Catch()
@@ -67,7 +97,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const req = http.getRequest<ApiRequest>();
     const res = http.getResponse<Response>();
-    const { status, headers, body } = toErrorResponse(exception, isPublicApi(req.path));
+    const { status, headers, body } = toErrorResponse(exception, isPublicApi(req.path), requestLocale(req));
     if (status >= 500 && !(exception instanceof ApiError)) {
       this.logger.error(`${req.method} ${loggablePath(req.path)} failed`, exception instanceof Error ? exception.stack : String(exception));
     }

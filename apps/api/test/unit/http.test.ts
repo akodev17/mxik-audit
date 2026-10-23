@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import { parseEnv, InvalidEnvError } from '../../src/config/env';
 import { ApiError } from '../../src/http/errors';
 import { toErrorResponse } from '../../src/http/exception.filter';
@@ -63,6 +64,24 @@ describe('error envelope', () => {
     assert.equal(toErrorResponse(Object.assign(new Error('secret'), { status: 413 }), false).status, 500);
     assert.deepEqual(toErrorResponse(Object.assign(new Error('secret'), { status: 502, expose: true }), false).body,
       { error: { code: 'server_error', message: 'The request could not be completed. Try again later.' } });
+  });
+
+  it('first-party: generic refusals (401, 404, 413, CSRF) leave in the request\'s language; other messages as thrown', () => {
+    for (const locale of ['uz', 'ru'] as const) {
+      const h = i18nFor(locale).ta.httpX;
+      const say = (e: unknown) => toErrorResponse(e, false, locale).body;
+      assert.deepEqual(say(new ApiError(401, 'unauthorized', 'Sign in to continue.')), { error: { code: 'unauthorized', message: h.unauthorized } });
+      assert.deepEqual(say(new ApiError(404, 'not_found', 'Not found.')), { error: { code: 'not_found', message: h.notFound } });
+      assert.deepEqual(say(new ApiError(404, 'not_found', 'Client not found.')), { error: { code: 'not_found', message: h.notFound } });
+      assert.deepEqual(say(new NotFoundException('Cannot GET /api/x')), { error: { code: 'not_found', message: h.notFound } });
+      assert.deepEqual(say(Object.assign(new Error('request entity too large'), { status: 413, expose: true })), { error: { code: 'too_large', message: h.tooLarge } });
+      assert.deepEqual(say(new ApiError(403, 'csrf', 'Cross-origin request refused.')), { error: { code: 'csrf', message: h.csrf } });
+      // Already worded by the thrower (in the reader's language): untouched, extra fields kept.
+      assert.deepEqual(say(new ApiError(404, 'not_found', 'Katalog topilmadi', {}, { x: 1 })), { error: { code: 'not_found', message: 'Katalog topilmadi' }, x: 1 });
+      assert.deepEqual(say(new BadRequestException('Validation failed')), { error: { code: 'invalid_request', message: 'Validation failed' } });
+    }
+    // The public API keeps its English contract.
+    assert.deepEqual(toErrorResponse(new ApiError(404, 'not_found', 'Not found.'), true, 'ru').body, { error: { code: 'not_found', message: 'Not found.' } });
   });
 
   it('never leaks an unexpected error\'s message', () => {

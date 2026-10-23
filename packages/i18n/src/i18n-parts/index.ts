@@ -9,6 +9,7 @@ import * as matching from './matching';
 import * as auth from './auth';
 import * as manage from './manage';
 import * as pricing from './pricing';
+import * as http from './http';
 
 export const partsUz = {
   ...shell.uz,
@@ -21,6 +22,7 @@ export const partsUz = {
   ...auth.uz,
   ...manage.uz,
   ...pricing.uz,
+  ...http.uz,
 };
 
 export const partsRu: typeof partsUz = {
@@ -34,4 +36,5 @@ export const partsRu: typeof partsUz = {
   ...auth.ru,
   ...manage.ru,
   ...pricing.ru,
+  ...http.ru,
 };

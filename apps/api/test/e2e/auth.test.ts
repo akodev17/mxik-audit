@@ -44,7 +44,7 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
   it('GET /api/auth/me without a cookie, or with a garbage one, is 401', async () => {
     const none = await me();
     assert.equal(none.status, 401);
-    assert.deepEqual(bodyOf(none), { error: { code: 'unauthorized', message: 'Sign in to continue.' } });
+    assert.deepEqual(bodyOf(none), { error: { code: 'unauthorized', message: ta.httpX.unauthorized } });
     assert.equal((await me(`${SESSION_COOKIE}=not-a-seal`)).status, 401);
   });
 
