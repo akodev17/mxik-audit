@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { parseEnv, InvalidEnvError } from '../../src/config/env';
 import { ApiError } from '../../src/http/errors';
+import { requestOrigin } from '../../src/http/facts';
 import { toErrorResponse } from '../../src/http/exception.filter';
 import { loggablePath, requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '../../src/http/middleware';
 import { ZodValidationPipe } from '../../src/http/zod-validation.pipe';
@@ -97,6 +98,19 @@ describe('error envelope', () => {
     assert.deepEqual(toErrorResponse(new ApiError(403, 'csrf', 'no', {}, { x: 1 }), true).body, { error: { code: 'invalid_request', message: 'no' } });
     assert.deepEqual(toErrorResponse(new NotFoundException(), true).body.error, { code: 'not_found', message: 'Not Found' });
     assert.deepEqual(toErrorResponse(new Error('boom'), true).body.error, { code: 'server_error', message: 'The request could not be completed. Try again later.' });
+  });
+});
+
+describe('requestOrigin', () => {
+  const req = (headers: Record<string, string>, protocol = 'http') =>
+    ({ protocol, get: (name: string) => headers[name.toLowerCase()] }) as never;
+  it('is the proxy\'s forwarded host and protocol, else Host; null for a host that is not a plain name[:port]', () => {
+    assert.equal(requestOrigin(req({ host: 'localhost:4014' })), 'http://localhost:4014');
+    assert.equal(requestOrigin(req({ host: 'agent4.localhost:3014' })), 'http://agent4.localhost:3014');
+    assert.equal(requestOrigin(req({ host: 'api:4000', 'x-forwarded-host': 'tasnivo.uz', 'x-forwarded-proto': 'https' })), 'https://tasnivo.uz');
+    assert.equal(requestOrigin(req({ host: 'evil.test/path' })), null);
+    assert.equal(requestOrigin(req({ host: 'a b' })), null);
+    assert.equal(requestOrigin(req({})), null);
   });
 });
 
