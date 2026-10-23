@@ -24,6 +24,11 @@ export type SessionData = {
   tgBindAt?: number;
   /** Google sign-in under way (security/google.ts): one-time state, PKCE verifier, nonce, when it began, where to land. */
   google?: { state: string; verifier: string; nonce: string; at: number; next?: string };
+  /**
+   * Sign-up with an address that is already registered (Q3): the browser is sent to the code step
+   * like a new account, with ids that name no user; no code ever confirms it (security/decoy.ts).
+   */
+  decoy?: { userId: string; orgId: string; email: string; at: number };
 };
 
 const PASSWORD = process.env['SESSION_SECRET'] ?? '';

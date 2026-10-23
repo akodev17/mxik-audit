@@ -15,8 +15,16 @@ export class SessionGuard implements CanActivate {
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<ApiRequest>();
     const user = await this.sessions.currentUser(req);
-    if (!user) throw new ApiError(401, 'unauthorized', 'Sign in to continue.');
-    req.user = user;
+    if (user) {
+      req.user = user;
+      return true;
+    }
+    // A sign-up decoy (Q3) passes as a new unconfirmed admin: AccessGuard answers 403 `unverified`
+    // everywhere but me and the code step, whose handlers answer it without touching any account.
+    const decoy = await this.sessions.decoy(req);
+    if (!decoy) throw new ApiError(401, 'unauthorized', 'Sign in to continue.');
+    req.user = decoy;
+    req.decoy = true;
     return true;
   }
 }

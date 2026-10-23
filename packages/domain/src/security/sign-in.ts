@@ -2,8 +2,8 @@
 // A user with two-factor on is held in a pending state until the code is entered.
 //
 // Framework-free: the caller hands over the unsealed cookie as a `SignInSession` (its fields plus a
-// `save` that writes the cookie back) and the request's user agent. The web app passes iron-session's
-// session object (apps/web/src/lib/security/sign-in.ts); the API passes its own cookie writer.
+// `save` that writes the cookie back) and the request's user agent. The API passes its cookie
+// writer (apps/api/src/auth-core/session.service.ts, forSignIn).
 import { db } from '@tasnivo/db';
 import type { SessionData } from '../session';
 import { createRecord, endRecord } from './session-store.js';
@@ -43,6 +43,15 @@ async function finish(session: SignInSession, who: Who, via: string, userAgent: 
   clearPending(session);
   await session.save();
   await db.auditEvent.create({ data: { orgId: who.orgId, actorId: who.id, action: 'user.signed_in', payload: { via } } });
+}
+
+/**
+ * Re-issues the session of a browser that is already signed in as `who`: the old record ends and a
+ * new sid is sealed into the cookie. Used when the account's state changes under the same browser
+ * (the e-mail code is confirmed, Q2), so a cookie copied before that point is worthless after it.
+ */
+export async function renewSession(session: SignInSession, who: Who, via: string, userAgent: string | null): Promise<void> {
+  await finish(session, who, via, userAgent);
 }
 
 /** Where to send the browser next, or null when this user may not sign in (closed account, not an admin). */

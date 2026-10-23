@@ -1,7 +1,8 @@
-// Memory of the API process (by port 4025's PID) around one check and five parallel checks.
+// Memory of the API process (the PID listening on PROBE_API's port, default 4025) around one check and five parallel checks.
 import { execSync } from 'node:child_process';
-import { verified, uniq } from './lib.mjs';
-const pid = execSync('powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort 4025 -State Listen).OwningProcess"').toString().trim().split(/\s+/)[0];
+import { API, verified, uniq } from './lib.mjs';
+const port = new URL(API).port;
+const pid = execSync(`powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen).OwningProcess"`).toString().trim().split(/\s+/)[0];
 const mem = () => Math.round(Number(execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).WorkingSet64"`).toString().trim()) / 1048576);
 const U = await verified(`a5-mem-${uniq()}@example.test`, 'Mem probe');
 const key = (await U.call('POST', '/api/account/api-keys', { name: 'mem' })).data.token;

@@ -9,6 +9,7 @@ export const uz = {
     notFound: 'Topilmadi yoki sizga ochiq emas.',
     tooLarge: 'Soʻrov juda katta.',
     csrf: 'Soʻrov rad etildi. Sahifani yangilab, qayta urinib koʻring.',
+    badRequest: 'Soʻrov notoʻgʻri. Sahifani yangilab, qayta urinib koʻring.',
   },
 };
 
@@ -19,5 +20,6 @@ export const ru: typeof uz = {
     notFound: 'Не найдено или нет доступа.',
     tooLarge: 'Слишком большой запрос.',
     csrf: 'Запрос отклонён. Обновите страницу и попробуйте снова.',
+    badRequest: 'Неверный запрос. Обновите страницу и попробуйте снова.',
   },
 };

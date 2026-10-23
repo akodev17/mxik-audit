@@ -2,7 +2,7 @@
 
 The NestJS 11 HTTP API (Express adapter), everything under `/api`. Plan and context:
 `docs/BACKEND_SPLIT_PLAN.md` §3.1 and Wave 1a. It serves `/api/health`, `/api/auth/*`, the Wave 2 modules listed
-under Routes, and Swagger at `/api/docs` (JSON at `/api/docs-json`).
+under Routes, and Swagger at `/api/docs` (JSON at `/api/docs-json`; not served when `NODE_ENV=production` unless `API_DOCS_PUBLIC=1`).
 
 ## Run
 

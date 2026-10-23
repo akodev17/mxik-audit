@@ -1,5 +1,5 @@
 // Through the web's /api proxy (next start on 3025): does a client-sent X-Real-IP reach the API's limiter?
-const web = 'http://localhost:3025';
+const web = process.env.PROBE_WEB ?? 'http://localhost:3025'; // or PROBE_WEB=http://localhost:4026 for the API directly
 const ip = '10.88.1.1'; let last;
 for (let i = 0; i < 32; i++) {
   const r = await fetch(`${web}/api/auth/sign-in`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'tasnivo', 'x-real-ip': ip }, body: JSON.stringify({ email: `a5-webip-${i}-${Date.now()}@example.test`, password: 'whatever-123' }) });

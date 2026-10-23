@@ -20,7 +20,7 @@ import { openSession, type SignInSession } from '../security/sign-in.js';
 import { createAccount } from '../signup.js';
 import { telegramConfig } from './config.js';
 import { bindTelegram, loginTarget } from './identity.js';
-import { verifyTelegramLogin, type TelegramLoginData } from './login.js';
+import { checkTelegramLogin, verifyTelegramLogin, type TelegramLoginData } from './login.js';
 
 type Who = { id: string; orgId: string; email: string };
 
@@ -43,7 +43,9 @@ async function openTelegramAccount(telegramId: string, data: TelegramLoginData):
 export async function telegramSignIn(session: SignInSession, data: TelegramLoginData, req: { ip: string; userAgent: string | null }): Promise<string> {
   const config = telegramConfig();
   if (!config.token || !config.username) return '/sign-in';
-  if (!verifyTelegramLogin(data, config.token)) return '/sign-in?error=telegram_expired';
+  // A bad signature is not "expired" (Q14): the page says the data could not be checked.
+  const check = checkTelegramLogin(data, config.token);
+  if (check !== 'ok') return `/sign-in?error=telegram_${check}`;
   if (!(await claimOnce('tg_replay', data['hash'] ?? ''))) return '/sign-in?error=telegram_expired';
   const telegramId = data['id'] ?? '';
 

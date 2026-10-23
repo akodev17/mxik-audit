@@ -1,9 +1,8 @@
 // What the signed-in frame shows on every page: the user's visible clients and the active one, the
 // unread count and the plan's warnings (GET /api/shell; the web layout read this itself before).
 import { canWrite, isAdminRole } from './access';
-import { resolveVisibleClient, visibleClients, type VisibleClient } from './active-client';
+import { resolveVisibleClient, visibleClients } from './active-client';
 import type { LimitKey } from './billing/limits';
-import { defaultClient } from './clients';
 import { unreadCount } from './notifications';
 import { planStatus, type PlanState } from './plan';
 import type { CurrentUser } from './session';
@@ -23,23 +22,17 @@ export type ShellFrame = {
   unread: number | null;
 };
 
-/** The active client; an unscoped user in an org without clients gets the default one created, as before. */
-async function activeFor(user: CurrentUser): Promise<VisibleClient | null> {
-  const found = await resolveVisibleClient(user);
-  if (found || user.clientIds != null) return found;
-  await defaultClient(user.orgId);
-  return resolveVisibleClient(user);
-}
-
+/**
+ * Read-only (Q4/Q15): the default client is created with the org (sign-up, Google, Telegram; the
+ * 20261105000100 migration backfilled older orgs; uploads create it if still missing), not by this GET.
+ */
 export async function shellFrame(user: CurrentUser): Promise<ShellFrame> {
-  const [active, listed, unread, plan] = await Promise.all([
-    activeFor(user),
+  const [active, clients, unread, plan] = await Promise.all([
+    resolveVisibleClient(user),
     visibleClients(user),
     unreadCount(user).catch(() => null),
     planStatus(user.orgId),
   ]);
-  // activeFor may have just created the default client, after the list was read.
-  const clients = active && !listed.some((c) => c.id === active.id) ? await visibleClients(user) : listed;
   return {
     email: user.email,
     demo: user.demo,

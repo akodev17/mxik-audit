@@ -18,6 +18,7 @@ import { HealthModule } from './health/health.module';
 import { ApiExceptionFilter } from './http/exception.filter';
 import { LocaleInterceptor } from './http/locale.interceptor';
 import { ImportsModule } from './imports/imports.module';
+import { MatchingModule } from './matching/matching.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OnecModule } from './onec/onec.module';
 import { ProductsModule } from './products/products.module';
@@ -33,6 +34,7 @@ import { WorkspaceModule } from './workspace/workspace.module';
     ConfigModule,
     AuthCoreModule,
     HealthModule,
+    MatchingModule,
     AuthModule,
     AccountModule,
     TeamModule,

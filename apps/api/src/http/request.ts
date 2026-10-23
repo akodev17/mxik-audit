@@ -13,6 +13,8 @@ export type ApiRequest = Request & {
   user?: SignedInUser | null;
   /** Set by LocaleInterceptor; read through requestLocale(). */
   locale?: Locale;
+  /** Set by SessionGuard when the cookie holds a sign-up decoy (Q3): `user` is then the decoy. */
+  decoy?: boolean;
   /** Set by ApiKeyGuard on /api/v1 routes. */
   apiCaller?: ApiCaller;
   apiRate?: RateResult;

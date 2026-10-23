@@ -6,7 +6,7 @@ import './config/bootstrap-env';
 import { Logger } from '@nestjs/common';
 import { mailEnabled } from '@tasnivo/domain/mailer';
 import { parseEnv, InvalidEnvError } from './config/env';
-import { createApp } from './app';
+import { apiDocsEnabled, createApp } from './app';
 
 async function main(): Promise<void> {
   const logger = new Logger('Api');
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   }
   const app = await createApp();
   await app.listen(port);
-  logger.log(`listening on http://localhost:${port}/api (docs: /api/docs)`);
+  logger.log(`listening on http://localhost:${port}/api${apiDocsEnabled() ? ' (docs: /api/docs)' : ''}`);
 }
 
 main().catch((error: unknown) => {

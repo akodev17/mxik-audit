@@ -12,7 +12,7 @@ import { MIN_PASSWORD, passwordMatches } from './password-check.js';
 import { requestReset, resetPassword } from './password-reset.js';
 import { clearAttempts, hit, minutesOf, RULES } from './rate-limit.js';
 import { safeNext } from './safe-next.js';
-import { completePending, openSession, type SignInSession } from './sign-in.js';
+import { completePending, openSession, renewSession, type SignInSession } from './sign-in.js';
 import { confirmCode, confirmEmail, resendVerification, sendVerification, VERIFY_PATH } from './verification.js';
 
 export type Redirect = { redirect: string };
@@ -125,11 +125,20 @@ type Unconfirmed = { userId: string; email: string };
 const confirmed = async (userId: string): Promise<boolean> =>
   Boolean((await db.user.findUnique({ where: { id: userId }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt);
 
+/** The code step's own browser session: renewed once the code is right (Q2). */
+export type CodeStepSession = { session: SignInSession; userAgent: string | null };
+
 /**
  * The code step (/sign-up/verify): the six-digit code from the mail. Limited per user across codes;
  * each code also allows only a few wrong entries. Answers where the browser goes once confirmed.
+ * With `req.session`, a right code also renews the browser's session (new sid, the old record
+ * ended), so a cookie taken before confirmation does not gain the confirmed account's access.
  */
-export async function verifyCodeForm(user: Unconfirmed, code: string, req: Pick<RequestFacts, 'locale'>): Promise<Redirect | ErrorState> {
+export async function verifyCodeForm(
+  user: Unconfirmed,
+  code: string,
+  req: Pick<RequestFacts, 'locale'> & { session?: CodeStepSession },
+): Promise<Redirect | ErrorState> {
   const { ta } = i18nFor(req.locale);
   const v = ta.verifyX;
   if (await confirmed(user.userId)) return { redirect: '/dashboard' };
@@ -138,6 +147,10 @@ export async function verifyCodeForm(user: Unconfirmed, code: string, req: Pick<
   const result = await confirmCode(user.userId, code);
   if (result === 'ok') {
     await clearAttempts(RULES.verifyCodeUser, user.userId);
+    if (req.session) {
+      const who = await db.user.findUnique({ where: { id: user.userId }, select: { id: true, orgId: true, email: true } });
+      if (who) await renewSession(req.session.session, who, 'email_code', req.session.userAgent);
+    }
     return { redirect: '/dashboard' };
   }
   return { error: result === 'wrong' ? v.wrong : result === 'locked' ? v.locked : v.expired };

@@ -78,7 +78,7 @@ export async function startDemoSession(now = new Date()): Promise<DemoSession | 
   }, { timeout: 60_000 });
 }
 
-/** Reads the org each call; the web app wraps it once per render (apps/web/src/lib/demo.ts). */
+/** Reads the org each call (AccessGuard's noDemo check and the domain's demo refusals). */
 export async function isDemoOrg(orgId: string): Promise<boolean> {
   const org = await db.organization.findUnique({ where: { id: orgId }, select: { kind: true } });
   return org?.kind === 'demo';

@@ -4,6 +4,7 @@ import { processEnv, type LoadedEnvFiles } from '@next/env';
 import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 import { securityHeaders } from '@tasnivo/contracts/security-headers';
+import { apiRewrites } from './src/lib/api-rewrite';
 
 const config: NextConfig = {
   // The workspace packages are TypeScript source (package.json "exports" point at .ts files). The web app
@@ -37,9 +38,7 @@ const config: NextConfig = {
   // when building, not only when starting (behind Caddy /api/* never reaches the web app, so there it
   // does not matter).
   async rewrites() {
-    if (process.env.NEXT_PUBLIC_API_URL) return [];
-    const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
-    return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
+    return apiRewrites(process.env);
   },
   webpack: (webpackConfig) => {
     // packages/* are also run directly by tsx (scripts, eval, tests),

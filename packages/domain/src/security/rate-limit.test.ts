@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { after, describe, it } from 'node:test';
 import { db } from '@tasnivo/db';
 import { dbSkipReason } from '../test-fixtures.js';
-import { clientIp } from './client-ip.js';
+import { clientIp, trustProxy } from './client-ip.js';
 import { attemptKey, clearAttempts, hit, minutesOf, pruneAttempts, RULES, type Rule } from './rate-limit.js';
 import { claimOnce } from './replay.js';
 
@@ -12,24 +12,36 @@ const headers = (h: Record<string, string>) => ({ get: (n: string) => h[n] ?? nu
 const tag = (): string => `test-${randomBytes(6).toString('hex')}`;
 
 describe('clientIp', () => {
-  it('takes the rightmost X-Forwarded-For hop, which nginx appended, never the leftmost', () => {
-    assert.equal(clientIp(headers({ 'x-forwarded-for': '1.2.3.4, 198.51.100.7' })), '198.51.100.7');
-    assert.equal(clientIp(headers({ 'x-forwarded-for': ' 198.51.100.7 ' })), '198.51.100.7');
+  // Behind the documented proxy (TRUST_PROXY set).
+  const behind = (h: Record<string, string>) => clientIp(headers(h), true);
+
+  it('takes the rightmost X-Forwarded-For hop, which the proxy appended, never the leftmost', () => {
+    assert.equal(behind({ 'x-forwarded-for': '1.2.3.4, 198.51.100.7' }), '198.51.100.7');
+    assert.equal(behind({ 'x-forwarded-for': ' 198.51.100.7 ' }), '198.51.100.7');
   });
 
-  it('prefers X-Real-IP, set by nginx from $remote_addr', () => {
-    assert.equal(clientIp(headers({ 'x-real-ip': '198.51.100.9', 'x-forwarded-for': '1.2.3.4' })), '198.51.100.9');
+  it('prefers X-Real-IP, set by the proxy from the connection', () => {
+    assert.equal(behind({ 'x-real-ip': '198.51.100.9', 'x-forwarded-for': '1.2.3.4' }), '198.51.100.9');
   });
 
   it('a spoofed leftmost hop does not move the client into a fresh bucket', () => {
-    const a = clientIp(headers({ 'x-forwarded-for': '10.0.0.1, 198.51.100.7' }));
-    const b = clientIp(headers({ 'x-forwarded-for': '10.0.0.2, 198.51.100.7' }));
-    assert.equal(a, b);
+    assert.equal(behind({ 'x-forwarded-for': '10.0.0.1, 198.51.100.7' }), behind({ 'x-forwarded-for': '10.0.0.2, 198.51.100.7' }));
   });
 
   it('falls back to one shared bucket and caps the length', () => {
-    assert.equal(clientIp(headers({})), 'unknown');
-    assert.equal(clientIp(headers({ 'x-real-ip': 'x'.repeat(500) })).length, 64);
+    assert.equal(behind({}), 'unknown');
+    assert.equal(behind({ 'x-real-ip': 'x'.repeat(500) }).length, 64);
+  });
+
+  it('Q5: without TRUST_PROXY no header is believed, so the caller uses the socket address', () => {
+    assert.equal(clientIp(headers({ 'x-real-ip': '10.77.1.1' }), false), 'unknown');
+    assert.equal(clientIp(headers({ 'x-forwarded-for': '10.77.1.2' }), false), 'unknown');
+    assert.equal(trustProxy({ NODE_ENV: 'production' }), false, 'unset in production: no proxy is trusted');
+    assert.equal(trustProxy({}), true, 'unset in development: dev servers and e2e name their client');
+    assert.equal(trustProxy({ TRUST_PROXY: '0' }), false);
+    assert.equal(trustProxy({ TRUST_PROXY: '0', NODE_ENV: 'development' }), false);
+    assert.equal(trustProxy({ TRUST_PROXY: '1', NODE_ENV: 'production' }), true);
+    for (const on of ['1', 'true', 'caddy', 'nginx', ' YES ']) assert.equal(trustProxy({ TRUST_PROXY: on }), true, on);
   });
 });
 
@@ -71,9 +83,9 @@ describe('database rate limits', { skip }, () => {
 
   it('limits sign-in attempts per address, counted on the rightmost hop', async () => {
     const ip = track(RULES.signInIp, `198.51.${randomBytes(1)[0]}.${randomBytes(1)[0]}-${tag()}`);
-    const seen = clientIp(headers({ 'x-forwarded-for': `6.6.6.6, ${ip}` }));
+    const seen = clientIp(headers({ 'x-forwarded-for': `6.6.6.6, ${ip}` }), true);
     for (let i = 0; i < RULES.signInIp.limit; i++) await hit(RULES.signInIp, seen);
-    const spoofed = clientIp(headers({ 'x-forwarded-for': `7.7.7.7, ${ip}` }));
+    const spoofed = clientIp(headers({ 'x-forwarded-for': `7.7.7.7, ${ip}` }), true);
     assert.equal((await hit(RULES.signInIp, spoofed)).allowed, false);
   });
 

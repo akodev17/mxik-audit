@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { db } from '@tasnivo/db';
 import {
-  commitCatalogUpload, diagnoseCatalogUpload, discardCatalogUpload, formFile, previewCatalogUpload, removeCatalogFor, retryCatalogAudit, uploadTarget,
+  commitCatalogUpload, diagnoseCatalogUpload, discardCatalogUpload, previewCatalogUpload, removeCatalogFor, retryCatalogAudit, uploadTarget,
   type UploadedFile,
 } from './catalog-upload.js';
 import { makeClient, makePerson } from './firm-test-fixtures.js';
@@ -26,16 +26,6 @@ describe('upload wizard without a writer (no database)', () => {
     assert.deepEqual(await removeCatalogFor(null, 'uz', 'x'), { ok: false, error: t.errorGeneric });
     // The messages follow the locale.
     assert.deepEqual(await previewCatalogUpload(null, 'ru', { file: null, clientId: null }), { ok: false, error: i18nFor('ru').ta.importX.errors.client });
-  });
-
-  it('formFile reads a FormData file and ignores anything else', async () => {
-    const f = formFile(new File([new Uint8Array([1, 2, 3])], 'Ro‘yxat.xlsx'));
-    assert.equal(f?.name, 'Ro‘yxat.xlsx');
-    assert.equal(f?.size, 3);
-    assert.ok(f);
-    assert.deepEqual([...(await f.read())], [1, 2, 3]);
-    assert.equal(formFile('text'), null);
-    assert.equal(formFile(null), null);
   });
 });
 

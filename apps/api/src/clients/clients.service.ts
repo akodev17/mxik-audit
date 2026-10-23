@@ -1,4 +1,4 @@
-// The clients actions (apps/web/src/app/actions/clients.ts, shell.ts#switchClient) over the domain:
+// The clients endpoints (formerly the web app's clients and switchClient server actions) over the domain:
 // the same refusals, in the user's language, and the same change to the session's active client.
 import { Inject, Injectable } from '@nestjs/common';
 import type { Response } from 'express';

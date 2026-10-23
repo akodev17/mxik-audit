@@ -287,6 +287,38 @@
       ],
       "port": 3025,
       "url": "http://a5q.localhost:3025"
+    },
+    {
+      "name": "tasnivo-api-4026",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4026'; npm run dev:api"
+      ],
+      "port": 4026
+    },
+    {
+      "name": "tasnivo-web-3026",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4026'; npx next dev apps/web -p 3026"
+      ],
+      "port": 3026,
+      "url": "http://a5b.localhost:3026"
+    },
+    {
+      "name": "tasnivo-web-3026-prod",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4026'; npm run build; if ($LASTEXITCODE -eq 0) { npx next start apps/web -p 3026 }"
+      ],
+      "port": 3026,
+      "url": "http://a5b.localhost:3026"
     }
   ]
 }
