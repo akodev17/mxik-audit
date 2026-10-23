@@ -120,6 +120,13 @@ export const csvCell = (v: string | number | null): string => {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
+/**
+ * A code or barcode cell for a CSV meant for Excel: all digits are written as the text formula
+ * ="00204004001000000", so Excel (and LibreOffice) keep the leading zeros and all 17 digits instead of
+ * reading 2.04004E+14 (B5). Anything else is an ordinary cell.
+ */
+export const csvCodeCell = (v: string | null): string => (v && /^\d+$/.test(v) ? `"=""${v}"""` : csvCell(v));
+
 const toCsv = (rows: (string | number | null)[][]): string => rows.map((cells) => cells.map(csvCell).join(',')).join('\n') + '\n';
 
 /** Stable key first (for scripts), then the same row as the page words it, in the viewer's language (the CSV route passes the request's). */
