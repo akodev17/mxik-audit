@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { Notice } from '@/app/(app)/upload/notice';
 import { api } from '@/lib/api/browser';
 import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
+import { Notice } from '../../../_manage/notice';
 
 /** Restarts a failed or stalled cheque/sales check; the failure is said, not swallowed. */
 export function RestartDocButton({ listId }: { listId: string }) {

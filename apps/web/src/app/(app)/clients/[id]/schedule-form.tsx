@@ -11,6 +11,7 @@ import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { Select } from '@/ui/select';
 import { useToast } from '@/ui/toast';
+import { Card } from '../../_manage/card';
 
 type Props = {
   clientId: string;
@@ -20,7 +21,7 @@ type Props = {
 
 const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 
-/** The client's monthly check day and who gets reminded; the day and person wait until reminders are on. */
+/** The client's monthly check day and who gets reminded, as a card with its own save; the day and person wait until reminders are on. */
 export function ScheduleForm({ clientId, initial, people }: Props) {
   const { locale, ta } = useI18n();
   const words = ta.firmX.reminders;
@@ -55,28 +56,26 @@ export function ScheduleForm({ clientId, initial, people }: Props) {
   }
 
   return (
-    <div className="max-w-xl space-y-3">
-      <Checkbox label={ta.reminders.enable} checked={enabled} onChange={(e) => { setEnabled(e.target.checked); setError(null); }} disabled={busy} />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Select label={ta.reminders.day.replace(/:$/, '')} value={day} disabled={!enabled || busy} onChange={(e) => setDay(Number(e.target.value))}>
-          {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-        </Select>
-        <Select label={ta.reminders.assignee.replace(/:$/, '')} value={assignee} disabled={!enabled || busy} onChange={(e) => setAssignee(e.target.value)}>
-          <option value="">{ta.reminders.assigned}</option>
-          {people.map((p) => <option key={p.id} value={p.id}>{p.email}</option>)}
-        </Select>
-      </div>
-      {enabled ? (
+    <Card
+      title={ta.reminders.title} hint={ta.reminders.hint} as="h3"
+      footer={<Button variant="primary" size="sm" loading={busy} disabled={!dirty && !busy} onClick={() => { void save(); }}>{words.save}</Button>}
+    >
+      <div className="space-y-4">
+        <Checkbox label={ta.reminders.enable} checked={enabled} onChange={(e) => { setEnabled(e.target.checked); setError(null); }} disabled={busy} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <Select label={ta.reminders.day.replace(/:$/, '')} value={day} disabled={!enabled || busy} onChange={(e) => setDay(Number(e.target.value))}>
+            {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+          </Select>
+          <Select label={ta.reminders.assignee.replace(/:$/, '')} value={assignee} disabled={!enabled || busy} onChange={(e) => setAssignee(e.target.value)}>
+            <option value="">{ta.reminders.assigned}</option>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.email}</option>)}
+          </Select>
+        </div>
         <p className="text-small text-muted">
-          {skip ? `${words.skip(day)} ` : ''}
-          {nextDue ? words.next(fmtDate(locale, nextDue)) : null}
+          {enabled ? <>{skip ? `${words.skip(day)} ` : ''}{nextDue ? words.next(fmtDate(locale, nextDue)) : null}</> : words.offNote}
         </p>
-      ) : (
-        <p className="text-small text-muted">{words.offNote}</p>
-      )}
-      <p className="text-small text-muted">{ta.reminders.hint}</p>
-      {error ? <p role="alert" className="text-small font-medium text-danger-ink">{error}</p> : null}
-      <Button variant="secondary" size="sm" loading={busy} disabled={!dirty && !busy} onClick={() => { void save(); }}>{words.save}</Button>
-    </div>
+        {error ? <p role="alert" className="text-small font-medium text-danger-ink">{error}</p> : null}
+      </div>
+    </Card>
   );
 }

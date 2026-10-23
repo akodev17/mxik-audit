@@ -6,6 +6,7 @@ import * as imports from './imports';
 import * as security from './security';
 import * as settings from './settings';
 import * as matching from './matching';
+import * as manage from './manage';
 
 export const partsUz = {
   ...shell.uz,
@@ -15,6 +16,7 @@ export const partsUz = {
   ...security.uz,
   ...settings.uz,
   ...matching.uz,
+  ...manage.uz,
 };
 
 export const partsRu: typeof partsUz = {
@@ -25,4 +27,5 @@ export const partsRu: typeof partsUz = {
   ...security.ru,
   ...settings.ru,
   ...matching.ru,
+  ...manage.ru,
 };
