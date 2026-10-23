@@ -18,6 +18,8 @@ import {
   approveMany, commitDidoxSheet, decideLine, exportInvoice, invoiceDetail, invoicePdf, listInvoices, prepareInvoice, removeInvoice, uploadDidoxFile,
 } from './service.js';
 import { guessSheetMap } from './sources.js';
+import { baseStubDeps as S } from './test-deps.js';
+import { invoiceLineFingerprint } from '../onec/index.js';
 
 const skip = await dbSkipReason();
 const raw = (name: string): Buffer => readFileSync(join(FIXTURE_DIR, name));
@@ -56,7 +58,7 @@ describe('Didox service (database)', { skip }, () => {
     const inner2 = await zipOf({ 'b.json': raw('invoice-noisy.json') });
     const inner3 = await zipOf({ 'act.json': raw('act.json') });
     const zip = await zipOf({ '1.zip': inner1, '2.zip': inner2, '3.zip': inner3 });
-    const res = await uploadDidoxFile(admin, 'ru', { file: fileOf('export.zip', zip), clientId: clientA });
+    const res = await uploadDidoxFile(admin, 'ru', { file: fileOf('export.zip', zip), clientId: clientA }, S);
     assert.ok(res.ok && res.kind === 'documents', JSON.stringify(res));
     assert.deepEqual(res.items.map((i) => [i.entry, i.ok, i.ok ? i.lines : i.code]), [
       ['1.zip/doc.json', true, 3], ['2.zip/b.json', true, 5], ['3.zip/act.json', false, 'not_invoice'],
@@ -79,15 +81,15 @@ describe('Didox service (database)', { skip }, () => {
     assert.equal(meta.number, 'EF-2026/0417');
     assert.equal(meta.didox.verified, false);
     assert.equal(meta.didox.entry, '1.zip/doc.json');
-    assert.deepEqual(batch.records.map((r) => [r.rowIndex, r.status, r.fingerprint]), [
-      [0, 'valid', '6a1f0c0e2b9d4c0012ab34cd#1'], [1, 'valid', '6a1f0c0e2b9d4c0012ab34cd#2'], [2, 'valid', '6a1f0c0e2b9d4c0012ab34cd#3'],
-    ]);
+    // Agent 1's per-line key, so the 1C layer's duplicate checks find these lines.
+    const fp = (lineNo: number): string => invoiceLineFingerprint(batch.meta as never, { lineNo });
+    assert.deepEqual(batch.records.map((r) => [r.rowIndex, r.status, r.fingerprint]), [[0, 'valid', fp(1)], [1, 'valid', fp(2)], [2, 'valid', fp(3)]]);
     const cached = await db.didoxDocument.findFirstOrThrow({ where: { orgId: a.orgId, batchId: batches['standard'] } });
     assert.ok(cached.pdf && cached.pdf.length > 100);
   });
 
   it('the same invoice again is refused with a link to the earlier batch: same id, or same seller + number + date', async () => {
-    const again = await uploadDidoxFile(admin, 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: clientA });
+    const again = await uploadDidoxFile(admin, 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: clientA }, S);
     assert.ok(again.ok && again.kind === 'documents');
     const item = again.items[0];
     assert.ok(item && !item.ok);
@@ -98,23 +100,23 @@ describe('Didox service (database)', { skip }, () => {
     const doc = JSON.parse(raw('invoice-standard-3.json').toString()) as { facturaid: string; productlist: { products: Array<{ count: number }> } };
     doc.facturaid = 'another-id';
     (doc.productlist.products[0] as { count: number }).count = 41;
-    const reissued = await uploadDidoxFile(admin, 'uz', { file: fileOf('re.json', Buffer.from(JSON.stringify(doc))), clientId: clientA });
+    const reissued = await uploadDidoxFile(admin, 'uz', { file: fileOf('re.json', Buffer.from(JSON.stringify(doc))), clientId: clientA }, S);
     assert.ok(reissued.ok && reissued.kind === 'documents');
     assert.equal((reissued.items[0] as { code: string }).code, 'duplicate_invoice');
     // Another org may hold the same invoice.
-    const elsewhere = await uploadDidoxFile(userOf(other), 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: null });
+    const elsewhere = await uploadDidoxFile(userOf(other), 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: null }, S);
     assert.ok(elsewhere.ok && elsewhere.kind === 'documents' && elsewhere.items[0]?.ok);
   });
 
   it('refuses a viewer, a demo org, an archived or foreign client, an empty or unknown file', async () => {
     const f = fileOf('doc.json', raw('invoice-vat0-pinfl.json'));
-    assert.deepEqual(await uploadDidoxFile(userOf(a, { role: 'viewer' }), 'ru', { file: f, clientId: clientA }), { ok: false, error: 'Недостаточно прав для этого действия.' });
-    assert.equal((await uploadDidoxFile(userOf(demo), 'ru', { file: f, clientId: null }) as { error: string }).error, 'В демо-доступе нельзя загружать настоящие документы.');
+    assert.deepEqual(await uploadDidoxFile(userOf(a, { role: 'viewer' }), 'ru', { file: f, clientId: clientA }, S), { ok: false, error: 'Недостаточно прав для этого действия.' });
+    assert.equal((await uploadDidoxFile(userOf(demo), 'ru', { file: f, clientId: null }, S) as { error: string }).error, 'В демо-доступе нельзя загружать настоящие документы.');
     const foreign = (await db.client.create({ data: { orgId: other.orgId, name: 'X' } })).id;
-    assert.equal((await uploadDidoxFile(admin, 'ru', { file: f, clientId: foreign }) as { ok: boolean }).ok, false);
-    assert.equal((await uploadDidoxFile(userOf(a, { role: 'accountant', clientIds: [clientB] }), 'ru', { file: f, clientId: null }) as { ok: boolean }).ok, false, 'a scoped accountant must name a client');
-    assert.equal((await uploadDidoxFile(admin, 'ru', { file: fileOf('x.json', Buffer.alloc(0)), clientId: null }) as { ok: boolean }).ok, false);
-    assert.deepEqual(await uploadDidoxFile(admin, 'ru', { file: fileOf('x.pdf', Buffer.from('%PDF-1.4')), clientId: null }), { ok: false, error: 'Этот тип файла не поддерживается: загрузите .zip, .json или .xlsx.' });
+    assert.equal((await uploadDidoxFile(admin, 'ru', { file: f, clientId: foreign }, S) as { ok: boolean }).ok, false);
+    assert.equal((await uploadDidoxFile(userOf(a, { role: 'accountant', clientIds: [clientB] }), 'ru', { file: f, clientId: null }, S) as { ok: boolean }).ok, false, 'a scoped accountant must name a client');
+    assert.equal((await uploadDidoxFile(admin, 'ru', { file: fileOf('x.json', Buffer.alloc(0)), clientId: null }, S) as { ok: boolean }).ok, false);
+    assert.deepEqual(await uploadDidoxFile(admin, 'ru', { file: fileOf('x.pdf', Buffer.from('%PDF-1.4')), clientId: null }, S), { ok: false, error: 'Этот тип файла не поддерживается: загрузите .zip, .json или .xlsx.' });
   });
 
   it('lists the org\'s invoices with seller, number, totals and counts; a scoped accountant sees only their clients', async () => {
@@ -147,14 +149,14 @@ describe('Didox service (database)', { skip }, () => {
     assert.ok(d);
     const [oil, sugar, flour, rice, tea] = d.records;
     assert.ok(oil && sugar && flour && rice && tea);
-    assert.deepEqual(await decideLine(userOf(a, { role: 'viewer' }), 'ru', oil.id, { action: 'approve' }), { ok: false, error: 'Недостаточно прав для этого действия.' });
-    assert.deepEqual((await decideLine(admin, 'ru', sugar.id, { action: 'approve' }) as { error: string }).error, 'Сначала выберите товар или исправьте проблему.');
-    assert.equal((await decideLine(admin, 'ru', sugar.id, { action: 'correct', corrections: { mxik: '123' } }) as { ok: boolean }).ok, false);
+    assert.deepEqual(await decideLine(userOf(a, { role: 'viewer' }), 'ru', oil.id, { action: 'approve' }), { ok: false, error: 'Недостаточно прав для этого действия.' }, S);
+    assert.deepEqual((await decideLine(admin, 'ru', sugar.id, { action: 'approve' }, S) as { error: string }).error, 'Сначала выберите товар или исправьте проблему.');
+    assert.equal((await decideLine(admin, 'ru', sugar.id, { action: 'correct', corrections: { mxik: '123' } }, S) as { ok: boolean }).ok, false);
 
-    const approved = await decideLine(admin, 'ru', oil.id, { action: 'approve' });
+    const approved = await decideLine(admin, 'ru', oil.id, { action: 'approve' }, S);
     assert.ok(approved.ok);
     assert.equal(approved.status, 'valid');
-    const corrected = await decideLine(admin, 'ru', sugar.id, { action: 'correct', corrections: { mxik: '17019910001000000', product: 'new' }, note: 'checked on tasnif' });
+    const corrected = await decideLine(admin, 'ru', sugar.id, { action: 'correct', corrections: { mxik: '17019910001000000', product: 'new' }, note: 'checked on tasnif' }, S);
     assert.ok(corrected.ok);
     assert.equal(corrected.status, 'corrected');
     const sugarRow = await db.importRecord.findUniqueOrThrow({ where: { id: sugar.id } });
@@ -166,37 +168,49 @@ describe('Didox service (database)', { skip }, () => {
     assert.deepEqual(sugarRow.decision, { action: 'correct', corrections: { mxik: '17019910001000000', product: 'new' }, note: 'checked on tasnif' });
     assert.equal(sugarRow.decidedBy, a.userId);
 
-    assert.equal((await decideLine(admin, 'ru', flour.id, { action: 'skip' }) as { status: string }).status, 'skipped');
-    const reopened = await decideLine(admin, 'ru', flour.id, { action: 'reopen' });
+    assert.equal((await decideLine(admin, 'ru', flour.id, { action: 'skip' }, S) as { status: string }).status, 'skipped');
+    const reopened = await decideLine(admin, 'ru', flour.id, { action: 'reopen' }, S);
     assert.ok(reopened.ok);
     assert.equal(reopened.status, 'unresolved');
     assert.equal((await db.importRecord.findUniqueOrThrow({ where: { id: flour.id } })).decision, null);
-    await decideLine(admin, 'ru', flour.id, { action: 'skip' });
-    await decideLine(admin, 'ru', rice.id, { action: 'correct', corrections: { mxik: '10063010001000000' } });
-    const last = await decideLine(admin, 'ru', tea.id, { action: 'approve' });
+    await decideLine(admin, 'ru', flour.id, { action: 'skip' }, S);
+    await decideLine(admin, 'ru', rice.id, { action: 'correct', corrections: { mxik: '10063010001000000' } }, S);
+    const last = await decideLine(admin, 'ru', tea.id, { action: 'approve' }, S);
     assert.ok(last.ok);
     assert.deepEqual(last.counts, { total: 5, valid: 2, corrected: 2, suspicious: 0, unresolved: 0, skipped: 1, exported: 0 });
     assert.equal((await db.importBatch.findUniqueOrThrow({ where: { id: batches['noisy'] } })).status, 'approved');
   });
 
-  it('prepare (dry run): the exact imported / skipped / rejected report; 1C answers not_implemented until Agent 1 merges', async () => {
+  it("prepare (dry run) agrees with Agent 1's prepareExport; the export builds the real receipt_xlsx", async () => {
     const p = await prepareInvoice(admin, 'ru', batches['noisy'] ?? '');
     assert.ok(p.ok);
     assert.equal(p.report.dryRun, true);
     assert.deepEqual([p.report.imported, p.report.skipped, p.report.rejected, p.report.newProducts], [4, 1, 0, 4]);
     assert.deepEqual(p.report.reasons, { skipped: 1 });
     assert.deepEqual(p.report.lines.map((l) => [l.lineNo, l.result]), [[1, 'imported'], [2, 'imported'], [3, 'skipped'], [4, 'imported'], [5, 'imported']]);
-    assert.deepEqual(p.onec, { ok: false, error: 'not_implemented' });
+    assert.equal(p.onec.ok, true, JSON.stringify(p.onec));
+    assert.equal(p.onec.records, 4, 'Agent 1 takes the same four lines');
+    assert.ok(p.onec.checks?.every((c) => c.ok), JSON.stringify(p.onec.checks));
+    // Agent 1 re-checks the arithmetic and finds the same line 5 (650 000 stated, 625 000 = 50 × 12 500).
+    assert.deepEqual(p.onec.issues?.map((i) => [i.code, i.params?.['row'], i.params?.['actual']]), [['totals_mismatch', 5, '650000']]);
 
     const q = await prepareInvoice(admin, 'ru', batches['standard'] ?? '');
     assert.ok(q.ok);
     assert.deepEqual([q.report.imported, q.report.rejected, q.report.reasons], [0, 3, { not_approved: 3 }]);
 
     const exp = await exportInvoice(admin, 'ru', batches['noisy'] ?? '', 'receipt_xlsx');
-    assert.ok(!exp.ok);
-    assert.equal(exp.code, 'not_implemented');
-    assert.match(exp.error, /интеграция 1С/);
-    assert.equal((await db.importBatch.findUniqueOrThrow({ where: { id: batches['noisy'] } })).status, 'approved', 'not exported');
+    assert.ok(exp.ok, JSON.stringify(exp));
+    assert.match(exp.file.headers['content-type'] ?? '', /spreadsheetml/);
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(Buffer.from(exp.file.body as Uint8Array) as unknown as Parameters<typeof book.xlsx.load>[0]);
+    const cells = book.worksheets.flatMap((ws) => ws.getSheetValues().flatMap((row) => (Array.isArray(row) ? row.map((v) => String(v ?? '')) : [])));
+    for (const name of ['Подсолнечное масло 1л', 'Сахар-песок 50 кг', 'Рис девзира 1кг', 'Чай зелёный 100г']) assert.ok(cells.includes(name), name);
+    assert.ok(!cells.includes('Мука в/с 25кг'), 'the skipped line is not in the file');
+    assert.equal((await db.importBatch.findUniqueOrThrow({ where: { id: batches['noisy'] } })).status, 'exported');
+    // The four lines created products (the stub matcher found none); their ids are written back.
+    const lines = await db.importRecord.findMany({ where: { batchId: batches['noisy'], status: { not: 'skipped' } }, select: { payload: true } });
+    assert.ok(lines.every((l) => Boolean((l.payload as { resolved: { productId: string | null } }).resolved.productId)));
+    assert.equal(await db.product.count({ where: { orgId: a.orgId, source: 'didox' } }), 4);
     assert.equal((await exportInvoice(admin, 'ru', batches['standard'] ?? '', 'receipt_xlsx') as { code: string }).code, 'nothing_to_export');
   });
 
@@ -216,13 +230,13 @@ describe('Didox service (database)', { skip }, () => {
     ws.addRow(['№', 'Наименование', 'ИКПУ', 'Ед. изм.', 'Количество', 'Цена', 'Стоимость поставки', 'Ставка НДС', 'Сумма НДС', 'Стоимость с НДС']);
     ws.addRow([1, 'Гвозди 100мм', '07317001001000000', 'кг', 25, 18000, 450000, 12, 54000, 504000]);
     const body = Buffer.from(await wb.xlsx.writeBuffer());
-    const preview = await uploadDidoxFile(admin, 'ru', { file: fileOf('esf.xlsx', body), clientId: clientB });
+    const preview = await uploadDidoxFile(admin, 'ru', { file: fileOf('esf.xlsx', body), clientId: clientB }, S);
     assert.ok(preview.ok && preview.kind === 'sheet');
     assert.deepEqual(preview.preview.map, guessSheetMap(preview.preview.headers));
     assert.equal(preview.preview.map.total, 9);
     const header = { number: 'X-9', date: '2026-10-22', sellerTin: '302345678', sellerName: 'OOO Gvozd' };
-    assert.equal((await commitDidoxSheet(admin, 'ru', { file: fileOf('esf.xlsx', body), clientId: clientB, map: { ...preview.preview.map, name: -1 }, header }) as { ok: boolean }).ok, false);
-    const done = await commitDidoxSheet(admin, 'ru', { file: fileOf('esf.xlsx', body), clientId: clientB, map: JSON.stringify(preview.preview.map), header: JSON.stringify(header) });
+    assert.equal((await commitDidoxSheet(admin, 'ru', { file: fileOf('esf.xlsx', body), clientId: clientB, map: { ...preview.preview.map, name: -1 }, header }, S) as { ok: boolean }).ok, false);
+    const done = await commitDidoxSheet(admin, 'ru', { file: fileOf('esf.xlsx', body), clientId: clientB, map: JSON.stringify(preview.preview.map), header: JSON.stringify(header) }, S);
     assert.ok(done.ok, JSON.stringify(done));
     const batch = await db.importBatch.findUniqueOrThrow({ where: { id: done.batchId } });
     assert.equal(batch.source, 'xlsx');
@@ -272,7 +286,7 @@ describe('Didox connection and sync (database + fake Didox)', { skip }, () => {
   });
 
   it('fetches new incoming invoices, caches JSON and PDF, and skips them on the next run', async () => {
-    const first = await syncIncoming(admin, 'ru', {}, { client });
+    const first = await syncIncoming(admin, 'ru', {}, { client, deps: S });
     assert.ok(first.ok, JSON.stringify(first));
     assert.deepEqual([first.listed, first.imported, first.skipped, first.refused], [4, 4, 0, 0]);
     const batches = await db.importBatch.findMany({ where: { orgId: a.orgId }, select: { externalRef: true, source: true, meta: true } });
@@ -288,7 +302,7 @@ describe('Didox connection and sync (database + fake Didox)', { skip }, () => {
     const big = await db.importRecord.findFirstOrThrow({ where: { batch: { orgId: a.orgId, externalRef: '6a1f0c0e2b9d4c0012ab9999' }, rowIndex: 0 } });
     assert.equal((big.payload as { unit: string }).unit, 'упаковка');
 
-    const second = await syncIncoming(admin, 'ru', {}, { client });
+    const second = await syncIncoming(admin, 'ru', {}, { client, deps: S });
     assert.ok(second.ok);
     assert.deepEqual([second.listed, second.imported, second.skipped], [4, 0, 4]);
     assert.equal(fake.requests.filter((r) => /^\/v1\/documents\/[^/]+$/.test(r.path)).length, 4, 'no document fetched twice');
@@ -299,7 +313,7 @@ describe('Didox connection and sync (database + fake Didox)', { skip }, () => {
 
   it('a rejected token stops the sync and is recorded on the connection', async () => {
     await saveConnection(admin, 'ru', { kind: 'token', companyTin: '305123456', token: 'wrong' });
-    const res = await syncIncoming(admin, 'ru', {}, { client });
+    const res = await syncIncoming(admin, 'ru', {}, { client, deps: S });
     assert.deepEqual(res, { ok: false, error: 'Didox не принял токен (401). Введите новый токен.' });
     assert.equal((await db.didoxConnection.findUniqueOrThrow({ where: { orgId: a.orgId } })).lastError, 'unauthorized');
     assert.ok(await removeConnection(admin));

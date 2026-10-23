@@ -15,7 +15,7 @@ import { uploadTarget, type UploadedFile } from '../catalog-upload.js';
 import type { FileOut } from '../catalog-exports.js';
 import { isDemoOrg } from '../demo.js';
 import { looksLikeZip } from '../security/zip-guard.js';
-import { buildExport, prepareExport } from '../onec/index.js';
+import { buildExport, invoiceLineFingerprint, prepareExport, refreshCounts } from '../onec/index.js';
 import { classifyProducts, upsertProducts } from '../products/index.js';
 import type { CurrentUser } from '../session.js';
 import { checkInvoice, defaultDeps, statusFor, type CheckDeps, type CheckedInvoice, type ProductRecord, type RecordStatus } from './check.js';
@@ -137,7 +137,7 @@ export async function storeInvoice(orgId: string, actorId: string | null, input:
       await tx.importRecord.createMany({
         data: checked.lines.map((l, i) => ({
           batchId: batch.id, rowIndex: i, status: l.status, payload: json(l.payload), issues: json(l.issues),
-          fingerprint: `${ref ?? invoice.fingerprint}#${l.payload.lineNo}`,
+          fingerprint: invoiceLineFingerprint(checked.meta, l.payload),
         })),
       });
       return batch.id;
@@ -462,12 +462,13 @@ async function applyDecision(user: CurrentUser, recordId: string, decision: Deci
 
 /** Recounts a batch and moves it between review and approved: approved once every line is decided and none is unresolved. */
 export async function refreshBatch(batchId: string): Promise<RecordCounts> {
+  // The counts are Agent 1's (refreshCounts, one place for every kind); the status rule is the review's.
+  const counts = await refreshCounts(batchId);
   const records = await db.importRecord.findMany({ where: { batchId }, select: { status: true, decision: true } });
-  const counts = countStatuses(records.map((r) => r.status));
   const batch = await db.importBatch.findUnique({ where: { id: batchId }, select: { status: true } });
   const decided = records.every((r) => r.decision !== null || r.status === 'exported');
   const next = batch?.status === 'exported' ? 'exported' : decided && counts.unresolved === 0 ? 'approved' : 'review';
-  await db.importBatch.update({ where: { id: batchId }, data: { counts: json(counts), status: next } });
+  if (next !== batch?.status) await db.importBatch.update({ where: { id: batchId }, data: { status: next } });
   return counts;
 }
 
@@ -582,27 +583,48 @@ export async function exportInvoice(user: Writer, locale: Locale, batchId: strin
   const going = forecast(records).lines.filter((l) => l.result === 'imported' && (format === 'receipt_xlsx' || l.newProduct));
   if (going.length === 0) return { ok: false, code: 'nothing_to_export', error: e.nothing_to_export };
 
-  if (format === 'receipt_xlsx') {
-    const create = going.filter((l) => l.newProduct);
-    if (create.length > 0) {
-      const byId = new Map(records.map((r) => [r.id, r.payload as InvoiceLine]));
-      const products = create.map((l) => (byId.get(l.recordId) as InvoiceLine).resolved as ProductRecord);
-      const written = await upsertProducts(user.orgId, batch.clientId, products, user.userId);
-      // Ids come back in input order; with the base-commit stub there are none and the lines keep productId null.
-      if (written.ids.length === create.length) {
-        await db.$transaction(create.map((l, i) => {
-          const p = byId.get(l.recordId) as InvoiceLine;
-          return db.importRecord.update({ where: { id: l.recordId }, data: { payload: json({ ...p, resolved: { ...(p.resolved as ProductRecord), productId: written.ids[i] } }) } });
-        }));
-      }
-    }
-  }
+  if (format === 'receipt_xlsx') await writeProducts(user, batch.clientId, records, going);
   const built = await buildExport({ orgId: user.orgId, batchId, format, recordIds: going.map((l) => l.recordId), actorId: user.userId });
   if (!built.ok) return { ok: false, code: built.error, error: built.error === 'not_implemented' ? i18nFor(locale).ta.didoxX.detail.onecPending : e.export_failed };
   if (format === 'receipt_xlsx') {
     await db.importBatch.update({ where: { id: batchId }, data: { status: 'exported' } });
   }
   return { ok: true, file: built.file, exportId: built.exportId };
+}
+
+type Decided = { action?: string; corrections?: { product?: string; mxik?: string } } | null;
+
+/**
+ * Before the receipt goes to 1C: products for the lines decided "create new", and, for the lines a
+ * reviewer pointed at an existing product, that product with the invoice's name as an alias. A
+ * line the reviewer corrected (an MXIK typed, or a product chosen) is passed to Agent 4's
+ * upsertProducts as `confirmed`, so the mapping is learned into FirmMapping. An existing product is
+ * sent with its own fields, so the upsert (which never blanks a field) changes nothing on it but the
+ * alias. New products' ids are written back into the lines.
+ */
+async function writeProducts(user: CurrentUser, clientId: string | null, records: Array<{ id: string; payload: unknown; decision: unknown }>, going: ReportLine[]): Promise<void> {
+  const byId = new Map(records.map((r) => [r.id, { line: r.payload as InvoiceLine, decision: r.decision as Decided }]));
+  const items = going.flatMap((l) => {
+    const entry = byId.get(l.recordId);
+    const resolved = entry?.line.resolved;
+    if (!entry || !resolved) return [];
+    const { line, decision } = entry;
+    const chosenExisting = decision?.action === 'correct' && Boolean(decision.corrections?.product) && decision.corrections?.product !== 'new' && Boolean(resolved.productId);
+    if (!l.newProduct && !chosenExisting) return [];
+    const record: ProductRecord = chosenExisting
+      ? { ...resolved, aliases: [...new Set([...resolved.aliases, line.name])].slice(0, 50) }
+      : resolved;
+    const confirmed = decision?.action === 'correct' && Boolean(decision.corrections?.mxik || decision.corrections?.product);
+    return [{ recordId: l.recordId, line, record, confirmed, isNew: l.newProduct }];
+  });
+  if (items.length === 0) return;
+  const confirmed = new Set(items.flatMap((x, i) => (x.confirmed ? [i] : [])));
+  const written = await upsertProducts(user.orgId, clientId, items.map((x) => x.record), user.userId, { source: 'didox', confirmed });
+  // Ids come back in record order ('' for a record without a name); only new products need theirs written back.
+  const updates = items.flatMap((x, i) => (x.isNew && written.ids[i] ? [db.importRecord.update({
+    where: { id: x.recordId }, data: { payload: json({ ...x.line, resolved: { ...x.record, productId: written.ids[i] } }) },
+  })] : []));
+  if (updates.length > 0) await db.$transaction(updates);
 }
 
 /** Classifier suggestion for a line, for the candidate picker ("pick another MXIK"). */
