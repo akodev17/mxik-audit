@@ -26,7 +26,7 @@ put down to the integration branch or to a problem that was already there.
 | e2e, `next dev` on 3015 | **FAIL** | 56 tests: 38 pass, **9 fail**, 9 skipped (21 min 46 s) |
 | e2e, production build on 3015 | **FAIL** | 56 tests: 40 pass, **7 fail**, 9 skipped (17 min 58 s) |
 | Migrations on an empty DB | **PASS** | all 44 apply to a new database; known drift only (§Migrations) |
-| Docker images | see §Docker | |
+| Docker images (api, worker, web) | **PASS** | built with QA tags, not run (§Docker) |
 
 **The e2e suite is red on `main` today.** Every failure comes from two e2e selectors that the UI
 refresh (U1–U5, merged untested, `docs/HANDOFF_2026-10-23.md` §4.2) broke, plus two tests that
@@ -139,8 +139,10 @@ cause unknown). If it shows up in Phase B, it is pre-existing.
 
 ## Docker
 
-Filled in below once the image builds finish (`docker build --target api|worker|web`, tags
-`mxik-audit-*:qa-baseline`, so the team's own images are untouched).
+**PASS.** `docker build --target api|worker|web -t mxik-audit-<t>:qa-baseline .` (QA tags, so
+the team's own images are untouched): api 1 min 29 s, worker 6 s (shares the api layers), web 37 s;
+each image ~1.7 GB. Images were built, not run (the compose `app` profile was not started, to
+keep Caddy off the ports other sessions use).
 
 ## Environment notes for Phase B
 
