@@ -9,7 +9,12 @@
 //   product_ambiguous, product_unchecked, package_mismatch, unit_mismatch, totals_mismatch,
 //   quantity_invalid, duplicate_line_name, seller_unknown, seller_tin_invalid.
 // duplicate_invoice is a refusal of the whole document (service.ts), not a line issue.
+// Agent 4's classifier adds its own codes (mxik_malformed, mxik_not_found, mxik_inactive_api,
+// mxik_suspicious, unit_conflict, package_not_of_code, package_unit_conflict, package_unchecked,
+// package_missing, barcode_invalid, marking_required): labelled under
+// productsX.issues, the review grid falls back to those labels.
 import type { accounting } from '@tasnivo/contracts';
+import { db } from '@tasnivo/db';
 import type { z } from 'zod';
 import { matchCounterparties as onecMatchCounterparties } from '../onec/index.js';
 import { classifyProducts as agent4Classify, matchProducts as agent4Match, type Classification, type ProductQuery } from '../products/index.js';
@@ -24,20 +29,40 @@ export type RecordStatus = (typeof accounting.RECORD_STATUSES)[number];
 export type CheckDeps = {
   matchProducts: (orgId: string, clientId: string | null, lines: ProductQuery[]) => Promise<MatchResult[]>;
   classifyProducts: (orgId: string, lines: ProductQuery[]) => Promise<Classification[]>;
-  matchCounterparties: (orgId: string, refs: CounterpartyRef[]) => Promise<CounterpartyRef[]>;
-  /**
-   * The product records behind matched candidates, to compare MXIK and packaging. The §4.4
-   * interface has no such read yet (MatchCandidate carries only id and label); proposed to Agent 4
-   * in handoff-agent3.md. Until it lands this answers nothing and those comparisons are skipped.
-   */
+  /** clientId: the batch's client (a string), the org's own books (null); see Agent 1's CounterpartyScope. */
+  matchCounterparties: (orgId: string, refs: CounterpartyRef[], scope?: { clientId?: string | null }) => Promise<CounterpartyRef[]>;
+  /** The product records behind matched candidates, to compare MXIK, packaging and unit with the catalogue. */
   productRecords: (orgId: string, ids: string[]) => Promise<ProductRecord[]>;
 };
+
+/**
+ * The org's products by id as ProductRecords. A direct read of Agent 4's `product` table until
+ * `getProducts(orgId, ids)` is exported from packages/domain/src/products (asked for in round 2):
+ * REPLACE with that call then.
+ */
+export async function productsByIds(orgId: string, ids: string[]): Promise<ProductRecord[]> {
+  if (ids.length === 0) return [];
+  const rows = await db.product.findMany({
+    where: { orgId, id: { in: ids } },
+    select: {
+      id: true, name: true, onecRef: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true,
+      mxikStatus: true, markingRequired: true, aliases: { select: { alias: true }, take: 50 },
+    },
+  });
+  const statuses = new Set<ProductRecord['mxikStatus']>(['ok', 'missing', 'invalid', 'inactive', 'restricted', 'suspicious', 'unchecked']);
+  return rows.map((r) => ({
+    productId: r.id, name: r.name, onecRef: r.onecRef, mxik: r.mxik?.trim() || null, mxikName: r.mxikName, packageCode: r.packageCode,
+    packageName: r.packageName, unit: r.unit, barcode: r.barcode, aliases: r.aliases.map((a) => a.alias),
+    mxikStatus: statuses.has(r.mxikStatus as ProductRecord['mxikStatus']) ? (r.mxikStatus as ProductRecord['mxikStatus']) : 'unchecked',
+    mxikSuggestion: null, markingRequired: r.markingRequired,
+  }));
+}
 
 export const defaultDeps: CheckDeps = {
   matchProducts: agent4Match,
   classifyProducts: agent4Classify,
   matchCounterparties: onecMatchCounterparties,
-  productRecords: () => Promise.resolve([]),
+  productRecords: productsByIds,
 };
 
 export type CheckedLine = {
@@ -68,9 +93,39 @@ function lineFields(line: ParsedLine): Omit<InvoiceLine, 'product' | 'resolved'>
   return fields as Omit<InvoiceLine, 'product' | 'resolved'>;
 }
 
+// The raw code goes to the classifier even when it is not 17 digits, so it can say "malformed".
 const queryOf = (line: ParsedLine): ProductQuery => ({
-  name: line.name, mxik: line.mxik, barcode: line.barcode, unit: line.unit ?? line.packageName, packageCode: line.packageCode,
+  name: line.name, mxik: line.mxik ?? line.rawCatalogCode, barcode: line.barcode, unit: line.unit ?? line.packageName, packageCode: line.packageCode,
 });
+
+/** Parser issues the classifier's own issue on the same field replaces (same meaning, theirs carries the suggestion). */
+const PARSER_DUPLICATES = new Set(['mxik_missing', 'mxik_invalid']);
+
+/**
+ * The line's issues with the classifier's verdict merged in. Agent 4's issues are taken as they are
+ * (with the suggestion's name and reason added to the one that carries it); the parser's
+ * mxik_missing / mxik_invalid are dropped when the classifier raised an error on the MXIK.
+ * A classification without issues (a stub, an older shape) falls back to its mxikStatus.
+ */
+function mergeClassifier(own: ValidationIssue[], line: ParsedLine, c: Classification | undefined): ValidationIssue[] {
+  if (!c) return own;
+  if (!c.issues || c.issues.length === 0) {
+    const issues = [...own];
+    const has = (code: string): boolean => issues.some((x) => x.code === code);
+    for (const issue of classifierIssues(line, c, has)) {
+      const at = issues.findIndex((x) => x.code === issue.code);
+      if (at >= 0) issues[at] = { ...issues[at], ...issue }; else issues.push(issue);
+    }
+    return issues;
+  }
+  const theirFields = new Set(c.issues.filter((i) => i.severity === 'error').map((i) => i.field));
+  const kept = own.filter((i) => !(PARSER_DUPLICATES.has(i.code) && theirFields.has(i.field)));
+  const s = c.mxikSuggestion;
+  const theirs = c.issues
+    .filter((ci) => !kept.some((k) => k.code === ci.code && k.field === ci.field))
+    .map((ci) => (s && ci.suggestion === s.id ? { ...ci, params: { ...ci.params, suggestedName: s.label.slice(0, 200), reason: (s.reason ?? '').slice(0, 300) } } : ci));
+  return [...kept, ...theirs];
+}
 
 /** Classifier verdict → line issues (only those the parser did not raise already). */
 function classifierIssues(line: ParsedLine, c: Classification | undefined, has: (code: string) => boolean): ValidationIssue[] {
@@ -122,13 +177,7 @@ export async function checkInvoice(orgId: string, clientId: string | null, parse
     const members = groupOf.get(key) ?? [];
     const match: MatchResult = matches[gi] ?? { status: 'unknown', chosen: null, candidates: [] };
     const record = match.status === 'matched' && match.chosen ? records.get(match.chosen.id) ?? null : null;
-    const issues: ValidationIssue[] = [...line.issues];
-    const has = (code: string): boolean => issues.some((x) => x.code === code);
-
-    for (const issue of classifierIssues(line, classes.get(classKey(i)), has)) {
-      const at = issues.findIndex((x) => x.code === issue.code);
-      if (at >= 0) issues[at] = { ...issues[at], ...issue }; else issues.push(issue);
-    }
+    const issues: ValidationIssue[] = mergeClassifier([...line.issues], line, classes.get(classKey(i)));
 
     if (members.length > 1) {
       issues.push({ code: 'duplicate_line_name', severity: 'info', field: 'name', params: { lines: members.map((m) => lines[m]?.lineNo ?? m + 1).join(', ') } });
@@ -165,7 +214,7 @@ export async function checkInvoice(orgId: string, clientId: string | null, parse
 
   // The seller against the org's counterparties (Agent 1's matcher).
   const batchIssues: ValidationIssue[] = [...parsed.documentIssues];
-  const [seller] = await deps.matchCounterparties(orgId, [parsed.meta.seller]);
+  const [seller] = await deps.matchCounterparties(orgId, [parsed.meta.seller], { clientId });
   const meta: IncomingInvoiceMeta = { ...parsed.meta, seller: seller ?? parsed.meta.seller };
   if (seller?.match?.status === 'new' || (seller?.match?.status === 'ambiguous' && !seller.counterpartyId)) {
     batchIssues.push({ code: 'seller_unknown', severity: 'warning', field: 'seller', params: { inn: parsed.meta.seller.inn ?? '', name: parsed.meta.seller.name } });

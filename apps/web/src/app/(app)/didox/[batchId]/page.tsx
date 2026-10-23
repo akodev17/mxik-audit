@@ -13,7 +13,7 @@ import { IconPrint } from '@/ui/icons';
 import { Page } from '@/ui/page';
 import { Card } from '../../_manage/card';
 import { DeleteInvoiceButton } from '../delete-button';
-import { batchTone, decimalText, severityTone } from '../model';
+import { batchTone, decimalText, issueText, severityTone } from '../model';
 import { InvoiceReview } from './review';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -60,7 +60,7 @@ export default async function DidoxInvoicePage({ params }: { params: Promise<{ b
               <div className="mt-4 border-t border-line pt-3">
                 <p className="mb-2 text-small text-muted">{d.detail.batchIssues}</p>
                 <ul className="flex flex-wrap gap-2">
-                  {detail.batchIssues.map((i) => <li key={i.code}><Badge tone={severityTone(i.severity)}>{d.issues[i.code] ?? i.code}</Badge></li>)}
+                  {detail.batchIssues.map((i) => <li key={i.code}><Badge tone={severityTone(i.severity)}>{issueText(i.code, i.params, d.issues, ta.productsX.issues)}</Badge></li>)}
                 </ul>
               </div>
             ) : null}

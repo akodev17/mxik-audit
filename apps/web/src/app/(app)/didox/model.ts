@@ -55,3 +55,12 @@ export function statusFromIssues(issues: ReadonlyArray<{ severity: 'error' | 'wa
 
 export const batchTone = (status: string): Tone =>
   status === 'approved' ? 'good' : status === 'exported' ? 'info' : status === 'failed' ? 'danger' : status === 'review' ? 'warn' : 'neutral';
+
+/**
+ * An issue's label: the Didox module's own, else the product module's (Agent 4's classifier codes
+ * such as mxik_not_found or unit_conflict), with `{param}` placeholders filled; the code itself last.
+ */
+export function issueText(code: string, params: Record<string, string | number> | undefined, ...labels: Array<Record<string, string>>): string {
+  const template = labels.map((l) => l[code]).find((t): t is string => Boolean(t)) ?? code;
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => String(params?.[key] ?? ''));
+}

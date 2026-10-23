@@ -19,7 +19,7 @@ import { Table, Td, Th } from '@/ui/table';
 import { useToast } from '@/ui/toast';
 import { Card, FLUSH_TABLE } from '../../_manage/card';
 import { Notice } from '../../_manage/notice';
-import { decimalText, recordTone, severityTone } from '../model';
+import { decimalText, issueText, recordTone, severityTone } from '../model';
 
 type Detail = ResponseOf<typeof endpoints.didox.get>;
 type Line = Detail['records'][number];
@@ -160,7 +160,7 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
                   <Td className="min-w-40">
                     <ul className="flex flex-wrap gap-1">
                       {r.issues.filter((i) => i.code !== 'product_unchecked').map((i, k) => (
-                        <li key={`${i.code}-${k}`}><Badge tone={severityTone(i.severity)} title={issueTitle(i)}>{d.issues[i.code] ?? i.code}</Badge></li>
+                        <li key={`${i.code}-${k}`}><Badge tone={severityTone(i.severity)} title={issueTitle(i)}>{issueText(i.code, i.params, d.issues, ta.productsX.issues)}</Badge></li>
                       ))}
                     </ul>
                   </Td>
@@ -236,7 +236,7 @@ function PrepareReport({ prepared }: { prepared: Prepared }) {
             <li key={l.recordId} className="flex flex-wrap justify-between gap-2 px-3 py-1.5">
               <span><span className="text-muted">{l.lineNo}.</span> {l.name}</span>
               <span className={l.result === 'rejected' ? 'text-danger-ink' : 'text-muted'}>
-                {l.result === 'rejected' ? d.rejected : d.skipped}: {d.reasons[l.reason ?? ''] ?? l.reason}{l.issue ? ` (${ta.didoxX.issues[l.issue] ?? l.issue})` : ''}
+                {l.result === 'rejected' ? d.rejected : d.skipped}: {d.reasons[l.reason ?? ''] ?? l.reason}{l.issue ? ` (${issueText(l.issue, undefined, ta.didoxX.issues, ta.productsX.issues)})` : ''}
               </span>
             </li>
           ))}

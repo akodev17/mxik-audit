@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import type { ProductQuery } from '../products/index.js';
-import { checkInvoice, defaultDeps, sameUnit, statusFor, type CheckDeps, type MatchResult, type ProductRecord } from './check.js';
+import { checkInvoice, sameUnit, statusFor, type CheckDeps, type MatchResult, type ProductRecord } from './check.js';
 import { parseDidoxDocument, type ParsedInvoice } from './document.js';
 import { FIXTURE_DIR } from './fake-server.js';
+import { baseStubDeps } from './test-deps.js';
 
 const parse = (name: string): ParsedInvoice => {
   const r = parseDidoxDocument(JSON.parse(readFileSync(join(FIXTURE_DIR, name), 'utf8')), { source: 'didox_json' });
@@ -48,8 +49,8 @@ function stubDeps(catalogue: Record<string, ProductRecord | 'ambiguous'>, classi
 }
 
 describe('checkInvoice', () => {
-  it('with the base-commit stubs: nothing matched, product_unchecked info, statuses from the parser only', async () => {
-    const checked = await checkInvoice('org', null, parse('invoice-noisy.json'), defaultDeps);
+  it('without a matcher (base-commit stubs): nothing matched, product_unchecked info, statuses from the parser only', async () => {
+    const checked = await checkInvoice('org', null, parse('invoice-noisy.json'), baseStubDeps);
     assert.deepEqual(checked.lines.map((l) => l.status), ['valid', 'unresolved', 'unresolved', 'unresolved', 'suspicious']);
     assert.ok(checked.lines.every((l) => l.issues.some((i) => i.code === 'product_unchecked' && i.severity === 'info')));
     assert.ok(checked.lines.every((l) => l.payload.product.status === 'unknown' && l.payload.resolved === null));
