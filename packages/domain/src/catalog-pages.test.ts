@@ -70,6 +70,17 @@ describe('catalogue screens (database)', { skip }, () => {
     assert.equal((await catalogListPage({ ...admin, demo: true }, { page: 0, kind: 'drafts' })).total, 0);
   });
 
+  it('B4: with no client asked for, the list is narrowed to the header switcher\'s active client', async () => {
+    const active = await resolveVisibleClient(admin);
+    assert.ok(active);
+    const page = await catalogListPage(admin, { page: 0, kind: 'catalogs' });
+    assert.equal(page.clientId, active.id, 'same fallback as the shell frame');
+    assert.equal((await catalogListPage(admin, { clientId: 'all', page: 0, kind: 'catalogs' })).clientId, null);
+    const other = page.clients.find((c) => c.id !== active.id);
+    assert.ok(other);
+    assert.equal((await catalogListPage({ ...admin, clientId: other.id }, { page: 0, kind: 'catalogs' })).clientId, other.id, 'the remembered client');
+  });
+
   it('every read is null for another org\'s catalogue', async () => {
     assert.equal(await catalogHeader(stranger, catalogId), null);
     assert.equal(await catalogSummary(stranger, catalogId), null);

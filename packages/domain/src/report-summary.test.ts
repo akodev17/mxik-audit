@@ -51,7 +51,7 @@ describe('report summary', () => {
     const line = reportCsv([row({
       type: 'MISMATCH', current: { code: '00204004001000000', name: 'Eski' }, suggested: { code: '02202001001000000', name: 'Choy' },
       decision: 'accepted', chosen: { code: '02202001001000000', name: 'Choy' }, source: 'manual',
-    })], labels).replace(/^﻿/, '').trim().split('\r\n')[1];
+    })], labels).slice(1).trim().split('\r\n')[1];
     assert.equal(line, '1,Sut,Mos emas,"=""00204004001000000""",Eski,"=""02202001001000000""",Choy,Tasdiqlangan,"=""02202001001000000""",qoʻlda,');
   });
 });
