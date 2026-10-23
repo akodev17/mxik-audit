@@ -54,3 +54,7 @@ export function fitLayout(hidden: readonly OptionalColumn[], selectable: boolean
 
 /** Chip columns use a tighter cell padding, so the longest uz and ru status label fits whole. */
 export const cellPad = (key: ColumnKey): string => (key === 'status' || key === 'match' ? 'px-2' : 'px-3');
+
+/** Row heights of the two densities (40 / 32 px, as every table in the app) and of the sticky header. */
+export const ROW_HEIGHT = { comfortable: 40, compact: 32 } as const;
+export const HEADER_HEIGHT = 36;

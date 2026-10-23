@@ -74,8 +74,8 @@ export function RowDrawer({ row, readOnly, canSplit, phone, touch, onClose, onAc
       <div className="flex flex-wrap items-center gap-2">
         <DecisionCell row={row} readOnly={false} size="sm" prominent onAccept={onAccept} onReject={onReject} onPick={pick} onUndo={onUndo} />
         {row.decision === 'pending' && !touch ? (
-          <span className="ml-auto hidden items-center gap-1 text-micro text-muted lg:flex">
-            {row.mode === 'pick' ? null : <><Kbd>Enter</Kbd><span aria-hidden>·</span></>}<Kbd>R</Kbd>
+          <span className="ml-auto hidden items-center gap-1 lg:flex" aria-hidden>
+            {row.mode === 'pick' ? null : <Kbd>Enter</Kbd>}<Kbd>R</Kbd>
           </span>
         ) : null}
       </div>
@@ -109,7 +109,15 @@ export function RowDrawer({ row, readOnly, canSplit, phone, touch, onClose, onAc
         </div>
       ) : null}
       {!failed && !shown && row ? (
-        <div className="space-y-3" aria-busy="true"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-40 w-full" /><Skeleton className="h-40 w-full" /></div>
+        // The same layout as the loaded panel: title, chips, the two codes, the section bar, a section.
+        <div className="space-y-4" aria-busy="true">
+          <Skeleton className="h-6 w-3/4" />
+          <div className="flex gap-2"><Skeleton className="h-6 w-28" /><Skeleton className="h-6 w-20" /></div>
+          <div className="grid grid-cols-2 gap-2"><Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" /></div>
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
       ) : null}
     </Drawer>
   );

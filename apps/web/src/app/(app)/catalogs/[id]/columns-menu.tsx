@@ -3,6 +3,7 @@
 import { useI18n } from '@/lib/locale-client';
 import { OPTIONAL_COLUMNS, type OptionalColumn } from '@/lib/workspace-url';
 import { Checkbox } from '@/ui/checkbox';
+import { IconTable } from '@/ui/icons';
 import { Popover } from '@/ui/popover';
 import { Segmented } from '@/ui/segmented';
 
@@ -26,7 +27,7 @@ export function ColumnsMenu({ hidden, compact, grouped, onHidden, onCompact, onG
     onHidden(OPTIONAL_COLUMNS.filter((k) => next.has(k)));
   };
   return (
-    <Popover label={x.columns.button} title={x.columns.button} size="sm" align="end">
+    <Popover label={<span className="sr-only 2xl:not-sr-only">{x.columns.button}</span>} title={x.columns.button} icon={<IconTable size={16} />} variant="ghost" size="sm" align="end">
       <div className="space-y-3">
         <div className="space-y-1">
           <p className="text-small font-medium text-fg">{x.view.layout}</p>

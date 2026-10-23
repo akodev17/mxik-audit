@@ -10,7 +10,7 @@ import { viewQuery, type ViewParams } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { IconButton } from '@/ui/icon-button';
-import { IconX } from '@/ui/icons';
+import { IconList, IconX } from '@/ui/icons';
 import { Input } from '@/ui/input';
 import { Popover } from '@/ui/popover';
 import { Spinner } from '@/ui/spinner';
@@ -71,7 +71,7 @@ export function ViewsMenu({ current, saveBlocked, onApply }: Props) {
   };
 
   return (
-    <Popover label={ta.views.title} size="sm" align="end" open={open} onOpenChange={setOpen} panelClassName="w-[min(22rem,calc(100vw-2rem))]">
+    <Popover label={ta.views.title} icon={<IconList size={16} />} variant="ghost" size="sm" align="end" open={open} onOpenChange={setOpen} panelClassName="w-[min(22rem,calc(100vw-2rem))]">
       {views === null && !failed ? <Spinner label={ta.wsX.drawer.loading} /> : null}
       {failed ? <p role="alert" className="text-small text-danger-ink">{ta.wsX.toast.network}</p> : null}
       {views !== null && views.length === 0 ? <p className="text-small text-muted">{ta.views.none}</p> : null}
