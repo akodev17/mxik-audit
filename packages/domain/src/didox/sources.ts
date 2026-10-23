@@ -167,7 +167,8 @@ export function guessSheetMap(headers: readonly string[]): SheetMap {
 }
 
 /** Rows that are totals or blank, not lines. */
-const TOTAL_ROW = /^(итого|всего|jami|жами|total)\b/iu;
+// `\b` is ASCII-only in JavaScript, so the word end is spelled out for Cyrillic.
+const TOTAL_ROW = /^(итого|всего|jami|жами|total)(?:$|[^\p{L}])/iu;
 
 /** Builds a document in Didox's lower-case shape from the sheet, so it runs through the same parser. */
 export function sheetToDocument(sheet: Pick<ParseResult, 'rows'>, map: SheetMap, header: SheetHeader): Record<string, unknown> {

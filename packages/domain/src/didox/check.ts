@@ -77,8 +77,9 @@ function classifierIssues(line: ParsedLine, c: Classification | undefined, has: 
     default: break;
   }
   if (!line.mxik && suggestion) {
-    // The missing-code issue carries the classifier's proposal; the reviewer still decides.
-    out.push({ code: 'mxik_missing', severity: 'error', field: 'mxik', suggestion, params });
+    // The missing (or unreadable) code's issue carries the classifier's proposal; the reviewer still decides.
+    const code = line.rawCatalogCode ? 'mxik_invalid' : 'mxik_missing';
+    out.push({ code, severity: 'error', field: 'mxik', suggestion, params: { ...(line.rawCatalogCode ? { value: line.rawCatalogCode.slice(0, 40) } : {}), ...params } });
   }
   return out;
 }
