@@ -37,22 +37,28 @@ describe('invite verification (database)', { skip }, () => {
     assert.ok(user.emailVerifiedAt);
   });
 
-  it('a link without an address leaves it unconfirmed and, with mail on, sends a confirmation link', async () => {
+  it('a link without an address leaves it unconfirmed and mails a confirmation code', async () => {
     const { url } = await createInvite(a, { email: null, role: 'viewer', clientIds: [] });
     const to = email();
     const joined = await withMail(() => acceptInvite(tokenOf(url), to, 'password-123'));
     assert.ok(joined.ok);
-    const user = await db.user.findUniqueOrThrow({ where: { email: to }, include: { emailTokens: true } });
+    const user = await db.user.findUniqueOrThrow({ where: { email: to }, include: { emailCodes: true } });
     assert.equal(user.emailVerifiedAt, null);
-    assert.equal(user.emailTokens.filter((t) => t.purpose === 'verify' && !t.usedAt).length, 1);
+    assert.equal(user.emailCodes.filter((c) => !c.usedAt).length, 1);
   });
 
-  it('without mail, a link without an address sends nothing', async () => {
+  it('in production without mail, a link without an address sends nothing', async () => {
     const { url } = await createInvite(a, { email: null, role: 'viewer', clientIds: [] });
     const to = email();
-    assert.ok((await acceptInvite(tokenOf(url), to, 'password-123')).ok);
-    const user = await db.user.findUniqueOrThrow({ where: { email: to }, include: { emailTokens: true } });
-    assert.equal(user.emailTokens.length, 0);
+    const env = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'production';
+    try {
+      assert.ok((await acceptInvite(tokenOf(url), to, 'password-123')).ok);
+    } finally {
+      if (env === undefined) delete process.env['NODE_ENV']; else process.env['NODE_ENV'] = env;
+    }
+    const user = await db.user.findUniqueOrThrow({ where: { email: to }, include: { emailCodes: true } });
+    assert.equal(user.emailCodes.length, 0);
   });
 
   it('refuses reserved and malformed addresses on a link without one', async () => {
