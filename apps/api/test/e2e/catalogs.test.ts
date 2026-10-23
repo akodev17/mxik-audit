@@ -240,6 +240,16 @@ describe('catalogs + share (database)', { skip }, () => {
     assert.deepEqual(again.body, { ok: false, error: ta.review.errors['already done'] });
   });
 
+  it('Q12: review refusals name the real problem; an empty body finishes without a note', async () => {
+    const accountant = await makePerson(owner.orgId, 'accountant');
+    const put = (body: object) => http().put(`/api/catalogs/${catalogId}/review`).set('Cookie', cookie).set('X-Requested-With', 'tasnivo').send(body);
+    assert.deepEqual((await put({ dueOn: null })).body, { ok: false, error: ta.httpX.badRequest }, 'no assignee is not "note too long"');
+    assert.deepEqual((await put({ assigneeId: accountant.userId, note: 'x'.repeat(5000) })).body, { ok: false, error: ta.review.errors['bad note'] });
+    assert.deepEqual((await put({ assigneeId: accountant.userId })).body, { ok: true, changed: true });
+    assert.deepEqual((await post(`/api/catalogs/${catalogId}/review/done`).send({ note: 'x'.repeat(5000) })).body, { ok: false, error: ta.review.errors['bad note'] });
+    assert.deepEqual((await post(`/api/catalogs/${catalogId}/review/done`).send({})).body, { ok: true });
+  });
+
   it('a second version: the diff against the previous one, and its CSV', async () => {
     const res = await upload(await xlsx([['Nomi', 'MXIK kodi', 'Birlik'], ['Kartoshka', '', 'kg'], ['Non', '', 'dona']]), 'Narxlar-2.xlsx');
     const preview = bodyOf<Preview>(res);
