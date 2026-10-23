@@ -26,7 +26,7 @@
 | Walk | `walk.mjs`: 44 routes × uz/ru × 1280 light / 375 dark in Edge | no console errors, no overflow; Q7, Q8, Q10 |
 | Real files | `p13-files.mjs` on `tmp/found-catalogs` | sensible mappings and refusals |
 | e2e | production build, `E2E_BASE_URL=http://localhost:3025 E2E_CHANNEL=msedge` | **60/60 pass**, 5 min 05 s |
-| Static checks | `npm run typecheck`, `npm run lint`, `npm test` | typecheck 0; lint 0 errors / 1 known warning; `npm test` on the base: 1 729 tests, 1 fail (Q20, fixed here: `robots.test.ts` 2/2) |
+| Static checks | `npm run typecheck`, `npm run lint`, `npm test` | typecheck 0; lint 0 errors / 1 known warning. `npm test` run 1 (base code): 1 729 tests, 1 fail = Q20 (fixed here, `robots.test.ts` 2/2). Runs 2 and 3 on the final tip, while the four other workstreams loaded the shared Postgres: 4 and 2 failures in DB-backed API files (`notifications`, `public-api` "check: … plan_expired (402)" got 500 after 3 s in both, `team`, `stale-client`) next to "database not reachable" skips in the same runs; **each failing file passes alone** (5/5, 14/14, 5/5, 6/6, telegram 3/3). Not a clean full run yet: attributed to shared-DB saturation, to be re-run in Phase C (B3) |
 
 ### Findings (details in `bugs.md`)
 
