@@ -1,9 +1,6 @@
 # @tasnivo/api
 
 The NestJS 11 HTTP API (Express adapter), everything under `/api`. Plan and context:
-`docs/BACKEND_SPLIT_PLAN.md` §3.1 and Wave 1a. Today it serves `/api/health`, `/api/auth/*`, the
-catalogs, imports and share routes (listed below) and Swagger at `/api/docs` (JSON at
-`/api/docs-json`); Wave 2 adds the other feature modules.
 `docs/BACKEND_SPLIT_PLAN.md` §3.1 and Wave 1a. It serves `/api/health`, `/api/auth/*`, the Wave 2 modules listed
 under Routes, and Swagger at `/api/docs` (JSON at `/api/docs-json`).
 
@@ -104,6 +101,14 @@ test/unit/, test/e2e/    node:test + supertest (picked up by the root `npm test`
 documented codes (`ApiError.v1(code, message)`). Unexpected exceptions are logged and become `500
 server_error` without their message. Every response carries the web app's security headers
 (`@tasnivo/domain/security/headers`) and `Cache-Control: no-store` unless a route overrides it.
+On first-party routes the generic refusals (401 `unauthorized`, 404 `not_found`, 413 `too_large`,
+403 `csrf`) are worded in the request's language (`ta.httpX`), since the web app shows a 4xx message
+as it is; a message the thrower already worded is left alone. Body-parser refusals keep their own
+status (413, 415, 400). JSON and form bodies may be up to 1 MB (`BODY_LIMIT` in `src/app.ts`; the
+registry's bulk targets reach ~600 KB). The request log never writes the query string, and a path
+parameter named `token` or `state` is logged as `{token}`/`{state}`.
+`test/unit/http-wiring.test.ts` checks that every registry entry has exactly one handler behind the
+guards its `auth` demands and the CSRF rule its `csrf` flag sets.
 
 ## Adding a module (the Wave 2 pattern)
 

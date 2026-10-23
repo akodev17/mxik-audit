@@ -42,6 +42,26 @@
         "dev:api"
       ],
       "port": 4000
+    },
+    {
+      "name": "tasnivo-api-4014",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4014'; npm run dev:api"
+      ],
+      "port": 4014
+    },
+    {
+      "name": "tasnivo-web-3014",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4014'; npx next dev apps/web -p 3014"
+      ],
+      "port": 3014
     }
   ]
 }
