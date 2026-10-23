@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Locator, Page, Route } from 'playwright';
-import { COMMIT, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
+import { COMMIT, db, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, T, TA, traced, type Fixture } from './fixture';
 
 const main = (page: Page) => page.locator('main');
 const NAV_TIMEOUT = 15_000;
@@ -55,6 +55,23 @@ describe('query-only navigation', () => {
       await main(page).getByRole('heading', { name: TA.shellX.notFound.title }).waitFor();
       assert.equal(await page.title(), `${TA.shellX.notFound.title} — ${T.appName}`, path);
     }
+  });
+
+  test('B17 the diff page\'s "compare with" select is wide enough for a file name and date', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    // A second catalogue of client B under another name: no linked previous version, one candidate.
+    const second = await db.catalog.create({
+      data: {
+        orgId: fx.orgId, clientId: fx.clientB.id, filename: `ikkinchi-${fx.tag}.xlsx`, rowCount: 0, status: 'ready',
+        headers: ['Mahsulot'], columnMap: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1 },
+      },
+      select: { id: true },
+    });
+    await page.goto(`/catalogs/${second.id}/diff`);
+    const select = main(page).locator('select[name="with"]');
+    await select.waitFor();
+    const box = await select.boundingBox();
+    assert.ok(box && box.width >= 280, `the select is ${box?.width ?? 0} px wide`);
   });
 
   test('19 client filter tabs and the sidebar link switch the list', { timeout: 90_000 }, async () => {
