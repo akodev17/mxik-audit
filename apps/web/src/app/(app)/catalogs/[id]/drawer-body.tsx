@@ -59,7 +59,8 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
   const rootRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(detail.productName);
   const pending = row.decision === 'pending' && !readOnly;
-  const suggesting = detail.type === 'MISSING' || detail.type === 'NOT_FOUND' || detail.type === 'MISMATCH';
+  // A code-suggesting check (domain finding-kinds.ts SUGGESTING_TYPES): it either suggests or found nothing.
+  const suggesting = detail.mode === 'suggest' || detail.noSuggestion;
   const tone = typeTone(detail.type, detail.severity);
   const score = suggesting && !detail.noSuggestion && detail.confidence !== null && detail.stage !== 'barcode' && detail.stage !== 'dictionary'
     ? fmtNumber(locale, detail.confidence, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;

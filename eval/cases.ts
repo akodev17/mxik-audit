@@ -1,4 +1,5 @@
-// Golden-set loader. CSV columns: name, unit, barcode (optional), correct_code,
+// Golden-set loader. CSV columns: name, unit, barcode (optional), tnved
+// (optional: the row's TIF TN / TN VED code, as a customs file has it), correct_code,
 // source (real | synthetic), notes. correct_code may list several defensible
 // codes separated by "|"; the first is the primary label. An entry ending in "*"
 // is a code prefix: "07306001*" accepts every code in that 8-digit position,
@@ -13,6 +14,8 @@ export type EvalCase = {
   name: string;
   unit: string | null;
   barcode: string | null;
+  /** TIF TN (TN VED) code as the file has it; its heading limits retrieval (core/match/tnved.ts). */
+  tnved: string | null;
   /** Every defensible code or code prefix ("07306001*"), primary first. */
   correct: string[];
   source: CaseSource;
@@ -25,6 +28,7 @@ const Row = z.object({
   name: z.string().trim().min(1),
   unit: z.string().trim(),
   barcode: z.string().trim(),
+  tnved: z.string().trim(),
   correct_code: z.string().trim().min(1),
   source: z.enum(['real', 'synthetic']),
   notes: z.string(),
@@ -61,7 +65,7 @@ export function parseCases(text: string, label: string): LoadResult {
   body.forEach((row, n) => {
     const line = n + 2;
     const parsed = Row.safeParse({
-      name: cell(row, 'name'), unit: cell(row, 'unit'), barcode: cell(row, 'barcode'),
+      name: cell(row, 'name'), unit: cell(row, 'unit'), barcode: cell(row, 'barcode'), tnved: cell(row, 'tnved'),
       correct_code: cell(row, 'correct_code'), source: cell(row, 'source').trim().toLowerCase(),
       notes: cell(row, 'notes'),
     });
@@ -80,6 +84,7 @@ export function parseCases(text: string, label: string): LoadResult {
       name: parsed.data.name,
       unit: parsed.data.unit || null,
       barcode: parsed.data.barcode || null,
+      tnved: parsed.data.tnved || null,
       correct: codes,
       source: parsed.data.source,
       notes: parsed.data.notes,

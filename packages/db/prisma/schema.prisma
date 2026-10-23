@@ -761,6 +761,9 @@ model CatalogItem {
   price          Decimal? @db.Decimal(18, 2)
   /// Sales amount from a mapped "Sotuv summasi" column, if the file has one.
   salesAmount    Decimal? @db.Decimal(20, 2)
+  /// TIF TN (TN VED / HS) code from a mapped column: 4-10 digits, a lost leading zero restored.
+  /// Its first four digits are the MXIK heading (MXIK digits 2-5); null when absent or unreadable.
+  tnved          String?
   /// Attributes parsed out of the name, plus every original cell for re-export.
   attrs          Json
   /// The current code or a suggested code is flagged for digital marking
@@ -796,6 +799,8 @@ enum FindingType {
   /// The row's code (on a MISSING row, the suggested one) is a generalized code
   /// EHF refuses from restricted_code.effectiveFrom on.
   RESTRICTED
+  /// The row's valid code lies outside the heading of the row's own TIF TN (TN VED) code.
+  TNVED_MISMATCH
 
   @@map("finding_type")
 }

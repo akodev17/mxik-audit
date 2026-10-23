@@ -12,13 +12,15 @@ export const ColumnMapSchema = z.object({
   price: z.number().int().min(-1),
   /** Sales amount per row, for the money-at-risk estimate. Older mappings lack it. */
   sales: z.number().int().min(-1).default(-1),
+  /** TIF TN (TN VED / HS) code per row; its heading limits matching. Older mappings lack it. */
+  tnved: z.number().int().min(-1).default(-1),
 });
 
 export type ColumnMap = z.infer<typeof ColumnMapSchema>;
 export type ColumnField = keyof ColumnMap;
 
 /** Field order as the mapping UI presents it. */
-export const COLUMN_FIELDS = ['name', 'barcode', 'mxik', 'unit', 'price', 'sales'] as const;
+export const COLUMN_FIELDS = ['name', 'barcode', 'mxik', 'tnved', 'unit', 'price', 'sales'] as const;
 
 export type MappingIssue =
   | { kind: 'out_of_range'; field: ColumnField }

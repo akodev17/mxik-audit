@@ -100,6 +100,7 @@ export const ru: Dict = {
   typePrivilegeCode: 'Код с льготой',
   typePrivilegeOpportunity: 'Возможность льготы',
   typeRestricted: 'Код ограничен в ЭСФ',
+  typeTnvedMismatch: 'Не совпадает с ТН ВЭД',
   typeOther: 'Проблема другого типа',
   purchasesNav: 'Приход (закупки)',
   purchasesTitle: 'Приход (закупки)',

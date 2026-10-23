@@ -31,7 +31,8 @@ export function SuggestionCell({ row, compact, meter = false }: Props) {
   let body: React.ReactNode;
   let code = false;
   if (chose) { body = <CodeCell code={row.chosenMxik} name={row.chosenName} empty="—" compact={compact} />; code = true; }
-  else if (row.type === 'MISSING' || row.type === 'NOT_FOUND' || row.type === 'MISMATCH') {
+  // A code-suggesting check (domain finding-kinds.ts SUGGESTING_TYPES): it either suggests or found nothing.
+  else if (row.mode === 'suggest' || row.noSuggestion) {
     code = !row.noSuggestion;
     body = row.noSuggestion
       ? <span className="block truncate text-small italic text-muted" title={x.noSuggestionWhy}>{x.noSuggestion}</span>

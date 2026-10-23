@@ -75,6 +75,7 @@ export const FINDING_FIELDS = {
   reason: 'Human-readable explanation in Uzbek (Latin script), for a person to read. Its wording may change between releases: do not parse it. Use type, severity and suggestedMxik, the stable machine-readable fields.',
   type: 'Stable machine-readable kind of problem. "OTHER" means a kind this server version does not know yet (a newer check written while an upgrade is rolling out): treat it as a problem to review and read reason. In the report summary such findings are counted under the key "OTHER".',
   suggestedMxik: 'Suggested 17-digit code, or null. Stable and machine-readable.',
+  tnved: 'TIF TN (TN VED / HS) code, 4-10 digits, if known. Its first four digits, the HS heading, are MXIK digits 2-5: suggestions come from that heading, and a current code outside it is reported as TNVED_MISMATCH.',
   restrictedFrom: 'RESTRICTED only (null otherwise): the date (YYYY-MM-DD) from which electronic invoices (EHF) no longer accept the generalized code, per the published list. On a MISSING row the restricted code is the suggested one.',
 } as const;
 

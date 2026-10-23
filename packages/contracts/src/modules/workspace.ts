@@ -72,6 +72,7 @@ export const RowDetail = z.object({
     purchasedOtherUnit: z.boolean(),
     privilegeMismatch: z.boolean(),
     restriction: z.object({ code: z.string(), date: z.string(), inForce: z.boolean() }).nullable(),
+    tnved: z.object({ code: z.string(), heading: z.string(), codeHeading: z.string() }).nullable(),
   }),
   confidence: z.number().nullable(),
   stage: Stage,

@@ -36,7 +36,7 @@ describe('raw file retention (database)', { skip }, () => {
     const catalog = await db.catalog.create({
       data: {
         orgId, filename: 'k.xlsx', rowCount: 1, status: 'ready', createdAt: new Date(createdAt),
-        headers: ['Nomi', 'Izoh'], columnMap: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1 },
+        headers: ['Nomi', 'Izoh'], columnMap: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1, tnved: -1 },
       },
     });
     await db.catalogItem.create({ data: { catalogId: catalog.id, rowIndex: 0, rawName: 'Guruch', normalizedName: 'guruch', attrs: { original: ['Guruch', 'maxfiy izoh'] } } });

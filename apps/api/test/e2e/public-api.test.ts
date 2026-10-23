@@ -187,6 +187,23 @@ describe('/api/v1 through the Nest app (database)', { skip }, () => {
     documentedError('check', reused, 'idempotency_key_reused');
   });
 
+  it('check: an optional tnved limits suggestions to its HS heading and flags a code from another one', async () => {
+    await db.organization.update({ where: { id: a.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+    // A welded-pipe code (heading 7306) on a row whose TN VED says seamless pipe (7304).
+    const res = await as(tokenA).post('/check').send({ name: 'Труба 57', unit: 'm', mxik: '07306001002000000', tnved: '7304390000' });
+    assert.equal(res.status, 200, res.text);
+    const findings = ((res.body as { results: Json[] }).results[0]?.['findings'] ?? []) as Json[];
+    const mismatch = findings.find((f) => f['type'] === 'TNVED_MISMATCH');
+    assert.ok(mismatch, JSON.stringify(findings));
+    assert.equal(mismatch['severity'], 'medium');
+    assert.match(String(mismatch['suggestedMxik']), /^07304/);
+    assert.ok(!findings.some((f) => f['type'] === 'MISMATCH'), 'TNVED_MISMATCH takes MISMATCH\'s place');
+    // Without the field the body is what it always was.
+    const plain = await as(tokenA).post('/check').send({ name: 'Труба 57', unit: 'm', mxik: '07306001002000000' });
+    assert.equal(plain.status, 200);
+    assert.ok(!((plain.body as { results: Json[] }).results[0]?.['findings'] as Json[]).some((f) => f['type'] === 'TNVED_MISMATCH'));
+  });
+
   it('upload: 202 with the stored catalogue, its audit handed to the queue; replayed for the same key', async () => {
     const csv = Buffer.from('Tovar nomi;Birlik\nGuruch;kg\nShakar;kg\n');
     const key = `upload-${Date.now()}`;

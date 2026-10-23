@@ -25,7 +25,7 @@ describe('review assignments and notifications', () => {
     const catalog = await db.catalog.create({
       data: {
         orgId: fx.orgId, clientId: fx.clientA.id, filename: `mijoz-a-${fx.tag}.xlsx`, rowCount: 1, status: 'ready',
-        headers: ['Mahsulot', 'IKPU'], columnMap: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1 },
+        headers: ['Mahsulot', 'IKPU'], columnMap: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1, tnved: -1 },
       },
     });
     catalogA = catalog.id;

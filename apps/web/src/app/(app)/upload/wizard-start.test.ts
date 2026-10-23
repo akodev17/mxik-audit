@@ -5,8 +5,8 @@ import { followsStart, startKey, startPosition, type WizardStart } from './wizar
 
 const preview = (catalogId: string): UploadPreview => ({
   catalogId, filename: 'k.xlsx', client: { id: 'c1', name: 'Mijoz' }, headers: ['Nomi'], sample: [], rows: 1, parse: null,
-  mapping: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1 }, remembered: null,
-  fields: { name: 'guess', barcode: 'none', mxik: 'none', unit: 'none', price: 'none', sales: 'none' }, diagnostics: null, previous: null,
+  mapping: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1, tnved: -1 }, remembered: null,
+  fields: { name: 'guess', barcode: 'none', mxik: 'none', unit: 'none', price: 'none', sales: 'none', tnved: 'none' }, diagnostics: null, previous: null,
 });
 const map = (id: string): WizardStart => ({ step: 'map', preview: preview(id) });
 const processing = (id: string): WizardStart => ({ step: 'processing', catalogId: id });

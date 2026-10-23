@@ -1,0 +1,50 @@
+name,unit,barcode,tnved,correct_code,source,notes
+Труба 57,м,,7304390000,07304001*,real,vague name: only the TN VED heading picks the classifier part; seamless pipe heading 7304 (MXIK 07304)
+Труба 57,м,,7306301900,07306001*,real,"vague name: only the TN VED heading picks the classifier part; same name as the 7304 row, welded pipe heading 7306 (MXIK 07306)"
+Труба 20,м,,3917230000,03917001*,real,vague name: only the TN VED heading picks the classifier part; PVC pipe heading 3917 (MXIK 03917)
+Лист 5 мм,кг,,7208510000,07208001*,real,vague name: only the TN VED heading picks the classifier part; hot-rolled flat steel heading 7208 (MXIK 07208)
+Лист 5 мм,кг,,7606129900,07606001*,real,"vague name: only the TN VED heading picks the classifier part; same name, aluminium sheet heading 7606 (MXIK 07606)"
+Профиль 40х20,м,,7306610000,07306001*,real,"vague name: only the TN VED heading picks the classifier part; steel profile pipe, heading 7306 (MXIK 07306)"
+Профиль 40х20,м,,7604291000,07604001*,real,"vague name: only the TN VED heading picks the classifier part; same name, aluminium profile heading 7604 (MXIK 07604)"
+Уголок 50х50,т,,7216211000,07216001*,real,vague name: only the TN VED heading picks the classifier part; steel angle heading 7216 (MXIK 07216)
+Проволока 3 мм,кг,,7217101000,07217001*,real,vague name: only the TN VED heading picks the classifier part; steel wire heading 7217 (MXIK 07217)
+Проволока 3 мм,кг,,7408110000,07408001*|07408002*,real,"vague name: only the TN VED heading picks the classifier part; same name, copper wire heading 7408 (MXIK 07408)"
+Арматура 12,т,,7214200000,07214001*,real,"vague name: only the TN VED heading picks the classifier part; rebar = bars heading 7214 (MXIK 07214), not pipe fittings"
+Арматура 1/2,шт,,8481808199,08481001*|08481007*|08481009*,real,"vague name: only the TN VED heading picks the classifier part; pipe fittings/valves heading 8481 (MXIK 08481), not rebar"
+Сетка 50х50,м2,,7314200000,07314002*,real,vague name: only the TN VED heading picks the classifier part; welded wire mesh heading 7314 (MXIK 07314)
+Шланг 1/2,м,,4009110000,04009001*,real,"vague name: only the TN VED heading picks the classifier part; rubber hose heading 4009 (MXIK 04009), not plastic 3917"
+Лента 50 мм,шт,,3919108000,03919001*,real,vague name: only the TN VED heading picks the classifier part; self-adhesive plastic tape heading 3919 (MXIK 03919)
+Молоко Happy Milk 2% 1л,шт,,401201100,00401001*,real,"seller-style name after the classifier's own ""Молоко: Happy Milk, коровье жирность 2,0%""; TN VED with the leading zero Excel drops (0401201100)"
+Чай черный Ahmad 100г,шт,,902300000,00902001*,real,seller-style tea row; TN VED with the leading zero Excel drops (0902300000)
+Рис Элита 20кг,шт,,1006309800,01006001*,real,"seller-style name after the classifier's own ""Рис (расфасованный и упакованный): Элита, Лидер 20кг"""
+Мука в/с Белоснежка 2кг,шт,,1101001500,01101001*,real,"seller-style name after the classifier's own ""Пшеничная мука высшего сорта: Белоснежка, 2 кг"""
+Масло подсолнечное рафинированное 1л,шт,,1512191000,01512001*,real,"seller-style sunflower oil row, heading 1512 (MXIK 01512)"
+Сахар Else 1кг,кг,,1701991000,01701001*,real,"seller-style name after the classifier's own ""Сахар упакованный: Else"""
+Шоколад Alpen Gold молочный 90г,шт,,1806321000,01806001*,real,"seller-style name after the classifier's own ""Шоколад плиточный: Alpen Gold, молочный"""
+Макароны Makfa лагман 400г,шт,,1902191000,01902001*,real,"seller-style name after the classifier's own ""Макароны упакованные: Makfa, лагман 400г"""
+Сок Rich нектар 1л,шт,,2009899700,02009001*,real,"seller-style name after the classifier's own ""Фруктовые и овощные соки: Rich, нектар 1л"""
+"Вода негазированная Rohat 1,5л",шт,,2201101100,02201001*,real,"seller-style name after the classifier's own ""Негазированная вода: Rohat, пэт бутылка 1,5 л"""
+Сигареты Bohem Cavana Brown,пачка,,2402209000,02402001*,real,"seller-style name after the classifier's own ""Сигареты с фильтром: BOHEM, CAVANA BROWN"""
+"Цемент ЦЕМ II/B-K 32,5Н",т,,2523290000,02523002*,real,"seller-style name after the classifier's own ""Портландцемент: ЦЕМ II/B-K 32.5Н"""
+Масло моторное 5W-40 4л,шт,,2710198200,02710005*,real,"seller-style motor oil row, heading 2710 (MXIK 02710)"
+Краска водоэмульсионная акриловая 10кг,шт,,3209100009,03209001*|03209004*,real,"seller-style water-based paint row, heading 3209 (MXIK 03209)"
+Шампунь Dolce 400мл,шт,,3305100000,03305005*,real,"seller-style name after the classifier's own ""Шампунь (всех видов): Dolce"""
+Мыло туалетное Eclat 150г,шт,,3401110001,03401001*,real,"seller-style name after the classifier's own ""Туалетное мыло: Eclat, 150 г"""
+"Порошок стиральный Persil 1,95л",шт,,3402209000,03402003*|03402002*,real,"seller-style name after the classifier's own ""Жидкий стиральный порошок: Persil, 1,95 л"""
+Шина Goodride RP18 185/65R14,шт,,4011100003,04011002*|04011001*,real,"seller-style name after the classifier's own ""Автомобильная шина: Goodride, Radial RP18 (185/65R14)"""
+Бумага офисная А4 80г/м2,пачка,,4802569000,04802001*,real,"seller-style name after the classifier's own ""Форматная или офсетная (включая офисная) бумага"""
+"Гипсокартон 12,5 мм",лист,,6809110000,06809003*|06809001*,real,"seller-style plasterboard row, heading 6809 (MXIK 06809)"
+Кирпич керамический полнотелый М100,шт,,6904100000,06904001*,real,"seller-style brick row, heading 6904 (MXIK 06904)"
+Керамогранит 300х300х8 полированный,м2,,6907210000,06907001*,real,"seller-style name after the classifier's own ""Керамический гранит: полированный, 300x300x8 мм"""
+Гвозди строительные 100 мм,кг,,7317002000,07317001*,real,"seller-style nails row, heading 7317 (MXIK 07317)"
+Болт М10х50 оцинкованный,шт,,7318158100,07318001*,real,"seller-style bolt row, heading 7318 (MXIK 07318)"
+Электроды сварочные МР-3 3 мм,кг,,8311100000,08311001*,real,"seller-style welding electrode row, heading 8311 (MXIK 08311)"
+Холодильник Shivaki двухкамерный,шт,,8418102001,08418001*,real,"seller-style name after the classifier's own ""Холодильники: Shivaki"""
+Ноутбук Apple MacBook Pro 13 M2,шт,,8471300000,08471001*,real,"seller-style name after the classifier's own ""Ноутбук: Apple, NB MACBOOK PRO M2 13"""
+Аккумулятор автомобильный 60 Ач,шт,,8507102000,08507001*,real,"seller-style starter battery row, heading 8507 (MXIK 08507)"
+Телевизор Roison LED 32 дюйма,шт,,8528721000,08528001*,real,"seller-style name after the classifier's own ""Телевизор: ROISON, led tv"""
+Автоматический выключатель 1P 20A,шт,,8536200000,08536001*,real,"seller-style name after the classifier's own ""Автоматический выключатель (всех видов): DUSEL, 1P 20A"""
+Лампа светодиодная 10Вт E14,шт,,8539500000,08539001*,real,"seller-style name after the classifier's own ""Лампы (всех видов): TESS, светодиодная 10Вт E14"""
+Кабель АВВГ 2х16,м,,8544499101,08544002*,real,"seller-style name after the classifier's own ""Кабель силовой: с алюминиевыми жилами АВВГ 2х16"""
+Фломастеры Maped 12 цветов,упак,,9608209000,09608001*,real,"seller-style name after the classifier's own ""Фломастеры (всех видов): Maped, 12 цв"""
+Подгузники Huggies Elite Soft 3 54шт,упак,,9619008109,09619002*,real,"seller-style name after the classifier's own ""Подгузники: Huggies, elite soft 3"""
