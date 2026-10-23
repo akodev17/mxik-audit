@@ -245,6 +245,9 @@ export default async function DiffPage({ params, searchParams }: { params: Promi
         );
       })() : (
       <div className="space-y-10">
+        {c.carried + c.reReview + c.changed + c.added + c.removed + c.statusChanged === 0 ? (
+          <EmptyState size="compact" title={ta.importX.flow.diff.identical} hint={d.comparedWith(diff.previous.filename, fmtDate(locale, diff.previous.createdAt))} />
+        ) : null}
         {c.carried > 0 ? (
           <div id="carried" className="scroll-mt-4">
             <Section

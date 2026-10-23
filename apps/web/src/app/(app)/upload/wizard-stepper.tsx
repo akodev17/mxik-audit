@@ -47,9 +47,9 @@ export function WizardStepper({ steps, current }: { steps: readonly string[]; cu
           const state = stateOf(i);
           return (
             <li key={label} aria-current={state === 'current' ? 'step' : undefined} className="relative flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
-              {/* From the previous stage's circle to this one: green once this stage is reached. */}
+              {/* From the previous stage's circle to this one, edge to edge: green once this stage is reached. */}
               {i > 0 ? (
-                <span aria-hidden className={cx('absolute right-1/2 top-3.5 h-0.5 w-full -translate-y-1/2', i <= current ? 'bg-good' : 'bg-line-strong')} />
+                <span aria-hidden className={cx('absolute top-3.5 right-[calc(50%+1.25rem)] left-[calc(-50%+1.25rem)] h-0.5 -translate-y-1/2 rounded-full', i <= current ? 'bg-good' : 'bg-line-strong')} />
               ) : null}
               <span className={cx('relative grid size-7 place-items-center rounded-full text-small font-semibold tabular-nums transition-colors duration-(--duration-base)', CIRCLE[state])}>
                 {state === 'done' ? <IconCheck size={14} /> : i + 1}

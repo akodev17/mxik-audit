@@ -35,7 +35,7 @@ export function PreviewTable({ headers, rows, roles, limit = 5, label, kindLabel
           {headers.map((h, i) => {
             const role = roleOf.get(i);
             return (
-              <Th key={i} className={cx('min-w-32 align-bottom', role !== undefined && 'bg-brand-tint')}>
+              <Th key={i} className="min-w-32 align-bottom">
                 {role !== undefined ? <span className="mb-0.5 block text-micro font-semibold text-brand-ink">{role}</span> : null}
                 <span className="block max-w-64 truncate font-semibold text-fg" title={h}>{h}</span>
                 {kinds && kindLabels ? (

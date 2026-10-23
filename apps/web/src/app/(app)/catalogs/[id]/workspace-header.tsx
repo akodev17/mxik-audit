@@ -5,6 +5,7 @@ import type { CatalogHeader, Me } from '@/lib/catalogs/types';
 import { getI18n } from '@/lib/locale';
 import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { buttonClass } from '@/ui/button';
+import { cx } from '@/ui/cx';
 import { IconBook, IconInfo, IconList } from '@/ui/icons';
 import { STATUS_TONE } from '../status-tone';
 import { BillingBox } from './billing-box';
@@ -38,7 +39,8 @@ export async function WorkspaceHeader({ catalog, user, canShare, showReview }: P
   const notes = catalog.pipeline ? degradedNotes(catalog.pipeline, ta) : [];
   const tone = STATUS_TONE[catalog.status];
   const ready = catalog.status === 'ready';
-  const sep = <span aria-hidden className="text-subtle">·</span>;
+  // A middle dot before every item but the first, drawn by CSS so the list stays a plain dl.
+  const dot = "before:mr-1 before:text-subtle before:content-['·']";
   const quietLink = buttonClass('ghost', 'compact', 'text-muted hover:text-fg');
 
   return (
@@ -57,12 +59,9 @@ export async function WorkspaceHeader({ catalog, user, canShare, showReview }: P
               <dt className="sr-only">{ta.ws.client}</dt>
               <dd className="min-w-0 truncate"><Link href={`/clients/${catalog.client.id}`} className="font-medium text-brand-ink hover:underline">{catalog.client.name}</Link></dd>
             </div>
-            {sep}
-            <div className="flex gap-1"><dt className="sr-only">{ta.ws.date}</dt><dd className="tabular-nums">{fmtDate(locale, catalog.createdAt)}</dd></div>
-            {sep}
-            <div className="flex gap-1"><dt className="sr-only">{t.catalogsRows}</dt><dd className="tabular-nums">{f.rows(catalog.rowCount)}</dd></div>
-            {sep}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className={cx('flex gap-1', dot)}><dt className="sr-only">{ta.ws.date}</dt><dd className="tabular-nums">{fmtDate(locale, catalog.createdAt)}</dd></div>
+            <div className={cx('flex gap-1', dot)}><dt className="sr-only">{t.catalogsRows}</dt><dd className="tabular-nums">{f.rows(catalog.rowCount)}</dd></div>
+            <div className={cx('flex flex-wrap items-center gap-1.5', dot)}>
               <dt>{ta.ws.classifier}:</dt>
               <dd className="flex flex-wrap items-center gap-1.5 text-fg">
                 {used

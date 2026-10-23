@@ -440,6 +440,7 @@ export const uz = {
       diff: {
         now: 'hozir',
         noRows: 'Bu turdagi oʻzgarish yoʻq.',
+        identical: 'Ikki versiya bir xil: qoʻshilgan, olib tashlangan yoki oʻzgargan qator yoʻq.',
       },
       publicPage: {
         readOnly: 'Faqat koʻrish uchun',
@@ -875,6 +876,7 @@ export const ru: typeof uz = {
       diff: {
         now: 'сейчас',
         noRows: 'Изменений этого типа нет.',
+        identical: 'Версии совпадают: нет добавленных, удалённых или изменённых строк.',
       },
       publicPage: {
         readOnly: 'Только для просмотра',
