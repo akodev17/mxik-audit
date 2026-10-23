@@ -74,6 +74,20 @@ describe('query-only navigation', () => {
     assert.ok(box && box.width >= 280, `the select is ${box?.width ?? 0} px wide`);
   });
 
+  test('B18 one decision, and its undo, move the toolbar\'s problem count and the chips', { timeout: 90_000 }, async () => {
+    const { page } = session;
+    const finding = await db.finding.findFirst({ where: { item: { catalogId: fx.clientBCatalogId } }, select: { id: true } });
+    assert.ok(finding);
+    await page.goto(`/catalogs/${fx.clientBCatalogId}`);
+    const shown = (n: number) => main(page).getByText(TA.wsX.count.findings(String(n), n), { exact: true }).first();
+    await shown(1).waitFor();
+    const row = page.locator(`#ws-row-${finding.id}`);
+    await row.getByRole('button', { name: TA.wsX.act.reject, exact: true }).click();
+    await shown(0).waitFor({ timeout: 10_000 });
+    await row.getByRole('button', { name: TA.wsX.act.undo, exact: true }).click();
+    await shown(1).waitFor({ timeout: 10_000 });
+  });
+
   test('19 client filter tabs and the sidebar link switch the list', { timeout: 90_000 }, async () => {
     const { page } = session;
     await open(page, '/clients');
