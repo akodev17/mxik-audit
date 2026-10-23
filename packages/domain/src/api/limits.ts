@@ -83,3 +83,32 @@ export async function recordUsage(keyId: string, orgId: string, checks: number):
     update: { checks: { increment: checks }, requests: { increment: 1 } },
   });
 }
+
+/** Checks a process runs at once (API_CHECK_CONCURRENCY, default 4, at least 1). */
+export function checkConcurrency(env: Env = process.env): number {
+  return Math.max(1, whole(env['API_CHECK_CONCURRENCY'], 4) ?? 4);
+}
+
+// In memory, per process: matching holds the embedding model and the classifier pool, so a burst of
+// checks waits for a slot at the client (429 + Retry-After) instead of multiplying the work (Q1).
+let checksRunning = 0;
+
+/** Seconds a refused check is told to wait before retrying. */
+export const CHECK_BUSY_RETRY_SECONDS = 2;
+
+/** Takes a check slot: the release function, or null when `limit` checks are already running. */
+export function startCheck(limit = checkConcurrency()): (() => void) | null {
+  if (checksRunning >= limit) return null;
+  checksRunning += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    checksRunning -= 1;
+  };
+}
+
+/** Checks running in this process now. */
+export function checksInFlight(): number {
+  return checksRunning;
+}

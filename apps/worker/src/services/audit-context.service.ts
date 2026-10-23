@@ -2,35 +2,23 @@
 // model loads its weights once, not per audit), next to audit-runner's one classifier pg pool. The
 // rest of an audit context (the org's dictionary, its rerank cache, vector readiness) is per org and
 // changes with decisions, re-embeds and classifier updates, so auditContext() still builds it per run.
+// The API process installs the same source (apps/api/src/matching/embedder.service.ts).
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import { sharedEmbeddingProvider } from '@tasnivo/core/embed/index';
-import type { EmbeddingProvider } from '@tasnivo/core/match/types';
-import { useEmbedderSource } from '@tasnivo/domain/audit-runner';
+import { keptEmbedders, useEmbedderSource } from '@tasnivo/domain/audit-runner';
 
 @Injectable()
 export class AuditContextService implements OnModuleInit {
   private readonly log = new Logger('AuditContextService');
   /** Providers by name: readiness may settle on a local model rebuilt from the stored vectors' name. */
-  private readonly byName = new Map<string, EmbeddingProvider>();
+  private readonly source = keptEmbedders();
 
   onModuleInit(): void {
-    useEmbedderSource({
-      configured: () => this.keep(sharedEmbeddingProvider()),
-      reuse: (embedder) => this.keep(embedder),
-    });
-    this.log.log({ msg: 'embedding provider shared for this process', provider: sharedEmbeddingProvider().name });
-  }
-
-  /** The first provider seen under a name stays; later equal ones are dropped for it. */
-  keep(embedder: EmbeddingProvider): EmbeddingProvider {
-    const kept = this.byName.get(embedder.name);
-    if (kept) return kept;
-    this.byName.set(embedder.name, embedder);
-    return embedder;
+    useEmbedderSource(this.source);
+    this.log.log({ msg: 'embedding provider shared for this process', provider: this.source.configured().name });
   }
 
   /** Embedders kept so far, for /healthz. */
   embedders(): string[] {
-    return [...this.byName.keys()];
+    return this.source.names();
   }
 }

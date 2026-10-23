@@ -15,7 +15,7 @@ import { checkProducts, CheckItemSchema } from './check';
 import { HEADERS, PAGE, pageLimit, type OperationId } from './contract';
 import { fingerprint, idempotent, parseIdempotencyKey, type Idempotent } from './idempotency';
 import type { ApiCaller } from './keys';
-import { apiConfig, checkAllowance, recordUsage } from './limits';
+import { apiConfig, CHECK_BUSY_RETRY_SECONDS, checkAllowance, recordUsage, startCheck } from './limits';
 import { failure, type Outcome } from './respond';
 import { catalogOut, findingOut, reportOut, uploadOut } from './serialize';
 
@@ -60,8 +60,21 @@ export async function checkOperation(caller: ApiCaller, input: { idempotencyKey:
     await recordUsage(caller.keyId, caller.orgId, items.length);
     return { status: 200, body: { results } };
   };
-  if (!idem.key) return plain(await run());
-  return idempotentReply(op, await idempotent(caller.keyId, idem.key, fingerprint(JSON.stringify(items)), run));
+  // A per-process cap on checks in flight (Q1): beyond it the caller retries, and an idempotent
+  // request claims nothing, so the retry with the same key runs.
+  const release = startCheck();
+  if (!release) {
+    return {
+      outcome: failure(op, 'rate_limited', 'The server is busy with other checks. Retry in a few seconds.'),
+      headers: { [HEADERS.retryAfter]: String(CHECK_BUSY_RETRY_SECONDS) },
+    };
+  }
+  try {
+    if (!idem.key) return plain(await run());
+    return idempotentReply(op, await idempotent(caller.keyId, idem.key, fingerprint(JSON.stringify(items)), run));
+  } finally {
+    release();
+  }
 }
 
 /** GET /api/v1/catalogs: the key's own catalogues, newest first, one page at a time. */

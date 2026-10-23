@@ -12,6 +12,7 @@ import { db } from '@tasnivo/db';
 import { HEADERS, OPERATIONS, type OperationId } from '@tasnivo/domain/api/contract';
 import { listCatalogsOperation, reportOperation } from '@tasnivo/domain/api/handlers';
 import { authenticate, createApiKey } from '@tasnivo/domain/api/keys';
+import { checksInFlight, startCheck } from '@tasnivo/domain/api/limits';
 import { openApiSpec } from '@tasnivo/domain/api/openapi';
 import { setJobs, type JobDispatcher } from '@tasnivo/domain/jobs/dispatcher';
 import { dbSkipReason, dropOrgs, makeCatalog, makeOrg, type TestActor } from '@tasnivo/domain/test-fixtures';
@@ -187,6 +188,27 @@ describe('/api/v1 through the Nest app (database)', { skip }, () => {
     const reused = await as(tokenA).post('/check').set('Idempotency-Key', key).send({ name: 'Boshqa narsa' });
     assert.equal(reused.status, 422);
     documentedError('check', reused, 'idempotency_key_reused');
+  });
+
+  it('check: beyond the per-process cap of checks in flight a request gets 429 rate_limited with Retry-After (Q1)', async () => {
+    await db.organization.update({ where: { id: a.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+    const held: (() => void)[] = [];
+    for (let slot = startCheck(); slot; slot = startCheck()) held.push(slot);
+    try {
+      const key = `busy-${Date.now()}`;
+      const busy = await as(tokenA).post('/check').set('Idempotency-Key', key).send({ name: 'Sut 1 l' });
+      assert.equal(busy.status, 429, busy.text);
+      hasRateHeaders(busy);
+      assert.equal(busy.headers[HEADERS.retryAfter.toLowerCase()], '2');
+      documentedError('check', busy, 'rate_limited');
+      held.pop()?.();
+      // The refused request claimed nothing: the retry with the same key runs.
+      const retry = await as(tokenA).post('/check').set('Idempotency-Key', key).send({ name: 'Sut 1 l' });
+      assert.equal(retry.status, 200, retry.text);
+    } finally {
+      for (const release of held) release();
+    }
+    assert.equal(checksInFlight(), 0);
   });
 
   it('upload: 202 with the stored catalogue, its audit handed to the queue; replayed for the same key', async () => {
