@@ -11,7 +11,7 @@ commit `36ef476`. Not pushed. Ports: API 4021, web 3021.
 | `ad5b3b5`, `ff177ea`+1 | Golden files, format and plan tests, fixtures and seed helpers, database tests, byte-exact golden files (`.gitattributes`) |
 | `122754c` | HTTP: contract module `onec` (12 operations), Nest `OnecModule`, i18n (uz + ru), API e2e tests |
 | `6f964a6` | Web: `/onec`, `/onec/[batchId]` (review grid + export panel), `/onec/settings`; seed and benchmark scripts; screenshots |
-| (this commit) | Docs: this note, `onec-formats.md`, `onec-ui.md`, `handoff-agent1.md` |
+| `99902ec` + last | Docs (this note, `onec-formats.md`, `onec-ui.md`, `handoff-agent1.md`), duplicate lookup as one SQL join, activity-log and robots one-liners |
 
 ## Delivered
 
@@ -119,8 +119,24 @@ Shared dev Postgres in Docker, other sessions running; median of 3 runs
 
 - Reference lookups for OData (counterparty, nomenclature, bank account, operation kind) — needs
   a real base.
-- Activity-log labels for `onec.*` events (request in `handoff-agent1.md`).
 
-## Checks
 
-(filled in below after the final run)
+## Checks (final run on this branch, 23 Oct ~17:20)
+
+- `npm run typecheck`: pass.
+- `npm run lint`: pass (0 errors; 1 warning that predates this branch, `scripts/lib/xlsx.ts:131`).
+- `npm test` (235 files, 1 750 tests, Redis not required): first full run 1 735 pass / 13 fail /
+  2 skipped. Triage:
+  - 2 real, caused by the programme and fixed here with one-line edits in shared files: the activity
+    log test (my new `onec.exported` / `onec.transferred` / `onec.connection_saved` needed a log
+    group and uz/ru labels: `packages/domain/src/activity.ts`, `packages/i18n/src/i18n-app*.ts`) and
+    the robots test (`/bank`, `/didox`, `/products`, `/onec` from the base commit's nav were not
+    disallowed: `apps/web/src/app/robots.ts`). Both listed in `handoff-agent1.md`.
+  - 11 environmental: the shared dev Postgres answered "sorry, too many clients already" while my
+    benchmark and the other four sessions ran in parallel (admin, billing, catalogs, imports,
+    notifications, onec e2e hooks and 500s), and the background-audit test timed out under load.
+  - Re-run of every failed file with `--test-concurrency=1` after the fixes: 45/46 pass; the
+    background-audit test then passes on its own (5/5). No 1C test failed outside the connection
+    exhaustion.
+- `npm run test:e2e` (Playwright) and `npm run build` were not run on this branch (the plan runs
+  them on the integration branch).

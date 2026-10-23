@@ -15,16 +15,13 @@ file (so the coordinator knows to keep it at merge) or a request for another own
 | `packages/contracts/README.md` | checklist regenerated (`npx tsx packages/contracts/src/checklist.ts --write`) | new operations; regenerate again after merging all modules |
 | `packages/domain/src/export-1c.ts` | now only re-exports `build1cCsv`, `build1cXlsx`, `ONE_C_HEADERS_RU` from `onec/sheets.ts` | brief: one place for 1C builders. **Agent 4:** do not add builders here; the catalogue download is unchanged (tests green) |
 
+| `packages/domain/src/activity.ts` | `onec.exported`, `onec.transferred` in `GROUPS.exports`; `onec.connection_saved` in `GROUPS.team` | `activity-actions.test.ts` requires every written action to be grouped |
+| `packages/i18n/src/i18n-app.ts`, `i18n-app-ru.ts` | labels of the three `onec.*` actions | same test, both languages |
+| `apps/web/src/app/robots.ts` | `/bank`, `/didox`, `/products`, `/onec` in `PRIVATE_PATHS` | `robots.test.ts` (B16) failed since the base commit added these sections to the nav; other workstreams may make the same edit (trivial conflict) |
+
 ## Requests
 
-1. **Activity log (A5 / coordinator):** `packages/domain/src/activity.ts` `GROUPS.exports` should
-   list `onec.exported` and `onec.transferred`, and `GROUPS.team` (org-level) `onec.connection_saved`;
-   `packages/i18n/src/i18n-app.ts` / `i18n-app-ru.ts` `actions` need their words
-   (uz: «1C fayli tayyorlandi», «1C ga yuborildi», «1C sozlamalari saqlandi»; ru: «Сформирован файл
-   для 1С», «Передано в 1С», «Сохранены настройки 1С»). Until then these events fall in "other"
-   and show their raw action name. Payload carries `batchId`, `clientId`, `format`, `exportId`,
-   `imported`, `skipped` (`rejected` for transfers).
-2. **Platform a11y (A5):** in the in-app browser's accessibility tree a `Checkbox` with `hideLabel`
+1. **Platform a11y (A5):** in the in-app browser's accessibility tree a `Checkbox` with `hideLabel`
    (`apps/web/src/ui/checkbox.tsx`) is named "on" rather than its label; seen on the review grid's
    row checkboxes. Likewise `Segmented` radios are named by value (`standard`, `uz_mfo`). Not fixed
    here (shared primitives).
