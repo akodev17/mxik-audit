@@ -8,11 +8,16 @@ import { LanguageSwitch } from '../language-switch';
 import { Segmented } from '../segmented';
 import type { Theme } from '../theme';
 import { useToast } from '../toast';
+import { IconGear } from '../icons';
+import { IconHelp } from './icons';
+import { emailInitials } from './initials';
 import { helpHref } from './nav';
 import { useTheme } from './theme-root';
 import { useDropdown } from './use-dropdown';
 
-const ITEM = 'flex w-full items-center rounded-sm px-2.5 py-1.5 text-left text-data text-fg hover:bg-surface focus-visible:outline-offset-[-2px]';
+const ROW = 'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-data focus-visible:outline-offset-[-2px]';
+const ITEM = `${ROW} text-fg hover:bg-surface`;
+const SIGN_OUT = `${ROW} text-danger-ink hover:bg-danger-tint`;
 
 /** Avatar button: account, language, theme, settings, help and sign-out. */
 export function UserMenu({ email }: { email: string }) {
@@ -22,6 +27,7 @@ export function UserMenu({ email }: { email: string }) {
   const themeCtx = useTheme();
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const initials = emailInitials(email);
 
   useEffect(() => {
     if (dd.open) dd.panel.current?.focus({ preventScroll: true });
@@ -68,9 +74,9 @@ export function UserMenu({ email }: { email: string }) {
         aria-controls={dd.open ? dd.panelId : undefined}
         aria-label={ta.shellX.user.menu}
         onClick={() => dd.setOpen(!dd.open)}
-        className="grid size-control-md place-items-center rounded-full border border-transparent bg-brand-tint text-data font-bold uppercase text-brand-ink transition-colors duration-(--duration-fast) hover:border-brand"
+        className={`grid size-8 shrink-0 place-items-center rounded-full bg-brand-tint text-small font-semibold text-brand-ink ring-offset-2 ring-offset-base transition-shadow duration-(--duration-fast) hover:ring-2 hover:ring-line-strong ${dd.open ? 'ring-2 ring-brand' : ''}`}
       >
-        {email.slice(0, 1)}
+        <span aria-hidden>{initials}</span>
       </button>
       {dd.open ? (
         <div
@@ -81,9 +87,12 @@ export function UserMenu({ email }: { email: string }) {
           tabIndex={-1}
           className="absolute right-0 top-full z-dropdown mt-1 w-72 max-w-[calc(100vw-1rem)] rounded-md border border-line bg-raised p-1 text-fg shadow-pop focus-visible:outline-none motion-safe:animate-pop-in"
         >
-          <div className="border-b border-line px-2.5 pb-2 pt-1.5">
-            <p className="text-micro text-muted">{ta.shellX.user.signedInAs}</p>
-            <p className="truncate text-data font-medium" title={email}>{email}</p>
+          <div className="flex items-center gap-3 border-b border-line px-2.5 pb-2.5 pt-1.5">
+            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-tint text-data font-semibold text-brand-ink">{initials}</span>
+            <span className="min-w-0">
+              <span className="block text-micro text-muted">{ta.shellX.user.signedInAs}</span>
+              <span className="block truncate text-data font-medium" title={email}>{email}</span>
+            </span>
           </div>
           <div className="space-y-2.5 border-b border-line px-2.5 py-2.5">
             <div className="space-y-1">
@@ -98,11 +107,11 @@ export function UserMenu({ email }: { email: string }) {
             ) : null}
           </div>
           <div className="py-1">
-            <Link href="/settings" onClick={() => dd.close(false)} className={ITEM}>{ta.nav.settings}</Link>
-            <Link href={helpHref(locale)} onClick={() => dd.close(false)} className={ITEM}>{ta.shellX.user.help}</Link>
+            <Link href="/settings" onClick={() => dd.close(false)} className={ITEM}><IconGear size={16} className="text-muted" />{ta.nav.settings}</Link>
+            <Link href={helpHref(locale)} onClick={() => dd.close(false)} className={ITEM}><IconHelp size={16} className="text-muted" />{ta.shellX.user.help}</Link>
           </div>
           <form onSubmit={signOut} className="border-t border-line pt-1">
-            <button type="submit" className={ITEM} aria-busy={signingOut || undefined}>{t.signOut}</button>
+            <button type="submit" className={SIGN_OUT} aria-busy={signingOut || undefined}>{t.signOut}</button>
           </form>
         </div>
       ) : null}

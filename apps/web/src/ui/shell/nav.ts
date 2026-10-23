@@ -76,6 +76,27 @@ export function switchTarget(pathname: string, search: string, clientId: string)
 }
 
 /**
+ * Where "all clients" in the header's client control leads: the same list without its client filter
+ * (the catalogue list says so with client=all, since it defaults to the active client), the clients
+ * list from a client's page, every catalogue from a catalogue, and the same page on firm-wide pages
+ * (already all clients). Null on upload, which always works on one client.
+ */
+export function allClientsTarget(pathname: string, search: string): string | null {
+  if (isActive(pathname, '/upload')) return null;
+  if (CLIENT_PAGE.test(pathname)) return '/clients';
+  if (CATALOG_PAGE.test(pathname)) return '/catalogs?client=all';
+  const params = new URLSearchParams(search);
+  if (CLIENT_LISTS.includes(pathname)) {
+    params.delete('page');
+    params.delete('after');
+    if (pathname === '/catalogs') params.set('client', 'all');
+    else params.delete('client');
+  }
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+/**
  * What the header's client control stands for on this page: the page's own client, the active
  * client (pages that default to it), all clients (firm-wide pages and unfiltered lists), or
  * nothing on a catalogue, whose header names its own client. `fallback` applies when the id is

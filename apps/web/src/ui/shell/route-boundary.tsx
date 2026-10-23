@@ -2,8 +2,8 @@
 
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Profiler, Suspense, useEffect, useRef, type ProfilerOnRenderCallback, type ReactNode } from 'react';
-import { PageSkeleton } from '../skeleton';
 import { routeBoundaryKey } from './navigation';
+import { RouteSkeleton } from './route-skeleton';
 
 /** NEXT_PUBLIC_PERF_PROFILE=1 with `next build --profile` (performance work only): page commits go to window.__perf. */
 const PROFILE = process.env.NEXT_PUBLIC_PERF_PROFILE === '1';
@@ -36,6 +36,6 @@ export function RouteBoundary({ children }: { children: ReactNode }) {
     if (active === null || active === document.body) document.getElementById('main')?.focus({ preventScroll: true });
   }, [key]);
 
-  const page = <Suspense key={key} fallback={<PageSkeleton />}>{children}</Suspense>;
+  const page = <Suspense key={key} fallback={<RouteSkeleton />}>{children}</Suspense>;
   return PROFILE ? <Profiler id="page" onRender={recordCommit}>{page}</Profiler> : page;
 }
