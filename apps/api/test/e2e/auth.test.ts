@@ -87,7 +87,7 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     assert.equal(uz.status, 200);
     assert.deepEqual(bodyOf<State>(uz), { error: t.signInError });
     assert.equal(setCookies(uz).length, 0);
-    const ru = await call(`mxik_locale=ru`).post('/api/auth/sign-in').send({ email: 'nobody-at-all@test.local', password: 'x' });
+    const ru = await call(`mxik_locale=ru`).post('/api/auth/sign-in').send({ email: `nobody-${testIp()}@test.local`, password: 'x' });
     assert.deepEqual(bodyOf<State>(ru), { error: i18nFor('ru').t.signInError });
     // A malformed address answers exactly like a wrong password.
     assert.deepEqual(bodyOf(await signIn({ email: 'not-an-email', password: 'x' })), bodyOf(uz));
@@ -273,14 +273,15 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
   });
 
   it('GET /api/auth/config says what the sign-in pages offer', async () => {
-    assert.deepEqual(bodyOf(await call().get('/api/auth/config')), { telegramBot: null, mailEnabled: false, google: false });
+    const config = await withEnv({ GOOGLE_CLIENT_ID: undefined }, async () => bodyOf(await call().get('/api/auth/config')));
+    assert.deepEqual(config, { telegramBot: null, mailEnabled: false, google: false });
   });
 
   it('Google sign-in starts only when configured: PKCE, state and nonce, kept in the session cookie', async () => {
-    const off = await call().get('/api/auth/google');
+    const off = await withEnv({ GOOGLE_CLIENT_ID: undefined }, () => call().get('/api/auth/google'));
     assert.equal(off.status, 307);
     assert.equal(off.headers['location'], '/sign-in');
-    await withEnv({ GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-secret', APP_URL: 'https://tasnivo.test' }, async () => {
+    await withEnv({ GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-secret', APP_URL: 'https://tasnivo.test', GOOGLE_REDIRECT_URI: undefined }, async () => {
       assert.equal(bodyOf<{ google: boolean }>(await call().get('/api/auth/config')).google, true);
       const res = await call().get('/api/auth/google?next=/catalogs');
       assert.equal(res.status, 302);

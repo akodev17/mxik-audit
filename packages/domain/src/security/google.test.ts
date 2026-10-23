@@ -91,8 +91,9 @@ describe('Google sign-in (database)', { skip: await dbSkipReason() }, () => {
   const orgs: string[] = [];
   const ips: string[] = [];
   let a: TestActor;
-  const saved = { id: process.env['GOOGLE_CLIENT_ID'], secret: process.env['GOOGLE_CLIENT_SECRET'], app: process.env['APP_URL'] };
+  const saved = { id: process.env['GOOGLE_CLIENT_ID'], secret: process.env['GOOGLE_CLIENT_SECRET'], app: process.env['APP_URL'], uri: process.env['GOOGLE_REDIRECT_URI'] };
   before(async () => {
+    delete process.env['GOOGLE_REDIRECT_URI'];
     process.env['GOOGLE_CLIENT_ID'] = CLIENT;
     process.env['GOOGLE_CLIENT_SECRET'] = 'test-secret';
     process.env['APP_URL'] = 'https://tasnivo.test';
@@ -100,7 +101,7 @@ describe('Google sign-in (database)', { skip: await dbSkipReason() }, () => {
     orgs.push(a.orgId);
   });
   after(async () => {
-    for (const [k, v] of [['GOOGLE_CLIENT_ID', saved.id], ['GOOGLE_CLIENT_SECRET', saved.secret], ['APP_URL', saved.app]] as const) {
+    for (const [k, v] of [['GOOGLE_CLIENT_ID', saved.id], ['GOOGLE_CLIENT_SECRET', saved.secret], ['APP_URL', saved.app], ['GOOGLE_REDIRECT_URI', saved.uri]] as const) {
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
     }
     await db.authAttempt.deleteMany({ where: { key: { in: ips.map(attemptKey) } } });

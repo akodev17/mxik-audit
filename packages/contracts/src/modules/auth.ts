@@ -153,14 +153,14 @@ export const auth = defineModule('auth', {
     summary: 'The code step: the six-digit code from the confirmation mail',
     body: z.object({ code: z.string().max(32) }),
     responds: 'json', response: z.union([Redirect, ErrorState]),
-    replaces: [],
+    replaces: ['page:sign-up/verify'],
     notes: 'Limited per user (RULES.verifyCodeUser) and per code (CODE_TRIES wrong entries, then a new code is needed). Answers { redirect: "/dashboard" } once confirmed.',
   }),
   resendCode: endpoint({
     method: 'POST', path: '/api/auth/verify-code/resend', auth: 'session', role: 'any', allowUnverified: true,
     summary: 'Mail a new confirmation code (the earlier one stops working)',
     responds: 'json', response: z.union([Redirect, SignInState]),
-    replaces: [],
+    replaces: ['page:sign-up/verify'],
     notes: 'Limited by RULES.resendIp and RULES.resendEmail. An already confirmed user is sent to the dashboard.',
   }),
   google: endpoint({
@@ -168,7 +168,7 @@ export const auth = defineModule('auth', {
     summary: 'Start Google sign-in: redirect to Google with PKCE and a one-time state',
     query: z.object({ next: z.string().max(512).optional() }),
     responds: 'redirect',
-    replaces: [],
+    replaces: ['page:sign-in', 'page:sign-up'],
     notes: 'The state, the PKCE verifier and the nonce live in a short-lived httpOnly cookie. Without GOOGLE_CLIENT_ID it goes back to /sign-in.',
   }),
   googleCallback: endpoint({
@@ -176,7 +176,7 @@ export const auth = defineModule('auth', {
     summary: 'Google redirects here: checks the state, exchanges the code, verifies the ID token and signs in',
     query: z.object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() }).passthrough(),
     responds: 'redirect',
-    replaces: [],
+    replaces: ['page:sign-in'],
     notes: 'ID token checked against the Google JWKS (signature, issuer, audience, expiry, nonce). A verified Google address counts as confirmed; it joins an existing user only when that address is confirmed there.',
   }),
   twoFactorSubmit: endpoint({
