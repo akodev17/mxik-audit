@@ -5,7 +5,8 @@ import { DEMO_URL, TELEGRAM_URL } from './config';
 import { CONTAINER } from './container';
 import { SHELL_COPY, type SiteLang } from './shell-copy';
 
-const NAV_LINK = 'rounded-lp px-3 py-2 text-[15px] font-medium text-lp-muted transition-colors hover:bg-lp-surface hover:text-lp-ink';
+// Tighter padding below xl: with Demo and Telegram on, seven links must fit one row at 1024px.
+const NAV_LINK = 'whitespace-nowrap rounded-lp px-2 py-2 xl:px-3 text-[15px] font-medium text-lp-muted transition-colors hover:bg-lp-surface hover:text-lp-ink';
 const PRIMARY = 'inline-flex min-h-10 items-center whitespace-nowrap rounded-lp bg-lp-brand px-4 text-[15px] font-medium text-white shadow-sm transition-colors hover:bg-lp-brand-ink';
 const SECONDARY = 'inline-flex min-h-10 items-center whitespace-nowrap rounded-lp border border-lp-line bg-lp-surface px-4 text-[15px] font-medium text-lp-ink transition-colors hover:border-lp-line-strong';
 const MENU_LINK = 'block rounded-lp px-3 py-2.5 text-[16px] text-lp-ink hover:bg-lp-surface';
@@ -24,6 +25,7 @@ export function SiteHeader({ lang = 'uz', signedIn = false }: { lang?: SiteLang;
   const c = SHELL_COPY[lang];
   const links: Item[] = [
     { href: '/#qanday-ishlaydi', label: c.how },
+    { href: '/#buxgalteriya', label: c.accounting },
     { href: '/#narxlar', label: c.pricing },
     { href: '/#savollar', label: c.faq },
     { href: helpPath(lang), label: c.help },
