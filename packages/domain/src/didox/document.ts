@@ -170,7 +170,7 @@ const tolerance = (amount: Micros): Micros => {
 };
 
 function party(doc: Obj, prefix: 'seller' | 'buyer'): { name: string; inn: string | null; account: string | null; mfo: string | null; rawTin: string | null } {
-  const nested = isObj(doc[prefix]) ? (doc[prefix] as Obj) : undefined;
+  const nested = isObj(doc[prefix]) ? doc[prefix] : undefined;
   const rawTin = digits(pick(doc, `${prefix}tin`)) ?? digits(pick(nested, 'tin', 'inn', 'pinfl'));
   const name = text(pick(nested, 'name')) ?? text(pick(doc, `${prefix}name`)) ?? '';
   const account = digits(pick(nested, 'account'));
@@ -250,14 +250,14 @@ function parseLine(raw: unknown, index: number, measures: ReadonlyMap<string, st
 export function parseDidoxDocument(input: unknown, options: ParseOptions): ParseOutcome {
   let value = input;
   if (typeof value === 'string' || Buffer.isBuffer(value)) {
-    try { value = JSON.parse(String(value).replace(/^﻿/, '')); } catch { return { ok: false, error: 'unreadable', kind: 'unknown' }; }
+    try { value = JSON.parse(String(value).replace(/^\uFEFF/, '')); } catch { return { ok: false, error: 'unreadable', kind: 'unknown' }; }
   }
   const { doc, kind, wrapperId } = unwrap(value);
   if (!doc) return { ok: false, error: 'unreadable', kind: 'unknown' };
   if (kind !== 'invoice') return { ok: false, error: 'not_invoice', kind };
 
-  const factura = isObj(doc['facturadoc']) ? (doc['facturadoc'] as Obj) : {};
-  const contract = isObj(doc['contractdoc']) ? (doc['contractdoc'] as Obj) : {};
+  const factura = isObj(doc['facturadoc']) ? doc['facturadoc'] : {};
+  const contract = isObj(doc['contractdoc']) ? doc['contractdoc'] : {};
   const number = text(pick(factura, 'facturano', 'number', 'no'));
   const date = isoDate(pick(factura, 'facturadate', 'date'));
   const missing = [!number && 'facturadoc.facturano', !date && 'facturadoc.facturadate'].filter(Boolean);

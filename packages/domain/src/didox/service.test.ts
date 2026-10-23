@@ -190,7 +190,7 @@ describe('Didox service (database)', { skip }, () => {
 
     const q = await prepareInvoice(admin, 'ru', batches['standard'] ?? '');
     assert.ok(q.ok);
-    assert.deepEqual([q.report.imported, q.report.rejected, q.report.reasons], [0, 3, { not_reviewed: 3 }]);
+    assert.deepEqual([q.report.imported, q.report.rejected, q.report.reasons], [0, 3, { not_approved: 3 }]);
 
     const exp = await exportInvoice(admin, 'ru', batches['noisy'] ?? '', 'receipt_xlsx');
     assert.ok(!exp.ok);

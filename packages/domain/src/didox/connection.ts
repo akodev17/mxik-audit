@@ -223,7 +223,7 @@ export async function syncIncoming(
           result.refused++;
           await db.didoxDocument.upsert({
             where: { orgId_didoxId: { orgId: user.orgId, didoxId: entry.id } },
-            create: { orgId: user.orgId, didoxId: entry.id, source: 'didox_api', docType: entry.doctype, status: entry.status, json: (doc ?? {}) as object },
+            create: { orgId: user.orgId, didoxId: entry.id, source: 'didox_api', docType: entry.doctype, status: entry.status, json: doc ?? {} },
             update: { status: entry.status },
           });
         }

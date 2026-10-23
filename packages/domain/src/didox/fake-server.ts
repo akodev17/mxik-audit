@@ -143,7 +143,8 @@ export function fixtureDocuments(dir = FIXTURE_DIR): FakeDocument[] {
   return files.map(([file, updated, status], i) => {
     const json = JSON.parse(readFileSync(join(dir, file), 'utf8')) as Record<string, unknown>;
     const inner = (json['data'] ?? json) as Record<string, unknown>;
-    const id = String(inner['facturaid'] ?? inner['FacturaId'] ?? `fake-act-${i}`);
+    const raw = inner['facturaid'] ?? inner['FacturaId'];
+    const id = typeof raw === 'string' ? raw : `fake-act-${i}`;
     return { id, doctype: file === 'act.json' ? '005' : '002', status, owner: 0 as const, updated, json: inner };
   });
 }

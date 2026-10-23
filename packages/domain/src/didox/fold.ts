@@ -41,8 +41,8 @@ function foldLetters(token: string): string {
 export function foldName(name: string): string {
   let text = name.normalize('NFKC').toLowerCase().replace(/ё/g, 'е');
   // Keep decimal marks inside numbers ("0,5 л" = "0.5л"), then drop every other punctuation mark.
-  text = text.replace(/(\d)[,.](\d)/g, '$1\u0000$2');
-  text = text.replace(/[^\p{L}\p{N}\u0000]+/gu, ' ').replace(/\u0000/g, '.');
+  text = text.replace(/(\d)[,.](\d)/g, '$1\uE000$2');
+  text = text.replace(/[^\p{L}\p{N}\uE000]+/gu, ' ').replace(/\uE000/g, '.');
   const raw = text.split(' ').filter(Boolean);
 
   // Split glued number+unit ("50кг") into two tokens so both spellings take the same path below.

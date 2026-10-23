@@ -18,8 +18,8 @@ import { looksLikeZip } from '../security/zip-guard.js';
 import { buildExport, prepareExport } from '../onec/index.js';
 import { classifyProducts, upsertProducts } from '../products/index.js';
 import type { CurrentUser } from '../session.js';
-import { checkInvoice, defaultDeps, statusFor, type CheckDeps, type ProductRecord, type RecordStatus } from './check.js';
-import { parseDidoxDocument, SHAPE_NOTE, type DidoxKind, type IncomingInvoiceMeta, type InvoiceLine, type ParseError, type ValidationIssue } from './document.js';
+import { checkInvoice, defaultDeps, statusFor, type CheckDeps, type CheckedInvoice, type ProductRecord, type RecordStatus } from './check.js';
+import { parseDidoxDocument, SHAPE_NOTE, type DidoxKind, type IncomingInvoiceMeta, type InvoiceLine, type ParsedInvoice, type ParseError, type ValidationIssue } from './document.js';
 import { foldName } from './fold.js';
 import { readDidoxUpload, guessSheetMap, sheetToDocument, SheetHeaderSchema, SheetMapSchema, SHEET_FIELDS, type SheetMap } from './sources.js';
 
@@ -110,6 +110,11 @@ export async function importDocument(orgId: string, actorId: string | null, inpu
   if (earlier) return { ok: false, code: 'duplicate_invoice', duplicateOf: earlier };
 
   const checked = await checkInvoice(orgId, input.clientId, invoice, deps);
+  return storeInvoice(orgId, actorId, input, invoice, checked);
+}
+
+/** The write stage of importDocument (exported for the benchmark): the batch, its records and the document cache. */
+export async function storeInvoice(orgId: string, actorId: string | null, input: ImportInput, invoice: ParsedInvoice, checked: CheckedInvoice): Promise<ImportResult> {
   const meta: StoredMeta = {
     ...checked.meta,
     didox: {
@@ -534,7 +539,7 @@ export function forecast(records: Array<{ id: string; status: RecordStatus; payl
     if (r.status === 'skipped') return { ...base, result: 'skipped', reason: 'skipped', issue: null, newProduct: false };
     const error = issues.find((i) => i.severity === 'error');
     if (r.status === 'unresolved' || error) return { ...base, result: 'rejected', reason: 'unresolved', issue: error?.code ?? null, newProduct: false };
-    if (!decided) return { ...base, result: 'rejected', reason: 'not_reviewed', issue: null, newProduct: false };
+    if (!decided) return { ...base, result: 'rejected', reason: 'not_approved', issue: null, newProduct: false };
     return { ...base, result: 'imported', reason: null, issue: null };
   });
   const reasons: Record<string, number> = {};

@@ -19,7 +19,7 @@ import { Table, Td, Th } from '@/ui/table';
 import { useToast } from '@/ui/toast';
 import { Card, FLUSH_TABLE } from '../../_manage/card';
 import { Notice } from '../../_manage/notice';
-import { decimalText, recordTone, severityTone, type RecordStatus } from '../model';
+import { decimalText, recordTone, severityTone } from '../model';
 
 type Detail = ResponseOf<typeof endpoints.didox.get>;
 type Line = Detail['records'][number];
@@ -102,7 +102,7 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
         hint={counts ? (['valid', 'corrected', 'suspicious', 'unresolved', 'skipped'] as const).map((s) => `${ta.accountingX.record[s]}: ${n(counts[s])}`).join(' · ') : undefined}
         actions={(
           <Segmented
-            label={g.status} value={filter} onChange={(v) => setFilter(v as 'all' | 'problems')}
+            label={g.status} value={filter} onChange={setFilter}
             options={[{ value: 'problems', label: d.detail.filterProblems }, { value: 'all', label: d.detail.filterAll }]}
           />
         )}
@@ -134,7 +134,7 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
             {rows.length === 0 ? <tr><Td colSpan={11} className="py-6 text-center text-muted">{d.detail.noProblems}</Td></tr> : null}
             {rows.map((r) => {
               const p = r.payload;
-              const tone = recordTone(r.status as RecordStatus);
+              const tone = recordTone(r.status);
               const match = p.product.status;
               return (
                 <tr key={r.id} className="align-top hover:bg-surface">
@@ -164,7 +164,7 @@ export function InvoiceReview({ detail, writable }: { detail: Detail; writable: 
                       ))}
                     </ul>
                   </Td>
-                  <Td><StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{ta.accountingX.record[r.status as RecordStatus]}</StatusChip></Td>
+                  <Td><StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{ta.accountingX.record[r.status]}</StatusChip></Td>
                   {writable ? (
                     <Td>
                       <span className="flex flex-wrap justify-end gap-1">

@@ -26,7 +26,7 @@ describe('decimal', () => {
     assert.equal(normalizeDecimal(1e-7), '0');
     assert.equal(normalizeDecimal('-12.0000005'), '-12.000001');
     assert.equal(normalizeDecimal(12345678901234), '12345678901234');
-    for (const bad of ['', 'abc', null, undefined, NaN, Infinity, '1.2.3', {}]) assert.equal(normalizeDecimal(bad), null, String(bad));
+    for (const bad of ['', 'abc', null, undefined, NaN, Infinity, '1.2.3', {}]) assert.equal(normalizeDecimal(bad), null, JSON.stringify(bad) ?? 'undefined');
   });
 
   it('multiplies and takes percentages on integers of millionths', () => {

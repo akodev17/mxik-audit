@@ -24,7 +24,7 @@ export function readDecimal(value: unknown): Micros | null {
     text = String(value);
     if (/e/i.test(text)) text = Math.abs(value) < 1 ? value.toFixed(DIGITS + 2) : BigInt(Math.round(value)).toString();
   } else if (typeof value === 'string') {
-    text = value.trim().replace(/[\s  ]/g, '');
+    text = value.trim().replace(/[\s\u00a0\u202f]/g, '');
     // "1234,56" → "1234.56"; "1,234.56" keeps the dot as the mark and drops the comma.
     if (text.includes(',') && !text.includes('.')) text = text.replace(',', '.');
     else text = text.replace(/,/g, '');

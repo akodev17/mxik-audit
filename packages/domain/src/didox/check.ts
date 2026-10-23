@@ -60,6 +60,14 @@ export function statusFor(issues: readonly ValidationIssue[]): RecordStatus {
 /** Units and package names compared by meaning: "штук" = "шт" = "дона", "упаковка" = "уп". */
 export const sameUnit = (a: string, b: string): boolean => foldName(a) === foldName(b);
 
+/** The contract's line fields of a parsed line (without the raw code and the parser's issues). */
+function lineFields(line: ParsedLine): Omit<InvoiceLine, 'product' | 'resolved'> {
+  const fields: Partial<ParsedLine> = { ...line };
+  delete fields.rawCatalogCode;
+  delete fields.issues;
+  return fields as Omit<InvoiceLine, 'product' | 'resolved'>;
+}
+
 const queryOf = (line: ParsedLine): ProductQuery => ({
   name: line.name, mxik: line.mxik, barcode: line.barcode, unit: line.unit ?? line.packageName, packageCode: line.packageCode,
 });
@@ -151,8 +159,7 @@ export async function checkInvoice(orgId: string, clientId: string | null, parse
       }
     }
 
-    const { rawCatalogCode: _raw, issues: _own, ...rest } = line;
-    const payload: InvoiceLine = { ...rest, product: match, resolved: record };
+    const payload: InvoiceLine = { ...lineFields(line), product: match, resolved: record };
     return { payload, issues, status: statusFor(issues), groupKey: key };
   });
 

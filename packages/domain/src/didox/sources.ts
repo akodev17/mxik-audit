@@ -29,7 +29,7 @@ const MAX_DOCUMENTS = 500;
 const isXlsxArchive = (zip: JSZip): boolean => zip.file('[Content_Types].xml') !== null && Object.keys(zip.files).some((n) => n.startsWith('xl/'));
 
 function parseJson(buffer: Buffer): unknown {
-  return JSON.parse(buffer.toString('utf8').replace(/^﻿/, ''));
+  return JSON.parse(buffer.toString('utf8').replace(/^\uFEFF/, ''));
 }
 
 const stem = (name: string): string => name.replace(/\.[^./]+$/, '').toLowerCase();
@@ -86,7 +86,7 @@ export async function readDidoxUpload(buffer: Buffer, filename: string): Promise
     if (out.documents.length === 0) return { kind: 'error', error: 'no_documents' };
     return { kind: 'documents', ...out };
   }
-  const head = buffer.subarray(0, 64).toString('utf8').replace(/^﻿/, '').trimStart();
+  const head = buffer.subarray(0, 64).toString('utf8').replace(/^\uFEFF/, '').trimStart();
   if (head.startsWith('{') || head.startsWith('[')) {
     let json: unknown;
     try { json = parseJson(buffer); } catch { return { kind: 'error', error: 'unreadable' }; }

@@ -118,7 +118,7 @@ export const uz = {
       newProducts: (n: number) => `${n} ta yangi mahsulot yaratiladi`,
       onecPending: '1C fayl yaratuvchisi (1C integratsiyasi) hali bu tarmoqqa qoʻshilmagan: fayl yaratilmadi. Yozuvlar tayyor.',
       reasons: {
-        unresolved: 'hal qilinmagan muammo', not_reviewed: 'koʻrib chiqilmagan', skipped: 'foydalanuvchi oʻtkazib yubordi',
+        unresolved: 'hal qilinmagan muammo', not_approved: 'tasdiqlanmagan', skipped: 'foydalanuvchi oʻtkazib yubordi',
         duplicate: 'takroriy', onec_refused: '1C rad etdi',
       } as Record<string, string>,
     },
@@ -279,7 +279,7 @@ export const ru: typeof uz = {
       emptyHint: 'Загрузите архив Didox или настройте подключение и получите новые счета-фактуры.',
       remove: 'Удалить',
       removeConfirm: 'Счёт-фактура и результаты его проверки будут удалены. Уже выгруженные в 1С файлы не меняются.',
-      sources: { didox_api: 'Didox API', didox_zip: 'Архив', didox_json: 'JSON', xlsx: 'Excel' } as Record<string, string>,
+      sources: { didox_api: 'Didox API', didox_zip: 'Архив', didox_json: 'JSON', xlsx: 'Excel' },
     },
     detail: {
       back: 'Счета-фактуры',
@@ -330,9 +330,9 @@ export const ru: typeof uz = {
       newProducts: (n: number) => `Будет создано новых товаров: ${n}`,
       onecPending: 'Построитель файлов 1С (интеграция 1С) ещё не влит в эту ветку: файл не создан. Записи готовы.',
       reasons: {
-        unresolved: 'нерешённая проблема', not_reviewed: 'не проверено', skipped: 'пропущено пользователем',
+        unresolved: 'нерешённая проблема', not_approved: 'не подтверждено', skipped: 'пропущено пользователем',
         duplicate: 'дубликат', onec_refused: 'отклонено 1С',
-      } as Record<string, string>,
+      },
     },
     settings: {
       title: 'Подключение Didox',
@@ -381,7 +381,7 @@ export const ru: typeof uz = {
       seller_unknown: 'Продавца нет в списке контрагентов',
       seller_tin_invalid: 'ИНН продавца не прочитан',
       duplicate_invoice: 'Этот счёт-фактура уже загружен',
-    } as Record<string, string>,
+    },
     errors: {
       not_invoice: (kind: string) => `Это не счёт-фактура (${kind}). Принимаются только счета-фактуры.`,
       unreadable: 'Не удалось прочитать файл.',
@@ -418,7 +418,7 @@ export const ru: typeof uz = {
         network: 'Не удалось подключиться к Didox.',
         bad_response: 'Didox вернул неожиданный ответ.',
         client: 'Didox отклонил запрос.',
-      } as Record<string, string>,
+      },
       export_failed: 'Файл не создан.',
       nothing_to_export: 'Нет подтверждённых строк для передачи в 1С.',
       generic: 'Произошла ошибка. Попробуйте ещё раз.',

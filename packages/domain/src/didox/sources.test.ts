@@ -51,7 +51,7 @@ describe('Didox upload sources', () => {
   });
 
   it('a single JSON (with BOM), a JSON array, and junk', async () => {
-    const one = await readDidoxUpload(Buffer.concat([Buffer.from('﻿'), raw('invoice-standard-3.json')]), 'doc.json');
+    const one = await readDidoxUpload(Buffer.concat([Buffer.from('\uFEFF'), raw('invoice-standard-3.json')]), 'doc.json');
     assert.ok(one.kind === 'documents' && one.documents.length === 1);
     const many = await readDidoxUpload(Buffer.from(JSON.stringify([JSON.parse(raw('invoice-standard-3.json').toString()), { x: 1 }])), 'docs.json');
     assert.ok(many.kind === 'documents');

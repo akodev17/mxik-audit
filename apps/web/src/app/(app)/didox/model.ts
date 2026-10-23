@@ -9,7 +9,7 @@ export function decimalText(value: string | null | undefined, options: { money?:
   const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value);
   if (!m) return value;
   const [, sign, whole = '0', fraction = ''] = m;
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
   if (options.money) {
     const { digits, carry } = roundedFraction(fraction);
     if (carry) return decimalText(addOne(sign ?? '', whole), options);
