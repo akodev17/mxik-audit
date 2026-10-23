@@ -96,6 +96,13 @@ export async function runAudit(catalogId: string, fromRow: number, actor: AuditA
     });
     await notifyReady(catalogId, catalog, actor);
   } catch (error) {
+    // Deleted while it was being audited (its rows and findings went with it, so the next write fails
+    // on a foreign key): nothing failed, the audit just has nothing left to work on.
+    const exists = await db.catalog.findUnique({ where: { id: catalogId }, select: { id: true } }).then(Boolean, () => true);
+    if (!exists) {
+      console.info(`[audit ${catalogId}] stopped: the catalogue was deleted`);
+      return;
+    }
     // Logged here once, with the stack; the page shows only its localized message.
     console.error(`[audit ${catalogId}] failed`, error);
     await db.catalog.update({
