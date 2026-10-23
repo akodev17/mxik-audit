@@ -133,6 +133,30 @@ Severity: an error leaves the line `unresolved`, a warning `suspicious`.
 5. The internal naming of the user zip export, and whether incoming invoice lines carry a package
    code and the Didox `measureId` alongside `packagename`.
 
-## Checks
+## Checks (final runs on `b5a71a1` + docs)
 
-(filled in below with the final runs)
+- `npm run typecheck`: exit 0.
+- `npm run lint`: exit 0 (one warning, pre-existing, `scripts/lib/xlsx.ts:131`).
+- `npm test`: **1 794 tests, 1 791 pass, 1 fail, 2 skipped.** The failure is pre-existing on the
+  base commit and not in this workstream's files: `apps/web/src/app/robots.test.ts` "B16: every
+  section of the signed-in app is disallowed" fails on `/bank` (the base commit added the
+  accounting sections without listing them in `robots.ts` `PRIVATE_PATHS`; see the handoff note).
+  An earlier full run also failed `billing` (an org cleanup hook) and `notifications` (one list
+  test); both passed when re-run alone (12/12) and in the final run. They come from other sessions
+  using the shared dev database at the same time.
+- The Didox tests alone (domain, API e2e, web, parity, contracts): 106 / 106.
+
+## Commits
+
+```
+b5a71a1 benchmark, handoff and result notes; lint fixes; reason key not_approved as in the 1C layer
+4e7d72e review grid fits 1366px in both languages, info tone for the pending 1C builder, empty-filter row, upload source by zip signature; screenshots
+6d08bfb web /didox list + intake, invoice review, settings; web parity tests; launch configs
+a709343 contracts module (16 operations), Nest controller, API e2e test
+71c7e82 service and sync tests on the database with the fake Didox; invalid-code suggestion fix
+1ce82b1 service, connection + sync, i18n, domain tests
+5616427 document parser, decimal and name-fold helpers, sources, API client, fake server, checks, Prisma section + migration
+```
+
+Shared dev database: migration `20261103000100_didox` applied (`migrate deploy`). The browser run's
+batches, cached documents and fake-server connection in the seed org were deleted afterwards.

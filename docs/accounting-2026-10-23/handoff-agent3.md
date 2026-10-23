@@ -64,6 +64,11 @@ every point has a local fallback on this branch.
    points `DIDOX_API_URL` at the local fake server), `packages/db/prisma/schema.prisma`
    (`Organization.didoxConnection`, `Organization.didoxDocuments`), `packages/contracts/README.md`
    (checklist regenerated).
-3. New environment variables (none required): `DIDOX_API_URL` (default `https://api.didox.uz`,
+3. **Pre-existing test failure on the base commit:** `apps/web/src/app/robots.test.ts` "B16: every
+   section of the signed-in app is disallowed" fails with `/bank`: the test scans `app/(app)/` and
+   the base commit added `/bank`, `/didox`, `/products`, `/onec` without adding them to
+   `PRIVATE_PATHS` in `apps/web/src/app/robots.ts`. Not touched here (not this workstream's file);
+   the fix is four entries there.
+4. New environment variables (none required): `DIDOX_API_URL` (default `https://api.didox.uz`,
    test `https://testapi2.didox.uz`), `DIDOX_PASSWORD_LOGIN=1` (shows the unverified ИНН + password
    login), `DIDOX_PARTNER_TOKEN` (or the name saved in the connection) for the partner auth model.
