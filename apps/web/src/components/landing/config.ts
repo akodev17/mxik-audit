@@ -63,7 +63,7 @@ export const SHOW_LEGAL_223 = process.env.NEXT_PUBLIC_SHOW_LEGAL_223 === 'true';
 export const SHOW_MULTI_CLIENT = process.env.NEXT_PUBLIC_FEATURE_MULTI_CLIENT === 'true';
 
 /* Prices and plan names, in one place. Change them here only; nothing else on
-   the page repeats a number. Pricing is a hypothesis (docs/SESSION_STATE.md),
+   the page repeats a number. Pricing is a hypothesis (see docs/HANDOFF_2026-10-23.md),
    which is a reason to keep it easy to edit, not a reason to hide it. */
 export const PRICING = {
   currency: 'soʻm',

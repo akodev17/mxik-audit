@@ -1,6 +1,6 @@
 // Realistic catalogue noise for synthetic eval cases. Pure and seeded, so the
 // synthetic set is reproducible. Each transform mirrors something Gate 0
-// measured in real data (docs/gate0-report.md).
+// measured in real data (Gate 0 inspection, Oct 2026).
 import { latinToCyrillic } from '@tasnivo/core/normalize/script';
 
 export type Rng = () => number;

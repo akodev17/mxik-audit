@@ -2,7 +2,7 @@
 // query's words next to the correct code's words, so a reader can tell a
 // vocabulary miss ("арматура" vs "прокат арматурный") from an inflection miss
 // ("bloki" vs "blok"), which is the evidence the plan asks for before anyone
-// adds a stemmer (docs/engineering/MXIK_MATCHING_ENGINE_PLAN.md §5).
+// adds a stemmer (see docs/scoring.md).
 
 /** Letters two words must share at the start to count as one word inflected differently. */
 export const INFLECTION_PREFIX = 5;

@@ -12,7 +12,7 @@ export const nf = { format: (value: number): string => fmtNumber('uz', value) } 
    The classifier facts are counted by scripts/make-sample-report.ts from the
    same database the sample audit ran against, so the page cannot quote one
    snapshot while auditing with another. What each one means is documented in
-   docs/gate0-report.md (§1 codes, §4 strict units, §5 marking, §9 subpositions).
+   the Oct 2026 Gate 0 data inspection (codes, strict units, marking, subpositions).
 
    Deliberately NOT on this page: the current 66.7% / 83.3% matching accuracy.
    It is measured over 12 of 30 golden cases with the LLM reranker off and a

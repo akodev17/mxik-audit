@@ -1,7 +1,7 @@
 // Streams data/mxik.ndjson into Postgres as a new classifier snapshot and
 // records what changed against the previous import (scripts/lib/load-classifier.ts).
 // Retiring vanished codes is the only deprecation signal available
-// (docs/gate0-report.md §3).
+// (Gate 0 data inspection, Oct 2026).
 // Run: npm run load:db [-- --dry-run]
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { loadClassifier } from './lib/load-classifier.js';

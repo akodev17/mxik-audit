@@ -1,4 +1,4 @@
-// Tab switching benchmark (docs/engineering/TAB_SWITCH_PERFORMANCE_PLAN.md §4). Signs in as the
+// Tab switching benchmark (history in docs/perf-nav-results.json). Signs in as the
 // seed org on a running production build and times, per switch: first feedback (skeleton or new
 // heading), address change, content shown, the _rsc fetches it made, long tasks, the click's event
 // timing and React commit time (profiling builds only). Passes: header tabs cold (fresh browser
@@ -580,7 +580,7 @@ async function main(): Promise<void> {
   if (SAVE) {
     const history = existsSync(RESULTS) ? (JSON.parse(readFileSync(RESULTS, 'utf8')) as { runs: unknown[] }) : { runs: [] };
     history.runs.push(run);
-    writeFileSync(RESULTS, JSON.stringify({ note: 'Append-only history of `npm run perf:nav` (docs/engineering/TAB_SWITCH_PERFORMANCE_PLAN.md §4).', runs: history.runs }, null, 2) + '\n');
+    writeFileSync(RESULTS, JSON.stringify({ note: 'Append-only history of `npm run perf:nav` (history in docs/perf-nav-results.json).', runs: history.runs }, null, 2) + '\n');
     console.log(`appended "${LABEL}" to ${RESULTS}`);
   }
 }

@@ -13,7 +13,7 @@ codes** (export of 2026-10-15), so a 3,000-SKU shop has no practical way to chec
 classifier is ingested and searchable with local semantic vectors, the matching
 engine runs end to end, audits run in the background with progress and resume,
 the landing page is at `/`, a no-signup demo is at `/demo`, and traction metrics
-are at `/admin`. See [`docs/SESSION_STATE.md`](docs/SESSION_STATE.md) for what is
+are at `/admin`. See [`docs/HANDOFF_2026-10-23.md`](docs/HANDOFF_2026-10-23.md) for what is
 measured and what is not.
 
 **Continuing the work (Oct 2026):** start with
@@ -133,7 +133,7 @@ The formula, weights and their justification are in [`docs/scoring.md`](docs/sco
 ### Normalization is where the accuracy lives
 
 Uzbek catalogues are chaotic, and so is the official classifier. Measured, not
-assumed — see [`docs/gate0-report.md`](docs/gate0-report.md):
+assumed — see the Gate 0 data inspection (Oct 2026):
 
 - The Uzbek apostrophe appears as **seven different characters** in the official
   export. The orthographically correct U+02BB appears in 74 of 438,925 rows.
@@ -191,7 +191,7 @@ false alarms.
 The stored vectors come from `Xenova/multilingual-e5-small` (384 dimensions),
 run locally through ONNX Runtime. It was chosen over the hashing stand-in on
 measurement (P1.1, `docs/eval-results.json` runs 3–4, demo numbers in
-`docs/SESSION_STATE.md`):
+`docs/HANDOFF_2026-10-23.md`):
 
 - **Speed.** Its dense vectors let HNSW work. The stand-in's sparse vectors
   defeat HNSW, so it needs an exact scan of 442k vectors per row (~1.7 s); the
@@ -326,7 +326,7 @@ docs/                 Gate 0 findings, scoring rationale, eval history, session 
   table scrolls sideways.
 - **`ARCHIVED` cannot be implemented as specified.** No source — export or API —
   exposes deprecation status or a replacement code. Verified by exhaustive
-  hierarchy enumeration; see `docs/gate0-report.md` §3. Retirement is detected by
+  hierarchy enumeration; see the Gate 0 data inspection (Oct 2026). Retirement is detected by
   snapshot diffing across imports, which yields nothing on a first import.
 - **`data/mxik.ndjson` is 1.14 GB** because hierarchy names are repeated per row.
   Splitting the four levels into lookup tables would roughly halve the load.

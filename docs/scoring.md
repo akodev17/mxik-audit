@@ -482,3 +482,134 @@ with e5 either (run 46: 0 rows better, 1 worse) and stays off.
    live codes (`uchun`, `va`, `boshqa`…) still count in the rank but no longer
    select candidates. Eval: real unchanged, synthetic top-1 77.5 → 79.1, top-5
    and pool unchanged, full-text query 459 → ~49 ms median.
+
+
+## Appendix A. Tax-privilege (imtiyoz) data
+
+
+Checked 2026-10-16 against the local classifier (Aug export, 438,925 codes) and
+the portal's public reference endpoint.
+
+### What exists
+
+| Source | Content |
+|---|---|
+| Export column O "IMTIYOZ ID" → `mxik_code.taxPrivilegeIds` | **37,530** codes carry at least one id; **67** distinct ids. Id `0` appears on 64 codes and means none. |
+| `GET /api/cls-api/integration-mxik/references/lgota` (public, found in Gate 0) | **202** privileges: `id`, wording (`nameLatn`, `nameRu`, `nameUz`), legal document (`docNum`, `docDate`, `docNameLatn`). Loaded into `tax_privilege` by `npm run privileges:fetch` (also run by `classifier:update`). |
+
+The wording names the legal basis, e.g. id `102870`: "(SK 243-m.) 13-band.
+dori vositalarini, veterinariya dori vositalarini, tibbiyot va veterinariya
+uchun moʻljallangan buyumlarni" — the VAT exemption for medicines, linked to
+37,014 codes (98.6% of all linked codes; 36,696 of them in the pharmaceutical
+group).
+
+So the data does link codes to privileges, and feature K is implemented
+(no disabled flag needed):
+
+- `PRIVILEGE_CODE` — the row's code (an accepted correction, else the file's)
+  is privilege-linked. Informational; **medium** when the same code is also a
+  pending MISMATCH (the product name does not fit the code, so a privilege
+  claimed through it is doubtful).
+- `PRIVILEGE_OPPORTUNITY` — the suggested code is privilege-linked and the
+  row's code is not. Always informational; it never changes a code by itself.
+
+Both run after every audit (`src/lib/privileges.ts`), replace only pending
+privilege findings, and never count as risk unless severity is medium.
+
+### What is missing — do not infer it
+
+1. **Validity period.** No field says whether a privilege is in force. At
+   least 8 reference texts are time-bound in their wording (e.g. "2021 yil 10
+   oktyabrdan 2022 yil 31 dekabrga qadar …"), and the classifier still links
+   codes to them. The app shows the wording and tells the user to check the
+   conditions and period; it never says a privilege applies.
+2. **Conditions.** Many privileges depend on who sells, to whom, or under
+   which programme (e.g. operators of a production-sharing agreement). None of
+   that is in the data.
+3. **Which tax.** The wording usually names the Tax Code article (243 = VAT
+   exemptions, 483 = turnover tax, …) but there is no structured "tax type"
+   field; nothing is computed from it.
+4. **One id missing from the reference:** `103312` is used by codes but not
+   returned by the endpoint; it is shown as "imtiyoz ID 103312".
+5. **History.** The export is a snapshot; when a link is added or removed
+   only a later import shows it (the classifier diff does not track privilege
+   changes yet).
+
+A tax adviser should confirm the wording shown to users before the privilege
+findings are promoted in sales material.
+
+
+## Appendix B. Construction materials: general vs detailed codes (why GENERIC_CODE is not implemented)
+
+
+Checked 2026-10-16 against the local classifier (Aug export, 438,925 live
+codes). Outcome: **GENERIC_CODE is not implemented**. The brief says to build
+it only if general vs detailed construction-material codes are reliably
+detectable; one half of that is (general vs detailed), the other is not
+(which rows are construction materials), and the rule the check would
+enforce is not verified.
+
+### What the data does show
+
+General and detailed codes are structurally distinguishable:
+
+- A **base (general) code** ends in `000000` (`mxik_code.isBase`); it is the
+  fallback for its subposition (first 11 digits).
+- **Detailed (identifying) codes** share the subposition and carry a brand,
+  manufacturer or specification in the name (`brandNameUz`, `attributeNameUz`).
+
+In the groups that hold most construction goods:
+
+| Group | Name (classifier) | Subpositions | With a base code | Base code **and** detailed codes | Detailed codes |
+|---|---|---|---|---|---|
+| 025 | Tuz, oltingugurt, gips materiallari, ohak va sement | 82 | 80 | 35 | 2,003 |
+| 068 | Tosh, gips, sement, asbest … materiallar | 241 | 240 | 125 | 81,778 |
+| 069 | Keramik mahsulotlar | 183 | 183 | 59 | 4,348 |
+| 070 | Shisha va shisha mahsulotlar | 182 | 182 | 68 | 1,083 |
+| 072 | Qora metallar | 64 | 63 | 32 | 4,859 |
+| 073 | Qora metallardan mahsulotlar | 111 | 111 | 76 | 53,131 |
+
+None of these codes carries the marking flag (`isMarked` is false for all of
+025, 068, 069), so the marking rule that justifies identifying codes elsewhere
+does not apply.
+
+### Why that is not enough
+
+1. **"Construction material" is not in the data.** There is no field or
+   group for it. Construction goods sit in at least 025, 044 (wood), 039
+   (plastic pipes), 032 (paints), 068, 069, 070, 072, 073, 076, 083, 084 —
+   and every one of those groups also holds non-construction goods (ceramic
+   tableware in 069, glassware in 070, kitchen hardware in 073 …). A scope
+   list would be our invention. The official construction-resources
+   classifier (NKSR) would be the right source; cross-referencing it is out of
+   scope (SESSION_STATE "Out of Scope").
+2. **Some subpositions have no general code.** Portland cement
+   (`02523002001`) has only manufacturer-specific codes
+   (e.g. `02523002001001001` "Portlandsement: QIZILQUMSEMENT, II/A-I 42.5 N,
+   polipropilen qop 50 kg"); there is nothing "general" to flag there.
+3. **Others have an unworkable number of children.** "Yopuvchi plita"
+   (`06810006002`) has one base code and 68,665 detailed ones (bridge slabs by
+   drawing number and rebar consumption, e.g. "П800.124.20, расход арматуры
+   213 кг/м3"). Picking "the best detailed child" needs the drawing/mark,
+   which a catalogue name rarely contains; when it does, the matcher already
+   ranks the identifying code first.
+4. **The rule is unverified.** Gate 0 and the official guidance used so far
+   treat a base code as an acceptable classification when no exact code
+   applies (SESSION_STATE, Important Decisions). We found no verified source
+   that requires detailed codes for construction materials on e-invoices.
+   Flagging base codes as wrong would be a legal claim we cannot support.
+
+### What would make it implementable
+
+- A cited regulation (lex.uz) or Tax Committee statement that requires
+  identifying codes for named construction-material categories, with dates.
+- An authoritative scope: the NKSR codes or a list of MXIK positions it
+  covers.
+- Catalogue columns for the attributes that pick a child (manufacturer,
+  grade/mark, standard, dimensions), mapped at upload.
+
+With those, the check is small: for rows in scope whose code is a base code,
+rank that subposition's identifying codes with the existing matcher (name +
+attributes) and suggest the best one only when it clears the "Ehtimoliy"
+threshold; otherwise say that a detailed code is required and list the
+subposition for the user to choose from.

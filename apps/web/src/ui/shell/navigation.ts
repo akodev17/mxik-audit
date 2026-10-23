@@ -11,7 +11,7 @@
 // A boundary that is new for each address takes React's other path: it commits the skeleton and
 // retries, as cross-section navigations always did.
 //
-// Rechecked 2026-10-21 on Next 15.5.23 / React 19.2.8 (docs/engineering/TAB_SWITCH_PERFORMANCE_REPORT.md):
+// Rechecked 2026-10-21 on Next 15.5.23 / React 19.2.8 (tab-switch performance report, retired; numbers in docs/perf-nav-results.json):
 // with one boundary per path for every page, e2e/navigation and e2e/refresh passed ten consecutive
 // runs on a production build with the watchdog's fallback off. So pages that rebuild their query-
 // driven parts themselves now change the query in place (QUERY_IN_PLACE): no skeleton, and no

@@ -1,7 +1,7 @@
 // The checks, as pure functions over an already-resolved row.
 //
 // ARCHIVED is not a separate type: no source exposes deprecation status
-// (docs/gate0-report.md §3) and the remedy is identical to NOT_FOUND, so a
+// (Gate 0 data inspection, Oct 2026) and the remedy is identical to NOT_FOUND, so a
 // retired code reports as NOT_FOUND with `wasRetired` set. Once snapshot history
 // accumulates, flipping it into its own type is an enum addition and one branch.
 import { unitsCompatible } from '../normalize/units.js';

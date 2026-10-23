@@ -1,6 +1,6 @@
 // Loads the portal's tax-privilege reference into tax_privilege, so the ids in
 // mxik_code.taxPrivilegeIds can be shown with their wording and legal basis.
-// Public endpoint, found in Gate 0 (docs/gate0-report.md). See docs/imtiyoz-data.md.
+// Public endpoint, found in the Gate 0 data inspection. See docs/scoring.md, Appendix A.
 // Run: npm run privileges:fetch
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { z } from 'zod';
