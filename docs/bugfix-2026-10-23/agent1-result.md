@@ -125,6 +125,38 @@ a5d69cd Mail: development outbox, production refusal, npm run mail:test, Gmail s
   `localhost` cookie jar across ports, that may have ended another agent's browser session record
   (they only need to sign in again).
 
+## Dry run before the real credentials (23 Oct, later)
+
+The owner's credentials were not in the root `.env` yet, so everything up to the providers' own
+checks was run with dummy values in this worktree's `.env` only (removed afterwards), on
+`http://agent1.localhost:3011` (its own cookie host, so other agents' sessions are untouched).
+
+- **Bug found and fixed:** with `APP_URL` unset, the Google redirect URI came out relative
+  (`/api/auth/google/callback`), which Google rejects. The host check in `requestOrigin`
+  (`apps/api/src/http/facts.ts`) had lost its regex escapes. Now `GET /api/auth/google` on
+  `agent1.localhost:3011` sends `redirect_uri=http://agent1.localhost:3011/api/auth/google/callback`
+  (and the `localhost:3011` form on that host); unit test in `apps/api/test/unit/http.test.ts`.
+- Google button → the browser reaches `accounts.google.com` with the client id, PKCE (S256),
+  `state` and `nonce`; Google answers 400 for the dummy client, as expected. A callback carrying
+  an error from Google lands on `/sign-in?error=google` with the notice (screenshot `10`).
+- Telegram widget on `/sign-in` with a dummy bot name: the script and the `oauth.telegram.org`
+  iframe load under the CSP; Telegram answers "Username invalid" for the dummy bot (screenshot `09`).
+- `npm run mail:test`: an unreachable SMTP server prints `Sending failed: connect ECONNREFUSED …`
+  and exits 1; production without SMTP prints the "not set" message.
+
+### To run once the credentials are in the root `.env`
+
+1. Copy it over this worktree's `.env`, keep `&connection_limit=4`; restart 4011/3011.
+2. Mail: `npm run mail:test -- <address>`, then sign up on `http://agent1.localhost:3011/sign-up`
+   with a real mailbox and enter the code from the mail.
+3. Google: the OAuth client must list the redirect URI of the host the browser uses (the state
+   cookie is per host), exactly: `http://agent1.localhost:3011/api/auth/google/callback`, or, if the
+   Google console refuses a `*.localhost` host, `http://localhost:3011/api/auth/google/callback`
+   (then test on `localhost:3011`). Production: `https://tasnivo.uz/api/auth/google/callback`.
+4. Telegram: BotFather's `/setdomain` does not accept `localhost`; a local test needs a public
+   HTTPS host (e.g. `cloudflared tunnel --url http://localhost:3011`, then `/setdomain <that host>`
+   and open `/sign-in` through it). Otherwise check on `tasnivo.uz` after deploy (`DEPLOY.md` 7d).
+
 ## What the owner must supply
 
 - `SMTP_URL` and `MAIL_FROM` (required in production; sign-up is refused without them). Gmail:

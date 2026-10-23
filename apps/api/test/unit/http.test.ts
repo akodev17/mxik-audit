@@ -8,6 +8,8 @@ import { parseEnv, InvalidEnvError } from '../../src/config/env';
 import { ApiError } from '../../src/http/errors';
 import { toErrorResponse } from '../../src/http/exception.filter';
 import { requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '../../src/http/middleware';
+import { requestOrigin } from '../../src/http/facts';
+import type { ApiRequest } from '../../src/http/request';
 import { ZodValidationPipe } from '../../src/http/zod-validation.pipe';
 import { fakeReq, fakeRes } from '../helpers';
 
@@ -112,5 +114,21 @@ describe('middleware', () => {
     assert.equal(lines.length, 1);
     const [line] = lines;
     assert.deepEqual({ ...line, ms: 0 }, { method: 'POST', path: '/api/auth/sign-in', status: 401, ms: 0, userId: 'u9' });
+  });
+});
+
+describe('requestOrigin (OAuth redirect URI fallback while APP_URL is unset)', () => {
+  const origin = (headers: Record<string, string>) => requestOrigin(fakeReq({ headers }) as unknown as ApiRequest);
+
+  it('prefers the proxy\'s forwarded host and protocol, else Host', () => {
+    assert.equal(origin({ host: 'localhost:4011', 'x-forwarded-host': 'agent1.localhost:3011', 'x-forwarded-proto': 'http' }), 'http://agent1.localhost:3011');
+    assert.equal(origin({ host: 'api:4000', 'x-forwarded-host': 'tasnivo.uz, caddy', 'x-forwarded-proto': 'https' }), 'https://tasnivo.uz');
+    assert.equal(origin({ host: 'localhost:3011' }), 'http://localhost:3011');
+  });
+
+  it('refuses a host that is not a plain name with an optional port', () => {
+    assert.equal(origin({ host: 'evil.example/path' }), null);
+    assert.equal(origin({ host: 'a@b' }), null);
+    assert.equal(origin({}), null);
   });
 });

@@ -18,7 +18,7 @@ export function requestFacts(req: ApiRequest): RequestFacts {
 export function requestOrigin(req: ApiRequest): string | null {
   const first = (v: string | null): string | null => v?.split(',')[0]?.trim() || null;
   const host = first(header(req, 'x-forwarded-host')) ?? first(header(req, 'host'));
-  if (!host || !/^[w.-]+(:d+)?$/.test(host)) return null;
+  if (!host || !/^[\w.-]+(:\d+)?$/.test(host)) return null;
   const proto = first(header(req, 'x-forwarded-proto')) ?? req.protocol;
   return `${proto === 'https' ? 'https' : 'http'}://${host}`;
 }
