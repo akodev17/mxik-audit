@@ -1,0 +1,3 @@
+# Fixtures are read byte for byte (encoding, line endings, file fingerprint).
+*.csv binary
+*.xlsx binary
