@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { agoLabel } from './session-rows.js';
+import { agoLabel, SESSIONS_SHOWN, shownSessions } from './session-rows.js';
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -32,5 +32,15 @@ describe('sessions list', () => {
     } finally {
       Reflect.set(Intl, 'RelativeTimeFormat', original);
     }
+  });
+
+  it('B21: shows this device and the 9 latest others until asked for all', () => {
+    const rows = Array.from({ length: 55 }, (_, i) => ({ id: i, current: i === 30 }));
+    const shown = shownSessions(rows, false);
+    assert.equal(shown.length, SESSIONS_SHOWN);
+    assert.ok(shown.some((r) => r.current), 'this device is always listed');
+    assert.deepEqual(shown.filter((r) => !r.current).map((r) => r.id), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.equal(shownSessions(rows, true).length, 55);
+    assert.equal(shownSessions(rows.slice(0, 4), false).length, 4);
   });
 });

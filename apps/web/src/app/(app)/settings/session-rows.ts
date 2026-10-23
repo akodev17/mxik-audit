@@ -28,3 +28,14 @@ export function agoLabel(locale: Locale, at: Date | string, now: Date = new Date
   }
   return null;
 }
+
+/** Sessions listed before "show all" (B21: the seed user had 50+). */
+export const SESSIONS_SHOWN = 10;
+
+/** The rows on screen: every one when asked, else this device and the most recent others, in their order. */
+export function shownSessions<T extends { current: boolean }>(rows: readonly T[], all: boolean, limit = SESSIONS_SHOWN): T[] {
+  if (all || rows.length <= limit) return [...rows];
+  const current = rows.filter((row) => row.current);
+  const others = rows.filter((row) => !row.current).slice(0, Math.max(0, limit - current.length));
+  return rows.filter((row) => row.current || others.includes(row));
+}
