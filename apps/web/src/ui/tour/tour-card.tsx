@@ -57,11 +57,10 @@ export function TourCard({ hole }: { hole: Rect | null }) {
     };
   }, [top, left, width, height, index]);
 
-  // Next takes focus once the card is placed, and again whenever focus has left it (Back vanishing on step 1).
-  const placed = place !== null;
+  // Next takes focus on open, and again whenever focus has left the card (Back vanishing on step 1).
   useEffect(() => {
-    if (placed && !card.current?.contains(document.activeElement)) nextButton.current?.focus({ preventScroll: true });
-  }, [placed, index]);
+    if (!card.current?.contains(document.activeElement)) nextButton.current?.focus({ preventScroll: true });
+  }, [index]);
 
   // Capture phase: page shortcuts must not see Tab or the arrows while the tour is modal.
   useEffect(() => {
@@ -95,7 +94,8 @@ export function TourCard({ hole }: { hole: Rect | null }) {
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       tabIndex={-1}
-      style={place ? { top: place.top, left: place.left } : { top: 0, left: 0, visibility: 'hidden' }}
+      // Measured and placed in a layout effect, before the first paint; focusable from the start.
+      style={{ top: place?.top ?? 0, left: place?.left ?? 0 }}
       className={cx(
         'fixed w-[min(22rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg border border-line bg-raised p-5 text-fg shadow-overlay',
         'focus-visible:outline-none motion-safe:animate-pop-in',
