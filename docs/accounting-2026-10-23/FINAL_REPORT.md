@@ -21,25 +21,21 @@ the shared contract base commit), in the order 1 → 4 → 2 → 3 → 5A → ro
 | 5A Platform audit | `fix/platform-quality` | Bug list Q1–Q20 with probes, re-verification of the three known bugs (all fixed), Phase C checklist, e2e spec for the new sections |
 | 5B Platform fixes | `fix/platform-quality-fixes` | Q1 (S1: shared embedder in the API + cap on checks in flight), Q2 (sid rotation after the e-mail code, QA FAIL-1), Q3 (no sign-up oracle, FAIL-2), Q4, Q5 (TRUST_PROXY), Q6 (atomic check allowance), Q9, Q11 (rollback guide, FAIL-3), Q12 part, Q13 (FAIL-4), Q14, Q16, Q17, Q18. Not done: Q7 (legal placeholders: owner text), Q8, Q10, Q15, Q19 (deferred by the list) |
 
-## 2. Checks on the integrated branch (filled in below)
+## 2. Checks on the integrated branch
 
-Run by the coordinator on the integrated branch after all round-2 tips and the platform fixes were merged (the owner's usage limit stopped the run before everything was green, so **nothing was merged into **):
+Run on the integrated branch after all round-2 tips and the platform fixes were merged. The first
+run stopped at the owner's usage limit with one Didox API test and the web build open; both were
+closed in the resumed run (23 Oct, evening) before the merge into `main`:
 
 | Check | Result |
 |---|---|
-|  | green after two fixes (Didox test fakes for the extended Classification; a misplaced deps argument) |
-|  | green except the known  warning, after three fixes (cell-text helper in two Didox tests, an unnecessary cast in products/catalog.ts) |
-| Unknown command: "test"
-
-
-Did you mean this?
-  npm test # Test a package
-To see a list of supported npm commands, run:
-  npm help (full, 2 000 tests) | 1 995 pass, 2 skipped, 3 fail; two fixed afterwards (rollback guide sections for the five workstream migrations; Didox counts now carry ), one still open:  test 4 (decisions → real receipt_xlsx / nomenclature_xlsx export), the round-2 test Agent 3 was writing when stopped |
-| ,  | green |
-|  (web) | failed first because  imported a TypeScript module (Q18's api-rewrite); the helper is now inlined in the config and the build was not re-run before the stop |
-|  on the dev DB | all 53 migrations applied; not run on an empty DB |
-| e2e on a production build | not run |
+| `npm run typecheck` | green after two fixes (Didox test fakes for the extended Classification; a misplaced deps argument) |
+| `npm run lint` | green except the known `no-non-null-assertion` warning in `scripts/lib/xlsx.ts`, after three fixes (cell-text helper in two Didox tests, an unnecessary cast in products/catalog.ts) |
+| `npm test` (full, 2 000 tests) | 1 998 pass, 2 skipped, 0 fail. The first run had 3 failures: the rollback guide lacked the five workstream migrations, Didox counts lacked a field, and the Didox export answered 201 to its POST download (now `@HttpCode(200)`, as the bank export) |
+| `npm run build:api`, `npm run build:worker` | green |
+| `npm run build` (web), `API_INTERNAL_URL=http://localhost:4027` | green; the rewrite destination is in `routes-manifest.json`. The first attempt failed because `next.config.ts` imported a TypeScript module (Q18's api-rewrite); the helper is now inlined in the config |
+| `prisma migrate deploy` on the dev DB | all 53 migrations applied; not run on an empty DB |
+| `npm run test:e2e` on the production build (`next start` :3027, API :4027, Edge) | 66/66 pass in 12 files (5 min 13 s), including the new `accounting-platform` spec |
 | Agent 5 Phase C regression | not run |
 
 ## 3. Verified end to end vs implemented only
