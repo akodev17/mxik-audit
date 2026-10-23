@@ -32,7 +32,7 @@ export function BatchView({ batchId, stages }: { batchId: string; stages: readon
   const [filter, setFilter] = useState<RecordStatus | null>(null);
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
-  const [handover, setHandover] = useState<string | null>(null);
+  const [handover, setHandover] = useState<{ text: string; exportId: string | null; ok: boolean } | null>(null);
   const view = useQuery({
     queryKey: ['products', 'import', batchId, filter, page],
     queryFn: ({ signal }) => api.products.importBatch({ batchId, page, ...(filter ? { status: filter } : {}) }, { signal }),
@@ -52,7 +52,7 @@ export function BatchView({ batchId, stages }: { batchId: string; stages: readon
 
   if (view.isPending) return <><Stepper stages={stages} current={2} /><div className="grid place-items-center py-16"><Spinner /></div></>;
   if (view.isError || !view.data) return <><Stepper stages={stages} current={2} /><Alert tone="danger" className="mt-5">{x.toast.failed}</Alert></>;
-  const { batch, records, total, pageSize } = view.data;
+  const { batch, records, total, pageSize, onec } = view.data;
   const counts = batch.counts;
   const checking = batch.status === 'parsed';
   const saveable = (counts?.total ?? 0) - (counts?.skipped ?? 0);
@@ -70,7 +70,10 @@ export function BatchView({ batchId, stages }: { batchId: string; stages: readon
   });
   const prepare = () => run('export', async () => {
     const r = await api.products.importExport({ batchId });
-    setHandover(r.ok ? fill(x.toast.exportReady, { n: fmtNumber(locale, r.records) }) : r.error);
+    setHandover(r.ok
+      ? { ok: true, exportId: r.exportId, text: fill(w.exportDone, { n: fmtNumber(locale, r.records), left: fmtNumber(locale, r.leftOut) }) }
+      : { ok: false, exportId: null, text: r.error });
+    await view.refetch();
   });
 
   return (
@@ -108,7 +111,12 @@ export function BatchView({ batchId, stages }: { batchId: string; stages: readon
           {batch.status === 'approved' ? <ButtonLink variant="ghost" href="/products">{x.title}</ButtonLink> : null}
         </div>
       ) : null}
-      {handover ? <Alert tone="info">{handover}</Alert> : null}
+      {onec && !checking ? <p className="text-small text-muted">{fill(w.onecPreview, { n: fmtNumber(locale, onec.records), left: fmtNumber(locale, onec.leftOut) })}</p> : null}
+      {handover ? (
+        <Alert tone={handover.ok ? 'good' : 'info'} action={handover.exportId ? <ButtonLink size="sm" variant="secondary" href={`/api/onec/exports/${handover.exportId}/file`} download>{w.download}</ButtonLink> : undefined}>
+          {handover.text}
+        </Alert>
+      ) : null}
 
       {/* While the check runs the records are not decided yet: only the progress is shown. */}
       {!checking && records.length > 0 ? (

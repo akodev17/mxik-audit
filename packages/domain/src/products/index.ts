@@ -4,6 +4,7 @@
 // on a query, the reviewer's confirmations on an upsert). Server-only.
 import type { accounting } from '@tasnivo/contracts';
 import type { z } from 'zod';
+import { getProductRecords } from './catalog.js';
 import { classify, type ClassifyOptions, type Classification as Classified } from './classify.js';
 import { matchLines } from './match.js';
 import { upsertRecords, type UpsertOptions } from './upsert.js';
@@ -33,6 +34,14 @@ export function matchProducts(orgId: string, clientId: string | null, lines: Pro
  */
 export function classifyProducts(orgId: string, lines: ProductQuery[], options: ClassifyOptions = {}): Promise<Classification[]> {
   return classify(orgId, lines, options);
+}
+
+/**
+ * The org's products as ProductRecords (code, package, unit, barcode, aliases, status), in the order
+ * of `ids`; ids that are not the org's products are left out.
+ */
+export function getProducts(orgId: string, ids: string[]): Promise<ProductRecord[]> {
+  return getProductRecords(orgId, ids);
 }
 
 /**

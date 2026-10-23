@@ -3,6 +3,7 @@
 // decisions → save → duplicate file; plus "Add to product catalogue" from an audit and the 1C stub.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
+import ExcelJS from 'exceljs';
 import { db } from '@tasnivo/db';
 import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg } from '../test-fixtures.js';
@@ -149,11 +150,31 @@ describe('product import flow (database, fake Tasnif)', { skip }, () => {
     assert.equal(p.source, 'audit');
   });
 
-  it('says "after integration" while the 1C module is the stub, and leaves no batch behind', async () => {
-    const before = await db.importBatch.count({ where: { orgId: user.orgId } });
+  it('exports the catalogue as nomenclature_xlsx through the 1C module, codes as text', async () => {
     const out = await exportProducts(user, {}, 'ru');
-    assert.equal(out.ok, false);
-    assert.equal(!out.ok && out.unavailable, true);
-    assert.equal(await db.importBatch.count({ where: { orgId: user.orgId } }), before);
+    assert.ok(out.ok, JSON.stringify(out));
+    const row = await db.oneCExport.findUniqueOrThrow({ where: { id: out.exportId }, select: { file: true, format: true, recordCount: true } });
+    assert.equal(row.format, 'nomenclature_xlsx');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Buffer.from(row.file ?? new Uint8Array()) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    const sheet = workbook.worksheets[0];
+    assert.ok(sheet);
+    const header = (sheet.getRow(1).values as unknown[]).slice(1);
+    assert.deepEqual(header, ['Наименование', 'Код из классификатора', 'Код упаковки', 'Единица измерения', 'Штрихкод', 'Артикул']);
+    const rows: unknown[][] = [];
+    sheet.eachRow((r, n) => { if (n > 1) rows.push((r.values as unknown[]).slice(1)); });
+    const etor = rows.find((r) => String(r[0]).startsWith('Эторелекс'));
+    assert.ok(etor, 'the imported product is in the file');
+    assert.equal(etor[1], RECORDED_CODE, 'the code is the 17-digit text, leading zero kept');
+    assert.equal(typeof etor[1], 'string');
+    assert.equal(etor[2], '1074787');
+  });
+
+  it('previews what the 1C file of an import leaves out', async () => {
+    const batch = await db.importBatch.findFirstOrThrow({ where: { orgId: user.orgId, source: 'upload' }, select: { id: true } });
+    const view = await productBatchView(user, batch.id, {});
+    assert.ok(view?.onec);
+    assert.equal(view.onec.records + view.onec.leftOut, view.batch.counts?.total);
+    assert.ok(view.onec.leftOut >= 1, 'the skipped and the unresolved records stay out');
   });
 });

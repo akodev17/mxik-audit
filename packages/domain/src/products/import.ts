@@ -23,11 +23,12 @@ import type { CurrentUser } from '../session.js';
 import { parseErrorCode, parseUpload } from '../spreadsheet.js';
 import { hasUploadExtension } from '../upload-file-types.js';
 import { classifyDetailed, type DetailedClassification } from './classify.js';
+import { prepareExport, productFingerprint, refreshCounts } from '../onec/index.js';
 import { handOverBatch, type Handover } from './catalog.js';
 import {
   applyProductPreset, EMPTY_MAP, guessProductMapping, mappingProblem, namedMapping, PRODUCT_FIELDS, PRODUCT_PRESETS, resolveNamed, type ProductColumnMap,
 } from './import-map.js';
-import { mxikOf, productNameKey, unitKeyOf } from './keys.js';
+import { mxikOf } from './keys.js';
 import { matchLines } from './match.js';
 import { upsertRecords } from './upsert.js';
 
@@ -188,7 +189,7 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
       data: kept.slice(i, i + 1_000).map(({ r, row }, j) => {
         const malformed = mxikOf(cell(row, mapping.mxik)).malformed;
         return {
-          batchId: batch.id, rowIndex: i + j, status: 'valid' as const, fingerprint: `${productNameKey(r.name)}|${unitKeyOf(r.unit)}`,
+          batchId: batch.id, rowIndex: i + j, status: 'valid' as const, fingerprint: productFingerprint(r),
           // A malformed code is remembered as written so classification can say so.
           payload: { ...r, ...(malformed ? { rawMxik: cell(row, mapping.mxik) } : {}) },
           issues: [],
@@ -201,14 +202,6 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
 }
 
 const running = new Set<string>();
-
-/** Counts by record status, for import_batch.counts. */
-async function batchCounts(batchId: string) {
-  const grouped = await db.importRecord.groupBy({ by: ['status'], where: { batchId }, _count: { _all: true } });
-  const counts = { total: 0, valid: 0, corrected: 0, suspicious: 0, unresolved: 0, skipped: 0, exported: 0 };
-  for (const g of grouped) { counts[g.status] += g._count._all; counts.total += g._count._all; }
-  return counts;
-}
 
 type Line = { name: string; mxik: string | null; barcode: string | null; unit: string | null; packageCode: string | null; onecRef: string | null };
 const lineOf = (p: StoredPayload & { rawMxik?: string | null }): Line => ({
@@ -258,10 +251,12 @@ export async function runProductBatch(batchId: string): Promise<void> {
       done = (records.at(-1)?.rowIndex ?? done) + 1;
       await db.importBatch.update({
         where: { id: batchId },
-        data: { meta: { ...meta, progress: { done, total } }, counts: await batchCounts(batchId) },
+        data: { meta: { ...meta, progress: { done, total } } },
       });
+      await refreshCounts(batchId);
     }
-    await db.importBatch.update({ where: { id: batchId }, data: { status: 'review', counts: await batchCounts(batchId), error: null } });
+    await db.importBatch.update({ where: { id: batchId }, data: { status: 'review', error: null } });
+    await refreshCounts(batchId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[products] batch ${batchId} failed: ${message}`);
@@ -301,17 +296,31 @@ export async function productBatchView(user: Viewer, batchId: string, params: { 
   if (b.status === 'parsed' && !running.has(b.id) && Date.now() - b.updatedAt.getTime() > STALL_MS) void runProductBatch(b.id);
   const page = Math.max(0, Math.floor(params.page ?? 0));
   const where = { batchId: b.id, ...(params.status ? { status: params.status } : {}) };
-  const [total, records] = await Promise.all([
+  const checked = b.status !== 'parsed' && b.status !== 'failed';
+  const [total, records, onec] = await Promise.all([
     db.importRecord.count({ where }),
     db.importRecord.findMany({ where, orderBy: { rowIndex: 'asc' }, skip: page * RECORD_PAGE, take: RECORD_PAGE, select: { id: true, rowIndex: true, status: true, payload: true, issues: true } }),
+    checked ? oneCPreview(b.orgId, b.id) : Promise.resolve(null),
   ]);
   return {
     batch: {
       id: b.id, status: b.status, filename: b.filename, clientId: b.clientId, source: b.source, counts: accounting.BatchCounts.safeParse(b.counts).data ?? null,
       progress: meta.progress ?? { done: 0, total: 0 }, error: b.error, createdAt: b.createdAt.toISOString(), dropped: meta.dropped ?? 0,
     },
-    records: records.map(recordOut), total, pageSize: RECORD_PAGE,
+    records: records.map(recordOut), total, pageSize: RECORD_PAGE, onec,
   };
+}
+
+/**
+ * What a nomenclature_xlsx of the batch would carry now (the 1C module's prepareExport): how many
+ * records go in, how many it leaves out (skipped, unresolved, not approved, duplicates) and its
+ * issues. Null when the 1C module cannot say.
+ */
+async function oneCPreview(orgId: string, batchId: string) {
+  const prepared = await prepareExport({ orgId, batchId, format: 'nomenclature_xlsx' });
+  if (!prepared.ok) return null;
+  const all = await db.importRecord.count({ where: { batchId } });
+  return { records: prepared.records, leftOut: Math.max(0, all - prepared.records), issues: prepared.issues.slice(0, 20) };
 }
 
 /** Accept the suggestion / set a code (re-checked at once), skip, or reopen one record. */
@@ -347,7 +356,7 @@ export async function decideProductRecord(
       },
     });
   }
-  await db.importBatch.update({ where: { id: b.id }, data: { counts: await batchCounts(b.id) } });
+  await refreshCounts(b.id);
   const after = await db.importRecord.findUniqueOrThrow({ where: { id: r.id }, select: { id: true, rowIndex: true, status: true, payload: true, issues: true } });
   return { ok: true as const, record: recordOut(after) };
 }
@@ -372,7 +381,8 @@ export async function applyProductBatch(user: CurrentUser, batchId: string, loca
       db.importRecord.update({ where: { id: r.id }, data: { payload: { ...(payloads[i] as StoredPayload), productId: id } } }),
     ];
   }));
-  await db.importBatch.update({ where: { id: b.id }, data: { status: 'approved', counts: await batchCounts(b.id) } });
+  await db.importBatch.update({ where: { id: b.id }, data: { status: 'approved' } });
+  await refreshCounts(b.id);
   await db.auditEvent.create({ data: { orgId: b.orgId, actorId: user.userId, action: 'product.import_applied', targetId: b.id, payload: { created: result.created, updated: result.updated } } });
   return { ok: true as const, created: result.created, updated: result.updated };
 }

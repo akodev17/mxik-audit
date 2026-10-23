@@ -8,6 +8,7 @@ import { db } from '@tasnivo/db';
 import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs } from '../test-fixtures.js';
 import { checkProducts, confirmProductMxik, listProducts, productDetail, productPackages } from './catalog.js';
+import { getProducts } from './index.js';
 import { useTasnifClient } from './tasnif-client.js';
 import { FakeTasnifClient, PRODUCT_NAMES, RECORDED_CODE, seedProductOrg, type ProductOrg } from './test-fixtures.js';
 
@@ -92,5 +93,14 @@ describe('product catalogue operations (database, fake Tasnif)', { skip }, () =>
     assert.deepEqual(pk?.packages.map((p) => p.code), ['1074787', '1070335', '1062101']);
     const none = await productPackages(admin, org.ids[30] ?? '');
     assert.equal(none?.source, 'none');
+  });
+
+  it('answers ProductRecords for ids, in order, and nothing for another org’s ids', async () => {
+    const records = await getProducts(org.orgId, [org.ids[31] ?? '', 'nope', org.ids[15] ?? '']);
+    assert.deepEqual(records.map((r) => r.productId), [org.ids[31], org.ids[15]]);
+    assert.equal(records[1]?.mxik, org.codes[0]);
+    assert.equal(records[1]?.unit, PRODUCT_NAMES[15]?.[1]);
+    assert.deepEqual(records[0]?.aliases, [`${PRODUCT_NAMES[31]?.[0]} (старое наименование)`]);
+    assert.deepEqual(await getProducts('another-org', [org.ids[0] ?? '']), []);
   });
 });

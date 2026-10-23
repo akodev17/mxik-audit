@@ -151,6 +151,9 @@ export const uz = {
       applied: '{created} ta yangi, {updated} ta yangilandi.',
       skipNote: 'Nomi boʻsh qatorlar oʻtkazib yuborildi: {n}.',
       export1c: '1C uchun tayyorlash',
+      onecPreview: '1C fayliga {n} ta yozuv kiradi; {left} tasi kirmaydi (oʻtkazib yuborilgan, hal qilinmagan, tasdiqlanmagan yoki takroriy).',
+      exportDone: '1C fayli tayyor: {n} ta mahsulot, {left} ta yozuv kirmadi.',
+      download: 'Faylni yuklab olish',
       exportUnavailable: '1C fayli integratsiyadan keyin mavjud boʻladi (1C moduli hali ulanmagan).',
       failed: 'Tekshiruv toʻxtadi: {error}',
       errors: {
@@ -315,6 +318,9 @@ export const ru: typeof uz = {
       applied: 'Новых: {created}, обновлено: {updated}.',
       skipNote: 'Строки без наименования пропущены: {n}.',
       export1c: 'Подготовить для 1C',
+      onecPreview: 'В файл 1C войдёт записей: {n}; не войдёт: {left} (пропущенные, нерешённые, неподтверждённые или повторы).',
+      exportDone: 'Файл для 1C готов: товаров {n}, не вошло записей: {left}.',
+      download: 'Скачать файл',
       exportUnavailable: 'Файл для 1C будет доступен после интеграции (модуль 1C ещё не подключён).',
       failed: 'Проверка остановилась: {error}',
       errors: {

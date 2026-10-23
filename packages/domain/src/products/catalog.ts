@@ -216,7 +216,33 @@ export async function productsFromAudit(user: CurrentUser, catalogId: string, lo
   return { ok: true as const, created: result.created, updated: result.updated, rows: settled.length };
 }
 
-export type Handover = { ok: true; exportId: string; filename: string | null; records: number } | { ok: false; unavailable: boolean; error: string };
+/** `leftOut`: records of the batch the file does not carry (skipped, unresolved, not approved, duplicates). */
+export type Handover = { ok: true; exportId: string; filename: string | null; records: number; leftOut: number } | { ok: false; unavailable: boolean; error: string };
+
+/**
+ * The org's products as ProductRecords, in the order of `ids` (unknown ids are left out); for the
+ * Didox workflow, which resolves an invoice line to a product and needs its code, package and unit.
+ */
+export async function getProductRecords(orgId: string, ids: readonly string[]): Promise<ProductRecord[]> {
+  if (ids.length === 0) return [];
+  const rows = await db.product.findMany({
+    where: { orgId, id: { in: [...new Set(ids)] } },
+    select: {
+      id: true, name: true, onecRef: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true,
+      mxikStatus: true, mxikSuggestion: true, markingRequired: true, aliases: { select: { alias: true }, orderBy: { createdAt: 'asc' }, take: 50 },
+    },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.flatMap((id) => {
+    const r = byId.get(id);
+    if (!r) return [];
+    return [{
+      productId: r.id, name: r.name, onecRef: r.onecRef, mxik: r.mxik?.trim() ?? null, mxikName: r.mxikName, packageCode: r.packageCode, packageName: r.packageName,
+      unit: r.unit, barcode: displayBarcode(r.barcode), aliases: r.aliases.map((a) => a.alias), mxikStatus: asStatus(r.mxikStatus),
+      mxikSuggestion: asCandidate(r.mxikSuggestion), markingRequired: r.markingRequired,
+    }];
+  });
+}
 
 /** Asks the 1C module for a nomenclature_xlsx of a batch: prepare (validate, dedupe), then build. */
 export async function handOverBatch(user: CurrentUser, batchId: string, locale: Locale): Promise<Handover> {
@@ -228,7 +254,8 @@ export async function handOverBatch(user: CurrentUser, batchId: string, locale: 
   // The file name travels in Content-Disposition, as for every other download.
   const disposition = built.file.headers['Content-Disposition'] ?? built.file.headers['content-disposition'] ?? '';
   const filename = /filename*?=(?:UTF-8'')?"?([^";]+)/i.exec(disposition)?.[1] ?? null;
-  return { ok: true, exportId: built.exportId, filename: filename ? decodeURIComponent(filename) : null, records: prepared.records };
+  const total = await db.importRecord.count({ where: { batchId } });
+  return { ok: true, exportId: built.exportId, filename: filename ? decodeURIComponent(filename) : null, records: built.records, leftOut: Math.max(0, total - built.records) };
 }
 
 /**
@@ -250,12 +277,14 @@ export async function exportProducts(user: CurrentUser, input: { clientId?: stri
   const existing = await db.importBatch.findUnique({ where: { orgId_kind_fingerprint: { orgId: user.orgId, kind: 'product_catalog', fingerprint } }, select: { id: true } });
   const batchId = existing?.id ?? (await db.importBatch.create({
     data: {
-      orgId: user.orgId, clientId, kind: 'product_catalog', source: 'products', filename: null, fingerprint, status: 'approved', createdBy: user.userId,
+      orgId: user.orgId, clientId, kind: 'product_catalog', source: 'products', filename: 'nomenklatura.xlsx', fingerprint, status: 'approved', createdBy: user.userId,
       meta: { source: 'products', headers: [], columnMap: {}, catalogId: null },
       counts: { total: rows.length, valid: rows.length, corrected: 0, suspicious: 0, unresolved: 0, skipped: 0, exported: 0 },
       records: {
         create: rows.map((r, rowIndex) => ({
-          rowIndex, status: 'valid', issues: [], fingerprint: r.id, decision: { action: 'approve' },
+          rowIndex, status: 'valid', issues: [],
+          // Product + version: an unchanged product another export already carried is left out as a duplicate; a changed one goes again.
+          fingerprint: `product:${r.id}@${r.updatedAt.toISOString()}`, decision: { action: 'approve' },
           payload: {
             productId: r.id, name: r.name, onecRef: r.onecRef, mxik: r.mxik?.trim() ?? null, mxikName: r.mxikName, packageCode: r.packageCode, packageName: r.packageName,
             unit: r.unit, barcode: displayBarcode(r.barcode), aliases: [], mxikStatus: asStatus(r.mxikStatus), mxikSuggestion: null, markingRequired: r.markingRequired,
