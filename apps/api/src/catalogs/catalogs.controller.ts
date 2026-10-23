@@ -9,7 +9,7 @@ import type { Response } from 'express';
 import type { z } from 'zod';
 import { endpoints } from '@tasnivo/contracts';
 import {
-  catalogDiff, catalogHeader, catalogListPage, catalogPreview, catalogProgress, catalogReport, catalogReview, catalogSummary, catalogVersions,
+  catalogDiff, catalogHeader, catalogListPage, catalogPreview, catalogProgress, catalogReport, catalogReview, catalogSummary, catalogVersions, uploadOptions,
 } from '@tasnivo/domain/catalog-pages';
 import { assignCatalogReview, finishCatalogReview } from '@tasnivo/domain/catalog-review';
 import {
@@ -50,6 +50,11 @@ export class CatalogsController {
     @Body(new ZodValidationPipe(e.previewUpload.multipart.fields)) fields: z.output<typeof e.previewUpload.multipart.fields>,
   ) {
     return previewCatalogUpload(user, locale, { file, clientId: fields.clientId || null });
+  }
+
+  @Route(e.uploadOptions)
+  uploadOptions(@CurrentUser() user: User) {
+    return uploadOptions(user);
   }
 
   @Route(e.preview)

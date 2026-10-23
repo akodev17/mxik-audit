@@ -1,13 +1,9 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
-import { canWrite, clientScope, isAdminRole } from '@tasnivo/domain/access';
-import { db } from '@tasnivo/db';
-import { uploadsOpen } from '@/lib/plan';
-import { currentUser } from '@/lib/session';
-import { uploadPreview } from '@tasnivo/domain/upload-preview';
-import { uploadProgress } from '@tasnivo/domain/upload-progress';
+import { serverApi } from '@/lib/api/server';
+import { canWrite, isAdminRole } from '@/lib/catalogs/report';
+import { orNull, signedInUser } from '@/lib/catalogs/server';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
@@ -22,11 +18,12 @@ export async function generateMetadata(): Promise<Metadata> {
 type Search = { client?: string; catalog?: string };
 
 /** Where /upload?catalog=… picks up: the mapping of an uncommitted upload, or its audit. */
-async function resume(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>, catalogId: string | undefined): Promise<WizardStart | null> {
+async function resume(catalogId: string | undefined): Promise<WizardStart | null> {
   if (!catalogId) return { step: 'select' };
-  const preview = await uploadPreview(user, catalogId);
+  const api = serverApi();
+  const preview = await orNull(api.catalogs.preview({ catalogId }));
   if (preview) return { step: 'map', preview };
-  const progress = await uploadProgress(user, catalogId);
+  const progress = await orNull(api.catalogs.progress({ catalogId }));
   if (!progress || progress.status === 'uploaded') return null;
   if (progress.status === 'ready') return { step: 'done', catalogId, summary: progress.summary };
   return { step: 'processing', catalogId };
@@ -35,24 +32,18 @@ async function resume(user: NonNullable<Awaited<ReturnType<typeof currentUser>>>
 export default async function UploadPage({ searchParams }: { searchParams: Promise<Search> }) {
   const { t, ta } = await getI18n();
   const s = ta.importX.select;
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
+  const user = await signedInUser();
   const params = await searchParams;
 
   const page = (body: ReactNode) => <Page title={t.uploadTitle} hint={t.uploadHint}>{body}</Page>;
   if (user.demo) return page(<EmptyState title={t.demoUploadDisabled} />);
-  // A viewer could call the actions directly; they refuse too. Here the screen just says why there is no upload.
+  // A viewer could call the API directly; it refuses too. Here the screen just says why there is no upload.
   if (!canWrite(user)) return page(<EmptyState title={s.readOnlyTitle} hint={s.readOnlyHint} />);
 
-  const clients = await db.client.findMany({
-    where: { orgId: user.orgId, archivedAt: null, ...clientScope(user) },
-    orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-    select: { id: true, name: true },
-  });
+  const { clients, uploadsOpen } = await serverApi().catalogs.uploadOptions();
   if (clients.length === 0) return page(<EmptyState title={s.noClientsTitle} hint={s.noClientsHint} />);
 
-  const open = await uploadsOpen(user.orgId);
-  if (!open.ok && !params.catalog) {
+  if (!uploadsOpen && !params.catalog) {
     return page(
       <EmptyState
         title={s.expiredTitle} hint={ta.msg.gate.expired}
@@ -61,7 +52,7 @@ export default async function UploadPage({ searchParams }: { searchParams: Promi
     );
   }
 
-  const start = await resume(user, params.catalog);
+  const start = await resume(params.catalog);
   const wanted = params.client ?? user.clientId;
   const active = clients.find((c) => c.id === wanted) ?? clients[0];
   const initialClientId = start?.step === 'map' ? start.preview.client.id : (active?.id ?? '');

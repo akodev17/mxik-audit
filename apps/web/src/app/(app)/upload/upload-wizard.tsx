@@ -1,13 +1,12 @@
 'use client';
 
-import { useCallback, useState, useTransition } from 'react';
-import { commitUpload, discardUpload, previewUpload } from '@/app/actions/catalog';
-import type { ColumnMap } from '@tasnivo/domain/column-map';
-import type { ImportDiagnostics } from '@tasnivo/domain/import-diagnostics';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useState } from 'react';
+import { api } from '@/lib/api/browser';
+import { catalogKeys, failureText } from '@/lib/catalogs/client';
+import type { ColumnMap, CompletionSummary, ImportDiagnostics, UploadPreview } from '@/lib/catalogs/types';
+import { hasUploadExtension } from '@/lib/catalogs/upload';
 import { useI18n } from '@/lib/locale-client';
-import { hasUploadExtension } from '@tasnivo/domain/upload-file-types';
-import type { UploadPreview } from '@tasnivo/domain/upload-preview';
-import type { CompletionSummary } from '@tasnivo/domain/upload-progress';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Select } from '@/ui/select';
 import { Stepper } from '@/ui/stepper';
@@ -46,8 +45,15 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
   const [error, setError] = useState<string | null>(null);
   const [committedId, setCommittedId] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const [reading, startReading] = useTransition();
-  const [committing, startCommit] = useTransition();
+  const queryClient = useQueryClient();
+  const reader = useMutation({ mutationFn: (form: FormData) => api.catalogs.previewUpload(form) });
+  const committer = useMutation({
+    mutationFn: (input: { catalogId: string; mapping: ColumnMap }) => api.catalogs.commit(input),
+    // A new catalogue for the lists, the client page and the dashboard.
+    onSuccess: (result) => { if (result.ok) void queryClient.invalidateQueries({ queryKey: catalogKeys.all }); },
+  });
+  const reading = reader.isPending;
+  const committing = committer.isPending;
 
   // The page renders again for the URL this wizard writes (and on refreshes). Only another upload, a fresh
   // /upload or the same upload committed elsewhere replaces the screen; never the mapping being edited.
@@ -76,8 +82,8 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
     form.set('file', file);
     form.set('clientId', clientId);
     setError(null);
-    startReading(async () => {
-      const result = await previewUpload(form).catch(() => ({ ok: false as const, error: x.errors.network }));
+    void (async () => {
+      const result = await reader.mutateAsync(form).catch((e: unknown) => ({ ok: false as const, error: failureText(e, x.errors.network) }));
       if (!result.ok) { setError(result.error); return; }
       setMapping(result.preview.mapping);
       setSuggested(true);
@@ -85,22 +91,23 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
       setState({ step: 'check', preview: result.preview });
       // A refresh or a later visit comes back to this preview.
       window.history.replaceState(null, '', `/upload?catalog=${result.preview.catalogId}`);
-    });
+    })();
   };
 
   const commit = (): void => {
     if (!preview || !mapping) return;
     setError(null);
     setCommittedId(null);
-    startCommit(async () => {
-      const result = await commitUpload({ catalogId: preview.catalogId, mapping }).catch(() => ({ ok: false as const, error: x.errors.network, committed: false }));
+    void (async () => {
+      const result = await committer.mutateAsync({ catalogId: preview.catalogId, mapping })
+        .catch((e: unknown) => ({ ok: false as const, error: failureText(e, x.errors.network), committed: false }));
       if (!result.ok) {
         setError(result.error);
         if (result.committed) setCommittedId(preview.catalogId);
         return;
       }
       setState({ step: 'processing', catalogId: result.catalogId });
-    });
+    })();
   };
 
   const startOver = (): void => {
@@ -171,7 +178,8 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
           title={x.discard.title} description={x.discard.description} scope={`${preview.client.name} · ${preview.filename}`}
           confirmLabel={x.discard.confirm} cancelLabel={x.discard.keep}
           onConfirm={async () => {
-            const result = await discardUpload(preview.catalogId).catch(() => ({ ok: false as const, error: x.errors.network }));
+            const result = await api.catalogs.discard({ catalogId: preview.catalogId })
+              .catch((e: unknown) => ({ ok: false as const, error: failureText(e, x.errors.network) }));
             if (!result.ok) return result;
             startOver();
             return { ok: true };

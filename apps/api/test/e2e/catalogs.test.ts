@@ -61,6 +61,15 @@ describe('catalogs + share (database)', { skip }, () => {
     await db.$disconnect();
   });
 
+  it('upload options: the clients to upload for and the plan gate', async () => {
+    const res = await http().get('/api/upload/options').set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    matches(c.uploadOptions.response, res.body, 'uploadOptions');
+    const options = bodyOf<{ clients: { id: string }[]; uploadsOpen: boolean }>(res);
+    assert.ok(options.clients.some((x) => x.id === clientId));
+    assert.equal(options.uploadsOpen, true);
+  });
+
   it('preview → diagnose → commit → progress reaches ready (inline audit)', async () => {
     const res = await upload(file, 'Narxlar ro‘yxati.xlsx');
     assert.equal(res.status, 200, JSON.stringify(res.body));

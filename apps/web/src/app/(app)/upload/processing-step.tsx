@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { retryCatalogAudit } from '@/app/actions/catalog';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api/browser';
+import { catalogKeys } from '@/lib/catalogs/client';
+import type { CompletionSummary, UploadProgress } from '@/lib/catalogs/types';
 import { useI18n } from '@/lib/locale-client';
-import type { CompletionSummary, UploadProgress } from '@tasnivo/domain/upload-progress';
 import { Button, ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Progress } from '@/ui/progress';
@@ -12,57 +14,52 @@ import { Notice } from './notice';
 const POLL_MS = 1500;
 const MAX_BACKOFF_MS = 15_000;
 
-async function fetchProgress(catalogId: string): Promise<UploadProgress | null> {
-  const response = await fetch(`/upload/progress?catalog=${encodeURIComponent(catalogId)}`, { cache: 'no-store' });
-  if (!response.ok) return null;
-  return (await response.json()) as UploadProgress;
-}
+const settled = (p: UploadProgress | undefined): boolean => p?.status === 'ready' || p?.status === 'failed' || p?.status === 'uploaded';
 
-/** Step 5: rows audited so far, polled from a small JSON endpoint; failure with a retry. */
+/** Step 5: rows audited so far, polled from GET /api/catalogs/{id}/progress; failure with a retry. */
 export function ProcessingStep({ catalogId, onDone }: { catalogId: string; onDone: (summary: CompletionSummary) => void }) {
   const { ta } = useI18n();
   const p = ta.importX.processing;
-  const [state, setState] = useState<UploadProgress | null>(null);
-  const [pollError, setPollError] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
-  const [retrying, startRetry] = useTransition();
-  const [round, setRound] = useState(0);
+  const queryClient = useQueryClient();
   const done = useRef(onDone);
   useEffect(() => { done.current = onDone; }, [onDone]);
 
+  // Every 1.5 s until the audit settles; after a failed poll the wait doubles up to 15 s.
+  const progress = useQuery({
+    queryKey: catalogKeys.progress(catalogId),
+    queryFn: () => api.catalogs.progress({ catalogId }),
+    refetchInterval: (query) => {
+      if (query.state.status === 'success' && settled(query.state.data)) return false;
+      const failures = query.state.fetchFailureCount;
+      return failures > 0 ? Math.min(POLL_MS * 2 ** failures, MAX_BACKOFF_MS) : POLL_MS;
+    },
+    refetchIntervalInBackground: true,
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const state = progress.data ?? null;
+  const pollError = progress.isError;
+
   useEffect(() => {
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let delay = POLL_MS;
-    const tick = async (): Promise<void> => {
-      try {
-        const next = await fetchProgress(catalogId);
-        if (stopped) return;
-        if (!next) throw new Error('progress');
-        setPollError(false);
-        delay = POLL_MS;
-        setState(next);
-        if (next.status === 'ready') { done.current(next.summary); return; }
-        if (next.status === 'failed' || next.status === 'uploaded') return;
-      } catch {
-        if (stopped) return;
-        setPollError(true);
-        delay = Math.min(delay * 2, MAX_BACKOFF_MS);
-      }
-      timer = setTimeout(() => { void tick(); }, delay);
-    };
-    void tick();
-    return () => { stopped = true; if (timer) clearTimeout(timer); };
-  }, [catalogId, round]);
+    if (progress.data?.status === 'ready') done.current(progress.data.summary);
+  }, [progress.data]);
+
+  const retrier = useMutation({
+    mutationFn: () => api.catalogs.retry({ catalogId }),
+    onSuccess: (result) => {
+      if (!result.ok) { setRetryError(p.retryFailed); return; }
+      // Polling starts over from "waiting".
+      void queryClient.resetQueries({ queryKey: catalogKeys.progress(catalogId) });
+    },
+    onError: () => setRetryError(p.retryFailed),
+  });
+  const retrying = retrier.isPending;
 
   const retry = (): void => {
     setRetryError(null);
-    startRetry(async () => {
-      const result = await retryCatalogAudit(catalogId).catch(() => ({ ok: false }));
-      if (!result.ok) { setRetryError(p.retryFailed); return; }
-      setState(null);
-      setRound((r) => r + 1);
-    });
+    retrier.mutate();
   };
 
   if (state?.status === 'failed') {

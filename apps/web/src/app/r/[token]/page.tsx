@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
+import { api } from '@/lib/api/browser';
+import { serverApi } from '@/lib/api/server';
+import { orNull } from '@/lib/catalogs/server';
 import { getI18n } from '@/lib/locale';
-import { reportPdfData } from '@tasnivo/domain/pdf/report-data';
-import { countView, resolveShare } from '@tasnivo/domain/share';
 import { Badge } from '@/ui/badge';
 import { buttonClass } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
@@ -13,12 +14,11 @@ import { Table, Td, Th } from '@/ui/table';
 
 type Params = { params: Promise<{ token: string }> };
 
-/** The link and its report, once per request (metadata and page both need it). */
-const shared = cache(async (token: string) => {
-  const share = await resolveShare(token);
-  const data = share ? await reportPdfData(share.orgId, share.catalogId) : null;
-  return share && data ? { share, data } : null;
-});
+/**
+ * The link's client-facing report (share.view; null for an unknown, expired or revoked link), once
+ * per request: metadata and page both need it, and each read counts a view.
+ */
+const shared = cache((token: string) => orNull(serverApi().share.view({ token })));
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { t, ta } = await getI18n();
@@ -41,10 +41,9 @@ export default async function SharedReport({ params }: Params) {
   const { token } = await params;
   const found = await shared(token);
   if (!found) notFound();
-  const { share, data } = found;
+  const { report: data, includePdf } = found;
   const fmt = (n: number): string => fmtNumber(locale, n);
-  await countView(share.id);
-  const logo = data.logo ? `data:${data.logo.mime};base64,${data.logo.data.toString('base64')}` : null;
+  const logo = data.logoUrl;
   const rows = data.rows.slice(0, SHOWN);
 
   return (
@@ -57,7 +56,7 @@ export default async function SharedReport({ params }: Params) {
             <p className="text-sm text-muted">{ta.share.preparedFor(data.clientName)}</p>
           </div>
         </div>
-        {share.includePdf ? <a href={`/r/${token}/pdf`} className={buttonClass('primary')}>{ta.share.downloadPdf}</a> : null}
+        {includePdf ? <a href={api.share.pdf.url({ token })} className={buttonClass('primary')}>{ta.share.downloadPdf}</a> : null}
       </header>
 
       <h1 className="mt-6 text-2xl">{data.filename}</h1>

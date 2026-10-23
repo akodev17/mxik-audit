@@ -235,6 +235,14 @@ export const catalogs = defineModule('catalogs', {
     replaces: ['action:catalog.ts#previewUpload'],
     notes: 'A 0-byte file, a wrong extension and a file over 20 MB answer { ok: false, error } in the user\'s language, as before (not 413).',
   }),
+  uploadOptions: endpoint({
+    method: 'GET', path: '/api/upload/options', auth: 'session', role: 'any',
+    summary: 'What the upload page offers: the clients a catalogue can be uploaded for, and whether uploads are open',
+    responds: 'json',
+    response: z.object({ clients: z.array(z.object({ id: z.string(), name: z.string() })), uploadsOpen: z.boolean() }),
+    replaces: ['page:(app)/upload#clients'],
+    notes: 'Clients not archived and in the user\'s scope, the default one first, then by name. uploadsOpen is false while the plan has expired (W3b).',
+  }),
   preview: endpoint({
     method: 'GET', path: '/api/catalogs/{catalogId}/preview', auth: 'session', role: 'any',
     summary: 'The preview of an upload still waiting for its mapping (coming back to /upload?catalog=)',

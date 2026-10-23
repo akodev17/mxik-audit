@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { filenameFromDisposition } from '@tasnivo/domain/export-filename';
+import { isApiError, type DownloadedFile } from '@tasnivo/api-client';
+import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { IconDownload } from '@/ui/icons';
@@ -12,16 +13,17 @@ import { useToast } from '@/ui/toast';
 
 type Kind = 'xlsx' | 'oneCXlsx' | 'oneCCsv' | 'pdf' | 'pdfClient';
 
-const urlOf = (catalogId: string, kind: Kind): string => {
-  const id = encodeURIComponent(catalogId);
-  return {
-    xlsx: `/api/export?catalog=${id}`,
-    oneCXlsx: `/api/export?catalog=${id}&format=1c-xlsx`,
-    oneCCsv: `/api/export?catalog=${id}&format=1c`,
-    pdf: `/api/report-pdf?catalog=${id}&download=1`,
-    pdfClient: `/api/report-pdf?catalog=${id}&audience=client&download=1`,
-  }[kind];
-};
+/** The kept download URLs (/api/export, /api/report-pdf), fetched through the API client. */
+function fetchFile(catalog: string, kind: Kind): Promise<DownloadedFile> {
+  const init = { cache: 'no-store' as const };
+  switch (kind) {
+    case 'xlsx': return api.catalogs.exportFile({ catalog }, init);
+    case 'oneCXlsx': return api.catalogs.exportFile({ catalog, format: '1c-xlsx' }, init);
+    case 'oneCCsv': return api.catalogs.exportFile({ catalog, format: '1c' }, init);
+    case 'pdf': return api.catalogs.exportPdf({ catalog, download: '1' }, init);
+    case 'pdfClient': return api.catalogs.exportPdf({ catalog, audience: 'client', download: '1' }, init);
+  }
+}
 
 /** Hands a fetched file to the browser as a download. */
 function save(blob: Blob, name: string): void {
@@ -51,18 +53,18 @@ export function ExportMenu({ catalogId, ready, locked, panel, share }: Props) {
   async function download(kind: Kind): Promise<void> {
     setBusy(kind);
     try {
-      const response = await fetch(urlOf(catalogId, kind), { cache: 'no-store' });
-      if (!response.ok) {
-        const key = response.status === 402 || response.status === 404 || response.status === 409 ? String(response.status) as '402' | '404' | '409' : 'generic';
-        toast(x.errors[key], { tone: 'error' });
-        return;
-      }
-      const blob = await response.blob();
-      const name = filenameFromDisposition(response.headers.get('content-disposition')) ?? 'mxik-audit';
-      save(blob, name);
+      const file = await fetchFile(catalogId, kind);
+      const name = file.filename ?? 'mxik-audit';
+      save(file.blob, name);
       toast(x.done(name));
-    } catch {
-      toast(ta.importX.errors.network, { tone: 'error' });
+    } catch (error) {
+      // A refusal (payment, not found, audit running) in words; no answer at all is the network message.
+      if (isApiError(error) && error.status > 0) {
+        const key = error.status === 402 || error.status === 404 || error.status === 409 ? String(error.status) as '402' | '404' | '409' : 'generic';
+        toast(x.errors[key], { tone: 'error' });
+      } else {
+        toast(ta.importX.errors.network, { tone: 'error' });
+      }
     } finally {
       setBusy(null);
     }

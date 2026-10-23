@@ -1,8 +1,7 @@
 // When the upload page hands the wizard a new start, should it replace what is
 // on screen? The wizard rewrites its own URL (/upload?catalog=…), and the page's
 // next render for that URL must not throw away the mapping being edited. Pure.
-import type { CompletionSummary } from '@tasnivo/domain/upload-progress';
-import type { UploadPreview } from '@tasnivo/domain/upload-preview';
+import type { CompletionSummary, UploadPreview } from '@/lib/catalogs/types';
 
 export type WizardStart =
   | { step: 'select' }

@@ -1,16 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
-import { catalogScope } from '@tasnivo/domain/access';
-import { activityPage } from '@tasnivo/domain/activity';
-import { groupDecisions } from '@tasnivo/domain/activity-groups';
-import { db } from '@tasnivo/db';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
+import { api } from '@/lib/api/browser';
+import { serverApi } from '@/lib/api/server';
+import { groupDecisions } from '@/lib/catalogs/activity';
+import { typeLines } from '@/lib/catalogs/report';
+import { catalogHeader, orNotFound, signedInUser } from '@/lib/catalogs/server';
 import { getI18n } from '@/lib/locale';
-import { reportPdfData } from '@tasnivo/domain/pdf/report-data';
-import { typeLines } from '@tasnivo/domain/report-summary';
-import { currentUser } from '@/lib/session';
-import { versionDiff } from '@tasnivo/domain/versions';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { typeLabels } from '@/ui/labels';
@@ -28,6 +24,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const HISTORY = 12;
 
+/** The client's latest 100 log rows (two API pages), as the page read them before. */
+async function recentActivity(clientId: string) {
+  const server = serverApi();
+  const first = await server.account.activity({ client: clientId, category: 'all', page: 0 });
+  if (!first.hasMore || first.rows.length >= 100) return first.rows;
+  const second = await server.account.activity({ client: clientId, category: 'all', page: 1 });
+  return [...first.rows, ...second.rows].slice(0, 100);
+}
+
 /**
  * The audit report of one finished catalogue review, from the same persisted data as the PDF: what was
  * checked, which issues were found, which are resolved and which are still open, how the catalogue
@@ -37,27 +42,23 @@ const HISTORY = 12;
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { locale, t, ta } = await getI18n();
   const r = ta.importX.report;
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
+  await signedInUser();
   const { id } = await params;
-  const catalog = await db.catalog.findFirst({
-    where: { id, ...catalogScope(user) },
-    select: { id: true, filename: true, status: true, clientId: true, previousId: true, createdAt: true },
-  });
-  if (!catalog) notFound();
+  const catalog = await orNotFound(catalogHeader(id));
   const crumbs = [{ label: t.navCatalogs, href: '/catalogs' }, { label: catalog.filename, href: `/catalogs/${catalog.id}` }];
   if (catalog.status !== 'ready') return <Page title={r.title} crumbs={crumbs}><EmptyState title={r.notReady} /></Page>;
 
+  const server = serverApi();
   const [data, diff, history] = await Promise.all([
-    reportPdfData(user.orgId, catalog.id),
-    catalog.previousId ? versionDiff(user.orgId, catalog.id, undefined, { limit: 0 }) : Promise.resolve(null),
-    activityPage(user, { clientId: catalog.clientId, userId: null, category: 'all', from: null, to: null, page: 0 }, { pageSize: 100 }),
+    orNotFound(server.catalogs.report({ catalogId: catalog.id })),
+    // Only the counts are shown: one row of each list is enough.
+    catalog.previousId ? orNotFound(server.catalogs.diff({ catalogId: catalog.id, limit: 1 })) : Promise.resolve(null),
+    recentActivity(catalog.client.id),
   ]);
-  if (!data) notFound();
   const n = (v: number): string => fmtNumber(locale, v);
   const labels = typeLabels(t);
   const lines = typeLines(data);
-  const own = history.rows.filter((e) => e.catalogId === catalog.id).slice(0, HISTORY * 3);
+  const own = history.filter((e) => e.catalogId === catalog.id).slice(0, HISTORY * 3).map((e) => ({ ...e, at: new Date(e.at) }));
   const byPeople = Math.max(0, data.counts.decided - data.counts.automatic);
 
   return (
@@ -66,9 +67,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
       actions={(
         <div className="no-print flex flex-wrap items-center gap-2">
           <PrintButton>{r.print}</PrintButton>
-          <ButtonLink href={`/api/report-pdf?catalog=${catalog.id}&download=1`} variant="secondary" download>{r.pdf}</ButtonLink>
-          <ButtonLink href={`/api/report-pdf?catalog=${catalog.id}&audience=client&download=1`} variant="secondary" download>{r.pdfClient}</ButtonLink>
-          <ButtonLink href={`/api/catalog-report-csv?catalog=${catalog.id}`} variant="secondary" download>{r.csv}</ButtonLink>
+          <ButtonLink href={api.catalogs.exportPdf.url({ catalog: catalog.id, download: '1' })} variant="secondary" download>{r.pdf}</ButtonLink>
+          <ButtonLink href={api.catalogs.exportPdf.url({ catalog: catalog.id, audience: 'client', download: '1' })} variant="secondary" download>{r.pdfClient}</ButtonLink>
+          <ButtonLink href={api.catalogs.exportReportCsv.url({ catalog: catalog.id })} variant="secondary" download>{r.csv}</ButtonLink>
           <ButtonLink href={`/catalogs/${catalog.id}`} variant="primary">{r.openWorkspace}</ButtonLink>
         </div>
       )}

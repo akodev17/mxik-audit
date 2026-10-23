@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import type { CompletionSummary } from '@tasnivo/domain/upload-progress';
+import type { CompletionSummary } from '@/lib/catalogs/types';
 import { Badge } from '@/ui/badge';
 import { Button, ButtonLink } from '@/ui/button';
 import { typeLabels, typeTone } from '@/ui/labels';

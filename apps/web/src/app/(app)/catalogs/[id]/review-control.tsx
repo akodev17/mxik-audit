@@ -1,8 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { assignCatalogReview, finishCatalogReview } from '@/app/actions/reviews';
+import { api } from '@/lib/api/browser';
+import { catalogKeys, failureText } from '@/lib/catalogs/client';
+import type { ReviewView } from '@/lib/catalogs/types';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Badge } from '@/ui/badge';
@@ -26,24 +28,37 @@ export type ReviewState = {
   doneAt: string | null;
 };
 
+type ReviewRead = { review: ReviewView | null; assignable: { id: string; email: string }[] };
+
+/** The header's form of a review: the due day as YYYY-MM-DD. */
+const stateOf = (v: ReviewView): ReviewState => ({
+  assigneeId: v.assigneeId, assigneeEmail: v.assigneeEmail, dueOn: v.dueOn ? v.dueOn.slice(0, 10) : null, note: v.note,
+  status: v.status, overdue: v.overdue, doneAt: v.doneAt,
+});
+
 type Props = {
   catalogId: string;
-  review: ReviewState | null;
-  members: { id: string; email: string }[];
+  /** catalogs.review as the server page read it. */
+  initial: ReviewRead;
   /** The viewer may assign (a writer, outside a demo). */
   canAssign: boolean;
-  /** The viewer may close the open review (its assignee or an admin). */
-  canFinish: boolean;
+  /** Who is looking: an open review is closed by its assignee or an admin (who can also assign). */
+  finisher: { userId: string; admin: boolean };
   /** Earliest selectable due date, YYYY-MM-DD (today in the org's time). */
   today: string;
 };
 
 /** The catalogue's review task: who has it, by when, and the form to hand it over or close it. */
-export function ReviewControl({ catalogId, review, members, canAssign, canFinish, today }: Props) {
+export function ReviewControl({ catalogId, initial, canAssign, finisher, today }: Props) {
   const { ta, locale } = useI18n();
   const r = ta.review;
-  const router = useRouter();
   const toast = useToast();
+  const queryClient = useQueryClient();
+  const key = [...catalogKeys.one(catalogId), 'review'];
+  const { data } = useQuery({ queryKey: key, queryFn: () => api.catalogs.review({ catalogId }), initialData: initial, gcTime: 0 });
+  const review = data.review ? stateOf(data.review) : null;
+  const members = canAssign ? data.assignable : [];
+  const canFinish = canAssign && review !== null && (finisher.admin || review.assigneeId === finisher.userId);
   const [open, setOpen] = useState(false);
   const [assigneeId, setAssigneeId] = useState(review?.assigneeId ?? '');
   const [dueOn, setDueOn] = useState(review?.dueOn ?? '');
@@ -52,7 +67,7 @@ export function ReviewControl({ catalogId, review, members, canAssign, canFinish
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(job: () => ReturnType<typeof assignCatalogReview>, success: (changed: boolean | undefined) => string): Promise<void> {
+  async function run(job: () => Promise<{ ok: true; changed?: boolean } | { ok: false; error: string }>, success: (changed: boolean | undefined) => string): Promise<void> {
     setBusy(true);
     setError(null);
     try {
@@ -60,9 +75,9 @@ export function ReviewControl({ catalogId, review, members, canAssign, canFinish
       if (!result.ok) { setError(result.error); return; }
       toast(success(result.changed), { tone: 'ok' });
       setOpen(false);
-      router.refresh();
-    } catch {
-      setError(ta.wsX.toast.network);
+      await queryClient.invalidateQueries({ queryKey: key });
+    } catch (e) {
+      setError(failureText(e, ta.wsX.toast.network));
     } finally {
       setBusy(false);
     }
@@ -96,7 +111,7 @@ export function ReviewControl({ catalogId, review, members, canAssign, canFinish
               className="mt-3 space-y-3"
               onSubmit={(event) => {
                 event.preventDefault();
-                void run(() => assignCatalogReview({ catalogId, assigneeId, dueOn: dueOn || null, note: note.trim() || null }), (changed) => (changed === false ? r.unchanged : r.saved));
+                void run(() => api.catalogs.assignReview({ catalogId, assigneeId, dueOn: dueOn || null, note: note.trim() || null }), (changed) => (changed === false ? r.unchanged : r.saved));
               }}
             >
               <Select label={r.assignee} size="compact" value={assigneeId} required onChange={(e) => setAssigneeId(e.target.value)}>
@@ -118,7 +133,7 @@ export function ReviewControl({ catalogId, review, members, canAssign, canFinish
             className="mt-4 space-y-2 border-t border-line pt-3"
             onSubmit={(event) => {
               event.preventDefault();
-              void run(() => finishCatalogReview({ catalogId, note: doneNote.trim() || null }), () => r.markedDone);
+              void run(() => api.catalogs.finishReview({ catalogId, note: doneNote.trim() || null }), () => r.markedDone);
             }}
           >
             <Field label={r.doneNote}>

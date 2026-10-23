@@ -21,4 +21,14 @@ export const MIGRATED_WEB_PATHS = [
   'apps/web/src/app/(app)/settings/*.ts',
   'apps/web/src/lib/safe-next.ts',
   'apps/web/src/ui/language-switch.tsx',
+  // W3b: upload wizard, catalogue list, header/exports/share/review, diff, report, share pages
+  'apps/web/src/lib/catalogs/**',
+  'apps/web/src/app/(app)/upload/**',
+  'apps/web/src/app/(app)/catalogs/*.tsx',
+  'apps/web/src/app/(app)/catalogs/*/{workspace-header,billing-box,export-actions,export-menu,share-button,review-field,review-control,completion,classifier-banner,money-at-risk}.tsx',
+  'apps/web/src/app/(app)/catalogs/*/diff/**',
+  'apps/web/src/app/(app)/catalogs/*/report/**',
+  'apps/web/src/ui/catalog-status.tsx',
+  'apps/web/src/ui/catalog-status-client.tsx',
+  'apps/web/src/app/r/**',
 ];

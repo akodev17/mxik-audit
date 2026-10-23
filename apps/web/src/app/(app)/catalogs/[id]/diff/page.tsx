@@ -1,12 +1,11 @@
 import { getI18n } from '@/lib/locale';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
-import { catalogScope } from '@tasnivo/domain/access';
-import { db } from '@tasnivo/db';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
-import { currentUser } from '@/lib/session';
-import { compareCandidates, versionDiff, type CarriedRow, type DiffRow } from '@tasnivo/domain/versions';
+import { api } from '@/lib/api/browser';
+import { serverApi } from '@/lib/api/server';
+import { catalogHeader, orNotFound, signedInUser } from '@/lib/catalogs/server';
+import type { CarriedRow, DiffRow } from '@/lib/catalogs/types';
 import { Badge, StatusChip } from '@/ui/badge';
 import { Button, ButtonLink } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
@@ -98,10 +97,10 @@ async function CarriedTable({ rows }: { rows: CarriedRow[] }) {
 }
 
 /** No linked previous version: say so, and offer the client's other catalogues to compare with. */
-async function NotLinked({ orgId, catalogId }: { orgId: string; catalogId: string }) {
+async function NotLinked({ catalogId }: { catalogId: string }) {
   const { locale, ta } = await getI18n();
   const d = ta.importX.diff;
-  const candidates = await compareCandidates(orgId, catalogId);
+  const candidates = await orNotFound(serverApi().catalogs.versions({ catalogId }));
   const back = <ButtonLink href={`/catalogs/${catalogId}`} variant={candidates.length > 0 ? 'ghost' : 'primary'}>{d.backToWorkspace}</ButtonLink>;
   if (candidates.length === 0) return <EmptyState title={d.noOther} hint={d.noOtherHint} action={back} />;
   return (
@@ -124,23 +123,20 @@ export default async function DiffPage({ params, searchParams }: { params: Promi
   const { locale, t, ta } = await getI18n();
   const d = ta.importX.diff;
   const n = (v: number): string => fmtNumber(locale, v);
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
+  await signedInUser();
   const { id } = await params;
   const sp = await searchParams;
   const against = sp.with;
   const show = KINDS.find((k) => k === sp.show) ?? null;
   const page = Math.max(0, Number.parseInt(sp.page ?? '1', 10) - 1 || 0);
   const window = show ? { limit: PAGE, offset: page * PAGE } : {};
-  const catalog = await db.catalog.findFirst({ where: { id, ...catalogScope(user) }, select: { id: true, filename: true } });
-  if (!catalog) notFound();
+  const catalog = await orNotFound(catalogHeader(id));
   const crumbs = [{ label: t.navCatalogs, href: '/catalogs' }, { label: catalog.filename, href: `/catalogs/${catalog.id}` }];
   // A chosen catalogue that is not the client's (or not ready) falls back to the linked version.
-  const chosen = typeof against === 'string' && against ? await versionDiff(user.orgId, catalog.id, against, window) : null;
-  const diff = chosen ?? await versionDiff(user.orgId, catalog.id, undefined, window);
+  const diff = await orNotFound(serverApi().catalogs.diff({ catalogId: catalog.id, ...(typeof against === 'string' && against ? { with: against } : {}), ...window }));
 
   if (!diff) {
-    return <Page title={ta.diff.title} crumbs={crumbs}><NotLinked orgId={user.orgId} catalogId={catalog.id} /></Page>;
+    return <Page title={ta.diff.title} crumbs={crumbs}><NotLinked catalogId={catalog.id} /></Page>;
   }
   const c = diff.counts;
   const workspace = `/catalogs/${catalog.id}`;
@@ -156,7 +152,7 @@ export default async function DiffPage({ params, searchParams }: { params: Promi
       title={ta.diff.title} hint={diff.linked ? ta.diff.hint : d.chosenHint} wide crumbs={crumbs}
       actions={(
         <>
-          <ButtonLink href={`/api/catalog-diff?catalog=${catalog.id}${against ? `&with=${encodeURIComponent(against)}` : ''}`} variant="secondary" download>{d.exportCsv}</ButtonLink>
+          <ButtonLink href={api.catalogs.exportDiffCsv.url({ catalog: catalog.id, ...(against ? { with: against } : {}) })} variant="secondary" download>{d.exportCsv}</ButtonLink>
           <ButtonLink href={`/catalogs/${diff.previousId}`} variant="ghost">{diff.linked ? ta.diff.openPrevious : d.openChosen}</ButtonLink>
         </>
       )}

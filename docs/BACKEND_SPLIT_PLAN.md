@@ -309,3 +309,35 @@ Deleted: actions auth, security, signup, team, settings, api-keys, locale; route
 (GET /api/auth/2fa/pending, the 2FA page's hasPending check) and `account.get.closeAfterDays`.
 **Left for other areas:** /api/sign-out (the shell's user menu still posts to it), settings/theme-setting.tsx
 (setTheme), ui/pay-buttons.tsx (billing checkout), lib/security/sign-in.ts (clearPending for the demo action).
+## Wave 3b result: upload wizard, catalogues, header, diff, report, share pages (23 Oct 2026)
+These screens read and write only through `@tasnivo/api-client` (`serverApi()` in server
+components, `api` + React Query in client components); `apps/web/eslint.migrated.mjs` lists them.
+- **Gone:** actions `catalog.ts`, `share.ts`, `reviews.ts`; route handlers `/api/export`,
+  `/api/catalog-diff`, `/api/catalog-report-csv`, `/api/report-pdf`, `/api/doc-template`,
+  `/api/purchase-template` (same URLs, now answered by the API through the `/api/*` rewrite or
+  Caddy), `/upload/progress` (→ `GET /api/catalogs/{id}/progress`), `/r/[token]/pdf`
+  (→ `GET /api/share/{token}/pdf`), and `lib/download.ts`.
+- **Polling:** the wizard's progress step and the "audit running" block are React Query reads with
+  `refetchInterval` (1.5 s with the old back-off; 2 s). The block re-renders the server page once the
+  audit is ready (the grid is a server render), its only `router.refresh()`.
+- **Lists:** `/catalogs` is seeded by the server render and kept in React Query (`['catalogs', …]`);
+  deleting invalidates it. `CatalogList`/`DraftUploads` are client components that still accept
+  Date or ISO `createdAt` and call `router.refresh()` after a delete unless `refreshAfterDelete` is
+  false — for the client page (W3d) until it reads the API.
+- **Contract additions:** `catalogs.uploadOptions` (`GET /api/upload/options`: the upload page's
+  clients, default first, and whether the plan lets anything be uploaded) and
+  `billing.catalogPurchase.maxRows` (the price text "for up to N rows").
+- **Browser copies of pure domain code** (column mapping issues, import presets, file lines,
+  upload types, report type lines, degraded-run notes, the classifier banner rule, Tashkent today,
+  `withQuery`, decision grouping) live in `apps/web/src/lib/catalogs/`; `catalogs-drift.test.ts`
+  compares them with the originals.
+- **Seam with W3c** (`catalogs/[id]/page.tsx`): the top reads `signedInUser()` and `catalogHeader(id)`
+  (API `catalogs.get`, React-cached with the metadata); the grid section uses `catalog.client.id`,
+  `catalog.exportLocked`, and `MoneyAtRisk` takes only the catalogue id (`workspace.moneyAtRisk`).
+**For W4:** `ui/catalog-status-client.tsx` keeps `AutoRefresh` only for the cheque/sales list page
+(W3d); `ActivityFeed` (report history) still takes Date-typed entries — the report page converts the
+API rows; `lib/catalogs/server.ts` and W3a's `lib/api/me.ts` both wrap `auth.me`; the legacy
+`/export`, `/report`, `/review` redirects still use `lib/workspace-redirect.ts` + `lib/catalog-page.ts`
+(domain). Small known differences: a legacy catalogue without a client shows writers the review
+field (the API answers an empty one); the report history is two 50-row activity pages filtered to
+the catalogue (it was one 100-row read).

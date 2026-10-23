@@ -1,17 +1,19 @@
+'use client';
+
 import Link from 'next/link';
-import type { CatalogListItem } from '@tasnivo/domain/catalogs';
 import { fmtDateTime } from '@tasnivo/i18n/format';
-import { getI18n } from '@/lib/locale';
+import { useI18n } from '@/lib/locale-client';
 import { ButtonLink } from '@/ui/button';
+import type { ListedCatalog } from './catalog-list';
 import { VisuallyHidden } from '@/ui/visually-hidden';
 
 /**
  * Uploads whose columns were never confirmed: not catalogues yet, so they sit apart with a way
  * back into the upload wizard instead of an "Open" that leads nowhere useful.
  */
-export async function DraftUploads({ drafts, showClient }: { drafts: CatalogListItem[]; showClient: boolean }) {
+export function DraftUploads({ drafts, showClient }: { drafts: ListedCatalog[]; showClient: boolean }) {
+  const { locale, ta } = useI18n();
   if (drafts.length === 0) return null;
-  const { locale, ta } = await getI18n();
   const words = ta.firmX.catalogs;
   return (
     <section aria-labelledby="draft-uploads" className="mb-5 rounded-ctl border border-line bg-surface px-4 py-3">
@@ -26,7 +28,7 @@ export async function DraftUploads({ drafts, showClient }: { drafts: CatalogList
                 {showClient && d.clientId && d.clientName
                   ? <><Link href={`/clients/${d.clientId}`} className="text-brand-ink hover:underline">{d.clientName}</Link> · </>
                   : null}
-                <time dateTime={d.createdAt.toISOString()} className="tabular-nums">{fmtDateTime(locale, d.createdAt)}</time>
+                <time dateTime={new Date(d.createdAt).toISOString()} className="tabular-nums">{fmtDateTime(locale, d.createdAt)}</time>
                 {d.uploader ? ` · ${d.uploader}` : ''}
               </span>
             </span>
