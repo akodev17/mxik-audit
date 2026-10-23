@@ -4,18 +4,20 @@ import type { UploadPreview } from '@/lib/catalogs/types';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
+import { IconSuccess, IconTable } from '@/ui/icons';
 import { PreviewTable } from '@/ui/preview-table';
 import { Notice } from './notice';
+import { StepCard, StepFooter } from './step-card';
 
 /** Step 2: what the reader made of the file, before any mapping. */
 export function FileCheck({ preview, onNext, onStartOver }: { preview: UploadPreview; onNext: () => void; onStartOver: () => void }) {
   const { locale, ta } = useI18n();
   const c = ta.importX.check;
+  const f = ta.importX.flow;
   const n = (v: number): string => fmtNumber(locale, v);
   const parse = preview.parse;
   const repeatedHeaders = parse?.repeatedHeadersSkipped ?? 0;
   const facts: [string, string][] = [
-    [ta.importX.confirm.file, preview.filename],
     ...(parse ? [
       [c.format, c.formats[parse.format]] as [string, string],
       ...(parse.encoding ? [[c.encoding, parse.encoding === 'utf-8' ? 'UTF-8' : 'Windows-1251'] as [string, string]] : []),
@@ -26,19 +28,30 @@ export function FileCheck({ preview, onNext, onStartOver }: { preview: UploadPre
   ];
 
   return (
-    <section aria-labelledby="check-title" className="space-y-4">
-      <h2 id="check-title" className="text-section">{c.title}</h2>
+    <StepCard titleId="check-title" title={c.title}>
+      {/* The summary: which file, how big, and how it was read. */}
+      <div className="flex flex-wrap items-start gap-4 rounded-md bg-surface p-4">
+        <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-md bg-good-tint text-good-ink"><IconTable size={20} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-small font-medium text-good-ink"><IconSuccess size={14} />{f.readOk}</p>
+          <p className="mt-0.5 break-words text-data font-semibold">
+            <span className="sr-only">{ta.importX.confirm.file}: </span>{preview.filename}
+          </p>
+          <p className="text-small text-muted">{f.rows(preview.rows)} · {f.columns(preview.headers.length)}</p>
+        </div>
+        <dl className="grid w-full grid-cols-2 gap-x-6 gap-y-3 border-t border-line pt-3 sm:grid-cols-3 lg:w-auto lg:grid-cols-none lg:grid-flow-col lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
+          {facts.map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-small text-muted">{label}</dt>
+              <dd className="break-words text-data font-medium tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
       {parse?.truncated ? (
         <Notice tone="danger" title={c.truncatedTitle(preview.rows, parse.totalSeen)}>{c.truncatedHint}</Notice>
       ) : null}
-      <dl className="grid gap-x-6 gap-y-2 rounded-ctl border border-line bg-raised p-4 sm:grid-cols-2">
-        {facts.map(([label, value]) => (
-          <div key={label} className="flex min-w-0 gap-2 text-data">
-            <dt className="shrink-0 text-muted">{label}:</dt>
-            <dd className="min-w-0 break-words font-medium">{value}</dd>
-          </div>
-        ))}
-      </dl>
       {parse && (parse.skippedAbove > 0 || parse.emptyRowsSkipped > 0 || repeatedHeaders > 0) ? (
         <Notice tone="info">
           {parse.skippedAbove > 0 ? <p>{c.skippedAbove(parse.skippedAbove)}</p> : null}
@@ -46,14 +59,22 @@ export function FileCheck({ preview, onNext, onStartOver }: { preview: UploadPre
           {repeatedHeaders > 0 ? <p>{c.repeatedHeaders(repeatedHeaders)}</p> : null}
         </Notice>
       ) : null}
+
       <div>
-        <h3 className="mb-2 text-data font-semibold">{c.sample}</h3>
-        <PreviewTable headers={preview.headers} rows={preview.sample} roles={[]} limit={preview.sample.length} label={c.sample} />
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
+          <h3 className="text-data font-semibold">{c.sample}</h3>
+          <p className="text-small text-muted">{f.kindHint}</p>
+        </div>
+        <PreviewTable
+          headers={preview.headers} rows={preview.sample} roles={[]} limit={preview.sample.length} label={c.sample}
+          kindLabels={f.kinds} kindHint={f.kindHint}
+        />
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+
+      <StepFooter>
         <Button variant="ghost" onClick={onStartOver}>{ta.importX.discard.action}</Button>
         <Button variant="primary" onClick={onNext}>{c.next}</Button>
-      </div>
-    </section>
+      </StepFooter>
+    </StepCard>
   );
 }

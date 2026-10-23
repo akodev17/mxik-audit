@@ -201,3 +201,74 @@ three links", gear named at 1440 and its tooltip at 1024), review-flow 10 (the l
   root `npm test` and full `npm run lint` not run. Run them before merging.
 - Done pages: shell (all parts), dashboard, notifications, activity, not-found, (app) error. Untouched in my area:
   nothing; the palette's "recent" group was not exercised in a browser (the pane could not type into it).
+## U3 result: upload + catalogues
+Branch `claude/u3-upload-catalogs-e592ab` (from the W4a cutover). Screenshots: `docs/ui-refresh/u3/`
+(`<page>-<width>-<theme>.webp`, 375 / 768 / 1280, light and dark; the share dialog and export menu at
+375 and 1280; the long diff overview is cropped to its top 2600 px).
+What changed (behaviour and API calls kept; names and roles the e2e specs use kept):
+- **Upload wizard** (`(app)/upload/**`): `WizardStepper` (local) with done / current / upcoming said
+  in colour, icon and screen-reader text; on a phone "Ustunlar · 3/6-qadam" over a segmented bar.
+  Every step is one `StepCard` (raised card, h2, footer with the primary action last). Dropzone with a
+  steady drag state (enter/leave counted), type chips from `UPLOAD_EXTENSIONS`, a tips card and the
+  sample file (`/demo/namuna-katalog.xlsx`, the landing's sample). File check: a summary strip (file,
+  rows, columns, how it was read) over `PreviewTable`, now with a sticky header, striped rows, row
+  numbers, truncation with title and a value-kind line per column (text / number / code / empty,
+  `ui/preview-columns.ts`, unit-tested). Mapping: "field → file column" rows with the origin badge,
+  an example value from the chosen column and inline errors; diagnostics beside it (sticky on lg),
+  grouped by severity (Import qilinmaydi / Tekshirib chiqing / Maʼlumot uchun), import share bar, the
+  diagnostics texts unchanged. Confirm: a checklist card (chosen settings / what happens next).
+  Processing: percent, progress bar, ETA, "you can leave this page" note. Done: tiles, finding types
+  as badge links to `/catalogs/<id>?type=…`, next actions as rows (workspace, report, diff).
+- **Catalogue list**: status filter beside the client filter (`catalogs.list` takes an optional
+  `status` — added to the contract and `catalogList`, nothing else changes), sticky header, hover
+  rows, the risky count as a badge, row actions shown on hover/focus on pointer screens (always on
+  touch), a filtered-empty state with a reset, drafts as a warning card. `STATUS_TONE` moved to
+  `catalogs/status-tone.ts` (shared by the list and the header).
+- **Workspace header** (props from `[id]/page.tsx` unchanged): title + status chip, one metadata
+  line (client · date · rows · classifier, newer-classifier badge), review task with an avatar
+  initial (the `dl` with "Tekshiruv:" stays for review-assignment.e2e), quiet links to the report
+  and diff; billing popover as a compact card; export menu items with icons and descriptions;
+  sharing is now a **Dialog** (new link form, one-time copy field, link list with status chips,
+  revoke through ConfirmDialog). Classifier and degraded-run banners share one notice shape.
+- **Report**: summary tiles (risky share of rows), review progress bar, findings by type with type
+  badges and a relative bar, an internal / client **audience switch** in the URL (`?for=client`
+  hides the staff split, CSV and internal history and offers the client PDF), print rules
+  (`print:` utilities: no breaks inside tiles and rows, audience printed).
+- **Diff**: tiles link to their tab; `Tabs` with counts replace the filter links; changed rows read
+  old → new (struck-through danger tint → good tint) for name, unit and code; added/removed rows get
+  an edge mark; identical versions say so.
+- **/r/[token]**: a product bar (logo + language switch), the firm's brand card with a read-only
+  badge and the PDF button, tiles, type badges, a striped findings table with a sticky header,
+  "Tasnivo yordamida tayyorlangan" footer. `ui/catalog-status.tsx` (audit running in the workspace)
+  got the same progress card; `ui/pay-buttons.tsx` per-provider loading and token colours.
+- i18n: new keys under `ta.importX.flow` (uz + ru), nothing renamed.
+### Primitive requests (for U1)
+1. **Stepper**: promote `upload/wizard-stepper.tsx` (connectors edge to edge, states in text, phone
+   summary + segmented bar) to `ui/stepper.tsx`, or give Stepper those states; the old Stepper is now
+   unused by the wizard.
+2. **Card**: `upload/step-card.tsx` (`StepCard`, `StepFooter` with a full-bleed top rule) maps onto
+   U1's new `Card` (title, description, actions, footer); swap after merge.
+3. **Notice vs Alert**: `upload/notice.tsx` (tone, title, action, role=alert for danger) is used by
+   upload and the clients/imports pages; fold into `Alert` (U1 added title/action/icon). The report's
+   classifier/degraded banners use the same shape inline.
+4. **Table**: a `striped` prop and row numbering helper (PreviewTable and the share page stripe rows
+   with `[&>td]:bg-surface`); a header-cell "eyebrow" slot (mapped field above the header name).
+5. **Segmented as links**: a link variant of Segmented for server pages (the report's audience
+   switch is a local link group with the Segmented look).
+6. **Badge size**: a `size="md"` for clickable chips (done step finding types override padding and
+   text size).
+7. **Row actions**: a list-row pattern with actions revealed on hover/focus on pointer devices
+   (`md:pointer-fine:opacity-0 group-hover:… group-focus-within:…` in `catalog-list.tsx`).
+8. **Chip/Tag**: small mono chips (dropzone file types) — no primitive exists.
+### Verification and what is unfinished
+- Green: root `npm run typecheck`; `npm run lint` (0 errors, one older warning in `scripts/lib/xlsx.ts`);
+  `next build apps/web`; the contracts, i18n and ui unit tests (`npm test` as a whole was not run).
+- E2E against web 3113 (`next start`) + API 4213, stopped early on the owner's wrap-up: demo-access 5/5,
+  empty-states 2/2, review-assignment 5/5 passed; refresh 3/4 (the failing one is
+  "router.refresh() on the dashboard", a timing check on U2's page on a loaded machine; not rerun).
+  review-flow (upload/mapping/export/diff) and scale did **not** finish: the upload flow's e2e is
+  unverified.
+- Not checked visually: the before → after row diff (the local data had no changed rows; review-flow
+  test 12 covers one), the print preview of the report.
+- Local data: the screenshots added one audited catalogue `namuna-katalog.xlsx` (186 rows) and a share
+  link to the seed org "Demo Savdo MChJ"; delete it from /catalogs if unwanted.

@@ -60,8 +60,9 @@ export const CATALOG_PAGE = 50;
  */
 export async function catalogList(
   user: { orgId: string; clientIds?: string[] | null }, clientId: string | null, page = 0, kind: 'catalogs' | 'drafts' = 'catalogs',
+  only?: 'ready' | 'analyzing' | 'failed',
 ): Promise<{ items: CatalogListItem[]; total: number }> {
-  const status = kind === 'drafts' ? { status: 'uploaded' as const } : { status: { not: 'uploaded' as const } };
+  const status = kind === 'drafts' ? { status: 'uploaded' as const } : only ? { status: only } : { status: { not: 'uploaded' as const } };
   const where = { AND: [catalogScope(user), clientId ? { clientId } : { client: { archivedAt: null } }, status] };
   const [total, catalogs] = await Promise.all([
     db.catalog.count({ where }),

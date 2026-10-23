@@ -7,17 +7,21 @@ import { catalogKeys } from '@/lib/catalogs/client';
 import type { ShareRow } from '@/lib/catalogs/types';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
+import { StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { CopyField } from '@/ui/copy-field';
-import { Popover } from '@/ui/popover';
+import { Dialog } from '@/ui/dialog';
+import { IconUsers } from '@/ui/icons';
 import { Select } from '@/ui/select';
+import { Skeleton } from '@/ui/skeleton';
 
-/** Create, copy and revoke read-only report links for this catalogue. */
+/** Create, copy and revoke read-only report links for this catalogue, in one dialog. */
 export function ShareButton({ catalogId }: { catalogId: string }) {
   const { ta, locale } = useI18n();
   const s = ta.share;
+  const w = ta.importX.flow.share;
   const date = (iso: string): string => fmtDate(locale, iso);
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
@@ -28,7 +32,7 @@ export function ShareButton({ catalogId }: { catalogId: string }) {
   const queryClient = useQueryClient();
   const key = catalogKeys.shareLinks(catalogId);
 
-  // Read each time the popover opens.
+  // Read each time the dialog opens.
   const list = useQuery({ queryKey: key, queryFn: () => api.catalogs.shareLinks({ catalogId }), enabled: open, staleTime: 0, retry: false });
   const links = list.data ?? [];
   const listError = list.isError ? ta.wsX.toast.network : null;
@@ -44,44 +48,68 @@ export function ShareButton({ catalogId }: { catalogId: string }) {
     onError: () => setError(ta.wsX.toast.network),
   });
   const busy = creator.isPending;
-  const create = (): void => creator.mutate();
+
+  const close = (): void => {
+    setOpen(false);
+    // The link is shown once: closing the dialog forgets it.
+    setUrl(null);
+    setError(null);
+  };
 
   return (
     <div className="no-print">
-      <Popover label={s.button} title={s.title} open={open} onOpenChange={setOpen} align="end" panelClassName="w-[min(24rem,calc(100vw-2rem))]">
-        <h3 className="text-section text-fg">{s.title}</h3>
-        <p className="mt-1 text-micro text-muted">{s.hint}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-small">
-          <label className="flex items-center gap-1.5 text-muted">{s.valid}
-            <Select size="compact" value={days} onChange={(e) => setDays(e.target.value === '30' ? 30 : 7)}>
-              <option value={7}>{s.days(7)}</option><option value={30}>{s.days(30)}</option>
-            </Select>
-          </label>
-          <Checkbox label={s.withPdf} checked={pdf} onChange={(e) => setPdf(e.target.checked)} />
-          <Button size="sm" variant="primary" loading={busy} onClick={create}>{s.create}</Button>
+      <Button onClick={() => setOpen(true)} aria-haspopup="dialog"><IconUsers size={16} />{s.button}</Button>
+      <Dialog
+        open={open} onClose={close} title={s.title} description={s.hint} size="md"
+        footer={<Button onClick={close}>{w.close}</Button>}
+      >
+        <div className="space-y-5">
+          <section aria-labelledby="share-new" className="rounded-md bg-surface p-4">
+            <h3 id="share-new" className="text-data font-semibold">{w.newLink}</h3>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <Select label={s.valid.replace(/:$/, '')} size="compact" value={days} wrapperClassName="w-32" onChange={(e) => setDays(e.target.value === '30' ? 30 : 7)}>
+                <option value={7}>{s.days(7)}</option><option value={30}>{s.days(30)}</option>
+              </Select>
+              <div className="flex h-control-compact items-center"><Checkbox label={s.withPdf} checked={pdf} onChange={(e) => setPdf(e.target.checked)} /></div>
+              <Button size="sm" variant="primary" className="ml-auto" loading={busy} onClick={() => creator.mutate()}>{s.create}</Button>
+            </div>
+            {error ?? listError ? <p role="alert" className="mt-2 text-small text-danger-ink">{error ?? listError}</p> : null}
+            {url ? <div className="mt-3"><CopyField label={s.created} value={url} size="compact" /></div> : null}
+          </section>
+
+          <section aria-labelledby="share-links">
+            <h3 id="share-links" className="text-data font-semibold">{w.links}</h3>
+            {list.isPending && open ? (
+              <div className="mt-2 space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+            ) : links.length === 0 ? (
+              <p className="mt-1 text-small text-muted">{w.noLinks}</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-line border-y border-line text-small">
+                {links.map((l) => {
+                  const revoked = l.revokedAt !== null;
+                  const dead = revoked || new Date(l.expiresAt) < new Date();
+                  const tone = dead ? 'neutral' : 'good';
+                  return (
+                    <li key={l.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5">
+                      <span className="min-w-0">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className={dead ? 'tabular-nums text-muted line-through decoration-subtle' : 'tabular-nums font-medium text-fg'}>{w.period(date(l.createdAt), date(l.expiresAt))}</span>
+                          <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{revoked ? s.revoked : dead ? s.expired : w.active}</StatusChip>
+                        </span>
+                        <span className="mt-0.5 block text-micro text-muted">{s.views(l.views, l.lastViewedAt ? date(l.lastViewedAt) : null)}{l.includePdf ? ' · PDF' : ''}</span>
+                      </span>
+                      {dead ? null : <Button size="compact" variant="danger-ghost" onClick={() => setRevoking(l)}>{s.revoke}</Button>}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         </div>
-        {error ?? listError ? <p role="alert" className="mt-2 text-small text-danger-ink">{error ?? listError}</p> : null}
-        {url ? <div className="mt-3"><CopyField label={s.created} value={url} size="compact" /></div> : null}
-        {links.length > 0 ? (
-          <ul className="mt-3 divide-y divide-line text-small">
-            {links.map((l) => {
-              const dead = l.revokedAt !== null || new Date(l.expiresAt) < new Date();
-              return (
-                <li key={l.id} className="flex items-center justify-between gap-2 py-2">
-                  <span className={dead ? 'text-muted' : 'text-fg'}>
-                    {date(l.createdAt)} → {date(l.expiresAt)}
-                    <span className="block text-micro text-muted">{s.views(l.views, l.lastViewedAt ? date(l.lastViewedAt) : null)}{l.revokedAt ? `, ${s.revoked}` : dead ? `, ${s.expired}` : ''}</span>
-                  </span>
-                  {dead ? null : <Button size="compact" variant="danger-ghost" onClick={() => setRevoking(l)}>{s.revoke}</Button>}
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-      </Popover>
+      </Dialog>
       <ConfirmDialog
         open={revoking !== null} onClose={() => setRevoking(null)} tone="danger"
-        title={ta.wsX.shareRevoke.title} description={ta.wsX.shareRevoke.body} scope={revoking ? `${date(revoking.createdAt)} → ${date(revoking.expiresAt)}` : undefined}
+        title={ta.wsX.shareRevoke.title} description={ta.wsX.shareRevoke.body} scope={revoking ? w.period(date(revoking.createdAt), date(revoking.expiresAt)) : undefined}
         confirmLabel={ta.wsX.shareRevoke.title} cancelLabel={ta.wsX.shareRevoke.keep}
         onConfirm={async () => {
           if (!revoking) return { ok: true };
