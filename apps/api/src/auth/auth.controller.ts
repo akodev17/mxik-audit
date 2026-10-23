@@ -130,9 +130,17 @@ export class AuthController {
     go(res, await verifyEmailLink(session, token, requestFacts(req).userAgent));
   }
 
+  /** A right code renews the session (new sid in a new cookie, the old record ended), Q2. */
   @Route(e.verifyCode)
-  verifyCode(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.verifyCode.body)) body: { code: string }, @Locale() locale: LocaleCode): Promise<Answer<'verifyCode'>> {
-    return verifyCodeForm(user, body.code, { locale });
+  async verifyCode(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(e.verifyCode.body)) body: { code: string },
+    @Locale() locale: LocaleCode,
+    @Req() req: ApiRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Answer<'verifyCode'>> {
+    const session = await this.sessions.forSignIn(req, res);
+    return verifyCodeForm(user, body.code, { locale, session: { session, userAgent: requestFacts(req).userAgent } });
   }
 
   @Route(e.resendCode)

@@ -45,6 +45,15 @@ async function finish(session: SignInSession, who: Who, via: string, userAgent: 
   await db.auditEvent.create({ data: { orgId: who.orgId, actorId: who.id, action: 'user.signed_in', payload: { via } } });
 }
 
+/**
+ * Re-issues the session of a browser that is already signed in as `who`: the old record ends and a
+ * new sid is sealed into the cookie. Used when the account's state changes under the same browser
+ * (the e-mail code is confirmed, Q2), so a cookie copied before that point is worthless after it.
+ */
+export async function renewSession(session: SignInSession, who: Who, via: string, userAgent: string | null): Promise<void> {
+  await finish(session, who, via, userAgent);
+}
+
 /** Where to send the browser next, or null when this user may not sign in (closed account, not an admin). */
 export async function openSession(session: SignInSession, who: Who, { via, landing }: OpenOptions, userAgent: string | null): Promise<string | null> {
   const [user, org] = await Promise.all([

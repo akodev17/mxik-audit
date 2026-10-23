@@ -178,9 +178,20 @@ describe('auth: sign-in, sign-up, password, confirmation (database)', { skip }, 
     const code = await issueCode(row.id);
     const wrong = code === '000000' ? '111111' : '000000';
     assert.deepEqual(bodyOf<State>(await call(pair).post('/api/auth/verify-code').send({ code: wrong })), { error: ta.verifyX.wrong });
-    assert.deepEqual(bodyOf<State>(await call(pair).post('/api/auth/verify-code').send({ code })), { redirect: '/dashboard' });
-    assert.equal((await call(pair).get('/api/auth/sessions')).status, 200);
-    assert.equal(bodyOf<{ verified: boolean }>(await me(pair)).verified, true);
+    const confirmed = await call(pair).post('/api/auth/verify-code').send({ code });
+    assert.deepEqual(bodyOf<State>(confirmed), { redirect: '/dashboard' });
+    // Q2: the right code renews the session; the cookie from before the code is worthless now.
+    const renewed = sessionPair(confirmed);
+    assert.ok(renewed && renewed !== pair, 'a new session cookie is set');
+    const before = await unsealPair(pair ?? '');
+    const after = await unsealPair(renewed);
+    assert.ok(before.sid && after.sid && after.sid !== before.sid, 'a new sid');
+    assert.ok((await db.userSession.findUniqueOrThrow({ where: { id: before.sid } })).revokedAt, 'the pre-code session record is ended');
+    assert.equal((await call(pair).get('/api/dashboard')).status, 401);
+    assert.equal((await me(pair)).status, 401);
+    assert.equal((await call(renewed).get('/api/auth/sessions')).status, 200);
+    assert.equal(bodyOf<{ verified: boolean }>(await me(renewed)).verified, true);
+    assert.equal((await call(renewed).get('/api/dashboard')).status, 200);
 
     // The address is taken: the owner gets a mail, the visitor the "check your e-mail" answer.
     assert.deepEqual(bodyOf<State>(await call().post('/api/auth/sign-up').send({ email, password: 'long-enough-1', firm: 'x' })), { checkEmail: true });
