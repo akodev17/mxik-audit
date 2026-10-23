@@ -211,6 +211,8 @@ export const PrepareAnswer = z.object({
 });
 
 // ── Endpoints ──────────────────────────────────────────────────────────────────────────────
+// New screens, nothing is taken over from the Next app: `replaces` names the /bank page each
+// endpoint serves (the registry requires an entry; see handoff-agent2.md).
 
 const StatementPath = z.object({ batchId: Id });
 const RecordPath = z.object({ recordId: Id });
@@ -233,7 +235,7 @@ export const bank = defineModule('bank', {
     summary: 'Read a statement file: header, sample rows, recognised layout or a mapping guess, rows that would be left out',
     multipart: { fields: z.object({ clientId: z.string().max(64).optional() }), files: { file: UploadFile } },
     responds: 'json', response: z.union([z.object({ ok: z.literal(true), preview: BankPreview }), Fail]),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
   create: endpoint({
     method: 'POST', path: '/api/bank/statements', auth: 'session', role: 'writer', noDemo: true,
@@ -251,21 +253,21 @@ export const bank = defineModule('bank', {
       files: { file: UploadFile },
     },
     responds: 'json', response: z.union([z.object({ ok: z.literal(true), batchId: z.string() }), Fail.extend({ duplicateOf: z.string().optional() })]),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
   list: endpoint({
     method: 'GET', path: '/api/bank/statements', auth: 'session', role: 'any',
     summary: 'The org\'s bank statements, newest first; ?client= narrows to one client',
     query: z.object({ client: z.string().max(64).optional() }),
     responds: 'json', response: z.object({ statements: z.array(BankStatementRow) }),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
   statement: endpoint({
     method: 'GET', path: '/api/bank/statements/{batchId}', auth: 'session', role: 'any',
     summary: 'One statement with its header, progress and counts',
     params: StatementPath,
     responds: 'json', response: z.object({ statement: BankStatementRow, dropped: z.array(z.object({ rowIndex: z.number().int(), reason: z.string() })) }),
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]'],
   }),
   records: endpoint({
     method: 'GET', path: '/api/bank/statements/{batchId}/records', auth: 'session', role: 'any',
@@ -277,7 +279,7 @@ export const bank = defineModule('bank', {
       q: z.string().max(100).optional(),
     }),
     responds: 'json', response: z.object({ records: z.array(BankRecordRow), total: z.number().int(), page: z.number().int(), pageSize: z.number().int() }),
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]'],
   }),
   decide: endpoint({
     method: 'PUT', path: '/api/bank/records/{recordId}/decision', auth: 'session', role: 'writer', noDemo: true,
@@ -285,7 +287,7 @@ export const bank = defineModule('bank', {
     params: RecordPath,
     body: BankDecisionBody,
     responds: 'json', response: z.union([z.object({ ok: z.literal(true), record: BankRecordRow, ruleId: z.string().nullable(), applied: z.number().int() }), Fail]),
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]'],
   }),
   approve: endpoint({
     method: 'POST', path: '/api/bank/statements/{batchId}/approve', auth: 'session', role: 'writer', noDemo: true,
@@ -293,21 +295,21 @@ export const bank = defineModule('bank', {
     params: StatementPath,
     body: z.object({ scope: z.enum(['valid', 'reviewable', 'ids']), ids: z.array(Id).max(5000).optional() }),
     responds: 'json', response: z.union([z.object({ ok: z.literal(true), approved: z.number().int() }), Fail]),
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]'],
   }),
   prepare: endpoint({
     method: 'POST', path: '/api/bank/statements/{batchId}/prepare', auth: 'session', role: 'writer',
     summary: 'Dry run of the 1C export: what would go, the balance and duplicate checks, the 1C interface\'s own checks',
     params: StatementPath,
     responds: 'json', response: z.union([PrepareAnswer, Fail]),
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]'],
   }),
   export: endpoint({
     method: 'POST', path: '/api/bank/statements/{batchId}/export', auth: 'session', role: 'writer', noDemo: true,
     summary: 'The 1C bank exchange file (bank_exchange_1_02) of the approved lines not exported yet, built by the 1C interface',
     params: StatementPath,
     responds: 'file', file: { contentTypes: ['text/plain', 'application/octet-stream'], disposition: 'attachment' },
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]'],
     notes: 'Answers 409 nothing_to_export, 501 not_implemented while the 1C interface is the base-commit stub.',
   }),
   reconcile: endpoint({
@@ -315,46 +317,46 @@ export const bank = defineModule('bank', {
     summary: 'Reconciliation: opening balance, totals by direction and operation, closing balance check, unresolved and skipped lines',
     params: StatementPath,
     responds: 'json', response: ReconcileReport,
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]/reconcile'],
   }),
   reconcileCsv: endpoint({
     method: 'GET', path: '/api/bank/statements/{batchId}/reconcile.csv', auth: 'session', role: 'any',
     summary: 'The reconciliation and every line with its status as CSV',
     params: StatementPath,
     responds: 'file', file: { contentTypes: ['text/csv'], disposition: 'attachment' },
-    replaces: [],
+    replaces: ['page:(app)/bank/[batchId]/reconcile'],
   }),
   remove: endpoint({
     method: 'DELETE', path: '/api/bank/statements/{batchId}', auth: 'session', role: 'writer',
     summary: 'Delete a statement none of whose lines went to 1C',
     params: StatementPath,
     responds: 'json', response: z.union([Ok, Fail]),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
   formats: endpoint({
     method: 'GET', path: '/api/bank/formats', auth: 'session', role: 'any',
     summary: 'Built-in statement layouts and the org\'s saved ones',
     responds: 'json', response: z.object({ formats: z.array(BankFormatSummary) }),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
   removeFormat: endpoint({
     method: 'DELETE', path: '/api/bank/formats/{formatId}', auth: 'session', role: 'writer',
     summary: 'Forget a saved statement layout',
     params: z.object({ formatId: Id }),
     responds: 'json', response: z.union([Ok, Fail]),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
   rules: endpoint({
     method: 'GET', path: '/api/bank/rules', auth: 'session', role: 'any',
     summary: 'The org\'s remembered operation rules',
     responds: 'json', response: z.object({ rules: z.array(BankRuleRow) }),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
   removeRule: endpoint({
     method: 'DELETE', path: '/api/bank/rules/{ruleId}', auth: 'session', role: 'writer',
     summary: 'Forget a remembered operation rule',
     params: z.object({ ruleId: Id }),
     responds: 'json', response: z.union([Ok, Fail]),
-    replaces: [],
+    replaces: ['page:(app)/bank'],
   }),
 });
