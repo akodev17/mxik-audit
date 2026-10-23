@@ -16,6 +16,11 @@ the landing page is at `/`, a no-signup demo is at `/demo`, and traction metrics
 are at `/admin`. See [`docs/SESSION_STATE.md`](docs/SESSION_STATE.md) for what is
 measured and what is not.
 
+**Continuing the work (Oct 2026):** start with
+[`docs/HANDOFF_2026-10-23.md`](docs/HANDOFF_2026-10-23.md) — the split into API, worker and
+thin web app, the UI refresh, how to set up a new machine, and the open items (production
+deploy on tasnivo.uz first).
+
 ## Cold start
 
 Requires Node 20+ and Docker.
