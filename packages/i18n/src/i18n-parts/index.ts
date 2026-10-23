@@ -15,6 +15,7 @@ import * as onec from './onec';
 import * as bank from './bank';
 import * as didox from './didox';
 import * as products from './products';
+import * as tour from './tour';
 
 export const partsUz = {
   ...shell.uz,
@@ -33,6 +34,7 @@ export const partsUz = {
   ...bank.uz,
   ...didox.uz,
   ...products.uz,
+  ...tour.uz,
 };
 
 export const partsRu: typeof partsUz = {
@@ -52,4 +54,5 @@ export const partsRu: typeof partsUz = {
   ...bank.ru,
   ...didox.ru,
   ...products.ru,
+  ...tour.ru,
 };
