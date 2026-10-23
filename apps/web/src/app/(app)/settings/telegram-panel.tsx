@@ -1,19 +1,24 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { OutputOf } from '@tasnivo/api-client';
 import type { endpoints } from '@tasnivo/contracts';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { api } from '@/lib/api/browser';
 import { queryKey, useSeededQuery } from '@/lib/api/query';
 import { useI18n } from '@/lib/locale-client';
-import { Button } from '@/ui/button';
+import { Button, ButtonLink } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { CopyField } from '@/ui/copy-field';
+import { cx } from '@/ui/cx';
 import { useToast } from '@/ui/toast';
+import { Card } from '../_manage/card';
+import { Notice } from '../_manage/notice';
+import { QrCode } from './two-factor';
 
 type Links = OutputOf<typeof endpoints.account.telegramLinks>;
+type Code = Extract<OutputOf<typeof endpoints.account.telegramCode>, { ok: true }>;
 export type Chat = { id: string; username: string | null; linked: string; by: string | null };
 
 function ChatRow({ chat }: { chat: Chat }) {
@@ -33,7 +38,7 @@ function ChatRow({ chat }: { chat: Chat }) {
   };
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5">
+    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
       <div className="min-w-0">
         <p className="truncate font-medium">{name}</p>
         <p className="text-small text-muted">{s.linked(chat.linked)}{chat.by ? ` · ${s.linkedBy(chat.by)}` : ''}</p>
@@ -48,43 +53,68 @@ function ChatRow({ chat }: { chat: Chat }) {
   );
 }
 
-/** Admin: a one-time code links a chat to the org; linked chats can be unlinked. */
-export function TelegramPanel({ initial }: { initial: Links }) {
+/** One numbered step of the linking flow. */
+function Step({ n, title, done, children }: { n: number; title: string; done?: boolean; children?: ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span aria-hidden className={cx('grid size-6 shrink-0 place-items-center rounded-full text-micro font-semibold', done ? 'bg-good text-on-fill' : 'bg-brand-tint text-brand-ink')}>{n}</span>
+      <div className="min-w-0 flex-1 space-y-3 pt-0.5">
+        <p className="font-medium">{title}</p>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+/** Admin: a one-time code (or its QR and deep link) links a chat to the org; linked chats can be unlinked. */
+export function TelegramPanel({ initial, title, hint }: { initial: Links; title: string; hint: string }) {
   const { locale, ta } = useI18n();
   const s = ta.setX.integrations;
+  const w = ta.mgX.settings.telegram;
   const { data: { bot, links } } = useSeededQuery(api.account.telegramLinks, initial);
   const chats: Chat[] = links.map((l) => ({ id: l.id, username: l.username, linked: fmtDate(locale, l.createdAt), by: l.linkedBy }));
-  const [code, setCode] = useState<{ code: string; minutes: number } | null>(null);
+  const [code, setCode] = useState<Code | null>(null);
   const [failed, setFailed] = useState(false);
   const getCode = useMutation({
     mutationFn: () => api.account.telegramCode().catch(() => ({ ok: false as const })),
     onSuccess: (result) => {
       setFailed(!result.ok);
-      setCode(result.ok ? { code: result.code, minutes: result.minutes } : null);
+      setCode(result.ok ? result : null);
     },
   });
 
   return (
-    <div className="space-y-5">
-      <div className="max-w-xl space-y-3">
-        {bot ? <p className="text-small text-muted">{s.bot(bot)}</p> : null}
-        <Button variant="secondary" loading={getCode.isPending} onClick={() => getCode.mutate()}>{s.getCode}</Button>
-        {failed ? <p role="alert" className="text-small text-danger-ink">{s.codeFailed}</p> : null}
-        {code ? (
-          <div className="space-y-1">
-            <CopyField label={s.codeLabel} value={`/start ${code.code}`} mono />
-            <p className="text-micro text-muted">{s.codeHint(code.minutes)}</p>
-          </div>
-        ) : null}
+    <Card id="telegram" title={title} hint={hint}>
+      <div className="space-y-6">
+        <ol className="space-y-5">
+          <Step n={1} title={w.stepCode} done={code !== null}>
+            {bot ? <p className="text-small text-muted">{s.bot(bot)}</p> : null}
+            <Button variant={code ? 'secondary' : 'primary'} size="sm" loading={getCode.isPending} onClick={() => getCode.mutate()}>{s.getCode}</Button>
+            {failed ? <Notice tone="danger">{s.codeFailed}</Notice> : null}
+          </Step>
+          <Step n={2} title={w.stepSend}>
+            {code ? (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                {code.qr ? <QrCode qr={code.qr} label={w.qrAlt} className="size-36" /> : null}
+                <div className="min-w-0 flex-1 space-y-3">
+                  <CopyField label={s.codeLabel} value={`/start ${code.code}`} mono />
+                  {code.link ? <ButtonLink href={code.link} target="_blank" variant="secondary" size="sm">{w.open}</ButtonLink> : null}
+                  <p className="text-micro text-muted">{s.codeHint(code.minutes)} {code.qr ? w.qrHint : null}</p>
+                </div>
+              </div>
+            ) : null}
+          </Step>
+        </ol>
+
+        <div className="border-t border-line pt-4">
+          <h3 className="text-small font-semibold">{s.chats}</h3>
+          {chats.length === 0 ? <p className="mt-1 text-small text-muted">{s.noChats}</p> : (
+            <ul className="divide-y divide-line">
+              {chats.map((c) => <ChatRow key={c.id} chat={c} />)}
+            </ul>
+          )}
+        </div>
       </div>
-      <div>
-        <h3 className="mb-2 text-small font-semibold">{s.chats}</h3>
-        {chats.length === 0 ? <p className="text-small text-muted">{s.noChats}</p> : (
-          <ul className="max-w-2xl divide-y divide-line rounded-md border border-line">
-            {chats.map((c) => <ChatRow key={c.id} chat={c} />)}
-          </ul>
-        )}
-      </div>
-    </div>
+    </Card>
   );
 }

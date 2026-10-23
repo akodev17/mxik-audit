@@ -146,7 +146,8 @@ export async function joinWithInviteForm(
 }
 
 export type TeamOverview = {
-  members: { id: string; email: string; role: Role; clientIds: string[] }[];
+  /** lastSeenAt: the latest activity of any of the member's sessions; null before the first sign-in. */
+  members: { id: string; email: string; role: Role; clientIds: string[]; lastSeenAt: Date | null }[];
   invites: { id: string; email: string | null; role: Role; clientIds: string[]; expiresAt: Date }[];
   clients: { id: string; name: string; archived: boolean }[];
   /** A seat is free for one more invite. */
@@ -164,13 +165,13 @@ export async function teamOverview(user: Admin, demo: boolean): Promise<TeamOver
   const base = { mailEnabled: mailEnabled(), inviteDays: INVITE_DAYS };
   if (user.role !== 'admin' || demo) return { members: [], invites: [], clients: [], seatsOpen: false, ...base };
   const [members, clients, invites, status] = await Promise.all([
-    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } } }),
+    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { createdAt: 'asc' }, select: { id: true, email: true, role: true, assignments: { select: { clientId: true } }, sessions: { orderBy: { lastSeenAt: 'desc' }, take: 1, select: { lastSeenAt: true } } } }),
     db.client.findMany({ where: { orgId: user.orgId }, orderBy: { name: 'asc' }, select: { id: true, name: true, archivedAt: true } }),
     db.invite.findMany({ where: { orgId: user.orgId, usedAt: null }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, email: true, role: true, clientIds: true, expiresAt: true } }),
     planStatus(user.orgId),
   ]);
   return {
-    members: members.map((m) => ({ id: m.id, email: m.email, role: m.role, clientIds: m.assignments.map((a) => a.clientId) })),
+    members: members.map((m) => ({ id: m.id, email: m.email, role: m.role, clientIds: m.assignments.map((a) => a.clientId), lastSeenAt: m.sessions[0]?.lastSeenAt ?? null })),
     invites,
     clients: clients.map((c) => ({ id: c.id, name: c.name, archived: c.archivedAt !== null })),
     seatsOpen: allows(status, 'seats').ok,

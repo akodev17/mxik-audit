@@ -34,7 +34,11 @@ export class TeamController {
   @Route(e.list)
   async list(@CurrentUser() user: User): Promise<Answer<'list'>> {
     const team = await teamOverview(user, await isDemoOrg(user.orgId));
-    return { ...team, invites: team.invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() })) };
+    return {
+      ...team,
+      members: team.members.map((m) => ({ ...m, lastSeenAt: m.lastSeenAt ? m.lastSeenAt.toISOString() : null })),
+      invites: team.invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() })),
+    };
   }
 
   @Route(e.invite)

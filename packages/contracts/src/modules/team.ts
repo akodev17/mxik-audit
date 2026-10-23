@@ -24,7 +24,8 @@ export const team = defineModule('team', {
     summary: 'Members, open invites, the clients they can be given and the seat allowance',
     responds: 'json',
     response: z.object({
-      members: z.array(z.object({ id: z.string(), email: z.string(), role: Role, clientIds: z.array(z.string()) })),
+      /** lastSeenAt: the latest activity of any of the member's sessions; null before the first sign-in. */
+      members: z.array(z.object({ id: z.string(), email: z.string(), role: Role, clientIds: z.array(z.string()), lastSeenAt: IsoDateTime.nullable().optional() })),
       invites: z.array(z.object({ id: z.string(), email: z.string().nullable(), role: Role, clientIds: z.array(z.string()), expiresAt: IsoDateTime })),
       clients: z.array(z.object({ id: z.string(), name: z.string(), archived: z.boolean() })),
       /** A seat is free for one more invite. */
