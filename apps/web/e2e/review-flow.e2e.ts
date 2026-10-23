@@ -254,7 +254,7 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     );
     await main(page).getByRole('button', { name: m.next, exact: true }).click();
 
-    await main(page).getByRole('heading', { name: TA.importX.confirm.title }).waitFor();
+    await main(page).getByRole('heading', { name: TA.importX.confirm.title, exact: true }).waitFor();
     const text = await mainText(page);
     assert.ok(plainNumbers(text).includes(plainNumbers(TA.importX.confirm.rows(V1.length))), 'confirm step says how many rows will be checked');
     assert.ok(text.includes(TA.importX.confirm.noPrevious), 'first catalogue of the client');
@@ -517,7 +517,7 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     assert.equal(await main(page).getByLabel(TA.importX.fields.name).inputValue(), '1', 'the name column is remembered');
     await enabled(page, m.next);
     await main(page).getByRole('button', { name: m.next, exact: true }).click();
-    await main(page).getByRole('heading', { name: TA.importX.confirm.title }).waitFor();
+    await main(page).getByRole('heading', { name: TA.importX.confirm.title, exact: true }).waitFor();
     assert.ok((await mainText(page)).includes(state.v1Name ?? '§'), 'confirm step names the previous version');
     await main(page).getByRole('button', { name: TA.importX.confirm.start, exact: true }).click();
 
