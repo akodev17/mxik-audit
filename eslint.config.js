@@ -1,9 +1,16 @@
-// Flat config. Type-aware rules on apps/web/src, packages/*/src, eval/ and scripts/ only (packages/db/prisma,
-// like prisma/ before it, is not linted); each file is typed by its nearest tsconfig.json (the
-// workspace's own, or the root one for scripts and eval).
+// Flat config. Type-aware rules on apps/web/src, apps/api, apps/worker/src, packages/*/src, eval/,
+// scripts/ and tests/ (packages/db/prisma, like prisma/ before it, is not linted); each file is typed by
+// its nearest tsconfig.json (the workspace's own, or the root one for scripts, eval and tests). The web
+// app's e2e suite and next.config.ts sit outside its tsconfig: they get the import ban below without
+// type-aware rules.
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import { MIGRATED_WEB_PATHS } from './apps/web/eslint.migrated.mjs';
+
+/** The web app talks to the API only (docs/BACKEND_SPLIT_PLAN.md §3.3): no domain, database or core code. */
+const WEB_IMPORT_BAN = {
+  group: ['@tasnivo/domain', '@tasnivo/domain/*', '@tasnivo/db', '@tasnivo/db/*', '@tasnivo/core', '@tasnivo/core/*'],
+  message: 'The web app reads and writes through the API: use @tasnivo/api-client (@/lib/api/browser or @/lib/api/server) and @tasnivo/contracts. A pure rule it needs is a web copy held to the original by tests/web-parity.',
+};
 
 export default tseslint.config(
   { ignores: ['**/node_modules/**', '**/.next/**', '**/dist/**', 'tmp/**', 'data/**', 'packages/db/prisma/**', 'packages/core/src/normalize/units.generated.ts'] },
@@ -35,18 +42,18 @@ export default tseslint.config(
     },
   },
   {
-    // Web files moved to the API (Wave 3): no domain, database or core code, no server actions.
-    files: MIGRATED_WEB_PATHS,
-    // Tests may hold a web copy (a rule, a constant) against the domain original.
-    ignores: ['**/*.test.ts'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          { group: ['@tasnivo/domain', '@tasnivo/domain/*', '@tasnivo/db', '@tasnivo/db/*', '@tasnivo/core', '@tasnivo/core/*'], message: 'Migrated web code talks to the API: use @tasnivo/api-client (@/lib/api/browser or @/lib/api/server) and @tasnivo/contracts.' },
-          { group: ['@/app/actions/*'], message: 'Server actions are being replaced by the API: call it through @/lib/api/browser.' },
-        ],
-      }],
-    },
+    files: ['apps/web/e2e/**/*.ts', 'apps/web/next.config.ts'],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: { parserOptions: { projectService: false, project: false } },
+  },
+  {
+    // All of the web app, tests and e2e included (type imports too). Parity tests that compare a web
+    // copy with its original live in tests/web-parity, outside apps/web.
+    files: ['apps/web/**/*.{ts,tsx,mjs,js}'],
+    // The one exception: the e2e fixture writes test data straight into the shared database
+    // (docs/BACKEND_SPLIT_PLAN.md §5) and hands the *.e2e.ts files the db and the domain's test helpers.
+    ignores: ['apps/web/e2e/fixture.ts'],
+    rules: { 'no-restricted-imports': ['error', { patterns: [WEB_IMPORT_BAN] }] },
   },
   {
     // node:test's describe/it return promises by design; the runner awaits them.

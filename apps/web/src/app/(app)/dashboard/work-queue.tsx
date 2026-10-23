@@ -1,14 +1,16 @@
 import Link from 'next/link';
-import { clientAttention, type PendingAudit } from '@tasnivo/domain/client-attention';
-import { rowProgress, type ClientStats } from '@tasnivo/domain/client-stats';
 import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import { QUEUE_FILTERS, QUEUE_SORTS, arrangeQueue, queueFilterCounts, workQueue, type QueueEntry, type QueueFilter, type QueueSort } from '@tasnivo/domain/work-queue';
+import { rowProgress } from '@/lib/pure/client-kpi';
+import {
+  QUEUE_FILTERS, QUEUE_SORTS, arrangeQueue, clientAttention, queueFilterCounts, workQueue, type PendingAudit, type QueueEntry, type QueueFilter, type QueueSort,
+} from '@/lib/pure/work-queue';
 import { cx } from '@/ui/cx';
 import { ButtonLink } from '@/ui/button';
 import { IconSuccess } from '@/ui/icons';
 import { Progress } from '@/ui/progress';
 import { AttentionBadges } from '../clients/attention-badges';
+import type { DashboardClient } from './dashboard-data';
 
 const SHOWN = 5;
 
@@ -22,7 +24,7 @@ const initials = (name: string): string => name.replace(/[^\p{L}\p{N} ]/gu, '').
  * is /clients?filter=attention.
  */
 export async function WorkQueue({ clients, pending, canUpload, queueHref, filter, sort, viewHref }: {
-  clients: ClientStats[]; pending: ReadonlyMap<string, PendingAudit>; canUpload: boolean; queueHref: (extra?: string) => string;
+  clients: DashboardClient[]; pending: ReadonlyMap<string, PendingAudit>; canUpload: boolean; queueHref: (extra?: string) => string;
   filter: QueueFilter; sort: QueueSort; viewHref: (v: { qf?: QueueFilter; qs?: QueueSort }) => string;
 }) {
   const { locale, ta } = await getI18n();
@@ -33,7 +35,7 @@ export async function WorkQueue({ clients, pending, canUpload, queueHref, filter
   const entries = arrangeQueue(all, filter, sort);
   const shown = entries.slice(0, SHOWN);
 
-  const act = (e: QueueEntry): { href: string; label: string } => {
+  const act = (e: QueueEntry<DashboardClient>): { href: string; label: string } => {
     const id = encodeURIComponent(e.client.id);
     if (e.action === 'review') return { href: queueHref(`client=${id}`), label: home.nextOpenCta };
     if (e.action === 'upload' && canUpload) return { href: `/upload?client=${id}`, label: home.nextEmptyCta };

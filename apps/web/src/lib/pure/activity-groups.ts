@@ -1,13 +1,17 @@
 // Folds runs of decision events by one person on one catalogue into a single log entry
 // ("12 decisions — Baraka catalogue"), as domain activity-groups.ts does. Generic over the row, so
 // API rows (dates revived) fold the same way and keep their own type.
+import type { endpoints, ResponseOf } from '@tasnivo/contracts';
+
+/** One audit log row as the API sends it (GET /api/activity, the dashboard), with `at` turned back into a Date. */
+export type ActivityRow = Omit<ResponseOf<typeof endpoints.account.activity>['rows'][number], 'at'> & { at: Date };
 
 type Row = { action: string; actorId: string | null; catalogId: string | null; at: Date; count?: number | null };
 
 /** Decision events that are folded together when one person makes many in a row. */
 export const DECISION_EVENTS: readonly string[] = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.auto_accepted', 'finding.carried_over'];
 
-export type ActivityEntry<R extends Row> =
+export type ActivityEntry<R extends Row = ActivityRow> =
   | { kind: 'event'; row: R }
   | { kind: 'group'; rows: R[]; decisions: number; first: Date; last: Date };
 

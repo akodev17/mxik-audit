@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { helpPath } from '@tasnivo/domain/help';
+import { helpPath } from '@/lib/help';
 import { TasnivoLogo } from '@/ui/logo';
 import { DEMO_URL, TELEGRAM_URL } from './config';
 import { CONTAINER } from './container';

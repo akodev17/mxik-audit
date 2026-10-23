@@ -40,10 +40,11 @@ const replaced = new Map<string, string[]>();
 for (const e of allEndpoints()) for (const r of e.replaces) replaced.set(r, [...(replaced.get(r) ?? []), e.operationId]);
 
 describe('registry covers the Next app', () => {
-  it('the scan reads the app (96 actions and 24 route files, 25 handlers, at the time of writing)', () => {
-    // Fewer is fine as W3 deletes what the API took over; none at all while the folders exist means the scan broke.
-    if (existsSync(join(APP, 'actions'))) assert.ok(actionExports().length > 0);
-    assert.ok(routeExports().length > 0);
+  it('the web app has no server actions and no route handlers left (96 actions and 25 handlers before the split)', () => {
+    // Wave 4a deleted the last of them; the API answers every /api/* address. A new one fails here and below.
+    assert.equal(existsSync(join(APP, 'actions')), false);
+    assert.ok(existsSync(APP), 'the scan looks at the right folder');
+    assert.deepEqual(routeExports(), []);
   });
 
   it('every server action has an endpoint', () => {

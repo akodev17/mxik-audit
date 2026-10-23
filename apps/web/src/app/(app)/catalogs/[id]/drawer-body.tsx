@@ -21,7 +21,6 @@ import { RequestText } from './request-text';
 import { RowComments } from './row-comments';
 import { SignalList } from './signal-list';
 import { UnitAdviceBox } from './unit-advice';
-import { unitLabel } from './unit-label';
 import { WrongFeedback } from './wrong-feedback';
 
 type Props = {
@@ -58,7 +57,7 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
   const score = suggesting && !detail.noSuggestion && detail.confidence !== null && detail.stage !== 'barcode' && detail.stage !== 'dictionary'
     ? fmtNumber(locale, detail.confidence, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
   const showRequest = detail.noSuggestion || row.decision === 'rejected';
-  const lines = reasonLines(detail, x, (u) => unitLabel(locale, u));
+  const lines = reasonLines(detail, x, (u) => detail.labels.units[u] ?? u);
   // A viewer is told once, in the footer; a decided row says how to pick another code.
   const whyNoPick = !readOnly && row.decision !== 'pending' ? x.drawer.decidedHint : null;
   const chooseButton = (code: string, codeName: string) => (
@@ -150,7 +149,7 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
       ) : null}
 
       {detail.nameOffer ? <NameFromBarcodeOffer findingId={detail.findingId} offer={detail.nameOffer} readOnly={readOnly} onFilled={setName} /> : null}
-      <UnitAdviceBox advice={detail.advice} />
+      <UnitAdviceBox advice={detail.advice} labels={detail.labels} />
 
       {pending ? (
         <section>

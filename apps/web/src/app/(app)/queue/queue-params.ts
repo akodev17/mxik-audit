@@ -1,6 +1,6 @@
 // The /queue URL: its filters read the way the domain's queue.ts reads them, the API query built
 // from them, and the links that keep them. Pure copies of queue.ts readQueueFilter/workspaceHref and
-// query-string.ts withQuery; queue-params.test.ts keeps them equal.
+// query-string.ts withQuery; tests/web-parity/params.test.ts keeps them equal.
 import { FINDING_TYPES } from '@tasnivo/contracts';
 
 export const QUEUE_DUE = ['overdue', 'week', 'month'] as const;

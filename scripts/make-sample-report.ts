@@ -1,6 +1,6 @@
 // Runs the real audit on the demo's catalogue (prisma/demo-catalog.json, whose
 // first rows are scripts/landing-sample/catalog.ts) and freezes the result into
-// packages/domain/src/sample-report.generated.ts — so the landing's numbers are the numbers
+// apps/web/src/components/landing/sample-report.generated.ts — so the landing's numbers are the numbers
 // a visitor sees in the demo. Also writes the same file to
 // public/demo/namuna-katalog.xlsx, so what a visitor downloads (and can upload
 // to the app) is exactly what produced the page's numbers.
@@ -360,8 +360,8 @@ export const SAMPLE_REPORT: {
 `;
 
 if (!PREVIEW) {
-  writeFileSync('packages/domain/src/sample-report.generated.ts', file);
-  console.log(`wrote packages/domain/src/sample-report.generated.ts and apps/web/public/demo/${SAMPLE_FILENAME}`);
+  writeFileSync('apps/web/src/components/landing/sample-report.generated.ts', file);
+  console.log(`wrote apps/web/src/components/landing/sample-report.generated.ts and apps/web/public/demo/${SAMPLE_FILENAME}`);
 } else {
   console.log('preview only — nothing written');
   for (const r of rows) console.log(`    ${r.type} | ${r.productName} | now: ${r.currentName ?? '-'} | fix: ${r.suggestedName ?? r.requiredUnit ?? '-'}`);

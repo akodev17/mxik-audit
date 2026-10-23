@@ -1,9 +1,11 @@
-import { CATEGORIES, type Category } from '@tasnivo/domain/activity';
-import { dayInputValue } from '@tasnivo/domain/activity-dates';
+import { ACTIVITY_CATEGORIES as CATEGORIES } from '@tasnivo/contracts/modules/account';
 import { getI18n } from '@/lib/locale';
+import { dayInputValue } from '@/lib/pure/activity-dates';
 import { Field, Input } from '@/ui/input';
 import { Select } from '@/ui/select';
 import { FILTER_FIELD, FilterBar } from '../queue/filter-bar';
+
+type Category = (typeof CATEGORIES)[number];
 
 type Props = {
   clients: { id: string; name: string }[];

@@ -5,8 +5,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Page } from 'playwright';
-import { db } from '@tasnivo/db';
-import { COMMIT, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
+import { COMMIT, db, E2E_PASSWORDS, launch, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
 
 const DESKTOP = [1440, 1024, 768];
 // Settings is not a header tab: it is the gear in the left rail.

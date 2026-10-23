@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { getI18n } from '@/lib/locale';
-import type { OpenReview, ReviewCounts } from '@tasnivo/domain/review-assignments';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { cx } from '@/ui/cx';
+import type { OpenReview, ReviewCounts } from './dashboard-data';
 
 /**
  * Catalogue reviews handed to the team and not yet closed: overdue first, then by due date. Everyone

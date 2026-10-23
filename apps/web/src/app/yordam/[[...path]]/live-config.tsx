@@ -1,15 +1,17 @@
 /** @jsxRuntime automatic */
-// Numbers the help articles quote, read from the app's configuration when the page renders,
-// so an article never states a limit or a price the app does not use. MDX uses them as tags.
+// Numbers the help articles quote, read from the app's configuration (the API's GET /api/config)
+// when the page renders, so an article never states a limit or a price the app does not use. MDX
+// uses them as tags.
 // (The pragma lets the node:test run render it too; Next uses the automatic runtime anyway.)
 import type { ReactNode } from 'react';
-import { apiConfig } from '@tasnivo/domain/api/limits';
-import { planLimits, TRIAL_DAYS, type Limits } from '@tasnivo/domain/billing/limits';
-import { firmPlan } from '@tasnivo/domain/billing/plans';
+import type { endpoints, ResponseOf } from '@tasnivo/contracts';
 import { fmtNumber } from '@tasnivo/i18n/format';
-import type { HelpLang } from '@tasnivo/domain/help';
 import { pluralRu } from '@tasnivo/i18n/plural';
-import { deleteAfterDays, RETENTION_CHOICES } from '@tasnivo/domain/security/account';
+import type { HelpLang } from '@/lib/help';
+
+/** What the articles quote: GET /api/config. */
+export type HelpConfig = ResponseOf<typeof endpoints.account.config>;
+type Limits = HelpConfig['plans']['trial'];
 
 const COPY = {
   uz: {
@@ -52,13 +54,12 @@ function LiveTable({ head, rows }: { head: [string, string, string]; rows: [stri
 }
 
 /** Tags an MDX article can use; each renders the app's current value in the article's language. */
-export function liveComponents(lang: HelpLang): Record<string, () => ReactNode> {
+export function liveComponents(lang: HelpLang, config: HelpConfig): Record<string, () => ReactNode> {
   const c = COPY[lang];
   const n = (v: number): string => fmtNumber(lang, v);
   const cap = (v: number | null): string => (v === null ? c.unlimited : n(v));
-  const limits = planLimits();
-  const api = apiConfig();
-  const plan = firmPlan();
+  const { plans: limits, api, trialDays: TRIAL_DAYS, retentionChoices: RETENTION_CHOICES } = config;
+  const plan = config.firmPrice === null ? null : { price: config.firmPrice };
   const row = (label: string, key: keyof Limits): [string, string, string] => [label, cap(limits.trial[key]), cap(limits.firm[key])];
   const choices = RETENTION_CHOICES.map((d) => n(d));
 
@@ -80,7 +81,7 @@ export function liveComponents(lang: HelpLang): Record<string, () => ReactNode> 
     TrialDays: () => <>{c.days(TRIAL_DAYS)}</>,
     ApiRate: () => <>{c.perMinute(n(api.ratePerMinute))}</>,
     ApiItems: () => <>{n(api.maxCheckItems)}</>,
-    DeleteDays: () => <>{c.days(deleteAfterDays())}</>,
+    DeleteDays: () => <>{c.days(config.closeAfterDays)}</>,
     RetentionChoices: () => <>{`${choices.slice(0, -1).join(', ')} ${c.or} ${choices[choices.length - 1] ?? ''}`}</>,
   };
 }

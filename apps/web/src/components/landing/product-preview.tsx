@@ -1,4 +1,4 @@
-import { SAMPLE_REPORT, type SampleCatalogRow } from '@tasnivo/domain/sample-report.generated';
+import { SAMPLE_REPORT, type SampleCatalogRow } from './sample-report.generated';
 import { IconHome, IconTable, IconUpload, IconUsers } from '@/ui/icons';
 import { IconQueue } from '@/ui/shell/icons';
 import { TasnivoMark } from '@/ui/logo';

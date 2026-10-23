@@ -1,14 +1,12 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { clientScope } from '@tasnivo/domain/access';
-import { activityPage, CATEGORIES, type Category } from '@tasnivo/domain/activity';
-import { parseDayInput } from '@tasnivo/domain/activity-dates';
-import { groupDecisions } from '@tasnivo/domain/activity-groups';
-import { db } from '@tasnivo/db';
+import { ACTIVITY_CATEGORIES } from '@tasnivo/contracts/modules/account';
 import { fmtNumber } from '@tasnivo/i18n/format';
+import { pageData } from '@/lib/api/page-data';
+import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
-import { withQuery } from '@tasnivo/domain/query-string';
-import { currentUser } from '@/lib/session';
+import { groupDecisions } from '@/lib/pure/activity-groups';
+import { withQuery } from '@/lib/pure/query-string';
 import { ButtonLink } from '@/ui/button';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
@@ -22,36 +20,29 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type Params = { client?: string; user?: string; type?: string; from?: string; to?: string; page?: string };
 
+/** A typed day longer than the API takes cannot be a day: it is sent as one the API reports unreadable. */
+const typedDay = (value: string | undefined): string | undefined => (value === undefined ? undefined : value.trim().length > 10 ? '?' : value);
+
 export default async function ActivityPage({ searchParams }: { searchParams: Promise<Params> }) {
   const { locale, ta } = await getI18n();
-  const user = await currentUser();
-  if (!user) redirect('/sign-in');
   const sp = await searchParams;
-  const category: Category = CATEGORIES.find((c) => c === sp.type) ?? 'all';
+  const type = ACTIVITY_CATEGORIES.find((c) => c === sp.type);
   const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
 
-  // Days are typed as dd.mm.yyyy (older links: yyyy-mm-dd). Unreadable ones are dropped and said so;
-  // a reversed range is swapped and said so.
-  const typedFrom = parseDayInput(sp.from);
-  const typedTo = parseDayInput(sp.to);
-  const unreadable = typedFrom === null || typedTo === null;
-  let from = typedFrom ?? '';
-  let to = typedTo ?? '';
-  const swapped = Boolean(from && to && from > to);
-  if (swapped) [from, to] = [to, from];
-
-  const [clients, users] = await Promise.all([
-    db.client.findMany({ where: { orgId: user.orgId, ...clientScope(user) }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { email: 'asc' }, select: { id: true, email: true } }),
-  ]);
-  // A client id outside the user's scope is ignored, never trusted.
-  const clientId = clients.find((c) => c.id === sp.client)?.id ?? null;
-  const userId = users.find((u) => u.id === sp.user)?.id ?? null;
-  const result = await activityPage(
-    user,
-    { clientId, userId, category, from: from || null, to: to || null, page: page - 1 },
-    { withTotal: true },
-  );
+  // Days are typed as dd.mm.yyyy (older links: yyyy-mm-dd). The API drops unreadable ones and swaps a
+  // reversed range, and says so; a client or member outside the viewer's reach is ignored.
+  const result = await pageData(serverApi().account.activity({
+    ...(sp.client ? { client: sp.client } : {}),
+    ...(sp.user ? { user: sp.user } : {}),
+    ...(type ? { category: type } : {}),
+    ...(sp.from ? { from: typedDay(sp.from) } : {}),
+    ...(sp.to ? { to: typedDay(sp.to) } : {}),
+    page: page - 1,
+  }));
+  const { clients, users, unreadable, swapped } = result;
+  const { clientId, userId, category } = result.applied;
+  const from = result.applied.from ?? '';
+  const to = result.applied.to ?? '';
   const total = result.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / result.pageSize));
   const firstShown = (page - 1) * result.pageSize + 1;
@@ -77,7 +68,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
         ) : <EmptyState title={ta.firmX.log.emptyAll} hint={ta.firmX.log.emptyAllHint} />
       ) : (
         <>
-          <ActivityTable entries={groupDecisions(result.rows)} />
+          <ActivityTable entries={groupDecisions(result.rows.map((r) => ({ ...r, at: new Date(r.at) })))} />
           <nav aria-label={ta.log.title} className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <span className="text-small text-muted">
               {ta.firmX.log.page(page)} · {ta.firmX.log.range(fmt(firstShown), fmt(lastShown), fmt(total))}

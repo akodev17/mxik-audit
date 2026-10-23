@@ -1,6 +1,6 @@
 // What the catalogue header and report pages compute from API answers. Copies of pure
-// @tasnivo/domain code (the web app no longer imports the domain); catalogs-drift.test.ts keeps
-// them equal to the originals.
+// @tasnivo/domain code (the web app does not import the domain); tests/web-parity/catalogs.test.ts
+// keeps them equal to the originals.
 import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import type { ClassifierHealth, Me, PipelineMeta, ReportData } from './types';
 

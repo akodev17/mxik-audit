@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
-import { appOrigin } from '@tasnivo/domain/app-url';
-import { HELP_ARTICLES, helpPath } from '@tasnivo/domain/help';
+import { appOrigin } from '@/lib/pure/app-url';
+import { HELP_ARTICLES, helpPath } from '@/lib/help';
 
 // Public pages only: the landing page and the help center in both languages.
 export default function sitemap(): MetadataRoute.Sitemap {

@@ -7,8 +7,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it, type TestContext } from 'node:test';
 import type { Browser, BrowserContext, Page } from 'playwright';
-import { localDate } from '@tasnivo/domain/reminders';
-import { db, E2E_PASSWORDS, gridRows, launch, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
+import { db, E2E_PASSWORDS, gridRows, launch, localDate, newPage, setupFirm, signIn, TA, traced, type Fixture } from './fixture';
 
 /** Below the 4 s toast, whose dismissal used to be what committed a held refresh. */
 const SETTLE_MS = 2_000;

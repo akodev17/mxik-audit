@@ -14,6 +14,7 @@ import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import { cleanPrivilegeName, LEVEL_SPLITS, levelPrefixes, rankAlternatives, reasonFacts, type ReasonFacts } from './row-detail-parts';
 import { rowSignals, type Signal } from './row-signals';
 import { unitAdvice, type UnitAdvice } from './unit-advice';
+import { containerLabel, packagingLabel, unitLabel } from './unit-label';
 import type { CodeState } from './workspace-rows';
 
 export type { ReasonFacts } from './row-detail-parts';
@@ -48,6 +49,8 @@ export type RowDetail = {
   mode: DecisionMode;
   nameOffer: NameFromBarcode | null;
   advice: UnitAdvice;
+  /** The units, packaging values and container of `facts` and `advice` in the reader's language, keyed by the value as sent. */
+  labels: UnitLabels;
   decision: 'pending' | 'accepted' | 'rejected';
   decisionEventId: string | null;
   decisionSource: DecisionSource | null;
@@ -55,6 +58,19 @@ export type RowDetail = {
   decidedBy: string | null;
   decidedAt: string | null;
 };
+
+export type UnitLabels = { units: Record<string, string>; packaging: Record<string, string>; containers: Record<string, string> };
+
+/** The drawer's unit words in the reader's language (the classifier's unit table is Uzbek). */
+export function unitLabels(locale: Locale, facts: Pick<ReasonFacts, 'requiredUnits'>, advice: UnitAdvice): UnitLabels {
+  const units = [...facts.requiredUnits, ...(advice.unit ? [advice.unit.suggested] : [])];
+  const container = advice.packaging?.codeContainer ?? null;
+  return {
+    units: Object.fromEntries(units.map((u) => [u, unitLabel(locale, u)])),
+    packaging: Object.fromEntries((advice.packaging?.values ?? []).map((v) => [v, packagingLabel(locale, v)])),
+    containers: container ? { [container]: containerLabel(locale, container) } : {},
+  };
+}
 
 type LevelRow = {
   groupNameUz: string | null; classNameUz: string | null; positionNameUz: string | null; subPositionNameUz: string | null; nameUz: string;
@@ -155,6 +171,12 @@ export async function rowDetail(
   const kind = { type: f.type, suggestedMxik: f.suggestedMxik, rerankNone: evidence?.rerankNone === true };
   const current = view(f.item.existingMxik);
   const own = f.item.existingMxik ? names.get(f.item.existingMxik) ?? null : null;
+  const facts = reasonFacts({
+    type: f.type, severity: f.severity, reason: f.reason, wasRetired: f.wasRetired, snapshotId: f.snapshotId,
+    existingMxik: f.item.existingMxik, unit: f.item.unit, codeUnits: own?.unitCanonical ?? [],
+    restrictedMxik: f.restrictedMxik, restrictedFrom: f.restrictedFrom,
+  });
+  const advice = unitAdvice({ rawName: f.item.rawName, rowUnit: f.item.unit, code: own });
   return {
     findingId: f.id,
     productName: f.item.rawName,
@@ -163,11 +185,7 @@ export async function rowDetail(
     type: f.type,
     severity: f.severity,
     reason: f.reason,
-    facts: reasonFacts({
-      type: f.type, severity: f.severity, reason: f.reason, wasRetired: f.wasRetired, snapshotId: f.snapshotId,
-      existingMxik: f.item.existingMxik, unit: f.item.unit, codeUnits: own?.unitCanonical ?? [],
-      restrictedMxik: f.restrictedMxik, restrictedFrom: f.restrictedFrom,
-    }),
+    facts,
     confidence: f.confidence,
     stage: evidence?.stage ?? null,
     current,
@@ -182,7 +200,8 @@ export async function rowDetail(
     noSuggestion: noSuggestion(kind),
     mode: decisionMode({ ...kind, currentLive: current?.state === 'ok' }),
     nameOffer: await nameFromBarcode(f.item),
-    advice: unitAdvice({ rawName: f.item.rawName, rowUnit: f.item.unit, code: own }),
+    advice,
+    labels: unitLabels(locale, facts, advice),
     decision: f.decision,
     decisionEventId: f.decisionEventId,
     decisionSource: readDecisionSource(f.decisionSource),

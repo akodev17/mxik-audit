@@ -1,7 +1,7 @@
 // Checks run in the browser before the sign-in and sign-up forms post, so the user gets a translated
 // message next to the field instead of the browser's own bubble. The server checks everything again.
 
-/** Same value as MIN_PASSWORD in src/lib/security/password-check.ts (a test holds them together). */
+/** Same value as MIN_PASSWORD in packages/domain/src/security/password-check.ts (tests/web-parity holds them together). */
 export const MIN_PASSWORD_LENGTH = 8;
 
 export type CredentialIssues = { email?: 'required' | 'bad'; password?: 'required' | 'short' };

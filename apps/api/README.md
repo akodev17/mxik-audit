@@ -245,9 +245,11 @@ role is `403 forbidden`, by demo `403 demo`.
 - **dictionary**: `GET /dictionary` (any), `POST /catalogs/{catalogId}/dictionary/accept` (writer), `PATCH /dictionary/{entryId}` (writer), `DELETE /dictionary/{entryId}` (writer), `PUT /dictionary/auto-accept` (admin)
 - **reminders**: `GET /clients/{clientId}/reminder` (any), `PUT /clients/{clientId}/reminder` (writer, no demo), `GET /reminders/tasks` (any), `POST /reminders/tasks/{taskId}/done` (writer, no demo)
 - **notifications**: `GET /notifications` (any), `GET /notifications/preview` (any), `POST /notifications/read` (any), `POST /notifications/read-all` (any), `GET /search` (any)
-The controllers call the same `@tasnivo/domain` functions as the web's server actions and pages
-(`workspace-ops`, `dictionary-ops`, `reminder-ops`, `shell-ops`, `overview`, `code-lookup`, `money-at-risk`),
-so answers, error texts and access rules are the actions'. Grid rows and their cursor are the workspace
+The controllers call the same `@tasnivo/domain` functions the web's server actions and pages called
+before the split (`workspace-ops`, `dictionary-ops`, `reminder-ops`, `shell-ops`, `overview`, `code-lookup`, `money-at-risk`),
+so answers, error texts and access rules are the actions'. `GET /findings/{findingId}` also answers
+`labels` (units, packaging and container in the reader's language, `unit-label.ts`), so the browser
+needs no unit tables. Grid rows and their cursor are the workspace
 page's byte for byte (`test/e2e/workspace.test.ts` compares them with `gridRows`). `GET /codes/search` uses
 `ClassifierSearchService`: one candidate store per process on the injected pg pool and the shared embedding
 provider, set up on first use (the API boots without the classifier) and again every 5 minutes;
@@ -256,7 +258,7 @@ classifier banner needs no route of its own: `GET /api/health` answers its field
 ## Routes: clients, billing, demo, admin, cron, telegram, public API (Wave 2)
 Every route is declared from the `@tasnivo/contracts` registry with W2a's `@Route(endpoints.<module>.<op>)`
 (`src/http/route.ts`: method, path, status, SessionGuard plus AccessGuard for role/demo, Swagger from the
-zod schemas). The logic is in `@tasnivo/domain`, shared with the web app's actions and route handlers.
+zod schemas). The logic is in `@tasnivo/domain`; the web app's former actions and route handlers called the same functions.
 | Module (`src/…`) | Routes | Auth |
 | `clients/` | `GET /api/clients` (q, filter, sort, days, page from 0), `GET /api/clients/{id}` (the page's data; 404 outside the user's scope), `POST /api/clients`, `PUT /api/clients/active`, `PATCH /api/clients/{id}`, `POST /api/clients/{id}/archive`, `…/restore`, `…/delete`, `GET` and `PUT /api/clients/{id}/accountants` | session; role and demo refusals are 403, the actions' own refusals stay `{ ok: false, error }` |
 | `billing/` | `GET /api/billing/plan`, `GET /api/catalogs/{id}/purchase`, `POST /api/billing/checkout` | session; checkout answers a non-admin `{ ok: false, error }` as the action did |
@@ -267,9 +269,9 @@ zod schemas). The logic is in `@tasnivo/domain`, shared with the web app's actio
 | `telegram/` | `POST /api/telegram/webhook` (grammy's handler, built once by TelegramWebhookService, 55 s timeout) | X-Telegram-Bot-Api-Secret-Token; 404 without a bot token, 503 without a webhook secret |
 | `public-api/` | `POST /api/v1/check`, `GET` and `POST /api/v1/catalogs`, `GET /api/v1/catalogs/{id}/report`, `GET /api/v1/openapi.json` | ApiKeyGuard (openapi.json is public) |
 Bodies the global JSON/urlencoded parsers do not cover (multipart uploads, the Click form, a Payme body
-sent as text) are read by `src/http/request-body.ts` the way the web route handlers read them
-(`request.formData()`, `request.json()`). The /api/v1 operations are `@tasnivo/domain/api/handlers`, the
-same functions the web app's /api/v1 routes call.
+sent as text) are read by `src/http/request-body.ts` the way the former web route handlers read them
+(`request.formData()`, `request.json()`). The /api/v1 operations are `@tasnivo/domain/api/handlers`; the
+API is the only place they are served (Wave 4a deleted the web copies).
 **Rate limit store.** `PublicApiModule` provides its own `RATE_LIMIT_STORE`
 (`auth-core/redis-rate-limit.store.ts`): `RedisRateLimitStore` when `REDIS_URL` is set (one sorted set per
 key, the same sliding window and answers as the in-memory store, shared by every instance; while Redis is

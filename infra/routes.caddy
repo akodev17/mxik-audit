@@ -1,16 +1,15 @@
 # Routing shared by Caddyfile (tasnivo.uz, HTTPS) and Caddyfile.local (http://localhost:8080).
 # Imported inside a site block; paths are relative to this folder (/etc/caddy in the container).
 #
-# Upstreams come from the environment so the same file serves the compose stack (defaults),
-# the dev servers on the host (Caddyfile.local) and the cutover period: until every /api route
-# lives in apps/api (plan, Wave 4), set API_UPSTREAM=web:3000 and the Next.js app keeps
-# answering /api/* as it does today.
+# Upstreams come from the environment so the same file serves the compose stack (defaults) and
+# the dev servers on the host (Caddyfile.local). Every /api/* address belongs to the API; the web
+# app has no route handlers.
 
 # Compresses text responses only (HTML, JSON, JS, CSS, SVG, CSV); xlsx, zip and pdf pass as they are.
 encode zstd gzip
 
-# Security headers. The apps set their own (packages/domain/src/security/headers.ts through
-# next.config.ts); "?" adds a header only when the upstream did not send it, so nothing is ever
+# Security headers. The apps set their own (the API from packages/domain/src/security/headers.ts,
+# the web app from its copy in packages/contracts/src/security-headers.ts through next.config.ts); "?" adds a header only when the upstream did not send it, so nothing is ever
 # doubled. Content-Security-Policy is left to each app: the web policy is page-specific and the
 # API's Swagger UI (/api/docs) needs its own.
 header {
@@ -34,8 +33,8 @@ request_body {
 
 # Requests that may take minutes: catalogue uploads, audits and exports, the public API
 # (uploads and synchronous checks), and the account export (a zip of every catalogue).
-# The /api/export*, /api/report-pdf, /api/catalog-* lines are the monolith's export URLs; drop them
-# when W2b has moved every export under /api/catalogs.
+# /api/export*, /api/report-pdf* and /api/catalog-* are the download addresses the API kept from the
+# monolith (links in mails and bookmarks).
 @api_long path /api/catalogs /api/catalogs/* /api/v1/* /api/account/export* /api/export* /api/report-pdf* /api/catalog-*
 handle @api_long {
 	reverse_proxy {$API_UPSTREAM:api:4000} {
@@ -59,8 +58,8 @@ handle @api {
 	}
 }
 
-# Pages, assets, and (until Wave 4) the server actions that still upload and audit inside a
-# page request, so no response timeout here; Next limits server-action bodies to 25 MB itself.
+# Pages and assets. Server components wait on the API for their data, which has its own timeouts
+# above, so none is set here.
 handle {
 	reverse_proxy {$WEB_UPSTREAM:web:3000} {
 		header_up X-Real-IP {client_ip}

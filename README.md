@@ -34,13 +34,19 @@ npm run eval                  # matching accuracy, real vs synthetic, per stage
 npm run seed:demo             # the invented 186-row demo behind /demo
 npm run seed                  # sign-in org + a messy 200-row catalogue
 npm run seed:audit <id>       # audit it (the seed prints the id)
-npm run dev                   # http://localhost:3000
+npm run dev:api               # the API on http://localhost:4000 (Swagger at /api/docs)
+npm run dev                   # the web app on http://localhost:3000, in a second terminal
 ```
 
 No-signup demo: `http://localhost:3000/demo`. Sign-in org: `buxgalter@demo.uz` / `demo12345`.
 
-Locally the app is `npm run dev` on 3000 and Docker runs only the database
-and Redis (plain `docker compose up -d` starts just `db` and `redis`). The
+Locally the app is two processes: the API (`npm run dev:api`, port 4000), which owns the
+database and every `/api/*` address, and the web app (`npm run dev`, port 3000), which renders
+pages from the API's answers and sends the browser's `/api/*` calls on to it (a rewrite in
+`apps/web/next.config.ts`; `API_INTERNAL_URL` when the API is not on localhost:4000). Without
+`JOBS_MODE=bullmq` the API runs audits and other jobs itself; with it, start Redis and
+`npm run dev:worker` too. Docker runs only the database and Redis (plain `docker compose up -d`
+starts just `db` and `redis`). The
 compose `app` profile is the production stack for servers (caddy, web, api,
 worker, backup) and also listens on 3000 and 4000 — don't start it next to the
 dev servers. If it is running locally, `docker compose --profile app stop`
@@ -70,8 +76,9 @@ Every script below is real and maps 1:1 to a file in `scripts/` or `eval/`.
 | Command | What it does |
 |---|---|
 | `npm run typecheck` | `tsc --noEmit` under `strict`, in every workspace and for `scripts/` + `eval/` |
-| `npm run lint` | ESLint, type-aware, over `apps/web/src`, `packages/*/src`, `scripts/`, `eval/` |
-| `npm test` | 324 tests: unit tests, plus database integration tests (undo, deletion, demo, background audits, traction and cross-org isolation) that skip with a reason when Postgres is not reachable |
+| `npm run lint` | ESLint, type-aware, over every workspace, `scripts/`, `eval/` and `tests/`; also bans `@tasnivo/domain`, `@tasnivo/db` and `@tasnivo/core` in `apps/web` (only `apps/web/e2e/fixture.ts` may write fixtures through them) |
+| `npm test` | every `*.test.ts` under `apps/`, `packages/`, `eval/` and `tests/`: unit tests, API tests with supertest, and database integration tests that skip with a reason when Postgres is not reachable |
+| `npm run test:e2e` | the Playwright suite in `apps/web/e2e` against a running stack (`E2E_BASE_URL`, default http://localhost:3000; `E2E_CHANNEL=msedge` uses an installed Edge) |
 | `npm run eval` | top-1/top-5 and high-band precision, real vs synthetic, each stage on/off; appends to `docs/eval-results.json` |
 | `npm run eval:synthetic` | rebuilds `eval/synthetic.csv` from classifier names with realistic noise |
 | `npm run perf` | builds a 60,000-row noisy .xlsx (`-- --rows N`), uploads, audits and reports it with per-stage timing; appends to `docs/perf-results.json` |
@@ -262,13 +269,22 @@ digest=…` (apps/web/src/instrumentation.ts).
 npm workspaces (`apps/*`, `packages/*`). The packages are TypeScript source,
 not builds: each `package.json` maps `exports` straight to `src/*.ts`, so
 `@tasnivo/domain/catalogs` is `packages/domain/src/catalogs.ts` for Next, tsx and
-tsc alike. The split into an API, a worker and a thin web app is planned in
-[`docs/BACKEND_SPLIT_PLAN.md`](docs/BACKEND_SPLIT_PLAN.md); this is its Wave 0.
+tsc alike. How the API, the worker and the web app were split out of the former
+monolith: [`docs/BACKEND_SPLIT_PLAN.md`](docs/BACKEND_SPLIT_PLAN.md).
 
 ```
-apps/web/             Next.js: src/app (screens, server actions, /api routes), src/ui, src/components,
-                      src/content (help), src/styles, public/, e2e/; src/lib holds the adapters that
-                      need Next or React (session cookie, locale cookie, per-render caches, NextResponse)
+apps/api/             @tasnivo/api: NestJS HTTP API, every /api/* address (first-party, public v1,
+                      payments, Telegram, cron, health); Swagger at /api/docs; see apps/api/README.md
+apps/worker/          @tasnivo/worker: NestJS + BullMQ jobs (audits, document checks, mail, Telegram)
+                      and the schedule (purge, classifier update, daily jobs, stale-audit resume)
+apps/web/             Next.js, a thin client: src/app (screens), src/ui, src/components, src/content
+                      (help), public/, e2e/. Reads and writes through @tasnivo/api-client only
+                      (src/lib/api: serverApi() for server components, api + React Query in the
+                      browser); no database, no server actions, no route handlers. src/lib/pure and
+                      a few other files are copies of pure domain rules, held to them by tests/web-parity
+packages/contracts/   @tasnivo/contracts: zod schemas, paths and auth of every endpoint; the OpenAPI
+                      document is built from them
+packages/api-client/  @tasnivo/api-client: typed fetch client over the contracts (browser and SSR)
 packages/core/        @tasnivo/core: matching engine, no framework imports
   src/normalize/      pure text normalization (script, apostrophes, noise, units)
   src/match/          cascade, fusion, scoring, domain rules, Postgres store
@@ -280,6 +296,7 @@ packages/db/          @tasnivo/db: prisma/ (schema, migrations, seed, demo catal
                       shared Prisma client
 scripts/              ingestion, enrichment, demo fixture, maintenance and Gate 0 diagnostics
 eval/                 golden.csv (real), synthetic.csv, and the evaluation harness
+tests/                cross-workspace tests (web-parity: the web's copies of pure rules vs the originals)
 docs/                 Gate 0 findings, scoring rationale, eval history, session state, split plan
 ```
 

@@ -91,6 +91,8 @@ export const RowDetail = z.object({
     unit: z.object({ suggested: z.string(), current: z.string() }).nullable(),
     packaging: z.object({ values: z.array(z.string()), codeContainer: z.string().nullable() }).nullable(),
   }),
+  /** row-detail.ts unitLabels(): the units of facts.requiredUnits and advice, the packaging values and the container in the reader's language, keyed by the value as sent. */
+  labels: z.object({ units: z.record(z.string()), packaging: z.record(z.string()), containers: z.record(z.string()) }),
   decision: z.enum(DECISIONS),
   decisionEventId: z.string().nullable(),
   decisionSource: Source,

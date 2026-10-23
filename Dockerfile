@@ -69,8 +69,9 @@ ENV NEXT_PUBLIC_DEMO_URL=$NEXT_PUBLIC_DEMO_URL \
     NEXT_PUBLIC_FEATURE_MULTI_CLIENT=$NEXT_PUBLIC_FEATURE_MULTI_CLIENT \
     NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_TELEMETRY_DISABLED=1
-# Root package.json points prisma at packages/db/prisma/schema.prisma; `npm run build` = `next build apps/web`.
-RUN npx prisma generate && npm run build && rm -rf apps/web/.next/cache
+# `npm run build` = `next build apps/web`. The web app has no database access (it talks to the API), so
+# no Prisma client is generated for it.
+RUN npm run build && rm -rf apps/web/.next/cache
 
 # api and worker: root scripts `build:api` / `build:worker` (W1a/W1b) bundle apps/*/src and the
 # @tasnivo/* sources with esbuild into apps/api/dist and apps/worker/dist; npm packages stay
@@ -90,16 +91,15 @@ COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json package-lock.json tsconfig.json tsconfig.base.json ./
 COPY --chown=node:node data ./data
 
+# Pages and assets only: server components read through the API (API_INTERNAL_URL), never the database.
 FROM runtime AS web
-COPY --from=build-web --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build-web --chown=node:node /app/packages ./packages
-COPY --from=build-web --chown=node:node /app/scripts ./scripts
 COPY --from=build-web --chown=node:node /app/apps/web ./apps/web
 USER node
 ENV PORT=3000
 EXPOSE 3000
-# /api/health belongs to the api service now. A static file still proves Next answers HTTP,
-# without touching the database (W4 makes web database-free).
+# /api/health belongs to the api service. A static file proves Next answers HTTP without waiting on
+# the API.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/icon.svg').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 CMD ["npm", "run", "start"]

@@ -15,8 +15,9 @@ import { revokeApiKey } from '@tasnivo/domain/api/keys';
 import { apiConfig } from '@tasnivo/domain/api/limits';
 import { appOrigin } from '@tasnivo/domain/app-url';
 import { planLimits, TRIAL_DAYS } from '@tasnivo/domain/billing/limits';
+import { firmPrice } from '@tasnivo/domain/billing/plans';
 import { MAX_UPLOAD_BYTES } from '@tasnivo/domain/catalog-import';
-import { RETENTION_CHOICES, setRetention } from '@tasnivo/domain/security/account';
+import { deleteAfterDays, RETENTION_CHOICES, setRetention } from '@tasnivo/domain/security/account';
 import { closeAccountForm, closedAccountStatus, reopenAccount } from '@tasnivo/domain/security/account-security';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
 import { unlink } from '@tasnivo/domain/telegram/linking';
@@ -64,6 +65,8 @@ export class AccountController {
       trialDays: TRIAL_DAYS,
       retentionChoices: [...RETENTION_CHOICES],
       origin: appOrigin(),
+      firmPrice: firmPrice(),
+      closeAfterDays: deleteAfterDays(),
     };
   }
 

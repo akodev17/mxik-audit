@@ -5,7 +5,7 @@ Everything runs in Docker Compose on one server; the host needs only Docker and 
 ```
 tasnivo.uz ──► caddy (HTTPS, :80/:443)
                  ├── /api/*          → api     NestJS, port 4000, applies migrations on start
-                 └── everything else → web     Next.js, port 3000
+                 └── everything else → web     Next.js, port 3000, no database access
 worker  BullMQ jobs (audits, document checks, mail, Telegram) and the schedule
 db      Postgres 16 + pgvector          redis   BullMQ queues
 backup  nightly pg_dump into ./backups  bot     optional Telegram long polling (profile "bot")
@@ -15,9 +15,11 @@ The files: `docker-compose.yml`, `Dockerfile` (targets `web`, `api`, `worker`), 
 (HTTPS, `www` redirect), `infra/routes.caddy` (routing, limits, timeouts, headers) and `.env`.
 Nothing here depends on a particular provider.
 
-> **During the backend split** (docs/BACKEND_SPLIT_PLAN.md, Waves 2–4) not every `/api` route is
-> in the api service yet. Until Wave 4, put `API_UPSTREAM=web:3000` in `.env`: Caddy then sends
-> `/api/*` to the Next.js app, which still serves all of them, exactly as before the split.
+Every `/api/*` address (the app's own calls, downloads, the public API v1, the payment and Telegram
+callbacks, cron, health) is served by the api service. The web container renders pages from the
+API's answers (`API_INTERNAL_URL=http://api:4000` inside the network); it gets no `.env`, no
+`DATABASE_URL` and no `./data`. A server that still has `API_UPSTREAM=web:3000` in `.env` from the
+split period: remove the line (compose no longer reads it).
 
 ## 0. What you need
 
@@ -109,14 +111,15 @@ that reads it. At minimum:
 | `ANTHROPIC_API_KEY` | optional; without it suggestions stay capped below bulk-accept |
 | `EMBEDDING_PROVIDER` | `local` (already set in `.env.example`) |
 | `ADMIN_EMAILS` | sign-in emails allowed to open `/admin`, comma-separated |
-| `API_UPSTREAM` | `web:3000` until Wave 4 is deployed (see the note at the top), then remove it |
 
 `DATABASE_URL`, `REDIS_URL`, `JOBS_MODE` and `DATA_DIR` in `.env` are ignored inside Docker:
 compose points the services at the `db` and `redis` containers and at `/app/data`. The
-`NEXT_PUBLIC_*` values are compiled into the web image: rebuild it after changing them.
+`NEXT_PUBLIC_*` values are compiled into the web image: rebuild it after changing them. The web
+container reads nothing else from `.env`: compose passes it `API_INTERNAL_URL`, `APP_URL` and
+`LEAD_FILE_RETENTION_DAYS` only.
 
 The import scripts and the services write to `./data` (embedding models, classifier downloads,
-the classifier status file), which is mounted into api, worker, bot and web. The containers run
+the classifier status file), which is mounted into api, worker and bot. The containers run
 as uid 1000 (`node`):
 
 ```bash
@@ -266,8 +269,8 @@ see pay buttons; other roles are told that an administrator pays.
 - `BILLING_REQUIRED_FOR_EXPORT=true` makes the corrected-file download
   require a paid order for that catalogue or an active firm subscription.
 
-The callback URLs stay the same through the backend split: Caddy sends `/api/payments/*` to
-whichever service `API_UPSTREAM` names. A paid order writes `billing.paid` to the audit log;
+The callback URLs stayed the same through the backend split: Caddy sends `/api/payments/*` to the
+api service. A paid order writes `billing.paid` to the audit log;
 orders and provider transactions are in the `order` and `payment_transaction` tables.
 
 ## 7c. Team, email and roles (optional)
@@ -387,7 +390,7 @@ and the way back is the restore of section 9.
 Once, on a server that ran the previous `docker-compose.yml` behind nginx and certbot:
 
 ```bash
-cd /opt/mxik-audit && git pull                 # then add SITE_DOMAIN, CRON_SECRET, API_UPSTREAM to .env
+cd /opt/mxik-audit && git pull                 # then add SITE_DOMAIN and CRON_SECRET to .env
 docker compose --profile app build
 sudo systemctl disable --now nginx certbot.timer   # Caddy takes ports 80 and 443 and its own certificates
 crontab -e                                     # delete the mxik lines: the worker schedules the jobs now
@@ -520,6 +523,7 @@ when the dump was taken resume from their last finished row.
 
 `docker compose --profile local up -d caddy-local` serves `infra/routes.caddy` on
 http://localhost:8080 without TLS, proxying to the dev servers on the host (`npm run dev` on 3000,
-the api on 4000). Set `LOCAL_API_UPSTREAM=host.docker.internal:3000` while the API has no route
-yet, or `LOCAL_WEB_UPSTREAM=web:3000` and `LOCAL_API_UPSTREAM=api:4000` (with the `app` profile)
-to test the containers.
+the api on 4000), or set `LOCAL_WEB_UPSTREAM=web:3000` and `LOCAL_API_UPSTREAM=api:4000` (with the
+`app` profile) to test the containers. The e2e suite runs against it:
+`E2E_BASE_URL=http://localhost:8080 npm run test:e2e` (add `E2E_CHANNEL=msedge` where Playwright's
+own Chromium is not installed).

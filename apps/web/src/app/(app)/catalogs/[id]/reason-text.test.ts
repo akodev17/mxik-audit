@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { appDict } from '@tasnivo/i18n/i18n-app';
-import type { ReasonFacts } from '@tasnivo/domain/row-detail-parts';
 import { reasonLines } from './reason-text.js';
-import { unitLabel } from './unit-label.js';
+import type { ReasonFacts } from './ws-types';
+
+/** The API's unit labels (domain unit-label.ts) for the one unit these cases use. */
+const unitLabel = (locale: 'uz' | 'ru', u: string): string => (locale === 'ru' && u === 'dona' ? 'шт' : u);
 
 const facts: ReasonFacts = { code: '00401001001099999', retired: false, afterUpdate: false, rowUnit: 'litr', requiredUnits: [], purchasedOtherUnit: false, privilegeMismatch: false, restriction: null };
 const uz = appDict('uz').wsX;

@@ -1,6 +1,6 @@
 // The workspace filter and saved views as the URL carries them, and where a decision came from.
-// Pure copies of @tasnivo/domain workspace-filter.ts, view-params.ts and decision-source.ts (the
-// API re-reads every filter with the domain's readFilter); workspace-url.test.ts keeps them equal.
+// Pure copies of the domain's workspace-filter.ts, view-params.ts and decision-source.ts (the
+// API re-reads every filter with the domain's readFilter); tests/web-parity keeps them equal.
 import {
   DECISION_FILTERS, DECISION_SOURCES, FINDING_TYPES, FLAG_FILTERS, OPTIONAL_COLUMNS,
   type ViewParams as ViewParamsSchema,
@@ -33,6 +33,9 @@ export type FilterParams = {
   type?: string | null; q?: string | null; pending?: string | null; dec?: string | null;
   flag?: string | null; comments?: string | null; sort?: string | null; source?: string | null;
 };
+
+/** Decision actions written by the system (dictionary auto-accept, carried over from the previous version). */
+export const SYSTEM_DECISION_ACTIONS = ['finding.auto_accepted', 'finding.carried_over'] as const;
 
 const KNOWN_SOURCES = new Set<string>(DECISION_SOURCES);
 

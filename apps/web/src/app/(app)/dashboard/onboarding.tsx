@@ -1,9 +1,9 @@
 import { getI18n } from '@/lib/locale';
-import type { Step } from '@tasnivo/domain/onboarding';
 import { ButtonLink } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { IconCheck, IconChevronDown } from '@/ui/icons';
 import { Progress } from '@/ui/progress';
+import type { Step } from './dashboard-data';
 
 /**
  * First-run checklist: done steps ticked, the first open step is the page's primary action.

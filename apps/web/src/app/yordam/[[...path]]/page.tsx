@@ -9,10 +9,11 @@ import { CONTAINER } from '@/components/landing/container';
 import { LandingShell } from '@/components/landing/shell';
 import {
   findArticle, HELP_ARTICLES, HELP_COPY, HELP_LANG_NAMES, HELP_LANG_PARAM, headingId, helpHeadings, helpPath, type HelpHeading, type HelpLang,
-} from '@tasnivo/domain/help';
+} from '@/lib/help';
+import { signedIn } from '@/lib/api/me';
+import { serverApi } from '@/lib/api/server';
 import { helpBody } from '@/lib/help-mdx';
 import { getLocale } from '@/lib/locale';
-import { currentUser } from '@/lib/session';
 import { readTheme } from '@/ui/shell/server-prefs';
 import { liveComponents } from './live-config';
 
@@ -110,10 +111,11 @@ export default async function HelpPage({ params, searchParams }: { params: Param
   await cookies();
   const chose = (await searchParams)[HELP_LANG_PARAM];
   if (lang === 'uz' && chose !== 'uz' && (await getLocale()) === 'ru') redirect(helpPath('ru', slug ?? undefined));
-  const [user, theme] = await Promise.all([currentUser().catch(() => null), readTheme()]);
+  const article = slug ? findArticle(slug) : null;
+  // The numbers an article quotes come from the API's configuration (live-config.tsx).
+  const [user, theme, config] = await Promise.all([signedIn().catch(() => null), readTheme(), article ? serverApi().account.config() : null]);
 
   const copy = HELP_COPY[lang];
-  const article = slug ? findArticle(slug) : null;
   const Body = article ? (await helpBody(lang, article.slug)) as ComponentType<{ components: Record<string, ComponentType> }> : null;
   const headings = article ? helpHeadings(await articleSource(lang, article.slug)) : [];
 
@@ -124,7 +126,7 @@ export default async function HelpPage({ params, searchParams }: { params: Param
           {article ? <Link href={helpPath(lang)} className="text-lp-brand underline">{copy.back}</Link> : <span />}
           <LangSwitch lang={lang} slug={slug} label={copy.language} />
         </div>
-        {Body && article ? (
+        {Body && article && config ? (
           <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,46rem)_15rem] lg:gap-16">
             <article className="min-w-0">
               <h1 className="text-[34px] sm:text-[44px]">{article.title[lang]}</h1>
@@ -134,7 +136,7 @@ export default async function HelpPage({ params, searchParams }: { params: Param
                   <div className="mt-3"><Toc headings={headings} title={copy.onPage} /></div>
                 </details>
               ) : null}
-              <div className={`mt-8 ${ARTICLE_STYLE}`}><Body components={{ h2: H2, ...liveComponents(lang) }} /></div>
+              <div className={`mt-8 ${ARTICLE_STYLE}`}><Body components={{ h2: H2, ...liveComponents(lang, config) }} /></div>
               <p className="mt-12 text-[15px]"><Link href={helpPath(lang)} className="text-lp-brand underline">{copy.home}</Link></p>
             </article>
             {headings.length > 1 ? (

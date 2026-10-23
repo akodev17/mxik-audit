@@ -11358,6 +11358,616 @@
           "growthPct": 17.9
         }
       }
+    },
+    {
+      "label": "W4a: Docker images behind Caddy (web + api + worker), Edge",
+      "commit": "6688c0d",
+      "date": "2026-10-23T02:34:21.870Z",
+      "conditions": {
+        "baseUrl": "http://localhost:8080 (Caddy, infra/Caddyfile.local)",
+        "build": "Docker images mxik-audit-web/api/worker built from 6688c0d; next start in the web container, API and worker containers (JOBS_MODE=bullmq), dev Postgres shared with other sessions",
+        "org": "seed org (npm run seed): 2 clients, 5 catalogues, 213 rows",
+        "database": "local Postgres 16 in Docker (shared)",
+        "browser": "msedge 155.0.4283.62 headless, 1440x900",
+        "machine": {
+          "cpu": "Intel(R) Core(TM) i5-14400F",
+          "threads": 16,
+          "memGb": 24,
+          "os": "win32"
+        },
+        "passes": 5,
+        "dwellMs": 0,
+        "settleMs": 500,
+        "profiling": "unknown (commitMs is null unless the build is a profiling one)"
+      },
+      "results": {
+        "initialLoad": {
+          "n": 5,
+          "ttfbMs": 94,
+          "fcpMs": 328,
+          "domContentLoadedMs": 342,
+          "loadMs": 471,
+          "documentKB": 92.1,
+          "jsKB": 279
+        },
+        "tabs": {
+          "cold": {
+            "n": 40,
+            "feedbackMs": {
+              "p50": 50,
+              "p95": 136,
+              "max": 146
+            },
+            "anyFeedbackMs": {
+              "p50": 13,
+              "p95": 27,
+              "max": 38
+            },
+            "urlMs": {
+              "p50": 50,
+              "p95": 136,
+              "max": 146
+            },
+            "contentMs": {
+              "p50": 394,
+              "p95": 4115,
+              "max": 7272
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 20,
+              "p95": 195,
+              "max": 195
+            },
+            "rscMs": {
+              "p50": 229,
+              "p95": 3869,
+              "max": 7149
+            },
+            "longTasks": {
+              "total": 6,
+              "maxMs": 122
+            },
+            "inpMs": {
+              "p50": 24,
+              "p95": 40,
+              "max": 56
+            },
+            "commitMs": null
+          },
+          "warm": {
+            "n": 40,
+            "feedbackMs": {
+              "p50": 50,
+              "p95": 108,
+              "max": 135
+            },
+            "anyFeedbackMs": {
+              "p50": 9,
+              "p95": 25,
+              "max": 25
+            },
+            "urlMs": {
+              "p50": 50,
+              "p95": 108,
+              "max": 135
+            },
+            "contentMs": {
+              "p50": 365,
+              "p95": 2291,
+              "max": 6033
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 14,
+              "p95": 195,
+              "max": 195
+            },
+            "rscMs": {
+              "p50": 257,
+              "p95": 2277,
+              "max": 5992
+            },
+            "longTasks": {
+              "total": 3,
+              "maxMs": 75
+            },
+            "inpMs": {
+              "p50": 24,
+              "p95": 40,
+              "max": 48
+            },
+            "commitMs": null
+          },
+          "perTransition": {
+            "dashboard>queue": {
+              "cold": {
+                "contentMs": 452,
+                "feedbackMs": 70,
+                "rscKB": 195
+              },
+              "warm": {
+                "contentMs": 582,
+                "feedbackMs": 58,
+                "rscFetches": 5
+              }
+            },
+            "queue>clients": {
+              "cold": {
+                "contentMs": 357,
+                "feedbackMs": 50,
+                "rscKB": 20
+              },
+              "warm": {
+                "contentMs": 367,
+                "feedbackMs": 53,
+                "rscFetches": 5
+              }
+            },
+            "clients>catalogs": {
+              "cold": {
+                "contentMs": 352,
+                "feedbackMs": 46,
+                "rscKB": 10
+              },
+              "warm": {
+                "contentMs": 433,
+                "feedbackMs": 50,
+                "rscFetches": 5
+              }
+            },
+            "catalogs>dictionary": {
+              "cold": {
+                "contentMs": 2159,
+                "feedbackMs": 56,
+                "rscKB": 11
+              },
+              "warm": {
+                "contentMs": 1604,
+                "feedbackMs": 37,
+                "rscFetches": 5
+              }
+            },
+            "dictionary>activity": {
+              "cold": {
+                "contentMs": 395,
+                "feedbackMs": 36,
+                "rscKB": 90
+              },
+              "warm": {
+                "contentMs": 342,
+                "feedbackMs": 25,
+                "rscFetches": 5
+              }
+            },
+            "activity>settings": {
+              "cold": {
+                "contentMs": 347,
+                "feedbackMs": 61,
+                "rscKB": 14
+              },
+              "warm": {
+                "contentMs": 365,
+                "feedbackMs": 51,
+                "rscFetches": 5
+              }
+            },
+            "settings>team": {
+              "cold": {
+                "contentMs": 342,
+                "feedbackMs": 39,
+                "rscKB": 6
+              },
+              "warm": {
+                "contentMs": 346,
+                "feedbackMs": 41,
+                "rscFetches": 5
+              }
+            },
+            "team>dashboard": {
+              "cold": {
+                "contentMs": 344,
+                "feedbackMs": 37,
+                "rscKB": 32
+              },
+              "warm": {
+                "contentMs": 335,
+                "feedbackMs": 35,
+                "rscFetches": 5
+              }
+            }
+          }
+        },
+        "settingsTabs": {
+          "cold": {
+            "n": 25,
+            "feedbackMs": {
+              "p50": 397,
+              "p95": 692,
+              "max": 726
+            },
+            "anyFeedbackMs": {
+              "p50": 21,
+              "p95": 38,
+              "max": 51
+            },
+            "urlMs": {
+              "p50": 397,
+              "p95": 692,
+              "max": 726
+            },
+            "contentMs": {
+              "p50": 397,
+              "p95": 692,
+              "max": 726
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 15,
+              "max": 15
+            },
+            "rscMs": {
+              "p50": 351,
+              "p95": 612,
+              "max": 627
+            },
+            "longTasks": {
+              "total": 2,
+              "maxMs": 51
+            },
+            "inpMs": {
+              "p50": 32,
+              "p95": 64,
+              "max": 80
+            },
+            "commitMs": null
+          },
+          "warm": {
+            "n": 25,
+            "feedbackMs": {
+              "p50": 477,
+              "p95": 1068,
+              "max": 1122
+            },
+            "anyFeedbackMs": {
+              "p50": 19,
+              "p95": 35,
+              "max": 41
+            },
+            "urlMs": {
+              "p50": 477,
+              "p95": 1068,
+              "max": 1122
+            },
+            "contentMs": {
+              "p50": 477,
+              "p95": 1068,
+              "max": 1122
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 12,
+              "p95": 15,
+              "max": 15
+            },
+            "rscMs": {
+              "p50": 435,
+              "p95": 1039,
+              "max": 1072
+            },
+            "longTasks": {
+              "total": 0,
+              "maxMs": 0
+            },
+            "inpMs": {
+              "p50": 32,
+              "p95": 48,
+              "max": 56
+            },
+            "commitMs": null
+          }
+        },
+        "workspace": {
+          "catalog": "newest ready catalogue of the seed org",
+          "open": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 96,
+              "p95": 116,
+              "max": 116
+            },
+            "anyFeedbackMs": {
+              "p50": 26,
+              "p95": 34,
+              "max": 34
+            },
+            "urlMs": {
+              "p50": 96,
+              "p95": 116,
+              "max": 116
+            },
+            "contentMs": {
+              "p50": 911,
+              "p95": 1452,
+              "max": 1452
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 36,
+              "p95": 36,
+              "max": 36
+            },
+            "rscMs": {
+              "p50": 615,
+              "p95": 1033,
+              "max": 1033
+            },
+            "longTasks": {
+              "total": 10,
+              "maxMs": 135
+            },
+            "inpMs": {
+              "p50": 48,
+              "p95": 64,
+              "max": 64
+            },
+            "commitMs": null
+          },
+          "filter": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 552,
+              "p95": 657,
+              "max": 657
+            },
+            "anyFeedbackMs": {
+              "p50": 5,
+              "p95": 8,
+              "max": 8
+            },
+            "urlMs": {
+              "p50": 552,
+              "p95": 657,
+              "max": 657
+            },
+            "contentMs": {
+              "p50": 552,
+              "p95": 657,
+              "max": 657
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 36,
+              "p95": 36,
+              "max": 36
+            },
+            "rscMs": {
+              "p50": 390,
+              "p95": 519,
+              "max": 519
+            },
+            "longTasks": {
+              "total": 5,
+              "maxMs": 129
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "sort": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 698,
+              "p95": 1088,
+              "max": 1088
+            },
+            "anyFeedbackMs": {
+              "p50": 12,
+              "p95": 14,
+              "max": 14
+            },
+            "urlMs": {
+              "p50": 698,
+              "p95": 1088,
+              "max": 1088
+            },
+            "contentMs": {
+              "p50": 698,
+              "p95": 1088,
+              "max": 1088
+            },
+            "rscFetchesPerSwitch": 1,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 0,
+            "rscKB": {
+              "p50": 36,
+              "p95": 36,
+              "max": 36
+            },
+            "rscMs": {
+              "p50": 594,
+              "p95": 896,
+              "max": 896
+            },
+            "longTasks": {
+              "total": 5,
+              "maxMs": 103
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "back": {
+            "n": 5,
+            "feedbackMs": {
+              "p50": 81,
+              "p95": 98,
+              "max": 98
+            },
+            "anyFeedbackMs": {
+              "p50": 81,
+              "p95": 98,
+              "max": 98
+            },
+            "urlMs": {
+              "p50": 81,
+              "p95": 98,
+              "max": 98
+            },
+            "contentMs": {
+              "p50": 81,
+              "p95": 98,
+              "max": 98
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 5,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 5,
+              "maxMs": 83
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          }
+        },
+        "history": {
+          "back": {
+            "n": 6,
+            "feedbackMs": {
+              "p50": 56,
+              "p95": 93,
+              "max": 93
+            },
+            "anyFeedbackMs": {
+              "p50": 56,
+              "p95": 93,
+              "max": 93
+            },
+            "urlMs": {
+              "p50": 56,
+              "p95": 93,
+              "max": 93
+            },
+            "contentMs": {
+              "p50": 56,
+              "p95": 93,
+              "max": 93
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 6,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 3,
+              "maxMs": 85
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          },
+          "forward": {
+            "n": 6,
+            "feedbackMs": {
+              "p50": 41,
+              "p95": 56,
+              "max": 56
+            },
+            "anyFeedbackMs": {
+              "p50": 41,
+              "p95": 56,
+              "max": 56
+            },
+            "urlMs": {
+              "p50": 41,
+              "p95": 56,
+              "max": 56
+            },
+            "contentMs": {
+              "p50": 41,
+              "p95": 56,
+              "max": 56
+            },
+            "rscFetchesPerSwitch": 0,
+            "rscBeforeClickPerSwitch": 0,
+            "switchesWithoutRequest": 6,
+            "rscKB": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "rscMs": {
+              "p50": null,
+              "p95": null,
+              "max": null
+            },
+            "longTasks": {
+              "total": 1,
+              "maxMs": 52
+            },
+            "inpMs": {
+              "p50": 0,
+              "p95": 0,
+              "max": 0
+            },
+            "commitMs": null
+          }
+        },
+        "rapid": {
+          "passed": 5,
+          "of": 5,
+          "failures": []
+        },
+        "heap": {
+          "after5MB": 9.4,
+          "after40MB": 10.1,
+          "growthPct": 7.4
+        }
+      }
     }
   ]
 }
