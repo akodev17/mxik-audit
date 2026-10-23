@@ -146,7 +146,7 @@ describe('didox (database)', { skip }, () => {
     assert.equal(p.onec.records, 1);
 
     const receipt = await send('post', `/api/didox/invoices/${ids.noisy}/export?format=receipt_xlsx`).buffer(true).parse(binary);
-    assert.ok(receipt.status === 200 || receipt.status === 201, `export answered ${receipt.status}`);
+    assert.equal(receipt.status, 200, `export answered ${receipt.status}`);
     assert.match(String(receipt.headers['content-type']), /spreadsheetml/);
     const cells = await sheetCells(receipt.body as Buffer);
     assert.ok(cells.includes('Сахар-песок 50 кг'));
@@ -163,7 +163,7 @@ describe('didox (database)', { skip }, () => {
     const after = bodyOf<Detail>(await http().get(`/api/didox/invoices/${ids.standard}`).set('Cookie', cookie));
     assert.equal(after.invoice.status, 'approved');
     const nomenclature = await send('post', `/api/didox/invoices/${ids.standard}/export?format=nomenclature_xlsx`).buffer(true).parse(binary);
-    assert.equal(nomenclature.status, 200, String(nomenclature.body));
+    assert.equal(nomenclature.status, 200, `export answered ${nomenclature.status}`);
     const names = await sheetCells(nomenclature.body as Buffer);
     for (const name of ['Цемент М400 50кг', 'Арматура А500С 12мм', 'Кирпич облицовочный красный']) assert.ok(names.includes(name), name);
     const bulk = await send('post', `/api/didox/invoices/${ids.standard}/approve`).send({ scope: 'clean' });

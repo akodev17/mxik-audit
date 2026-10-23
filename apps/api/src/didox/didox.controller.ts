@@ -1,7 +1,7 @@
 // endpoints.didox: Didox incoming invoices (Agent 3). Thin: parse the path and query, call
 // @tasnivo/domain/didox/*, map a null to 404 and a file refusal to 409. Upload bodies and decision
 // bodies go to the domain as they came; the domain validates them and answers its own refusal.
-import { Body, Controller, Param, Query, Res, UseInterceptors, type StreamableFile } from '@nestjs/common';
+import { Body, Controller, HttpCode, Param, Query, Res, UseInterceptors, type StreamableFile } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { z } from 'zod';
@@ -86,6 +86,8 @@ export class DidoxController {
   }
 
   @Route(e.exportFile)
+  // A download answered to a POST: 200, not Nest's 201 for POST.
+  @HttpCode(200)
   async exportFile(
     @CurrentUser() user: User, @Locale() locale: LocaleCode,
     @Param(new ZodValidationPipe(e.exportFile.params)) { batchId }: BatchPath,
