@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { processEnv, type LoadedEnvFiles } from '@next/env';
 import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
-import { securityHeaders } from './src/lib/security-headers';
+import { securityHeaders } from '@tasnivo/contracts/security-headers';
 
 const config: NextConfig = {
   // The workspace packages are TypeScript source (package.json "exports" point at .ts files). The web app

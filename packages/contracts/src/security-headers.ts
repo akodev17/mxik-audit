@@ -1,5 +1,6 @@
-// HTTP security headers on every page, wired in apps/web/next.config.ts: a copy of the domain's
-// security/headers.ts (the API sends the same set); tests/web-parity holds the two together.
+// HTTP security headers on every web page, wired in apps/web/next.config.ts: a copy of the domain's
+// security/headers.ts (the API sends the same set); security-headers.test.ts holds the two together.
+// Here rather than in apps/web because next.config.ts can import packages but not other local .ts files.
 // script-src keeps 'unsafe-inline': Next.js bootstraps each page with inline scripts, and nonces
 // would need middleware on every request plus a verified production build (DEPLOY.md 7g).
 type Env = Record<string, string | undefined>;

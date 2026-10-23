@@ -1,5 +1,5 @@
-// The dashboard's work queue, the suggestion labels, the activity day input, the sitemap origin, the
-// security headers and the system decision actions: the web app's copies (apps/web/src/lib) against
+// The dashboard's work queue, the suggestion labels, the activity day input, the sitemap origin and the
+// system decision actions: the web app's copies (apps/web/src/lib) against
 // their @tasnivo/domain and @tasnivo/core originals.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -9,13 +9,11 @@ import { appOrigin as domainOrigin } from '@tasnivo/domain/app-url';
 import { clientAttention as domainAttention } from '@tasnivo/domain/client-attention';
 import type { ClientStats } from '@tasnivo/domain/client-stats';
 import { SYSTEM_DECISION_ACTIONS as DOMAIN_SYSTEM } from '@tasnivo/domain/decision-source';
-import { contentSecurityPolicy as domainCsp, securityHeaders as domainHeaders } from '@tasnivo/domain/security/headers';
 import * as domainQueue from '@tasnivo/domain/work-queue';
 import { dayInputValue } from '@/lib/pure/activity-dates';
 import { appOrigin } from '@/lib/pure/app-url';
 import * as labels from '@/lib/pure/confidence-labels';
 import * as queue from '@/lib/pure/work-queue';
-import { contentSecurityPolicy, securityHeaders } from '@/lib/security-headers';
 import { SYSTEM_DECISION_ACTIONS } from '@/lib/workspace-url';
 
 const client = (id: string, over: Partial<ClientStats> = {}): ClientStats => ({
@@ -87,10 +85,6 @@ describe('small copies', () => {
     }
   });
 
-  it('the page security headers', () => {
-    for (const dev of [true, false]) assert.equal(contentSecurityPolicy(dev), domainCsp(dev));
-    for (const env of [{ NODE_ENV: 'production' }, { NODE_ENV: 'development' }]) assert.deepEqual(securityHeaders(env), domainHeaders(env));
-  });
 
   it('the system decision actions', () => {
     assert.deepEqual([...SYSTEM_DECISION_ACTIONS], [...DOMAIN_SYSTEM]);

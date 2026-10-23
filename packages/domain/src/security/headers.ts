@@ -1,5 +1,5 @@
 // HTTP security headers for every route: the API sends them (apps/api/src/http/middleware.ts) and
-// the web app's copy (apps/web/src/lib/security-headers.ts) is wired in its next.config.ts.
+// the web app's copy (packages/contracts/src/security-headers.ts) is wired in its next.config.ts.
 // script-src keeps 'unsafe-inline': Next.js bootstraps each page with inline scripts, and nonces
 // would need middleware on every request plus a verified production build (DEPLOY.md 7g).
 type Env = Record<string, string | undefined>;
