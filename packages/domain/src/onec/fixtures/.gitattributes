@@ -1,0 +1,2 @@
+# Golden 1C bank-exchange files are windows-1251 with CRLF line ends: compared byte for byte.
+*.txt -text
