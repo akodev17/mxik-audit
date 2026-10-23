@@ -1,0 +1,60 @@
+{
+  "success": true,
+  "code": 200,
+  "reason": "success",
+  "data": {
+    "id": "5E8110A67B4A03AEE063AC1832B07E56",
+    "pkey": null,
+    "parentPkey": null,
+    "mxikCode": "03004413004009066",
+    "groupNameUz": "ФАРМАЦЕВТИКА МАҲСУЛОТИ",
+    "groupNameRu": "ФАРМАЦЕВТИЧЕСКАЯ ПРОДУКЦИЯ",
+    "groupNameLat": null,
+    "classNameUz": "Дори воситалари (қадоқланган)",
+    "classNameRu": "Лекарственные средства (упакованные)",
+    "classNameLat": null,
+    "positionNameUz": "Коксиблар (Яллиғланишга қарши ва ревматизмга қарши воситалар, стероид бўлмаган моддалар) -M01AH",
+    "positionNameRu": "Коксибы (нестероидные противовоспалительные препараты)-M01AH",
+    "positionNameLat": null,
+    "subPositionNameUz": "Эторикоксиб - M01AH05",
+    "subPositionNameRu": "Эторикоксиб - M01AH05",
+    "subPositionNameLat": null,
+    "brandName": "Эторелекс ® (Фармасинтез)",
+    "attributeNameUz": "Таблеткалар плёнка билан қопланган 90 мг банкалар №14",
+    "attributeNameRu": "Таблетки покрытые пленочной оболочкой 90 мг банки №14",
+    "attributeNameLat": null,
+    "description": null,
+    "isActive": "1",
+    "createdAt": "29.04.2022 14:47:09",
+    "updatedBy": null,
+    "updatedAt": "03.10.2022 21:13:45",
+    "status": 0,
+    "packageNames": [
+      {
+        "code": 1062101,
+        "mxikCode": "03004413004009066",
+        "nameUz": "дона (таблетка (90 мг))",
+        "packageType": "1",
+        "nameRu": "шт (таблетка (90 мг))",
+        "nameLat": "dona (tabletka (90 mg))"
+      },
+      {
+        "code": 1070335,
+        "mxikCode": "03004413004009066",
+        "nameUz": "флакон=14 дона (таблетка (90 мг))",
+        "packageType": "1",
+        "nameRu": "флакон=14 шт (таблетка (90 мг))",
+        "nameLat": "flakon=14 dona (tabletka (90 mg))"
+      },
+      {
+        "code": 1074787,
+        "mxikCode": "03004413004009066",
+        "nameUz": "қадоқ=1 флакон * 14 дона (таблетка (90 мг))",
+        "packageType": "1",
+        "nameRu": "упаковка=1 флакон (14 шт (таблетка (90 мг))",
+        "nameLat": "qadoq=1 flakon * 14 dona (tabletka (90 mg))"
+      }
+    ]
+  },
+  "errors": null
+}

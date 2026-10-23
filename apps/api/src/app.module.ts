@@ -13,11 +13,14 @@ import { ConfigModule } from './config/config.module';
 import { CronModule } from './cron/cron.module';
 import { DemoModule } from './demo/demo.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
+import { DidoxModule } from './didox/didox.module';
 import { HealthModule } from './health/health.module';
 import { ApiExceptionFilter } from './http/exception.filter';
 import { LocaleInterceptor } from './http/locale.interceptor';
 import { ImportsModule } from './imports/imports.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OnecModule } from './onec/onec.module';
+import { ProductsModule } from './products/products.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ShareModule } from './share/share.module';
@@ -48,6 +51,9 @@ import { WorkspaceModule } from './workspace/workspace.module';
     CronModule,
     TelegramModule,
     PublicApiModule,
+    OnecModule,
+    ProductsModule,
+    DidoxModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },

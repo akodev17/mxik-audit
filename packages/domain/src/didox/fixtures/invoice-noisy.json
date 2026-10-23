@@ -1,0 +1,24 @@
+{
+  "_id": "6a20aa11c0ffee0000000042",
+  "doctype": "002",
+  "status": 3,
+  "data": {
+    "facturaid": "6a20aa11c0ffee0000000042",
+    "facturatype": 0,
+    "facturadoc": { "facturano": "№ 88", "facturadate": "14.10.2026" },
+    "contractdoc": { "contractno": null, "contractdate": null },
+    "sellertin": "301 112 223",
+    "buyertin": "305123456",
+    "sellername": "YaTT \"Karimov Anvar\"",
+    "buyer": { "name": "OOO \"TASNIVO TEST BUYER\"", "account": "20208000400987654002", "bankid": "00873" },
+    "productlist": {
+      "products": [
+        { "ordno": "1", "name": "Подсолнечное масло 1л", "catalogcode": "15121100001000000", "packagename": "бутылка", "count": "24", "summa": 892.8600000000000136, "deliverysum": "21428,64", "vatrate": "12", "vatsum": 2571.4368000000000001, "deliverysumwithvat": 24000.0768 },
+        { "ordno": 2, "name": "Сахар-песок 50 кг", "catalogcode": "", "packagename": "мешок", "count": 3, "summa": "485 000", "deliverysum": 1455000, "vatrate": 12, "vatsum": 174600, "deliverysumwithvat": 1629600 },
+        { "ordno": 3, "name": "Мука в/с 25кг", "catalogcode": "1101001001000000", "packagename": "мешок", "count": 10.000000000000002, "summa": 210000, "deliverysum": 2100000.0000000002, "vatrate": 12, "vatsum": 252000, "deliverysumwithvat": 2352000 },
+        { "ordno": 4, "name": "Рис девзира 1кг", "packagename": "кг", "count": 100, "summa": 30000.000000000004, "deliverysum": 3000000, "vatrate": 12, "vatsum": 360000, "deliverysumwithvat": 3360000 },
+        { "ordno": 5, "name": "Чай зелёный 100г", "catalogcode": "09021000001000000", "packagename": "пачка", "count": 50, "summa": 12500, "deliverysum": 650000, "vatrate": 12, "vatsum": 78000, "deliverysumwithvat": 728000 }
+      ]
+    }
+  }
+}

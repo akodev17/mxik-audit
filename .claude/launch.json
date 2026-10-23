@@ -156,6 +156,36 @@
       "port": 3016
     },
     {
+      "name": "tasnivo-api-4023",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4023'; $env:DIDOX_API_URL='http://127.0.0.1:4923'; npm run dev:api"
+      ],
+      "port": 4023
+    },
+    {
+      "name": "tasnivo-web-3023",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4023'; npx next dev apps/web -p 3023"
+      ],
+      "port": 3023
+    },
+    {
+      "name": "didox-fake-4923",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:PORT='4923'; npx tsx packages/domain/src/didox/fake-server.ts"
+      ],
+      "port": 4923
+    },
+    {
       "name": "tasnivo-web-3014-prod",
       "runtimeExecutable": "powershell",
       "runtimeArgs": [
@@ -164,6 +194,47 @@
         "$env:API_INTERNAL_URL='http://localhost:4014'; npx next start apps/web -p 3014"
       ],
       "port": 3014
+    },
+    {
+      "name": "tasnivo-api-4021",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4021'; npm run dev:api"
+      ],
+      "port": 4021
+    },
+    {
+      "name": "tasnivo-web-3021",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4021'; npx next dev apps/web -p 3021"
+      ],
+      "port": 3021
+    },
+    {
+      "name": "tasnivo-api-4024",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4024'; npm run dev:api"
+      ],
+      "port": 4024
+    },
+    {
+      "name": "tasnivo-web-3024",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4024'; npx next dev apps/web -p 3024"
+      ],
+      "port": 3024,
+      "url": "http://agent4.localhost:3024"
     },
     {
       "name": "tasnivo-api-4022",
@@ -184,6 +255,38 @@
         "$env:API_INTERNAL_URL='http://localhost:4022'; npx next dev apps/web -p 3022"
       ],
       "port": 3022
+    },
+    {
+      "name": "tasnivo-api-4025",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4025'; npm run dev:api"
+      ],
+      "port": 4025
+    },
+    {
+      "name": "tasnivo-web-3025",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4025'; npx next dev apps/web -p 3025"
+      ],
+      "port": 3025,
+      "url": "http://a5q.localhost:3025"
+    },
+    {
+      "name": "tasnivo-web-3025-prod",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4025'; npx next start apps/web -p 3025"
+      ],
+      "port": 3025,
+      "url": "http://a5q.localhost:3025"
     }
   ]
 }

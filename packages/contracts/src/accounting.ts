@@ -44,6 +44,32 @@ export type ImportStatus = (typeof IMPORT_STATUSES)[number];
 export type RecordStatus = (typeof RECORD_STATUSES)[number];
 export type OneCFormat = (typeof ONEC_FORMATS)[number];
 
+/**
+ * Which formats a batch of each kind can become, the primary one first. Only the primary format
+ * (and a direct `odata` transfer) marks records exported and moves the batch to `exported`; the
+ * others are side files (the products of an invoice, the counterparties of a statement).
+ */
+export const ONEC_FORMATS_BY_KIND = {
+  bank_statement: ['bank_exchange_1_02', 'counterparties_xlsx'],
+  didox_invoice: ['receipt_xlsx', 'nomenclature_xlsx', 'counterparties_xlsx'],
+  product_catalog: ['nomenclature_xlsx'],
+} as const satisfies Record<ImportKind, readonly OneCFormat[]>;
+export const PRIMARY_FORMAT = {
+  bank_statement: 'bank_exchange_1_02', didox_invoice: 'receipt_xlsx', product_catalog: 'nomenclature_xlsx',
+} as const satisfies Record<ImportKind, OneCFormat>;
+/** Direct connection kinds (OneCConnection.kind); `none` = files only. */
+export const ONEC_CONNECTION_KINDS = ['none', 'odata', 'http'] as const;
+/** OneCConnection.bankKeys: the Russian standard keys only, or also ПлательщикМФО / ПолучательМФО. */
+export const ONEC_BANK_KEYS = ['standard', 'uz_mfo'] as const;
+/**
+ * The generic issue codes the 1C layer emits (prepareExport, decisions); each has a label in
+ * `ta.accountingX.issues`. Producing workstreams add their own codes in their i18n parts.
+ */
+export const ONEC_ISSUE_CODES = [
+  'duplicate_row', 'duplicate_export', 'amount_invalid', 'date_invalid', 'account_invalid', 'inn_invalid', 'counterparty_unknown',
+  'counterparty_ambiguous', 'balance_mismatch', 'totals_mismatch', 'unresolved', 'payload_invalid', 'name_missing',
+] as const;
+
 // ── Validation and matching ────────────────────────────────────────────────────────────────
 
 /**
@@ -155,6 +181,14 @@ export const BankStatementMeta = z.object({
   columnMap: z.record(z.number().int()),
   /** Rows the parser dropped (totals, repeated headers, blanks) with the reason. */
   dropped: z.array(z.object({ rowIndex: z.number().int(), reason: z.string() })).max(200),
+  /**
+   * The statement owner as the file prints it (added by Agent 1): the 1C bank file writes it as the
+   * payer of outgoing and the payee of incoming payments. Absent = the client's (or org's) name only.
+   */
+  ownerName: z.string().max(300).nullable().optional(),
+  ownerInn: Inn.nullable().optional(),
+  /** МФО of the bank that holds `account`. */
+  mfo: Mfo.nullable().optional(),
 });
 export type BankStatementMeta = z.infer<typeof BankStatementMeta>;
 

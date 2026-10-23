@@ -1,0 +1,71 @@
+{
+  "facturaid": "6a1f0c0e2b9d4c0012ab34cd",
+  "facturatype": 0,
+  "facturadoc": {
+    "facturano": "EF-2026/0417",
+    "facturadate": "2026-10-14"
+  },
+  "contractdoc": {
+    "contractno": "Д-17/2026",
+    "contractdate": "2026-01-10"
+  },
+  "sellertin": "302345678",
+  "buyertin": "305123456",
+  "seller": {
+    "name": "OOO \"QURILISH SAVDO\"",
+    "account": "20208000900123456001",
+    "bankid": "00440",
+    "address": "Toshkent sh."
+  },
+  "buyer": {
+    "name": "OOO \"TASNIVO TEST BUYER\"",
+    "account": "20208000400987654002",
+    "bankid": "00873"
+  },
+  "productlist": {
+    "facturaproductid": "p-6a1f0c0e",
+    "tin": "302345678",
+    "hasvat": true,
+    "products": [
+      {
+        "ordno": 1,
+        "name": "Цемент М400 50кг",
+        "catalogcode": "02523001001000000",
+        "catalogname": "Портландцемент М400",
+        "packagename": "мешок",
+        "count": 40,
+        "summa": 62000,
+        "deliverysum": 2480000,
+        "vatrate": 12,
+        "vatsum": 297600,
+        "deliverysumwithvat": 2777600
+      },
+      {
+        "ordno": 2,
+        "name": "Арматура А500С 12мм",
+        "catalogcode": "07214001001000000",
+        "catalogname": "Прутки стальные горячекатаные",
+        "packagename": "тонна",
+        "count": 1.5,
+        "summa": 9850000,
+        "deliverysum": 14775000,
+        "vatrate": 12,
+        "vatsum": 1773000,
+        "deliverysumwithvat": 16548000
+      },
+      {
+        "ordno": 3,
+        "name": "Кирпич облицовочный красный",
+        "catalogcode": "06904001001000000",
+        "catalogname": "Кирпич строительный керамический",
+        "packagename": "штук",
+        "count": 2000,
+        "summa": 1450,
+        "deliverysum": 2900000,
+        "vatrate": 12,
+        "vatsum": 348000,
+        "deliverysumwithvat": 3248000
+      }
+    ]
+  }
+}

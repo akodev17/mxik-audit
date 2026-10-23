@@ -4,7 +4,8 @@ import { appOrigin } from '@/lib/pure/app-url';
 /** Signed-in pages, token links and the API: nothing a search engine should list (B16). */
 export const PRIVATE_PATHS = [
   '/dashboard', '/catalogs', '/clients', '/queue', '/activity', '/notifications', '/dictionary', '/team',
-  '/upload', '/settings', '/admin', '/bank', '/didox', '/products', '/onec', '/review', '/report', '/export', '/account-deleted', '/styleguide',
+  '/upload', '/settings', '/admin', '/review', '/report', '/export', '/account-deleted', '/styleguide',
+  '/bank', '/didox', '/products', '/onec',
   '/r/', '/invite/', '/reset/', '/demo/verify/', '/api/',
 ] as const;
 
