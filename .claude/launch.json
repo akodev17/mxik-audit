@@ -33,6 +33,15 @@
         "3001"
       ],
       "port": 3001
+    },
+    {
+      "name": "mxik-api-4000",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:api"
+      ],
+      "port": 4000
     }
   ]
 }
