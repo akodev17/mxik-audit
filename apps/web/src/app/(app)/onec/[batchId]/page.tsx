@@ -2,6 +2,7 @@
 // and the export history (docs/accounting-2026-10-23/onec-ui.md).
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { accounting } from '@tasnivo/contracts';
 import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
 import { signedIn } from '@/lib/api/me';
 import { pageData } from '@/lib/api/page-data';
@@ -12,7 +13,7 @@ import { StatusChip } from '@/ui/badge';
 import { Page } from '@/ui/page';
 import { StatRow, type StatRowItem } from '@/ui/stat-row';
 import { Card } from '../../_manage/card';
-import { BATCH_TONE } from '../review/columns';
+import { BATCH_TONE, issueLabel } from '../review/columns';
 import { ReviewGrid } from '../review/review-grid';
 import { ExportPanel } from './export-panel';
 
@@ -42,6 +43,9 @@ export default async function OnecBatchPage({ params }: Props) {
     { key: 'review', label: d.toReview, value: n(c.suspicious + c.unresolved), tone: c.unresolved > 0 ? 'danger' : c.suspicious > 0 ? 'warn' : 'neutral' },
     { key: 'exported', label: a.record.exported, value: n(c.exported) },
   ] : [];
+  // Problems of the document itself (an invoice's seller), kept in its header by the producing workstream.
+  const metaIssues = accounting.IncomingInvoiceMeta.shape.issues.safeParse((data.meta as { issues?: unknown } | null)?.issues);
+  const docIssues = metaIssues.success ? metaIssues.data ?? [] : [];
   const title = batch.filename ?? batch.externalRef ?? a.kinds[batch.kind];
 
   return (
@@ -59,6 +63,13 @@ export default async function OnecBatchPage({ params }: Props) {
             <div><dt className="text-muted">{d.created}</dt><dd className="font-medium">{fmtDateTime(locale, batch.createdAt)}</dd></div>
           </dl>
           {batch.error ? <p className="mt-3 text-small text-danger-ink">{batch.error}</p> : null}
+          {docIssues.length > 0 ? (
+            <ul className="mt-3 flex flex-wrap gap-1.5" aria-label={d.docIssues}>
+              {docIssues.map((i, n) => (
+                <li key={`${i.code}-${n}`}><StatusChip tone={i.severity === 'error' ? 'danger' : i.severity === 'warning' ? 'warn' : 'info'}>{issueLabel(ta, i.code)}</StatusChip></li>
+              ))}
+            </ul>
+          ) : null}
         </Card>
         {items.length > 0 ? <StatRow items={items} label={d.counts} /> : null}
         <section aria-labelledby="review-title" className="space-y-3">
