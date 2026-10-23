@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { db } from '@tasnivo/db';
+import { resolveVisibleClient } from './active-client.js';
 import {
   catalogDiff, catalogHeader, catalogListPage, catalogReport, catalogReview, catalogSummary, catalogVersions, reportJson, shareView,
 } from './catalog-pages.js';
