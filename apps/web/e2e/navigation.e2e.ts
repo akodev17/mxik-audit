@@ -67,11 +67,16 @@ describe('query-only navigation', () => {
       },
       select: { id: true },
     });
-    await page.goto(`/catalogs/${second.id}/diff`);
-    const select = main(page).locator('select[name="with"]');
-    await select.waitFor();
-    const box = await select.boundingBox();
-    assert.ok(box && box.width >= 280, `the select is ${box?.width ?? 0} px wide`);
+    try {
+      await page.goto(`/catalogs/${second.id}/diff`);
+      const select = main(page).locator('select[name="with"]');
+      await select.waitFor();
+      const box = await select.boundingBox();
+      assert.ok(box && box.width >= 280, `the select is ${box?.width ?? 0} px wide`);
+    } finally {
+      // The later tests expect the fixture as set up (one catalogue for client B).
+      await db.catalog.delete({ where: { id: second.id } });
+    }
   });
 
   test('B18 one decision, and its undo, move the toolbar\'s problem count and the chips', { timeout: 90_000 }, async () => {
