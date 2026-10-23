@@ -158,7 +158,9 @@ All in `src/ui`. States listed are the ones the dev gallery renders.
 | `LanguageSwitch` | `className` | built on `Segmented`; each name carries its own `lang`; a change reloads the page |
 | `Stepper` | `stages`, `current` | done (good fill, tick), current (brand fill with a tint halo), upcoming (outlined); the connector after a done step is green |
 | `TelegramLogin` | `bot`, `authUrl`, `radius` (8 = the control radius), `className` | Telegram's own iframe button (it cannot be restyled); its 40px height is reserved, so nothing moves when it loads |
-| `AuthLayout` (`auth-layout.tsx`) | `children`, `aside` (false: no brand panel) | auth pages: split on ≥ 1024px (form column ≤ 440px, brand panel), stacked on phones; logo to `/`, language switch, legal links |
+| `AuthLayout` (`auth-layout.tsx`, server) | `children`, `aside` (false: no brand panel), `languageSwitch` | auth pages: split on ≥ 1024px (form column ≤ 440px, brand panel with a CSS-drawn product preview), stacked on phones (form, brand section, footer); logo to `/`, language switch, legal links; renders the `<main>` |
+| `AuthTitle`, `AuthResult`, `AuthDivider`, `AuthSwitch`, `AUTH_FIELD` (`auth-parts.tsx`) | Title: `title`, `lead`; Result: `tone` good · info · danger, `icon`, `title`, `action`, `role` | the pieces auth pages share; `AuthResult` is the "link sent" / "link expired" state (icon tile, title, next step); `AUTH_FIELD` gives fields 16px text on phones |
+| `OtpInput` (`otp-input.tsx`) | `value`, `onChange`, `onComplete`, `length` (6), `digitLabel(n, total)`, `labelledBy`, `describedBy`, `invalid`, `disabled`, `autoFocus`, `name` | one box per digit: typing advances, Backspace goes back, arrows/Home/End move, paste and one-time-code autofill spread over the boxes; a group with a label, each box named "digit n of 6"; posts the joined value under `name` |
 | `CodeChip`, `Sparkline` | unchanged APIs, now token-only | — |
 
 Escape handling is shared: every open overlay registers in a layer stack (`src/ui/layers.ts`) and
