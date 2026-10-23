@@ -30,13 +30,16 @@ describe('demo mode (database)', { skip }, () => {
   });
 
   it('gives each visitor a separate, undecided copy of the template', async () => {
-    const visitsBefore = await db.demoVisit.count();
+    const started = new Date();
     const one = await startDemoSession();
     const two = await startDemoSession();
-    // The durable traction count survives the copies' daily purge.
-    assert.equal(await db.demoVisit.count(), visitsBefore + 2);
+    // Kept first, so the other tests and the cleanup have them even if an assertion below fails (B10).
+    if (one) sessions.push(one);
+    if (two) sessions.push(two);
     assert.ok(one && two);
-    sessions.push(one, two);
+    // The durable traction count survives the copies' daily purge. The table is global and the database
+    // shared, so only visits since this test started are counted, and others may add to them (B10).
+    assert.ok(await db.demoVisit.count({ where: { createdAt: { gte: started } } }) >= 2);
     assert.notEqual(one.orgId, two.orgId);
     assert.ok(await isDemoOrg(one.orgId));
 
