@@ -339,6 +339,8 @@ model User {
   telegramUserId String? @unique
   /// Google account (the ID token's sub) this person signs in with.
   googleSub String? @unique
+  /// Guided tour finished or skipped; null = show it on the next visit.
+  tourCompletedAt DateTime?
   emailCodes EmailCode[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)

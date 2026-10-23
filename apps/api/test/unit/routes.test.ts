@@ -29,8 +29,8 @@ describe('W2a routes in the Swagger document', () => {
   after(() => app.close());
 
   it('has one operation per registry entry, at its method and path, with its operation id', () => {
-    // 53, plus the code step (verifyCode, resendCode) and Google sign-in (google, googleCallback).
-    assert.equal(mine.length, 57);
+    // 53, plus the code step (verifyCode, resendCode), Google sign-in (google, googleCallback) and the tour flag (setTour).
+    assert.equal(mine.length, 58);
     for (const e of mine) {
       const path = expressPath(e.path).replace(/:(\w+)/g, '{$1}');
       const op = doc.paths[path]?.[e.method.toLowerCase() as 'get'];

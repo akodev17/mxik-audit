@@ -6,6 +6,7 @@ import type { LimitKey } from './billing/limits';
 import { unreadCount } from './notifications';
 import { planStatus, type PlanState } from './plan';
 import type { CurrentUser } from './session';
+import { tourState, type TourState } from './tour';
 
 export type ShellFrame = {
   email: string;
@@ -20,6 +21,8 @@ export type ShellFrame = {
   activeClient: { id: string; name: string } | null;
   /** Null when the count could not be read: the bell then shows no number rather than a wrong one. */
   unread: number | null;
+  /** The guided tour: pending until finished or skipped; an unreadable flag counts as done so it never nags. */
+  tour: TourState;
 };
 
 /**
@@ -27,11 +30,12 @@ export type ShellFrame = {
  * 20261105000100 migration backfilled older orgs; uploads create it if still missing), not by this GET.
  */
 export async function shellFrame(user: CurrentUser): Promise<ShellFrame> {
-  const [active, clients, unread, plan] = await Promise.all([
+  const [active, clients, unread, plan, tour] = await Promise.all([
     resolveVisibleClient(user),
     visibleClients(user),
     unreadCount(user).catch(() => null),
     planStatus(user.orgId),
+    tourState(user).catch((): TourState => 'done'),
   ]);
   return {
     email: user.email,
@@ -42,5 +46,6 @@ export async function shellFrame(user: CurrentUser): Promise<ShellFrame> {
     clients: clients.map((c) => ({ id: c.id, name: c.name })),
     activeClient: active ? { id: active.id, name: active.name } : null,
     unread,
+    tour,
   };
 }

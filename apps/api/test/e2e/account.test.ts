@@ -179,6 +179,46 @@ describe('account (database)', { skip }, () => {
     assert.deepEqual([bodyOf(sidebar), setCookies(sidebar)], [{ ok: true }, ['mxik_sidebar=collapsed; Max-Age=31536000; Path=/; SameSite=Lax']]);
   });
 
+  it('PUT /api/account/tour stamps and clears the user\'s tour flag, for every role; a demo is a no-op; 401 without a session', async () => {
+    const u = await fx.user();
+    const cookie = await sessionCookie(u);
+    const flag = async (userId: string) => (await db.user.findUniqueOrThrow({ where: { id: userId } })).tourCompletedAt;
+    const tour = async (c: string) => bodyOf<{ tour: string }>(await call(c).get('/api/shell')).tour;
+    assert.equal(await flag(u.userId), null);
+    assert.equal(await tour(cookie), 'pending');
+
+    const before = Date.now();
+    assert.deepEqual(bodyOf(await call(cookie).put('/api/account/tour').send({ done: true })), { ok: true });
+    assert.ok(((await flag(u.userId))?.getTime() ?? 0) >= before - 1000);
+    assert.equal(await tour(cookie), 'done');
+    assert.deepEqual(bodyOf(await call(cookie).put('/api/account/tour').send({ done: false })), { ok: true });
+    assert.equal(await flag(u.userId), null);
+    assert.equal(await tour(cookie), 'pending');
+
+    // Only the caller's own row changes; viewers take the tour too.
+    const viewer = await fx.member(u, 'viewer');
+    const res = await call(await sessionCookie(viewer)).put('/api/account/tour').send({ done: true });
+    assert.deepEqual([res.status, bodyOf(res)], [200, { ok: true }]);
+    assert.ok(await flag(viewer.userId));
+    assert.equal(await flag(u.userId), null);
+
+    assert.equal((await call(cookie).put('/api/account/tour').send({ done: 'yes' })).status, 400);
+    assert.equal((await call(cookie).put('/api/account/tour').send({})).status, 400);
+    assert.equal((await call().put('/api/account/tour').send({ done: true })).status, 401);
+    assert.equal((await call(cookie).put('/api/account/tour').unset('X-Requested-With').send({ done: true })).status, 403);
+
+    const demo = await fx.user({ kind: 'demo', expiresAt: new Date(Date.now() + 3_600_000) });
+    const demoCookie = await sessionCookie(demo, { demo: true });
+    assert.deepEqual(bodyOf(await call(demoCookie).put('/api/account/tour').send({ done: true })), { ok: true });
+    assert.equal(await flag(demo.userId), null);
+    assert.equal(await tour(demoCookie), 'done');
+    // A demo org is recognised from the database too, whatever the session says.
+    const plain = await sessionCookie(demo);
+    assert.deepEqual(bodyOf(await call(plain).put('/api/account/tour').send({ done: true })), { ok: true });
+    assert.equal(await flag(demo.userId), null);
+    assert.equal(await tour(plain), 'done');
+  });
+
   it('Telegram chats: the list, a link code only while the bot is on, unlink; the webhook is off without a bot', async () => {
     const u = await fx.user();
     const cookie = await sessionCookie(u);
