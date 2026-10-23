@@ -236,3 +236,31 @@ now ──► A1 auth ─────────────┐
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:e2e`, `npm run build`,
   `npm run build:api`, `npm run build:worker` green on `agent4-integration` and again on `main`.
 - QA report PASS; `main` pushed; this file updated with the outcome and the branch map.
+
+## 7. Outcome (23 Oct 2026, evening)
+
+Merged to `main` as `6513ca7` (the programme) and `0359b23` (QA report and baseline), pushed to
+`origin/main`. Branch map and per-session results:
+
+| Agent | Branch | Result file |
+|---|---|---|
+| 1 auth | `claude/agent1-auth-e2dff1` (`ce124a7`) | `docs/bugfix-2026-10-23/agent1-result.md` |
+| 2 discovery → fixes | `claude/agent2-bug-discovery-b07a47` → `agent2-bug-fixes` (`788a4ba`) | `bugs.md`, `agent2-fixes-result.md` |
+| 3 trial quota | `claude/agent3-trial-quota-0abc5f` (`4b054e8`) | `agent3-result.md`, `handoff-agent3.md` |
+| 4 review + integration | `claude/agent4-integration-d41667` (`fb50942`) | `architecture-review.md`, `agent4-integration-result.md` |
+| 5 QA | `claude/agent5-qa-bf5d5e` (`4512c0b`) | `qa-baseline.md`, `qa-checklist.md`, `qa-report.md` (PASS) |
+
+Checks rerun on `main` after the merge: typecheck 0 errors; lint 0 errors (1 pre-existing warning);
+`npm test` 1736 pass / 0 fail / 2 skipped with `REDIS_URL`, and 1725 / 2 / 2 without it where the two
+failures are `demo.test.ts` racing other sessions' servers on the shared database (4/4 when run alone);
+`prisma migrate status` 47 migrations, up to date. e2e was run by Agents 4 and 5 on the same tree
+(58–60 pass; the remaining failures are the dev-server-only `refresh` timing cases that pass on a
+production build).
+
+Not verified, by the owner's decision: real SMTP delivery, Google sign-in against Google, Telegram
+sign-in against Telegram (no credentials were supplied). Covered by the fixture tests and the manual
+steps in `DEPLOY.md` 7c/7d. Open low-severity items from the QA report, for a follow-up: rotate the
+session id when the e-mail code is confirmed (FAIL-1); the sign-up answer reveals whether an address is
+registered (FAIL-2, documented); manual rollback SQL for the three migrations (FAIL-3); the local Google
+redirect URI in `DEPLOY.md` names port 3011 (FAIL-4). Deferred bugs: B9 (not reproduced), B15 (Uzbek-only
+landing and legal pages).
