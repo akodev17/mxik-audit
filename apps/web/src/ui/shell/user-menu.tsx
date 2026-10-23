@@ -73,6 +73,7 @@ export function UserMenu({ email }: { email: string }) {
         aria-expanded={dd.open}
         aria-controls={dd.open ? dd.panelId : undefined}
         aria-label={ta.shellX.user.menu}
+        data-tour="user-menu"
         onClick={() => dd.setOpen(!dd.open)}
         className={`grid size-8 shrink-0 place-items-center rounded-full bg-brand-tint text-small font-semibold text-brand-ink ring-offset-2 ring-offset-base transition-shadow duration-(--duration-fast) hover:ring-2 hover:ring-line-strong ${dd.open ? 'ring-2 ring-brand' : ''}`}
       >

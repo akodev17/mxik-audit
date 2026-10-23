@@ -22,6 +22,7 @@ export function SearchButton({ onOpen, expanded, controls }: { onOpen: () => voi
       aria-controls={controls}
       aria-keyshortcuts="Control+K Meta+K /"
       aria-label={ta.shellX.search.button}
+      data-tour="search"
       className="flex h-control-md shrink-0 items-center gap-2 rounded-ctl border border-transparent px-2 text-data text-muted transition-colors duration-(--duration-fast) hover:bg-surface hover:text-fg xl:w-40 xl:border-line xl:bg-surface xl:px-2.5 xl:hover:border-line-strong 2xl:w-60"
     >
       <IconSearch size={18} className="shrink-0" />
