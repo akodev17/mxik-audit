@@ -67,7 +67,14 @@ lines were decided by rules, so nothing was sent).
 
 ## Verified, and how
 
-- `npm run typecheck`: green. `npm run lint`: see "Checks" below. Tests: see "Checks".
+- **Checks:** `npm run typecheck` green; `npm run lint` green (0 errors; 1 pre-existing warning in
+  `scripts/lib/xlsx.ts`); full `npm test` (1 810 tests, run while other sessions shared the DB):
+  1 804 pass, 2 skipped, 4 failed — `robots.test` B16 (failing since the base commit: the new
+  sections were not disallowed; fixed here in `ff10c54` with Agent 1's identical edit, 2/2 now pass)
+  and three background-job timeouts (`imports` cheque check, `audit-jobs`, `audit-retry-access`:
+  "catalogue still analyzing" / "timed out waiting for the cheque check"), none touching bank code,
+  which pass 11/11 re-run alone with `--test-concurrency=1`. The full suite was not re-run after the
+  robots fix.
 - Domain tests (`packages/domain/src/bank/*.test.ts`, 73 + 12 DB): every fixture end to end (layout,
   header row, two-row header, title block, dropped rows with reasons, values, issues, balance to the
   tiyin, bank totals), normalisation edge cases, layout recognition and the mapping guess, header
