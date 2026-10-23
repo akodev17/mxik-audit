@@ -49,7 +49,8 @@ const DAY_S = 24 * 3600;
 export const JOB_DEFAULTS: Record<QueueName, JobDefaults> = {
   audit: { attempts: 3, backoff: { type: 'exponential', delay: 30_000 }, removeOnComplete: true, removeOnFail: { age: 7 * DAY_S } },
   'doc-check': { attempts: 2, backoff: { type: 'exponential', delay: 30_000 }, removeOnComplete: true, removeOnFail: { age: 7 * DAY_S } },
-  mail: { attempts: 5, backoff: { type: 'exponential', delay: 10_000 }, removeOnComplete: { count: 1000 }, removeOnFail: { age: 7 * DAY_S } },
+  // A mail carries sign-in secrets (reset and confirmation links, codes): nothing sent stays in Redis, a failed one only a day.
+  mail: { attempts: 5, backoff: { type: 'exponential', delay: 10_000 }, removeOnComplete: true, removeOnFail: { age: DAY_S } },
   telegram: { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, removeOnComplete: { count: 1000 }, removeOnFail: { age: 7 * DAY_S } },
   // The update is an hour of downloads and loads; a failure is recorded in its status file and waits for the next day.
   'classifier-update': { attempts: 1, removeOnComplete: { count: 50 }, removeOnFail: { count: 50 } },
