@@ -441,3 +441,83 @@ it); the remaining `app/api/*` route handlers; `instrumentation.ts` (audit resum
 `experimental.serverActions.bodySizeLimit` in `next.config.ts`; `billing.plan` for the layout row
 (the layout reads `/api/shell` instead) and `PREF_COOKIE_OPTIONS`/`readSidebar` in `ui/shell`,
 which nothing calls any more.
+## Wave 4a result: cutover, apps/web is a thin client (23 Oct 2026)
+Branch `claude/w4a-cutover-639ee5`. apps/web imports no `@tasnivo/domain`, `@tasnivo/db` or `@tasnivo/core` outside
+`apps/web/e2e/fixture.ts`, has no server actions and no route handlers, and `apps/web/package.json` lists none of the three.
+- **Deleted:** the last 11 route handlers under `apps/web/src/app/api` (cron daily and classifier-update, health, payments
+  click and payme, telegram webhook, v1 check, catalogs, catalogs/[id]/report, openapi.json) with `lib/api/respond.ts` and
+  the web routes test (the API's own tests cover the same URLs); the audit resume in `instrumentation.ts` (the worker resumes
+  on boot and on its schedule; `onRequestError` stays); `experimental.serverActions.bodySizeLimit` and
+  `serverExternalPackages`; the adapters `lib/session.ts`, `lib/workspace-redirect.ts`, `lib/catalog-page.ts`,
+  `lib/security/redirect.ts`, `lib/demo.ts`, `lib/demo-limits.ts`, the duplicate `lib/catalogs/activity.ts`, the unused
+  `ui/catalog-table.tsx` and `apps/web/eslint.migrated.mjs`. `(app)/upload/progress` was already gone (W3b).
+  `next.config.ts` rewrites `/api/:path*` to `API_INTERNAL_URL` unconditionally (still not when NEXT_PUBLIC_API_URL is set)
+  and transpiles only api-client, contracts and i18n. `lib/locale.ts` already depended only on `@tasnivo/i18n`.
+- **Endpoints:** no new route was needed; two answers grew. `GET /api/config` (account.config) adds `firmPrice` and
+  `closeAfterDays`, so the help articles' live numbers (yordam live-config.tsx) come from the API. `GET /api/findings/{id}`
+  (workspace.rowDetail) adds `labels` (units, packaging, container in the reader's language): `unit-label.ts` moved to
+  packages/domain and the browser no longer needs core's unit tables. Pages moved onto existing endpoints: the activity log
+  (`GET /api/activity`), the legacy `/export` `/report` `/review` redirects (`GET /api/shell` + `GET /api/catalogs`, in
+  `app/workspace-redirect.ts`), not-found and yordam (`auth.me` through `signedIn()`); the dashboard's presentational parts
+  take their types from the `GET /api/dashboard` answer (dashboard-data.ts).
+- **Web-local copies** (pure rules the browser or a server component needs): `lib/pure/work-queue.ts` (dashboard queue,
+  attention reasons, issue shares, URL params), `lib/pure/confidence-labels.ts`, `lib/pure/activity-dates.ts`,
+  `lib/pure/app-url.ts` (sitemap), `SYSTEM_DECISION_ACTIONS` in `lib/workspace-url.ts`; `help.ts` and `request-error-log.ts`
+  moved into the web app outright (nothing else used them), the landing's frozen `sample-report.generated.ts` (and its test)
+  moved next to the landing components (`make:sample-report` writes there). The web security headers copy lives in
+  `packages/contracts/src/security-headers.ts`: next.config.ts cannot import another local .ts file (Next compiles the
+  config alone), only packages.
+- **Drift tests:** the tests that hold a web copy to its domain/core original moved out of apps/web to `tests/web-parity/`
+  (root tsconfig, `npm test` walks `tests/`): pure, catalogs, workspace-url, safe-next, params (dictionary/queue URL readers,
+  WARN_AT, MIN_PASSWORD) and dashboard (work queue, labels, day input, origin, system actions). The security-headers copy is
+  checked in packages/contracts. Domain-only tests that lived in the web app moved to packages/domain (classifier-health,
+  demo-access, unit-label).
+- **Lint:** one `no-restricted-imports` rule in the root `eslint.config.js` for every file of apps/web (src, tests, e2e,
+  next.config.ts; type imports too). The only exception is `apps/web/e2e/fixture.ts`, which writes fixtures into the shared
+  database and re-exports `db` and the domain's test helpers to the `*.e2e.ts` files. `npm run lint` now covers
+  `apps/web/e2e`, `apps/web/next.config.ts` and `tests/` (e2e and next.config without type-aware rules).
+- **Infra:** the web container gets no `.env`, no `DATABASE_URL`, no `./data` (only API_INTERNAL_URL, APP_URL,
+  LEAD_FILE_RETENTION_DAYS); the web image has no Prisma client and no scripts/; Caddy's `API_UPSTREAM` is fixed to api:4000
+  (the web:3000 switch is gone). README, DEPLOY.md, apps/api/README, .env.example, infra/routes.caddy describe the final state.
+- **perf-nav** takes `PERF_CHANNEL` (or `E2E_CHANNEL`) to run in an installed browser.
+
+**Verified (worktree with its own `npm ci`, 23 Oct):**
+- Root `npm run typecheck` and `npm run lint` green (lint: only the known `scripts/lib/xlsx.ts` warning); the ban was
+  checked to fire in src, tests and e2e and not in `e2e/fixture.ts`.
+- `npm test` with `connection_limit=4`: 1573 tests, 1569 pass, 2 skipped, 2 failed in files this wave did not change, both
+  green when rerun alone: `apps/api/test/e2e/imports.test.ts` (the cheque check timed out: the inline jobs with a 4-connection
+  pool, as W3a noted) and `packages/domain/src/demo.test.ts` (a race with `demo-access.test.ts`, which now runs in the same
+  package: both make demo templates and `startDemoSession` can copy the other file's; they pass together on rerun).
+- `npm run build` green; `docker compose build web api worker` green (images mxik-audit-web/api/worker from 6688c0d).
+- e2e on a separate compose project (caddy:2.10 with `infra/Caddyfile.local` on :8080, the three images, redis, the dev
+  database through network mxik-audit_default, `connection_limit=4`; own names and ports because the repo's compose defaults
+  collide with the running dev servers and the old monolith containers), `E2E_CHANNEL=msedge`, the WHOLE suite:
+  first run 55/56: `demo-access` "asks for details" failed because the API runs with `NODE_ENV=production` and no SMTP,
+  where `requestDemoAccess` deliberately answers `unavailable`; with a local SMTP sink in the stack the file passed 5/5.
+  Second full run (same images, SMTP sink) 54/56: `review-assignment` and `review-flow` #13 hit the sign-in rate limit
+  ("Juda koʻp urinish"): behind Caddy every browser has the same client address (Caddy replaces the fixture's per-run
+  `X-Real-IP`, as it must in production), so two full runs back to back exhaust the per-address window; both files passed
+  22/22 when rerun a few minutes later. Every spec file passed on the final images (tests per file): account-flows 4,
+  demo-access 5, dictionary-review 2, empty-states 2, navigation 5, refresh 4, review-assignment 5, review-flow 17,
+  scale 3 (the 3000-row catalogue), settings-nav 5, shell-layout 4 (56 in all).
+- `npm run perf:nav` against the same stack (seed org, Edge headless, 5 passes, dwell 0), appended to
+  docs/perf-nav-results.json as "W4a: Docker images behind Caddy": initial load TTFB 94 ms / FCP 328 ms; header tabs content
+  p50/p95 cold 394/4115 ms, warm 365/2291 ms; workspace open p50 911 ms, filter p50 552 ms; rapid clicks 5/5; heap growth
+  7.4 %. The last runs before (21 Oct, `next start` on 3001 with the monolith, Chromium, another machine) were TTFB 22–31 ms,
+  tabs p50 32–331 ms, workspace open 331–351 ms. Not like for like (containers on Docker Desktop/WSL, Caddy in front, a shared
+  dev database, Edge, no dwell), but the direction is clear: every server render now waits on HTTP calls to the API, and
+  that cost needs measuring on the production server in W4b before anyone tunes it.
+**Not verified here:** HTTPS on tasnivo.uz (the `caddy` service with `infra/Caddyfile`); the `bot` profile; a real
+payment callback; running the e2e suite twice in a row behind Caddy without the rate-limit wait (it needs either a pause
+or the fixture clearing the gateway address's attempt rows).
+
+**For W4b (production deploy on tasnivo.uz):**
+- Follow DEPLOY.md as it stands now; on the old server remove `API_UPSTREAM=web:3000` from `.env` if it was set, and stop the
+  old single-container setup (`mxik-audit-app`, `mxik-audit-scheduler`) as DEPLOY.md "Moving from the single-container setup"
+  says.
+- `SMTP_URL` and `MAIL_FROM` are needed in production: with `NODE_ENV=production` and no mail the API refuses demo requests
+  (`demo-access.ts`, by design); the e2e stack here used a local SMTP sink for that reason.
+- Build the web image with the real `NEXT_PUBLIC_SITE_URL` (sitemap and Open Graph are prerendered with it) and set
+  `APP_URL`; set `NEXT_PUBLIC_SITE_URL` for the API too (it is the only Origin accepted on mutating calls).
+- Backup restore test and a smoke run with a real catalogue, as planned. Also worth a look: the 3000-row e2e catalogue
+  (scale) is the slowest file; the worker throughput is unchanged by this wave.
