@@ -1,0 +1,11 @@
+import { createHmac } from 'node:crypto';
+import { verified, uniq } from './lib.mjs';
+const b32 = (s) => { const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = ''; for (const ch of s.replace(/=+$/, '').toUpperCase()) bits += A.indexOf(ch).toString(2).padStart(5, '0'); const out = []; for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2)); return Buffer.from(out); };
+const totp = (secret, t = Date.now()) => { const c = Buffer.alloc(8); c.writeBigUInt64BE(BigInt(Math.floor(t / 30000))); const h = createHmac('sha1', b32(secret)).update(c).digest(); const o = h[h.length - 1] & 15; return String(((h.readUInt32BE(o) & 0x7fffffff) % 1e6)).padStart(6, '0'); };
+const U = await verified(`a5-2fa-${uniq()}@example.test`, '2fa');
+const s = (await U.call('POST', '/api/auth/2fa/start', {})).data.secret;
+console.log('finish', (await U.call('POST', '/api/auth/2fa/finish', { code: totp(s) })).status);
+console.log('off, same window', JSON.stringify((await U.call('POST', '/api/auth/2fa/off', { code: totp(s) })).data));
+await new Promise((r) => setTimeout(r, 31000));
+console.log('off, next window', JSON.stringify((await U.call('POST', '/api/auth/2fa/off', { code: totp(s) })).data));
+console.log('state', JSON.stringify((await U.call('GET', '/api/auth/2fa')).data).slice(0, 120));
