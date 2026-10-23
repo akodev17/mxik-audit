@@ -1,2 +1,4 @@
 # Golden 1C bank-exchange files are windows-1251 with CRLF line ends: compared byte for byte.
 *.txt -text
+# Golden xlsx cell grids are compared byte for byte: keep LF on every platform.
+*.golden.json -text
