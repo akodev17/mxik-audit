@@ -6,7 +6,8 @@ import { workspaceHref } from './queue-params';
 import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { ButtonLink } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
-import { IconComment } from '@/ui/icons';
+import { cx } from '@/ui/cx';
+import { IconChevron, IconComment } from '@/ui/icons';
 import { suggestionLabel, typeLabels, typeTone } from '@/ui/labels';
 import { Table, Td, Th } from '@/ui/table';
 
@@ -21,9 +22,12 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
   const issue = (r: QueueRow) => {
     const tone = typeTone(r.type, r.severity);
     return (
-      <span className="flex flex-col items-start gap-0.5">
+      <span className="flex flex-col items-start gap-1">
         <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{labels[r.type] ?? r.type}</StatusChip>
-        <span className="text-micro text-muted">{r.severity === 'high' ? q.sevHigh : q.sevMedium}</span>
+        <span className="inline-flex items-center gap-1.5 text-micro text-muted">
+          <span aria-hidden className={cx('size-1.5 rounded-full', r.severity === 'high' ? 'bg-danger' : 'bg-warn')} />
+          {r.severity === 'high' ? q.sevHigh : q.sevMedium}
+        </span>
       </span>
     );
   };
@@ -71,7 +75,7 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
     issue: issue(r),
     current: r.existingMxik ? <CodeChip code={r.existingMxik} /> : null,
     suggestion: suggestion(r),
-    open: <>{q.open}<span className="sr-only">: {q.openLabel(r.clientName, r.rowIndex + 1)}</span></>,
+    open: <>{q.open}<span className="sr-only">: {q.openLabel(r.clientName, r.rowIndex + 1)}</span><IconChevron size={14} /></>,
   }));
 
   return (
@@ -89,7 +93,7 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
           </thead>
           <tbody>
             {items.map(({ r, ...x }) => (
-              <tr key={r.findingId}>
+              <tr key={r.findingId} className="transition-colors duration-(--duration-fast) hover:bg-surface">
                 <Td className="min-w-[14rem] max-w-xs">
                   <Link href={workspaceHref(r)} className="block truncate font-medium hover:text-brand-ink hover:underline" title={r.rawName}>{r.rawName}{x.unit}</Link>
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">{x.where}{x.marks}</span>
@@ -108,17 +112,19 @@ export async function QueueList({ rows }: { rows: QueueRow[] }) {
 
       <ul className="space-y-3 md:hidden">
         {items.map(({ r, ...x }) => (
-          <li key={r.findingId} className="relative rounded-ctl border border-line bg-raised p-3">
-            <p className="font-medium [overflow-wrap:anywhere]">{r.rawName}{x.unit}</p>
-            <p className="mt-0.5">{x.where}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">{x.issue}{x.marks}</div>
-            <dl className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-small">
+          <li key={r.findingId} className="relative space-y-3 rounded-lg border border-line bg-raised p-3">
+            <div>
+              <p className="font-medium [overflow-wrap:anywhere]">{r.rawName}{x.unit}</p>
+              <p className="mt-0.5">{x.where}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">{x.issue}{x.marks}</div>
+            <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 rounded-md bg-surface p-2.5 text-small">
               <dt className="text-muted">{q.colCurrent}</dt>
               <dd className="min-w-0">{x.current ?? <span className="text-muted">{q.noCode}</span>}</dd>
               <dt className="text-muted">{q.colSuggestion}</dt>
               <dd className="min-w-0">{x.suggestion}</dd>
             </dl>
-            <ButtonLink href={workspaceHref(r)} size="sm" variant="secondary" className="mt-3 w-full">{x.open}</ButtonLink>
+            <ButtonLink href={workspaceHref(r)} size="sm" variant="secondary" className="w-full">{x.open}</ButtonLink>
           </li>
         ))}
       </ul>

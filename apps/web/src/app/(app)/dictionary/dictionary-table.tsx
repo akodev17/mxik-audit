@@ -57,6 +57,21 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Accepting an unverified entry is pointing it at the code it already has: one manual confirmation.
+  async function accept(): Promise<void> {
+    setBusy(true);
+    try {
+      const result = await api.dictionary.update({ entryId: row.id, code: row.code });
+      if (!result.ok) { toast(result.error ?? ta.wsX.toast.failed, { tone: 'error' }); return; }
+      toast(ta.wsUi.dict.accepted);
+      refetch();
+    } catch (error) {
+      toast(isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed, { tone: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function save(): Promise<void> {
     const value = code.replace(/\s+/g, '');
     if (!CODE.test(value)) { setError(x.codeFormat); return; }
@@ -76,12 +91,12 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
   }
 
   return (
-    <tr className="hover:bg-surface">
+    <tr className="transition-colors duration-(--duration-fast) hover:bg-surface">
       <Td className="max-w-sm">
         <span className="block truncate font-medium text-fg" title={row.label}>{row.label}</span>
         {row.unit ? <span className="text-micro text-muted">{row.unit}</span> : null}
       </Td>
-      <Td>{row.kind === 'barcode' ? ta.dict.kindBarcode : ta.dict.kindName}</Td>
+      <Td className="whitespace-nowrap text-muted">{row.kind === 'barcode' ? ta.dict.kindBarcode : ta.dict.kindName}</Td>
       <Td className="min-w-56 max-w-sm">
         {editing ? (
           <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
@@ -107,9 +122,14 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
       <Td className="whitespace-nowrap text-muted">{row.updated}</Td>
       <Td>
         {canEdit && !editing ? (
-          <span className="flex justify-end gap-2">
-            <Button size="compact" onClick={() => setEditing(true)} aria-label={`${x.edit}: ${row.label}`}>{x.edit}</Button>
-            <Button size="compact" variant="danger-ghost" onClick={() => setConfirmDelete(true)} aria-label={`${x.delete}: ${row.label}`}>{x.delete}</Button>
+          <span className="flex justify-end gap-1.5">
+            {row.confirmations === 0 && !row.stale ? (
+              <Button size="compact" variant="secondary" loading={busy} onClick={() => { void accept(); }} aria-label={ta.wsUi.dict.acceptLabel(row.label)} title={ta.wsUi.dict.acceptHint}>
+                {ta.wsUi.dict.accept}
+              </Button>
+            ) : null}
+            <Button size="compact" variant={row.stale ? 'secondary' : 'ghost'} disabled={busy} onClick={() => setEditing(true)} aria-label={`${x.edit}: ${row.label}`}>{x.edit}</Button>
+            <Button size="compact" variant="danger-ghost" disabled={busy} onClick={() => setConfirmDelete(true)} aria-label={`${x.delete}: ${row.label}`}>{x.delete}</Button>
           </span>
         ) : null}
         <ConfirmDialog

@@ -6,6 +6,7 @@ import { serverApi } from '@/lib/api/server';
 import { EmptyState } from '@/ui/empty-state';
 import { Page } from '@/ui/page';
 import { readDictParams } from './dictionary-params';
+import { DictionaryExplainer } from './dictionary-explainer';
 import { DictionarySearch } from './dictionary-search';
 import { DictionaryView } from './dictionary-view';
 
@@ -34,6 +35,7 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
 
   return (
     <Page title={ta.dict.title} hint={ta.dict.hint} wide>
+      <DictionaryExplainer admin={user.role === 'admin'} />
       <DictionarySearch initial={q} />
       <DictionaryView key={`${q}|${filter}|${page}`} q={q} filter={filter} page={page} initial={data} editable={user.role !== 'viewer'} />
     </Page>

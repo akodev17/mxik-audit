@@ -10,6 +10,7 @@ import { Button } from '@/ui/button';
 import type { ConfirmResult } from '@/ui/confirm-dialog';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/empty-state';
+import { IconSearch } from '@/ui/icons';
 import { useToast } from '@/ui/toast';
 import { BulkBar } from './bulk-bar';
 import { CardList } from './card-list';
@@ -17,6 +18,7 @@ import { fitLayout } from './columns';
 import { Completion } from './completion';
 import { DrawerResize } from './drawer-resize';
 import { buildEntries, entryId, entryRow, nextPendingIndex } from './entries';
+import { FilterChips } from './filter-chips';
 import { useFilterNav } from './filter-controls';
 import { Grid, type GridHandlers } from './grid';
 import { OnboardingHint } from './onboarding-hint';
@@ -407,7 +409,8 @@ export function Workspace(props: WorkspaceProps) {
     onCheckAll,
     onCancelEdit: () => setEditingId(null),
     onChoose: (row, code, name) => { setEditingId(null); accept(row, { code, name }); },
-  }), [select, accept, reject, pick, undoRow, toggleGroup, decideGroup, loadMore, onCheck, onCheckAll]);
+    onSort: (sort) => go((p) => { if (sort === 'risk') p.delete('sort'); else p.set('sort', sort); }),
+  }), [select, accept, reject, pick, undoRow, toggleGroup, decideGroup, loadMore, onCheck, onCheckAll, go]);
 
   // Keys act on the workspace only: never while typing or on a control that owns its keys, never with modifiers.
   useEffect(() => {
@@ -460,6 +463,7 @@ export function Workspace(props: WorkspaceProps) {
   const narrowed = filter.type !== null || filter.q !== '' || filter.flag !== 'any' || filter.commented || filter.source !== null;
   const showCompletion = allDone && filter.decision === 'pending';
   const drawerOpen = openRow !== null;
+  const bulkOpen = !phone && !readOnly && (selected.size > 0 || allFiltered);
   const style = { '--drawer-width': `${drawerWidth}px` } as CSSProperties;
 
   let body: React.ReactNode;
@@ -467,7 +471,12 @@ export function Workspace(props: WorkspaceProps) {
     body = showCompletion ? null
       : summary.riskyRows === 0 && !filter.type && !filter.q
         ? <EmptyState title={x.empty.clean} hint={x.empty.cleanHint} />
-        : <EmptyState title={x.empty.title} hint={x.empty.hint} action={<Button size="sm" onClick={() => go((p) => { for (const k of ['type', 'q', 'dec', 'flag', 'comments', 'sort', 'source']) p.delete(k); })}>{x.filter.reset}</Button>} />;
+        : (
+          <EmptyState
+            icon={<IconSearch size={20} />} title={x.empty.title} hint={filter.q ? `${ta.wsUi.list.searchFor(filter.q)}. ${x.empty.hint}` : x.empty.hint}
+            action={<Button size="sm" variant="secondary" onClick={() => go((p) => { for (const k of ['type', 'q', 'dec', 'flag', 'comments', 'sort', 'source']) p.delete(k); })}>{x.filter.reset}</Button>}
+          />
+        );
   } else if (phone) {
     body = (
       <CardList
@@ -480,8 +489,9 @@ export function Workspace(props: WorkspaceProps) {
   } else {
     body = (
       <Grid
-        entries={entries} total={grouped ? null : filterCount} activeIndex={activeIndex} compact={compact} expanded={expanded}
-        hasMore={next !== null && !loadFailed} scrollEl={scrollEl} gridRef={gridRef} handlers={handlers} readOnly={readOnly}
+        entries={entries} total={grouped ? null : filterCount} found={filterCount} activeIndex={activeIndex} compact={compact} expanded={expanded}
+        hasMore={next !== null && !loadFailed} ended={next === null} sort={filter.sort}
+        scrollEl={scrollEl} gridRef={gridRef} handlers={handlers} readOnly={readOnly}
         selected={selected} allChecked={allChecked} editingId={editingId} layout={layout}
       />
     );
@@ -490,7 +500,7 @@ export function Workspace(props: WorkspaceProps) {
   return (
     <div ref={rootRef} style={style} className="relative flex min-h-0 flex-1 flex-col">
       <div aria-live="polite" className="sr-only">{message}</div>
-      <SummaryStrip summary={summary} chips={chips} reviewedDelta={delta} activeType={filter.type} />
+      <SummaryStrip summary={summary} reviewedDelta={delta} />
       {showCompletion ? (
         <Completion
           catalogId={catalogId} clientId={props.clientId} findings={summary.riskyFindings} exportLocked={props.exportLocked}
@@ -504,28 +514,29 @@ export function Workspace(props: WorkspaceProps) {
         onCompact={setDensity} onGrouped={setGrouped} onHidden={setColumns} onApplyView={applyView}
         onAcceptSure={() => setSureOpen(true)} onAcceptDictionary={() => { void acceptDict(); }} onHelp={() => setHelpOpen(true)}
       />
-      {!phone && !readOnly && (selected.size > 0 || allFiltered) ? (
-        <BulkBar
-          catalogId={catalogId} filter={filter}
-          count={allFiltered ? filterCount : selected.size}
-          ids={selectedIds} everyLoaded={allChecked && selected.size > 1}
-          filterTotal={allChecked && filterCount > selected.size ? filterCount : null} allFiltered={allFiltered} busy={bulkBusy}
-          onSelectFiltered={() => setAllFiltered(true)}
-          onClear={() => { setSelected(new Set()); setAllFiltered(false); }}
-          onRun={runBulk}
-        />
-      ) : null}
-      <div
-        ref={setScrollEl}
-        className={cx('relative md:min-h-0 md:flex-1 md:overflow-auto', drawerOpen && 'lg:mr-(--drawer-width)')}
-      >
-        {body}
-        {next !== null && !loadFailed && entries.length > 0 ? <p className="sr-only">{x.load.more}</p> : null}
-        {loadFailed ? (
-          <div role="alert" className="flex flex-wrap items-center justify-center gap-3 border-t border-line p-4 text-small">
-            <span className="text-danger-ink">{x.load.failed} {x.load.failedHint}</span>
-            <Button size="sm" onClick={() => { void loadMore(); }}>{x.load.retry}</Button>
-          </div>
+      <FilterChips summary={summary} chips={chips} filter={filter} />
+      <div className={cx('relative flex flex-col md:min-h-0 md:flex-1', drawerOpen && 'lg:mr-(--drawer-width)')}>
+        {/* While the bulk bar floats over the grid, the list can scroll its last rows above it. */}
+        <div ref={setScrollEl} className={cx('relative md:min-h-0 md:flex-1 md:overflow-auto', bulkOpen && 'pb-24')}>
+          {body}
+          {next !== null && !loadFailed && entries.length > 0 ? <p className="sr-only">{x.load.more}</p> : null}
+          {loadFailed ? (
+            <div role="alert" className="flex flex-wrap items-center justify-center gap-3 border-t border-line p-4 text-small">
+              <span className="text-danger-ink">{x.load.failed} {x.load.failedHint}</span>
+              <Button size="sm" onClick={() => { void loadMore(); }}>{x.load.retry}</Button>
+            </div>
+          ) : null}
+        </div>
+        {bulkOpen ? (
+          <BulkBar
+            catalogId={catalogId} filter={filter}
+            count={allFiltered ? filterCount : selected.size}
+            ids={selectedIds} everyLoaded={allChecked && selected.size > 1}
+            filterTotal={allChecked && filterCount > selected.size ? filterCount : null} allFiltered={allFiltered} busy={bulkBusy}
+            onSelectFiltered={() => setAllFiltered(true)}
+            onClear={() => { setSelected(new Set()); setAllFiltered(false); }}
+            onRun={runBulk}
+          />
         ) : null}
       </div>
       <ShortcutHint suppressed={tips} touch={touch || phone} onHelp={() => setHelpOpen(true)} />

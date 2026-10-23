@@ -47,7 +47,7 @@ export function WsSearch({ value, inputRef }: { value: string; inputRef: RefObje
   });
 
   return (
-    <form role="search" className="relative w-full md:w-60" onSubmit={(e) => { e.preventDefault(); push(text); }}>
+    <form role="search" className="relative w-full md:w-56" onSubmit={(e) => { e.preventDefault(); push(text); }}>
       <IconSearch size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
       <Input
         ref={(el) => { local.current = el; inputRef.current = el; }}

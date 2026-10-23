@@ -5,6 +5,8 @@ import { useI18n } from '@/lib/locale-client';
 import type { GridRow } from './ws-types';
 import { StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
+import { cx } from '@/ui/cx';
+import { IconCheck, IconX } from '@/ui/icons';
 import { decisionText } from './ws-text';
 
 export type DecisionHandlers = {
@@ -23,12 +25,17 @@ type Props = DecisionHandlers & {
   prominent?: boolean;
 };
 
+// Grid rows: two slots of fixed width, so every row's buttons line up and nothing moves when a
+// row is hovered, becomes active or is decided (the state takes the first slot, undo the second).
+const SLOT_MAIN = 'w-[6.75rem]';
+const SLOT_SIDE = 'w-[5.75rem]';
+
 /** The row's decision controls: what accepting means depends on the check (take the suggestion, confirm the code, or pick one). */
 export function DecisionCell({ row, readOnly, size = 'compact', prominent = false, onAccept, onReject, onPick, onUndo }: Props) {
   const { ta } = useI18n();
   const a = ta.wsX.act;
   const stop = (e: React.MouseEvent): void => e.stopPropagation();
-  const variant = prominent ? 'primary' : 'secondary';
+  const grid = !prominent && size === 'compact';
 
   if (row.decision === 'pending') {
     if (readOnly) {
@@ -39,28 +46,44 @@ export function DecisionCell({ row, readOnly, size = 'compact', prominent = fals
         </span>
       );
     }
+    const variant = prominent ? 'primary' : 'secondary';
+    const main = cx(grid && SLOT_MAIN, prominent && 'min-w-32');
     const primary = row.mode === 'suggest'
-      ? <Button size={size} variant={variant} onClick={onAccept} title={a.acceptHint}>{a.accept}</Button>
+      ? <Button size={size} variant={variant} className={main} onClick={onAccept} title={a.acceptHint}>{a.accept}</Button>
       : row.mode === 'confirm'
-        ? <Button size={size} variant={variant} onClick={onAccept} title={a.confirmHint}>{a.confirm}</Button>
-        : <Button size={size} variant={variant} onClick={onPick}>{a.pick}</Button>;
+        ? <Button size={size} variant={variant} className={main} onClick={onAccept} title={a.confirmHint}>{a.confirm}</Button>
+        : <Button size={size} variant={variant} className={main} onClick={onPick}>{a.pick}</Button>;
     return (
       <span className="flex items-center gap-1.5" onClick={stop}>
         {primary}
-        <Button size={size} variant="ghost" onClick={onReject} title={a.rejectHint}>{a.reject}</Button>
+        <Button size={size} variant={prominent ? 'secondary' : 'ghost'} className={cx(grid && SLOT_SIDE)} onClick={onReject} title={a.rejectHint}>{a.reject}</Button>
       </span>
     );
   }
 
-  const tone = row.decision === 'accepted' ? 'good' : 'neutral';
+  const accepted = row.decision === 'accepted';
   const auto = isAutomatic(row.decisionSource);
+  const text = decisionText(row, ta);
+  if (grid) {
+    // One line that never wraps: the state shortens with an ellipsis (full text in its title).
+    return (
+      <span className="flex min-w-0 flex-nowrap items-center gap-1.5" onClick={stop}>
+        <span className={cx('flex min-w-0 items-center gap-1.5 text-small font-medium', SLOT_MAIN, accepted ? 'text-good-ink' : 'text-muted')} title={text}>
+          {accepted ? <IconCheck size={14} className="shrink-0" /> : <IconX size={14} className="shrink-0" />}
+          <span className="min-w-0 truncate">{text}</span>
+        </span>
+        {auto && row.decisionSource ? <span className="sr-only">{ta.matchX.decisionSource[row.decisionSource]}</span> : null}
+        {readOnly ? null : <Button size={size} variant="ghost" onClick={onUndo} title={a.changeHint} className={SLOT_SIDE}>{a.undo}</Button>}
+      </span>
+    );
+  }
+
+  const tone = accepted ? 'good' : 'neutral';
   return (
-    // A grid row has a fixed height, so the compact form is one line that never wraps: the chip gives
-    // way (its label ends in an ellipsis, the full text in its title) and the button keeps its size.
-    // The drawer (prominent) has room for the wrapping layout and the source note.
+    // The drawer (prominent) and the phone cards have room for the wrapping layout and the source note.
     <span className={prominent ? 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5' : 'flex min-w-0 flex-nowrap items-center gap-1.5'} onClick={stop}>
       <span className="min-w-0">
-        <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />} title={decisionText(row, ta)}>{decisionText(row, ta)}</StatusChip>
+        <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />} title={text}>{text}</StatusChip>
       </span>
       {auto && row.decisionSource
         ? <span className={prominent ? 'text-micro text-muted' : 'sr-only'}>{ta.matchX.decisionSource[row.decisionSource]}</span>

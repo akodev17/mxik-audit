@@ -1,16 +1,15 @@
 'use client';
 
 import type { RefObject } from 'react';
-import { decisionSourceLabel } from '@/lib/workspace-url';
 import { useI18n } from '@/lib/locale-client';
 import type { OptionalColumn, ViewParams, WsFilter } from '@/lib/workspace-url';
 import { Button } from '@/ui/button';
 import { IconButton } from '@/ui/icon-button';
-import { IconX } from '@/ui/icons';
+import { IconCheck } from '@/ui/icons';
 import { Kbd } from '@/ui/kbd';
 import { Popover } from '@/ui/popover';
 import { ColumnsMenu } from './columns-menu';
-import { activeFilters, FilterControls, useFilterNav, type FilterField } from './filter-controls';
+import { activeFilters, FilterControls, type FilterField } from './filter-controls';
 import { ViewsMenu } from './views-menu';
 import { WsSearch } from './ws-search';
 import { count } from './ws-text';
@@ -43,11 +42,14 @@ type Props = {
 /** Less used filters sit behind one button on desktop, so the toolbar stays one line on a laptop. */
 const MORE: readonly FilterField[] = ['flag', 'sort', 'commented'];
 
-/** Search, filters, saved views, layout and the catalogue-wide accept buttons for the grid below. */
+/**
+ * One 40px line over the grid: what the list holds, search, the decision filter and the rest of the
+ * filters on the left; the catalogue-wide accept buttons, saved views, table settings and the
+ * shortcut list on the right. Every control is 32px high. Active filters show as chips below it.
+ */
 export function Toolbar(p: Props) {
   const { ta, locale } = useI18n();
   const x = ta.wsX;
-  const go = useFilterNav();
   const { filter } = p;
   const current: ViewParams = {
     type: filter.type, q: filter.q, pending: filter.decision === 'pending', decision: filter.decision, flag: filter.flag,
@@ -59,56 +61,53 @@ export function Toolbar(p: Props) {
   const filters = (fields?: readonly FilterField[]) => {
     const n = activeFilters(filter, fields);
     return (
-      <Popover label={n > 0 ? x.filter.active(n) : x.filter.button} title={x.filter.button} size="sm" panelClassName="w-[min(20rem,calc(100vw-2rem))]">
+      <Popover label={n > 0 ? x.filter.active(n) : x.filter.button} title={x.filter.button} size="sm" variant={n > 0 ? 'secondary' : 'ghost'} panelClassName="w-[min(20rem,calc(100vw-2rem))]">
         <FilterControls filter={filter} stacked fields={fields} />
       </Popover>
     );
   };
-  const source = filter.source ? (
-    <span className="inline-flex h-7 max-w-full items-center gap-1 rounded-full bg-brand-tint pl-3 pr-1 text-small text-brand-ink">
-      <span className="truncate">{x.filter.source(decisionSourceLabel(filter.source, ta))}</span>
-      <IconButton size="compact" label={x.filter.clearSource} icon={<IconX size={14} />} onClick={() => go((q) => q.delete('source'))} />
-    </span>
-  ) : null;
   const accepts = p.readOnly ? null : (
     <>
       {p.dictionaryPending === 0 ? null : (
-        <Button size="sm" variant="secondary" className="max-w-full" disabled={p.busy} onClick={p.onAcceptDictionary} title={dictLabel}>
+        <Button size="sm" variant="secondary" className="min-w-0 max-w-full" disabled={p.busy} onClick={p.onAcceptDictionary} title={dictLabel}>
           <span className="min-w-0 truncate">{dictLabel}</span>
         </Button>
       )}
-      <Button size="sm" variant="secondary" className="max-w-full" disabled={p.busy || p.surePending === 0} onClick={p.onAcceptSure} title={sureLabel}>
-        <span className="min-w-0 truncate">{sureLabel}</span>
+      <Button size="sm" variant="secondary" className="min-w-0 max-w-full" disabled={p.busy || p.surePending === 0} onClick={p.onAcceptSure} title={sureLabel}>
+        <IconCheck size={14} className="shrink-0 text-good-ink" />
+        <span className="min-w-0 truncate">{p.surePending === 0 ? sureLabel : count(locale, ta.wsUi.sureShort, p.surePending)}</span>
       </Button>
     </>
   );
-  const findings = <span className="shrink-0 text-small font-medium text-fg" aria-live="polite">{count(locale, x.count.findings, p.count)}</span>;
+  const findings = <span className="shrink-0 text-small font-semibold tabular-nums text-fg" aria-live="polite">{count(locale, x.count.findings, p.count)}</span>;
 
   if (p.phone) {
     return (
       <div className="no-print space-y-2 border-b border-line px-4 py-2">
+        <WsSearch value={filter.q} inputRef={p.searchRef} />
         <div className="flex flex-wrap items-center gap-2">
           {findings}
-          {filters()}
-          <span className="ml-auto"><ViewsMenu current={current} saveBlocked={p.saveBlocked} onApply={p.onApplyView} /></span>
+          <span className="ml-auto flex items-center gap-2">
+            {filters()}
+            <ViewsMenu current={current} saveBlocked={p.saveBlocked} onApply={p.onApplyView} />
+          </span>
         </div>
-        <WsSearch value={filter.q} inputRef={p.searchRef} />
-        {source}
         {accepts ? <div className="flex flex-wrap items-center gap-2">{accepts}</div> : null}
       </div>
     );
   }
 
   return (
-    <div className="no-print flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 md:gap-3 md:px-5">
+    <div className="no-print flex min-h-12 flex-wrap items-center gap-x-2 gap-y-2 border-b border-line px-4 py-2 md:px-5">
       {findings}
+      <span aria-hidden className="mx-1 h-5 w-px bg-line" />
       <WsSearch value={filter.q} inputRef={p.searchRef} />
-      {source}
       <FilterControls filter={filter} stacked={false} fields={['decision']} />
       {filters(MORE)}
-      {accepts}
       {p.grouped && p.partialGroups ? <span className="text-micro text-muted">{x.group.loadedOnly}</span> : null}
-      <div className="ml-auto flex flex-wrap items-center gap-2">
+      <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {accepts}
+        {accepts ? <span aria-hidden className="mx-1 hidden h-5 w-px bg-line lg:block" /> : null}
         <ViewsMenu current={current} saveBlocked={p.saveBlocked} onApply={p.onApplyView} />
         <ColumnsMenu hidden={p.hidden} compact={p.compact} grouped={p.grouped} onHidden={p.onHidden} onCompact={p.onCompact} onGrouped={p.onGrouped} />
         {p.touch ? null : (

@@ -8,9 +8,10 @@ import { StatusChip, StatusIcon } from '@/ui/badge';
 import { cx } from '@/ui/cx';
 import { typeLabels, typeTone } from '@/ui/labels';
 import { CodeCell } from './code-cell';
+import { ACTIVE_EDGE } from './grid-row';
 import { DecisionCell } from './decision-cell';
-import { MatchChip } from './match-chip';
-import { SuggestionCell } from './suggestion-cell';
+import { ConfidenceMeter } from './confidence-meter';
+import { showsMatch, SuggestionCell } from './suggestion-cell';
 
 type Props = {
   rows: GridRow[];
@@ -71,7 +72,6 @@ export function CardList({ rows, activeId, hasMore, readOnly, onOpen, onAccept, 
         const row = rows[v.index];
         if (!row) return null;
         const tone = typeTone(row.type, row.severity);
-        const suggests = row.mode === 'suggest' || (row.decision !== 'pending' && !row.noSuggestion && row.mode !== 'confirm' && row.suggestedMxik !== null);
         return (
           <div
             key={v.key} ref={virtualizer.measureElement} data-index={v.index} role="listitem"
@@ -80,16 +80,19 @@ export function CardList({ rows, activeId, hasMore, readOnly, onOpen, onAccept, 
           >
             <article
               onClick={() => onOpen(row)}
-              className={cx('space-y-2 rounded-lg border bg-raised p-3', row.findingId === activeId ? 'border-brand' : 'border-line')}
+              className={cx('space-y-3 rounded-lg border bg-raised p-3', row.findingId === activeId ? cx('border-brand', ACTIVE_EDGE) : 'border-line')}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-small tabular-nums text-muted">#{row.rowIndex + 1}</span>
-                <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{typeLabels(t)[row.type] ?? row.type}</StatusChip>
+              <div className="flex items-start justify-between gap-3">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(row); }} className={cx('line-clamp-3 min-w-0 break-words text-left', row.decision === 'pending' ? 'font-medium text-fg' : 'text-muted')}>
+                  {row.productName}
+                </button>
+                <span className="shrink-0 pt-0.5 text-small tabular-nums text-muted">#{row.rowIndex + 1}</span>
               </div>
-              <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(row); }} className="line-clamp-3 w-full break-words text-left font-medium text-fg">
-                {row.productName}
-              </button>
-              <dl className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusChip tone={tone} icon={<StatusIcon tone={tone} size={12} />}>{typeLabels(t)[row.type] ?? row.type}</StatusChip>
+                {row.unit ? <span className="text-micro text-muted">{row.unit}</span> : null}
+              </div>
+              <dl className="grid grid-cols-1 gap-2 rounded-md bg-surface p-2.5 min-[420px]:grid-cols-2">
                 <div className="min-w-0">
                   <dt className="text-micro text-muted">{x.col.current}</dt>
                   <dd><CodeCell code={row.currentMxik} name={row.currentName} state={row.currentState} empty={x.noCode} compact={false} /></dd>
@@ -100,7 +103,7 @@ export function CardList({ rows, activeId, hasMore, readOnly, onOpen, onAccept, 
                 </div>
               </dl>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <MatchChip confidence={row.confidence} stage={row.stage} show={suggests} />
+                <ConfidenceMeter confidence={row.confidence} stage={row.stage} show={showsMatch(row)} />
                 <DecisionCell
                   row={row} readOnly={readOnly} size="sm"
                   onAccept={() => onAccept(row)} onReject={() => onReject(row)} onPick={() => onOpen(row)} onUndo={() => onUndo(row)}
