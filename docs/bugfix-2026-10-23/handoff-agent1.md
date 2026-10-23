@@ -16,6 +16,3 @@ another session. Not fixed on `agent1-auth`.
    call gets 403 `unverified` shows its generic error instead. Only reachable if a session loses
    its confirmation while a page is open (it cannot today), so low priority; a global
    `QueryCache.onError` that sends `unverified` to `/sign-up/verify` would close it.
-3. **A new account starts with "Mijozlar 1 / 3"** in Settings → Tarif (one client already counted)
-   right after sign-up, before the user added any client. Probably a default client created at
-   first page load; worth a look by Agent 3 (clients limit) to confirm it is intended.
