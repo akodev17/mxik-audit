@@ -28,6 +28,7 @@ export const uz = {
       verify: 'Tasdiqlash havolasi yaroqsiz yoki muddati tugagan. Elektron pochta va parolni kiriting va “Tasdiqlash havolasini qayta yuborish” tugmasini bosing.',
       telegram_unbound: 'Bu Telegram hisobi kirish uchun hech bir foydalanuvchiga ulanmagan. Elektron pochta va parol bilan kiring, soʻng Sozlamalar → Xavfsizlik boʻlimida Telegramni ulang.',
       telegram_expired: 'Telegram maʼlumotlari eskirgan yoki allaqachon ishlatilgan. Telegram tugmasini qayta bosing.',
+      telegram_invalid: 'Telegram maʼlumotlarini tekshirib boʻlmadi. Telegram tugmasini qayta bosing; takrorlansa, elektron pochta va parol bilan kiring.',
       telegram_limit: 'Juda koʻp urinish. Birozdan soʻng qayta urinib koʻring.',
     } as Record<string, string>,
     info: {
@@ -113,6 +114,7 @@ export const ru: typeof uz = {
       verify: 'Ссылка подтверждения недействительна или устарела. Введите почту и пароль и нажмите «Отправить ссылку подтверждения ещё раз».',
       telegram_unbound: 'Этот аккаунт Telegram не привязан для входа ни к одному пользователю. Войдите по почте и паролю, затем привяжите Telegram в разделе Настройки → Безопасность.',
       telegram_expired: 'Данные Telegram устарели или уже использованы. Нажмите кнопку Telegram ещё раз.',
+      telegram_invalid: 'Не удалось проверить данные Telegram. Нажмите кнопку Telegram ещё раз; если не поможет, войдите по почте и паролю.',
       telegram_limit: 'Слишком много попыток. Повторите немного позже.',
     },
     info: {

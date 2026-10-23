@@ -186,7 +186,7 @@ describe('auth: security settings and Telegram sign-in (database)', { skip }, ()
       const replay = await call().get(`/api/auth/telegram?${query(data)}`);
       assert.equal(replay.headers['location'], '/sign-in?error=telegram_expired');
       const unsigned = await call().get(`/api/auth/telegram?${query({ ...telegramData(id), hash: 'ab'.repeat(32) })}`);
-      assert.equal(unsigned.headers['location'], '/sign-in?error=telegram_expired');
+      assert.equal(unsigned.headers['location'], '/sign-in?error=telegram_invalid');
       const notification = await call().get(`/api/auth/telegram?${query(telegramData(chat))}`);
       assert.equal(notification.headers['location'], '/sign-in?error=telegram_unbound');
     });

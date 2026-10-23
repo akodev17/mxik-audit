@@ -10,16 +10,23 @@ export const MAX_AGE_SECONDS = 5 * 60;
 /** Tolerated clock difference for data dated slightly in the future. */
 const MAX_SKEW_SECONDS = 60;
 
-/** True when the data was signed by Telegram for this bot token and is recent. */
-export function verifyTelegramLogin(data: TelegramLoginData, botToken: string, now = Date.now()): boolean {
+/** 'invalid': not signed by Telegram for this bot token (missing fields, a forged or changed payload); 'expired': signed but too old (or dated ahead). */
+export type TelegramLoginCheck = 'ok' | 'invalid' | 'expired';
+
+export function checkTelegramLogin(data: TelegramLoginData, botToken: string, now = Date.now()): TelegramLoginCheck {
   const { hash, ...rest } = data;
-  if (!hash || !rest['id'] || !rest['auth_date']) return false;
+  if (!hash || !rest['id'] || !rest['auth_date']) return 'invalid';
   const check = Object.keys(rest).sort().map((k) => `${k}=${rest[k] ?? ''}`).join('\n');
   const secret = createHash('sha256').update(botToken).digest();
   const expected = createHmac('sha256', secret).update(check).digest('hex');
   const a = Buffer.from(hash, 'hex');
   const b = Buffer.from(expected, 'hex');
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return 'invalid';
   const age = now / 1000 - Number(rest['auth_date']);
-  return Number.isFinite(age) && age <= MAX_AGE_SECONDS && age >= -MAX_SKEW_SECONDS;
+  return Number.isFinite(age) && age <= MAX_AGE_SECONDS && age >= -MAX_SKEW_SECONDS ? 'ok' : 'expired';
+}
+
+/** True when the data was signed by Telegram for this bot token and is recent. */
+export function verifyTelegramLogin(data: TelegramLoginData, botToken: string, now = Date.now()): boolean {
+  return checkTelegramLogin(data, botToken, now) === 'ok';
 }
