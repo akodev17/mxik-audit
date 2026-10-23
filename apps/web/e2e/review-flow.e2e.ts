@@ -254,6 +254,7 @@ describe('review flow: one firm from sign-in to export and re-upload', () => {
     );
     await main(page).getByRole('button', { name: m.next, exact: true }).click();
 
+    // B7: exact, or it also matches the h3 "Keyin nima boʻladi" (importX.done.whatNext).
     await main(page).getByRole('heading', { name: TA.importX.confirm.title, exact: true }).waitFor();
     const text = await mainText(page);
     assert.ok(plainNumbers(text).includes(plainNumbers(TA.importX.confirm.rows(V1.length))), 'confirm step says how many rows will be checked');
