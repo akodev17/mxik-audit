@@ -17,6 +17,15 @@ export async function rowsUsed(orgId: string, now = new Date(), tx: Ledger = db)
   return sum._sum.amount ?? 0;
 }
 
+/**
+ * Queues an org's capped writes (catalogue rows, clients, seats) on one transaction-scoped advisory
+ * lock, so two requests at once cannot both read the same count and together pass a plan cap. Take
+ * it inside the transaction that writes, then count, then refuse or write.
+ */
+export async function lockOrgUsage(tx: Pick<Prisma.TransactionClient, '$executeRaw'>, orgId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('usage_ledger'), hashtext(${orgId}))`;
+}
+
 /** Refused inside the commit's transaction: the rows would pass the monthly cap. */
 export class OverAllowance extends Error {
   constructor() { super('over_allowance'); }
@@ -33,7 +42,7 @@ export async function consumeRows(
   entry: { orgId: string; catalogId: string; amount: number; cap: number | null; now?: Date },
 ): Promise<void> {
   const now = entry.now ?? new Date();
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('usage_ledger'), hashtext(${entry.orgId}))`;
+  await lockOrgUsage(tx, entry.orgId);
   const already = await tx.usageLedger.findUnique({ where: { catalogId_key: { catalogId: entry.catalogId, key: ROWS } }, select: { id: true } });
   if (already) return;
   if (entry.cap !== null && (await rowsUsed(entry.orgId, now, tx)) + entry.amount > entry.cap) throw new OverAllowance();

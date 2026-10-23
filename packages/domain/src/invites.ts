@@ -11,6 +11,7 @@ import { hashPassword } from './password';
 import { MIN_PASSWORD } from './security/password-check';
 import { emailAcceptable } from './security/reserved-email';
 import { sendVerification } from './security/verification';
+import { lockOrgUsage } from './usage-ledger';
 import type { Role } from './session';
 
 export const INVITE_DAYS = 7;
@@ -18,7 +19,7 @@ const hash = (token: string): string => createHash('sha256').update(token).diges
 
 type Actor = { userId: string; orgId: string };
 
-export type InviteRefusal = 'forbidden' | 'demo' | 'bad_clients';
+export type InviteRefusal = 'forbidden' | 'demo' | 'bad_clients' | 'seats';
 
 /** Thrown for an invite the server action should already have stopped. */
 export class InviteRefused extends Error {
@@ -36,8 +37,13 @@ async function activeClientIds(orgId: string, ids: readonly string[]): Promise<s
 }
 
 /** Admins of a real (non-demo, open) org only; throws InviteRefused otherwise. */
+/**
+ * With `seatCap` (the plan's seats limit; null = uncapped) members plus open invites are counted
+ * under the org's usage lock in the transaction that adds the invite, so parallel invites cannot
+ * pass the cap: InviteRefused('seats').
+ */
 export async function createInvite(
-  actor: Actor, input: { email: string | null; role: Role; clientIds: string[]; locale?: Locale },
+  actor: Actor, input: { email: string | null; role: Role; clientIds: string[]; locale?: Locale }, seatCap: number | null = null,
 ): Promise<{ url: string; emailed: boolean }> {
   if (!(await isOrgAdmin(actor.orgId, actor.userId))) throw new InviteRefused('forbidden');
   const org = await db.organization.findUnique({ where: { id: actor.orgId }, select: { name: true, kind: true, deletedAt: true } });
@@ -47,11 +53,21 @@ export async function createInvite(
   const owned = await activeClientIds(actor.orgId, input.clientIds);
   if (!owned) throw new InviteRefused('bad_clients');
   const token = randomBytes(24).toString('base64url');
-  await db.invite.create({
-    data: {
-      orgId: actor.orgId, tokenHash: hash(token), email: input.email, role: input.role, clientIds: owned,
-      createdBy: actor.userId, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000),
-    },
+  await db.$transaction(async (tx) => {
+    if (seatCap !== null) {
+      await lockOrgUsage(tx, actor.orgId);
+      const [users, invites] = await Promise.all([
+        tx.user.count({ where: { orgId: actor.orgId } }),
+        tx.invite.count({ where: { orgId: actor.orgId, usedAt: null, expiresAt: { gt: new Date() } } }),
+      ]);
+      if (users + invites >= seatCap) throw new InviteRefused('seats');
+    }
+    await tx.invite.create({
+      data: {
+        orgId: actor.orgId, tokenHash: hash(token), email: input.email, role: input.role, clientIds: owned,
+        createdBy: actor.userId, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000),
+      },
+    });
   });
   await db.auditEvent.create({
     data: { orgId: actor.orgId, actorId: actor.userId, action: 'team.invited', payload: { role: input.role, email: input.email, clients: owned.length } },
