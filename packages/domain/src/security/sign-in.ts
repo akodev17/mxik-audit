@@ -2,8 +2,8 @@
 // A user with two-factor on is held in a pending state until the code is entered.
 //
 // Framework-free: the caller hands over the unsealed cookie as a `SignInSession` (its fields plus a
-// `save` that writes the cookie back) and the request's user agent. The web app passes iron-session's
-// session object (apps/web/src/lib/security/sign-in.ts); the API passes its own cookie writer.
+// `save` that writes the cookie back) and the request's user agent. The API passes its cookie
+// writer (apps/api/src/auth-core/session.service.ts, forSignIn).
 import { db } from '@tasnivo/db';
 import type { SessionData } from '../session';
 import { createRecord, endRecord } from './session-store.js';

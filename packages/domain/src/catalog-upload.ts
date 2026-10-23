@@ -27,11 +27,6 @@ import { discardUpload as discardStored, uploadPreview, type UploadPreview } fro
 /** An uploaded file as either side receives it: the web's File, the API's multipart part. */
 export type UploadedFile = { name: string; size: number; read: () => Promise<Buffer> };
 
-/** A FormData entry as an UploadedFile; null when it is not a file. */
-export function formFile(value: unknown): UploadedFile | null {
-  return value instanceof File ? { name: value.name, size: value.size, read: async () => Buffer.from(await value.arrayBuffer()) } : null;
-}
-
 type Writer = CurrentUser | null;
 
 const allowed = (user: Writer): user is CurrentUser => user !== null && canWrite(user);
