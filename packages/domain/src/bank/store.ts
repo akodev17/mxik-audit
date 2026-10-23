@@ -321,8 +321,8 @@ export const approvedWhere = (batchId: string): Prisma.ImportRecordWhereInput =>
 });
 
 /**
- * Recounts the batch's records by status, and moves the batch between `review` and `approved`
- * (every line approved, skipped or exported). An `exported` batch stays exported.
+ * Recounts the batch's records by status and sets the batch's state: `exported` once every line is
+ * exported or skipped, `approved` when every open line is approved, else `review`.
  */
 export async function recount(batchId: string): Promise<BankCounts> {
   const [groups, approved, batch] = await Promise.all([
@@ -338,7 +338,11 @@ export async function recount(batchId: string): Promise<BankCounts> {
   counts.approved = approved;
   const open = counts.total - counts.skipped - counts.exported - approved;
   let status = batch?.status;
-  if (status === 'review' || status === 'approved') status = open === 0 && approved > 0 ? 'approved' : 'review';
+  // The 1C layer marks a batch exported on any export; a statement is exported only once nothing is left to send.
+  if (status === 'review' || status === 'approved' || status === 'exported') {
+    if (counts.exported > 0 && open === 0 && approved === 0) status = 'exported';
+    else status = open === 0 && approved > 0 ? 'approved' : 'review';
+  }
   await db.importBatch.update({ where: { id: batchId }, data: { counts: json(counts), ...(status ? { status } : {}) } });
   return counts;
 }
