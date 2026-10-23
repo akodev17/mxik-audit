@@ -117,6 +117,8 @@ export type TitleInfo = {
   account: string | null;
   ownInn: string | null;
   ownName: string | null;
+  /** МФО of the org's own bank branch. */
+  mfo: string | null;
   bankName: string | null;
   periodFrom: string | null;
   periodTo: string | null;
@@ -136,7 +138,7 @@ const valueOf = (text: string): string => {
  * the bank, the period and the currency. Anything not written there stays null.
  */
 export function readTitle(titleRows: readonly (readonly string[])[], order: DateOrder = 'dmy'): TitleInfo {
-  const info: TitleInfo = { account: null, ownInn: null, ownName: null, bankName: null, periodFrom: null, periodTo: null, currency: null, currencySource: null };
+  const info: TitleInfo = { account: null, ownInn: null, ownName: null, mfo: null, bankName: null, periodFrom: null, periodTo: null, currency: null, currencySource: null };
   const texts = titleRows.map((r) => r.map((c) => c.trim()).filter(Boolean).join(' '));
   for (const text of texts) {
     const digitRuns = [...text.matchAll(/\d[\d \u00a0]{8,40}\d/g)].map((m) => m[0].replace(/[ \u00a0]/g, ''));
@@ -148,6 +150,10 @@ export function readTitle(titleRows: readonly (readonly string[])[], order: Date
         const short = /(?:инн|stir|стир)[^\d]{0,10}(\d{9}|\d{14})(?!\d)/iu.exec(text);
         if (short?.[1]) info.ownInn = short[1];
       }
+    }
+    if (!info.mfo) {
+      const mfo = /(?:мфо|mfo)[^d]{0,10}(d{5})(?!d)/iu.exec(text);
+      if (mfo?.[1]) info.mfo = mfo[1];
     }
     if (!info.ownName && TITLE.owner.test(text)) info.ownName = valueOf(text).slice(0, 300) || null;
     if (!info.bankName && TITLE.bank.test(text) && !TITLE.account.test(text) && !/выписк|ko.chirma/iu.test(text)) info.bankName = valueOf(text).slice(0, 120) || null;

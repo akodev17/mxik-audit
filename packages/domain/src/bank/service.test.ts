@@ -203,7 +203,10 @@ describe('bank statements (database)', { skip }, () => {
     const rest = await approveMany(admin, 'uz', ruBatch, { scope: 'reviewable' });
     assert.ok(rest.ok);
     assert.equal(valid.approved + rest.approved, 10, 'the RU fixture has no errors');
-    assert.equal((await statementDetail(admin, ruBatch))?.statement.status, 'approved');
+    const after = (await statementDetail(admin, ruBatch))?.statement;
+    assert.equal(after?.status, 'approved');
+    assert.equal(after?.counts?.suspicious, 0, 'approving accepts the warnings: the 1C layer exports valid and corrected lines');
+    assert.equal((after?.counts?.valid ?? 0) + (after?.counts?.corrected ?? 0), 10);
 
     const prep = await prepareStatement(admin, 'uz', ruBatch);
     assert.ok(prep.ok, JSON.stringify(prep));

@@ -458,6 +458,8 @@ export async function decideRecord(user: CurrentUser, locale: Locale, recordId: 
     if (hasError(issues)) return { ok: false, error: e.unresolved };
     decision = { action: 'approve', ...(decision?.corrections ? { corrections: decision.corrections } : {}), ...(input.note ? { note: input.note } : {}) };
     if (status === 'skipped' || status === 'unresolved') status = statusFromIssues(issues);
+    // Approval accepts the warnings: the 1C layer exports `valid` and `corrected` records only.
+    if (status === 'suspicious') status = 'valid';
   }
   if (input.action === 'skip') {
     status = 'skipped';
@@ -543,15 +545,21 @@ export async function approveMany(user: CurrentUser, locale: Locale, batchId: st
     batchId, status: statuses, ...NOT_APPROVED,
     ...(parsed.data.scope === 'ids' ? { id: { in: parsed.data.ids ?? [] } } : {}),
   };
-  const rows = await db.importRecord.findMany({ where, select: { id: true, decision: true } });
+  const rows = await db.importRecord.findMany({ where, select: { id: true, decision: true, status: true } });
   const now = new Date();
-  const plain = rows.filter((r) => r.decision === null).map((r) => r.id);
+  // Approval accepts the warnings: a suspicious line becomes valid (the 1C layer exports valid and corrected lines).
+  const plain = rows.filter((r) => r.decision === null);
   for (let i = 0; i < plain.length; i += 1000) {
-    await db.importRecord.updateMany({ where: { id: { in: plain.slice(i, i + 1000) } }, data: { decision: { action: 'approve' }, decidedBy: user.userId, decidedAt: now } });
+    const ids = plain.slice(i, i + 1000).map((r) => r.id);
+    await db.importRecord.updateMany({ where: { id: { in: ids }, status: { not: 'suspicious' } }, data: { decision: { action: 'approve' }, decidedBy: user.userId, decidedAt: now } });
+    await db.importRecord.updateMany({ where: { id: { in: ids }, status: 'suspicious' }, data: { decision: { action: 'approve' }, decidedBy: user.userId, decidedAt: now, status: 'valid' } });
   }
   for (const r of rows.filter((x) => x.decision !== null)) {
     const previous = r.decision as ReviewDecision;
-    await db.importRecord.update({ where: { id: r.id }, data: { decision: { action: 'approve', ...(previous.corrections ? { corrections: previous.corrections } : {}) }, decidedBy: user.userId, decidedAt: now } });
+    await db.importRecord.update({
+      where: { id: r.id },
+      data: { decision: { action: 'approve', ...(previous.corrections ? { corrections: previous.corrections } : {}) }, decidedBy: user.userId, decidedAt: now, ...(r.status === 'suspicious' ? { status: 'valid' as const } : {}) },
+    });
   }
   await recount(batchId);
   return { ok: true, approved: rows.length };

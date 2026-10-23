@@ -39,7 +39,13 @@ export type StatementExtra = {
   truncated: boolean;
 };
 
-export type ParsedStatement = { meta: BankStatementMeta; extra: StatementExtra; lines: StatementLine[]; dropped: DroppedLine[] };
+/**
+ * BankStatementMeta plus the statement owner's side of each payment (ownerName, ownerInn, mfo), which
+ * the 1C layer added to the shared meta on its branch (side-session note agent1-onec-interface.md).
+ */
+export type StatementMeta = BankStatementMeta & { ownerName: string | null; ownerInn: string | null; mfo: string | null };
+
+export type ParsedStatement = { meta: StatementMeta; extra: StatementExtra; lines: StatementLine[]; dropped: DroppedLine[] };
 
 export type ParseOptions = {
   columnMap: BankColumnMap;
@@ -270,9 +276,12 @@ export function parseStatement(sheet: StatementSheet, options: ParseOptions): Pa
   }
   dates.sort();
 
-  const meta: BankStatementMeta = {
+  const meta: StatementMeta = {
     formatId: options.formatId,
     bankName: title.bankName,
+    ownerName: title.ownName,
+    ownerInn: title.ownInn,
+    mfo: title.mfo,
     account: title.account,
     currency,
     periodFrom: title.periodFrom ?? dates[0] ?? null,
