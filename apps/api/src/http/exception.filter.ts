@@ -5,6 +5,7 @@ import { Catch, HttpException, Logger, type ArgumentsHost, type ExceptionFilter 
 import type { Response } from 'express';
 import { ERROR_STATUS, type ApiErrorCode } from '@tasnivo/domain/api/contract';
 import { ApiError, codeForStatus, v1CodeForStatus } from './errors';
+import { loggablePath } from './middleware';
 import { isPublicApi, type ApiRequest } from './request';
 
 export type ErrorResponse = { status: number; headers: Record<string, string>; body: Record<string, unknown> };
@@ -68,7 +69,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const res = http.getResponse<Response>();
     const { status, headers, body } = toErrorResponse(exception, isPublicApi(req.path));
     if (status >= 500 && !(exception instanceof ApiError)) {
-      this.logger.error(`${req.method} ${req.path} failed`, exception instanceof Error ? exception.stack : String(exception));
+      this.logger.error(`${req.method} ${loggablePath(req.path)} failed`, exception instanceof Error ? exception.stack : String(exception));
     }
     if (res.headersSent) return;
     res.set(headers).status(status).json(body);

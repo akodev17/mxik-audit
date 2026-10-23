@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { parseEnv, InvalidEnvError } from '../../src/config/env';
 import { ApiError } from '../../src/http/errors';
 import { toErrorResponse } from '../../src/http/exception.filter';
-import { requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '../../src/http/middleware';
+import { loggablePath, requestLogMiddleware, securityHeadersMiddleware, type LogLine } from '../../src/http/middleware';
 import { ZodValidationPipe } from '../../src/http/zod-validation.pipe';
 import { fakeReq, fakeRes } from '../helpers';
 
@@ -125,5 +125,32 @@ describe('middleware', () => {
     assert.equal(lines.length, 1);
     const [line] = lines;
     assert.deepEqual({ ...line, ms: 0 }, { method: 'POST', path: '/api/auth/sign-in', status: 401, ms: 0, userId: 'u9' });
+  });
+
+  it('never logs a secret path segment: reset, verification, invite, demo and share tokens, one-time states', () => {
+    const secret = 'Zx9-SECRET_token_43chars_aaaaaaaaaaaaaaaaaaa';
+    const cases: [string, string][] = [
+      [`/api/auth/password/reset/${secret}`, '/api/auth/password/reset/{token}'],
+      [`/api/auth/verify/${secret}`, '/api/auth/verify/{token}'],
+      [`/api/invites/${secret}/join`, '/api/invites/{token}/join'],
+      [`/api/invites/${secret}`, '/api/invites/{token}'],
+      [`/api/demo/links/${secret}`, '/api/demo/links/{token}'],
+      [`/api/share/${secret}/pdf`, '/api/share/{token}/pdf'],
+      [`/API/Share/${secret}`, '/api/share/{token}'],
+      [`/api/auth/telegram/bind/${secret}`, '/api/auth/telegram/bind/{state}'],
+    ];
+    for (const [path, logged] of cases) {
+      assert.equal(loggablePath(path), logged);
+      const lines: LogLine[] = [];
+      const listeners: (() => void)[] = [];
+      requestLogMiddleware((line) => lines.push(line))({ ...fakeReq({ method: 'GET', path }), originalUrl: `${path}?x=1` } as never,
+        { statusCode: 200, on: (_e: string, fn: () => void) => listeners.push(fn) } as never, () => undefined);
+      listeners.forEach((fn) => fn());
+      assert.equal(lines[0]?.path, logged);
+      assert.ok(!JSON.stringify(lines).includes(secret));
+    }
+    // Ordinary ids stay: they are what an operator looks for.
+    assert.equal(loggablePath('/api/catalogs/cm123/rows'), '/api/catalogs/cm123/rows');
+    assert.equal(loggablePath('/api/auth/telegram/bind'), '/api/auth/telegram/bind');
   });
 });
