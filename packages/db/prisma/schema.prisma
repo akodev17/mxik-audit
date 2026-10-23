@@ -228,6 +228,7 @@ model Organization {
   usageLedger UsageLedger[]
   importBatches ImportBatch[]
   counterparties Counterparty[]
+  products  Product[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -671,6 +672,7 @@ model Client {
   reviewAssignments ReviewAssignment[]
   importBatches ImportBatch[]
   counterparties Counterparty[]
+  products Product[]
 
   @@index([orgId])
   @@map("client")
@@ -1410,5 +1412,124 @@ model OneCExport {
 // ── Agent 3: Didox invoices (connections, document cache) ───────────────────────────────
 
 // ── Agent 4: product catalogue and MXIK intelligence (products, packaging codes) ────────
+
+/// A product the org (or one of its clients) buys or sells, as its 1C «Номенклатура» knows it.
+/// One row per normalised name + unit within the org and client. Filled by the product catalogue
+/// import, the audit's "Add to product catalogue" and the Didox workflow (upsertProducts); matched
+/// by matchProducts. Confirmed MXIK codes are not kept a second time: a reviewer's confirmation
+/// writes FirmMapping, the org's one source of confirmed mappings.
+model Product {
+  id              String    @id @default(cuid())
+  orgId           String
+  /// The client whose books the product belongs to; null = the org's own catalogue.
+  clientId        String?
+  name            String
+  /// Folded name with sizes kept (packages/domain/src/products/keys.ts productNameKey); trigram-indexed.
+  normalizedName  String
+  /// Canonical unit id (as text) or the lower-cased unit; '' when none. Part of the identity.
+  unitKey         String    @default("")
+  /// 1C catalogue code or GUID, when the product came from a 1C export.
+  onecRef         String?
+  mxik            String?   @db.Char(17)
+  mxikName        String?
+  /// Tasnif packaging code (packaging_code.code) and its name.
+  packageCode     String?
+  packageName     String?
+  unit            String?
+  barcode         String?
+  /// 'catalog_import' | 'audit' | 'didox' | 'manual'.
+  source          String
+  /// ProductRecord.mxikStatus: ok, missing, invalid, inactive, restricted, suspicious, unchecked.
+  mxikStatus      String    @default("unchecked")
+  /// ValidationIssue[] of the last classification.
+  mxikIssues      Json?
+  /// MatchCandidate of the last classification, when it suggested a code.
+  mxikSuggestion  Json?
+  mxikCheckedAt   DateTime?
+  /// Set when a reviewer confirmed `mxik` ("Confirm MXIK"); the mapping itself is in FirmMapping.
+  mxikConfirmedAt DateTime?
+  mxikConfirmedBy String?
+  markingRequired Boolean?
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  client  Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  aliases ProductAlias[]
+
+  // Identity: unique (orgId, COALESCE(clientId, ''), normalizedName, unitKey) and a trigram index
+  // on normalizedName, both created in the migration (Prisma cannot declare them).
+  @@index([orgId, clientId])
+  @@index([orgId, mxik])
+  @@index([orgId, barcode])
+  @@index([orgId, onecRef])
+  @@index([orgId, mxikStatus])
+  @@map("product")
+}
+
+/// Another name the same product was seen under (an invoice line, an earlier spelling).
+model ProductAlias {
+  id              String   @id @default(cuid())
+  productId       String
+  /// Copied from the product so an alias is found by org without a join.
+  orgId           String
+  alias           String
+  normalizedAlias String
+  createdAt       DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, normalizedAlias])
+  @@index([orgId, normalizedAlias])
+  @@map("product_alias")
+}
+
+/// One Tasnif packaging code of a classifier code (cls-api /mxik/get/by-mxik `packages[]`),
+/// fetched lazily the first time a line needs a packaging check, then cached
+/// (mxik_code_state.packagesFetchedAt). See docs/accounting-2026-10-23/tasnif-catalog.md.
+model PackagingCode {
+  /// The package id (`code`, e.g. 1074787); unique across the classifier.
+  code          String   @id
+  mxikCode      String   @db.Char(17)
+  parentCode    String?
+  containerCode Int?
+  containerName String?
+  unitId        Int?
+  unitName      String?
+  /// How many of the parent (or of the unit) the package holds, e.g. 14.
+  parentValue   Float?
+  name          String
+  /// Raw `type` ("1" seen) and `isUnitPackage` ("1"/"2" seen); semantics not documented.
+  type          String?
+  isUnitPackage String?
+  /// From /integration-mxik/get/history packageNames when fetched: "қадоқ=1 флакон * 14 дона".
+  nameUz        String?
+  nameRu        String?
+  fetchedAt     DateTime @default(now())
+
+  @@index([mxikCode])
+  @@map("packaging_code")
+}
+
+/// What the live Tasnif API says about a code beyond the Excel export: activity
+/// (/integration-mxik/get/history/{code} isActive/status) and whether its packages were fetched.
+/// Filled on demand and for codes a classifier update finds missing from the export.
+model MxikCodeState {
+  code              String    @id @db.Char(17)
+  /// isActive "1" → true, "0" → false; null = not asked, or the API did not say.
+  isActive          Boolean?
+  /// Raw `status` (only 0 seen so far).
+  apiStatus         Int?
+  /// The API answered "Mxik code not found!" for this code.
+  apiNotFound       Boolean   @default(false)
+  statusFetchedAt   DateTime?
+  packagesFetchedAt DateTime?
+  packageCount      Int?
+  lastError         String?
+  updatedAt         DateTime  @default(now()) @updatedAt
+
+  @@map("mxik_code_state")
+}
 
 // ── Agent 5: platform quality ───────────────────────────────────────────────────────────

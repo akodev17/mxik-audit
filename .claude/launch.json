@@ -164,6 +164,27 @@
         "$env:API_INTERNAL_URL='http://localhost:4014'; npx next start apps/web -p 3014"
       ],
       "port": 3014
+    },
+    {
+      "name": "tasnivo-api-4024",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4024'; npm run dev:api"
+      ],
+      "port": 4024
+    },
+    {
+      "name": "tasnivo-web-3024",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4024'; npx next dev apps/web -p 3024"
+      ],
+      "port": 3024,
+      "url": "http://agent4.localhost:3024"
     }
   ]
 }
