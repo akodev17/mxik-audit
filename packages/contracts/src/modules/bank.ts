@@ -233,7 +233,15 @@ export const bank = defineModule('bank', {
   preview: endpoint({
     method: 'POST', path: '/api/bank/preview', auth: 'session', role: 'writer', noDemo: true,
     summary: 'Read a statement file: header, sample rows, recognised layout or a mapping guess, rows that would be left out',
-    multipart: { fields: z.object({ clientId: z.string().max(64).optional() }), files: { file: UploadFile } },
+    multipart: {
+      fields: z.object({
+        clientId: z.string().max(64).optional(),
+        /** Given (BankColumnMap and BankConventions as JSON): the preview reads the file with these columns. */
+        columnMap: JsonText.optional(),
+        conventions: JsonText.optional(),
+      }),
+      files: { file: UploadFile },
+    },
     responds: 'json', response: z.union([z.object({ ok: z.literal(true), preview: BankPreview }), Fail]),
     replaces: ['page:(app)/bank'],
   }),
@@ -259,7 +267,7 @@ export const bank = defineModule('bank', {
     method: 'GET', path: '/api/bank/statements', auth: 'session', role: 'any',
     summary: 'The org\'s bank statements, newest first; ?client= narrows to one client',
     query: z.object({ client: z.string().max(64).optional() }),
-    responds: 'json', response: z.object({ statements: z.array(BankStatementRow) }),
+    responds: 'json', response: z.object({ statements: z.array(BankStatementRow), clients: z.array(z.object({ id: z.string(), name: z.string() })), client: z.string().nullable() }),
     replaces: ['page:(app)/bank'],
   }),
   statement: endpoint({

@@ -14,7 +14,7 @@ import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs, makeOrg } from '../test-fixtures.js';
 import { setOperationSuggester, type OperationSuggester } from './ai.js';
 import {
-  approveMany, bankFormats, bankRules, createStatement, decideRecord, exportStatement, listStatements, prepareStatement, previewStatement, processing,
+  approveMany, bankFormats, bankRules, clientOptions, createStatement, decideRecord, exportStatement, listStatements, prepareStatement, previewStatement, processing,
   reconcileCsvFile, reconcileStatement, removeBankFormat, removeStatement, statementDetail, statementRecords,
 } from './service.js';
 
@@ -128,6 +128,9 @@ describe('bank statements (database)', { skip }, () => {
     assert.equal(first.preview.format, null);
     const columnMap = { date: 0, counterpartyName: 1, inn: 2, amount: 3, direction: 4, purpose: 5 };
     const conventions = { dateOrder: 'dmy', decimal: 'auto', direction: 'flag', negativeIs: 'debit', currency: 'UZS' };
+    const mapped = await previewStatement(admin, 'uz', { clientId, file: csv('kun.csv', text('1')), columnMap: JSON.stringify(columnMap), conventions: JSON.stringify(conventions) });
+    assert.ok(mapped.ok);
+    assert.deepEqual([mapped.preview.recognised, mapped.preview.dataRows, mapped.preview.header.periodFrom], [false, 2, '2026-10-01'], 'the preview reads the chosen columns');
     const bad = await createStatement(admin, 'uz', { clientId, file: csv('kun.csv', text('1')), columnMap: JSON.stringify({ date: 0, amount: 3 }), conventions: JSON.stringify(conventions) });
     assert.deepEqual(bad, { ok: false, error: e.badMapping }, 'a flag convention without a flag column');
     const created = await createStatement(admin, 'uz', { clientId, file: csv('kun.csv', text('1')), columnMap: JSON.stringify(columnMap), conventions: JSON.stringify(conventions), formatName: 'Hamkor bank' });
@@ -283,6 +286,7 @@ describe('bank statements (database)', { skip }, () => {
   });
 
   it('access: list by client, refusals for viewers and other orgs, removal', async () => {
+    assert.deepEqual(await clientOptions(admin), [{ id: clientId, name: 'Bank mijoz' }]);
     const all = await listStatements(admin);
     assert.ok(all.length >= 5);
     assert.ok(all.every((s) => s.clientId === clientId));

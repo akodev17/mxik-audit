@@ -7,7 +7,7 @@ import type { Response } from 'express';
 import type { z } from 'zod';
 import { endpoints } from '@tasnivo/contracts';
 import {
-  approveMany, bankFormats, bankRules, createStatement, decideRecord, exportStatement, listStatements, prepareStatement, previewStatement,
+  approveMany, bankFormats, bankRules, clientOptions, createStatement, decideRecord, exportStatement, listStatements, prepareStatement, previewStatement,
   reconcileCsvFile, reconcileStatement, removeBankFormat, removeBankRule, removeStatement, statementDetail, statementRecords,
 } from '@tasnivo/domain/bank/service';
 import type { UploadedFile } from '@tasnivo/domain/catalog-upload';
@@ -31,7 +31,7 @@ export class BankController {
   @Route(e.preview)
   @UseInterceptors(MultipartInterceptor(e.preview.multipart))
   preview(@CurrentUser() user: User, @Locale() locale: LocaleCode, @FilePart('file') file: UploadedFile | null, @Body() fields: Record<string, unknown>) {
-    return previewStatement(user, locale, { clientId: fields['clientId'], file });
+    return previewStatement(user, locale, { clientId: fields['clientId'], file, columnMap: fields['columnMap'], conventions: fields['conventions'] });
   }
 
   @Route(e.create)
@@ -42,7 +42,9 @@ export class BankController {
 
   @Route(e.list)
   async list(@CurrentUser() user: User, @Query(new ZodValidationPipe(e.list.query)) { client }: z.output<typeof e.list.query>) {
-    return { statements: await listStatements(user, client ?? null) };
+    const chosen = client && client !== 'all' ? client : null;
+    const [statements, clients] = await Promise.all([listStatements(user, chosen), clientOptions(user)]);
+    return { statements, clients, client: chosen };
   }
 
   @Route(e.statement)

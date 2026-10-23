@@ -103,12 +103,19 @@ async function earlierBatch(orgId: string, fingerprint: string): Promise<{ id: s
 }
 
 /** Reads a statement for the preview step: nothing is stored. */
-export async function previewStatement(user: CurrentUser, locale: Locale, input: { clientId: unknown; file: UploadedFile | null }): Promise<{ ok: true; preview: BankPreview } | Fail> {
+export async function previewStatement(user: CurrentUser, locale: Locale, input: { clientId: unknown; file: UploadedFile | null; columnMap?: unknown; conventions?: unknown }): Promise<{ ok: true; preview: BankPreview } | Fail> {
   const read = await readUpload(user, locale, input.clientId, input.file);
   if (!read.ok) return read;
   const { file } = read;
   const known = await knownLayout(user.orgId, file);
-  const layout: Layout = known?.layout ?? { formatId: 'generic_mapped', name: '', verified: false, ...file.guess };
+  // The mapping step previews the user's own columns before reading.
+  const chosenMap = input.columnMap === undefined ? null : BankColumnMap.safeParse(jsonField(input.columnMap));
+  const chosenConventions = input.conventions === undefined ? null : BankConventions.safeParse(jsonField(input.conventions));
+  if ((chosenMap && !chosenMap.success) || (chosenConventions && !chosenConventions.success)) return { ok: false, error: i18nFor(locale).ta.bankX.errors.badMapping };
+  const chosen = chosenMap?.success && chosenConventions?.success ? { columnMap: fullMap(chosenMap.data), conventions: chosenConventions.data } : null;
+  const layout: Layout = chosen
+    ? { formatId: 'generic_mapped', name: '', verified: false, ...chosen }
+    : known?.layout ?? { formatId: 'generic_mapped', name: '', verified: false, ...file.guess };
   const parsed = readLines(file, layout);
   if (file.sheet.body.length === 0) return { ok: false, error: i18nFor(locale).ta.bankX.errors.empty };
   const earlier = await earlierBatch(user.orgId, file.fingerprint);
@@ -120,10 +127,10 @@ export async function previewStatement(user: CurrentUser, locale: Locale, input:
       rows: file.sheet.body.slice(0, PREVIEW_ROWS).map((r) => r.cells),
       headerRow: file.sheet.headerRow,
       titleLines: file.sheet.titleLines,
-      format: known?.summary ?? null,
+      format: chosen ? null : known?.summary ?? null,
       columnMap: layout.columnMap,
       conventions: layout.conventions,
-      recognised: known !== null,
+      recognised: !chosen && known !== null,
       dropped: parsed.dropped.slice(0, PREVIEW_DROPPED),
       dataRows: parsed.lines.length,
       totalRows: parsed.extra.totalRows,
@@ -135,6 +142,12 @@ export async function previewStatement(user: CurrentUser, locale: Locale, input:
       },
     },
   };
+}
+
+/** A multipart field that carries JSON text. */
+function jsonField(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  try { return JSON.parse(value) as unknown; } catch { return null; }
 }
 
 const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -160,12 +173,8 @@ export async function createStatement(user: CurrentUser, locale: Locale, input: 
   const earlier = await earlierBatch(user.orgId, file.fingerprint);
   if (earlier) return { ok: false, error: e.duplicate, duplicateOf: earlier.id };
 
-  const parseJson = (value: unknown): unknown => {
-    if (typeof value !== 'string') return value;
-    try { return JSON.parse(value) as unknown; } catch { return null; }
-  };
-  const map = BankColumnMap.safeParse(parseJson(input.columnMap));
-  const conventions = BankConventions.safeParse(parseJson(input.conventions));
+  const map = BankColumnMap.safeParse(jsonField(input.columnMap));
+  const conventions = BankConventions.safeParse(jsonField(input.conventions));
   if (!map.success || !conventions.success) return { ok: false, error: e.badMapping };
   const columnMap = fullMap(map.data);
   const width = file.sheet.headers.length;
@@ -255,6 +264,14 @@ export async function listStatements(user: CurrentUser, client?: string | null):
   if (user.clientIds !== null) where.clientId = client ? (user.clientIds.includes(client) ? client : '__none__') : { in: user.clientIds };
   const rows = await db.importBatch.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200, select: batchSelect });
   return rows.map(statementRow);
+}
+
+/** The clients the user may file a statement under or filter by (not archived), by name. */
+export async function clientOptions(user: CurrentUser): Promise<{ id: string; name: string }[]> {
+  return db.client.findMany({
+    where: { orgId: user.orgId, archivedAt: null, ...(user.clientIds !== null ? { id: { in: user.clientIds } } : {}) },
+    orderBy: { name: 'asc' }, select: { id: true, name: true }, take: 500,
+  });
 }
 
 export async function statementDetail(user: CurrentUser, batchId: string): Promise<{ statement: BankStatementRow; dropped: { rowIndex: number; reason: string }[] } | null> {
