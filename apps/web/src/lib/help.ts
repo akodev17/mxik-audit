@@ -46,7 +46,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   },
 ];
 
-type Copy = { title: string; description: string; back: string; language: string; home: string; onPage: string };
+type Copy = { title: string; description: string; back: string; language: string; home: string; onPage: string; articles: string };
 
 /** Each language named in itself, for the help language switch. */
 export const HELP_LANG_NAMES: Record<HelpLang, string> = { uz: 'Oʻzbekcha', ru: 'Русский' };
@@ -55,12 +55,12 @@ export const HELP_COPY: Record<HelpLang, Copy> = {
   uz: {
     title: 'Yordam markazi',
     description: 'Tasnivo qanday ishlashi: kod tuzilishi, hisobot, muammo turlari, firma lugʻati, tariflar, xavfsizlik, API va savollar.',
-    back: 'Yordam markazi', language: 'Maqola tili', home: 'Boshqa maqolalar', onPage: 'Shu maqolada',
+    back: 'Yordam markazi', language: 'Maqola tili', home: 'Boshqa maqolalar', onPage: 'Shu maqolada', articles: 'Maqolalar',
   },
   ru: {
     title: 'Центр помощи',
     description: 'Как работает Tasnivo: структура кода, отчёт, типы проблем, словарь фирмы, тарифы, безопасность, API и вопросы.',
-    back: 'Центр помощи', language: 'Язык статьи', home: 'Другие статьи', onPage: 'В этой статье',
+    back: 'Центр помощи', language: 'Язык статьи', home: 'Другие статьи', onPage: 'В этой статье', articles: 'Статьи',
   },
 };
 
