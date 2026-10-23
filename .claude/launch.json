@@ -122,6 +122,16 @@
         "$env:API_INTERNAL_URL='http://localhost:4016'; npx next dev apps/web -p 3016"
       ],
       "port": 3016
+    },
+    {
+      "name": "tasnivo-web-3014-prod",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4014'; npx next start apps/web -p 3014"
+      ],
+      "port": 3014
     }
   ]
 }
