@@ -63,8 +63,9 @@ coordinator was asked to start the fix session from `agent5-phase-b-brief.md` (s
 
 ### Open items / for the coordinator
 
-- Start Phase B (above). Take `db50d52` (Q20, one line in `robots.ts`) at merge: each workstream
-  branch has the same red test.
+- Phase B: started by the coordinator on `fix/platform-quality-fixes` (worktree
+  `platform-quality-fixes`, cut from `db50d52`, ports 4026/3026). Q20: the base branch already has the
+  same fix as `7dbb083`; `robots.ts` is byte-identical in both, so the Phase C merge is clean there.
 - Agents 1–4: none of the Phase A findings is in their files (Q1's fix is in the API bootstrap and
   `packages/domain/src/audit-runner.ts` glue, not in `packages/core/src/match`).
 - Owner: legal entity name, STIR, address and lawyer review for `/maxfiylik` and `/oferta` (Q7).
