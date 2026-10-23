@@ -8,11 +8,12 @@ import { useI18n } from '@/lib/locale-client';
 import { Button } from '@/ui/button';
 import { Select } from '@/ui/select';
 import { useToast } from '@/ui/toast';
+import { Card } from '../../_manage/card';
 
 type Activity = 'savdo' | 'ishlab_chiqarish' | 'boshqa';
 const ACTIVITIES: Activity[] = ['savdo', 'ishlab_chiqarish', 'boshqa'];
 
-/** The client's activity type with an explicit save; a failed save keeps the choice and says so. */
+/** The client's activity type as a card with its own save; a failed save keeps the choice and says so. */
 export function ActivityForm({ clientId, activity }: { clientId: string; activity: Activity }) {
   const { t, ta } = useI18n();
   const router = useRouter();
@@ -39,7 +40,10 @@ export function ActivityForm({ clientId, activity }: { clientId: string; activit
   }
 
   return (
-    <div className="max-w-md space-y-2">
+    <Card
+      title={t.activityLabel} as="h3"
+      footer={<Button variant="primary" size="sm" loading={busy} disabled={value === saved && !busy} onClick={() => { void save(); }}>{ta.firmX.client.activitySave}</Button>}
+    >
       <Select
         label={t.activityLabel} hint={t.activityHint} error={error ?? undefined}
         value={value} disabled={busy}
@@ -47,9 +51,6 @@ export function ActivityForm({ clientId, activity }: { clientId: string; activit
       >
         {ACTIVITIES.map((a) => <option key={a} value={a}>{t.activityOptions[a]}</option>)}
       </Select>
-      <Button variant="secondary" size="sm" loading={busy} disabled={value === saved && !busy} onClick={() => { void save(); }}>
-        {ta.firmX.client.activitySave}
-      </Button>
-    </div>
+    </Card>
   );
 }

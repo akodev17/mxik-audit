@@ -11,14 +11,17 @@ import { useI18n } from '@/lib/locale-client';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
+import { Table, Td, Th } from '@/ui/table';
+import { Card, FLUSH_TABLE } from '../_manage/card';
 import { agoLabel } from './session-rows';
 
 type Sessions = OutputOf<typeof endpoints.auth.sessions>;
 
-/** Signed-in browsers, this device first; ending every other session asks first. */
+/** Signed-in browsers as a table, this device first; ending every other session asks first. */
 export function SessionList({ initial }: { initial: Sessions }) {
   const { locale, ta } = useI18n();
   const s = ta.secX.sessions;
+  const cols = ta.mgX.settings.sessions;
   const queryClient = useQueryClient();
   const { data: sessions } = useSeededQuery(api.auth.sessions, initial);
   const [confirming, setConfirming] = useState(false);
@@ -33,37 +36,50 @@ export function SessionList({ initial }: { initial: Sessions }) {
   const busy = end.isPending;
 
   return (
-    <div className="space-y-3">
-      <ul className="max-w-2xl divide-y divide-line rounded-md border border-line">
-        {sessions.map((row) => {
-          const seenAt = fmtDateTime(locale, row.lastSeenAt);
-          return (
-            <li key={row.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{row.device}</span>
-                  {row.current ? <Badge tone="good">{ta.security.current}</Badge> : null}
-                </p>
+    <Card
+      id="sessions" title={ta.security.sessions} hint={ta.security.sessionsHint} flush
+      actions={sessions.some((row) => !row.current)
+        ? <Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirming(true)}>{ta.security.endOthers}</Button>
+        : undefined}
+    >
+      <Table label={ta.security.sessions} className={FLUSH_TABLE}>
+        <thead>
+          <tr>
+            <Th>{cols.device}</Th>
+            <Th className="hidden sm:table-cell">{cols.started}</Th>
+            <Th>{cols.lastSeen}</Th>
+            <Th><span className="sr-only">{ta.mgX.actions}</span></Th>
+          </tr>
+        </thead>
+        <tbody>
+          {sessions.map((row) => {
+            const seenAt = fmtDateTime(locale, row.lastSeenAt);
+            return (
+              <tr key={row.id} className={row.current ? 'bg-good-tint/40' : 'hover:bg-surface'}>
+                <Td className="py-2.5">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{row.device}</span>
+                    {row.current ? <Badge tone="good">{ta.security.current}</Badge> : null}
+                  </span>
+                </Td>
+                <Td className="hidden whitespace-nowrap text-small text-muted sm:table-cell">{fmtDateTime(locale, row.createdAt)}</Td>
                 {/* "5 minutes ago" depends on the clock and the runtime's locale data: the browser's may differ from the server's. */}
-                <p className="text-small text-muted" title={seenAt} suppressHydrationWarning>
-                  {ta.security.lastSeen(fmtDateTime(locale, row.createdAt), agoLabel(locale, row.lastSeenAt) ?? seenAt)}
-                </p>
-              </div>
-              {row.current ? null : (
-                <Button size="sm" variant="secondary" disabled={busy} onClick={() => end.mutate(row.id)}>{ta.security.endSession}</Button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {sessions.some((row) => !row.current) ? (
-        <Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirming(true)}>{ta.security.endOthers}</Button>
-      ) : null}
+                <Td className="whitespace-nowrap text-small text-muted"><span title={seenAt} suppressHydrationWarning>{agoLabel(locale, row.lastSeenAt) ?? seenAt}</span></Td>
+                <Td>
+                  <span className="flex justify-end">
+                    {row.current ? null : <Button size="sm" variant="secondary" disabled={busy} onClick={() => end.mutate(row.id)}>{ta.security.endSession}</Button>}
+                  </span>
+                </Td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
       <ConfirmDialog
         open={confirming} onClose={() => setConfirming(false)} tone="danger"
         title={s.endOthersTitle} description={s.endOthersText} confirmLabel={ta.security.endOthers}
         onConfirm={endOthers}
       />
-    </div>
+    </Card>
   );
 }

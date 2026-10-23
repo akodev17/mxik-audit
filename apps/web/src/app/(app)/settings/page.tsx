@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getI18n } from '@/lib/locale';
 import { signedIn } from '@/lib/api/me';
 import { Page } from '@/ui/page';
+import { Notice } from '../_manage/notice';
 import { AccountTab } from './account-tab';
 import { DataTab } from './data-tab';
 import { IntegrationsTab } from './integrations-tab';
@@ -41,8 +42,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
       <div className="md:grid md:grid-cols-[12rem_minmax(0,1fr)] md:gap-8 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
         <SectionNav label={s.tabs.label} items={visible.map((id) => ({ href: tabHref(id), label: label(id), active: id === tab }))} />
         <div className="mt-6 min-w-0 max-w-4xl space-y-4 md:mt-0">
-          {refused ? <p role="status" className="rounded-md border border-line bg-surface px-3 py-2 text-small text-muted">{s.adminOnly(label(refused))}</p> : null}
-          {demo ? <p className="text-small text-muted">{s.demoOnly}</p> : null}
+          {refused ? <Notice tone="info">{s.adminOnly(label(refused))}</Notice> : null}
+          {demo ? <Notice tone="info">{s.demoOnly}</Notice> : null}
           <div>
             {tab === 'account' ? <AccountTab user={user} demo={demo} /> : null}
             {tab === 'security' ? <SecurityTab /> : null}

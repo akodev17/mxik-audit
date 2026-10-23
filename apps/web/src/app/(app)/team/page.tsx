@@ -4,7 +4,8 @@ import { signedIn } from '@/lib/api/me';
 import { serverApi } from '@/lib/api/server';
 import { getI18n } from '@/lib/locale';
 import { EmptyState } from '@/ui/empty-state';
-import { Page, Section } from '@/ui/page';
+import { Page } from '@/ui/page';
+import { Card } from '../_manage/card';
 import { InviteDialog } from './invite-dialog';
 import { PendingInvites } from './pending-invites';
 import { MembersSection } from './team-members';
@@ -30,7 +31,7 @@ export default async function TeamPage() {
   if (user.role !== 'admin' || demo) {
     return (
       <Page title={ta.nav.team}>
-        <EmptyState title={demo ? ta.setX.demoOnly : ta.setX.adminOnly(ta.nav.team)} />
+        <Card><EmptyState size="compact" title={demo ? ta.setX.demoOnly : ta.setX.adminOnly(ta.nav.team)} /></Card>
       </Page>
     );
   }
@@ -42,10 +43,10 @@ export default async function TeamPage() {
       title={ta.nav.team} hint={s.pageHint} wide
       actions={<InviteDialog initial={team} expired={status.state === 'expired'} />}
     >
-      <MembersSection initial={team} you={user.userId} />
-      <Section title={s.pending.title}>
+      <div className="space-y-6">
+        <MembersSection initial={team} you={user.userId} />
         <PendingInvites initial={team} />
-      </Section>
+      </div>
     </Page>
   );
 }

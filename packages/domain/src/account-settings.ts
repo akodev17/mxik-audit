@@ -11,6 +11,7 @@ import { apiConfig, monthlyCheckCap, usageThisMonth } from './api/limits.js';
 import { planStatus } from './plan.js';
 import { deleteAfterDays, RETENTION_CHOICES } from './security/account.js';
 import { buildAccountExport } from './security/export.js';
+import { qrPath, type QrPath } from './security/qr.js';
 import type { CurrentUser } from './session.js';
 import { telegramConfig } from './telegram/config.js';
 import { createLinkCode, LINK_CODE_TTL_MS } from './telegram/linking.js';
@@ -55,13 +56,18 @@ export async function saveBrandingForm(
   return { saved: true };
 }
 
-export type CodeResult = { ok: true; code: string; minutes: number } | { ok: false };
+/** link and qr: the bot's deep link that sends "/start CODE" by itself, when the bot's username is known. */
+export type CodeResult = { ok: true; code: string; minutes: number; link?: string; qr?: QrPath } | { ok: false };
 
 /** A one-time code the user sends to the bot as "/start CODE"; { ok: false } while the bot is off. */
 export async function telegramLinkCode(user: Actor): Promise<CodeResult> {
   if (!telegramConfig().enabled) return { ok: false };
   const { code } = await createLinkCode(user);
-  return { ok: true, code, minutes: Math.round(LINK_CODE_TTL_MS / 60_000) };
+  const minutes = Math.round(LINK_CODE_TTL_MS / 60_000);
+  const bot = telegramConfig().username;
+  if (!bot) return { ok: true, code, minutes };
+  const link = `https://t.me/${bot}?start=${encodeURIComponent(code)}`;
+  return { ok: true, code, minutes, link, qr: qrPath(link) };
 }
 
 export type KeyState = { token: string } | { error: 'name' | 'limit' | 'failed' };

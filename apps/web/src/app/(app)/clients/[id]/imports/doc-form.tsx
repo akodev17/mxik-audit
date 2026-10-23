@@ -4,15 +4,19 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
 import type { endpoints, ResponseOf } from '@tasnivo/contracts';
 import { ListMapper, type MapperField } from '@/app/(app)/clients/[id]/purchases/list-mapper';
-import { Dropzone } from '@/app/(app)/upload/dropzone';
-import { Notice } from '@/app/(app)/upload/notice';
 import type { DocKind, DocMap } from '@/lib/pure/types';
 import { api } from '@/lib/api/browser';
 import { orRefused } from '@/lib/api/refusal';
 import { useI18n } from '@/lib/locale-client';
+import { ButtonLink } from '@/ui/button';
+import { IconDownload } from '@/ui/icons';
 import { serverChange } from '@/ui/shell/router-cache';
 import { useToast } from '@/ui/toast';
 import { goTo } from '@/ui/shell/same-route-links';
+import { Card } from '../../../_manage/card';
+import { FileDrop } from '../../../_manage/file-drop';
+import { ListFlow } from '../../../_manage/list-flow';
+import { Notice } from '../../../_manage/notice';
 
 /** Confirm the columns of a stored cheque or sales list and start its check. */
 export function DocMapper({ clientId, kind, listId, filename, headers, rows, map, notes, onClose }: {
@@ -49,7 +53,7 @@ export function DocMapper({ clientId, kind, listId, filename, headers, rows, map
 
 type DocPreview = Extract<ResponseOf<typeof endpoints.imports.uploadDoc>, { ok: true }>['preview'];
 
-/** Upload a list, confirm its columns, start the check. */
+/** Upload a list, confirm its columns, start the check: file → columns → result. */
 export function DocForm({ clientId, kind }: { clientId: string; kind: DocKind }) {
   const { ta } = useI18n();
   const router = useRouter();
@@ -69,17 +73,24 @@ export function DocForm({ clientId, kind }: { clientId: string; kind: DocKind })
   };
 
   return (
-    <div className="space-y-4">
-      <p className="text-small"><a href={`/api/doc-template?kind=${kind}`} download className="font-medium text-brand-ink hover:underline">{ta.docs.template}</a></p>
-      {preview ? null : <Dropzone onFile={choose} busy={reading} compact />}
-      {error ? <Notice tone="danger">{error}</Notice> : null}
+    <ListFlow step={preview ? 1 : 0}>
       {preview ? (
         <DocMapper
           clientId={clientId} kind={kind} listId={preview.listId} filename={preview.filename} headers={preview.headers} rows={preview.rows} map={preview.map}
           notes={preview.truncated ? <Notice tone="danger">{ta.importX.lists.truncated(preview.totalRows, preview.totalSeen)}</Notice> : undefined}
           onClose={() => setPreview(null)}
         />
-      ) : null}
-    </div>
+      ) : (
+        <Card
+          title={`${ta.mgX.clients.upload.docs}: ${ta.docs.kinds[kind]}`} hint={ta.mgX.clients.upload.hint} as="h2"
+          actions={<ButtonLink href={`/api/doc-template?kind=${kind}`} download variant="ghost" size="sm"><IconDownload size={16} />{ta.docs.template}</ButtonLink>}
+        >
+          <div className="space-y-3">
+            <FileDrop onFile={choose} busy={reading} />
+            {error ? <Notice tone="danger">{error}</Notice> : null}
+          </div>
+        </Card>
+      )}
+    </ListFlow>
   );
 }

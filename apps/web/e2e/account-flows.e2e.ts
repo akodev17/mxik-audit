@@ -77,7 +77,7 @@ describe('account flows on the API', () => {
     await page.getByRole('button', { name: s.create, exact: true }).click();
     const token = await page.getByLabel(s.newKey, { exact: true }).inputValue();
     assert.match(token, /^mxk_/);
-    const row = page.getByRole('listitem').filter({ hasText: 'e2e kalit' });
+    const row = page.getByRole('row').filter({ hasText: 'e2e kalit' });
     await row.waitFor();
     await row.getByRole('button', { name: s.revoke, exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: s.revokeConfirm, exact: true }).click();
@@ -94,7 +94,7 @@ describe('account flows on the API', () => {
     const form = page.locator('form').filter({ has: page.getByLabel(p.current, { exact: true }) });
     await form.getByRole('alert').waitFor();
     assert.equal(await page.getByLabel(p.current, { exact: true }).inputValue(), '', 'the form is cleared after the attempt');
-    const first = page.getByRole('listitem').filter({ hasText: TA.security.current }).first();
+    const first = page.getByRole('row').filter({ hasText: TA.security.current }).first();
     await first.waitFor();
   });
 });

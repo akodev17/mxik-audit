@@ -313,3 +313,68 @@ Primitive requests for U1:
 - `Dialog` footer: a start-aligned slot (request-text puts a link left with `mr-auto`).
 - A shared `FilterChip` (pill with count / removable) — workspace, queue and dictionary each style one locally.
 - `Textarea`: a borderless variant for composers (row-comments overrides border and focus).
+## U5 result: clients, team, settings, admin, public docs
+Branch `claude/u5-clients-settings-e28bb4` (from `claude/w4a-cutover-639ee5`). Screenshots at
+375 / 768 / 1280, light and dark: `docs/ui-refresh/u5/<page>-<width>-<theme>.jpg` (legal pages are
+light by design; the dark files show the same).
+What changed:
+- **Local kit** `apps/web/src/app/(app)/_manage/`: `Card` (title, hint, actions, footer for the
+  card's own save, `flush` for edge-to-edge tables, `tone="danger"`), `FLUSH_TABLE`, `Fact`,
+  `Avatar` / `PersonChip` / `AvatarStack` (initials, colour per person from the status tints),
+  `Notice`, `FileDrop`, `ListPreview`, `ListFlow` (file → columns → result stepper), `ROLE_TONE`.
+  The pages no longer import the upload wizard's `Dropzone`, `Notice`, `PreviewTable` or
+  `AutoRefresh`.
+- **Clients**: underline filter tabs with counts (same hrefs and `aria-current`), table in a flush
+  card with accountants as avatars, mobile cards; add-client dialog validates inline (required,
+  2+ characters) before the API call. Client page: header line (activity type, monthly check,
+  accountants as chips with the editor), KPI tiles, catalogues section, history card, a lists card
+  (purchases, cheques/sales), activity type and monthly check as cards with their own save.
+  Purchases and cheque/sales lists: stepper, upload card, mapper card with a preview, results
+  tables; the report page uses Stat tiles and a flush table.
+- **Team**: members table (avatar, role badge, client access, last activity, edit/remove), pending
+  invites table (status chip, expiry, resend/revoke); on a phone the actions sit under the person.
+  `GET /api/team` gained `members[].lastSeenAt` (optional; latest session activity).
+- **Settings**: every section is cards; save buttons in each card's footer plus a toast. Account
+  (profile, language/theme rows, PDF branding, dictionary), security (two-factor status card with a
+  three-step setup dialog — scan, verify, recovery codes — and code dialogs for new recovery codes
+  and switching off; password; Telegram sign-in; sessions table with "this device"), plan (plan
+  card with price and usage meters, pay card, comparison table with the current plan tinted),
+  integrations (Telegram linking as two steps with a QR code and a t.me deep link; API keys card
+  with the one-time secret and a keys table), data (export, retention, danger zone). Section ids,
+  `?tab=` URLs and the vertical menu are unchanged. `POST /api/account/telegram/code` gained
+  optional `link` and `qr`.
+- **Admin**: KPI tiles, count tables and pipeline status in flush cards; metrics with CSV buttons
+  per card and a breadcrumb back.
+- **Public**: `/api-docs` has a sticky header, a grouped sidebar that marks the section in view
+  (no address rewriting), endpoint cards built from `@tasnivo/contracts` (`endpoint-info.ts`, tested:
+  method, path, status, idempotency, paging, parameters, error codes) and copyable code blocks.
+  `/yordam`: article cards on the index; articles with the article list on the left, the TOC on
+  the right and long-form typography. `/maxfiylik`, `/oferta`: `LegalDoc` (readable column,
+  numbered sections, TOC). `components/landing/legal-page.tsx`'s `LegalPage` is now unused (only
+  `Todo` is imported) and can go with the landing owner.
+- i18n: new part `packages/i18n/src/i18n-parts/manage.ts` (`ta.mgX`, uz + ru); `HELP_COPY.articles`.
+- e2e: `account-flows.e2e.ts` reads API-key and session rows as `row` (they were list items).
+Primitive requests (for U1):
+1. `Card` primitive with the props of `_manage/card.tsx` (title, hint, actions, footer, flush,
+   tone danger) — used on 15+ screens here.
+2. `Table`/`TableFrame`: a `bare` (no border/radius) variant for tables inside a card; today
+   `FLUSH_TABLE` uses `!` overrides. `Th` needs a way to tint a column (plan comparison) without `!`.
+3. `Avatar` / `AvatarStack` / `PersonChip` (initials, deterministic tone).
+4. `Notice` banner (tone, title, action) in `src/ui` — the upload wizard and U5 each have a copy.
+5. `FileDrop` compact drop zone; `Stepper` is used as is.
+6. `Page` `meta` slot under the title (the client header line is placed with `-mt-2` today).
+7. `QrCode` (always dark on white) — `settings/two-factor.tsx` exports it for the Telegram card.
+8. `Button` `size="sm"` in card footers looks right; a `CardFooter` status slot (left-aligned
+   "Saqlandi" next to the save) is handled inside the card for now.
+Status when the owner asked to wrap up (23 Oct 2026):
+- Done: every page listed above. `npm run typecheck` at the last commit (see the commit message);
+  web tsc, eslint on all touched files and the unit tests of the touched folders (27) were green
+  during the work.
+- Not run: the e2e specs (settings-nav, review-assignment, review-flow, navigation, empty-states,
+  dictionary-review, account-flows) and the root `npm test` / `npm run build` / full `npm run lint`.
+  Run them before merging; account-flows was updated for the table rows.
+- Screenshots are incomplete: 83 of 102. Missing: the dark set of yordam, yordam-article,
+  maxfiylik and oferta (all of these but oferta-1280 and yordam-article-375 exist in light), plus
+  admin-375-dark, settings-data-375-dark, api-docs-1280-dark (the dev server aborted those loads).
+- Not done: a dialog-level screenshot of the two-factor wizard; the invite dialog's form is
+  unchanged inside (only the team page around it changed).
