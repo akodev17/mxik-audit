@@ -16,3 +16,9 @@ another session. Not fixed on `agent1-auth`.
    call gets 403 `unverified` shows its generic error instead. Only reachable if a session loses
    its confirmation while a page is open (it cannot today), so low priority; a global
    `QueryCache.onError` that sends `unverified` to `/sign-up/verify` would close it.
+3. **`packages/domain/src/demo.test.ts` races in the full `npm test`** (owner: Agent 2 / Agent 4).
+   "gives each visitor a separate, undecided copy" asserts the global `demoVisit` count grew by
+   exactly 2, while `apps/api/test/e2e/demo.test.ts` (run in parallel by `node --test`) and other
+   sessions on the shared DB start demo visits too: `500 !== 499`, and the next two tests in the
+   file cascade. Passes on its own (`4/4`). Count only the visits of the sessions it created, or
+   compare `>=`.
