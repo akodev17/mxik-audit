@@ -1,4 +1,9 @@
 import { fmtNumber } from '@tasnivo/i18n/format';
+import { uz as accountingUz } from '@tasnivo/i18n/i18n-parts/accounting';
+import { uz as bankUz } from '@tasnivo/i18n/i18n-parts/bank';
+import { uz as didoxUz } from '@tasnivo/i18n/i18n-parts/didox';
+import { uz as onecUz } from '@tasnivo/i18n/i18n-parts/onec';
+import { uz as productsUz } from '@tasnivo/i18n/i18n-parts/products';
 import { SAMPLE_REPORT } from './sample-report.generated';
 import { LEAD_FILE_RETENTION_DAYS } from './config';
 
@@ -245,3 +250,83 @@ export const DATA_FLOW = {
     + 'topilmalari va qarorlar yozuvlari bilan birga.',
   purpose: 'Fayl faqat shu audit uchun ishlatiladi.',
 } as const;
+
+/* ----------------------------------------------------------------- accounting
+
+   The Buxgalteriya section (docs/landing-2026-10-23/feature-inventory.md §3.3–3.4, owner
+   decision O1). No figures here at all. Titles, the audit button and the beta notes are read
+   from the app's own copy so the landing cannot drift from what the app says. Nothing here
+   has been loaded into a real 1C, read from a real bank file or fetched from a real Didox:
+   that is what the "sinov rejimida" lines and ACCOUNTING_UNVERIFIED say. Drop them once
+   FINAL_REPORT §5 items 1–3 are done. Never name a bank: no layout is verified. */
+const NAV = accountingUz.accountingX.nav;
+
+export const ACCOUNTING_FLOW = ['manba', 'oʻqish', 'solishtirish', 'tekshiruv', 'tasdiqlash', '1C fayli'] as const;
+
+export const ACCOUNTING_BETA = 'sinov rejimida';
+
+/** One labelled line of a card; `beta` puts the badge and that note on this line, never on the card. */
+export type AccountingLine = { label: string; text: string; beta?: string };
+export type AccountingCard = { key: 'bank' | 'didox' | 'products' | 'onec'; title: string; lines: readonly AccountingLine[] };
+
+export const ACCOUNTING_CARDS: readonly AccountingCard[] = [
+  {
+    key: 'bank',
+    title: NAV.bank,
+    lines: [
+      { label: 'Nima uchun', text: 'Koʻchirmani 1C ga qoʻlda qayta yozmaysiz: qatorlar, kontragentlar va operatsiya turlari oʻqiladi, qoldiqlar solishtiriladi.' },
+      { label: 'Muammo', text: 'Har oy yuzlab toʻlovni qoʻlda kiritish, kontragentni adashtirish, bir toʻlovni ikki marta yozish.' },
+      {
+        label: 'Qanday ulanadi',
+        text: 'Bankdan yuklab olingan Excel yoki CSV koʻchirmani yuklaysiz; shakl tanilmasa, ustunlarni bir marta tanlaysiz va keyingi safar eslab qolinadi. Tasdiqlangandan keyin kl_to_1c.txt va solishtirma hisobotni olasiz.',
+        beta: bankUz.bankX.upload.unverified,
+      },
+    ],
+  },
+  {
+    key: 'didox',
+    title: NAV.didox,
+    lines: [
+      { label: 'Nima uchun', text: 'Kiruvchi hisob-faktura qatorlari mahsulotlaringiz bilan solishtiriladi, MXIK, qadoq kodi va oʻlchov birligi tekshiriladi.' },
+      { label: 'Muammo', text: 'Qatorlarni 1C ga qoʻlda koʻchirish, bitta mahsulotning turlicha yozilishi, notoʻgʻri yoki cheklangan MXIK kodi.' },
+      {
+        label: 'Qanday ulanadi',
+        text: 'Didox arxivi (.zip), JSON yoki ESF Excel faylini yuklaysiz yoki Didox tokeningiz bilan yangi hisob-fakturalarni olasiz. Natija: tovar kirimi va nomenklatura Excel fayllari.',
+        beta: didoxUz.didoxX.unverified,
+      },
+    ],
+  },
+  {
+    key: 'products',
+    title: NAV.products,
+    lines: [
+      { label: 'Nima uchun', text: 'Firmangiz va mijozlaringiz mahsulotlari bitta roʻyxatda: MXIK, qadoq kodi, oʻlchov birligi va shtrix kod bir joyda tekshiriladi.' },
+      { label: 'Muammo', text: 'Bitta mahsulot har hujjatda boshqacha yoziladi, qadoq kodi yoki oʻlchov birligi MXIK kodiga mos kelmaydi.' },
+      { label: 'Qanday ulanadi', text: `Excel fayldan yuklaysiz yoki tugagan auditdan «${productsUz.productsX.actions.fromAudit}» bilan oʻtkazasiz; tasdiqlangan roʻyxat 1C nomenklatura fayli sifatida yuklab olinadi.` },
+    ],
+  },
+  {
+    key: 'onec',
+    title: NAV.onec,
+    lines: [
+      { label: 'Nima uchun', text: 'Bank, Didox va katalog paketlari bitta tarixda: nima tayyorlangan, nima yuklab olingan va nima nima uchun oʻtkazib yuborilgan.' },
+      { label: 'Muammo', text: 'Qaysi hujjat 1C ga allaqachon kiritilgani nomaʼlum boʻlib qoladi va bir yozuv ikki marta kiradi.' },
+      {
+        label: 'Qanday ulanadi',
+        text: 'Tasdiqlangan yozuvlardan fayl yuklab olinadi va 1C ning oʻz yuklash oynasi orqali kiritiladi; oldin chiqarilgan yozuv qayta kelsa, belgilanadi. Kontragentlar roʻyxatini 1C dan yuklash mumkin.',
+        // The app's OData note plus the settings page's second sentence. HTTP is never named: it cannot transfer.
+        beta: `${onecUz.onecX.detail.transferNote} Fayl orqali yuklash asosiy yoʻl boʻlib qoladi.`,
+      },
+    ],
+  },
+];
+
+/** File kinds as docs/accounting-2026-10-23/onec-formats.md lists them; the edition as that file names it (no "8"). */
+export const ACCOUNTING_FORMATS =
+  'Fayllar «1C:Buxgalteriya (Oʻzbekiston uchun)» ning oʻz yuklash oynalari uchun tuziladi: bank '
+  + 'koʻchirmasi uchun kl_to_1c.txt, nomenklatura, tovar kirimi va kontragentlar Excel fayllari, '
+  + 'katalog uchun 1C CSV/XLSX.';
+
+export const ACCOUNTING_UNVERIFIED =
+  'Fayllar 1C almashuv standarti boʻyicha tuzilgan, lekin haqiqiy 1C bazasiga hali yuklab sinab '
+  + 'koʻrilmagan: birinchi faylni sinov bazasida tekshiring.';
