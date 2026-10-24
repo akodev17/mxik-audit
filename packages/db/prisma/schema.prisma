@@ -1694,3 +1694,24 @@ model MxikCodeState {
 }
 
 // ── Agent 5: platform quality ───────────────────────────────────────────────────────────
+
+// ── Module flags (/admin/features) ──────────────────────────────────────────────────────
+
+/// Whether a product module (packages/contracts/src/feature-modules.ts) is on, shown as
+/// "coming soon", or hidden. No row = ENABLED.
+model FeatureFlag {
+  key       String       @id
+  state     FeatureState
+  updatedAt DateTime     @default(now()) @updatedAt
+
+  @@map("feature_flag")
+}
+
+/// packages/contracts FEATURE_STATES.
+enum FeatureState {
+  ENABLED
+  COMING_SOON
+  HIDDEN
+
+  @@map("feature_state")
+}

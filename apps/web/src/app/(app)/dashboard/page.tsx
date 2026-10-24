@@ -16,6 +16,7 @@ import { ActivityFeed } from '../activity/activity-feed';
 import { AccountantFilter } from './accountant-filter';
 import { Card, FOOT_LINK } from './card';
 import { Changes } from './changes';
+import { ComingSoonModules } from './coming-soon';
 import { dashboardData } from './dashboard-data';
 import { IssueChart } from './issue-chart';
 import { Onboarding } from './onboarding';
@@ -153,6 +154,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
           </>
         ) : null}
+
+        <ComingSoonModules />
       </div>
     </Page>
   );

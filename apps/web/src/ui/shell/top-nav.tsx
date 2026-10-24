@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/locale-client';
+import { Badge } from '../badge';
 import { cx } from '../cx';
 import { Menu } from '../menu';
 import { useIntentPrefetch } from './intent-prefetch';
@@ -56,9 +57,11 @@ export function TopNav({ canWrite, canTeam, activePath }: { canWrite: boolean; c
   }, [tabs.length, ta]);
 
   const label = (key: string, full: string): string => (key === 'queue' ? ta.shellX.nav.queueTab : full);
+  // A COMING_SOON module's tab: its name and the badge, muted, not a link.
+  const soonBadge = <Badge className="ml-1.5 h-4 px-1.5 text-[0.625rem]">{ta.featuresX.soon}</Badge>;
   const shown = tabs.slice(0, fit);
   const rest = tabs.slice(fit);
-  const restActive = rest.some((item) => isActive(pathname, item.href));
+  const restActive = rest.some((item) => !item.soon && isActive(pathname, item.href));
 
   return (
     <nav ref={nav} aria-label={ta.shellX.nav.label} className="relative hidden min-w-0 flex-1 self-stretch pr-2 md:flex lg:pr-3">
@@ -66,6 +69,13 @@ export function TopNav({ canWrite, canTeam, activePath }: { canWrite: boolean; c
         {shown.map((item) => {
           const active = isActive(pathname, item.href);
           const text = label(item.key, item.label);
+          if (item.soon) {
+            return (
+              <li key={item.key} className="flex shrink-0">
+                <span data-tour={`nav-${item.key}`} aria-disabled="true" title={item.label} className={cx(TAB, 'cursor-default text-subtle')}>{text}{soonBadge}</span>
+              </li>
+            );
+          }
           return (
             <li key={item.key} className="flex shrink-0">
               <Link
@@ -88,13 +98,15 @@ export function TopNav({ canWrite, canTeam, activePath }: { canWrite: boolean; c
             label={ta.shellX.nav.more}
             align="end"
             triggerClassName={cx(TAB, 'h-9 gap-1 rounded-ctl', restActive ? 'text-fg' : 'text-muted hover:text-fg')}
-            items={rest.map((item) => ({ label: item.label, href: item.href, icon: item.icon, current: isActive(pathname, item.href) }))}
+            items={rest.map((item) => item.soon
+              ? { label: item.label, description: ta.featuresX.soon, icon: item.icon, disabled: true }
+              : { label: item.label, href: item.href, icon: item.icon, current: isActive(pathname, item.href) })}
           />
         </div>
       ) : null}
       {/* Same classes as the tabs, so the widths match; the last cell is the more button. */}
       <div ref={ruler} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 flex whitespace-nowrap">
-        {tabs.map((item) => <span key={item.key} className={TAB}>{label(item.key, item.label)}</span>)}
+        {tabs.map((item) => <span key={item.key} className={TAB}>{label(item.key, item.label)}{item.soon ? soonBadge : null}</span>)}
         <span className={cx(TAB, 'gap-1')}>{ta.shellX.nav.more}<span className="inline-block w-3.5" /></span>
       </div>
     </nav>

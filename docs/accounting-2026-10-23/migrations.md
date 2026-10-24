@@ -199,3 +199,20 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261106000100_user_tou
 What breaks: with the new code still running, the mark-done call (`PUT /api/account/tour`) answers
 500 and `GET /api/shell` reads the unreadable flag as `tour: "done"`, so the tour never opens on its
 own (the frame itself keeps working). Deploy the previous code first; it never reads the column.
+
+## Module flags (`202611070*`)
+
+### `20261107000100_feature_flags`
+
+Adds the `feature_flag` table and the `feature_state` enum: the state of each product module the
+owner set on `/admin/features` (`PUT /api/admin/features`). No row = `ENABLED`. No seed.
+
+```sql
+DROP TABLE IF EXISTS "feature_flag";
+DROP TYPE IF EXISTS "feature_state";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261107000100_feature_flags';
+```
+
+What breaks: with the new code still running, every request under a module's prefix (API and web)
+answers 500 once the cached states expire, and `/admin/features` cannot save. Deploy the previous
+code first; it never reads the table.

@@ -16,6 +16,7 @@ import * as bank from './bank';
 import * as didox from './didox';
 import * as products from './products';
 import * as tour from './tour';
+import * as features from './features';
 
 export const partsUz = {
   ...shell.uz,
@@ -35,6 +36,7 @@ export const partsUz = {
   ...didox.uz,
   ...products.uz,
   ...tour.uz,
+  ...features.uz,
 };
 
 export const partsRu: typeof partsUz = {
@@ -55,4 +57,5 @@ export const partsRu: typeof partsUz = {
   ...didox.ru,
   ...products.ru,
   ...tour.ru,
+  ...features.ru,
 };

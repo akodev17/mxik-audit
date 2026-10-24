@@ -18,6 +18,7 @@ import { nextIndex } from '../keys';
 import { Spinner } from '../spinner';
 import { useToast } from '../toast';
 import { IconArrowLeft, IconBox, IconHash, IconSwitch } from './icons';
+import { useModuleStates } from './module-states';
 import { NAV_ICONS, useNavLabels } from './nav-items';
 import { matchesQuery, paletteCommands, type CommandKey } from './palette-model';
 import { rememberRecent, useRecent, type RecentItem, type RecentKind } from './palette-recent';
@@ -58,6 +59,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
   const toast = useToast();
   const queryClient = useQueryClient();
   const navLabels = useNavLabels();
+  const modules = useModuleStates();
   const { switching, switchTo } = useSwitchClient();
   const recentItems = useRecent();
   const [mode, setMode] = useState<'root' | 'switch'>('root');
@@ -104,7 +106,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
     const keyword = (key: CommandKey): string =>
       (key === 'notifications' ? ta.shellX.bell.title : key === 'switchClient' ? ta.shellX.client.label : navLabels[key]);
     const icon = (key: CommandKey): ReactNode => (key === 'notifications' ? <IconBell /> : key === 'switchClient' ? <IconSwitch /> : NAV_ICONS[key]);
-    return paletteCommands({ canWrite, canTeam, locale, clientCount: clients.length })
+    return paletteCommands({ canWrite, canTeam, locale, clientCount: clients.length, modules })
       .filter((c) => matchesQuery(s.cmd[c.key], [keyword(c.key)], query))
       .map((c): Option => ({
         key: `cmd-${c.key}`,
@@ -112,7 +114,7 @@ export function CommandPalette({ open, onClose, canWrite, canTeam, clients, acti
         icon: icon(c.key),
         action: c.href ? { kind: 'go', href: c.href } : { kind: 'mode' },
       }));
-  }, [canWrite, canTeam, locale, clients.length, s, ta, navLabels, query]);
+  }, [canWrite, canTeam, locale, clients.length, s, ta, navLabels, query, modules]);
 
   const results = status.kind === 'done' ? status.answer.results : status.kind === 'loading' ? status.previous?.results ?? null : null;
 
