@@ -26,8 +26,10 @@ type Props = { id: string; open: boolean; onClose: () => void; canWrite: boolean
  */
 export function MobileNav({ id, open, onClose, canWrite, canTeam, email, unread }: Props) {
   const { locale, t, ta } = useI18n();
-  // Upload has its own button at the top; the groups list everything else.
-  const groups = useNav(canWrite, canTeam).map((g) => ({ ...g, items: g.items.filter((i) => i.key !== 'upload') }));
+  // Upload has its own button; a COMING_SOON module leads nowhere, so the menu leaves it out.
+  const nav = useNav(canWrite, canTeam);
+  const upload = nav.some((g) => g.items.some((i) => i.key === 'upload' && !i.soon));
+  const groups = nav.map((g) => ({ ...g, items: g.items.filter((i) => i.key !== 'upload' && !i.soon) })).filter((g) => g.items.length > 0);
   const panel = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const openedAt = useRef(pathname);
@@ -98,7 +100,7 @@ export function MobileNav({ id, open, onClose, canWrite, canTeam, email, unread 
             <IconButton label={ta.shellX.nav.close} icon={<IconX size={18} />} onClick={onClose} tooltipAlign="end" tooltipSide="bottom" />
           </div>
           <nav aria-label={ta.shellX.nav.label} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3">
-            {canWrite ? (
+            {upload ? (
               <Link href="/upload" onClick={onClose} className={buttonClass('secondary', 'md', 'mb-3 w-full justify-start gap-3 px-2.5 shadow-sm')}>
                 <IconUpload size={18} className="text-brand-ink" />
                 {ta.shellX.nav.upload}

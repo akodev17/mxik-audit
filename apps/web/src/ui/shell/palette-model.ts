@@ -1,5 +1,6 @@
 // Pure model of the command palette: which commands exist for a user, and text matching.
 import type { Locale } from '@tasnivo/i18n/i18n';
+import type { ModuleStates } from '@tasnivo/contracts/feature-modules';
 import { navGroups } from './nav';
 
 export type CommandKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'notifications' | 'settings' | 'help' | 'switchClient' | 'team' | 'bank' | 'didox' | 'products' | 'onec';
@@ -7,9 +8,9 @@ export type CommandKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'uploa
 /** A command either opens a page or, for switchClient, turns the palette into a client picker. */
 export type CommandSpec = { key: CommandKey; href: string | null };
 
-/** Navigation commands in sidebar order (upload only for writers), then notifications, then switching client. */
-export function paletteCommands({ canWrite, canTeam = false, locale, clientCount }: { canWrite: boolean; canTeam?: boolean; locale: Locale; clientCount: number }): CommandSpec[] {
-  const pages = navGroups({ canWrite, canTeam, locale }).flatMap((g) => g.items).map((item): CommandSpec => ({ key: item.key, href: item.href }));
+/** Navigation commands in sidebar order (upload only for writers, no COMING_SOON module), then notifications, then switching client. */
+export function paletteCommands({ canWrite, canTeam = false, locale, clientCount, modules }: { canWrite: boolean; canTeam?: boolean; locale: Locale; clientCount: number; modules?: ModuleStates }): CommandSpec[] {
+  const pages = navGroups({ canWrite, canTeam, locale, modules }).flatMap((g) => g.items).filter((item) => !item.soon).map((item): CommandSpec => ({ key: item.key, href: item.href }));
   const settingsAt = pages.findIndex((c) => c.key === 'settings');
   const withNotices = [...pages.slice(0, settingsAt), { key: 'notifications' as const, href: '/notifications' }, ...pages.slice(settingsAt)];
   return clientCount > 1 ? [...withNotices, { key: 'switchClient', href: null }] : withNotices;

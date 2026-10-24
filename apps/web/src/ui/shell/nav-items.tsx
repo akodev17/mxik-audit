@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from 'react';
 import { useI18n } from '@/lib/locale-client';
 import { IconBook, IconBuilding, IconGear, IconHome, IconList, IconSend, IconTable, IconUpload, IconUsers } from '../icons';
 import { IconBox, IconHelp, IconQueue, IconSwitch, IconTeam } from './icons';
+import { useModuleStates } from './module-states';
 import { navGroups, type NavEntry, type NavGroupKey, type NavKey } from './nav';
 
 export type NavItemView = NavEntry & { label: string; icon: ReactNode };
@@ -51,6 +52,7 @@ export function useNavLabels(): Record<NavKey, string> {
 export function useNav(canWrite: boolean, canTeam = false): NavGroupView[] {
   const { locale, ta } = useI18n();
   const labels = useNavLabels();
+  const modules = useModuleStates();
   return useMemo(() => {
     // Help and settings share the unlabelled group at the bottom of the rail.
     const groupLabels: Record<NavGroupKey, string | null> = {
@@ -60,10 +62,10 @@ export function useNav(canWrite: boolean, canTeam = false): NavGroupView[] {
       knowledge: ta.shellX.nav.knowledge,
       settings: null,
     };
-    return navGroups({ canWrite, canTeam, locale }).map((g) => ({
+    return navGroups({ canWrite, canTeam, locale, modules }).map((g) => ({
       key: g.key,
       label: groupLabels[g.key],
       items: g.items.map((item) => ({ ...item, label: labels[item.key], icon: NAV_ICONS[item.key] })),
     }));
-  }, [canWrite, canTeam, locale, ta, labels]);
+  }, [canWrite, canTeam, locale, ta, labels, modules]);
 }

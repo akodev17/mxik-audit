@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { IsoDateTime, LIMITS, LOCALES, OkFlag, Ok, PlanFeatures, PlanLimitsOf, Redirect, RETENTION_CHOICES, ShellFail, THEMES, TierOffers } from '../common';
 import { defineModule, endpoint } from '../endpoint';
+import { ModuleStatesOf } from '../feature-modules';
 import { ErrorState } from './auth';
 
 const Flag = z.union([Ok, ShellFail]);
@@ -61,6 +62,13 @@ export const account = defineModule('account', {
     }),
     replaces: ['page:(app)/settings#account', 'page:(app)/settings#data'],
     notes: 'Shape confirmed in W2; until W3 account-tab.tsx and data-tab.tsx select these columns from db.organization.',
+  }),
+  modules: endpoint({
+    method: 'GET', path: '/api/modules', auth: 'public',
+    summary: 'State of every product module (ENABLED, COMING_SOON or HIDDEN), as set on /admin/features',
+    responds: 'json', response: ModuleStatesOf,
+    replaces: ['page:(app)/layout#modules'],
+    notes: 'Read by the web middleware, the frame and the dashboard through a 30 s cache. A module without a stored row is ENABLED.',
   }),
   config: endpoint({
     method: 'GET', path: '/api/config', auth: 'public',

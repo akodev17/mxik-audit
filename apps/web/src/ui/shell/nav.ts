@@ -1,18 +1,36 @@
 // Navigation model of the app shell. Pure, so the sidebar, the mobile menu, the command palette
 // and the tests share one definition.
+import { modulesOfRoute, strictest, type ModuleStates } from '@tasnivo/contracts/feature-modules';
 import type { Locale } from '@tasnivo/i18n/i18n';
 
 export type NavKey = 'dashboard' | 'queue' | 'clients' | 'catalogs' | 'upload' | 'dictionary' | 'activity' | 'help' | 'settings' | 'team' | 'bank' | 'didox' | 'products' | 'onec';
 export type NavGroupKey = 'work' | 'clients' | 'accounting' | 'knowledge' | 'settings';
-export type NavEntry = { key: NavKey; href: string };
+/** `soon`: the page's module is COMING_SOON, so the entry is shown but leads nowhere. */
+export type NavEntry = { key: NavKey; href: string; soon?: boolean };
 export type NavGroup = { key: NavGroupKey; items: NavEntry[] };
 
 /** The help centre is public and has one tree per language. */
 export const helpHref = (locale: Locale): string => (locale === 'ru' ? '/yordam/ru' : '/yordam');
 
-/** Sidebar groups in order; upload only for users who may change data, the team only for administrators of a real organisation. */
-export function navGroups({ canWrite, canTeam = false, locale }: { canWrite: boolean; canTeam?: boolean; locale: Locale }): NavGroup[] {
-  return [
+/** Drops entries of HIDDEN modules (and groups left empty) and marks those of COMING_SOON ones. */
+function withModules(groups: NavGroup[], modules: ModuleStates | undefined): NavGroup[] {
+  if (!modules) return groups;
+  return groups.map((g) => ({
+    ...g,
+    items: g.items.flatMap((item): NavEntry[] => {
+      const state = strictest(modulesOfRoute(item.href), modules)?.state ?? 'ENABLED';
+      if (state === 'HIDDEN') return [];
+      return state === 'COMING_SOON' ? [{ ...item, soon: true }] : [item];
+    }),
+  })).filter((g) => g.items.length > 0);
+}
+
+/**
+ * Sidebar groups in order; upload only for users who may change data, the team only for administrators
+ * of a real organisation; module pages as `modules` (/admin/features) says.
+ */
+export function navGroups({ canWrite, canTeam = false, locale, modules }: { canWrite: boolean; canTeam?: boolean; locale: Locale; modules?: ModuleStates }): NavGroup[] {
+  return withModules([
     { key: 'work', items: [{ key: 'dashboard', href: '/dashboard' }, { key: 'queue', href: '/queue' }] },
     {
       key: 'clients',
@@ -34,7 +52,7 @@ export function navGroups({ canWrite, canTeam = false, locale }: { canWrite: boo
     },
     // Preferences sit at the bottom of the rail: help, then settings.
     { key: 'settings', items: [{ key: 'help', href: helpHref(locale) }, { key: 'settings', href: '/settings' }] },
-  ];
+  ], modules);
 }
 
 /** The link is the current section: the same path or one below it. */

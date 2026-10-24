@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { allEnabled } from '@tasnivo/contracts/feature-modules';
 import { emailInitials, nameInitials } from './initials';
 import { allClientsTarget, fittingTabs, helpHref, isActive, navGroups, switcherScope, switchTarget } from './nav';
 import { paletteCommands } from './palette-model';
@@ -23,6 +24,18 @@ describe('shell navigation', () => {
     assert.equal(withTeam[withTeam.indexOf('/clients') + 1], '/team');
     assert.ok(paletteCommands({ canWrite: true, canTeam: true, locale: 'uz', clientCount: 1 }).some((c) => c.key === 'team'));
     assert.ok(!paletteCommands({ canWrite: true, locale: 'uz', clientCount: 1 }).some((c) => c.key === 'team'));
+  });
+
+  it('drops the pages of a HIDDEN module, marks those of a COMING_SOON one, and keeps both out of the palette', () => {
+    const modules = { ...allEnabled(), didox: 'HIDDEN' as const, mxik_audit: 'COMING_SOON' as const };
+    const items = navGroups({ canWrite: true, locale: 'uz', modules }).flatMap((g) => g.items);
+    assert.ok(!items.some((i) => i.key === 'didox'));
+    assert.deepEqual(items.filter((i) => i.soon).map((i) => i.key), ['queue', 'catalogs', 'upload', 'dictionary']);
+    assert.deepEqual(navGroups({ canWrite: true, locale: 'uz', modules: allEnabled() }), navGroups({ canWrite: true, locale: 'uz' }));
+    const commands = paletteCommands({ canWrite: true, locale: 'uz', clientCount: 1, modules }).map((c) => c.key);
+    for (const key of ['didox', 'queue', 'catalogs', 'upload', 'dictionary'] as const) assert.ok(!commands.includes(key), key);
+    const allHidden = { ...allEnabled(), bank: 'HIDDEN' as const, didox: 'HIDDEN' as const, products: 'HIDDEN' as const, onec: 'HIDDEN' as const };
+    assert.ok(!navGroups({ canWrite: true, locale: 'uz', modules: allHidden }).some((g) => g.key === 'accounting'), 'an emptied group goes too');
   });
 
   it('fits as many header tabs as the row holds and moves the rest behind the more button', () => {

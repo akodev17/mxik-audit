@@ -24,6 +24,7 @@ import { unlink } from '@tasnivo/domain/telegram/linking';
 import { setTourDone } from '@tasnivo/domain/tour';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
+import { getModuleStates } from '../features/module-states';
 import { CurrentUser, Locale } from '../http/decorators';
 import { ApiError } from '../http/errors';
 import type { ApiRequest } from '../http/request';
@@ -54,6 +55,11 @@ export class AccountController {
   async get(@CurrentUser() user: User): Promise<Answer<'get'>> {
     const org = await accountSettings(user.orgId);
     return { ...org, rawRetentionSince: isoOrNull(org.rawRetentionSince) };
+  }
+
+  @Route(e.modules)
+  modules(): Promise<Answer<'modules'>> {
+    return getModuleStates();
   }
 
   @Route(e.config)

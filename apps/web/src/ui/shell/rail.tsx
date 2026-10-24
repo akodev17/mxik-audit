@@ -137,7 +137,7 @@ export function Rail({ canWrite, canTeam, canUpload, unread, clients = [], activ
   const help = items.find((i) => i.key === 'help');
   const settings = items.find((i) => i.key === 'settings');
   // Not in a demo: uploading is switched off there, and a shortcut to a dead end is worse than none.
-  const upload = canUpload ? items.find((i) => i.key === 'upload') : undefined;
+  const upload = canUpload ? items.find((i) => i.key === 'upload' && !i.soon) : undefined;
   const headingId = useId();
   const count = unread ?? 0;
 

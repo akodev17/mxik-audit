@@ -1,8 +1,9 @@
 // Platform-admin pages: traction, pipeline status, accuracy metrics and their CSV. Anyone who
 // is not a platform admin gets 404, as the pages and the CSV route did.
 import { z } from 'zod';
-import { IsoDateTime } from '../common';
+import { IsoDateTime, Ok } from '../common';
 import { defineModule, endpoint } from '../endpoint';
+import { FEATURE_STATES, ModuleKeyOf } from '../feature-modules';
 
 export const ACCURACY_DIMENSIONS = ['stage', 'label', 'org', 'week'] as const;
 
@@ -61,5 +62,20 @@ export const admin = defineModule('admin', {
     query: z.object({ by: z.enum([...ACCURACY_DIMENSIONS, 'reasons']).optional() }),
     responds: 'file', file: { contentTypes: ['text/csv; charset=utf-8'], disposition: 'attachment' },
     replaces: ['route:GET /api/admin/metrics'],
+  }),
+  features: endpoint({
+    method: 'GET', path: '/api/admin/features', auth: 'session', role: 'platformAdmin',
+    summary: 'Every product module with its state and when it was last saved (null: never, so ENABLED)',
+    responds: 'json',
+    response: z.array(z.object({ key: ModuleKeyOf, state: z.enum(FEATURE_STATES), updatedAt: IsoDateTime.nullable() })),
+    replaces: ['page:(app)/admin/features'],
+  }),
+  setFeatures: endpoint({
+    method: 'PUT', path: '/api/admin/features', auth: 'session', role: 'platformAdmin',
+    summary: 'Set the state of product modules (ENABLED, COMING_SOON or HIDDEN); modules left out keep theirs',
+    body: z.object({ states: z.record(ModuleKeyOf, z.enum(FEATURE_STATES)) }),
+    responds: 'json', response: Ok,
+    replaces: ['page:(app)/admin/features'],
+    notes: 'Drops the 30 s cache of the API process that saved; other API processes and the web app pick the change up when theirs expires.',
   }),
 });

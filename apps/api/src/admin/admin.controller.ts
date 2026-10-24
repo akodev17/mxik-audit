@@ -2,16 +2,18 @@
 // not a platform admin, signed in or not, gets 404 as the pages and the CSV route did: the routes
 // read the session with OptionalSessionGuard and PlatformAdminGuard decides (Route's AccessGuard
 // refuses the platformAdmin role).
-import { applyDecorators, Controller, Query, Res, UseGuards } from '@nestjs/common';
+import { applyDecorators, Body, Controller, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { endpoints, type Endpoint } from '@tasnivo/contracts';
+import type { ModuleStates } from '@tasnivo/contracts/feature-modules';
 import { accuracyReport, metricsCsv } from '@tasnivo/domain/accuracy';
 import { pipelineStatus } from '@tasnivo/domain/pipeline-status';
 import { tractionMetrics } from '@tasnivo/domain/traction';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import { OptionalSessionGuard } from '../auth-core/session.guard';
+import { moduleFlagRows, setModuleStates } from '../features/module-states';
 import { Route } from '../http/route';
 import { Locale } from '../http/decorators';
 import { ApiError } from '../http/errors';
@@ -41,6 +43,17 @@ export class AdminController {
   @AdminRoute(e.accuracy)
   accuracy(@Query(new ZodValidationPipe(e.accuracy.query)) query: { by: 'stage' | 'label' | 'org' | 'week' }) {
     return accuracyReport(query.by);
+  }
+
+  @AdminRoute(e.features)
+  async features() {
+    return (await moduleFlagRows()).map((row) => ({ ...row, updatedAt: row.updatedAt?.toISOString() ?? null }));
+  }
+
+  @AdminRoute(e.setFeatures)
+  async setFeatures(@Body(new ZodValidationPipe(e.setFeatures.body)) body: { states: Partial<ModuleStates> }) {
+    await setModuleStates(body.states);
+    return { ok: true as const };
   }
 
   /** by=stage (default), label, org, week or reasons; anything else is a 400. */

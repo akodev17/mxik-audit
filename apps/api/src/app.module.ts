@@ -14,6 +14,7 @@ import { CronModule } from './cron/cron.module';
 import { DemoModule } from './demo/demo.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
 import { DidoxModule } from './didox/didox.module';
+import { ModuleGuard } from './features/module.guard';
 import { HealthModule } from './health/health.module';
 import { ApiExceptionFilter } from './http/exception.filter';
 import { LocaleInterceptor } from './http/locale.interceptor';
@@ -58,6 +59,8 @@ import { WorkspaceModule } from './workspace/workspace.module';
     DidoxModule,
   ],
   providers: [
+    // First: a switched-off module answers 404 before CSRF or a session can tell it exists.
+    { provide: APP_GUARD, useClass: ModuleGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_INTERCEPTOR, useClass: LocaleInterceptor },
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
