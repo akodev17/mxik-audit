@@ -13,11 +13,12 @@ export function Hero() {
             Buxgalterlar va autsorsing firmalari uchun
           </p>
           <h1 id="hero-title" className="lp-display lp-rise mx-auto mt-5 max-w-[22ch] text-[clamp(2rem,4.2vw,3.25rem)] font-bold" style={{ ['--d' as string]: '.05s' }}>
-            MXIK katalogingizni tekshiring. Xatolarni aniqlang. <em>Ishonch bilan qaror qiling.</em>
+            MXIK katalogini tekshiring. Hujjatlarni 1C ga tayyorlang. <em>Qarorni oʻzingiz qabul qiling.</em>
           </h1>
           <p className="lp-rise mx-auto mt-4 max-w-[40rem] text-[17px] leading-relaxed text-lp-muted sm:text-[18px]" style={{ ['--d' as string]: '.1s' }}>
-            Mahsulot katalogingizdagi MXIK kodlari, oʻlchov birliklari va boshqa nomuvofiqliklarni
-            aniqlang. Har bir tekshiruv natijasini tushunarli izoh va audit tarixi bilan koʻring.
+            Katalogdagi MXIK kodlari va oʻlchov birliklarini tekshiring, bank koʻchirmalari va Didox
+            hisob-fakturalaridan 1C uchun fayl tayyorlang. Har bir taklif va qaror kim va qachon qilgani
+            bilan tarixda qoladi.
           </p>
           <div id="hero-actions" className="lp-rise mt-6 flex flex-wrap items-center justify-center gap-3" style={{ ['--d' as string]: '.15s' }}>
             <ButtonLink href="/sign-up">Bepul boshlash</ButtonLink>

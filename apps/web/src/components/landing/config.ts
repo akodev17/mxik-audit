@@ -17,8 +17,8 @@ export function safeHref(raw: string | undefined): string | null {
 }
 
 /**
- * Where "Demoni sinab koʻrish" goes. No public demo mode exists in the app yet,
- * so while this is unset every demo button and link is hidden.
+ * Where "Demoni sinab koʻrish" goes: /demo, which mails a sign-in link to a private copy of the
+ * sample (scripts/seed-demo.ts). While this is unset every demo button and link is hidden.
  */
 export const DEMO_URL = safeHref(process.env.NEXT_PUBLIC_DEMO_URL);
 
@@ -55,12 +55,6 @@ export const LEAD_FILE_RETENTION_DAYS = (() => {
  * Keep false until a tax adviser has confirmed the wording against lex.uz.
  */
 export const SHOW_LEGAL_223 = process.env.NEXT_PUBLIC_SHOW_LEGAL_223 === 'true';
-
-/**
- * Separate workspaces per client for accounting firms. NOT BUILT: every screen
- * reads the organisation's newest catalogue. Turn on only once it exists.
- */
-export const SHOW_MULTI_CLIENT = process.env.NEXT_PUBLIC_FEATURE_MULTI_CLIENT === 'true';
 
 /**
  * Online payment (Click/Payme) is live in the app. Off until the provider keys are set on the API

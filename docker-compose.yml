@@ -22,7 +22,6 @@ x-web-build: &web-build
     NEXT_PUBLIC_TELEGRAM_URL: ${NEXT_PUBLIC_TELEGRAM_URL:-}
     NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
     NEXT_PUBLIC_SHOW_LEGAL_223: ${NEXT_PUBLIC_SHOW_LEGAL_223:-false}
-    NEXT_PUBLIC_FEATURE_MULTI_CLIENT: ${NEXT_PUBLIC_FEATURE_MULTI_CLIENT:-false}
     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
 
 # Docker keeps container logs forever by default; 5 files of 10 MB per service.

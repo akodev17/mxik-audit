@@ -9,6 +9,7 @@ const ROWS = [
   { what: 'Taklif', before: 'Qidiruv natijasi soʻrov yozilishiga bogʻliq.', after: 'Yonida tasniflagichdagi oʻrni va moslik darajasi turadi.' },
   { what: 'Qaror', before: 'Qayerda yozilgani nomaʼlum.', after: 'Kim va qachon qabul qilgani tarixda qoladi.' },
   { what: 'Natija', before: 'Faylni qoʻlda qayta yigʻasiz.', after: 'Asl ustunlar tartibida, tasdiqlangan kodlar joyida.' },
+  { what: 'Hujjatlar', before: 'Bank koʻchirmasi va hisob-faktura qatorlarini 1C ga qoʻlda qayta yozasiz.', after: 'Faylni yuklaysiz, faqat shubhali qatorlarni koʻrib chiqasiz va 1C uchun faylni olasiz.' },
 ] as const;
 
 // Section 2: the dangerous code looks fine; here is the same work done by hand and with Tasnivo.
