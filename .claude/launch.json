@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "landing-hero-3035",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location 'C:\\Users\\USER\\Desktop\\Pets\\mxik-audit-\\mxik-audit\\.claude\\worktrees\\distracted-euclid-95074d'; $env:API_INTERNAL_URL='http://localhost:4000'; npx.cmd next dev apps/web -p 3035"],
+      "port": 3035
+    },
+    {
       "name": "integ-api-4027",
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-Command", "Set-Location 'C:\\Users\\User\\Desktop\\pets\\mxik-audit\\.claude\\worktrees\\tasnivo-integration'; $env:API_PORT='4027'; npx tsx apps/api/src/main.ts"],
@@ -374,6 +380,26 @@
         "$env:API_INTERNAL_URL='http://localhost:4010'; npx next dev apps/web -p 3002"
       ],
       "port": 3002
+    },
+    {
+      "name": "flags-api-4061",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4061'; $env:ADMIN_EMAILS='flags-owner@e2e.mxik.test'; npx.cmd tsx apps/api/src/main.ts"
+      ],
+      "port": 4061
+    },
+    {
+      "name": "flags-web-3061",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4061'; npx.cmd next dev apps/web -p 3061"
+      ],
+      "port": 3061
     }
   ]
 }
