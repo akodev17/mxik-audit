@@ -7,7 +7,6 @@ import { Button } from '../button';
 import { cx } from '../cx';
 import { trapTab } from '../focus';
 import { IconArrowRight } from '../icons';
-import { useReturnFocus } from '../overlay';
 import { useTour } from './tour-context';
 import { placeCard, type CardPlacement } from './tour-place';
 import type { Rect } from './tour-target';
@@ -15,7 +14,7 @@ import type { Rect } from './tour-target';
 /**
  * The tour's dialog: counter, title, one or two sentences, an optional link to the section, and
  * Skip / Back / Next. Placed beside the spotlight (or centred); Tab stays inside, arrows step,
- * focus starts on Next and returns to the opener when the tour closes.
+ * focus starts on Next (the provider returns it to the opener when the tour closes).
  */
 export function TourCard({ hole }: { hole: Rect | null }) {
   const tour = useTour();
@@ -27,8 +26,6 @@ export function TourCard({ hole }: { hole: Rect | null }) {
   const [place, setPlace] = useState<CardPlacement | null>(null);
   const { index, steps, step, next, back, skip } = tour;
   const last = index === steps.length - 1;
-
-  useReturnFocus(true, card);
 
   const top = hole?.top;
   const left = hole?.left;
