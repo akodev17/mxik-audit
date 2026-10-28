@@ -140,8 +140,10 @@ confidence, computed **before** the ceiling, is below `RERANK_GATE_CONFIDENCE`
 (default 0.10). Barcode and exact-name hits never reach it. A skipped row keeps
 the 0.85 ceiling, so skipping can only keep a row out of the bulk-accept band,
 never put it in. Without a key the eval measures the gate in a dry run: it
-would send 50% of the real cases and 57% of the synthetic ones. The defaults
-are not tuned; tune them with `npm run eval` once a key is set.
+would send 50% of the real cases and 57% of the synthetic ones. Since
+2026-10-28 the default confidence is **1.01**, i.e. every fuzzy row is sent:
+measured with Gemini (section "Reranker on (Gemini)" below), the old 0.95/0.10
+skipped only 7 of 399 rows and cost 3.1 points of synthetic high-band coverage.
 
 The reranker may only return codes it was given, or "none" (which scores every
 candidate 0 and so pushes the row out of every trusted band). Codes outside the
@@ -154,6 +156,24 @@ veto **alone never raises MISMATCH** on a row whose own code is valid: with
 nothing better to offer, "none of the retrieved codes fits" says nothing
 against the code the row already has. MISSING and NOT_FOUND still fire, with
 the veto as their evidence.
+
+**Changed 2026-10-28: "none" is a fallback, not a veto.** In the first real
+runs it was wrong 43 times in 46 (real-metal pipe rows whose pool held only
+other sizes), and emptying the row cost 14 points of real-metal top-5. A
+"none" now scores no candidate (`rerank-step.ts`), so the row keeps retrieval
+order under the 0.85 cap and can never reach the high band or bulk accept.
+The outcome is still `none`, `veto` is still set, every candidate's evidence
+carries `rerankNone: true` (the reviewer reads "AI found no fit; suggestions in
+search order"), suggestions marked that way are never one-click accepted
+(`acceptCode`), and `Catalog.pipelineMeta.llmRowsNone` counts these rows.
+
+Also since 2026-10-28: after a ranked answer, candidates the reranker left out
+of its top 5 score `llm = 0` when its own top confidence is at least
+`OVERRIDE_CONFIDENCE` (0.5, `rerank-step.ts`). Before, they kept their full
+retrieval score while its picks were pulled toward its confidence, so its
+first choice often stayed below an unranked candidate. Below 0.5 an unsure
+reranker leaves retrieval order alone. The cap is still lifted only for codes
+it scored.
 
 Cached verdicts are reused only for the exact set of candidate codes they
 judged (`candidatePoolHash` in `rerank-cache.ts`). The storage key stays a hash
@@ -576,6 +596,126 @@ pipes take the hot-rolled profile base code and 35 hot-rolled sheets the
 the base-code preference (+0.05) beats unmarked identifying codes (−0.10).
 Subposition fusion fixes the pipes but fails the synthetic constraint. The weighted hierarchy full-text column (opt-in) moved nothing
 with e5 either (run 46: 0 rows better, 1 worse) and stays off.
+
+## Reranker on (Gemini) (2026-10-28)
+
+The first runs of stage 6 with a real key: Google Gemini over the REST API
+(`rerank-gemini.ts`, selected by `RERANK_PROVIDER` or by `GEMINI_API_KEY`
+being set). All numbers are `npm run eval` on the local `mxik` database,
+snapshot #4, e5 vectors, 473 cases, runs 48–55 of `docs/eval-results.json`.
+"off" is run 48 on the same commit with `RERANK_PROVIDER=off`.
+
+### What a free-tier key can and cannot do (read this before a pilot)
+
+The owner's key is on the **free tier**, and that decided which model could be
+measured:
+
+- `gemini-2.5-flash`, `gemini-2.5-pro` and `gemini-2.5-flash-lite` answer
+  **HTTP 404 "no longer available to new users"**, although `/v1beta/models`
+  still lists them. The plan's default (`gemini-2.5-flash`) cannot be used.
+- **20 `generateContent` requests per day per model** (quota
+  `GenerateRequestsPerDayPerProjectPerModel-FreeTier`), reset at midnight
+  Pacific. Aliases share a counter (`gemini-3.5-flash` with `gemini-3.6-flash`,
+  `gemini-flash-latest` with `gemini-3.8-flash`). Retries after a 503 count.
+- `gemini-3.1-pro-preview` and `gemini-4-argon` have no free quota, so the
+  planned Pro comparison was **not run**.
+- The 3.x Flash models (`3.8-flash`, `3.6-flash`, `3-flash-preview`) answered
+  25-row batches in 82–234 s (p50) and often returned **503 "high demand"**;
+  each run ran out of its day's quota with 50–80% of rows unanswered.
+- Only `gemini-3.1-flash-lite` completed a full eval (16 requests of 25 rows,
+  p50 8.9 s). **Every number below is with `gemini-3.1-flash-lite`**, the new
+  default. A pilot needs a paid key (Tier 1): with 20 requests a day a free key
+  covers about 500 rows a day, and only at batch size 25.
+
+Free-tier settings that let a full eval finish: `RERANK_BATCH_SIZE=25`,
+`RERANK_BATCH_WAIT_MS=5000`, `RERANK_MAX_CONCURRENT=2`,
+`RERANK_TIMEOUT_MS=300000`. A daily-quota 429 fails the batch at once and its
+rows keep the capped ranking (counted in `llmRowsFailed`).
+
+### Before and after (defaults: prompt v4, gate off, override 0.5, "none" = fallback)
+
+Top-1 / top-5 %, then high-band coverage / precision %:
+
+| set (n) | off | Gemini on | high band off | high band on |
+|---|---|---|---|---|
+| golden (12) | 66.7 / 66.7 | 66.7 / 66.7 | 41.7 / 100 | 41.7 / 100 |
+| real-construction (102) | 82.4 / 91.2 | **91.2 / 95.1** | 7.8 / 100 | 7.8 / 100 |
+| real-metal (168) | 46.4 / 98.2 | **96.4 / 98.2** | 0.0 / – | 0.0 / – |
+| synthetic (191) | 92.7 / 97.9 | **96.9 / 97.9** | 31.9 / 100 | **38.7 / 100** |
+
+No set loses top-5 and high-band precision stays 100% everywhere. Golden does
+not move: its pool ceiling is 66.7% (the four misses never reach the 20
+candidates), so stage 6 has nothing to choose from. The real sets' high-band
+coverage does not rise because a blended score (0.6 retrieval + 0.4 LLM) rarely
+reaches 0.90 on a fuzzy row; that is a `score.ts` question, not the gate's.
+
+What it fixed and broke, row by row against "off":
+
+- real-metal: 84 rows from top-5 to top-1 (sheet thickness, pipe sizes,
+  rebar grades now picked by size), none worse.
+- real-construction: 8 rows top-5 → top-1 and 4 misses → top-1; 3 rows top-1 →
+  top-5 (Битум дорожный БНД 60/90 → a 2713 code, Жидкие обои шелковые → a paper
+  code, Опалубка щитовая → a steel 7308 formwork code).
+- synthetic: 8 rows top-5 → top-1, none worse.
+
+The 22 hand-labelled queries of `docs/MATCHING_V2_PLAN.md` §4
+(`tmp/probe-match.mts`, reranker on): **19/22 top-1 with the probe's stricter
+label for "Sement M400 50 kg qop", 20/22 against the §4 label `02523002*`**
+(off: 14/22; Krafta 18/22). Still wrong: "Palov 1 porsiya" (a palov seasoning
+wins; the dish code is not in the pool) and "PANADOL 500mg tabletka N12"
+(the exact code is not in the pool).
+
+### Veto vs fallback, and the override threshold
+
+Same verdicts (replayed from the full run's cache, no new calls), real-metal
+construction and synthetic top-1 / top-5 (golden is 66.7 / 66.7 in every row):
+
+| "none" | override | construction | real-metal | synthetic |
+|---|---|---|---|---|
+| veto (old) | never (old) | 82.4 / 93.1 | 53.0 / 83.9 | 93.7 / 96.3 |
+| veto | 0.5 | 91.2 / 95.1 | 82.1 / 83.9 | 95.8 / 96.3 |
+| veto | 0.7 | 91.2 / 95.1 | 53.0 / 83.9 | 95.8 / 96.3 |
+| **fallback** | **0.5** | **91.2 / 95.1** | **96.4 / 98.2** | **96.9 / 97.9** |
+| fallback | 0.7 | 91.2 / 95.1 | 67.3 / 98.2 | 96.9 / 97.9 |
+
+On the partial `gemini-3-flash-preview` run, an override at 0.5 let a confident
+wrong pick (a 530 mm insulated 7305 pipe for "Труба ВГП") push the right
+retrieval codes out of the top 5 on 16 real-metal rows, and 0.7 did not.
+Re-check the threshold when the default model changes.
+
+A prompt v5 that asked for the ranking before "none" made flash-lite answer
+"none" more often (47 rows against 26) and was dropped. The parser now reads a
+"none" that comes with a ranking as the ranking.
+
+### Gate
+
+Replayed from the same verdicts with the defaults above. Top-1 and top-5 do not move on any set; coverage and precision are the high band:
+
+| gate (confidence / margin) | rows sent | synthetic high band cov / prec | real sets |
+|---|---|---|---|
+| off (1.01) | 399 | **38.7 / 100** | unchanged |
+| 0.95 / 0.10 (old default) | 392 | 35.6 / 100 | unchanged |
+| 0.90 / 0.05 | 376 | 32.5 / 100 | unchanged |
+| 0.85 / 0.05 | 353 | 32.5 / 100 | unchanged |
+
+Gate off is the new default: it costs 2% more rows than the old one.
+
+### Cost and latency
+
+From `rerank-usage.ts` on the full runs, at paid-tier list prices (dated in
+`rerank-config.ts`; the free tier costs nothing):
+
+| model | input / output tokens per row sent | p50 per 25-row call | USD per 1,000 catalogue rows | rows answered |
+|---|---|---|---|---|
+| gemini-3.1-flash-lite ($0.25 / $1.50) | 4,430 / 96 | 8.9 s | **0.93** | 398 of 399 |
+| gemini-3.6-flash ($0.75 / $3.75) | 4,280 / 730 | 95 s | ≈ 5.0 | 174 of 399 |
+| gemini-3.8-flash ($0.75 / $3.75) | 5,380 / 580 | 234 s | ≈ 5.2 | 75 of 399 |
+| gemini-3-flash-preview ($0.50 / $3.00) | – | 82 s | ≈ 3.5 (half the rows) | 199 of 399 |
+
+Input dominates: each row sends up to 20 candidates with long Uzbek names whose
+attribute repeats the name. Shortening the candidate block is the cheapest
+saving left. The 3.x Flash rows' output includes thinking tokens (default
+level); `GEMINI_THINKING_LEVEL=low` was not measured.
 
 ## Known weaknesses
 

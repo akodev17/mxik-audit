@@ -107,7 +107,7 @@ export type MatchResult = {
   notes: string[];
   rerank: RerankOutcome;
   vector: VectorOutcome;
-  /** Set when stage 6 vetoed every candidate; `candidates` is then empty. */
+  /** Set when stage 6 judged that no candidate fits; `candidates` then keep retrieval order, capped. */
   veto: RerankVeto | null;
   /** What the row's TN VED code did; absent on results built before the column existed. */
   tnved?: TnvedOutcome;
@@ -189,6 +189,8 @@ export type RerankUsage = {
   inputTokens: number;
   outputTokens: number;
   latencyMs: number;
+  /** Median time of one answered API call; null before any call. */
+  batchLatencyP50Ms?: number | null;
   /** USD, null when the model's price is unknown. */
   estimatedCostUsd: number | null;
 };

@@ -9,6 +9,8 @@ import type { RerankProvider, RerankRequest, RerankUsage, RerankVerdict } from '
 
 export type BatchedRerankerOptions = Pick<RerankConfig, 'model' | 'batchSize' | 'batchWaitMs' | 'price'> & {
   cache?: RerankCache | undefined;
+  /** Calls in flight at once; more batches wait their turn. Unlimited when absent. */
+  maxConcurrent?: number | undefined;
 };
 
 type Pending = {
@@ -16,6 +18,13 @@ type Pending = {
   resolve: (verdicts: RerankVerdict[]) => void;
   reject: (error: Error) => void;
 };
+
+function median(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? (sorted[mid] ?? 0) : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+}
 
 export class BatchedReranker implements RerankProvider {
   readonly available = true;
@@ -26,6 +35,11 @@ export class BatchedReranker implements RerankProvider {
     rowsRequested: 0, rowsSent: 0, cacheHits: 0, rowsFailed: 0, codesDiscarded: 0,
     apiCalls: 0, inputTokens: 0, outputTokens: 0, latencyMs: 0,
   };
+  /** Calls in flight, and batches waiting for a free slot. */
+  private active = 0;
+  private readonly slots: (() => void)[] = [];
+  /** Per answered call, for the median. */
+  private readonly latencies: number[] = [];
 
   constructor(private readonly client: RerankClient, private readonly options: BatchedRerankerOptions) {
     this.name = client.name;
@@ -59,6 +73,7 @@ export class BatchedReranker implements RerankProvider {
     return {
       model: this.options.model,
       ...c,
+      batchLatencyP50Ms: median(this.latencies),
       estimatedCostUsd: price
         ? (c.inputTokens * price.inputPerMTok + c.outputTokens * price.outputPerMTok) / 1_000_000
         : null,
@@ -115,6 +130,32 @@ export class BatchedReranker implements RerankProvider {
   }
 
   private async send(batch: Pending[]): Promise<void> {
+    await this.acquire();
+    try {
+      await this.call(batch);
+    } finally {
+      this.release();
+    }
+  }
+
+  /** Rate limits are per minute: a free-tier key cannot take every batch of a big audit at once. */
+  private acquire(): Promise<void> {
+    const limit = this.options.maxConcurrent ?? Infinity;
+    if (this.active < limit) {
+      this.active++;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => this.slots.push(resolve));
+  }
+
+  /** Hands the slot straight to the next waiting batch, if any. */
+  private release(): void {
+    const next = this.slots.shift();
+    if (next) next();
+    else this.active--;
+  }
+
+  private async call(batch: Pending[]): Promise<void> {
     const rows = batch.map((p, i) => ({ id: `r${i + 1}`, request: p.request }));
     this.counters.apiCalls++;
     this.counters.rowsSent += batch.length;
@@ -123,6 +164,7 @@ export class BatchedReranker implements RerankProvider {
       this.counters.inputTokens += reply.inputTokens;
       this.counters.outputTokens += reply.outputTokens;
       this.counters.latencyMs += reply.latencyMs;
+      this.latencies.push(reply.latencyMs);
 
       batch.forEach((pending, i) => {
         if (reply.failure) {

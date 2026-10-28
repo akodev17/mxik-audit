@@ -51,7 +51,7 @@ export async function pipelineStatus(env: NodeJS.ProcessEnv = process.env, view:
   return [
     {
       label: s.rerankLabel,
-      value: rerank.enabled ? s.rerankOn(rerank.model) : s.rerankOff(rerank.disabledReason ?? ''),
+      value: rerank.enabled ? s.rerankOn(rerank.name) : s.rerankOff(rerank.disabledReason ?? ''),
       ok: rerank.enabled,
     },
     readiness ? vectorLine(readiness, view) : { label: s.vectorLabel, value: s.vectorOff(''), ok: false },

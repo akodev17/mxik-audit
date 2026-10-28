@@ -348,11 +348,15 @@ class CountingEmbedder extends HashingEmbeddingProvider {
 }
 
 describe('stage outcomes and the veto', () => {
-  it('returns the veto on the result instead of silently emptying it', async () => {
+  it('keeps retrieval order, capped and marked, when the reranker finds no fit', async () => {
     const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: new NoneReranker() });
+    const plain = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop });
     assert.equal(r.rerank, 'none');
-    assert.deepEqual(r.candidates, []);
-    assert.equal(r.decidedBy, 'none');
+    assert.deepEqual(r.candidates.map((c) => c.candidate.code), plain.candidates.map((c) => c.candidate.code));
+    assert.ok(r.candidates.length > 0);
+    assert.ok(r.candidates.every((c) => c.confidence <= NO_RERANK_CEILING && c.band !== 'high' && c.stage !== 'rerank'));
+    assert.ok(r.candidates.every((c) => c.evidence.rerankNone && c.evidence.rerankReason === null));
+    assert.equal(r.decidedBy, 'fusion');
     assert.ok(r.veto && r.veto.offered.length > 0);
     assert.ok(r.notes.some((n) => n.includes('no candidate fits')));
     assert.ok(!r.notes.some((n) => n.includes('unrelated')), 'a veto is not an unrelated-candidate filter');

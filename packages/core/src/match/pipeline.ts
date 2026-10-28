@@ -479,9 +479,9 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // no-reranker cap is lifted only for candidates the reranker actually scored,
   // so a failed or skipped call can never push a retrieval-only guess into the
   // bulk-accept band.
-  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence }, rules: rulesOf(f) }));
+  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence ?? step.unranked }, rules: rulesOf(f) }));
   const poolScores = calibratePool(pool.map((p) => ({
-    signals: p.signals, rerankAvailable: p.signals.llm !== undefined, adjustment: p.rules.adjustment, weights: opts.weights,
+    signals: p.signals, rerankAvailable: llmScore.has(p.fused.item.code), adjustment: p.rules.adjustment, weights: opts.weights,
   })));
   const ranked = pool
     .map((p, i) => ({ ...p, score: poolScores[i] ?? { adjusted: 0, confidence: 0 } }))
@@ -519,7 +519,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   }).sort((a, b) => b.confidence - a.confidence);
 
   // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
-  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
+  const kept = scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
   if (!rerankNone && kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
   // A reranker veto is a judgement on the heading's codes and stands; an empty list without one is the heading's failure.
   if (scoped && !rerankNone && kept.length === 0) return unrestricted('every retrieved code of the heading was unrelated to the name');

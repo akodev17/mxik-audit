@@ -186,7 +186,7 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   const setup: PipelineSetup = {
     embedder: { name: embedder.name, semantic: embedder.semantic },
     vectorUsable: readiness.usable,
-    reranker: { enabled: reranker.available, model: reranker.available ? config.model : null, promptVersion: PROMPT_VERSION },
+    reranker: { enabled: reranker.available, model: reranker.available ? config.name : null, promptVersion: PROMPT_VERSION },
   };
   const degradedReasons: string[] = [];
   if (!reranker.available) {
