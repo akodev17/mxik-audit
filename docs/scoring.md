@@ -283,8 +283,8 @@ filters so a strong retrieval signal can outvote a heuristic.
 | Identifying code, category not marked | **−0.10** | A base code is safer. Not applied when the name earns the code (`identifyingPreferred`). |
 | Identifying code, marking unknown | **−0.05** | Applies to the 8.7% of codes where the portal leaves `label` null. Penalised, but less — we are punishing our own ignorance, so we punish it gently. Not applied when the name earns the code. |
 | Identifying code the name earns: its brand, or its size, dosage, volume, pack or model (`identifyingPreferred`) | **+0.08** | Added 2026-10-28 (plan T2). Outweighs the base code's +0.05; a marked code keeps its +0.03 on top. Token rules in "Identifying codes" below. |
-| Prepared dish → base code | **+0.08** | Dishes deliberately have no detailed MXIK. |
-| Prepared dish → detailed code | **−0.10** | The classifier does not provide these. |
+| Food-service row → a code of the catering group 10202 (`cateringPreferred`) | **+0.08** | Changed 2026-10-28 (plan §8). A row the catering lexicon in `normalize/synonyms.ts` reads as a dish, a drink the outlet makes or its service belongs in group 10202, whose menu codes are named by family ("Asosiy taomlar … go'shtli"), not by dish. Inside the group the base-code and marking rules are silent: the family codes are not base codes and the position has no base code for mains. Until this change the pair preferred base codes for a dish, which sent "Palov" to a seasoning base code. |
+| Food-service row → a code outside the group (`cateringOutside`) | **−0.10** | A foodstuff, seasoning or utensil that shares the dish's words. |
 | Row unit contradicts a **strict** binding | **−0.15** | 385,414 codes (87.8%) have a strict binding. |
 | **Recommended** binding: row unit is a recommended unit | **+0.03** | Added 2026-10-21 (plan §3.5). |
 | **Recommended** binding: row sold by a measure (mass, length, area, volume) and every recommended unit is of another kind | **−0.05** | Added 2026-10-21. kg against tonnes converts and is left alone; a row sold in pieces is never judged (a piece can hold metres). |
@@ -302,7 +302,7 @@ construction top-1 with the vector stage off 75.5% → 76.5%.
 The base-code and marking rules encode practice, not a legal requirement; the
 UI words them that way. The keys of the rules that fired (`baseCodePreferred`,
 `identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`, `identifyingPreferred`,
-`preparedDishBase`, `preparedDishSpecific`, `strictUnitConflict`, `recommendedUnitMatch`,
+`cateringPreferred`, `cateringOutside`, `strictUnitConflict`, `recommendedUnitMatch`,
 `unitKindMismatch`) are stored in
 the evidence and translated in `ta.matchX.rules`.
 

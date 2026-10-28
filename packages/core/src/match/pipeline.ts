@@ -16,7 +16,7 @@ import { evidenceFor, withTnved } from './evidence.js';
 import { headingPrefix, outsideHeading, readTnved } from './tnved.js';
 import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
-import { applyRules, hierarchyPath, isPreparedDish, type RuleOutcome } from './rules.js';
+import { applyRules, hierarchyPath, type RuleOutcome } from './rules.js';
 import { identifyingQuery, rowIdentity } from './identifying.js';
 import { adjustedScore, bandOf, calibratePool, fullTextToUnit, vectorToUnit, type SignalWeights, type VectorCalibration } from './score.js';
 import type { VectorColumn } from './vector-readiness.js';
@@ -158,10 +158,10 @@ function certain(
   stage: 'barcode' | 'exact',
   reason: string,
   rowUnit: string | null,
-  preparedDish: boolean,
+  catering: boolean,
   productName: string,
 ): ScoredCandidate {
-  const rules = applyRules({ candidate, rowUnit, preparedDish });
+  const rules = applyRules({ candidate, rowUnit, catering });
   return {
     candidate,
     signals: {},
@@ -264,8 +264,13 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const { store, embedder, reranker } = opts;
   const notes: string[] = [];
   const normalized = normalizeName(input.rawName);
-  const preparedDish = isPreparedDish(input.rawName);
   const rowUnit = input.unit ?? null;
+  // Synonyms reach the lexical query only; the vector stage embeds the row as
+  // written. The catering lexicon also says whether the row is a cafe's
+  // (rules.ts cateringPreferred), which the short-circuit stages report too.
+  const query = normalized.queryKey || normalized.matchKey || normalized.core;
+  const synonyms = applySynonyms(query, { name: input.rawName, unit: rowUnit, existingMxik: input.existingMxik ?? null });
+  const catering = synonyms.groups.includes('catering');
   const off = (stage: DisableableStage): boolean => opts.disabledStages?.has(stage) ?? false;
 
   // The row's TN VED heading limits stages 2-4 to its MXIK codes (tnved.ts);
@@ -288,7 +293,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     return { ...all, input, tnved: 'fallback', notes: [`TN VED heading ${heading}: ${why}; searched the whole classifier.`, ...all.notes] };
   };
 
-  if (preparedDish) notes.push('Detected as a prepared dish; general codes preferred.');
+  if (catering) notes.push('Read as a food-service item (prepared dish, drink or service); the catering group 10202 is preferred.');
   if (!off('vector') && !embedder.semantic) notes.push(`Vector stage is using "${embedder.name}" — surface-form only, not semantic.`);
   if (!reranker.available) notes.push(`Reranker unavailable (${reranker.name}); confidence is capped.`);
 
@@ -301,7 +306,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       if (hits.length === 1 && hits[0]) {
         return {
           input, normalized, decidedBy: 'barcode', notes, pool: [hits[0].code], ...settled,
-          candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, preparedDish, input.rawName)],
+          candidates: [certain(hits[0], 1, 'barcode', `Barcode ${barcode} matches this code exactly in the classifier.`, rowUnit, catering, input.rawName)],
         };
       }
       if (hits.length > 1) notes.push(`Barcode ${barcode} maps to ${hits.length} codes; falling through to name matching.`);
@@ -317,16 +322,13 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code], ...settled,
-        candidates: [certain(exact[0], 0.95, 'exact', 'Product name matches this classifier entry exactly after normalization.', rowUnit, preparedDish, input.rawName)],
+        candidates: [certain(exact[0], 0.95, 'exact', 'Product name matches this classifier entry exactly after normalization.', rowUnit, catering, input.rawName)],
       };
     }
     if (exact.length > 1) notes.push(`${exact.length} codes share this normalized name; ranking them.`);
   }
 
   // -------------------------------------------------- 3+4. lexical and vector
-  const query = normalized.queryKey || normalized.matchKey || normalized.core;
-  // Synonyms reach the lexical query only; the vector stage embeds the row as written.
-  const synonyms = applySynonyms(query);
   if (synonyms.applied.length > 0) notes.push(`Searched with the classifier's term: ${synonyms.applied.join('; ')}.`);
   const lexicalText = lexicalQuery(synonyms.text);
   // The vector stage must not be able to take down the audit: a provider outage
@@ -383,7 +385,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const rulesOf = (f: { item: MxikCandidate }): RuleOutcome => {
     const cached = ruleCache.get(f.item.code);
     if (cached) return cached;
-    const outcome = applyRules({ candidate: f.item, rowUnit, preparedDish, productTokens, identity });
+    const outcome = applyRules({ candidate: f.item, rowUnit, catering, productTokens, identity });
     ruleCache.set(f.item.code, outcome);
     return outcome;
   };

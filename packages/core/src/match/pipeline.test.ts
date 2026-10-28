@@ -185,10 +185,21 @@ describe('matchProduct cascade', () => {
     }
   });
 
-  it('reports the prepared-dish rule in its notes', async () => {
+  it('reports a food-service row in its notes and searches with the menu wording', async () => {
     const store = new FakeStore(ROWS);
     const r = await matchProduct({ rawName: 'Palov 1 porsiya' }, { store, embedder, reranker: noop });
-    assert.ok(r.notes.some((n) => n.includes('prepared dish')));
+    assert.ok(r.notes.some((n) => n.includes('food-service item')));
+    assert.ok(r.notes.some((n) => n.includes("palov → asosiy taomlar")));
+    const plain = await matchProduct({ rawName: 'Guruch 1 kg' }, { store, embedder, reranker: noop });
+    assert.ok(!plain.notes.some((n) => n.includes('food-service item')));
+  });
+
+  it('reads a shop word as the cafe\'s when the row\'s own code is in the catering group', async () => {
+    const store = new FakeStore(ROWS);
+    const shop = await matchProduct({ rawName: 'Ko\'k choy 100 g' }, { store, embedder, reranker: noop });
+    assert.ok(!shop.notes.some((n) => n.includes('food-service item')));
+    const cafe = await matchProduct({ rawName: 'Ko\'k choy 100 g', existingMxik: '10202001010000001' }, { store, embedder, reranker: noop });
+    assert.ok(cafe.notes.some((n) => n.includes('food-service item')));
   });
 
   it('warns when the embedder is not semantic', async () => {
