@@ -115,6 +115,7 @@ export type Dict = {
   typePrivilegeCode: string;
   typePrivilegeOpportunity: string;
   typeRestricted: string;
+  typeTnvedMismatch: string;
   /** A finding type this build does not know yet (src/lib/finding-type.ts). */
   typeOther: string;
   purchasesNav: string;
@@ -366,6 +367,7 @@ export const uz: Dict = {
   typePrivilegeCode: 'Imtiyozli kod',
   typePrivilegeOpportunity: 'Imtiyoz imkoniyati',
   typeRestricted: 'EHFda cheklangan kod',
+  typeTnvedMismatch: 'TIF TN bilan mos emas',
   typeOther: 'Boshqa turdagi muammo',
   purchasesNav: 'Kirim (xaridlar)',
   purchasesTitle: 'Kirim (xaridlar)',

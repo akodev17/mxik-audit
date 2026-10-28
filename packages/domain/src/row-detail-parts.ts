@@ -3,6 +3,7 @@
 // from (rendered in the viewer's language, never the audit's stored prose).
 
 import { restrictionDate } from '@tasnivo/core/audit/checks';
+import { mxikHeading, readTnved } from '@tasnivo/core/match/tnved';
 
 /** Split points of the 17-digit code: guruh, sinf, pozitsiya, subpozitsiya, brend/atribut. */
 export const LEVEL_SPLITS = [3, 5, 8, 11, 17] as const;
@@ -25,6 +26,8 @@ export type ReasonFacts = {
   privilegeMismatch: boolean;
   /** RESTRICTED: the restricted code, its date as dd.mm.yyyy, and whether that date has passed. */
   restriction: { code: string; date: string; inForce: boolean } | null;
+  /** TNVED_MISMATCH: the row's TN VED code, its heading, and the heading the row's MXIK code is in. */
+  tnved: { code: string; heading: string; codeHeading: string } | null;
 };
 
 // The purchase check stores no structured flag for "bought in another unit";
@@ -35,6 +38,7 @@ type FindingFacts = {
   type: string; severity: string; reason: string; wasRetired: boolean; snapshotId: number | null;
   existingMxik: string | null; unit: string | null; codeUnits: readonly string[];
   restrictedMxik?: string | null; restrictedFrom?: Date | null;
+  tnved?: string | null;
 };
 
 export function reasonFacts(f: FindingFacts, today: Date = new Date()): ReasonFacts {
@@ -49,7 +53,16 @@ export function reasonFacts(f: FindingFacts, today: Date = new Date()): ReasonFa
     restriction: f.type === 'RESTRICTED' && f.restrictedMxik && f.restrictedFrom
       ? { code: f.restrictedMxik, date: restrictionDate(f.restrictedFrom), inForce: f.restrictedFrom.getTime() <= today.getTime() }
       : null,
+    tnved: tnvedFacts(f),
   };
+}
+
+function tnvedFacts(f: FindingFacts): ReasonFacts['tnved'] {
+  const read = readTnved(f.tnved);
+  const codeHeading = mxikHeading(f.existingMxik);
+  return f.type === 'TNVED_MISMATCH' && read.status === 'ok' && codeHeading
+    ? { code: read.code, heading: read.heading, codeHeading }
+    : null;
 }
 
 /** A privilege's legal text without the source's doubled brackets, dot runs and stray spaces. */

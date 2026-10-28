@@ -26,7 +26,7 @@ describe('purchase lists (database)', { skip }, () => {
     clientId = (await defaultClient(a.orgId)).id;
     await db.client.update({ where: { id: clientId }, data: { activity: 'savdo' } });
     const catalog = await db.catalog.create({
-      data: { orgId: a.orgId, clientId, filename: 'sotuv.xlsx', rowCount: 1, status: 'ready', headers: ['Nomi', 'MXIK'], columnMap: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1 } },
+      data: { orgId: a.orgId, clientId, filename: 'sotuv.xlsx', rowCount: 1, status: 'ready', headers: ['Nomi', 'MXIK'], columnMap: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1, tnved: -1 } },
     });
     catalogId = catalog.id;
     await db.catalogItem.create({ data: { catalogId, rowIndex: 0, rawName: 'Guruch', normalizedName: 'guruch', existingMxik: SOLD, attrs: { original: ['Guruch', SOLD] } } });

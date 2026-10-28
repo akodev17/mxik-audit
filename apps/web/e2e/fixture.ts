@@ -76,7 +76,7 @@ async function directCatalog(orgId: string, clientId: string, filename: string, 
     data: {
       orgId, clientId, filename, rowCount: 1, status: 'ready',
       // Header names no uploaded test file uses, so this catalogue's remembered mapping never applies to them.
-      headers: ['Mahsulot', 'IKPU'], columnMap: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1 },
+      headers: ['Mahsulot', 'IKPU'], columnMap: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1, tnved: -1 },
     },
   });
   const item = await db.catalogItem.create({

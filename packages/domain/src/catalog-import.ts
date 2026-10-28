@@ -4,6 +4,7 @@
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { readCode } from '@tasnivo/core/audit/checks';
+import { tnvedCode } from '@tasnivo/core/match/tnved';
 import { normalizeName } from '@tasnivo/core/normalize/index';
 import { parseAmount } from './amount.js';
 import { mappingIssues, type ColumnField, type ColumnMap } from './column-map.js';
@@ -45,6 +46,7 @@ export function deriveItem(catalogId: string, row: readonly string[], rowIndex: 
     normalizedName: normalizeName(rawName).matchKey,
     barcode: pick(row, mapping.barcode),
     existingMxik: readCode(pick(row, mapping.mxik)),
+    tnved: tnvedCode(pick(row, mapping.tnved)),
     unit: pick(row, mapping.unit),
     price: parseAmount(pick(row, mapping.price)),
     salesAmount: parseAmount(pick(row, mapping.sales)),

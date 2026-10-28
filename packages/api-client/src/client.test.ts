@@ -19,8 +19,8 @@ const header = (seen: Seen, name: string): string | null => new Headers(seen.ini
 
 const PREVIEW = {
   catalogId: 'c1', filename: 'k.xlsx', client: { id: 'cl1', name: 'Mijoz' }, headers: ['Nomi'], sample: [['Sut']], rows: 1, parse: null,
-  mapping: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1 }, remembered: null,
-  fields: { name: 'guess', barcode: 'none', mxik: 'none', unit: 'none', price: 'none', sales: 'none' }, diagnostics: null, previous: null,
+  mapping: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1, tnved: -1 }, remembered: null,
+  fields: { name: 'guess', barcode: 'none', mxik: 'none', unit: 'none', price: 'none', sales: 'none', tnved: 'none' }, diagnostics: null, previous: null,
 };
 
 describe('api-client: URLs and headers', () => {

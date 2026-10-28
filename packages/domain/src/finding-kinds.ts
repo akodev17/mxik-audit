@@ -2,7 +2,7 @@
 // (which code an acceptance records) and the grid (which buttons to show).
 
 /** Checks that propose a replacement code. */
-export const SUGGESTING_TYPES: ReadonlySet<string> = new Set(['MISSING', 'NOT_FOUND', 'MISMATCH', 'RESTRICTED']);
+export const SUGGESTING_TYPES: ReadonlySet<string> = new Set(['MISSING', 'NOT_FOUND', 'MISMATCH', 'RESTRICTED', 'TNVED_MISMATCH']);
 
 /** Checks where accepting means "the current code is right" (UNIT_CONFLICT: and fix the unit). */
 export const CONFIRMING_TYPES: ReadonlySet<string> = new Set(['UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE']);

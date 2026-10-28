@@ -8,6 +8,7 @@ export const CheckItemSchema = z.object({
   barcode: z.string().trim().max(32).nullish(),
   unit: z.string().trim().max(60).nullish(),
   mxik: z.string().trim().max(32).nullish(),
+  tnved: z.string().trim().max(32).nullish(),
 });
 
 export type CheckItemInput = z.infer<typeof CheckItemSchema>;
@@ -41,7 +42,7 @@ export async function checkProducts(orgId: string, items: readonly CheckItemInpu
   const ctx = await auditContext(orgId);
   const out: CheckResult[] = [];
   for (const item of items) {
-    const result = await checkItem({ rawName: item.name, barcode: item.barcode ?? null, existingMxik: item.mxik ?? null, unit: item.unit ?? null }, ctx);
+    const result = await checkItem({ rawName: item.name, barcode: item.barcode ?? null, existingMxik: item.mxik ?? null, unit: item.unit ?? null, tnved: item.tnved ?? null }, ctx);
     out.push(checkResultOut(item.name, result));
   }
   return out;

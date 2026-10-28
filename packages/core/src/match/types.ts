@@ -71,7 +71,17 @@ export type MatchInput = {
   barcode?: string | null;
   unit?: string | null;
   existingMxik?: string | null;
+  /** The row's TIF TN (TN VED / HS) code; its heading restricts retrieval (tnved.ts). */
+  tnved?: string | null;
 };
+
+/**
+ * What the row's TN VED code did: none on the row, unreadable (ignored),
+ * restricted retrieval to its heading, or restricted it to nothing so retrieval
+ * ran over the whole classifier ("fallback"). "unscoped": the store cannot
+ * restrict, so the heading was only recorded.
+ */
+export type TnvedOutcome = 'none' | 'invalid' | 'restricted' | 'fallback' | 'unscoped';
 
 /**
  * What stage 6 did for a row: not needed (settled before retrieval), off for
@@ -99,6 +109,8 @@ export type MatchResult = {
   vector: VectorOutcome;
   /** Set when stage 6 vetoed every candidate; `candidates` is then empty. */
   veto: RerankVeto | null;
+  /** What the row's TN VED code did; absent on results built before the column existed. */
+  tnved?: TnvedOutcome;
   /**
    * Codes in the fused pool handed to the reranker, best-first. Wider than
    * `candidates`, which is truncated to topK. Exposed so the eval can measure
@@ -121,6 +133,12 @@ export type CandidateStore = {
   baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null>;
   /** The subset of `codes` that exist in the classifier and are not retired. */
   liveCodes(codes: readonly string[]): Promise<Set<string>>;
+  /**
+   * The same store with exact, lexical, full-text and vector retrieval limited
+   * to codes starting with `prefix` (a TN VED heading, tnved.ts). Absent = the
+   * store cannot restrict, and the pipeline only records the heading.
+   */
+  withinPrefix?(prefix: string): CandidateStore;
 };
 
 export type EmbeddingProvider = {

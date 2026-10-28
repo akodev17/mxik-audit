@@ -21,7 +21,7 @@ describe('catalogue versions (database)', { skip }, () => {
       data: {
         orgId: a.orgId, clientId, previousId, filename: `v${minute}.xlsx`, rowCount: names.length, status,
         createdAt: new Date(Date.UTC(2026, 9, 16, 13, minute++)),
-        headers: ['Nomi'], columnMap: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1 },
+        headers: ['Nomi'], columnMap: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1, tnved: -1 },
       },
     });
     // Stored last row first: the database's own order must not leak into the lists.

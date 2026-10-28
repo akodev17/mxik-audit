@@ -6,10 +6,11 @@
 // accumulates, flipping it into its own type is an enum addition and one branch.
 import { unitsCompatible } from '../normalize/units.js';
 import { vetoEvidence, type MatchEvidence } from '../match/evidence.js';
+import { mxikHeading, readTnved } from '../match/tnved.js';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 
 export type FindingType = 'MISSING' | 'NOT_FOUND' | 'MISMATCH' | 'UNIT_CONFLICT' | 'NOT_PURCHASED'
-  | 'PRIVILEGE_CODE' | 'PRIVILEGE_OPPORTUNITY' | 'RESTRICTED';
+  | 'PRIVILEGE_CODE' | 'PRIVILEGE_OPPORTUNITY' | 'RESTRICTED' | 'TNVED_MISMATCH';
 /** "info" findings are shown but never counted as risk. */
 export type Severity = 'high' | 'medium' | 'info';
 
@@ -57,6 +58,8 @@ export type ResolvedRow = {
   vetoed?: boolean;
   /** Set when the row's code (MISSING: the best suggestion) is on the restricted list. */
   restriction?: Restriction | null;
+  /** The row's TIF TN (TN VED) code as stored; its heading must match the code's digits 2-5. */
+  tnved?: string | null;
 };
 
 export type Finding = {
@@ -130,11 +133,35 @@ export function restrictedFinding(r: Restriction, today: Date): Finding {
 }
 
 /**
+ * TNVED_MISMATCH: the row's valid code lies in another HS heading than the
+ * row's own TN VED code. The suggestion is the best code of the TN VED heading
+ * (retrieval was limited to it), or none when retrieval had to leave it.
+ */
+export function tnvedMismatch(code: string, tnved: string, heading: string, suggestions: readonly ScoredCandidate[]): Finding {
+  const best = suggestions.find((s) => mxikHeading(s.candidate.code) === heading);
+  const own = mxikHeading(code) ?? '';
+  return {
+    type: 'TNVED_MISMATCH',
+    severity: 'medium',
+    suggestedMxik: best?.candidate.code ?? null,
+    confidence: best?.confidence ?? null,
+    alternatives: alternativesOf(suggestions.filter((s) => mxikHeading(s.candidate.code) === heading)),
+    reason: `${code} kodi TIF TN ${own} tovar pozitsiyasiga tegishli, qatordagi TIF TN kodi esa ${tnved} (${heading} pozitsiyasi).`
+      + (best ? ` Taklif: ${best.candidate.code}.` : ''),
+    wasRetired: false,
+    evidence: best?.evidence ?? null,
+  };
+}
+
+/**
  * Runs every applicable check. A row can produce more than one finding: a valid
  * code can simultaneously be a poor name match and carry the wrong unit.
- * MISSING and NOT_FOUND are mutually exclusive, and the two medium checks only
- * apply once the code is known to be valid. RESTRICTED is independent of all of
- * them: a restricted code can be valid, retired or a poor match as well.
+ * MISSING and NOT_FOUND are mutually exclusive, and the medium checks only
+ * apply once the code is known to be valid. TNVED_MISMATCH takes MISMATCH's
+ * place: with retrieval limited to the TN VED heading, a code outside it never
+ * scores, and "does not fit the name" would be the wrong reason. RESTRICTED is
+ * independent of all of them: a restricted code can be valid, retired or a poor
+ * match as well.
  */
 export function runChecks(row: ResolvedRow, today: Date = new Date()): Finding[] {
   const findings: Finding[] = [];
@@ -181,6 +208,12 @@ export function runChecks(row: ResolvedRow, today: Date = new Date()): Finding[]
 
   const existing = row.existing.candidate;
 
+  // ---------------------------------------------------------- TNVED_MISMATCH
+  const tnved = readTnved(row.tnved);
+  const ownHeading = mxikHeading(code);
+  const headingConflict = tnved.status === 'ok' && ownHeading !== null && ownHeading !== tnved.heading;
+  if (tnved.status === 'ok' && headingConflict) findings.push(tnvedMismatch(code, tnved.code, tnved.heading, row.suggestions));
+
   // ---------------------------------------------------------------- MISMATCH
   // How well does the row's own code score against the row's own name? If the
   // pipeline ranked it at all, use that; if it never surfaced, that is itself
@@ -191,7 +224,7 @@ export function runChecks(row: ResolvedRow, today: Date = new Date()): Finding[]
   const samePosition = best !== undefined
     && best.candidate.code.slice(0, POSITION_DIGITS) === code.slice(0, POSITION_DIGITS);
   // A veto with nothing better to offer says nothing against a valid code.
-  if (selfScore < MISMATCH_THRESHOLD && !samePosition && !vetoOnly) {
+  if (selfScore < MISMATCH_THRESHOLD && !samePosition && !vetoOnly && !headingConflict) {
     findings.push({
       type: 'MISMATCH',
       severity: 'medium',
@@ -236,7 +269,7 @@ export type Summary = {
 export function summarize(perRow: readonly Finding[][], totalRows: number): Summary {
   const byType: Record<FindingType, number> = {
     MISSING: 0, NOT_FOUND: 0, MISMATCH: 0, UNIT_CONFLICT: 0, NOT_PURCHASED: 0,
-    PRIVILEGE_CODE: 0, PRIVILEGE_OPPORTUNITY: 0, RESTRICTED: 0,
+    PRIVILEGE_CODE: 0, PRIVILEGE_OPPORTUNITY: 0, RESTRICTED: 0, TNVED_MISMATCH: 0,
   };
   let riskyRows = 0;
   for (const findings of perRow) {

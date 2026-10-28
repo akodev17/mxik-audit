@@ -7,8 +7,22 @@ type FullTextHit = Hit & { hierarchyWords?: string[] };
 
 export class MemoStore implements CandidateStore {
   private readonly memo = new Map<string, Promise<unknown>>();
+  private readonly scoped = new Map<string, MemoStore>();
+  /** Present only when the inner store can limit retrieval, so the pipeline sees the same capability. */
+  readonly withinPrefix?: (prefix: string) => CandidateStore;
 
-  constructor(private readonly inner: CandidateStore) {}
+  constructor(private readonly inner: CandidateStore) {
+    const within = inner.withinPrefix?.bind(inner);
+    if (within) {
+      this.withinPrefix = (prefix) => {
+        const hit = this.scoped.get(prefix);
+        if (hit) return hit;
+        const store = new MemoStore(within(prefix));
+        this.scoped.set(prefix, store);
+        return store;
+      };
+    }
+  }
 
   private once<T>(key: string, load: () => Promise<T>): Promise<T> {
     const hit = this.memo.get(key);

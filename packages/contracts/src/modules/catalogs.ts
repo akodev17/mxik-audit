@@ -19,6 +19,8 @@ export const ImportDiagnostics = z.object({
   badCodes: Counted,
   lostZero: Counted,
   ambiguousAmounts: Counted,
+  badTnved: Counted.default({ count: 0, sample: [] }),
+  tnvedZero: Counted.default({ count: 0, sample: [] }),
 });
 
 /** spreadsheet.ts ParseMeta. */
