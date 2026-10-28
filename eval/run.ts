@@ -1,9 +1,10 @@
 // Matching evaluation. Reads eval/golden.csv and eval/real-*.csv (real: hand-written
-// cases and customer files) and eval/synthetic.csv
+// cases and customer files), eval/competitor-*.csv (competitor benchmarks, reported
+// as their own sets only) and eval/synthetic.csv
 // (derived from classifier names), runs the full pipeline plus one ablation per
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
-// Run: npm run eval [-- --label "after key" --no-ablate --no-tnved --fulltext-common-docs N
+// Run: npm run eval [-- --label "after key" --no-ablate --no-tnved --set competitor-22 --fulltext-common-docs N
 //                       --fulltext-column plain|weighted --fulltext-select A|AB]
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
@@ -29,7 +30,14 @@ import { bySet, bySource, setOf, type GroupMetrics, type Outcome } from './metri
 
 // Customer-file sets are picked up by name, so adding one is adding a file.
 const REAL_SETS = readdirSync('eval').filter((f) => /^real-.+\.csv$/.test(f)).sort().map((f) => `eval/${f}`);
-const FILES = ['eval/golden.csv', ...REAL_SETS, 'eval/synthetic.csv'];
+// Competitor benchmarks (competitor-*.csv) reuse rows of the sets above, so they are reported on
+// their own and kept out of the "real" totals, which stay comparable with earlier runs.
+const BENCH_SETS = readdirSync('eval').filter((f) => /^competitor-.+\.csv$/.test(f)).sort().map((f) => `eval/${f}`);
+const isBenchSet = (id: string): boolean => setOf(id).startsWith('competitor-');
+// --set NAME (repeatable) runs only those sets, e.g. --set competitor-22.
+const onlySets = process.argv.flatMap((a, i) => (process.argv[i - 1] === '--set' ? [a.replace(/\.csv$/, '')] : []));
+const FILES = ['eval/golden.csv', ...REAL_SETS, ...BENCH_SETS, 'eval/synthetic.csv']
+  .filter((f) => onlySets.length === 0 || onlySets.includes(f.replace(/^eval\//, '').replace(/\.csv$/, '')));
 const RESULTS = 'docs/eval-results.json';
 const CONCURRENCY = 6;
 
@@ -183,15 +191,16 @@ const commit = (() => {
   }
 })();
 
-const real = cases.filter((c) => c.source === 'real');
+const real = cases.filter((c) => c.source === 'real' && !isBenchSet(c.id));
 const synthetic = cases.filter((c) => c.source === 'synthetic');
+const benchmark = cases.filter((c) => isBenchSet(c.id));
 
 console.log('='.repeat(78));
 console.log(`MXIK matching evaluation — ${LABEL}`);
 console.log('='.repeat(78));
 console.log(`code            ${commit}`);
 console.log(`classifier      ${Number(codeCount).toLocaleString()} live codes · snapshot #${classifierSnapshotId ?? '?'} taken ${classifierTakenAt?.slice(0, 10) ?? '?'} · database ${database ?? '?'}`);
-console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
+console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${benchmark.length ? ` · competitor benchmark ${benchmark.length}` : ''}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
 for (const e of excluded) console.log(`  excluded: ${e}`);
 console.log(`full-text       "${fullTextSource}"${fullTextSource === 'searchVectorWeighted' ? `, selecting on weight ${fullTextSelect ?? 'A'}` : ''}`);
 console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- NOT SEMANTIC'} · text ${embedder.textShape ?? 'folded'} · columns ${vectorColumns.join('+')}`);
@@ -270,7 +279,7 @@ for (const config of configs) {
   const t0 = Date.now();
   if (dryRun) dryRun.recording = config.key === 'full';
   const outcomes = await runConfig(config);
-  results[config.key] = bySource(outcomes);
+  results[config.key] = bySource(outcomes.filter((o) => !isBenchSet(o.id)));
   resultsBySet[config.key] = bySet(outcomes);
   if (config.key === 'full') fullOutcomes = outcomes;
   console.log(`ran ${config.label.padEnd(36)} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -412,7 +421,7 @@ history.runs.push({
     tnved: USE_TNVED,
     efSearch: efSearchArg === undefined ? null : Number(efSearchArg),
   },
-  cases: { real: real.length, synthetic: synthetic.length, excluded },
+  cases: { real: real.length, synthetic: synthetic.length, benchmark: benchmark.length, excluded },
   metrics: results,
   metricsBySet: resultsBySet,
   llm: usage ? { ...usage, costPer1000Rows: costPer1000Rows(usage, cases.length) } : null,

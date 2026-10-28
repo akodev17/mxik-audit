@@ -78,9 +78,17 @@ describe('code prefixes', () => {
     assert.deepEqual(cases[0]?.correct, ['07306001*', '07304001001000000']);
   });
 
-  it('rejects a prefix shorter than a position', () => {
-    const { errors } = parseCases(`${HEADER}X,,,0730*,real,x\n`, 'real-metal.csv');
+  it('rejects a prefix shorter than a class, or between a class and a position', () => {
+    const { errors } = parseCases(`${HEADER}X,,,0730*,real,x\nY,,,0730600*,real,y\n`, 'real-metal.csv');
+    assert.equal(errors.length, 2);
     assert.match(errors[0] ?? '', /code prefix/);
+  });
+
+  it('accepts a class prefix (the HS heading)', () => {
+    const { cases, errors } = parseCases(`${HEADER}Арматура 12 мм,тонна,,07214*|07213*,real,x\n`, 'competitor-22.csv');
+    assert.deepEqual(errors, []);
+    assert.equal(accepts(cases[0]?.correct ?? [], '07214001001000311'), true);
+    assert.equal(accepts(cases[0]?.correct ?? [], '07216001001000000'), false);
   });
 
   it('accepts any code under a prefix and only the exact code otherwise', () => {
