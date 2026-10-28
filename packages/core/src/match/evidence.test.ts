@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { evidenceFor, matchedWords, readEvidence, vetoEvidence, withTnved } from './evidence.js';
+import { evidenceFor, identifyingMatchedTokens, matchedWords, readEvidence, vetoEvidence, withTnved } from './evidence.js';
 
 const CANDIDATE = { nameUz: 'Guruch', nameRu: 'Рис', unitBinding: 'none' as const, unitCanonical: [] };
 
@@ -75,6 +75,19 @@ describe('readEvidence', () => {
       tnvedHeading: '7306', tnvedOutside: true as const, tnvedExistingOutside: true as const, tnvedFallback: true as const,
     };
     assert.deepEqual(readEvidence(JSON.parse(JSON.stringify(stored))), stored);
+  });
+
+  it('records the tokens that earned an identifying code, and reads them back', () => {
+    const e = evidenceFor({ stage: 'fusion', productName: 'PANADOL 500mg N12', rowUnit: null, candidate: CANDIDATE, identifyingTokens: ['ПАНАДОЛ', '500mg', 'N12'] });
+    assert.deepEqual(e.identifyingMatchedTokens, ['ПАНАДОЛ', '500mg', 'N12']);
+    assert.deepEqual(readEvidence(JSON.parse(JSON.stringify(e)))?.identifyingMatchedTokens, ['ПАНАДОЛ', '500mg', 'N12']);
+    const none = evidenceFor({ stage: 'fusion', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, identifyingTokens: [] });
+    assert.equal('identifyingMatchedTokens' in none, false);
+  });
+
+  it('keeps each identifying token once, trimmed, at most eight', () => {
+    assert.deepEqual(identifyingMatchedTokens([' 1,5л', '1,5л', '', 'COCA-COLA']), ['1,5л', 'COCA-COLA']);
+    assert.equal(identifyingMatchedTokens(Array.from({ length: 12 }, (_, i) => `t${i}`)).length, 8);
   });
 
   it('reads the veto back, so the UI branch for it is reachable', () => {

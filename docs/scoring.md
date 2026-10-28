@@ -260,8 +260,9 @@ filters so a strong retrieval signal can outvote a heuristic.
 |---|---|---|
 | Candidate is a base code (…000000) | **+0.05** | In practice accepted when no exact match exists. Only 6,985 codes (1.6%) are base codes, covering 68.4% of subpositions. |
 | Identifying code, category digitally marked | **+0.03** | Correct shape for a marked category. |
-| Identifying code, category not marked | **−0.10** | A base code is safer. |
-| Identifying code, marking unknown | **−0.05** | Applies to the 8.7% of codes where the portal leaves `label` null. Penalised, but less — we are punishing our own ignorance, so we punish it gently. |
+| Identifying code, category not marked | **−0.10** | A base code is safer. Not applied when the name earns the code (`identifyingPreferred`). |
+| Identifying code, marking unknown | **−0.05** | Applies to the 8.7% of codes where the portal leaves `label` null. Penalised, but less — we are punishing our own ignorance, so we punish it gently. Not applied when the name earns the code. |
+| Identifying code the name earns: its brand, or its size, dosage, volume, pack or model (`identifyingPreferred`) | **+0.08** | Added 2026-10-28 (plan T2). Outweighs the base code's +0.05; a marked code keeps its +0.03 on top. Token rules in "Identifying codes" below. |
 | Prepared dish → base code | **+0.08** | Dishes deliberately have no detailed MXIK. |
 | Prepared dish → detailed code | **−0.10** | The classifier does not provide these. |
 | Row unit contradicts a **strict** binding | **−0.15** | 385,414 codes (87.8%) have a strict binding. |
@@ -280,10 +281,122 @@ construction top-1 with the vector stage off 75.5% → 76.5%.
 
 The base-code and marking rules encode practice, not a legal requirement; the
 UI words them that way. The keys of the rules that fired (`baseCodePreferred`,
-`identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`,
+`identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`, `identifyingPreferred`,
 `preparedDishBase`, `preparedDishSpecific`, `strictUnitConflict`, `recommendedUnitMatch`,
 `unitKindMismatch`) are stored in
 the evidence and translated in `ta.matchX.rules`.
+
+## Identifying codes (plan T2, 2026-10-28)
+
+`baseCodePreferred` pushes the base code up, which is right for a generic name
+and wrong when the name says which product it is: "PANADOL 500mg tabletka N12"
+is 03004452001001004, not a paracetamol base code. `identifyingPreferred`
+(`rules.ts`, token logic in `identifying.ts`) gives +0.08 to an identifying
+code the row name earns. Everything is folded with `matchKeyOf` (Latin, no
+case, no punctuation) before comparison.
+
+**Row tokens** (`rowIdentity`, built once per row):
+
+- *words*: the folded raw name plus the normalized (abbreviation-expanded)
+  tokens, each through the brand fold below.
+- *size*: the dimensions normalization strips ("15х2,5", "57х3,0/3,5",
+  "5,00х1500х6000"), split on х/x/×/* into segments, each segment's slash
+  alternatives as numbers; two segments or more.
+- *measures*: every number with a volume, weight or length unit
+  (`noise.ts measuresIn`: "1,5л" = 1500 ml, "500mg" = 0.5 g, "12 мм").
+- *pack*: `N12`, `№12`, `No 12` (not "N02BE01": a letter follows the digits).
+- *models*: folded tokens with two letters or more glued to digits that are
+  neither a measure nor a pack ("15itl6"). A single letter makes a grade or a
+  pack many codes share ("m400", "m150", "n12"), not a model.
+
+**Code side**: the attribute field plus both names after the first colon,
+where the portal puts brand and attributes. *Brand words* are the brand field
+before its parenthesised maker ("ПАНАДОЛ (GlaxoSmithKline ... (UK))" →
+panadol), folded, keeping words of two letters or more ("LG"), and dropping
+digit-only values (the "1", "2", "3" the portal fills in for unbranded metal),
+placeholders (no brand, brendsiz, ...) and words of the code's own hierarchy.
+The **brand fold** makes the Latin and Cyrillic spellings of one brand agree:
+ck→k, ph→f, q→k, w→v, x→ks, c→s before e/i/y and k elsewhere, y→i, doubled
+letters collapse ("Кока-Кола" and "COCA-COLA" both fold to "koka kola").
+
+**Matches**:
+
+- *brand*: every brand word of the code is a row word.
+- *size*: every segment has an alternative among the code's numbers.
+- *measure*: same kind, same value. A different value of the same kind is a
+  **conflict** for volume and weight; lengths never conflict (a code states a
+  diameter, a wall and a length in millimetres alike).
+- *pack*: same count; a different count is a conflict.
+- *model*: the same folded token.
+
+**The code is earned** when nothing conflicts and either
+
+1. the brand matches *and* the code repeats an attribute or another row word
+   of three letters or more ("Santa Bremor" cosmetics never earn Santa Bremor
+   caviar), or
+2. the code has no brand of its own, repeats at least one size, measure, pack
+   or model, *and* shares the row's content words (two, or the one there is):
+   a 12 mm sheet is no "Арматура 12 мм".
+
+A code of another brand never earns it on a size alone: "1,5 л" is every
+brand's bottle. A generic name ("Труба ВГП", "Парацетамол таблетка") earns
+nothing, so the base code keeps its +0.05 lead. The UI shows the tokens that
+earned the code (`MatchEvidence.identifyingMatchedTokens`, "Brend va oʻlcham" /
+"Бренд и размер").
+
+**Reaching the code.** Normalization strips sizes and numbers from the
+retrieval query, so most identifying codes never reached the pool (the PANADOL
+code was not among the 20 fused codes; the 15 × 2,5 mm pipes ranked below
+thirty 100–133 mm ones). The pipeline therefore runs one more full-text query
+when it would add something (`identifyingQuery`): the lexical words, the row's
+numbers ("15", "2", "5"), tokens glued to them ("500mg", "mg"), and each word
+with k written c ("koka" → "coca"). Full-text still selects on the rare words
+only (`fullTextCommonDocs`), so numbers rank and never select. Its hits do not
+enter fusion and re-score no other code: at most three hits that earn
+`identifyingPreferred` join the pool after the fused codes, and a code that
+earns it takes the better of its two full-text scores. A size alone does not
+say which heading ("57х3,5" is also a 7305 "other tubes" code), so a code
+earned without its brand is added or lifted only inside a subposition of the
+three leading fused codes; a matched brand brings its code from anywhere.
+Feeding the query to fusion as a fourth list instead cost construction 4 and
+metal 1 top-1 rows and was dropped; without the heading guard metal lost 6.
+`identifyingRule: false` and `identifyingRetrieval: false` switch the two off
+for ablation.
+
+**Position-diverse pool** (`poolPerPosition`, `fusion.ts positionPool`,
+opt-in): at most 3 codes per subposition (an over-full subposition keeps its
+best by rules-adjusted score), topped up from further down the fused list
+until the pool spans 4 subpositions; fused order kept. Without a reranker it
+can only add or drop pool members, never re-rank them: on top of the rule it
+cost one construction top-1 row ("Профиль оцинкованный CD-60 3м" lost to an
+added fastener code) and one synthetic pool row (a sibling ARTEL variant
+capped out), and raised metal top-5 from 98.8 to 100. It stays off until a run
+with the reranker decides. Every row's notes carry the pool composition
+("Rerank pool: 20 codes in 1 subpositions (07306001005 ×20).").
+
+**Bands unchanged.** The new adjustment cannot reach the high band without a
+reranker: the largest stack (`identifyingMarked` + `identifyingPreferred` +
+`recommendedUnitMatch`, +0.14) on perfect retrieval still ends at the 0.85
+ceiling (`score.test.ts`, `pipeline.test.ts`).
+
+Measured 2026-10-28 on the local `mxik` database (snapshot #4), e5 natural-v2
+on both columns, no reranker; runs labelled "T2 ..." in
+`docs/eval-results.json`, the 22 queries with `tmp/probe-match.mts`:
+
+| Run | golden top-1 / top-5 | construction | metal | synthetic | 22 queries top-1 / top-5 |
+|---|---|---|---|---|---|
+| before | 66.7 / 66.7 | 82.4 / 91.2 | 46.4 / 98.2 | 92.7 / 97.9 | 14 / 19 |
+| rule only | 66.7 / 66.7 | 83.3 / 92.2 | 53.6 / 98.8 | 93.2 / 97.9 | 14 / 19 |
+| rule + identifying query (shipped) | **75.0 / 75.0** | **83.3 / 92.2** | **53.6 / 98.8** | **93.2 / 97.9** | **15 / 20** |
+| + position-diverse pool (opt-in, off) | 75.0 / 75.0 | 82.4 / 92.2 | 53.6 / 100.0 | 93.2 / 97.9 | 15 / 20 |
+
+Of the four competitor cases, "PANADOL 500mg tabletka N12" now leads with
+03004452001001004 and "Труба ВГП 15х2,5" with the 15 mm / 2,5 mm code
+07306001005015618 (a 100 mm code before). The COCA-COLA code now reaches the
+pool but scores 0.66 against Bagca Saray's "Кока кола 1,5 л" at 0.79, because
+only one list finds it: the reranker's to pick. "Ноутбук Lenovo IdeaPad 15"
+names no model, so any Lenovo IdeaPad 15 code is as good as Krafta's IdeaPad 5;
+ours stays 08471001001002001.
 
 ## Firm dictionary confidence
 

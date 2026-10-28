@@ -3,6 +3,7 @@
 // Pure: no I/O, fully unit-testable.
 import { matchKeyOf, tokenize } from '../normalize/index.js';
 import { kindOfUnit, resolveUnit, unitsCompatible } from '../normalize/units.js';
+import { earnsIdentifying, identifyingMatch, type RowIdentity } from './identifying.js';
 import type { MxikCandidate } from './types.js';
 
 /**
@@ -39,6 +40,8 @@ export type RuleContext = {
   preparedDish: boolean;
   /** The row's folded words (normalised tokens and synonym terms); absent = no word-based rule. */
   productTokens?: readonly string[];
+  /** The row's brand, size and pack tokens (identifying.ts rowIdentity); absent = identifyingPreferred never fires. */
+  identity?: RowIdentity;
 };
 
 /**
@@ -70,7 +73,7 @@ function materialsIn(tokens: readonly string[]): Set<string> {
 /** Stable names of the rules, stored in match evidence and translated in the UI. */
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
-  'preparedDishBase', 'preparedDishSpecific', 'strictUnitConflict',
+  'identifyingPreferred', 'preparedDishBase', 'preparedDishSpecific', 'strictUnitConflict',
   'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial',
 ] as const;
 
@@ -85,6 +88,10 @@ export type RuleOutcome = {
   keys: RuleKey[];
   /** True when the row's unit contradicts a strictly bound unit. */
   unitConflict: boolean;
+  /** Row tokens that earned identifyingPreferred (brand first); empty when it did not fire. */
+  identifyingTokens: string[];
+  /** identifyingPreferred fired on the brand, not on sizes alone. */
+  identifyingBrand: boolean;
 };
 
 const ADJUSTMENTS: Record<RuleKey, number> = {
@@ -96,6 +103,12 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
   identifyingUnknownMarking: -0.05,
   /** Identifying code for a genuinely marked category is the right shape. */
   identifyingMarked: 0.03,
+  /**
+   * The row names this identifying code's brand, or its size, dosage, volume,
+   * pack or model (identifying.ts). Larger than baseCodePreferred, so a name
+   * that earns the identifying code ranks it above the base code.
+   */
+  identifyingPreferred: 0.08,
   /** A prepared dish should land on the general code. */
   preparedDishBase: 0.08,
   preparedDishSpecific: -0.1,
@@ -126,15 +139,23 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     notes.push(note);
   };
 
+  // The name earns an identifying code when it repeats the code's brand or size;
+  // then the "a base code is usually safer" penalties do not apply. A marked
+  // code keeps identifyingMarked and gets the preference on top.
+  const identifying = ctx.identity && !candidate.isBase ? identifyingMatch(ctx.identity, candidate) : null;
+  const earned = identifying !== null && earnsIdentifying(identifying);
+  const identifyingTokens = earned ? [...(identifying.brand ? [identifying.brand] : []), ...identifying.attributes] : [];
+
   if (candidate.isBase) {
     fire('baseCodePreferred', 'Base code (…000000), the usual choice in practice when no exact match exists.');
   } else if (candidate.isMarked === true) {
     fire('identifyingMarked', 'Identifying code for a digitally marked category.');
-  } else if (candidate.isMarked === false) {
+  } else if (!earned && candidate.isMarked === false) {
     fire('identifyingUnmarked', 'Identifying code, but the category is not digitally marked — a base code is usually safer.');
-  } else {
+  } else if (!earned) {
     fire('identifyingUnknownMarking', 'Identifying code and the classifier does not state whether the category is marked.');
   }
+  if (earned) fire('identifyingPreferred', `The name repeats this identifying code's ${identifyingTokens.join(', ')}.`);
 
   if (preparedDish) {
     if (candidate.isBase) {
@@ -175,7 +196,7 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     }
   }
 
-  return { adjustment, notes, keys, unitConflict };
+  return { adjustment, notes, keys, unitConflict, identifyingTokens, identifyingBrand: earned && identifying.brand !== null };
 }
 
 /** The hierarchy path, which is the reranker's strongest disambiguation signal. */

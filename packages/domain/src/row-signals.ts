@@ -21,6 +21,7 @@ const RULE_TONE: Record<RuleKey, SignalTone> = {
   identifyingMarked: 'good',
   identifyingUnmarked: 'warn',
   identifyingUnknownMarking: 'warn',
+  identifyingPreferred: 'good',
   preparedDishBase: 'good',
   preparedDishSpecific: 'warn',
   strictUnitConflict: 'bad',
@@ -78,6 +79,9 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, t
     out.push({ label: ta.matchX.hierarchyLabel, text: ta.matchX.hierarchy(evidence.matchedHierarchyWords.join(', ')), tone: 'good' });
   }
   if (evidence.tnvedHeading) out.push(...tnvedSignals(evidence, evidence.tnvedHeading, ta));
+  if (evidence.identifyingMatchedTokens && evidence.identifyingMatchedTokens.length > 0) {
+    out.push({ label: ta.matchX.identifyingLabel, text: ta.matchX.identifying(evidence.identifyingMatchedTokens.join(', ')), tone: 'good' });
+  }
   if (evidence.synonymApplied && evidence.synonymApplied.length > 0) {
     out.push({ label: ta.matchX.synonymLabel, text: ta.matchX.synonym(evidence.synonymApplied.join('; ')), tone: 'neutral' });
   }

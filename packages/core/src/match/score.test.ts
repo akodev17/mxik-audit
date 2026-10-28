@@ -89,6 +89,13 @@ describe('calibrate', () => {
     assert.ok(c < BANDS.high, 'nothing should reach the high band without a reranker');
   });
 
+  it('keeps the largest rule stack below the high band without a reranker verdict', () => {
+    // identifyingMarked + identifyingPreferred + recommendedUnitMatch on perfect retrieval, the most a code can collect.
+    const c = calibrate({ signals: { lexical: 1, vector: 1, rrf: 1, positionRrf: 1 }, rerankAvailable: false, adjustment: 0.03 + 0.08 + 0.03 });
+    assert.equal(c, NO_RERANK_CEILING);
+    assert.ok(c < BANDS.high);
+  });
+
   it('can reach the high band once the reranker has spoken', () => {
     const c = calibrate({ signals: { lexical: 1, vector: 1, rrf: 1, llm: 1 }, rerankAvailable: true });
     assert.ok(c >= BANDS.high, `got ${c}`);

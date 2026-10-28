@@ -682,3 +682,74 @@ describe('matchProduct with a TN VED code', () => {
     assert.ok(r.candidates.every((c) => c.evidence.tnvedHeading === undefined));
   });
 });
+
+describe('identifying codes and the reranker pool (plan T2)', () => {
+  const PIPES = [
+    candidate('07306001005015618', 'truba vodogazoprovodnaya: diametr 15 mm, devor 2,5 mm', { attributeName: 'diametr 15 mm, devor 2,5 mm' }),
+    candidate('07306001005000000', 'truba vodogazoprovodnaya shovli'),
+    candidate('07306001005003162', 'truba vodogazoprovodnaya: 3, diametr 100 mm, devor 4,6 mm', { brandName: '3', attributeName: 'diametr 100 mm, devor 4,6 mm' }),
+  ];
+  /** Three sizes of one pipe a lexical search cannot tell apart: the rules decide. */
+  class PipeStore extends FakeStore {
+    override byLexical(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return super.byLexical(query, limit).then((hits) => hits.map((h, i) => ({ ...h, score: 0.8 - i * 0.01 })));
+    }
+  }
+
+  it('ranks the identifying code the name earns above the base code, still below the high band', async () => {
+    const r = await matchProduct({ rawName: 'Труба ВГП 15х2,5' }, { store: new PipeStore(PIPES), embedder, reranker: noop });
+    const top = r.candidates[0];
+    assert.equal(top?.candidate.code, '07306001005015618');
+    assert.deepEqual(top?.evidence.identifyingMatchedTokens, ['15х2,5']);
+    assert.ok(top?.evidence.rules?.includes('identifyingPreferred'));
+    for (const c of r.candidates) assert.ok(c.confidence <= NO_RERANK_CEILING && c.band !== 'high');
+  });
+
+  it('keeps the base code first for a generic name, and when the rule is switched off', async () => {
+    const generic = await matchProduct({ rawName: 'Труба ВГП' }, { store: new PipeStore(PIPES), embedder, reranker: noop });
+    assert.equal(generic.candidates[0]?.candidate.code, '07306001005000000');
+    const off = await matchProduct({ rawName: 'Труба ВГП 15х2,5' }, { store: new PipeStore(PIPES), embedder, reranker: noop, identifyingRule: false });
+    assert.equal(off.candidates[0]?.candidate.code, '07306001005000000');
+  });
+
+  it('lifts the ceiling only once the reranker scores the identifying code', async () => {
+    const reranker = new StubReranker([{ code: '07306001005015618', confidence: 1, reason: '15 mm, 2,5 mm' }]);
+    const r = await matchProduct({ rawName: 'Труба ВГП 15х2,5' }, { store: new PipeStore(PIPES), embedder, reranker });
+    assert.equal(r.candidates[0]?.candidate.code, '07306001005015618');
+    assert.ok((r.candidates[0]?.confidence ?? 0) > NO_RERANK_CEILING);
+    assert.ok(r.candidates.slice(1).every((c) => c.confidence <= NO_RERANK_CEILING));
+  });
+
+  it('adds a branded code only the identifying query finds to the pool', async () => {
+    const drinks = [
+      candidate('02202002001092003', 'koka kola pet butilka 1,5 l', { brandName: 'Bagca Saray', attributeName: 'Koka kola, PET butilka 1,5 l', isMarked: true }),
+      candidate('02202002001010009', 'alkogolsiz ichimliklar: coca-cola, shirin, pet butilka 1,5 l.', { brandName: 'COCA-COLA', attributeName: 'shirin, PET butilka 1,5 l.', isMarked: true }),
+    ];
+    class BrandStore extends FakeStore {
+      override byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]> {
+        // The Latin spelling only the identifying query carries.
+        if (query.includes('coca')) return Promise.resolve([{ candidate: drinks[1]!, score: 0.9 }]);
+        return super.byFullText(query, limit);
+      }
+    }
+    const opts = { embedder, reranker: noop, disabledStages: new Set(['vector'] as const) };
+    const r = await matchProduct({ rawName: 'Кока-Кола 1,5л пэт' }, { ...opts, store: new BrandStore(drinks) });
+    assert.ok(r.pool.includes('02202002001010009'));
+    assert.deepEqual(r.candidates.find((c) => c.candidate.code === '02202002001010009')?.evidence.identifyingMatchedTokens, ['COCA-COLA', '1,5л']);
+    const without = await matchProduct({ rawName: 'Кока-Кола 1,5л пэт' }, { ...opts, store: new BrandStore(drinks), identifyingRetrieval: false });
+    assert.ok(!without.pool.includes('02202002001010009'));
+  });
+
+  it('describes the pool and caps it per subposition on request', async () => {
+    const many = [
+      ...Array.from({ length: 6 }, (_, i) => candidate(`0730600100500000${i + 1}`, `truba ${i + 1}`)),
+      candidate('07306001006000001', 'truba other'),
+    ];
+    const plain = await matchProduct({ rawName: 'truba' }, { store: new FakeStore(many), embedder, reranker: noop });
+    assert.ok(plain.notes.some((n) => n.startsWith('Rerank pool: 7 codes in 2 subpositions (07306001005 ×6, 07306001006)')));
+    const capped = await matchProduct({ rawName: 'truba' }, { store: new FakeStore(many), embedder, reranker: noop, poolPerPosition: 3 });
+    assert.equal(capped.pool.filter((c) => c.startsWith('07306001005')).length, 3);
+    assert.ok(capped.pool.includes('07306001006000001'));
+    assert.ok(capped.notes.some((n) => n.includes('3 left out over the per-subposition cap')));
+  });
+});
