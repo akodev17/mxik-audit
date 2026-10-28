@@ -11,7 +11,7 @@ const REASONS = ['unresolved', 'not_approved', 'skipped', 'invalid', 'duplicate_
 const REFUSALS = [
   'not_found', 'nothing_to_export', 'format_unsupported', 'format_unknown', 'format_not_file', 'format_not_transfer', 'meta_invalid', 'has_errors',
   'invalid_correction', 'already_exported', 'invalid', 'no_connection', 'http_transfer_unsupported', 'host_refused', 'bad_url', 'url_required',
-  'unreadable', 'no_name_column', 'empty', 'client', 'generic',
+  'unreadable', 'no_name_column', 'empty', 'client', 'expired', 'generic',
 ];
 
 describe('1C labels (uz and ru)', () => {

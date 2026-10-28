@@ -38,6 +38,7 @@ describe('Didox service (database)', { skip }, () => {
   let a: TestActor;
   let other: TestActor;
   let demo: TestActor;
+  let expired: TestActor;
   let admin: CurrentUser;
   let clientA = '';
   let clientB = '';
@@ -47,12 +48,16 @@ describe('Didox service (database)', { skip }, () => {
     a = await makeOrg();
     other = await makeOrg();
     demo = await makeOrg('demo', new Date(Date.now() + 86_400_000));
+    // Paying firms: a fresh customer org has no trial, so its uploads would be refused as expired.
+    await db.organization.updateMany({ where: { id: { in: [a.orgId, other.orgId] } }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+    expired = await makeOrg();
+    await db.organization.update({ where: { id: expired.orgId }, data: { trialEndsAt: new Date(Date.now() - 86_400_000) } });
     admin = userOf(a);
     clientA = (await db.client.create({ data: { orgId: a.orgId, name: 'Alfa MChJ' } })).id;
     clientB = (await db.client.create({ data: { orgId: a.orgId, name: 'Beta MChJ' } })).id;
   });
   after(async () => {
-    await dropOrgs([a.orgId, other.orgId, demo.orgId]);
+    await dropOrgs([a.orgId, other.orgId, demo.orgId, expired.orgId]);
     await db.$disconnect();
   });
 
@@ -120,6 +125,16 @@ describe('Didox service (database)', { skip }, () => {
     assert.equal((await uploadDidoxFile(userOf(a, { role: 'accountant', clientIds: [clientB] }), 'ru', { file: f, clientId: null }, S) as { ok: boolean }).ok, false, 'a scoped accountant must name a client');
     assert.equal((await uploadDidoxFile(admin, 'ru', { file: fileOf('x.json', Buffer.alloc(0)), clientId: null }, S) as { ok: boolean }).ok, false);
     assert.deepEqual(await uploadDidoxFile(admin, 'ru', { file: fileOf('x.pdf', Buffer.from('%PDF-1.4')), clientId: null }, S), { ok: false, error: 'Этот тип файла не поддерживается: загрузите .zip, .json или .xlsx.' });
+  });
+
+  it('an ended trial closes the upload, the sheet commit and the sync, like the bank path (Phase C F1)', async () => {
+    const closed = { ok: false, error: 'Срок подписки истёк.' };
+    const u = userOf(expired);
+    const f = fileOf('doc.json', raw('invoice-vat0-pinfl.json'));
+    assert.deepEqual(await uploadDidoxFile(u, 'ru', { file: f, clientId: null }, S), closed);
+    assert.deepEqual(await commitDidoxSheet(u, 'ru', { file: f, clientId: null, map: {}, header: {} }, S), closed);
+    assert.deepEqual(await syncIncoming(u, 'ru', {}), closed);
+    assert.equal(await db.importBatch.count({ where: { orgId: expired.orgId } }), 0);
   });
 
   it('lists the org\'s invoices with seller, number, totals and counts; a scoped accountant sees only their clients', async () => {
@@ -259,6 +274,8 @@ describe('Didox connection and sync (database + fake Didox)', { skip }, () => {
 
   before(async () => {
     a = await makeOrg();
+    // A paying firm: a fresh customer org has no trial, so its sync would be refused as expired.
+    await db.organization.update({ where: { id: a.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
     admin = userOf(a);
     fake = await startFakeDidox({ documents: fixtureDocuments(), auth: { kind: 'token', token: TOKEN } });
     process.env['DIDOX_API_URL'] = fake.url;
