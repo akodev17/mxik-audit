@@ -186,7 +186,7 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   const setup: PipelineSetup = {
     embedder: { name: embedder.name, semantic: embedder.semantic },
     vectorUsable: readiness.usable,
-    reranker: { enabled: reranker.available, model: reranker.available ? config.model : null, promptVersion: PROMPT_VERSION },
+    reranker: { enabled: reranker.available, model: reranker.available ? config.name : null, promptVersion: PROMPT_VERSION },
   };
   const degradedReasons: string[] = [];
   if (!reranker.available) {
@@ -207,6 +207,8 @@ export type AuditableItem = {
   barcode: string | null;
   existingMxik: string | null;
   unit: string | null;
+  /** TIF TN (TN VED) code; its heading limits retrieval and feeds TNVED_MISMATCH. */
+  tnved?: string | null;
 };
 
 export type ItemCheck = {
@@ -233,6 +235,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     barcode: item.barcode,
     unit: item.unit,
     existingMxik: item.existingMxik,
+    tnved: item.tnved ?? null,
   }, { store, embedder, reranker, dictionary, rerankGate: gate, timer, disabledStages, vectorColumns, topK: SELF_MATCH_DEPTH });
 
   // Resolve the row's own code so NOT_FOUND and retirement can be judged.
@@ -280,6 +283,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     suggestions,
     vetoed: match.veto !== null,
     restriction,
+    tnved: item.tnved ?? null,
   });
 
   // Marking: the row's own marked code always sets it; a marked suggested code
@@ -369,7 +373,7 @@ async function auditRows(catalogId: string, options: AuditOptions): Promise<Audi
     orderBy: { rowIndex: 'asc' },
     select: {
       id: true, rowIndex: true, rawName: true, barcode: true,
-      existingMxik: true, unit: true, markingRequired: true,
+      existingMxik: true, unit: true, tnved: true, markingRequired: true,
     },
   });
 

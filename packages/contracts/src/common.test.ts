@@ -118,7 +118,10 @@ describe('zod schemas equal the domain ones', () => {
     assert.deepEqual(json(DocMap), json(DocMapSchema));
     assert.deepEqual(json(FilterInput), json(DomainFilterInput));
     assert.deepEqual(json(ViewParams), json(DomainViewParams));
-    assert.deepEqual(new SchemaConverter().object(contract.CheckItem), new SchemaConverter().object(CheckItemSchema.extend({ mxik: CheckItemSchema.shape.mxik.describe('The code the product has now, if any.') })));
+    assert.deepEqual(new SchemaConverter().object(contract.CheckItem), new SchemaConverter().object(CheckItemSchema.extend({
+      mxik: CheckItemSchema.shape.mxik.describe('The code the product has now, if any.'),
+      tnved: CheckItemSchema.shape.tnved.describe(contract.FINDING_FIELDS.tnved),
+    })));
   });
 
   it('and parse the same way', () => {

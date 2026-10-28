@@ -13,7 +13,7 @@ const FULL: PipelineSetup = {
 const AT = new Date('2026-10-19T10:00:00Z');
 
 describe('countMatch', () => {
-  it('counts rows without AI review, failed AI rows and vector errors', () => {
+  it('counts rows without AI review, failed AI rows, AI "none" rows and vector errors', () => {
     const c = emptyCounters();
     countMatch(c, { rerank: 'ranked', vector: 'used' });
     countMatch(c, { rerank: 'skipped', vector: 'used' });
@@ -21,7 +21,7 @@ describe('countMatch', () => {
     countMatch(c, { rerank: 'off', vector: 'off' });
     countMatch(c, { rerank: 'not_needed', vector: 'not_needed' });
     countMatch(c, { rerank: 'none', vector: 'used' });
-    assert.deepEqual(c, { rowsAudited: 6, rowsWithoutAi: 3, llmRowsFailed: 1, vectorErrors: 1 });
+    assert.deepEqual(c, { rowsAudited: 6, rowsWithoutAi: 3, llmRowsFailed: 1, llmRowsNone: 1, vectorErrors: 1 });
   });
 });
 
@@ -38,7 +38,7 @@ describe('setupReasons', () => {
 
 describe('buildPipelineMeta', () => {
   it('adds run-time failures to the setup reasons as stable codes', () => {
-    const meta = buildPipelineMeta(FULL, { rowsAudited: 10, rowsWithoutAi: 4, llmRowsFailed: 2, vectorErrors: 1 }, 0, AT);
+    const meta = buildPipelineMeta(FULL, { rowsAudited: 10, rowsWithoutAi: 4, llmRowsFailed: 2, llmRowsNone: 0, vectorErrors: 1 }, 0, AT);
     assert.deepEqual(meta.degradedReasons, ['rerank_failed', 'vector_failed']);
     assert.equal(meta.embedder, FULL.embedder.name);
     assert.deepEqual(meta.reranker, FULL.reranker);
@@ -46,7 +46,7 @@ describe('buildPipelineMeta', () => {
   });
 
   it('round-trips through JSON and the reader', () => {
-    const meta = buildPipelineMeta(FULL, { rowsAudited: 3, rowsWithoutAi: 1, llmRowsFailed: 0, vectorErrors: 0 }, 2, AT);
+    const meta = buildPipelineMeta(FULL, { rowsAudited: 3, rowsWithoutAi: 1, llmRowsFailed: 0, llmRowsNone: 0, vectorErrors: 0 }, 2, AT);
     assert.deepEqual(readPipelineMeta(JSON.parse(JSON.stringify(meta))), meta);
   });
 
@@ -86,7 +86,7 @@ describe('readPipelineMeta', () => {
 
 describe('degradedNotes', () => {
   it('gives one translated sentence per reason, with counts in Russian plural form', () => {
-    const meta = buildPipelineMeta({ ...FULL, reranker: { ...FULL.reranker, enabled: false, model: null } }, { rowsAudited: 9, rowsWithoutAi: 9, llmRowsFailed: 0, vectorErrors: 2 }, 0, AT);
+    const meta = buildPipelineMeta({ ...FULL, reranker: { ...FULL.reranker, enabled: false, model: null } }, { rowsAudited: 9, rowsWithoutAi: 9, llmRowsFailed: 0, llmRowsNone: 0, vectorErrors: 2 }, 0, AT);
     const uz = degradedNotes(meta, appDict('uz'));
     assert.equal(uz.length, 2);
     assert.match(uz[0] ?? '', /AI tekshiruvi/);

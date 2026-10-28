@@ -6,6 +6,12 @@ const HINTS: Record<ColumnField, string[]> = {
   name: ['nom', 'tovar', 'mahsulot', 'наимен', 'товар', 'продукт', 'номенклатур', 'nomenklatur', 'name', 'product', 'номлан', 'маҳсулот'],
   barcode: ['shtrix', 'shtrih', 'штрих', 'barcode', 'ean', 'gtin', 'bar code'],
   mxik: ['mxik', 'ikpu', 'мхик', 'икпу', 'spic', 'tasnif'],
+  // TIF TN is the Uzbek name of TN VED (ТН ВЭД), the customs edition of the HS. Spelled out, it also names
+  // the "nomenklatura" the name hints look for, so it is found before the name column.
+  tnved: [
+    'tif tn', 'tif-tn', 'tiftn', 'tn ved', 'tn-ved', 'tnved', 'тн вэд', 'тн-вэд', 'тнвэд', 'тн вед', 'код тн',
+    'hs code', 'hs kod', 'hs-code', 'tashqi iqtisodiy', 'внешнеэкономическ',
+  ],
   // "Ед." is how 1C and most price lists abbreviate the unit column; "ед" alone would also match "среднее".
   unit: ['birlik', 'birl', 'oʻlchov', 'o‘lchov', "o'lchov", 'olchov', 'единиц', 'изм', 'ед.', 'unit', 'uom'],
   price: ['narx', 'цена', 'price', 'summa', 'сумма', 'стоим'],
@@ -77,6 +83,7 @@ export function guessMapping(headers: readonly string[]): ColumnMap {
   };
   // Codes and barcodes first: "MXIK kodi" must not be read as a name, nor "Sotuv summasi" as a price.
   const mxik = find('mxik');
+  const tnved = find('tnved');
   const barcode = find('barcode');
   const sales = find('sales');
   const unit = find('unit');
@@ -88,5 +95,5 @@ export function guessMapping(headers: readonly string[]): ColumnMap {
   const isIdentifier = (h: string): boolean => IDENTIFIER_HEADER.test(h.trim()) || IDENTIFIER_HEADER.test(words(h));
   const fallback = lower.findIndex((h, i) => free(i) && !isIdentifier(h));
   const anyFree = lower.findIndex((_, i) => free(i));
-  return { name: name === -1 ? Math.max(0, fallback === -1 ? anyFree : fallback) : name, barcode, mxik, unit, price, sales };
+  return { name: name === -1 ? Math.max(0, fallback === -1 ? anyFree : fallback) : name, barcode, mxik, tnved, unit, price, sales };
 }

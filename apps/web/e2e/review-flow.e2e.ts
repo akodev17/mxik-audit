@@ -49,7 +49,7 @@ const KEEP_UNDECIDED = new Set(['Sabzi', 'Kartoshka', 'Pomidor']);
 
 const TYPE_LABEL: Record<string, string> = {
   MISSING: T.typeMissing, NOT_FOUND: T.typeNotFound, MISMATCH: T.typeMismatch, UNIT_CONFLICT: T.typeUnitConflict,
-  NOT_PURCHASED: T.typeNotPurchased, PRIVILEGE_CODE: T.typePrivilegeCode, PRIVILEGE_OPPORTUNITY: T.typePrivilegeOpportunity, RESTRICTED: T.typeRestricted,
+  NOT_PURCHASED: T.typeNotPurchased, PRIVILEGE_CODE: T.typePrivilegeCode, PRIVILEGE_OPPORTUNITY: T.typePrivilegeOpportunity, RESTRICTED: T.typeRestricted, TNVED_MISMATCH: T.typeTnvedMismatch,
 };
 const SUGGESTING = ['MISSING', 'NOT_FOUND', 'MISMATCH'] as const;
 

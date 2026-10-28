@@ -59,6 +59,8 @@ export function ConfirmStep({ preview, mapping, diagnostics, busy, error, commit
     [c.client, preview.client.name, true],
     [fields.name, column(mapping.name), mapping.name >= 0],
     [fields.mxik, column(mapping.mxik), mapping.mxik >= 0],
+    // It limits matching to its heading, so it is listed when the file has it.
+    ...(mapping.tnved >= 0 ? [[fields.tnved, column(mapping.tnved), true] satisfies [string, string, boolean]] : []),
   ];
 
   return (

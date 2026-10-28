@@ -86,6 +86,45 @@ export function diversify<T>(items: readonly T[], groupOf: (item: T) => string, 
   });
 }
 
+export type PositionPoolOptions<T> = {
+  /** Pool size before diversity: the first `limit` items. */
+  limit: number;
+  /** Items kept per group. */
+  cap: number;
+  /** Top up from further down until the pool spans this many groups, or the items run out. */
+  minGroups: number;
+  /** Which items of an over-full group stay: higher first, ties to the earlier item. Input order when absent. */
+  keep?: (item: T, index: number) => number;
+};
+
+/**
+ * The reranker's pool (plan T2): the first `limit` items with at most `cap`
+ * per group, then the best item of each further group, in input order, until
+ * the pool spans `minGroups` groups. Returned in input order. Thirty sizes of
+ * one subposition otherwise fill the pool, and the reranker can only choose a
+ * size, never a position.
+ */
+export function positionPool<T>(items: readonly T[], groupOf: (item: T) => string, opts: PositionPoolOptions<T>): T[] {
+  const window = items.slice(0, opts.limit).map((item, index) => ({ item, index, group: groupOf(item) }));
+  const byGroup = new Map<string, typeof window>();
+  for (const entry of window) byGroup.set(entry.group, [...(byGroup.get(entry.group) ?? []), entry]);
+  const score = (e: (typeof window)[number]): number => opts.keep?.(e.item, e.index) ?? -e.index;
+  const chosen: number[] = [];
+  for (const entries of byGroup.values()) {
+    const best = [...entries].sort((a, b) => score(b) - score(a) || a.index - b.index).slice(0, Math.max(1, opts.cap));
+    chosen.push(...best.map((e) => e.index));
+  }
+  const groups = new Set(byGroup.keys());
+  for (let i = window.length; i < items.length && groups.size < opts.minGroups; i++) {
+    const item = items[i] as T;
+    const group = groupOf(item);
+    if (groups.has(group)) continue;
+    groups.add(group);
+    chosen.push(i);
+  }
+  return chosen.sort((a, b) => a - b).map((i) => items[i] as T);
+}
+
 /**
  * Position-level fusion (plan §3.2). Fusion per code splits a position's
  * evidence across its many near-identical codes (150 pipe sizes each get one

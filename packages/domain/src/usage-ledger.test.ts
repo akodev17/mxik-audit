@@ -16,7 +16,7 @@ import { revokeTeamInvite } from './team-members.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 import { consumeRows, monthStart, OverAllowance, rowsUsed } from './usage-ledger.js';
 
-const MAP: ColumnMap = { name: 0, barcode: -1, mxik: -1, unit: 1, price: -1, sales: -1 };
+const MAP: ColumnMap = { name: 0, barcode: -1, mxik: -1, unit: 1, price: -1, tnved: -1, sales: -1 };
 const TRIAL_ROWS = 5_000;
 const csv = (rows: number): string => ['Nomi;Birlik', ...Array.from({ length: rows }, (_, i) => `Mahsulot ${i};dona`)].join('\n');
 

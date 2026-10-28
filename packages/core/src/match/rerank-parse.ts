@@ -35,15 +35,17 @@ export type RowVerdicts = {
 
 /**
  * Validates one row's answer against the codes that were offered for it.
- * "none" scores every offered code at 0, so the row drops out of every band a
- * reviewer might trust. Null when nothing usable remains.
+ * "none" with an empty ranking scores every offered code at 0, so the row drops
+ * out of every band a reviewer might trust; "none" next to a ranking is a
+ * contradiction, and the ranking (with its own low confidences) is kept.
+ * Null when nothing usable remains.
  */
 export function rowVerdicts(raw: unknown, offered: readonly string[]): RowVerdicts | null {
   const parsed = RowSchema.safeParse(raw);
   if (!parsed.success) return null;
   const allowed = new Set(offered);
 
-  if (parsed.data.none) {
+  if (parsed.data.none && parsed.data.ranking.length === 0) {
     return {
       verdicts: offered.map((code) => ({ code, confidence: 0, reason: NONE_REASON })),
       discarded: 0,

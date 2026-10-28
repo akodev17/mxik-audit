@@ -67,7 +67,7 @@ export type ReportPdfData = {
   pipeline: PipelineMeta | null;
 };
 
-const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED'];
+const TYPE_ORDER = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED', 'TNVED_MISMATCH'];
 /** Position in TYPE_ORDER; a type it does not name (OTHER) goes last. */
 const typeRank = (type: string) => (TYPE_ORDER.includes(type) ? TYPE_ORDER.indexOf(type) : TYPE_ORDER.length);
 const AUTOMATIC: DecisionSource[] = ['carry_over', 'dictionary_auto'];

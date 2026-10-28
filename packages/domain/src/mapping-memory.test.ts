@@ -6,7 +6,7 @@ import { guessMapping } from './mapping-guess.js';
 import { mergeSuggestion, resolveNamed, suggestMapping, toNamed } from './mapping-memory.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 
-const NONE = { barcode: -1, price: -1, sales: -1 };
+const NONE = { barcode: -1, price: -1, sales: -1, tnved: -1 };
 
 describe('mapping memory by header name (pure)', () => {
   it('finds remembered columns by name wherever they moved', () => {
@@ -72,5 +72,21 @@ describe('mapping memory (database)', { skip }, () => {
 
     const unknown = await suggestMapping(a.orgId, second.id, ['Y', 'X']);
     assert.equal(unknown.remembered, null);
+  });
+});
+
+describe('mapping memory remembers the TN VED column', () => {
+  it('by its header name, like every other field', () => {
+    const named = toNamed(['Nomi', 'TIF TN', 'Kod'], { name: 0, tnved: 1, mxik: 2, unit: -1, barcode: -1, price: -1, sales: -1 });
+    assert.deepEqual(named, { name: 'Nomi', tnved: 'TIF TN', mxik: 'Kod' });
+    const s = mergeSuggestion(['Kod', 'tif tn', 'Nomi'], [{ named, source: 'org' }]);
+    assert.equal(s.mapping.tnved, 1);
+    assert.equal(s.fields.tnved, 'remembered');
+  });
+
+  it('a remembered mapping made before the column existed leaves it to the guess', () => {
+    const s = mergeSuggestion(['Nomi', 'Код ТН ВЭД'], [{ named: { name: 'Nomi' }, source: 'client' }]);
+    assert.equal(s.mapping.tnved, 1);
+    assert.equal(s.fields.tnved, 'guess');
   });
 });

@@ -9,7 +9,7 @@ export const CATALOG_STATUSES = ['uploaded', 'analyzing', 'ready', 'failed'] as 
 export const DECISIONS = ['pending', 'accepted', 'rejected'] as const;
 export const SEVERITIES = ['high', 'medium', 'info'] as const;
 /** Prisma FindingType, in schema order. The public API adds "OTHER" for kinds a newer server writes. */
-export const FINDING_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED'] as const;
+export const FINDING_TYPES = ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED', 'TNVED_MISMATCH'] as const;
 export const DECISION_SOURCES = ['manual', 'group', 'bulk', 'bulk_sure', 'dictionary', 'dictionary_auto', 'carry_over'] as const;
 export const ROLES = ['admin', 'accountant', 'viewer'] as const;
 export const LOCALES = ['uz', 'ru'] as const;
@@ -23,7 +23,7 @@ export const DOC_KINDS = ['cheques', 'sales'] as const;
 export const DECISION_FILTERS = ['pending', 'all', 'accepted', 'rejected', 'carried', 'auto'] as const;
 export const FLAG_FILTERS = ['any', 'ask_client', 'resolved', 'none'] as const;
 export const OPTIONAL_COLUMNS = ['status', 'current', 'suggested', 'match'] as const;
-export const COLUMN_FIELDS = ['name', 'barcode', 'mxik', 'unit', 'price', 'sales'] as const;
+export const COLUMN_FIELDS = ['name', 'barcode', 'mxik', 'tnved', 'unit', 'price', 'sales'] as const;
 export const PLAN_RESOURCES = ['clients', 'rowsPerMonth', 'seats'] as const;
 export const PAYMENT_PROVIDERS = ['click', 'payme'] as const;
 /** packages/domain/src/billing/plans.ts TIERS, cheapest first; `firm` is the top tier. */
@@ -93,6 +93,7 @@ export const ColumnMap = z.object({
   unit: z.number().int().min(-1),
   price: z.number().int().min(-1),
   sales: z.number().int().min(-1).default(-1),
+  tnved: z.number().int().min(-1).default(-1),
 });
 
 /** The workspace filter as URL-shaped strings, re-read by the server (domain workspace-filter.ts FilterInput). */

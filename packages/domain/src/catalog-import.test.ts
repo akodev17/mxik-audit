@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { applyMapping, storeCatalog } from './catalog-import.js';
+import { applyMapping, deriveItem, storeCatalog } from './catalog-import.js';
 import { defaultClient } from './clients.js';
 import type { ColumnMap } from './column-map.js';
 import { db } from '@tasnivo/db';
@@ -10,7 +10,7 @@ import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures
 import { discardUpload, uploadPreview } from './upload-preview.js';
 import { uploadProgress, etaSeconds } from './upload-progress.js';
 
-const MAP: ColumnMap = { name: 0, barcode: -1, mxik: 2, unit: 1, price: -1, sales: -1 };
+const MAP: ColumnMap = { name: 0, barcode: -1, mxik: 2, unit: 1, price: -1, sales: -1, tnved: -1 };
 const CSV = 'Nomi;Birlik;MXIK;Izoh\nGuruch;kg;06301001001000000;\nShakar;kg;;\n;dona;;\n';
 
 describe('processing estimate', () => {
@@ -20,6 +20,20 @@ describe('processing estimate', () => {
     assert.equal(etaSeconds(100, 1000, start, new Date('2026-10-19T10:00:02Z')), null);
     assert.equal(etaSeconds(100, 1000, start, new Date('2026-10-19T10:00:10Z')), 90);
     assert.equal(etaSeconds(1000, 1000, start, new Date('2026-10-19T10:01:00Z')), null);
+  });
+});
+
+describe('deriveItem TN VED', () => {
+  const map: ColumnMap = { ...MAP, tnved: 3 };
+  it('stores the code as the matcher reads it: digits only, a lost leading zero restored', () => {
+    assert.equal(deriveItem('c', ['Truba', 'm', '', '7306.30.190.0'], 0, map).tnved, '7306301900');
+    assert.equal(deriveItem('c', ['Sut', 'l', '', '401201100'], 0, map).tnved, '0401201100');
+  });
+
+  it('stores nothing for an empty, unreadable or unmapped cell', () => {
+    assert.equal(deriveItem('c', ['Truba', 'm', '', ''], 0, map).tnved, null);
+    assert.equal(deriveItem('c', ['Truba', 'm', '', '73'], 0, map).tnved, null);
+    assert.equal(deriveItem('c', ['Truba', 'm', '', '7306301900'], 0, MAP).tnved, null);
   });
 });
 

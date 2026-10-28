@@ -140,8 +140,10 @@ confidence, computed **before** the ceiling, is below `RERANK_GATE_CONFIDENCE`
 (default 0.10). Barcode and exact-name hits never reach it. A skipped row keeps
 the 0.85 ceiling, so skipping can only keep a row out of the bulk-accept band,
 never put it in. Without a key the eval measures the gate in a dry run: it
-would send 50% of the real cases and 57% of the synthetic ones. The defaults
-are not tuned; tune them with `npm run eval` once a key is set.
+would send 50% of the real cases and 57% of the synthetic ones. Since
+2026-10-28 the default confidence is **1.01**, i.e. every fuzzy row is sent:
+measured with Gemini (section "Reranker on (Gemini)" below), the old 0.95/0.10
+skipped only 7 of 399 rows and cost 3.1 points of synthetic high-band coverage.
 
 The reranker may only return codes it was given, or "none" (which scores every
 candidate 0 and so pushes the row out of every trusted band). Codes outside the
@@ -154,6 +156,24 @@ veto **alone never raises MISMATCH** on a row whose own code is valid: with
 nothing better to offer, "none of the retrieved codes fits" says nothing
 against the code the row already has. MISSING and NOT_FOUND still fire, with
 the veto as their evidence.
+
+**Changed 2026-10-28: "none" is a fallback, not a veto.** In the first real
+runs it was wrong 43 times in 46 (real-metal pipe rows whose pool held only
+other sizes), and emptying the row cost 14 points of real-metal top-5. A
+"none" now scores no candidate (`rerank-step.ts`), so the row keeps retrieval
+order under the 0.85 cap and can never reach the high band or bulk accept.
+The outcome is still `none`, `veto` is still set, every candidate's evidence
+carries `rerankNone: true` (the reviewer reads "AI found no fit; suggestions in
+search order"), suggestions marked that way are never one-click accepted
+(`acceptCode`), and `Catalog.pipelineMeta.llmRowsNone` counts these rows.
+
+Also since 2026-10-28: after a ranked answer, candidates the reranker left out
+of its top 5 score `llm = 0` when its own top confidence is at least
+`OVERRIDE_CONFIDENCE` (0.5, `rerank-step.ts`). Before, they kept their full
+retrieval score while its picks were pulled toward its confidence, so its
+first choice often stayed below an unranked candidate. Below 0.5 an unsure
+reranker leaves retrieval order alone. The cap is still lifted only for codes
+it scored.
 
 Cached verdicts are reused only for the exact set of candidate codes they
 judged (`candidatePoolHash` in `rerank-cache.ts`). The storage key stays a hash
@@ -260,8 +280,9 @@ filters so a strong retrieval signal can outvote a heuristic.
 |---|---|---|
 | Candidate is a base code (…000000) | **+0.05** | In practice accepted when no exact match exists. Only 6,985 codes (1.6%) are base codes, covering 68.4% of subpositions. |
 | Identifying code, category digitally marked | **+0.03** | Correct shape for a marked category. |
-| Identifying code, category not marked | **−0.10** | A base code is safer. |
-| Identifying code, marking unknown | **−0.05** | Applies to the 8.7% of codes where the portal leaves `label` null. Penalised, but less — we are punishing our own ignorance, so we punish it gently. |
+| Identifying code, category not marked | **−0.10** | A base code is safer. Not applied when the name earns the code (`identifyingPreferred`). |
+| Identifying code, marking unknown | **−0.05** | Applies to the 8.7% of codes where the portal leaves `label` null. Penalised, but less — we are punishing our own ignorance, so we punish it gently. Not applied when the name earns the code. |
+| Identifying code the name earns: its brand, or its size, dosage, volume, pack or model (`identifyingPreferred`) | **+0.08** | Added 2026-10-28 (plan T2). Outweighs the base code's +0.05; a marked code keeps its +0.03 on top. Token rules in "Identifying codes" below. |
 | Prepared dish → base code | **+0.08** | Dishes deliberately have no detailed MXIK. |
 | Prepared dish → detailed code | **−0.10** | The classifier does not provide these. |
 | Row unit contradicts a **strict** binding | **−0.15** | 385,414 codes (87.8%) have a strict binding. |
@@ -280,10 +301,122 @@ construction top-1 with the vector stage off 75.5% → 76.5%.
 
 The base-code and marking rules encode practice, not a legal requirement; the
 UI words them that way. The keys of the rules that fired (`baseCodePreferred`,
-`identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`,
+`identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`, `identifyingPreferred`,
 `preparedDishBase`, `preparedDishSpecific`, `strictUnitConflict`, `recommendedUnitMatch`,
 `unitKindMismatch`) are stored in
 the evidence and translated in `ta.matchX.rules`.
+
+## Identifying codes (plan T2, 2026-10-28)
+
+`baseCodePreferred` pushes the base code up, which is right for a generic name
+and wrong when the name says which product it is: "PANADOL 500mg tabletka N12"
+is 03004452001001004, not a paracetamol base code. `identifyingPreferred`
+(`rules.ts`, token logic in `identifying.ts`) gives +0.08 to an identifying
+code the row name earns. Everything is folded with `matchKeyOf` (Latin, no
+case, no punctuation) before comparison.
+
+**Row tokens** (`rowIdentity`, built once per row):
+
+- *words*: the folded raw name plus the normalized (abbreviation-expanded)
+  tokens, each through the brand fold below.
+- *size*: the dimensions normalization strips ("15х2,5", "57х3,0/3,5",
+  "5,00х1500х6000"), split on х/x/×/* into segments, each segment's slash
+  alternatives as numbers; two segments or more.
+- *measures*: every number with a volume, weight or length unit
+  (`noise.ts measuresIn`: "1,5л" = 1500 ml, "500mg" = 0.5 g, "12 мм").
+- *pack*: `N12`, `№12`, `No 12` (not "N02BE01": a letter follows the digits).
+- *models*: folded tokens with two letters or more glued to digits that are
+  neither a measure nor a pack ("15itl6"). A single letter makes a grade or a
+  pack many codes share ("m400", "m150", "n12"), not a model.
+
+**Code side**: the attribute field plus both names after the first colon,
+where the portal puts brand and attributes. *Brand words* are the brand field
+before its parenthesised maker ("ПАНАДОЛ (GlaxoSmithKline ... (UK))" →
+panadol), folded, keeping words of two letters or more ("LG"), and dropping
+digit-only values (the "1", "2", "3" the portal fills in for unbranded metal),
+placeholders (no brand, brendsiz, ...) and words of the code's own hierarchy.
+The **brand fold** makes the Latin and Cyrillic spellings of one brand agree:
+ck→k, ph→f, q→k, w→v, x→ks, c→s before e/i/y and k elsewhere, y→i, doubled
+letters collapse ("Кока-Кола" and "COCA-COLA" both fold to "koka kola").
+
+**Matches**:
+
+- *brand*: every brand word of the code is a row word.
+- *size*: every segment has an alternative among the code's numbers.
+- *measure*: same kind, same value. A different value of the same kind is a
+  **conflict** for volume and weight; lengths never conflict (a code states a
+  diameter, a wall and a length in millimetres alike).
+- *pack*: same count; a different count is a conflict.
+- *model*: the same folded token.
+
+**The code is earned** when nothing conflicts and either
+
+1. the brand matches *and* the code repeats an attribute or another row word
+   of three letters or more ("Santa Bremor" cosmetics never earn Santa Bremor
+   caviar), or
+2. the code has no brand of its own, repeats at least one size, measure, pack
+   or model, *and* shares the row's content words (two, or the one there is):
+   a 12 mm sheet is no "Арматура 12 мм".
+
+A code of another brand never earns it on a size alone: "1,5 л" is every
+brand's bottle. A generic name ("Труба ВГП", "Парацетамол таблетка") earns
+nothing, so the base code keeps its +0.05 lead. The UI shows the tokens that
+earned the code (`MatchEvidence.identifyingMatchedTokens`, "Brend va oʻlcham" /
+"Бренд и размер").
+
+**Reaching the code.** Normalization strips sizes and numbers from the
+retrieval query, so most identifying codes never reached the pool (the PANADOL
+code was not among the 20 fused codes; the 15 × 2,5 mm pipes ranked below
+thirty 100–133 mm ones). The pipeline therefore runs one more full-text query
+when it would add something (`identifyingQuery`): the lexical words, the row's
+numbers ("15", "2", "5"), tokens glued to them ("500mg", "mg"), and each word
+with k written c ("koka" → "coca"). Full-text still selects on the rare words
+only (`fullTextCommonDocs`), so numbers rank and never select. Its hits do not
+enter fusion and re-score no other code: at most three hits that earn
+`identifyingPreferred` join the pool after the fused codes, and a code that
+earns it takes the better of its two full-text scores. A size alone does not
+say which heading ("57х3,5" is also a 7305 "other tubes" code), so a code
+earned without its brand is added or lifted only inside a subposition of the
+three leading fused codes; a matched brand brings its code from anywhere.
+Feeding the query to fusion as a fourth list instead cost construction 4 and
+metal 1 top-1 rows and was dropped; without the heading guard metal lost 6.
+`identifyingRule: false` and `identifyingRetrieval: false` switch the two off
+for ablation.
+
+**Position-diverse pool** (`poolPerPosition`, `fusion.ts positionPool`,
+opt-in): at most 3 codes per subposition (an over-full subposition keeps its
+best by rules-adjusted score), topped up from further down the fused list
+until the pool spans 4 subpositions; fused order kept. Without a reranker it
+can only add or drop pool members, never re-rank them: on top of the rule it
+cost one construction top-1 row ("Профиль оцинкованный CD-60 3м" lost to an
+added fastener code) and one synthetic pool row (a sibling ARTEL variant
+capped out), and raised metal top-5 from 98.8 to 100. It stays off until a run
+with the reranker decides. Every row's notes carry the pool composition
+("Rerank pool: 20 codes in 1 subpositions (07306001005 ×20).").
+
+**Bands unchanged.** The new adjustment cannot reach the high band without a
+reranker: the largest stack (`identifyingMarked` + `identifyingPreferred` +
+`recommendedUnitMatch`, +0.14) on perfect retrieval still ends at the 0.85
+ceiling (`score.test.ts`, `pipeline.test.ts`).
+
+Measured 2026-10-28 on the local `mxik` database (snapshot #4), e5 natural-v2
+on both columns, no reranker; runs labelled "T2 ..." in
+`docs/eval-results.json`, the 22 queries with `tmp/probe-match.mts`:
+
+| Run | golden top-1 / top-5 | construction | metal | synthetic | 22 queries top-1 / top-5 |
+|---|---|---|---|---|---|
+| before | 66.7 / 66.7 | 82.4 / 91.2 | 46.4 / 98.2 | 92.7 / 97.9 | 14 / 19 |
+| rule only | 66.7 / 66.7 | 83.3 / 92.2 | 53.6 / 98.8 | 93.2 / 97.9 | 14 / 19 |
+| rule + identifying query (shipped) | **75.0 / 75.0** | **83.3 / 92.2** | **53.6 / 98.8** | **93.2 / 97.9** | **15 / 20** |
+| + position-diverse pool (opt-in, off) | 75.0 / 75.0 | 82.4 / 92.2 | 53.6 / 100.0 | 93.2 / 97.9 | 15 / 20 |
+
+Of the four competitor cases, "PANADOL 500mg tabletka N12" now leads with
+03004452001001004 and "Труба ВГП 15х2,5" with the 15 mm / 2,5 mm code
+07306001005015618 (a 100 mm code before). The COCA-COLA code now reaches the
+pool but scores 0.66 against Bagca Saray's "Кока кола 1,5 л" at 0.79, because
+only one list finds it: the reranker's to pick. "Ноутбук Lenovo IdeaPad 15"
+names no model, so any Lenovo IdeaPad 15 code is as good as Krafta's IdeaPad 5;
+ours stays 08471001001002001.
 
 ## Firm dictionary confidence
 
@@ -464,6 +597,126 @@ the base-code preference (+0.05) beats unmarked identifying codes (−0.10).
 Subposition fusion fixes the pipes but fails the synthetic constraint. The weighted hierarchy full-text column (opt-in) moved nothing
 with e5 either (run 46: 0 rows better, 1 worse) and stays off.
 
+## Reranker on (Gemini) (2026-10-28)
+
+The first runs of stage 6 with a real key: Google Gemini over the REST API
+(`rerank-gemini.ts`, selected by `RERANK_PROVIDER` or by `GEMINI_API_KEY`
+being set). All numbers are `npm run eval` on the local `mxik` database,
+snapshot #4, e5 vectors, 473 cases, runs 48–55 of `docs/eval-results.json`.
+"off" is run 48 on the same commit with `RERANK_PROVIDER=off`.
+
+### What a free-tier key can and cannot do (read this before a pilot)
+
+The owner's key is on the **free tier**, and that decided which model could be
+measured:
+
+- `gemini-2.5-flash`, `gemini-2.5-pro` and `gemini-2.5-flash-lite` answer
+  **HTTP 404 "no longer available to new users"**, although `/v1beta/models`
+  still lists them. The plan's default (`gemini-2.5-flash`) cannot be used.
+- **20 `generateContent` requests per day per model** (quota
+  `GenerateRequestsPerDayPerProjectPerModel-FreeTier`), reset at midnight
+  Pacific. Aliases share a counter (`gemini-3.5-flash` with `gemini-3.6-flash`,
+  `gemini-flash-latest` with `gemini-3.8-flash`). Retries after a 503 count.
+- `gemini-3.1-pro-preview` and `gemini-4-argon` have no free quota, so the
+  planned Pro comparison was **not run**.
+- The 3.x Flash models (`3.8-flash`, `3.6-flash`, `3-flash-preview`) answered
+  25-row batches in 82–234 s (p50) and often returned **503 "high demand"**;
+  each run ran out of its day's quota with 50–80% of rows unanswered.
+- Only `gemini-3.1-flash-lite` completed a full eval (16 requests of 25 rows,
+  p50 8.9 s). **Every number below is with `gemini-3.1-flash-lite`**, the new
+  default. A pilot needs a paid key (Tier 1): with 20 requests a day a free key
+  covers about 500 rows a day, and only at batch size 25.
+
+Free-tier settings that let a full eval finish: `RERANK_BATCH_SIZE=25`,
+`RERANK_BATCH_WAIT_MS=5000`, `RERANK_MAX_CONCURRENT=2`,
+`RERANK_TIMEOUT_MS=300000`. A daily-quota 429 fails the batch at once and its
+rows keep the capped ranking (counted in `llmRowsFailed`).
+
+### Before and after (defaults: prompt v4, gate off, override 0.5, "none" = fallback)
+
+Top-1 / top-5 %, then high-band coverage / precision %:
+
+| set (n) | off | Gemini on | high band off | high band on |
+|---|---|---|---|---|
+| golden (12) | 66.7 / 66.7 | 66.7 / 66.7 | 41.7 / 100 | 41.7 / 100 |
+| real-construction (102) | 82.4 / 91.2 | **91.2 / 95.1** | 7.8 / 100 | 7.8 / 100 |
+| real-metal (168) | 46.4 / 98.2 | **96.4 / 98.2** | 0.0 / – | 0.0 / – |
+| synthetic (191) | 92.7 / 97.9 | **96.9 / 97.9** | 31.9 / 100 | **38.7 / 100** |
+
+No set loses top-5 and high-band precision stays 100% everywhere. Golden does
+not move: its pool ceiling is 66.7% (the four misses never reach the 20
+candidates), so stage 6 has nothing to choose from. The real sets' high-band
+coverage does not rise because a blended score (0.6 retrieval + 0.4 LLM) rarely
+reaches 0.90 on a fuzzy row; that is a `score.ts` question, not the gate's.
+
+What it fixed and broke, row by row against "off":
+
+- real-metal: 84 rows from top-5 to top-1 (sheet thickness, pipe sizes,
+  rebar grades now picked by size), none worse.
+- real-construction: 8 rows top-5 → top-1 and 4 misses → top-1; 3 rows top-1 →
+  top-5 (Битум дорожный БНД 60/90 → a 2713 code, Жидкие обои шелковые → a paper
+  code, Опалубка щитовая → a steel 7308 formwork code).
+- synthetic: 8 rows top-5 → top-1, none worse.
+
+The 22 hand-labelled queries of `docs/MATCHING_V2_PLAN.md` §4
+(`tmp/probe-match.mts`, reranker on): **19/22 top-1 with the probe's stricter
+label for "Sement M400 50 kg qop", 20/22 against the §4 label `02523002*`**
+(off: 14/22; Krafta 18/22). Still wrong: "Palov 1 porsiya" (a palov seasoning
+wins; the dish code is not in the pool) and "PANADOL 500mg tabletka N12"
+(the exact code is not in the pool).
+
+### Veto vs fallback, and the override threshold
+
+Same verdicts (replayed from the full run's cache, no new calls), real-metal
+construction and synthetic top-1 / top-5 (golden is 66.7 / 66.7 in every row):
+
+| "none" | override | construction | real-metal | synthetic |
+|---|---|---|---|---|
+| veto (old) | never (old) | 82.4 / 93.1 | 53.0 / 83.9 | 93.7 / 96.3 |
+| veto | 0.5 | 91.2 / 95.1 | 82.1 / 83.9 | 95.8 / 96.3 |
+| veto | 0.7 | 91.2 / 95.1 | 53.0 / 83.9 | 95.8 / 96.3 |
+| **fallback** | **0.5** | **91.2 / 95.1** | **96.4 / 98.2** | **96.9 / 97.9** |
+| fallback | 0.7 | 91.2 / 95.1 | 67.3 / 98.2 | 96.9 / 97.9 |
+
+On the partial `gemini-3-flash-preview` run, an override at 0.5 let a confident
+wrong pick (a 530 mm insulated 7305 pipe for "Труба ВГП") push the right
+retrieval codes out of the top 5 on 16 real-metal rows, and 0.7 did not.
+Re-check the threshold when the default model changes.
+
+A prompt v5 that asked for the ranking before "none" made flash-lite answer
+"none" more often (47 rows against 26) and was dropped. The parser now reads a
+"none" that comes with a ranking as the ranking.
+
+### Gate
+
+Replayed from the same verdicts with the defaults above. Top-1 and top-5 do not move on any set; coverage and precision are the high band:
+
+| gate (confidence / margin) | rows sent | synthetic high band cov / prec | real sets |
+|---|---|---|---|
+| off (1.01) | 399 | **38.7 / 100** | unchanged |
+| 0.95 / 0.10 (old default) | 392 | 35.6 / 100 | unchanged |
+| 0.90 / 0.05 | 376 | 32.5 / 100 | unchanged |
+| 0.85 / 0.05 | 353 | 32.5 / 100 | unchanged |
+
+Gate off is the new default: it costs 2% more rows than the old one.
+
+### Cost and latency
+
+From `rerank-usage.ts` on the full runs, at paid-tier list prices (dated in
+`rerank-config.ts`; the free tier costs nothing):
+
+| model | input / output tokens per row sent | p50 per 25-row call | USD per 1,000 catalogue rows | rows answered |
+|---|---|---|---|---|
+| gemini-3.1-flash-lite ($0.25 / $1.50) | 4,430 / 96 | 8.9 s | **0.93** | 398 of 399 |
+| gemini-3.6-flash ($0.75 / $3.75) | 4,280 / 730 | 95 s | ≈ 5.0 | 174 of 399 |
+| gemini-3.8-flash ($0.75 / $3.75) | 5,380 / 580 | 234 s | ≈ 5.2 | 75 of 399 |
+| gemini-3-flash-preview ($0.50 / $3.00) | – | 82 s | ≈ 3.5 (half the rows) | 199 of 399 |
+
+Input dominates: each row sends up to 20 candidates with long Uzbek names whose
+attribute repeats the name. Shortening the candidate block is the cheapest
+saving left. The 3.x Flash rows' output includes thinking tokens (default
+level); `GEMINI_THINKING_LEVEL=low` was not measured.
+
 ## Known weaknesses
 
 1. **The weights are reasoned, not fitted.** 30 cases is far too few to tune six
@@ -613,3 +866,108 @@ rank that subposition's identifying codes with the existing matcher (name +
 attributes) and suggest the best one only when it clears the "Ehtimoliy"
 threshold; otherwise say that a detailed code is required and list the
 subposition for the user to choose from.
+
+## Appendix C. TIF TN (TN VED) heading as a matching input (2026-10-23)
+
+### The structural rule, measured on the local classifier
+
+Snapshot #4 (442,964 live codes, `mxik` and the scratch copy `mxik_tnved`):
+
+| Fact | Value |
+|---|---|
+| Live goods codes (first digit `0`) | 442,029 |
+| Live service codes (first digit `1`, groups 100-117) | 935: no HS heading |
+| Distinct HS4 headings (digits 2-5 of goods codes) | 1,178 (of ~1,228 in the HS) |
+| Chapters (digits 2-3, `groupCode` = `0` + chapter) | 98 |
+| `classCode` (5 digits) = `0` + digits 2-5 | every code (0 mismatches) |
+| Codes per heading: min / p25 / median / p75 / p90 / p99 / max | 1 / 2 / 7 / 62 / 437 / 6,067 / 74,893 (6810, concrete articles) |
+| Headings with one code / more than 5,000 codes | 231 / 17 |
+
+**HS4.** A sample of 30 classes (ordered by md5 of the class code) was read
+against the HS heading texts: all 30 are the heading's own wording (0707
+cucumbers, 1511 palm oil, 2808 nitric acid, 5603 nonwovens, 7106 silver, 7605
+aluminium wire, 8106 bismuth, 8421 centrifuges, 8510 shavers, 8705 special
+purpose vehicles, 9022 X-ray apparatus, 9504 video game consoles, 9606
+buttons, …). So TN VED `7306301900` → MXIK `07306…`, `2523290000` → `02523…`,
+`8471300000` → `08471…`, as the competitor's rule says.
+
+**HS6 does not survive.** Digits 6-8 are the position, and of 2,591 goods
+positions 1,883 are numbered `001`-`009`, 123 `010`-`099` and 27 `999`
+("other"); 82.8% of goods codes have `00` in digits 6-7. 8471's positions
+`001` portable, `009` processing units, `011` storage, `012` input/output
+are HS 8471.30 / .50 / .70 / .60 in another order; 7306 has one position
+(`001`, 15,581 codes) for all of HS 7306.11-7306.90. Only a few classes copy
+the subheading (3920: `03920200` propylene, `03920430` vinyl chloride,
+`03920620` PET), and 3004 uses drug-group numbers that merely look like it
+(`03004410` oxicams). **Decision: the filter is HS4 only.** No HS6 path
+with an HS4 fallback, because digits 6-7 cannot be read as HS6.
+
+### What the matcher does with it
+
+- `core/match/tnved.ts` reads a cell: digits only, 4-10 of them, chapter
+  01-97. An odd count means Excel dropped the leading zero (HS codes have even
+  lengths), which is put back: `702000000` → `0702000000`. Anything else is
+  ignored and reported by the import diagnostics.
+- `PostgresCandidateStore.withinPrefix('0' + heading)` limits stages 2-4
+  (exact, trigram, full-text, vector) to `code LIKE '0HHHH%'`, served by the
+  existing `mxik_code_code_prefix_idx` (`bpchar_pattern_ops`). The barcode
+  stage stays global: a barcode is an identity. Lookups of a known code
+  (`byCode`, `liveCodes`, `baseCodeFor`) are not limited.
+- If the heading retrieves nothing, or every retrieved code is hidden as
+  unrelated, the row is matched over the whole classifier (`MatchResult.tnved
+  = 'fallback'`, a note, `evidence.tnvedFallback`). A reranker veto inside the
+  heading stands.
+- Every candidate's evidence carries `tnvedHeading`, `tnvedOutside` (this code
+  is outside, e.g. a barcode hit or a fallback) and `tnvedExistingOutside`
+  (the row's own code is outside).
+- `TNVED_MISMATCH` (medium): the row's valid goods code lies in another
+  heading. It takes MISMATCH's place on that row (with retrieval limited to
+  the heading the own code is never scored, and "does not fit the name" would
+  be the wrong reason); its suggestion is the best code of the TN VED heading.
+
+### Query plans (2026-10-23, pgvector 0.8.6, 443k rows)
+
+| Query | Plan | Time |
+|---|---|---|
+| HNSW + `code LIKE '07306%'` (as is) | index scan, filter after the graph | 8 ms, **1 row of 50** |
+| exact cosine over 07306 (15,581 codes), materialized CTE | bitmap on prefix index + sort | 140 ms |
+| exact cosine over 06810 (74,893 codes) | same | 540 ms |
+| HNSW + `hnsw.iterative_scan = relaxed_order`, 07306 / 06810 | index scan until the limit fills | 70 ms / 14 ms |
+| recall@50 of the iterative scan vs exact, 20 queries over 6810, 3004, 7306, 8516 | | 0.98-1.0 |
+| trigram, no threshold, 07306 / 07208 (618 codes) | prefix index scan, word_similarity per row | 685 ms / 23 ms |
+| trigram `<%` at 0.75 + prefix, 07306 | BitmapAnd(prefix, trigram GIN) | 313 ms |
+| full-text `truba | 57` + prefix, 07306 | BitmapAnd(prefix, tsvector GIN) | 81 ms |
+
+So a heading of up to `SCOPED_SCAN_MAX` = 1,000 codes (92% of headings) is
+scored exhaustively: every code with any trigram gets a word_similarity, and
+vectors are compared exactly (a few ms to ~40 ms). A larger heading keeps the
+global strategy plus the prefix: the trigram threshold cascade, and the HNSW
+index with the iterative scan. The heading's size is counted once per process.
+
+Full-text inside a heading first selects on the classifier-wide rare words,
+as everywhere; only when they occur nowhere in the heading do the common words
+select ("57" among the 7304 pipes → "truba"). Letting every word select from
+the start was the first version: "Кабель АВВГ 2х16" in 8544 then ranked
+fibre-optic cables first, "kabel" being repeated in their names, and fell out
+of the top five.
+
+### Evaluation (`npm run eval -- --no-ablate`, scratch copy `mxik_tnved`, e5 vectors, no reranker key)
+
+`eval/real-tnved.csv`: 49 rows, 34 seller-style names after real classifier
+names in 34 headings and 15 deliberately vague names ("Труба 57", "Лист 5 мм",
+"Профиль 40х20", "Проволока 3 мм", "Арматура 12" / "Арматура 1/2", …), some
+of them twice with different headings; two TN VED cells lost their leading
+zero as Excel does. Labels are the position prefix inside the row's heading.
+
+| Run | golden | real-construction | real-metal | real-tnved | synthetic |
+|---|---|---|---|---|---|
+| before (cd7f066) | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | 65.3 / 79.6 | 93.2 / 99.0 |
+| after, column ignored (`--no-tnved`) | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | 65.3 / 79.6 | 93.2 / 99.0 |
+| after, column used | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | **98.0 / 100.0** | 93.2 / 99.0 |
+
+(top-1 % / top-5 %.) The other sets carry no TN VED, and their numbers are
+identical: the change does nothing to a row without the column. With it, all
+15 vague rows reach top-1 (before: 3 of 15 at top-1, 7 in the top five); the
+one row left at rank 2 is "Керамогранит 300х300х8", where 6907's two positions
+(tiles, finishing pieces) are both in the heading. The full run over 522 cases
+took 30 s with the column against 39 s without: a heading is a smaller search.

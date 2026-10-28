@@ -10,7 +10,7 @@ import { discardEarlierPreviews, sweepExpiredPreviews } from './preview-sweep.js
 import { parseUpload } from './spreadsheet.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 
-const MAP: ColumnMap = { name: 0, barcode: -1, mxik: -1, unit: 1, price: -1, sales: -1 };
+const MAP: ColumnMap = { name: 0, barcode: -1, mxik: -1, unit: 1, price: -1, sales: -1, tnved: -1 };
 const CSV = 'Nomi;Birlik\nGuruch;kg\nShakar;kg\n';
 const HOUR = 3_600_000;
 // The sweep runs over every org: dates in 2001 keep it away from real data.

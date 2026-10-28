@@ -109,7 +109,9 @@ that reads it. At minimum:
 | `NEXT_PUBLIC_DEMO_URL` | `/demo` |
 | `NEXT_PUBLIC_TELEGRAM_URL` | your Telegram link, or leave empty to hide it |
 | `NEXT_PUBLIC_API_URL` | leave empty: the browser calls `/api` on the page's own origin |
-| `ANTHROPIC_API_KEY` | optional; without it suggestions stay capped below bulk-accept |
+| `GEMINI_API_KEY` | optional, the default reranker (`GEMINI_MODEL`, default `gemini-3.1-flash-lite`); without it or `ANTHROPIC_API_KEY` suggestions stay capped below bulk-accept. A free-tier key allows 20 requests a day per model: set `RERANK_BATCH_SIZE=25`, `RERANK_BATCH_WAIT_MS=5000`, `RERANK_MAX_CONCURRENT=2`, `RERANK_TIMEOUT_MS=300000`, or enable billing |
+| `ANTHROPIC_API_KEY` | optional; used for stage 6 when no `GEMINI_API_KEY` is set or `RERANK_PROVIDER=anthropic`, and for bank operation suggestions |
+| `RERANK_PROVIDER` | leave empty (Gemini when its key is set, else Anthropic); `off` disables stage 6 |
 | `EMBEDDING_PROVIDER` | `local` (already set in `.env.example`) |
 | `ADMIN_EMAILS` | sign-in emails allowed to open `/admin`, comma-separated |
 

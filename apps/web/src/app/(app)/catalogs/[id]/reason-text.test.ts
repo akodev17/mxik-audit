@@ -7,7 +7,7 @@ import type { ReasonFacts } from './ws-types';
 /** The API's unit labels (domain unit-label.ts) for the one unit these cases use. */
 const unitLabel = (locale: 'uz' | 'ru', u: string): string => (locale === 'ru' && u === 'dona' ? 'шт' : u);
 
-const facts: ReasonFacts = { code: '00401001001099999', retired: false, afterUpdate: false, rowUnit: 'litr', requiredUnits: [], purchasedOtherUnit: false, privilegeMismatch: false, restriction: null };
+const facts: ReasonFacts = { code: '00401001001099999', retired: false, afterUpdate: false, rowUnit: 'litr', requiredUnits: [], purchasedOtherUnit: false, privilegeMismatch: false, restriction: null, tnved: null };
 const uz = appDict('uz').wsX;
 const ru = appDict('ru').wsX;
 const latin = /[a-zʻ]{3,}/i;
@@ -54,6 +54,15 @@ describe('reason lines', () => {
     const none = reasonLines({ type: 'RESTRICTED', facts: { ...facts, restriction: { ...restriction, inForce: true } }, noSuggestion: true }, ru, String);
     assert.deepEqual(none.slice(1), [ru.reason.restricted('02523001001000000', '01.07.2026', true), ru.reason.restrictedNone]);
     assert.match(none.join(' '), /ограничено.*mkinfo\.uz/);
+  });
+
+  it('name the row\'s TN VED and both headings, and say what to do when the heading had no code', () => {
+    const tnved = { code: '7304390000', heading: '7304', codeHeading: '7306' };
+    const lines = reasonLines({ type: 'TNVED_MISMATCH', facts: { ...facts, tnved }, noSuggestion: false }, uz, String);
+    assert.deepEqual(lines, [uz.explain['TNVED_MISMATCH'], uz.reason.tnved('7304390000', '7304', '7306')]);
+    const none = reasonLines({ type: 'TNVED_MISMATCH', facts: { ...facts, tnved }, noSuggestion: true }, ru, String);
+    assert.deepEqual(none.slice(1), [ru.reason.tnved('7304390000', '7304', '7306'), ru.reason.tnvedNone]);
+    assert.match(none[1] ?? '', /ТН ВЭД/);
   });
 
   it('use the dictionary term for the classifier', () => {

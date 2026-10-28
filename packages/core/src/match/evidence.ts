@@ -35,7 +35,31 @@ export type MatchEvidence = {
   synonymApplied?: string[];
   /** Query words found in the code's position, class or group names but not its own name, folded to Latin. */
   matchedHierarchyWords?: string[];
+  /** The row's TIF TN (TN VED) heading, four digits; retrieval was limited to it unless `tnvedFallback`. */
+  tnvedHeading?: string;
+  /** This code lies outside the row's TN VED heading (barcode, dictionary or fallback). */
+  tnvedOutside?: true;
+  /** The row's own MXIK code lies outside its TN VED heading. */
+  tnvedExistingOutside?: true;
+  /** The heading left no candidate, so retrieval ran over the whole classifier. */
+  tnvedFallback?: true;
+  /** Brand, size, dosage, volume, pack or model in the row that this identifying code repeats (rules.ts identifyingPreferred). */
+  identifyingMatchedTokens?: string[];
 };
+
+/** The TN VED facts of a row: its heading, whether its own code is outside it, and whether retrieval fell back. */
+export type TnvedFacts = { heading: string; existingOutside: boolean; fallback: boolean };
+
+/** Adds the row's TN VED facts to one candidate's evidence. */
+export function withTnved(evidence: MatchEvidence, code: string, facts: TnvedFacts, outside: (code: string) => boolean): MatchEvidence {
+  return {
+    ...evidence,
+    tnvedHeading: facts.heading,
+    ...(outside(code) ? { tnvedOutside: true as const } : {}),
+    ...(facts.existingOutside ? { tnvedExistingOutside: true as const } : {}),
+    ...(facts.fallback ? { tnvedFallback: true as const } : {}),
+  };
+}
 
 export type EvidenceCandidate = {
   nameUz: string;
@@ -86,6 +110,8 @@ export type EvidenceInput = {
   synonyms?: { applied: readonly string[]; added: readonly string[] };
   /** Query words the weighted full-text found only in this code's hierarchy (store.ts). */
   hierarchyWords?: readonly string[];
+  /** Row tokens that earned the identifying preference (RuleOutcome.identifyingTokens). */
+  identifyingTokens?: readonly string[];
 };
 
 export function evidenceFor(input: EvidenceInput): MatchEvidence {
@@ -93,6 +119,7 @@ export function evidenceFor(input: EvidenceInput): MatchEvidence {
   // Fragments never count as evidence, here as in matchedWords.
   const hierarchy = [...new Set(input.hierarchyWords ?? [])]
     .filter((w) => w.length >= MIN_QUERY_WORD && !/^\d+$/.test(w)).slice(0, 8);
+  const identifying = identifyingMatchedTokens(input.identifyingTokens);
   return {
     stage: input.stage,
     barcode: input.stage === 'barcode',
@@ -104,7 +131,13 @@ export function evidenceFor(input: EvidenceInput): MatchEvidence {
     ...(input.rules && input.rules.length > 0 ? { rules: [...input.rules] } : {}),
     ...(synonymApplied.length > 0 ? { synonymApplied: [...synonymApplied] } : {}),
     ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),
+    ...(identifying.length > 0 ? { identifyingMatchedTokens: identifying } : {}),
   };
+}
+
+/** The tokens that justified preferring an identifying code, as written in the row, each once. */
+export function identifyingMatchedTokens(tokens: readonly string[] | undefined): string[] {
+  return [...new Set((tokens ?? []).map((t) => t.trim()).filter(Boolean))].slice(0, 8);
 }
 
 /** Evidence for a row the reranker vetoed: no code is suggested, and the veto itself is the fact. */
@@ -129,6 +162,7 @@ export function readEvidence(value: unknown): MatchEvidence | null {
   const rules = Array.isArray(v['rules']) ? v['rules'].filter((r): r is RuleKey => typeof r === 'string' && RULES.has(r)) : [];
   const synonymApplied = Array.isArray(v['synonymApplied']) ? v['synonymApplied'].filter((s): s is string => typeof s === 'string') : [];
   const hierarchy = Array.isArray(v['matchedHierarchyWords']) ? v['matchedHierarchyWords'].filter((s): s is string => typeof s === 'string') : [];
+  const identifying = Array.isArray(v['identifyingMatchedTokens']) ? v['identifyingMatchedTokens'].filter((s): s is string => typeof s === 'string') : [];
   return {
     stage: v['stage'] as MatchStage,
     barcode: v['barcode'] === true,
@@ -143,5 +177,10 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     ...(rules.length > 0 ? { rules } : {}),
     ...(synonymApplied.length > 0 ? { synonymApplied } : {}),
     ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),
+    ...(typeof v['tnvedHeading'] === 'string' && /^\d{4}$/.test(v['tnvedHeading']) ? { tnvedHeading: v['tnvedHeading'] } : {}),
+    ...(v['tnvedOutside'] === true ? { tnvedOutside: true as const } : {}),
+    ...(v['tnvedExistingOutside'] === true ? { tnvedExistingOutside: true as const } : {}),
+    ...(v['tnvedFallback'] === true ? { tnvedFallback: true as const } : {}),
+    ...(identifying.length > 0 ? { identifyingMatchedTokens: identifyingMatchedTokens(identifying) } : {}),
   };
 }

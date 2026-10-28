@@ -18,7 +18,7 @@ describe('export, report and version data (database)', { skip }, () => {
   let email = '';
 
   const catalog = (clientId: string, previousId: string | null) => db.catalog.create({
-    data: { orgId: a.orgId, clientId, previousId, filename: 'k.xlsx', rowCount: 2, status: 'ready', headers: ['Nomi', 'Birlik', 'MXIK'], columnMap: { name: 0, barcode: -1, mxik: 2, unit: 1, price: -1, sales: -1 } },
+    data: { orgId: a.orgId, clientId, previousId, filename: 'k.xlsx', rowCount: 2, status: 'ready', headers: ['Nomi', 'Birlik', 'MXIK'], columnMap: { name: 0, barcode: -1, mxik: 2, unit: 1, price: -1, sales: -1, tnved: -1 } },
   });
   const item = (catalogId: string, rowIndex: number, rawName: string, existingMxik: string | null) => db.catalogItem.create({
     data: { catalogId, rowIndex, rawName, normalizedName: rawName.toLowerCase(), unit: 'kg', existingMxik, attrs: { original: [rawName, 'kg', existingMxik ?? ''] } },

@@ -486,7 +486,7 @@ const coreUz = {
       unitUnknown: 'Oʻlchov birligini solishtirib boʻlmadi.',
       unitNone: 'Kodga qatʼiy oʻlchov birligi biriktirilmagan.',
       analysisLabel: 'Tahlil',
-      rerankNone: 'Topilgan kodlarning hech biri bu tovarga mos kelmadi.',
+      rerankNone: 'AI topilgan kodlarning hech birini bu tovarga mos deb topmadi; takliflar qidiruv tartibida, tekshirib tanlang.',
       scoreLabel: 'Moslik',
       score: (percent: number) => `Moslik bahosi: ${percent}%.`,
     },

@@ -9,20 +9,22 @@ import { barcodeIdentity, normalizeName, type BarcodeIdentity } from '../normali
 import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
-import { diversify, groupFusion, reciprocalRankFusion } from './fusion.js';
+import { diversify, groupFusion, positionPool, reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankStep } from './rerank-step.js';
-import { evidenceFor } from './evidence.js';
+import { evidenceFor, withTnved } from './evidence.js';
+import { headingPrefix, outsideHeading, readTnved } from './tnved.js';
 import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
-import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
+import { applyRules, hierarchyPath, isPreparedDish, type RuleOutcome } from './rules.js';
+import { identifyingQuery, rowIdentity } from './identifying.js';
 import { adjustedScore, bandOf, calibratePool, fullTextToUnit, vectorToUnit, type SignalWeights, type VectorCalibration } from './score.js';
 import type { VectorColumn } from './vector-readiness.js';
 import { embeddingText } from '../embed/text.js';
 import type { ScriptKind } from '../normalize/index.js';
 import type {
   CandidateStore, EmbeddingProvider, MatchInput, MatchResult, MxikCandidate,
-  RerankProvider, ScoredCandidate, VectorOutcome,
+  RerankProvider, ScoredCandidate, TnvedOutcome, VectorOutcome,
 } from './types.js';
 
 export type PipelineOptions = {
@@ -41,6 +43,17 @@ export type PipelineOptions = {
   retrievalLimit?: number;
   /** How many fused candidates go to the reranker. */
   rerankLimit?: number;
+  /**
+   * Codes per subposition in the reranker pool (fusion.ts positionPool); 3 when
+   * absent, null = the plain top `rerankLimit` of the fused list.
+   */
+  poolPerPosition?: number | null;
+  /** Subpositions the pool is topped up to when the top of the fused list has fewer; 4 when absent. */
+  poolMinPositions?: number;
+  /** False switches off rules.ts identifyingPreferred, for ablation in the eval; on when absent. */
+  identifyingRule?: boolean;
+  /** False skips the identifying full-text query (identifying.ts identifyingQuery); on when absent. */
+  identifyingRetrieval?: boolean;
   /** How many results to return. */
   topK?: number;
   /**
@@ -117,7 +130,26 @@ export async function timed<T>(timer: StageTimer | undefined, stage: string, fn:
   }
 }
 
-const DEFAULTS = { retrievalLimit: 50, rerankLimit: 20, topK: 5 } as const;
+/** Most codes the identifying full-text query adds to the reranker pool. */
+const IDENTIFYING_SLOTS = 3;
+
+const DEFAULTS = { retrievalLimit: 50, rerankLimit: 20, topK: 5, poolPerPosition: null, poolMinPositions: 4 } as const;
+
+/**
+ * The pool's composition for operators and the eval: "Rerank pool: 6 codes in 4
+ * subpositions (07306001005 ×3, ...)", and what position diversity changed
+ * against the plain top of the fused list.
+ */
+export function poolNote(pool: readonly MxikCandidate[], window: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const c of pool) counts.set(c.subPositionCode, (counts.get(c.subPositionCode) ?? 0) + 1);
+  const parts = [...counts].map(([sub, n]) => (n > 1 ? `${sub} ×${n}` : sub));
+  const inWindow = new Set(window);
+  const added = pool.filter((c) => !inWindow.has(c.code)).length;
+  const dropped = window.length - (pool.length - added);
+  const change = dropped > 0 || added > 0 ? `; ${dropped} left out over the per-subposition cap, ${added} added from other subpositions` : '';
+  return `Rerank pool: ${pool.length} codes in ${counts.size} subpositions (${parts.join(', ')})${change}.`;
+}
 
 /** Wraps a definite hit from stages 1-2, which bypass scoring. */
 function certain(
@@ -174,8 +206,33 @@ function dictionaryCandidate(input: MatchInput, candidate: MxikCandidate, hit: D
   };
 }
 
+/**
+ * Records the row's TN VED heading on every candidate's evidence: the heading,
+ * whether this code or the row's own code lies outside it, and whether
+ * retrieval had to fall back to the whole classifier.
+ */
+function stampTnved(result: MatchResult): MatchResult {
+  const read = readTnved(result.input.tnved);
+  if (read.status !== 'ok') return result;
+  const heading = read.heading;
+  const facts = {
+    heading,
+    existingOutside: outsideHeading((result.input.existingMxik ?? '').replace(/\D/g, ''), heading),
+    fallback: result.tnved === 'fallback',
+  };
+  const outside = (code: string): boolean => outsideHeading(code, heading);
+  return {
+    ...result,
+    candidates: result.candidates.map((c) => ({ ...c, evidence: withTnved(c.evidence, c.candidate.code, facts, outside) })),
+  };
+}
+
 /** Stage 0: the firm dictionary, then the normal cascade for the alternatives. */
 export async function matchProduct(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
+  return stampTnved(await matchWithDictionary(input, opts));
+}
+
+async function matchWithDictionary(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
   const hit = opts.dictionary?.find(dictionaryKeys(input)) ?? null;
   const candidate = hit ? await opts.store.byCode(hit.code) : null;
   // A mapping whose code left the classifier is ignored, never shown.
@@ -210,7 +267,26 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const preparedDish = isPreparedDish(input.rawName);
   const rowUnit = input.unit ?? null;
   const off = (stage: DisableableStage): boolean => opts.disabledStages?.has(stage) ?? false;
-  const settled = { rerank: 'not_needed', vector: 'not_needed', veto: null } as const;
+
+  // The row's TN VED heading limits stages 2-4 to its MXIK codes (tnved.ts);
+  // the barcode stage stays global, since a barcode is an identity.
+  const tnved = readTnved(input.tnved);
+  const scoped = tnved.status === 'ok' && store.withinPrefix ? store.withinPrefix(headingPrefix(tnved.heading)) : null;
+  const retrieval = scoped ?? store;
+  const tnvedOutcome: TnvedOutcome = tnved.status === 'empty' ? 'none' : tnved.status === 'bad' ? 'invalid' : scoped ? 'restricted' : 'unscoped';
+  if (tnved.status === 'bad') notes.push(`TN VED "${input.tnved ?? ''}" is not a 4-10 digit HS code; ignored.`);
+  if (tnved.status === 'ok') {
+    notes.push(scoped
+      ? `Retrieval limited to TN VED heading ${tnved.heading} (MXIK codes ${headingPrefix(tnved.heading)}…).`
+      : `TN VED heading ${tnved.heading} recorded; this store cannot limit retrieval to it.`);
+  }
+  const settled = { rerank: 'not_needed', vector: 'not_needed', veto: null, tnved: tnvedOutcome } as const;
+  /** The heading left nothing: the same row over the whole classifier, saying so. */
+  const unrestricted = async (why: string): Promise<MatchResult> => {
+    const all = await matchCore({ ...input, tnved: null }, opts);
+    const heading = tnved.status === 'ok' ? tnved.heading : '';
+    return { ...all, input, tnved: 'fallback', notes: [`TN VED heading ${heading}: ${why}; searched the whole classifier.`, ...all.notes] };
+  };
 
   if (preparedDish) notes.push('Detected as a prepared dish; general codes preferred.');
   if (!off('vector') && !embedder.semantic) notes.push(`Vector stage is using "${embedder.name}" — surface-form only, not semantic.`);
@@ -237,7 +313,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // ---------------------------------------------------------- 2. folded exact
   if (normalized.matchKey && !off('exact')) {
     const keys = [normalized.matchKey, normalized.sortedKey, ...normalized.literalKeys];
-    const exact = await timed(opts.timer, 'exact', () => store.byMatchKey(keys));
+    const exact = await timed(opts.timer, 'exact', () => retrieval.byMatchKey(keys));
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code], ...settled,
@@ -272,28 +348,45 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const vectorText = embeddingText(input.rawName, 'query', embedder.textShape ?? 'folded');
   const columns = vectorColumnsFor(normalized.script, opts.vectorColumns ?? ['uz']);
   const vectorStage: Promise<Hit[]> = skipVector ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([vectorText], 'query'))
-    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => searchColumns(store, vec, limits.retrievalLimit, columns)) : []))
+    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => searchColumns(retrieval, vec, limits.retrievalLimit, columns)) : []))
     .catch((error: unknown) => {
       vectorOutcome = 'failed';
       notes.push(`Vector stage unavailable (${error instanceof Error ? error.message : String(error)}); using lexical retrieval only.`);
       return [] as Hit[];
     });
 
-  const [lexical, fullText, vectorRaw] = await Promise.all([
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(lexicalText, limits.retrievalLimit)),
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(lexicalText, limits.retrievalLimit)),
+  // The numbers and brand spellings normalization strips for retrieval, searched
+  // again so an identifying code ("15х2,5", "PANADOL 500mg N12") can be reached at all.
+  // `retrieval` is the store limited to the row's TN VED heading when it has one (T4).
+  const identifyingText = off('lexical') || opts.identifyingRetrieval === false ? null : identifyingQuery(lexicalText, input.rawName);
+  const [lexical, fullText, vectorRaw, identifyingHits] = await Promise.all([
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => retrieval.byLexical(lexicalText, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => retrieval.byFullText(lexicalText, limits.retrievalLimit)),
     vectorStage,
+    identifyingText === null ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => retrieval.byFullText(identifyingText, limits.retrievalLimit)),
   ]);
   const vector = opts.vectorPerPosition === undefined
     ? vectorRaw
     : diversify(vectorRaw, (h) => h.candidate.subPositionCode, opts.vectorPerPosition);
 
-  if (lexical.length === 0 && fullText.length === 0 && vector.length === 0) {
+  if (lexical.length === 0 && fullText.length === 0 && vector.length === 0 && identifyingHits.length === 0) {
+    if (scoped) return unrestricted('no code of the heading was retrieved for this name');
     return {
       input, normalized, decidedBy: 'none', notes: [...notes, 'No candidate retrieved.'], candidates: [], pool: [],
-      rerank: 'not_needed', vector: vectorOutcome, veto: null,
+      rerank: 'not_needed', vector: vectorOutcome, veto: null, tnved: tnvedOutcome,
     };
   }
+
+  const productTokens = [...normalized.tokens, ...synonyms.added];
+  const identity = opts.identifyingRule === false ? undefined : rowIdentity(input.rawName);
+  const ruleCache = new Map<string, RuleOutcome>();
+  const rulesOf = (f: { item: MxikCandidate }): RuleOutcome => {
+    const cached = ruleCache.get(f.item.code);
+    if (cached) return cached;
+    const outcome = applyRules({ candidate: f.item, rowUnit, preparedDish, productTokens, identity });
+    ruleCache.set(f.item.code, outcome);
+    return outcome;
+  };
 
   const lexicalScore = new Map(lexical.map((r) => [r.candidate.code, r.score]));
   // A semantic model's cosine is calibrated to the band it uses; the stand-in keeps (1 + cos) / 2.
@@ -303,6 +396,9 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   ]));
   // ts_rank_cd is unbounded; map it absolutely so a weak query's best hit is not 1.0.
   const fullTextScore = new Map(fullText.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
+  // Counts only for codes the row earns (rules.ts identifyingPreferred): the
+  // query's numbers are evidence for those, noise for every other code.
+  const identifyingScore = new Map(identifyingHits.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
   const hierarchyWords = new Map(fullText.map((r) => [r.candidate.code, r.hierarchyWords ?? []]));
 
   // ------------------------------------------------------------- 5. fusion
@@ -311,18 +407,28 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     { name: 'fullText', items: fullText.map((r) => r.candidate) },
     { name: 'vector', items: vector.map((r) => r.candidate), weight: vectorWeight },
   ];
-  const fused = reciprocalRankFusion(lists, (c) => c.code).slice(0, limits.rerankLimit);
+  const fusedAll = reciprocalRankFusion(lists, (c) => c.code);
+  // A size alone does not say which heading: "57х3,5" is also a 7305 "other
+  // tubes" code. The identifying query may add or lift a code on its size only
+  // inside a subposition of the three leading fused codes; a matched brand may
+  // bring its code from anywhere ("PANADOL" is nowhere among "tabletka" codes).
+  const leading = new Set(fusedAll.slice(0, 3).map((f) => f.item.subPositionCode));
+  const earnsIdentifying = (f: { item: MxikCandidate }): boolean => {
+    const rules = rulesOf(f);
+    return rules.keys.includes('identifyingPreferred') && (rules.identifyingBrand || leading.has(f.item.subPositionCode));
+  };
   // Second pass per position: the group whose codes fill the lists (plan §3.2).
   const positionMode = opts.positionFusion ?? 'off';
   // A non-semantic stand-in finds surface-form neighbours; it does not vote on positions (plan §5).
   const positionLists = embedder.semantic ? lists : lists.filter((l) => l.name !== 'vector');
   const positionScore = positionMode === 'off' ? null : groupFusion(positionLists, groupKey[positionMode], undefined, opts.positionFusionCap);
 
-  const retrievalSignals = (f: (typeof fused)[number]) => {
+  const retrievalSignals = (f: (typeof fusedAll)[number]) => {
     const code = f.item.code;
     // Stage 3 is trigram + full-text; take whichever channel found it best.
     const lex = lexicalScore.get(code);
-    const fts = fullTextScore.get(code);
+    const identifying = earnsIdentifying(f) ? identifyingScore.get(code) : undefined;
+    const fts = identifying === undefined ? fullTextScore.get(code) : Math.max(fullTextScore.get(code) ?? 0, identifying);
     return {
       lexical: lex === undefined && fts === undefined ? undefined : Math.max(lex ?? 0, fts ?? 0),
       vector: vectorScore.get(code),
@@ -330,15 +436,36 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       positionRrf: positionMode === 'off' ? undefined : positionScore?.get(groupKey[positionMode](f.item)) ?? 0,
     };
   };
-  const productTokens = [...normalized.tokens, ...synonyms.added];
-  const rulesOf = (f: (typeof fused)[number]) => applyRules({ candidate: f.item, rowUnit, preparedDish, productTokens });
+  const gateScore = (f: (typeof fusedAll)[number]): number =>
+    adjustedScore({ signals: retrievalSignals(f), rerankAvailable: true, adjustment: rulesOf(f).adjustment, weights: opts.weights });
+
+  // The reranker's pool: a few codes per subposition and several subpositions,
+  // so it can choose a position, not only a size (fusion.ts positionPool). The
+  // codes a subposition keeps are its best by rules-adjusted score.
+  const perPosition = opts.poolPerPosition === undefined ? DEFAULTS.poolPerPosition : opts.poolPerPosition;
+  const diverse = perPosition === null
+    ? fusedAll.slice(0, limits.rerankLimit)
+    : positionPool(fusedAll, (f) => f.item.subPositionCode, {
+      limit: limits.rerankLimit, cap: perPosition, minGroups: opts.poolMinPositions ?? DEFAULTS.poolMinPositions, keep: gateScore,
+    });
+  // Identifying codes the name lists ranked too low, or never found: the best
+  // few the row earns (rules.ts identifyingPreferred) join the pool, after it.
+  const inWindow = new Set(diverse.map((f) => f.item.code));
+  const fusedByCode = new Map(fusedAll.map((f) => [f.item.code, f]));
+  const added = identifyingHits
+    .filter((h) => !inWindow.has(h.candidate.code))
+    .map((h, i) => fusedByCode.get(h.candidate.code) ?? { item: h.candidate, score: 0, normalized: 0, ranks: { identifying: i + 1 } })
+    .filter(earnsIdentifying)
+    .slice(0, IDENTIFYING_SLOTS);
+  const fused = [...diverse, ...added];
+  notes.push(poolNote(fused.map((f) => f.item), fusedAll.slice(0, limits.rerankLimit).map((f) => f.item.code)));
 
   // ------------------------------------------------------------- 6. rerank
   const step = await rerankStep({
     reranker,
     store,
     gate: opts.rerankGate,
-    gateScores: fused.map((f) => adjustedScore({ signals: retrievalSignals(f), rerankAvailable: true, adjustment: rulesOf(f).adjustment, weights: opts.weights })),
+    gateScores: fused.map(gateScore),
     request: { productName: normalized.display, normalizedKey: normalized.matchKey, unit: rowUnit, candidates: fused.map((f) => f.item) },
     run: (fn) => timed(opts.timer, 'rerank', fn),
   });
@@ -352,9 +479,9 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // no-reranker cap is lifted only for candidates the reranker actually scored,
   // so a failed or skipped call can never push a retrieval-only guess into the
   // bulk-accept band.
-  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence }, rules: rulesOf(f) }));
+  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence ?? step.unranked }, rules: rulesOf(f) }));
   const poolScores = calibratePool(pool.map((p) => ({
-    signals: p.signals, rerankAvailable: p.signals.llm !== undefined, adjustment: p.rules.adjustment, weights: opts.weights,
+    signals: p.signals, rerankAvailable: llmScore.has(p.fused.item.code), adjustment: p.rules.adjustment, weights: opts.weights,
   })));
   const ranked = pool
     .map((p, i) => ({ ...p, score: poolScores[i] ?? { adjusted: 0, confidence: 0 } }))
@@ -386,13 +513,16 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
         rules: p.rules.keys,
         synonyms,
         hierarchyWords: hierarchyWords.get(p.fused.item.code),
+        identifyingTokens: p.rules.identifyingTokens,
       }),
     };
   }).sort((a, b) => b.confidence - a.confidence);
 
   // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
-  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
+  const kept = scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
   if (!rerankNone && kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
+  // A reranker veto is a judgement on the heading's codes and stands; an empty list without one is the heading's failure.
+  if (scoped && !rerankNone && kept.length === 0) return unrestricted('every retrieved code of the heading was unrelated to the name');
 
   return {
     input, normalized, notes,
@@ -402,6 +532,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     rerank: step.outcome,
     vector: vectorOutcome,
     veto: rerankNone ? { offered: fused.map((f) => f.item.code) } : null,
+    tnved: tnvedOutcome,
   };
 }
 

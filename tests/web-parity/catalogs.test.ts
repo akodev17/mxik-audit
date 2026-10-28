@@ -23,16 +23,16 @@ describe('catalogue screens: web copies equal the domain', () => {
   it('column fields, mapping issues', () => {
     assert.deepEqual([...COLUMN_FIELDS], [...columnMap.COLUMN_FIELDS]);
     const maps = [
-      { name: 0, barcode: 1, mxik: 2, unit: 3, price: 4, sales: 5 },
-      { name: 0, barcode: 0, mxik: 9, unit: -1, price: -1, sales: -1 },
-      { name: 2, barcode: 2, mxik: 2, unit: 7, price: 1, sales: -1 },
+      { name: 0, barcode: 1, mxik: 2, unit: 3, price: 4, sales: 5, tnved: -1 },
+      { name: 0, barcode: 0, mxik: 9, unit: -1, price: -1, sales: -1, tnved: -1 },
+      { name: 2, barcode: 2, mxik: 2, unit: 7, price: 1, sales: -1, tnved: -1 },
     ];
     for (const m of maps) for (const width of [1, 3, 6, 8]) assert.deepEqual(mappingIssues(m, width), columnMap.mappingIssues(m, width));
   });
 
   it('import presets and how they map headers', () => {
     assert.deepEqual(IMPORT_PRESETS, presets.IMPORT_PRESETS);
-    const fallback = { name: 1, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1 };
+    const fallback = { name: 1, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1, tnved: -1 };
     const headerSets = [
       ['Код', 'Наименование', 'Штрихкод', 'ИКПУ', 'Ед. изм.', 'Цена продажи', 'Выручка'],
       ['Nomi', 'Barcode', 'IKPU', 'Oʻlchov birligi', 'Narx'],
@@ -79,7 +79,7 @@ describe('catalogue screens: web copies equal the domain', () => {
     const meta: PipelineMeta = {
       embedder: 'e', vectorUsable: false, reranker: { enabled: false, model: null, promptVersion: 'v1' },
       degradedReasons: ['rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed'],
-      rowsWithoutAi: 3, llmRowsFailed: 4, vectorErrors: 5, rowsAudited: 10, fromRow: 0, finishedAt: '2026-10-01T00:00:00.000Z',
+      rowsWithoutAi: 3, llmRowsFailed: 4, llmRowsNone: 0, vectorErrors: 5, rowsAudited: 10, fromRow: 0, finishedAt: '2026-10-01T00:00:00.000Z',
       classifierSnapshotId: null, classifierTakenAt: null,
     };
     for (const locale of ['uz', 'ru'] as const) assert.deepEqual(degradedNotes(meta, appDict(locale)), domainNotes(meta, appDict(locale)));

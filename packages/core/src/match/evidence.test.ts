@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { evidenceFor, matchedWords, readEvidence, vetoEvidence } from './evidence.js';
+import { evidenceFor, identifyingMatchedTokens, matchedWords, readEvidence, vetoEvidence, withTnved } from './evidence.js';
 
 const CANDIDATE = { nameUz: 'Guruch', nameRu: 'Рис', unitBinding: 'none' as const, unitCanonical: [] };
 
@@ -53,6 +53,18 @@ describe('vetoEvidence', () => {
   });
 });
 
+describe('withTnved', () => {
+  const base = evidenceFor({ stage: 'fusion', productName: 'truba', rowUnit: null, candidate: CANDIDATE });
+  const outside = (code: string): boolean => !code.startsWith('07306');
+
+  it('adds the heading, and a flag only where it holds', () => {
+    const inside = withTnved(base, '07306001001000000', { heading: '7306', existingOutside: false, fallback: false }, outside);
+    assert.deepEqual(inside, { ...base, tnvedHeading: '7306' });
+    const all = withTnved(base, '07304001001000000', { heading: '7306', existingOutside: true, fallback: true }, outside);
+    assert.deepEqual(all, { ...base, tnvedHeading: '7306', tnvedOutside: true, tnvedExistingOutside: true, tnvedFallback: true });
+  });
+});
+
 describe('readEvidence', () => {
   it('round-trips every field the pipeline stores', () => {
     const stored = {
@@ -60,8 +72,22 @@ describe('readEvidence', () => {
       dictionaryUses: 4, dictionaryConfirmations: 2, dictionaryConflict: '01901001003000000',
       synonymApplied: ['минвата → минеральная вата'],
       matchedHierarchyWords: ['goryachekataniy'],
+      tnvedHeading: '7306', tnvedOutside: true as const, tnvedExistingOutside: true as const, tnvedFallback: true as const,
     };
     assert.deepEqual(readEvidence(JSON.parse(JSON.stringify(stored))), stored);
+  });
+
+  it('records the tokens that earned an identifying code, and reads them back', () => {
+    const e = evidenceFor({ stage: 'fusion', productName: 'PANADOL 500mg N12', rowUnit: null, candidate: CANDIDATE, identifyingTokens: ['ПАНАДОЛ', '500mg', 'N12'] });
+    assert.deepEqual(e.identifyingMatchedTokens, ['ПАНАДОЛ', '500mg', 'N12']);
+    assert.deepEqual(readEvidence(JSON.parse(JSON.stringify(e)))?.identifyingMatchedTokens, ['ПАНАДОЛ', '500mg', 'N12']);
+    const none = evidenceFor({ stage: 'fusion', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, identifyingTokens: [] });
+    assert.equal('identifyingMatchedTokens' in none, false);
+  });
+
+  it('keeps each identifying token once, trimmed, at most eight', () => {
+    assert.deepEqual(identifyingMatchedTokens([' 1,5л', '1,5л', '', 'COCA-COLA']), ['1,5л', 'COCA-COLA']);
+    assert.equal(identifyingMatchedTokens(Array.from({ length: 12 }, (_, i) => `t${i}`)).length, 8);
   });
 
   it('reads the veto back, so the UI branch for it is reachable', () => {
@@ -85,6 +111,13 @@ describe('readEvidence', () => {
     assert.equal(e?.dictionaryUses, 3);
     assert.equal(e?.dictionaryConfirmations, undefined);
     assert.equal(e?.rules, undefined);
+  });
+
+  it('drops a malformed TN VED heading and anything but true for its flags', () => {
+    const e = readEvidence({ stage: 'fusion', unit: 'none', tnvedHeading: '73', tnvedOutside: 'yes', tnvedFallback: 1 });
+    assert.equal(e?.tnvedHeading, undefined);
+    assert.equal(e?.tnvedOutside, undefined);
+    assert.equal(e?.tnvedFallback, undefined);
   });
 
   it('rejects what is not evidence', () => {
