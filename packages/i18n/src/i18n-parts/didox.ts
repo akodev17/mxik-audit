@@ -196,6 +196,7 @@ export const uz = {
       not_connected: 'Didox ulanmagan.',
       token_required: 'Didox tokenini kiriting.',
       partner_missing: 'Hamkor tokeni muhit oʻzgaruvchisida topilmadi.',
+      partner_ref: 'Hamkor tokeni oʻzgaruvchisining nomi DIDOX_ bilan boshlanishi kerak (masalan, DIDOX_PARTNER_TOKEN).',
       password_disabled: 'STIR va parol bilan kirish oʻchirilgan (DIDOX_PASSWORD_LOGIN).',
       didox: {
         unauthorized: 'Didox tokenni qabul qilmadi (401). Yangi token kiriting.',
@@ -409,6 +410,7 @@ export const ru: typeof uz = {
       not_connected: 'Didox не подключён.',
       token_required: 'Введите токен Didox.',
       partner_missing: 'Партнёрский токен не найден в переменной окружения.',
+      partner_ref: 'Имя переменной с партнёрским токеном должно начинаться с DIDOX_ (например, DIDOX_PARTNER_TOKEN).',
       password_disabled: 'Вход по ИНН и паролю отключён (DIDOX_PASSWORD_LOGIN).',
       didox: {
         unauthorized: 'Didox не принял токен (401). Введите новый токен.',

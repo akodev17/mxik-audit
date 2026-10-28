@@ -51,14 +51,21 @@ export async function getConnection(user: CurrentUser): Promise<ConnectionView> 
   };
 }
 
+/**
+ * The partner token may only be read from a variable set aside for it. Any other name
+ * (SESSION_SECRET, DATABASE_URL) would be sent to Didox as a Bearer token (Phase C F2).
+ */
+export const PARTNER_TOKEN_REF = /^DIDOX_[A-Z0-9_]{1,58}$/;
+export const partnerRefAllowed = (name: string): boolean => PARTNER_TOKEN_REF.test(name);
+
 export const SaveConnection = z.object({
   kind: z.enum(['token', 'partner']),
   companyTin: z.string().regex(/^(\d{9}|\d{14})$/),
   /** Empty or absent keeps the stored token. */
   token: z.string().trim().max(4000).optional(),
   tokenExpiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
-  /** The name of the environment variable that holds the partner token (never the token). */
-  partnerTokenRef: z.string().regex(/^[A-Z][A-Z0-9_]{2,63}$/).optional().or(z.literal('')),
+  /** The name of the environment variable that holds the partner token (never the token): DIDOX_* only. */
+  partnerTokenRef: z.string().regex(PARTNER_TOKEN_REF).optional().or(z.literal('')),
   clientId: z.string().max(64).optional().or(z.literal('')),
 });
 
@@ -69,7 +76,7 @@ export async function saveConnection(user: CurrentUser | null, locale: Locale, b
   if (!adminOnly(user)) return { ok: false, error: e.forbidden };
   if (await isDemoOrg(user.orgId)) return { ok: false, error: e.demo };
   const input = SaveConnection.safeParse(body);
-  if (!input.success) return { ok: false, error: e.generic };
+  if (!input.success) return { ok: false, error: input.error.issues.some((i) => i.path[0] === 'partnerTokenRef') ? e.partner_ref : e.generic };
   const { kind, companyTin, token, tokenExpiresAt, partnerTokenRef, clientId } = input.data;
   const existing = await db.didoxConnection.findUnique({ where: { orgId: user.orgId }, select: { tokenSealed: true } });
   if (!token && !existing?.tokenSealed) return { ok: false, error: e.token_required };
@@ -93,7 +100,7 @@ export async function removeConnection(user: CurrentUser | null): Promise<boolea
   return count > 0;
 }
 
-type ClientFor = { ok: true; client: DidoxClient; clientId: string | null } | { ok: false; code: 'not_connected' | 'token_required' | 'partner_missing' };
+type ClientFor = { ok: true; client: DidoxClient; clientId: string | null } | { ok: false; code: 'not_connected' | 'token_required' | 'partner_ref' | 'partner_missing' };
 
 /** A client for the org's stored connection. `options` lets tests inject retries, a fetch, a limiter. */
 export async function clientForOrg(orgId: string, env: Record<string, string | undefined> = process.env, options: Partial<ConstructorParameters<typeof DidoxClient>[0]> = {}): Promise<ClientFor> {
@@ -103,7 +110,10 @@ export async function clientForOrg(orgId: string, env: Record<string, string | u
   if (!token) return { ok: false, code: 'token_required' };
   let auth: DidoxAuth;
   if (c.kind === 'partner') {
-    const partner = env[c.partnerTokenRef ?? 'DIDOX_PARTNER_TOKEN'];
+    const ref = c.partnerTokenRef ?? 'DIDOX_PARTNER_TOKEN';
+    // Checked again here, so a reference stored before the allow-list cannot reach the environment either.
+    if (!partnerRefAllowed(ref)) return { ok: false, code: 'partner_ref' };
+    const partner = env[ref];
     if (!partner) return { ok: false, code: 'partner_missing' };
     auth = { kind: 'partner', partnerToken: partner, userToken: token };
   } else {
