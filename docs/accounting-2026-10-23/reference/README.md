@@ -1,0 +1,2 @@
+# Source
+Official Didox instruction channel https://t.me/s/didox_instruction, post "Шаблон Excel для загрузки СФ" (t.me/didox_instruction/202) and the Google Doc "Инструкция по заполнению Шаблона Excel" (docs.google.com/document/d/14rf6lc7KZf8mmrLXxtS9RI3KBjuquBx103i1ehV3qQ8), exported as text on 2026-10-28. The xlsx templates themselves are Telegram attachments (posts 202 ЭСФ, 237 ТТН, 326 "Шаблон для загрузки ИКПУ", 328 Гибридная ЭСФ) and must be downloaded with the Telegram app.
