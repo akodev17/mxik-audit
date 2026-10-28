@@ -19,6 +19,7 @@ import { auditContext } from '../audit-runner.js';
 import type { UploadedFile } from '../catalog-upload.js';
 import { MAX_UPLOAD_BYTES } from '../catalog-import.js';
 import { isDemoOrg } from '../demo.js';
+import { uploadsOpen } from '../plan.js';
 import type { CurrentUser } from '../session.js';
 import { parseErrorCode, parseUpload } from '../spreadsheet.js';
 import { hasUploadExtension } from '../upload-file-types.js';
@@ -130,6 +131,7 @@ export async function previewProductImport(user: CurrentUser | null, locale: Loc
   const e = i18nFor(locale).ta.importX.errors;
   if (!wrote(user)) return { ok: false as const, error: e.client };
   if (await isDemoOrg(user.orgId)) return { ok: false as const, error: i18nFor(locale).t.demoUploadDisabled };
+  if (!(await uploadsOpen(user.orgId)).ok) return { ok: false as const, error: i18nFor(locale).ta.msg.gate.expired };
   const client = await clientFor(user, input.clientId);
   if (!client.ok) return { ok: false as const, error: e.client };
   const read = await readFile(input.file, locale);
@@ -153,6 +155,7 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
   const x = i18nFor(locale).ta;
   if (!wrote(user)) return { ok: false as const, error: x.importX.errors.client };
   if (await isDemoOrg(user.orgId)) return { ok: false as const, error: i18nFor(locale).t.demoUploadDisabled };
+  if (!(await uploadsOpen(user.orgId)).ok) return { ok: false as const, error: x.msg.gate.expired };
   const client = await clientFor(user, input.clientId);
   if (!client.ok) return { ok: false as const, error: x.importX.errors.client };
   let mapping: ProductColumnMap;

@@ -8,6 +8,7 @@ const MB = 1024 * 1024;
 export type ZipLimits = { maxEntries: number; maxTotalBytes: number };
 export const ZIP_LIMITS: ZipLimits = { maxEntries: 5_000, maxTotalBytes: 100 * MB };
 
+const OVER_BUDGET = 'zip entry over budget';
 const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 
 export const looksLikeZip = (buffer: Buffer): boolean => buffer.subarray(0, 4).equals(ZIP_MAGIC);
@@ -46,7 +47,7 @@ function drain(zip: ZipFile, entry: Entry, budget: number): Promise<number> {
       let bytes = 0;
       stream.on('data', (chunk: Buffer) => {
         bytes += chunk.length;
-        if (bytes > budget) stream.destroy(new Error('zip entry over budget'));
+        if (bytes > budget) stream.destroy(new Error(OVER_BUDGET));
       });
       stream.on('error', reject);
       stream.on('end', () => resolve(bytes));
@@ -54,19 +55,37 @@ function drain(zip: ZipFile, entry: Entry, budget: number): Promise<number> {
   });
 }
 
-/** True when the archive opens and all of it inflates within the limits. */
-export async function zipWithinLimits(buffer: Buffer, limits: ZipLimits = ZIP_LIMITS): Promise<boolean> {
+export type ZipUsage = { entries: number; bytes: number };
+
+/**
+ * Inflates the archive within `limits` and reports what it holds (entries, inflated bytes): `'over'`
+ * once it passes a limit, null when it does not open as a zip. A walk through nested archives
+ * subtracts each usage from one shared budget (Phase C F6).
+ */
+export async function zipUsage(buffer: Buffer, limits: ZipLimits = ZIP_LIMITS): Promise<ZipUsage | 'over' | null> {
+  let zip: ZipFile;
   try {
-    const zip = await open(buffer);
-    if (zip.entryCount > limits.maxEntries) return false;
+    zip = await open(buffer);
+  } catch {
+    return null;
+  }
+  try {
+    if (zip.entryCount > limits.maxEntries) return 'over';
     let total = 0;
     for (let entry = await nextEntry(zip); entry; entry = await nextEntry(zip)) {
       if (entry.fileName.endsWith('/')) continue;
-      if (total + entry.uncompressedSize > limits.maxTotalBytes) return false;
+      if (total + entry.uncompressedSize > limits.maxTotalBytes) return 'over';
       total += await drain(zip, entry, limits.maxTotalBytes - total);
     }
-    return true;
-  } catch {
-    return false;
+    return { entries: zip.entryCount, bytes: total };
+  } catch (error) {
+    // yauzl's own size validation ("too many bytes in the stream") is a lying archive: over, not unreadable.
+    return error instanceof Error && (error.message === OVER_BUDGET || error.message.includes('too many bytes')) ? 'over' : null;
   }
+}
+
+/** True when the archive opens and all of it inflates within the limits. */
+export async function zipWithinLimits(buffer: Buffer, limits: ZipLimits = ZIP_LIMITS): Promise<boolean> {
+  const usage = await zipUsage(buffer, limits);
+  return usage !== null && usage !== 'over';
 }

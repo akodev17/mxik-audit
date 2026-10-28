@@ -10,6 +10,7 @@ import {
   saveConnection, testConnection, transferExport,
 } from '@tasnivo/domain/onec/index';
 import { visibleBatch, visibleClient, type BatchQuery, type RecordQuery } from '@tasnivo/domain/onec/review';
+import { uploadsOpen } from '@tasnivo/domain/plan';
 import type { CurrentUser } from '@tasnivo/domain/session';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
@@ -50,8 +51,14 @@ export class OnecService {
     return result.ok ? result : refused(locale, result.error);
   }
 
+  /** Like every upload, an export or a transfer is closed once the trial or the subscription has ended (Phase C F1). */
+  private async planOpen(user: CurrentUser): Promise<boolean> {
+    return (await uploadsOpen(user.orgId)).ok;
+  }
+
   async exportBatch(user: CurrentUser, locale: Locale, batchId: string, body: ExportBody) {
     await this.ensureVisible(user, batchId);
+    if (!(await this.planOpen(user))) return refused(locale, 'expired');
     const result = await buildExport({ orgId: user.orgId, batchId, format: body.format, recordIds: body.recordIds, actorId: user.userId });
     if (!result.ok) return refused(locale, result.error);
     const disposition = result.file.headers['content-disposition'] ?? '';
@@ -61,6 +68,7 @@ export class OnecService {
 
   async transfer(user: CurrentUser, locale: Locale, batchId: string, body: { format: 'odata'; recordIds?: string[] }) {
     await this.ensureVisible(user, batchId);
+    if (!(await this.planOpen(user))) return refused(locale, 'expired');
     const result = await transferExport({ orgId: user.orgId, batchId, format: body.format, recordIds: body.recordIds, actorId: user.userId });
     return result.ok ? result : refused(locale, result.error);
   }
@@ -104,6 +112,7 @@ export class OnecService {
     const clientId = typeof raw === 'string' && raw.length > 0 && raw.length <= 64 ? raw : null;
     // A scoped accountant loads a client's list; the org-level list is for unrestricted users.
     if (!(await visibleClient(reader(user), clientId))) return refused(locale, 'client');
+    if (!(await this.planOpen(user))) return refused(locale, 'expired');
     if (!file) return refused(locale, 'unreadable');
     let bytes: Buffer;
     try {

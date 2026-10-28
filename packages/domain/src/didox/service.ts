@@ -16,6 +16,7 @@ import type { FileOut } from '../catalog-exports.js';
 import { isDemoOrg } from '../demo.js';
 import { looksLikeZip } from '../security/zip-guard.js';
 import { buildExport, invoiceLineFingerprint, prepareExport, refreshCounts } from '../onec/index.js';
+import { uploadsOpen } from '../plan.js';
 import { classifyProducts, upsertProducts } from '../products/index.js';
 import type { CurrentUser } from '../session.js';
 import { checkInvoice, defaultDeps, statusFor, type CheckDeps, type CheckedInvoice, type ProductRecord, type RecordStatus } from './check.js';
@@ -175,11 +176,12 @@ export function importMessage(locale: Locale, result: Extract<ImportResult, { ok
 
 // ── Upload ─────────────────────────────────────────────────────────────────────────────────
 
-/** The checks every upload makes: writer, demo, file, client. */
+/** The checks every upload makes: writer, demo, plan, file, client. */
 async function uploadGate(user: Writer, locale: Locale, file: UploadedFile | null, clientId: unknown): Promise<{ ok: true; user: CurrentUser; clientId: string | null; buffer: Buffer; name: string } | Fail> {
   const e = i18nFor(locale).ta.didoxX.errors;
   if (!allowed(user)) return { ok: false, error: e.forbidden };
   if (await isDemoOrg(user.orgId)) return { ok: false, error: e.demo };
+  if (!(await uploadsOpen(user.orgId)).ok) return { ok: false, error: e.expired };
   if (!file || file.size === 0) return { ok: false, error: e.empty };
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: e.too_big };
   const target = await clientTarget(user, clientId);

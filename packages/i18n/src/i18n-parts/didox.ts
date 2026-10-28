@@ -186,6 +186,7 @@ export const uz = {
       client: 'Mijozni tanlang (yoki sizga biriktirilgan mijozni).',
       archived: 'Mijoz arxivlangan.',
       demo: 'Demo hisobida haqiqiy hujjatlarni yuklab boʻlmaydi.',
+      expired: 'Obuna muddati tugagan.',
       forbidden: 'Bu amal uchun huquqingiz yoʻq.',
       not_found: 'Hisob-faktura topilmadi.',
       bad_mapping: 'Ustunlar yoki sarlavha maʼlumotlari notoʻgʻri: nomi va miqdori (yoki summa) ustunlari kerak.',
@@ -195,6 +196,7 @@ export const uz = {
       not_connected: 'Didox ulanmagan.',
       token_required: 'Didox tokenini kiriting.',
       partner_missing: 'Hamkor tokeni muhit oʻzgaruvchisida topilmadi.',
+      partner_ref: 'Hamkor tokeni oʻzgaruvchisining nomi DIDOX_ bilan boshlanishi kerak (masalan, DIDOX_PARTNER_TOKEN).',
       password_disabled: 'STIR va parol bilan kirish oʻchirilgan (DIDOX_PASSWORD_LOGIN).',
       didox: {
         unauthorized: 'Didox tokenni qabul qilmadi (401). Yangi token kiriting.',
@@ -398,6 +400,7 @@ export const ru: typeof uz = {
       client: 'Выберите клиента (или назначенного вам клиента).',
       archived: 'Клиент в архиве.',
       demo: 'В демо-доступе нельзя загружать настоящие документы.',
+      expired: 'Срок подписки истёк.',
       forbidden: 'Недостаточно прав для этого действия.',
       not_found: 'Счёт-фактура не найден.',
       bad_mapping: 'Неверные колонки или данные шапки: нужны колонки наименования и количества (или суммы).',
@@ -407,6 +410,7 @@ export const ru: typeof uz = {
       not_connected: 'Didox не подключён.',
       token_required: 'Введите токен Didox.',
       partner_missing: 'Партнёрский токен не найден в переменной окружения.',
+      partner_ref: 'Имя переменной с партнёрским токеном должно начинаться с DIDOX_ (например, DIDOX_PARTNER_TOKEN).',
       password_disabled: 'Вход по ИНН и паролю отключён (DIDOX_PASSWORD_LOGIN).',
       didox: {
         unauthorized: 'Didox не принял токен (401). Введите новый токен.',
