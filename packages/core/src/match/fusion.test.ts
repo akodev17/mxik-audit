@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { diversify, groupFusion, RRF_K, reciprocalRankFusion } from './fusion.js';
+import { diversify, groupFusion, positionPool, RRF_K, reciprocalRankFusion } from './fusion.js';
 
 const id = (s: string): string => s;
 
@@ -135,5 +135,30 @@ describe('diversify', () => {
   it('changes nothing without a usable cap', () => {
     assert.deepEqual(diversify(['P1', 'P2'], group, 0), ['P1', 'P2']);
     assert.deepEqual(diversify(['P1', 'P2'], group, Number.NaN), ['P1', 'P2']);
+  });
+});
+
+describe('positionPool', () => {
+  // "A1" is code 1 of position A.
+  const group = (s: string): string => s.slice(0, 1);
+
+  it('keeps at most cap codes per position and tops up to the minimum number of positions, in input order', () => {
+    const items = ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'A6', 'C1', 'D1', 'E1'];
+    assert.deepEqual(positionPool(items, group, { limit: 5, cap: 3, minGroups: 4 }), ['A1', 'A2', 'A3', 'B1', 'C1', 'D1']);
+  });
+
+  it('keeps the best codes of an over-full position by the keep score', () => {
+    const score: Record<string, number> = { A1: 0.1, A2: 0.9, A3: 0.5, A4: 0.8 };
+    const pool = positionPool(['A1', 'A2', 'A3', 'A4'], group, { limit: 4, cap: 2, minGroups: 1, keep: (s) => score[s] ?? 0 });
+    assert.deepEqual(pool, ['A2', 'A4']);
+  });
+
+  it('changes nothing when the top already spans enough positions within the cap', () => {
+    const items = ['A1', 'B1', 'C1', 'D1', 'A2', 'E1'];
+    assert.deepEqual(positionPool(items, group, { limit: 5, cap: 3, minGroups: 4 }), ['A1', 'B1', 'C1', 'D1', 'A2']);
+  });
+
+  it('stops when the items run out', () => {
+    assert.deepEqual(positionPool(['A1', 'A2', 'A3', 'A4'], group, { limit: 4, cap: 3, minGroups: 4 }), ['A1', 'A2', 'A3']);
   });
 });

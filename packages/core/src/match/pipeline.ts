@@ -9,13 +9,14 @@ import { barcodeIdentity, normalizeName, type BarcodeIdentity } from '../normali
 import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
-import { diversify, groupFusion, reciprocalRankFusion } from './fusion.js';
+import { diversify, groupFusion, positionPool, reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankStep } from './rerank-step.js';
 import { evidenceFor } from './evidence.js';
 import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
-import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
+import { applyRules, hierarchyPath, isPreparedDish, type RuleOutcome } from './rules.js';
+import { identifyingQuery, rowIdentity } from './identifying.js';
 import { adjustedScore, bandOf, calibratePool, fullTextToUnit, vectorToUnit, type SignalWeights, type VectorCalibration } from './score.js';
 import type { VectorColumn } from './vector-readiness.js';
 import { embeddingText } from '../embed/text.js';
@@ -41,6 +42,17 @@ export type PipelineOptions = {
   retrievalLimit?: number;
   /** How many fused candidates go to the reranker. */
   rerankLimit?: number;
+  /**
+   * Codes per subposition in the reranker pool (fusion.ts positionPool); 3 when
+   * absent, null = the plain top `rerankLimit` of the fused list.
+   */
+  poolPerPosition?: number | null;
+  /** Subpositions the pool is topped up to when the top of the fused list has fewer; 4 when absent. */
+  poolMinPositions?: number;
+  /** False switches off rules.ts identifyingPreferred, for ablation in the eval; on when absent. */
+  identifyingRule?: boolean;
+  /** False skips the identifying full-text query (identifying.ts identifyingQuery); on when absent. */
+  identifyingRetrieval?: boolean;
   /** How many results to return. */
   topK?: number;
   /**
@@ -117,7 +129,26 @@ export async function timed<T>(timer: StageTimer | undefined, stage: string, fn:
   }
 }
 
-const DEFAULTS = { retrievalLimit: 50, rerankLimit: 20, topK: 5 } as const;
+/** Most codes the identifying full-text query adds to the reranker pool. */
+const IDENTIFYING_SLOTS = 3;
+
+const DEFAULTS = { retrievalLimit: 50, rerankLimit: 20, topK: 5, poolPerPosition: null, poolMinPositions: 4 } as const;
+
+/**
+ * The pool's composition for operators and the eval: "Rerank pool: 6 codes in 4
+ * subpositions (07306001005 ×3, ...)", and what position diversity changed
+ * against the plain top of the fused list.
+ */
+export function poolNote(pool: readonly MxikCandidate[], window: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const c of pool) counts.set(c.subPositionCode, (counts.get(c.subPositionCode) ?? 0) + 1);
+  const parts = [...counts].map(([sub, n]) => (n > 1 ? `${sub} ×${n}` : sub));
+  const inWindow = new Set(window);
+  const added = pool.filter((c) => !inWindow.has(c.code)).length;
+  const dropped = window.length - (pool.length - added);
+  const change = dropped > 0 || added > 0 ? `; ${dropped} left out over the per-subposition cap, ${added} added from other subpositions` : '';
+  return `Rerank pool: ${pool.length} codes in ${counts.size} subpositions (${parts.join(', ')})${change}.`;
+}
 
 /** Wraps a definite hit from stages 1-2, which bypass scoring. */
 function certain(
@@ -279,21 +310,36 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       return [] as Hit[];
     });
 
-  const [lexical, fullText, vectorRaw] = await Promise.all([
+  // The numbers and brand spellings normalization strips for retrieval, searched
+  // again so an identifying code ("15х2,5", "PANADOL 500mg N12") can be reached at all.
+  const identifyingText = off('lexical') || opts.identifyingRetrieval === false ? null : identifyingQuery(lexicalText, input.rawName);
+  const [lexical, fullText, vectorRaw, identifyingHits] = await Promise.all([
     off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(lexicalText, limits.retrievalLimit)),
     off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(lexicalText, limits.retrievalLimit)),
     vectorStage,
+    identifyingText === null ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(identifyingText, limits.retrievalLimit)),
   ]);
   const vector = opts.vectorPerPosition === undefined
     ? vectorRaw
     : diversify(vectorRaw, (h) => h.candidate.subPositionCode, opts.vectorPerPosition);
 
-  if (lexical.length === 0 && fullText.length === 0 && vector.length === 0) {
+  if (lexical.length === 0 && fullText.length === 0 && vector.length === 0 && identifyingHits.length === 0) {
     return {
       input, normalized, decidedBy: 'none', notes: [...notes, 'No candidate retrieved.'], candidates: [], pool: [],
       rerank: 'not_needed', vector: vectorOutcome, veto: null,
     };
   }
+
+  const productTokens = [...normalized.tokens, ...synonyms.added];
+  const identity = opts.identifyingRule === false ? undefined : rowIdentity(input.rawName);
+  const ruleCache = new Map<string, RuleOutcome>();
+  const rulesOf = (f: { item: MxikCandidate }): RuleOutcome => {
+    const cached = ruleCache.get(f.item.code);
+    if (cached) return cached;
+    const outcome = applyRules({ candidate: f.item, rowUnit, preparedDish, productTokens, identity });
+    ruleCache.set(f.item.code, outcome);
+    return outcome;
+  };
 
   const lexicalScore = new Map(lexical.map((r) => [r.candidate.code, r.score]));
   // A semantic model's cosine is calibrated to the band it uses; the stand-in keeps (1 + cos) / 2.
@@ -303,6 +349,9 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   ]));
   // ts_rank_cd is unbounded; map it absolutely so a weak query's best hit is not 1.0.
   const fullTextScore = new Map(fullText.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
+  // Counts only for codes the row earns (rules.ts identifyingPreferred): the
+  // query's numbers are evidence for those, noise for every other code.
+  const identifyingScore = new Map(identifyingHits.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
   const hierarchyWords = new Map(fullText.map((r) => [r.candidate.code, r.hierarchyWords ?? []]));
 
   // ------------------------------------------------------------- 5. fusion
@@ -311,18 +360,28 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     { name: 'fullText', items: fullText.map((r) => r.candidate) },
     { name: 'vector', items: vector.map((r) => r.candidate), weight: vectorWeight },
   ];
-  const fused = reciprocalRankFusion(lists, (c) => c.code).slice(0, limits.rerankLimit);
+  const fusedAll = reciprocalRankFusion(lists, (c) => c.code);
+  // A size alone does not say which heading: "57х3,5" is also a 7305 "other
+  // tubes" code. The identifying query may add or lift a code on its size only
+  // inside a subposition of the three leading fused codes; a matched brand may
+  // bring its code from anywhere ("PANADOL" is nowhere among "tabletka" codes).
+  const leading = new Set(fusedAll.slice(0, 3).map((f) => f.item.subPositionCode));
+  const earnsIdentifying = (f: { item: MxikCandidate }): boolean => {
+    const rules = rulesOf(f);
+    return rules.keys.includes('identifyingPreferred') && (rules.identifyingBrand || leading.has(f.item.subPositionCode));
+  };
   // Second pass per position: the group whose codes fill the lists (plan §3.2).
   const positionMode = opts.positionFusion ?? 'off';
   // A non-semantic stand-in finds surface-form neighbours; it does not vote on positions (plan §5).
   const positionLists = embedder.semantic ? lists : lists.filter((l) => l.name !== 'vector');
   const positionScore = positionMode === 'off' ? null : groupFusion(positionLists, groupKey[positionMode], undefined, opts.positionFusionCap);
 
-  const retrievalSignals = (f: (typeof fused)[number]) => {
+  const retrievalSignals = (f: (typeof fusedAll)[number]) => {
     const code = f.item.code;
     // Stage 3 is trigram + full-text; take whichever channel found it best.
     const lex = lexicalScore.get(code);
-    const fts = fullTextScore.get(code);
+    const identifying = earnsIdentifying(f) ? identifyingScore.get(code) : undefined;
+    const fts = identifying === undefined ? fullTextScore.get(code) : Math.max(fullTextScore.get(code) ?? 0, identifying);
     return {
       lexical: lex === undefined && fts === undefined ? undefined : Math.max(lex ?? 0, fts ?? 0),
       vector: vectorScore.get(code),
@@ -330,15 +389,36 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
       positionRrf: positionMode === 'off' ? undefined : positionScore?.get(groupKey[positionMode](f.item)) ?? 0,
     };
   };
-  const productTokens = [...normalized.tokens, ...synonyms.added];
-  const rulesOf = (f: (typeof fused)[number]) => applyRules({ candidate: f.item, rowUnit, preparedDish, productTokens });
+  const gateScore = (f: (typeof fusedAll)[number]): number =>
+    adjustedScore({ signals: retrievalSignals(f), rerankAvailable: true, adjustment: rulesOf(f).adjustment, weights: opts.weights });
+
+  // The reranker's pool: a few codes per subposition and several subpositions,
+  // so it can choose a position, not only a size (fusion.ts positionPool). The
+  // codes a subposition keeps are its best by rules-adjusted score.
+  const perPosition = opts.poolPerPosition === undefined ? DEFAULTS.poolPerPosition : opts.poolPerPosition;
+  const diverse = perPosition === null
+    ? fusedAll.slice(0, limits.rerankLimit)
+    : positionPool(fusedAll, (f) => f.item.subPositionCode, {
+      limit: limits.rerankLimit, cap: perPosition, minGroups: opts.poolMinPositions ?? DEFAULTS.poolMinPositions, keep: gateScore,
+    });
+  // Identifying codes the name lists ranked too low, or never found: the best
+  // few the row earns (rules.ts identifyingPreferred) join the pool, after it.
+  const inWindow = new Set(diverse.map((f) => f.item.code));
+  const fusedByCode = new Map(fusedAll.map((f) => [f.item.code, f]));
+  const added = identifyingHits
+    .filter((h) => !inWindow.has(h.candidate.code))
+    .map((h, i) => fusedByCode.get(h.candidate.code) ?? { item: h.candidate, score: 0, normalized: 0, ranks: { identifying: i + 1 } })
+    .filter(earnsIdentifying)
+    .slice(0, IDENTIFYING_SLOTS);
+  const fused = [...diverse, ...added];
+  notes.push(poolNote(fused.map((f) => f.item), fusedAll.slice(0, limits.rerankLimit).map((f) => f.item.code)));
 
   // ------------------------------------------------------------- 6. rerank
   const step = await rerankStep({
     reranker,
     store,
     gate: opts.rerankGate,
-    gateScores: fused.map((f) => adjustedScore({ signals: retrievalSignals(f), rerankAvailable: true, adjustment: rulesOf(f).adjustment, weights: opts.weights })),
+    gateScores: fused.map(gateScore),
     request: { productName: normalized.display, normalizedKey: normalized.matchKey, unit: rowUnit, candidates: fused.map((f) => f.item) },
     run: (fn) => timed(opts.timer, 'rerank', fn),
   });
@@ -386,6 +466,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
         rules: p.rules.keys,
         synonyms,
         hierarchyWords: hierarchyWords.get(p.fused.item.code),
+        identifyingTokens: p.rules.identifyingTokens,
       }),
     };
   }).sort((a, b) => b.confidence - a.confidence);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { normalizeName } from '../normalize/index.js';
+import { rowIdentity } from './identifying.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
 import type { MxikCandidate } from './types.js';
 
@@ -233,5 +234,46 @@ describe('applyRules: unrequested material', () => {
 
   it('needs the row words, so callers without them get the old behaviour', () => {
     assert.ok(!applyRules({ candidate: stainless, rowUnit: null, preparedDish: false }).keys.includes('unrequestedMaterial'));
+  });
+});
+
+describe('identifyingPreferred', () => {
+  const pipe = (overrides: Partial<MxikCandidate> = {}): MxikCandidate => candidate({
+    code: '07306001005015618', subPositionCode: '07306001005', isBase: false, isMarked: false,
+    nameRu: 'Стальная труба (шовная): Труба стальная водогазопроводная, наружный диаметр 15 мм, толщина стенки 2,5 мм',
+    nameUz: 'Po’lat quvur: suv-gaz quvuri, tashqi diametri 15 mm, devor qalinligi 2,5 mm',
+    attributeName: 'suv-gaz quvuri, tashqi diametri 15 mm, devor qalinligi 2,5 mm',
+    ...overrides,
+  });
+  const base = candidate({ code: '07306001005000000', subPositionCode: '07306001005', isBase: true, nameRu: 'Стальная труба (шовная)', nameUz: 'Po’lat quvur' });
+  const rules = (name: string, c: MxikCandidate) => applyRules({ candidate: c, rowUnit: null, preparedDish: false, identity: rowIdentity(name) });
+
+  it('outweighs baseCodePreferred when the name repeats the size of the code, replacing the unmarked penalty', () => {
+    const identifying = rules('Труба ВГП 15х2,5', pipe());
+    assert.deepEqual(identifying.keys, ['identifyingPreferred']);
+    assert.deepEqual(identifying.identifyingTokens, ['15х2,5']);
+    assert.ok(identifying.adjustment > rules('Труба ВГП 15х2,5', base).adjustment);
+  });
+
+  it('keeps baseCodePreferred ahead for a generic name', () => {
+    const identifying = rules('Труба ВГП', pipe());
+    assert.deepEqual(identifying.keys, ['identifyingUnmarked']);
+    assert.deepEqual(identifying.identifyingTokens, []);
+    assert.ok(rules('Труба ВГП', base).adjustment > identifying.adjustment);
+  });
+
+  it('keeps identifyingMarked for a marked code and adds the preference', () => {
+    const r = rules('Кока-Кола 1,5л пэт', candidate({
+      isBase: false, isMarked: true, brandName: 'COCA-COLA', attributeName: 'shirin, PET butilka 1,5 l.',
+      nameRu: 'Безалкогольные напитки: COCA-COLA, сладкий, ПЭТ бутылка 1,5 л.', nameUz: 'Alkogolsiz ichimliklar: COCA-COLA, shirin, PET butilka 1,5 l.',
+    }));
+    assert.deepEqual(r.keys, ['identifyingMarked', 'identifyingPreferred']);
+    assert.deepEqual(r.identifyingTokens, ['COCA-COLA', '1,5л']);
+    assert.ok(Math.abs(r.adjustment - 0.11) < 1e-9);
+  });
+
+  it('never fires without the row identity', () => {
+    const r = applyRules({ candidate: pipe(), rowUnit: null, preparedDish: false });
+    assert.deepEqual(r.keys, ['identifyingUnmarked']);
   });
 });

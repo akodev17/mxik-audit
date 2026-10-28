@@ -123,6 +123,39 @@ export function stripNoise(input: string): NoiseStripResult {
   return { core: squeezeWhitespace(work), attrs, removed };
 }
 
+export type Measure = {
+  kind: 'volume' | 'weight' | 'length';
+  /** In ml, g or mm. */
+  value: number;
+  /** As written ("1,5л", "500 мг"). */
+  text: string;
+};
+
+const MEASURES = [
+  ['volume', RE_VOLUME, TO_ML],
+  ['weight', RE_WEIGHT, TO_G],
+  ['length', RE_LENGTH, TO_MM],
+] as const;
+
+/**
+ * Every quantity with a unit in a text, not just the first of each kind as
+ * stripNoise keeps: a code's attributes can name a diameter and a wall
+ * thickness ("диаметр 15 мм, толщиной стенки 2,5 мм"). Volume is read first
+ * so "500 мл" is not also read as metres.
+ */
+export function measuresIn(input: string): Measure[] {
+  const out: Measure[] = [];
+  let work = input;
+  for (const [kind, re, table] of MEASURES) {
+    work = work.replace(re, (whole: string, value: string, unit: string) => {
+      const factor = table[unit.toLowerCase()];
+      if (factor !== undefined) out.push({ kind, value: num(value) * factor, text: whole.trim() });
+      return ' ';
+    });
+  }
+  return out;
+}
+
 /**
  * One string per distinct set of attributes, so rows with the same core name
  * are the same product only when their sizes agree too: "Coca-Cola 1.5L" and
