@@ -53,6 +53,11 @@ describe('rowVerdicts', () => {
     assert.equal(r?.verdicts[0]?.reason, NONE_REASON);
   });
 
+  it('keeps the ranking when "none" comes with one', () => {
+    const r = rowVerdicts({ id: 'r1', none: true, ranking: [{ code: OFFERED[0], confidence: 0.3, reason: 'Yaqin.' }] }, OFFERED);
+    assert.deepEqual(r?.verdicts.map((v) => [v.code, v.confidence]), [[OFFERED[0], 0.3]]);
+  });
+
   it('rejects out-of-range confidence and wrong shapes', () => {
     assert.equal(rowVerdicts({ id: 'r1', none: false, ranking: [{ code: OFFERED[0], confidence: 1.5, reason: 'x' }] }, OFFERED), null);
     assert.equal(rowVerdicts({ id: 'r1', ranking: [] }, OFFERED), null);

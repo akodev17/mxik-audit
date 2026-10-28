@@ -12,7 +12,16 @@ export type RerankStep = {
   scores: Map<string, LlmScore>;
   outcome: Exclude<RerankOutcome, 'not_needed'>;
   notes: string[];
+  /**
+   * LLM score for the candidates it left out of its ranking: 0 when it ranked
+   * the row and its top pick clears OVERRIDE_CONFIDENCE (its order then wins),
+   * else undefined (an unsure reranker does not push retrieval's picks down).
+   */
+  unranked: number | undefined;
 };
+
+/** The reranker's own top confidence above which its ranking overrides retrieval order. */
+export const OVERRIDE_CONFIDENCE = Number(process.env['RERANK_OVERRIDE_CONFIDENCE'] ?? 0.5);
 
 export type RerankStepInput = {
   reranker: RerankProvider;
@@ -29,18 +38,18 @@ const message = (error: unknown): string => (error instanceof Error ? error.mess
 
 export async function rerankStep(input: RerankStepInput): Promise<RerankStep> {
   const scores = new Map<string, LlmScore>();
-  if (!input.reranker.available) return { scores, outcome: 'off', notes: [] };
+  if (!input.reranker.available) return { scores, outcome: 'off', notes: [], unranked: undefined };
 
   // The gate reads uncapped retrieval confidence; skipping never lifts the cap.
   const decision = rerankGate(input.gateScores, input.gate);
-  if (!decision.rerank) return { scores, outcome: 'skipped', notes: [`Reranker skipped (${decision.reason}); confidence is capped.`] };
+  if (!decision.rerank) return { scores, outcome: 'skipped', notes: [`Reranker skipped (${decision.reason}); confidence is capped.`], unranked: undefined };
 
   const run = input.run ?? (<T>(fn: () => Promise<T>) => fn());
   let verdicts: RerankVerdict[];
   try {
     verdicts = await run(() => input.reranker.rerank(input.request));
   } catch (error) {
-    return { scores, outcome: 'failed', notes: [`Reranker failed (${message(error)}); falling back to fusion order.`] };
+    return { scores, outcome: 'failed', notes: [`Reranker failed (${message(error)}); falling back to fusion order.`], unranked: undefined };
   }
 
   const notes: string[] = [];
@@ -48,12 +57,13 @@ export async function rerankStep(input: RerankStepInput): Promise<RerankStep> {
   if (valid.length < verdicts.length) {
     notes.push(`Reranker returned ${verdicts.length - valid.length} code(s) outside the candidates or the classifier; discarded.`);
   }
-  if (valid.length === 0) return { scores, outcome: 'failed', notes: [...notes, 'Reranker gave no usable verdict; falling back to fusion order.'] };
+  if (valid.length === 0) return { scores, outcome: 'failed', notes: [...notes, 'Reranker gave no usable verdict; falling back to fusion order.'], unranked: undefined };
 
   for (const v of valid) scores.set(v.code, { confidence: v.confidence, reason: v.reason });
   const none = valid.every((v) => v.confidence === 0 && v.reason === NONE_REASON);
   if (none) notes.push('Reranker judged that no candidate fits; no code is suggested.');
-  return { scores, outcome: none ? 'none' : 'ranked', notes };
+  const top = Math.max(...valid.map((v) => v.confidence));
+  return { scores, outcome: none ? 'none' : 'ranked', notes, unranked: !none && top >= OVERRIDE_CONFIDENCE ? 0 : undefined };
 }
 
 /** Drops any verdict whose code was not offered or is not a live classifier code. */

@@ -352,7 +352,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // no-reranker cap is lifted only for candidates the reranker actually scored,
   // so a failed or skipped call can never push a retrieval-only guess into the
   // bulk-accept band.
-  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence ?? (step.outcome === 'ranked' ? 0 : undefined) }, rules: rulesOf(f) }));
+  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence ?? step.unranked }, rules: rulesOf(f) }));
   const poolScores = calibratePool(pool.map((p) => ({
     signals: p.signals, rerankAvailable: llmScore.has(p.fused.item.code), adjustment: p.rules.adjustment, weights: opts.weights,
   })));

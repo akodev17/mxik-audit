@@ -75,7 +75,6 @@ describe('toGeminiSchema', () => {
             type: 'OBJECT',
             properties: {
               id: { type: 'STRING' },
-              none: { type: 'BOOLEAN' },
               ranking: {
                 type: 'ARRAY',
                 items: {
@@ -85,9 +84,10 @@ describe('toGeminiSchema', () => {
                   required: ['code', 'confidence', 'reason'],
                 },
               },
+              none: { type: 'BOOLEAN' },
             },
-            propertyOrdering: ['id', 'none', 'ranking'],
-            required: ['id', 'none', 'ranking'],
+            propertyOrdering: ['id', 'ranking', 'none'],
+            required: ['id', 'ranking', 'none'],
           },
         },
       },
