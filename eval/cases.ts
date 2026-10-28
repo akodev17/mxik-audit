@@ -2,7 +2,9 @@
 // source (real | synthetic), notes. correct_code may list several defensible
 // codes separated by "|"; the first is the primary label. An entry ending in "*"
 // is a code prefix: "07306001*" accepts every code in that 8-digit position,
-// for products where any identifying code of the position is defensible.
+// for products where any identifying code of the position is defensible; "07208*"
+// accepts a whole class (group + class = the HS heading), for names that say no more
+// than the heading does ("Лист г/к", the competitor benchmark).
 import { z } from 'zod';
 import { parseCsv } from './csv.js';
 
@@ -33,8 +35,8 @@ const Row = z.object({
 export type LoadResult = { cases: EvalCase[]; errors: string[] };
 
 const CODE = /^\d{17}$/;
-/** At least a position: the 8 digits of group, class and position. */
-const PREFIX = /^\d{8,16}\*$/;
+/** A class (5 digits: group and class) or at least a position (8 digits: group, class and position). */
+const PREFIX = /^(?:\d{5}|\d{8,16})\*$/;
 
 export const isPrefix = (label: string): boolean => label.endsWith('*');
 
