@@ -120,3 +120,66 @@ N12 → 03004452001001004; Gilam sintetik 200x300 sm → 05703001005*|0570500300
   `llmRowsFailed` accounting).
 - No writes to the shared DB from task sessions other than reads and evals; migrations on
   scratch DBs only.
+
+## 6. Integration result (branch `claude/integration-v2`, 28 Oct 2026)
+
+Merged in the planned order onto main `ddbe0e2`: T4 (`5beb5f0`), T2 (`f5cc423`), T1
+(`877d425`), T3 (`47a752c`). Conflicts were only where the plan expected them (pipeline
+retrieval block, evidence fields, the eval history, one comment in `eval/run.ts`); every
+resolution keeps both sides. Typecheck and lint pass. Tests: see the note at the end.
+
+### Eval, no reranker (`npm run eval --no-ablate`, run 69 of `docs/eval-results.json`)
+
+Top-1 per set. "main" is run 48 (before TN VED); the task columns are each branch alone.
+
+| set (n) | main | T4 alone | T2 alone | integration |
+|---|---|---|---|---|
+| golden (12) | 8 | 8 | 9 | **9** |
+| real-construction (102) | 84 | 84 | 85 | **85** |
+| real-metal (168) | 78 | 78 | 90 | **90** |
+| real-tnved (49) | 32 | 48 | – | **49** |
+| competitor-22 (22) | – | – | – | **16** (Krafta 18) |
+| synthetic (191) | 178 | 177 | 178 | **178** |
+| all real (331) | 202 (61.0%) | 218 (65.9%) | – | **233 (70.4%)** |
+
+No set lost a case against any single task branch; real-tnved gained one over T4 alone
+(the identifying query reaches the exact size inside the heading).
+
+Still missed on the 22 without the reranker (6): Труба профильная г/к 40х20х1,5 (rank 2),
+Лист г/к 5,00х1500х6000 (rank 5), Щебень гранитный 5-20 (rank 2), Эмаль ПФ-115 белая 2.7 кг
+(rank 2), Цемент М400 50 кг (rank 3), Palov 1 porsiya (the dish code is not in the pool).
+
+### Five test catalogues (`npm run bench:files`, run 2 of `docs/bench-results.json`)
+
+| file | top-1 (no code) main → integration | fix (wrong/unknown code) main → integration |
+|---|---|---|
+| test-oziq-ovqat-2 | 14/15 → 14/15 | 13/13 → 13/13 |
+| test-stroymarket-2 | 11/12 → 12/12 | 9/11 → 10/11 |
+| test-dorixona | 12/16 → 12/16 | 2/10 → 7/10 |
+| test-elektronika | 12/17 → 13/17 | 6/10 → 6/10 |
+| test-umumiy-ovqatlanish | 5/16 → 5/16 | 2/10 → 3/10 |
+| **total** | **54/76 (71.1%) → 56/76 (73.7%)** | **32/54 (59.3%) → 39/54 (72.2%)** |
+
+Finding precision/recall is 100/100 for MISSING, NOT_FOUND, RESTRICTED and TNVED_MISMATCH on
+every file. MISMATCH precision is 51% only because of the cafe menu: 33 dish rows with a right
+10202 code are flagged because a prepared dish never reaches the candidate pool (T3's finding,
+§7 below). Outside that file MISMATCH precision is 100%.
+
+## 7. Open after integration (not in this branch)
+
+- **Catering dishes never reach the pool.** The 10202001 dish codes are named "Asosiy taomlar,
+  umumiy ovqatlanish shaxobchalarida tayyorlangan …", which shares no word with "Palov",
+  "Shashlik" or "Norin". On the cafe menu every correctly coded dish is reported as MISMATCH (33
+  false findings) and no dish without a code gets the right suggestion; "Palov 1 porsiya" is the
+  one 22-query miss the reranker cannot fix because the code is not among the candidates. Fix
+  candidates: a dish → 10202 synonym table (normalize/synonyms.ts) or a dish lexicon
+  (`docs/BENCHMARK_KRAFTA.md` §3).
+- **Unit "porsiya".** Rows written in "porsiya" get UNIT_CONFLICT under codes whose binding is
+  {dona} although the classifier's own unit text says "dona (portsiya)"; an alias would fix it
+  (listed as debatable in `docs/BENCHMARK_KRAFTA.md`).
+- **Paid Gemini key.** The free tier allows 20 requests a day per model and only
+  `gemini-3.1-flash-lite` answers reliably (`docs/scoring.md`, "What a free-tier key can and
+  cannot do"); a pilot needs Tier 1. Rotate the key that was pasted into chat on 28 Oct.
+- **Scratch databases.** `mxik_tnved` and `mxik_scratch` are stale (older than main) and
+  `mxik_v2` is the copy used for the integration test run; all three can be dropped once the
+  migration is on the local DB.
