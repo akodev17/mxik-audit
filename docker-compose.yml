@@ -1,6 +1,9 @@
-# Development: `docker compose up -d` starts only Postgres (host port 54329) and Redis (63799);
-# the apps run on the host (`npm run dev`, `npm run start:api`, `npm run start:worker`).
-# Server: `docker compose --profile app up -d --build` runs the whole stack behind Caddy:
+# Local: `docker compose up -d --build` runs the app: web on http://localhost:3000 (its /api/*
+# rewrite goes to the api container), api on 4000, worker, Postgres (host port 54329), Redis (63799).
+# Every service has `restart: unless-stopped`: the stack comes back after a crash, a reboot or a
+# Docker Desktop restart until `docker compose stop` / `down`. Apps on the host instead
+# (`npm run dev`, `npm run dev:api`): `docker compose up -d db redis`.
+# Server: `docker compose --profile app up -d --build` adds Caddy and the nightly backup:
 #
 #   caddy  :80/:443  ──► /api/*  → api    (NestJS, 4000; applies migrations on start)
 #                    └─► else    → web    (Next.js, 3000)
@@ -24,6 +27,8 @@ x-web-build: &web-build
     NEXT_PUBLIC_SHOW_LEGAL_223: ${NEXT_PUBLIC_SHOW_LEGAL_223:-false}
     NEXT_PUBLIC_FEATURE_MULTI_CLIENT: ${NEXT_PUBLIC_FEATURE_MULTI_CLIENT:-false}
     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    # Where the web's /api/* rewrite goes; without Caddy in front (local) the browser depends on it.
+    API_INTERNAL_URL: http://api:4000
 
 # Docker keeps container logs forever by default; 5 files of 10 MB per service.
 x-logging: &logging
@@ -134,7 +139,6 @@ services:
         condition: service_started
 
   web:
-    profiles: ["app"]
     build: *web-build
     image: mxik-audit-web
     container_name: mxik-audit-web
@@ -160,7 +164,6 @@ services:
         condition: service_healthy
 
   api:
-    profiles: ["app"]
     build:
       context: .
       target: api
@@ -202,7 +205,6 @@ services:
   # (scripts/scheduler.mjs), which called the web app's cron routes; there is no scheduler
   # container any more. Run operator scripts in this image: `docker compose run --rm worker npm run ...`.
   worker:
-    profiles: ["app"]
     build:
       context: .
       target: worker
