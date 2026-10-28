@@ -160,6 +160,30 @@ Still missed on the 22 without the reranker (6): Труба профильная
 | test-umumiy-ovqatlanish | 5/16 → 5/16 | 2/10 → 3/10 |
 | **total** | **54/76 (71.1%) → 56/76 (73.7%)** | **32/54 (59.3%) → 39/54 (72.2%)** |
 
+### With the Gemini reranker (`gemini-3.1-flash-lite`, free tier, batch 25; bench run 3, eval run 71)
+
+| file | top-1 off → on | fix off → on |
+|---|---|---|
+| test-oziq-ovqat-2 | 14/15 → **15/15** | 13/13 → 13/13 |
+| test-stroymarket-2 | 12/12 → 12/12 | 10/11 → **11/11** |
+| test-dorixona | 12/16 → **13/16** | 7/10 → 6/10 |
+| test-elektronika | 13/17 → **15/17** | 6/10 → **9/10** |
+| test-umumiy-ovqatlanish | 5/16 → 6/16 | 3/10 → 2/10 |
+| **total** | **56/76 (73.7%) → 61/76 (80.3%)** | **39/54 (72.2%) → 41/54 (75.9%)** |
+
+Rows with exactly the expected findings: 325/358 off → 327/358 on. Every finding type keeps
+100/100 precision/recall outside the cafe menu; on the grocery file two right codes were
+re-ranked away (MISMATCH precision 82%), the price of the reranker's override.
+
+**22-query set with the reranker: 20/22 top-1, 21/22 top-5** (off 16/22; main before this
+programme 14/22; Krafta 18/22). 18 rows were sent in 3 calls, none failed, est. $1.14 per
+1,000 catalogue rows. The two misses: Труба профильная г/к 40х20х1,5 (the reranker keeps a
+7216 profile code at rank 1; the 7306 code is rank 2) and Palov 1 porsiya (§7, not in the
+pool).
+
+Summary for the owner: main 54/76 → 61/76 on the five files, 14/22 → 20/22 on the Krafta
+set, with a reranker costing about $0.001 per row that needs a paid key for pilots.
+
 Finding precision/recall is 100/100 for MISSING, NOT_FOUND, RESTRICTED and TNVED_MISMATCH on
 every file. MISMATCH precision is 51% only because of the cafe menu: 33 dish rows with a right
 10202 code are flagged because a prepared dish never reaches the candidate pool (T3's finding,
