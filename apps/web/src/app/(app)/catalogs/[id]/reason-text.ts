@@ -22,6 +22,10 @@ export function reasonLines({ type, facts, noSuggestion }: Input, w: AppDict['ws
     if (facts.restriction) lines.push(r.restricted(facts.restriction.code, facts.restriction.date, facts.restriction.inForce));
     if (noSuggestion) lines.push(r.restrictedNone);
   }
+  if (type === 'TNVED_MISMATCH') {
+    if (facts.tnved) lines.push(r.tnved(facts.tnved.code, facts.tnved.heading, facts.tnved.codeHeading));
+    if (noSuggestion) lines.push(r.tnvedNone);
+  }
   if (facts.afterUpdate) lines.push(r.afterUpdate);
   return lines.filter((l): l is string => Boolean(l));
 }

@@ -42,6 +42,7 @@ function schemas(config: ApiConfig): Record<string, Schema> {
         barcode: nullable({ type: 'string', maxLength: 32 }),
         unit: nullable({ type: 'string', maxLength: 60 }),
         mxik: nullable({ type: 'string', maxLength: 32, description: 'The code the product has now, if any.' }),
+        tnved: nullable({ type: 'string', maxLength: 32, description: FINDING_FIELDS.tnved }),
       },
     },
     CheckRequest: {

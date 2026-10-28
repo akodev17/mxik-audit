@@ -20,7 +20,7 @@ export const uz = {
   importX: {
     _area: 'imports',
     steps: ['Fayl', 'Tekshiruv', 'Ustunlar', 'Tasdiqlash', 'Tahlil', 'Natija'] as readonly string[],
-    fields: { name: 'Tovar nomi', barcode: 'Shtrix-kod', mxik: 'MXIK kodi', unit: 'Oʻlchov birligi', price: 'Narx', sales: 'Sotuv summasi' } as Record<'name' | 'barcode' | 'mxik' | 'unit' | 'price' | 'sales', string>,
+    fields: { name: 'Tovar nomi', barcode: 'Shtrix-kod', mxik: 'MXIK kodi', tnved: 'TIF TN kodi', unit: 'Oʻlchov birligi', price: 'Narx', sales: 'Sotuv summasi' } as Record<'name' | 'barcode' | 'mxik' | 'tnved' | 'unit' | 'price' | 'sales', string>,
     errors: {
       legacy_xls: 'Bu eski .xls formatidagi fayl. Uni Excelda oching, “Saqlash boshqacha” → “Excel kitobi (.xlsx)” ni tanlang va qayta yuklang.',
       zip_limits: 'Fayl ochilganda juda katta hajmga ega yoki buzilgan. Faylni Excelda ochib, qayta saqlang.',
@@ -113,6 +113,8 @@ export const uz = {
       noCode: (n: number, label: string) => `${nu(n)} ta qatorda kod oʻrnida raqamsiz belgi bor (masalan, “-” yoki “yoʻq”): ular “${label}” deb belgilanadi.`,
       badCodes: (n: number, label: string) => `${nu(n)} ta qatordagi kod 17 xonali emas: ular “${label}” deb belgilanadi.`,
       lostZero: (n: number) => `Ulardan ${nu(n)} tasi 16 xonali: Excel kod boshidagi nolni olib tashlagan boʻlishi mumkin. Kod ustunini matn formatida saqlang.`,
+      badTnved: (n: number) => `${nu(n)} ta qatordagi TIF TN kodi 4–10 xonali emas: kod tanlashda hisobga olinmaydi.`,
+      tnvedZero: (n: number) => `${nu(n)} ta qatordagi TIF TN kodi toq xonali: Excel boshidagi nolni olib tashlagan, nol qayta qoʻshildi. TIF TN ustunini matn formatida saqlang.`,
       ambiguous: (n: number) => `${nu(n)} ta qatordagi summa ikki xil oʻqilishi mumkin (masalan, “12,500” — 12 500 yoki 12,5). Minglik deb olindi.`,
       atRows: (list: string) => `Maʼlumot qatorlari (sarlavhadan keyin): ${list}`,
       atLines: (list: string) => `Fayldagi qatorlar: ${list}`,
@@ -350,6 +352,8 @@ export const uz = {
       reading: 'Fayl oʻqilmoqda…',
       readOnly: 'Sizda faqat koʻrish huquqi bor: fayl yuklash va oʻchirish administrator yoki buxgalterga ochiq.',
       truncated: (kept: number, total: number) => `Fayldan faqat dastlabki ${nu(kept)} ta qator olindi (jami ${nu(total)}).`,
+      badTnved: (n: number) => `${nu(n)} ta qatordagi TIF TN kodi 4–10 xonali emas: kod tanlashda hisobga olinmaydi.`,
+      tnvedZero: (n: number) => `${nu(n)} ta qatordagi TIF TN kodi toq xonali: Excel boshidagi nolni olib tashlagan, nol qayta qoʻshildi. TIF TN ustunini matn formatida saqlang.`,
       ambiguous: (n: number) => `${nu(n)} ta summa ikki xil oʻqilishi mumkin; minglik deb olindi.`,
       saveFailed: 'Saqlab boʻlmadi. Qayta urinib koʻring.',
       deleteFailed: 'Roʻyxatni oʻchirib boʻlmadi. Qayta urinib koʻring.',
@@ -457,7 +461,7 @@ export const ru: typeof uz = {
   importX: {
     _area: 'imports',
     steps: ['Файл', 'Проверка', 'Столбцы', 'Подтверждение', 'Анализ', 'Результат'],
-    fields: { name: 'Наименование', barcode: 'Штрихкод', mxik: 'Код ИКПУ', unit: 'Единица измерения', price: 'Цена', sales: 'Сумма продаж' },
+    fields: { name: 'Наименование', barcode: 'Штрихкод', mxik: 'Код ИКПУ', tnved: 'Код ТН ВЭД', unit: 'Единица измерения', price: 'Цена', sales: 'Сумма продаж' },
     errors: {
       legacy_xls: 'Это файл старого формата .xls. Откройте его в Excel, выберите «Сохранить как» → «Книга Excel (.xlsx)» и загрузите снова.',
       zip_limits: 'Файл слишком велик в распакованном виде или повреждён. Откройте его в Excel и сохраните заново.',
@@ -550,6 +554,8 @@ export const ru: typeof uz = {
       noCode: (n, label) => `В ${nr(n)} ${pluralRu(n, 'строке', 'строках', 'строках')} вместо кода стоит знак без цифр (например, «-» или «нет»): такие строки будут отмечены как «${label}».`,
       badCodes: (n, label) => `В ${nr(n)} ${pluralRu(n, 'строке', 'строках', 'строках')} код не из 17 цифр: такие строки будут отмечены как «${label}».`,
       lostZero: (n) => `Из них ${nr(n)} — 16-значные: вероятно, Excel убрал ведущий ноль. Храните столбец кода в текстовом формате.`,
+      badTnved: (n) => `В ${nr(n)} ${pluralRu(n, 'строке', 'строках', 'строках')} код ТН ВЭД не из 4–10 цифр: при подборе кода он не учитывается.`,
+      tnvedZero: (n) => `В ${nr(n)} ${pluralRu(n, 'строке', 'строках', 'строках')} код ТН ВЭД из нечётного числа цифр: Excel убрал ведущий ноль, он восстановлен. Храните столбец ТН ВЭД в текстовом формате.`,
       ambiguous: (n) => `В ${nr(n)} ${pluralRu(n, 'строке', 'строках', 'строках')} сумму можно прочитать двояко (например, «12,500» — 12 500 или 12,5). Принято как тысячи.`,
       atRows: (list) => `Строки данных (после заголовка): ${list}`,
       atLines: (list) => `Строки в файле: ${list}`,
@@ -789,6 +795,8 @@ export const ru: typeof uz = {
       reading: 'Файл читается…',
       readOnly: 'У вас только просмотр: загружать и удалять файлы могут администратор или бухгалтер.',
       truncated: (kept, total) => `Из файла взяты только первые строки: ${nr(kept)} из ${nr(total)}.`,
+      badTnved: (n) => `В ${nr(n)} ${pluralRu(n, 'строке', 'строках', 'строках')} код ТН ВЭД не из 4–10 цифр: при подборе кода он не учитывается.`,
+      tnvedZero: (n) => `В ${nr(n)} ${pluralRu(n, 'строке', 'строках', 'строках')} код ТН ВЭД из нечётного числа цифр: Excel убрал ведущий ноль, он восстановлен. Храните столбец ТН ВЭД в текстовом формате.`,
       ambiguous: (n) => `Сумм, которые можно прочитать двояко: ${nr(n)}; приняты как тысячи.`,
       saveFailed: 'Не удалось сохранить. Попробуйте ещё раз.',
       deleteFailed: 'Не удалось удалить список. Попробуйте ещё раз.',

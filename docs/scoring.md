@@ -613,3 +613,108 @@ rank that subposition's identifying codes with the existing matcher (name +
 attributes) and suggest the best one only when it clears the "Ehtimoliy"
 threshold; otherwise say that a detailed code is required and list the
 subposition for the user to choose from.
+
+## Appendix C. TIF TN (TN VED) heading as a matching input (2026-10-23)
+
+### The structural rule, measured on the local classifier
+
+Snapshot #4 (442,964 live codes, `mxik` and the scratch copy `mxik_tnved`):
+
+| Fact | Value |
+|---|---|
+| Live goods codes (first digit `0`) | 442,029 |
+| Live service codes (first digit `1`, groups 100-117) | 935: no HS heading |
+| Distinct HS4 headings (digits 2-5 of goods codes) | 1,178 (of ~1,228 in the HS) |
+| Chapters (digits 2-3, `groupCode` = `0` + chapter) | 98 |
+| `classCode` (5 digits) = `0` + digits 2-5 | every code (0 mismatches) |
+| Codes per heading: min / p25 / median / p75 / p90 / p99 / max | 1 / 2 / 7 / 62 / 437 / 6,067 / 74,893 (6810, concrete articles) |
+| Headings with one code / more than 5,000 codes | 231 / 17 |
+
+**HS4.** A sample of 30 classes (ordered by md5 of the class code) was read
+against the HS heading texts: all 30 are the heading's own wording (0707
+cucumbers, 1511 palm oil, 2808 nitric acid, 5603 nonwovens, 7106 silver, 7605
+aluminium wire, 8106 bismuth, 8421 centrifuges, 8510 shavers, 8705 special
+purpose vehicles, 9022 X-ray apparatus, 9504 video game consoles, 9606
+buttons, …). So TN VED `7306301900` → MXIK `07306…`, `2523290000` → `02523…`,
+`8471300000` → `08471…`, as the competitor's rule says.
+
+**HS6 does not survive.** Digits 6-8 are the position, and of 2,591 goods
+positions 1,883 are numbered `001`-`009`, 123 `010`-`099` and 27 `999`
+("other"); 82.8% of goods codes have `00` in digits 6-7. 8471's positions
+`001` portable, `009` processing units, `011` storage, `012` input/output
+are HS 8471.30 / .50 / .70 / .60 in another order; 7306 has one position
+(`001`, 15,581 codes) for all of HS 7306.11-7306.90. Only a few classes copy
+the subheading (3920: `03920200` propylene, `03920430` vinyl chloride,
+`03920620` PET), and 3004 uses drug-group numbers that merely look like it
+(`03004410` oxicams). **Decision: the filter is HS4 only.** No HS6 path
+with an HS4 fallback, because digits 6-7 cannot be read as HS6.
+
+### What the matcher does with it
+
+- `core/match/tnved.ts` reads a cell: digits only, 4-10 of them, chapter
+  01-97. An odd count means Excel dropped the leading zero (HS codes have even
+  lengths), which is put back: `702000000` → `0702000000`. Anything else is
+  ignored and reported by the import diagnostics.
+- `PostgresCandidateStore.withinPrefix('0' + heading)` limits stages 2-4
+  (exact, trigram, full-text, vector) to `code LIKE '0HHHH%'`, served by the
+  existing `mxik_code_code_prefix_idx` (`bpchar_pattern_ops`). The barcode
+  stage stays global: a barcode is an identity. Lookups of a known code
+  (`byCode`, `liveCodes`, `baseCodeFor`) are not limited.
+- If the heading retrieves nothing, or every retrieved code is hidden as
+  unrelated, the row is matched over the whole classifier (`MatchResult.tnved
+  = 'fallback'`, a note, `evidence.tnvedFallback`). A reranker veto inside the
+  heading stands.
+- Every candidate's evidence carries `tnvedHeading`, `tnvedOutside` (this code
+  is outside, e.g. a barcode hit or a fallback) and `tnvedExistingOutside`
+  (the row's own code is outside).
+- `TNVED_MISMATCH` (medium): the row's valid goods code lies in another
+  heading. It takes MISMATCH's place on that row (with retrieval limited to
+  the heading the own code is never scored, and "does not fit the name" would
+  be the wrong reason); its suggestion is the best code of the TN VED heading.
+
+### Query plans (2026-10-23, pgvector 0.8.6, 443k rows)
+
+| Query | Plan | Time |
+|---|---|---|
+| HNSW + `code LIKE '07306%'` (as is) | index scan, filter after the graph | 8 ms, **1 row of 50** |
+| exact cosine over 07306 (15,581 codes), materialized CTE | bitmap on prefix index + sort | 140 ms |
+| exact cosine over 06810 (74,893 codes) | same | 540 ms |
+| HNSW + `hnsw.iterative_scan = relaxed_order`, 07306 / 06810 | index scan until the limit fills | 70 ms / 14 ms |
+| recall@50 of the iterative scan vs exact, 20 queries over 6810, 3004, 7306, 8516 | | 0.98-1.0 |
+| trigram, no threshold, 07306 / 07208 (618 codes) | prefix index scan, word_similarity per row | 685 ms / 23 ms |
+| trigram `<%` at 0.75 + prefix, 07306 | BitmapAnd(prefix, trigram GIN) | 313 ms |
+| full-text `truba | 57` + prefix, 07306 | BitmapAnd(prefix, tsvector GIN) | 81 ms |
+
+So a heading of up to `SCOPED_SCAN_MAX` = 1,000 codes (92% of headings) is
+scored exhaustively: every code with any trigram gets a word_similarity, and
+vectors are compared exactly (a few ms to ~40 ms). A larger heading keeps the
+global strategy plus the prefix: the trigram threshold cascade, and the HNSW
+index with the iterative scan. The heading's size is counted once per process.
+
+Full-text inside a heading first selects on the classifier-wide rare words,
+as everywhere; only when they occur nowhere in the heading do the common words
+select ("57" among the 7304 pipes → "truba"). Letting every word select from
+the start was the first version: "Кабель АВВГ 2х16" in 8544 then ranked
+fibre-optic cables first, "kabel" being repeated in their names, and fell out
+of the top five.
+
+### Evaluation (`npm run eval -- --no-ablate`, scratch copy `mxik_tnved`, e5 vectors, no reranker key)
+
+`eval/real-tnved.csv`: 49 rows, 34 seller-style names after real classifier
+names in 34 headings and 15 deliberately vague names ("Труба 57", "Лист 5 мм",
+"Профиль 40х20", "Проволока 3 мм", "Арматура 12" / "Арматура 1/2", …), some
+of them twice with different headings; two TN VED cells lost their leading
+zero as Excel does. Labels are the position prefix inside the row's heading.
+
+| Run | golden | real-construction | real-metal | real-tnved | synthetic |
+|---|---|---|---|---|---|
+| before (cd7f066) | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | 65.3 / 79.6 | 93.2 / 99.0 |
+| after, column ignored (`--no-tnved`) | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | 65.3 / 79.6 | 93.2 / 99.0 |
+| after, column used | 66.7 / 75.0 | 82.4 / 92.2 | 46.4 / 98.2 | **98.0 / 100.0** | 93.2 / 99.0 |
+
+(top-1 % / top-5 %.) The other sets carry no TN VED, and their numbers are
+identical: the change does nothing to a row without the column. With it, all
+15 vague rows reach top-1 (before: 3 of 15 at top-1, 7 in the top five); the
+one row left at rank 2 is "Керамогранит 300х300х8", where 6907's two positions
+(tiles, finishing pieces) are both in the heading. The full run over 522 cases
+took 30 s with the column against 39 s without: a heading is a smaller search.

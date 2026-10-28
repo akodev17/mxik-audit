@@ -12,7 +12,8 @@ import { NoopRerankProvider } from './rerank.js';
 import { diversify, groupFusion, reciprocalRankFusion } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankStep } from './rerank-step.js';
-import { evidenceFor } from './evidence.js';
+import { evidenceFor, withTnved } from './evidence.js';
+import { headingPrefix, outsideHeading, readTnved } from './tnved.js';
 import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, isPreparedDish } from './rules.js';
@@ -22,7 +23,7 @@ import { embeddingText } from '../embed/text.js';
 import type { ScriptKind } from '../normalize/index.js';
 import type {
   CandidateStore, EmbeddingProvider, MatchInput, MatchResult, MxikCandidate,
-  RerankProvider, ScoredCandidate, VectorOutcome,
+  RerankProvider, ScoredCandidate, TnvedOutcome, VectorOutcome,
 } from './types.js';
 
 export type PipelineOptions = {
@@ -174,8 +175,33 @@ function dictionaryCandidate(input: MatchInput, candidate: MxikCandidate, hit: D
   };
 }
 
+/**
+ * Records the row's TN VED heading on every candidate's evidence: the heading,
+ * whether this code or the row's own code lies outside it, and whether
+ * retrieval had to fall back to the whole classifier.
+ */
+function stampTnved(result: MatchResult): MatchResult {
+  const read = readTnved(result.input.tnved);
+  if (read.status !== 'ok') return result;
+  const heading = read.heading;
+  const facts = {
+    heading,
+    existingOutside: outsideHeading((result.input.existingMxik ?? '').replace(/\D/g, ''), heading),
+    fallback: result.tnved === 'fallback',
+  };
+  const outside = (code: string): boolean => outsideHeading(code, heading);
+  return {
+    ...result,
+    candidates: result.candidates.map((c) => ({ ...c, evidence: withTnved(c.evidence, c.candidate.code, facts, outside) })),
+  };
+}
+
 /** Stage 0: the firm dictionary, then the normal cascade for the alternatives. */
 export async function matchProduct(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
+  return stampTnved(await matchWithDictionary(input, opts));
+}
+
+async function matchWithDictionary(input: MatchInput, opts: PipelineOptions): Promise<MatchResult> {
   const hit = opts.dictionary?.find(dictionaryKeys(input)) ?? null;
   const candidate = hit ? await opts.store.byCode(hit.code) : null;
   // A mapping whose code left the classifier is ignored, never shown.
@@ -210,7 +236,26 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const preparedDish = isPreparedDish(input.rawName);
   const rowUnit = input.unit ?? null;
   const off = (stage: DisableableStage): boolean => opts.disabledStages?.has(stage) ?? false;
-  const settled = { rerank: 'not_needed', vector: 'not_needed', veto: null } as const;
+
+  // The row's TN VED heading limits stages 2-4 to its MXIK codes (tnved.ts);
+  // the barcode stage stays global, since a barcode is an identity.
+  const tnved = readTnved(input.tnved);
+  const scoped = tnved.status === 'ok' && store.withinPrefix ? store.withinPrefix(headingPrefix(tnved.heading)) : null;
+  const retrieval = scoped ?? store;
+  const tnvedOutcome: TnvedOutcome = tnved.status === 'empty' ? 'none' : tnved.status === 'bad' ? 'invalid' : scoped ? 'restricted' : 'unscoped';
+  if (tnved.status === 'bad') notes.push(`TN VED "${input.tnved ?? ''}" is not a 4-10 digit HS code; ignored.`);
+  if (tnved.status === 'ok') {
+    notes.push(scoped
+      ? `Retrieval limited to TN VED heading ${tnved.heading} (MXIK codes ${headingPrefix(tnved.heading)}…).`
+      : `TN VED heading ${tnved.heading} recorded; this store cannot limit retrieval to it.`);
+  }
+  const settled = { rerank: 'not_needed', vector: 'not_needed', veto: null, tnved: tnvedOutcome } as const;
+  /** The heading left nothing: the same row over the whole classifier, saying so. */
+  const unrestricted = async (why: string): Promise<MatchResult> => {
+    const all = await matchCore({ ...input, tnved: null }, opts);
+    const heading = tnved.status === 'ok' ? tnved.heading : '';
+    return { ...all, input, tnved: 'fallback', notes: [`TN VED heading ${heading}: ${why}; searched the whole classifier.`, ...all.notes] };
+  };
 
   if (preparedDish) notes.push('Detected as a prepared dish; general codes preferred.');
   if (!off('vector') && !embedder.semantic) notes.push(`Vector stage is using "${embedder.name}" — surface-form only, not semantic.`);
@@ -237,7 +282,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // ---------------------------------------------------------- 2. folded exact
   if (normalized.matchKey && !off('exact')) {
     const keys = [normalized.matchKey, normalized.sortedKey, ...normalized.literalKeys];
-    const exact = await timed(opts.timer, 'exact', () => store.byMatchKey(keys));
+    const exact = await timed(opts.timer, 'exact', () => retrieval.byMatchKey(keys));
     if (exact.length === 1 && exact[0]) {
       return {
         input, normalized, decidedBy: 'exact', notes, pool: [exact[0].code], ...settled,
@@ -272,7 +317,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const vectorText = embeddingText(input.rawName, 'query', embedder.textShape ?? 'folded');
   const columns = vectorColumnsFor(normalized.script, opts.vectorColumns ?? ['uz']);
   const vectorStage: Promise<Hit[]> = skipVector ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([vectorText], 'query'))
-    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => searchColumns(store, vec, limits.retrievalLimit, columns)) : []))
+    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => searchColumns(retrieval, vec, limits.retrievalLimit, columns)) : []))
     .catch((error: unknown) => {
       vectorOutcome = 'failed';
       notes.push(`Vector stage unavailable (${error instanceof Error ? error.message : String(error)}); using lexical retrieval only.`);
@@ -280,8 +325,8 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     });
 
   const [lexical, fullText, vectorRaw] = await Promise.all([
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => store.byLexical(lexicalText, limits.retrievalLimit)),
-    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => store.byFullText(lexicalText, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => retrieval.byLexical(lexicalText, limits.retrievalLimit)),
+    off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => retrieval.byFullText(lexicalText, limits.retrievalLimit)),
     vectorStage,
   ]);
   const vector = opts.vectorPerPosition === undefined
@@ -289,9 +334,10 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     : diversify(vectorRaw, (h) => h.candidate.subPositionCode, opts.vectorPerPosition);
 
   if (lexical.length === 0 && fullText.length === 0 && vector.length === 0) {
+    if (scoped) return unrestricted('no code of the heading was retrieved for this name');
     return {
       input, normalized, decidedBy: 'none', notes: [...notes, 'No candidate retrieved.'], candidates: [], pool: [],
-      rerank: 'not_needed', vector: vectorOutcome, veto: null,
+      rerank: 'not_needed', vector: vectorOutcome, veto: null, tnved: tnvedOutcome,
     };
   }
 
@@ -393,6 +439,8 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
   const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
   if (!rerankNone && kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
+  // A reranker veto is a judgement on the heading's codes and stands; an empty list without one is the heading's failure.
+  if (scoped && !rerankNone && kept.length === 0) return unrestricted('every retrieved code of the heading was unrelated to the name');
 
   return {
     input, normalized, notes,
@@ -402,6 +450,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     rerank: step.outcome,
     vector: vectorOutcome,
     veto: rerankNone ? { offered: fused.map((f) => f.item.code) } : null,
+    tnved: tnvedOutcome,
   };
 }
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { MxikCandidate, ScoredCandidate } from '../match/types.js';
 import {
-  MISMATCH_THRESHOLD, readCode, restrictedFinding, restrictionDate, restrictionSeverity, RESTRICTED_HIGH_DAYS, runChecks, summarize,
+  MISMATCH_THRESHOLD, readCode, restrictedFinding, restrictionDate, restrictionSeverity, RESTRICTED_HIGH_DAYS, runChecks, summarize, tnvedMismatch,
   type ResolvedRow, type Restriction,
 } from './checks.js';
 
@@ -341,5 +341,54 @@ describe('RESTRICTED', () => {
 
   it('writes dates as the official list does', () => {
     assert.equal(restrictionDate(JULY), '01.07.2026');
+  });
+});
+
+describe('TNVED_MISMATCH', () => {
+  /** VALID (01701…, heading 1701 sugar) against a row whose TN VED says heading 2202 (drinks). */
+  const IN_HEADING = '02202002001000007';
+
+  it('fires when the valid code lies in another heading, with the heading\'s best code as the suggestion', () => {
+    const f = runChecks(row({ tnved: '2202991000', suggestions: [scored(IN_HEADING, 0.7), scored(VALID, 0.4)] }));
+    assert.deepEqual(f.map((x) => x.type), ['TNVED_MISMATCH']);
+    const t = f[0];
+    assert.equal(t?.severity, 'medium');
+    assert.equal(t?.suggestedMxik, IN_HEADING);
+    assert.equal(t?.confidence, 0.7);
+    // Only codes of the TN VED heading are offered as alternatives.
+    assert.deepEqual(t?.alternatives.map((a) => a.code), [IN_HEADING]);
+    assert.equal(t?.reason, `${VALID} kodi TIF TN 1701 tovar pozitsiyasiga tegishli, qatordagi TIF TN kodi esa 2202991000 (2202 pozitsiyasi). Taklif: ${IN_HEADING}.`);
+  });
+
+  it('takes MISMATCH\'s place: retrieval never scored a code outside the heading', () => {
+    const plain = runChecks(row({ suggestions: [scored(FOREIGN, 0.8)] }));
+    assert.deepEqual(plain.map((x) => x.type), ['MISMATCH']);
+    const withTnved = runChecks(row({ suggestions: [scored(FOREIGN, 0.8)], tnved: '2202' }));
+    assert.deepEqual(withTnved.map((x) => x.type), ['TNVED_MISMATCH']);
+  });
+
+  it('suggests nothing when retrieval had to leave the heading', () => {
+    const t = tnvedMismatch(VALID, '2202991000', '2202', [scored('03917001001000000', 0.5)]);
+    assert.equal(t.suggestedMxik, null);
+    assert.deepEqual(t.alternatives, []);
+    assert.doesNotMatch(t.reason, /Taklif/);
+  });
+
+  it('reads the TN VED like the import does: a lost leading zero comes back', () => {
+    const f = runChecks(row({ existingMxik: '00401001001000000', existing: { found: true, retired: false, candidate: candidate('00401001001000000') }, suggestions: [scored('00401001001000000', 0.9)], tnved: '401201100' }));
+    assert.equal(f.some((x) => x.type === 'TNVED_MISMATCH'), false);
+  });
+
+  it('stays quiet for the same heading, a service code, an unreadable TN VED, and rows MISSING or NOT_FOUND', () => {
+    assert.equal(runChecks(row({ tnved: '1701991000' })).length, 0);
+    const service = '10101001001000000';
+    assert.equal(runChecks(row({ existingMxik: service, existing: { found: true, retired: false, candidate: candidate(service) }, suggestions: [scored(service, 0.9)], tnved: '2202' })).length, 0);
+    assert.equal(runChecks(row({ tnved: '22' })).length, 0);
+    assert.deepEqual(runChecks(row({ existingMxik: null, tnved: '2202' })).map((x) => x.type), ['MISSING']);
+    assert.deepEqual(runChecks(row({ existing: { found: false, retired: false, candidate: null }, tnved: '2202' })).map((x) => x.type), ['NOT_FOUND']);
+  });
+
+  it('is counted by summarize', () => {
+    assert.equal(summarize([runChecks(row({ tnved: '2202' }))], 1).byType.TNVED_MISMATCH, 1);
   });
 });

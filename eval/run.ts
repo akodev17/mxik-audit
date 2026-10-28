@@ -3,7 +3,7 @@
 // (derived from classifier names), runs the full pipeline plus one ablation per
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
-// Run: npm run eval [-- --label "after key" --no-ablate --fulltext-common-docs N
+// Run: npm run eval [-- --label "after key" --no-ablate --no-tnved --fulltext-common-docs N
 //                       --fulltext-column plain|weighted --fulltext-select A|AB]
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
@@ -39,6 +39,8 @@ const argValue = (flag: string): string | undefined => {
 };
 const LABEL = argValue('--label') ?? 'eval';
 const ABLATE = !process.argv.includes('--no-ablate');
+// --no-tnved: ignore the cases' TN VED column, to measure what the heading adds.
+const USE_TNVED = !process.argv.includes('--no-tnved');
 // Ranking options under test (pipeline.ts): --position-fusion off|subposition|position,
 // --nonsemantic-vector-weight N. Absent flags leave the pipeline defaults.
 const positionFusionArg = argValue('--position-fusion');
@@ -196,6 +198,7 @@ console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- 
 if (readiness.reason) console.log(`  vector stage    ${readiness.usable ? 'SUBSTITUTED' : 'DISABLED'}: ${readiness.reason}`);
 console.log(`reranker        ${realReranker.name}${realReranker.available ? '' : '   <-- DISABLED (gate measured in dry run)'}`);
 console.log(`rerank gate     top-1 < ${gate.minConfidence} or margin < ${gate.minMargin}`);
+console.log(`tn ved          ${USE_TNVED ? 'used' : 'IGNORED (--no-tnved)'} · ${cases.filter((c) => c.tnved).length} cases carry one`);
 console.log('');
 console.log('  NOTE: "real" mixes hand-written cases (golden) with customer-file sets');
 console.log('  (real-*.csv); each real set is also reported on its own below.');
@@ -225,7 +228,7 @@ async function runConfig(config: Config): Promise<Outcome[]> {
       };
       const t0 = Date.now();
       const result = await matchProduct(
-        { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit },
+        { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit, tnved: USE_TNVED ? testCase.tnved : null },
         { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled), vectorColumns, ...ranking },
       );
       const rankIndex = result.candidates.findIndex((c) => accepts(testCase.correct, c.candidate.code));
@@ -406,6 +409,7 @@ history.runs.push({
     reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
     fullText: { column: fullTextSource, selectWeights: fullTextSource === 'searchVectorWeighted' ? (fullTextSelect ?? 'A') : null },
     ranking,
+    tnved: USE_TNVED,
     efSearch: efSearchArg === undefined ? null : Number(efSearchArg),
   },
   cases: { real: real.length, synthetic: synthetic.length, excluded },

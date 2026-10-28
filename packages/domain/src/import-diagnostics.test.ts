@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { readCode } from '@tasnivo/core/audit/checks';
 import { importDiagnostics, readImportMeta } from './import-diagnostics.js';
 
-const MAP = { name: 0, barcode: 1, mxik: 2, unit: 3, price: 4, sales: -1 };
+const MAP = { name: 0, barcode: 1, mxik: 2, unit: 3, price: 4, sales: -1, tnved: -1 };
 
 describe('import diagnostics', () => {
   const rows = [
@@ -31,7 +31,7 @@ describe('import diagnostics', () => {
       ['Olma', '-'], ['Nok', 'yoʻq'], ['Gilos', 'нет'], ['Uzum', 'n/a'],
       ['Shaftoli', '6301001001000000'], ['Anor', '12-34'], ['Behi', '0630 1001 001 000000'], ['Xurmo', ''],
     ];
-    const d = importDiagnostics(codes, { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1 });
+    const d = importDiagnostics(codes, { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1, tnved: -1 });
     // readCode() gives null for these, so the audit reports MISSING, not NOT_FOUND.
     for (const [, cell] of codes.slice(0, 4)) assert.equal(readCode(cell), null);
     assert.ok(readCode('12-34'));
@@ -80,5 +80,40 @@ describe('import diagnostics', () => {
     const older: Record<string, unknown> = { ...meta.diagnostics };
     delete older['noCode'];
     assert.deepEqual(readImportMeta({ ...meta, diagnostics: older })?.diagnostics.noCode, { count: 0, sample: [] });
+  });
+});
+
+describe('import diagnostics for the TN VED column', () => {
+  const rows = [
+    ['Truba', '7306301900'],
+    ['Sut', '401201100'],
+    ['Choy', '0902.30.000.0'],
+    ['List', '72'],
+    ['Profil', '-'],
+    ['Sement', ''],
+    ['Kabel', '85444991011'],
+  ];
+  const map = { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1, sales: -1, tnved: 1 };
+
+  it('reports cells that are not a 4-10 digit HS code, and those whose leading zero Excel dropped', () => {
+    const d = importDiagnostics(rows, map);
+    assert.deepEqual(d.badTnved, { count: 2, sample: [4, 7] });
+    assert.deepEqual(d.tnvedZero, { count: 1, sample: [2] });
+  });
+
+  it('counts nothing when the column is not mapped', () => {
+    const d = importDiagnostics(rows, { ...map, tnved: -1 });
+    assert.equal(d.badTnved.count + d.tnvedZero.count, 0);
+  });
+
+  it('reads meta stored before these counts existed, with none of them', () => {
+    const meta = { parse: { totalSeen: 7 }, diagnostics: importDiagnostics(rows, map), remembered: null };
+    const older: Record<string, unknown> = { ...meta.diagnostics };
+    delete older['badTnved'];
+    delete older['tnvedZero'];
+    const read = readImportMeta({ ...meta, diagnostics: older });
+    assert.deepEqual(read?.diagnostics.badTnved, { count: 0, sample: [] });
+    assert.deepEqual(read?.diagnostics.tnvedZero, { count: 0, sample: [] });
+    assert.deepEqual(readImportMeta(meta)?.diagnostics.badTnved, { count: 2, sample: [4, 7] });
   });
 });

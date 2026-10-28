@@ -46,6 +46,18 @@ function ruleSignals(evidence: MatchEvidence, ta: AppDict): Signal[] {
   return keys.map((k) => ({ label: x.rulesLabel, text: x.rules[k], tone: RULE_TONE[k] }));
 }
 
+/** The row's TN VED heading: where the code came from, and whether the row's own code sits outside it. */
+function tnvedSignals(evidence: MatchEvidence, heading: string, ta: AppDict): Signal[] {
+  const x = ta.matchX;
+  const out: Signal[] = [];
+  if (evidence.tnvedFallback) out.push({ label: x.tnvedLabel, text: x.tnvedFallback(heading), tone: 'warn' });
+  out.push(evidence.tnvedOutside
+    ? { label: x.tnvedLabel, text: x.tnvedOutside(heading), tone: 'bad' }
+    : { label: x.tnvedLabel, text: x.tnvedIn(heading), tone: 'good' });
+  if (evidence.tnvedExistingOutside) out.push({ label: x.tnvedLabel, text: x.tnvedExistingOutside(heading), tone: 'warn' });
+  return out;
+}
+
 export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, ta: AppDict): Signal[] {
   const m = ta.msg.signals;
   const ai = ta.matchX.ai;
@@ -65,6 +77,7 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, t
   if (evidence.matchedHierarchyWords && evidence.matchedHierarchyWords.length > 0) {
     out.push({ label: ta.matchX.hierarchyLabel, text: ta.matchX.hierarchy(evidence.matchedHierarchyWords.join(', ')), tone: 'good' });
   }
+  if (evidence.tnvedHeading) out.push(...tnvedSignals(evidence, evidence.tnvedHeading, ta));
   if (evidence.synonymApplied && evidence.synonymApplied.length > 0) {
     out.push({ label: ta.matchX.synonymLabel, text: ta.matchX.synonym(evidence.synonymApplied.join('; ')), tone: 'neutral' });
   }

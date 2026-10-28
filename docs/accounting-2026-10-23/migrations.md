@@ -183,3 +183,23 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261105000100_default_
 
 What breaks: nothing in the old code (its shell GET creates the row again). With the new code, an
 org without a client shows no active client until its first upload creates the default one.
+
+## Matching: TIF TN (TN VED) column (`202611060*`)
+
+### `20261106000100_tnved` (`claude/tnved-rebased`, first written as `20261028100000_tnved` on `claude/eager-bardeen-e698d3`)
+
+Adds the nullable `catalog_item.tnved` column (the row's TIF TN / TN VED code from the upload) and
+the `finding_type` value `TNVED_MISMATCH`.
+
+```sql
+-- Postgres cannot drop an enum value; it stays and is harmless (the redeploy's ADD VALUE IF NOT
+-- EXISTS is a no-op). The findings must not: an older Prisma client fails on a value it does not
+-- know. They become MISMATCH, which they replace (a row never has both), suggestion and decision kept.
+UPDATE "finding" SET "type" = 'MISMATCH' WHERE "type" = 'TNVED_MISMATCH';
+ALTER TABLE "catalog_item" DROP COLUMN IF EXISTS "tnved";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261106000100_tnved';
+```
+
+What breaks: the TN VED codes of uploaded catalogues are lost (uploading the file again restores
+them); re-audits match without the heading filter; former TN VED findings read as plain MISMATCH,
+with their TN VED explanation gone.

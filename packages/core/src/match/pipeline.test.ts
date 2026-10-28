@@ -576,3 +576,109 @@ describe('vectorColumnsFor', () => {
     assert.deepEqual(vectorColumnsFor('latin', []), ['uz']);
   });
 });
+
+/** A fake that can limit retrieval to a code prefix, like PostgresCandidateStore.withinPrefix. */
+class PrefixStore extends FakeStore {
+  prefixes: string[] = [];
+  constructor(private readonly all: MxikCandidate[]) {
+    super(all);
+  }
+  withinPrefix(prefix: string): CandidateStore {
+    this.prefixes.push(prefix);
+    return new FakeStore(this.all.filter((r) => r.code.startsWith(prefix)));
+  }
+}
+
+const PIPES = [
+  candidate('07304001001000000', 'truba besshovnaya'),
+  candidate('07306001001000000', 'truba elektrosvarnaya', { barcode: '04780000000014' }),
+  candidate('03917001001000000', 'truba plastmassovaya'),
+];
+
+describe('matchProduct with a TN VED code', () => {
+  it('limits retrieval to the heading and records it on every candidate', async () => {
+    const store = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '7304390000' }, { store, embedder, reranker: noop });
+    assert.deepEqual(store.prefixes, ['07304']);
+    assert.equal(r.tnved, 'restricted');
+    assert.ok(r.candidates.length > 0);
+    for (const c of r.candidates) {
+      assert.ok(c.candidate.code.startsWith('07304'), c.candidate.code);
+      assert.equal(c.evidence.tnvedHeading, '7304');
+      assert.equal(c.evidence.tnvedOutside, undefined);
+    }
+    assert.ok(r.notes.some((n) => n.includes('limited to TN VED heading 7304')));
+    // The barcode-free row never asked the whole classifier for names.
+    assert.ok(!store.calls.includes('byLexical'));
+  });
+
+  it('the same name under another heading gets that heading\'s code', async () => {
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '3917230000' }, { store: new PrefixStore(PIPES), embedder, reranker: noop });
+    assert.equal(r.candidates[0]?.candidate.code, '03917001001000000');
+  });
+
+  it('a name equal to a code outside the heading is not settled by the exact stage', async () => {
+    const r = await matchProduct({ rawName: 'truba elektrosvarnaya', tnved: '7304' }, { store: new PrefixStore(PIPES), embedder, reranker: noop });
+    assert.notEqual(r.decidedBy, 'exact');
+    assert.equal(r.candidates[0]?.candidate.code, '07304001001000000');
+  });
+
+  it('falls back to the whole classifier when the heading has nothing, and says so', async () => {
+    const store = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '8471300000' }, { store, embedder, reranker: noop });
+    assert.equal(r.tnved, 'fallback');
+    assert.ok(r.candidates.length > 0);
+    assert.match(r.notes[0] ?? '', /^TN VED heading 8471: no code of the heading was retrieved/);
+    for (const c of r.candidates) {
+      assert.equal(c.evidence.tnvedHeading, '8471');
+      assert.equal(c.evidence.tnvedFallback, true);
+      assert.equal(c.evidence.tnvedOutside, true);
+    }
+    // The result still describes the row as it came in.
+    assert.equal(r.input.tnved, '8471300000');
+  });
+
+  it('keeps a barcode identity outside the heading, flagged as outside', async () => {
+    const r = await matchProduct(
+      { rawName: 'Truba', barcode: '4780000000014', tnved: '7304' },
+      { store: new PrefixStore(PIPES), embedder, reranker: noop },
+    );
+    assert.equal(r.decidedBy, 'barcode');
+    assert.equal(r.candidates[0]?.candidate.code, '07306001001000000');
+    assert.equal(r.candidates[0]?.evidence.tnvedOutside, true);
+  });
+
+  it('records that the row\'s own code lies outside the heading', async () => {
+    const r = await matchProduct(
+      { rawName: 'Truba 57', tnved: '7304', existingMxik: '07306001001000000' },
+      { store: new PrefixStore(PIPES), embedder, reranker: noop },
+    );
+    assert.equal(r.candidates[0]?.evidence.tnvedExistingOutside, true);
+    const inside = await matchProduct(
+      { rawName: 'Truba 57', tnved: '7304', existingMxik: '07304001001000000' },
+      { store: new PrefixStore(PIPES), embedder, reranker: noop },
+    );
+    assert.equal(inside.candidates[0]?.evidence.tnvedExistingOutside, undefined);
+  });
+
+  it('ignores an unreadable code, and only records the heading when the store cannot limit', async () => {
+    const bad = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '73' }, { store: bad, embedder, reranker: noop });
+    assert.equal(r.tnved, 'invalid');
+    assert.deepEqual(bad.prefixes, []);
+    assert.ok(r.notes.some((n) => n.includes('"73" is not a 4-10 digit HS code')));
+    assert.equal(r.candidates[0]?.evidence.tnvedHeading, undefined);
+
+    const plain = await matchProduct({ rawName: 'Truba 57', tnved: '7304' }, { store: new FakeStore(PIPES), embedder, reranker: noop });
+    assert.equal(plain.tnved, 'unscoped');
+    assert.equal(plain.candidates[0]?.evidence.tnvedHeading, '7304');
+  });
+
+  it('changes nothing for a row without one', async () => {
+    const store = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57' }, { store, embedder, reranker: noop });
+    assert.equal(r.tnved, 'none');
+    assert.deepEqual(store.prefixes, []);
+    assert.ok(r.candidates.every((c) => c.evidence.tnvedHeading === undefined));
+  });
+});
