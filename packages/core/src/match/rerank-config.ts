@@ -92,7 +92,7 @@ const EFFORTS = new Set<Effort>(['low', 'medium', 'high', 'xhigh', 'max']);
 
 /**
  * Every fuzzy row goes to the LLM (confidence 1.01 is never reached). Tuned
- * 2026-10-28: the old 0.95/0.10 skipped 7 of 399 rows and cost 3 points of
+ * 2026-10-28: the old 0.95/0.10 skipped 7 of 399 rows and cost 3.1 points of
  * synthetic high-band coverage; precision stayed 100% either way.
  */
 export const DEFAULT_GATE: RerankGate = { minConfidence: 1.01, minMargin: 0.1 };
