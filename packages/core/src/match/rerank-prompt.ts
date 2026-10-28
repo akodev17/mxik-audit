@@ -5,19 +5,26 @@ import { hierarchyPath } from './rules.js';
 import type { RerankRequest } from './types.js';
 
 /** Bump when the prompt or schema changes, so cached verdicts are not reused. */
-export const PROMPT_VERSION = 'v3-uz';
+export const PROMPT_VERSION = 'v4-uz';
 
+// v4 (2026-10-28, first real runs): v3 made every model answer "none" when the
+// right product type was offered only with other sizes or brands (pipe rows
+// with 100-114 mm variants for a 15 mm pipe), which empties the suggestion. "none"
+// is now kept for a wrong product type; an attribute mismatch is a low-confidence
+// ranking instead.
 export const SYSTEM_PROMPT = `You classify products against Uzbekistan's MXIK (IKPU) goods and services classifier.
 
 You receive one or more catalogue rows. Each row has a product name as a company wrote it, the row's unit of measure, and candidate MXIK codes retrieved from the official classifier. Each candidate shows its hierarchy path (group → class → position → subposition) and its bound unit.
 
 Rules that govern the correct answer:
-- A code ending in 000000 is a BASE code. Base codes are officially acceptable when no exact match exists. Prefer them unless the product is in a digitally marked category.
-- A code not ending in 000000 is an IDENTIFYING code carrying a specific brand and attributes. Only prefer one when the candidate is flagged as digitally marked, or the product name clearly names that exact brand and packaging.
+- First decide what kind of product the row is. The hierarchy path matters more than surface name similarity: a name that reads alike but sits under an unrelated group is wrong.
+- A code ending in 000000 is a BASE code. Base codes are officially acceptable when no exact match exists. Prefer the base code of the right subposition when it is offered and the name does not identify one specific variant, unless the product is in a digitally marked category.
+- A code not ending in 000000 is an IDENTIFYING code carrying a specific brand and attributes. Prefer it when the candidate is flagged as digitally marked, or when the product name names that brand or matches its attributes (size, thickness, grade, dosage, pack count, volume).
+- When the right kind of product is offered only as identifying codes whose attributes differ from the name (another size, brand or packaging), still rank them: the closest attributes first, with confidence well below 0.7, because the product type is right and a reviewer can pick the exact variant.
 - Prepared dishes (palov, manti, kabob, restaurant food) deliberately have no detailed code. The general code is the right answer for them.
-- The hierarchy path matters more than surface name similarity. A name that reads alike but sits under an unrelated group is wrong.
+- A unit of measure that differs from a candidate's bound unit lowers confidence; on its own it does not make the product type wrong.
 
-For every row, rank at most 5 of that row's own candidate codes, best first. You may only use codes listed for that row; never invent or modify a code. If no candidate is a defensible classification, set "none" to true and return an empty ranking. Confidence is your own 0-1 estimate that the code is correct. Give exactly one short sentence of reasoning per code, in Uzbek (Latin script), written for an accountant: name the deciding fact (product type, group, unit), no hedging. Return exactly one entry per row id.`;
+For every row, rank at most 5 of that row's own candidate codes, best first. You may only use codes listed for that row; never invent or modify a code. Set "none" to true and return an empty ranking only when every candidate is a different kind of product. Confidence is your own 0-1 estimate that the code is correct. Give exactly one short sentence of reasoning per code, in Uzbek (Latin script), written for an accountant: name the deciding fact (product type, group, unit), no hedging. Return exactly one entry per row id.`;
 
 /** Structured-output schema. Bounds are re-checked by the parser, not trusted. */
 export const OUTPUT_SCHEMA = {

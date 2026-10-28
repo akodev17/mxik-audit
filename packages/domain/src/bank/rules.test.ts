@@ -154,6 +154,9 @@ describe('AI suggestions', () => {
     assert.equal(operationSuggester({}), null);
     assert.equal(operationSuggester({ ANTHROPIC_API_KEY: 'k', MXIK_LLM_ENABLED: 'false' }), null);
     assert.ok(operationSuggester({ ANTHROPIC_API_KEY: 'k' }));
+    // Claude only: a Gemini key (or RERANK_PROVIDER=gemini) never reaches the Anthropic client.
+    assert.equal(operationSuggester({ GEMINI_API_KEY: 'g' }), null);
+    assert.equal(operationSuggester({ GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'k', RERANK_PROVIDER: 'gemini' })?.name, 'anthropic:claude-opus-5-5');
     setOperationSuggester(null);
     assert.equal(operationSuggester({ ANTHROPIC_API_KEY: 'k' }), null);
     setOperationSuggester(undefined);

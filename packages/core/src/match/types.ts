@@ -171,6 +171,8 @@ export type RerankUsage = {
   inputTokens: number;
   outputTokens: number;
   latencyMs: number;
+  /** Median time of one answered API call; null before any call. */
+  batchLatencyP50Ms?: number | null;
   /** USD, null when the model's price is unknown. */
   estimatedCostUsd: number | null;
 };

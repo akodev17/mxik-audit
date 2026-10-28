@@ -17,6 +17,13 @@ type Pending = {
   reject: (error: Error) => void;
 };
 
+function median(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? (sorted[mid] ?? 0) : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+}
+
 export class BatchedReranker implements RerankProvider {
   readonly available = true;
   readonly name: string;
@@ -26,6 +33,8 @@ export class BatchedReranker implements RerankProvider {
     rowsRequested: 0, rowsSent: 0, cacheHits: 0, rowsFailed: 0, codesDiscarded: 0,
     apiCalls: 0, inputTokens: 0, outputTokens: 0, latencyMs: 0,
   };
+  /** Per answered call, for the median. */
+  private readonly latencies: number[] = [];
 
   constructor(private readonly client: RerankClient, private readonly options: BatchedRerankerOptions) {
     this.name = client.name;
@@ -59,6 +68,7 @@ export class BatchedReranker implements RerankProvider {
     return {
       model: this.options.model,
       ...c,
+      batchLatencyP50Ms: median(this.latencies),
       estimatedCostUsd: price
         ? (c.inputTokens * price.inputPerMTok + c.outputTokens * price.outputPerMTok) / 1_000_000
         : null,
@@ -123,6 +133,7 @@ export class BatchedReranker implements RerankProvider {
       this.counters.inputTokens += reply.inputTokens;
       this.counters.outputTokens += reply.outputTokens;
       this.counters.latencyMs += reply.latencyMs;
+      this.latencies.push(reply.latencyMs);
 
       batch.forEach((pending, i) => {
         if (reply.failure) {
