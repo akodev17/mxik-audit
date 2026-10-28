@@ -27,6 +27,11 @@ const ALIASES: Record<string, string> = {
   // count
   sht: 'dona', шт: 'dona', 'шт.': 'dona', pcs: 'dona', pc: 'dona',
   piece: 'dona', pieces: 'dona', ea: 'dona', adet: 'dona', don: 'dona',
+  // A serving is a piece: the classifier writes "dona (portsiya)" on the
+  // catering codes and canonicalises it to "dona" (no code binds the
+  // official unit 50 "dona (porsiya)"), so a row written in portions must not
+  // conflict with them. The full form "dona (porsiya)" still resolves to 50.
+  porsiya: 'dona', portsiya: 'dona', porciya: 'dona', порция: 'dona', портсия: 'dona', 'порц.': 'dona', порц: 'dona', portion: 'dona',
   komplekt: 'toʻplam', комплект: 'toʻplam', set: 'toʻplam', компл: 'toʻplam',
   para: 'juft', пара: 'juft', pair: 'juft',
   // length / area / volume geometry
@@ -77,9 +82,11 @@ for (const unit of OFFICIAL_UNITS) {
     if (inner) for (const variant of tsAlternates(baseKey(inner))) index(variant, unit);
   }
 }
+// An alias wins over a reading derived from an official form: "porsiya" is
+// the qualifier inside "dona (porsiya)", but written alone it means pieces.
 for (const [alias, target] of Object.entries(ALIASES)) {
   const resolved = INDEX.get(baseKey(target));
-  if (resolved) for (const variant of tsAlternates(baseKey(alias))) index(variant, resolved);
+  if (resolved) for (const variant of tsAlternates(baseKey(alias))) INDEX.set(variant, resolved);
 }
 
 /**

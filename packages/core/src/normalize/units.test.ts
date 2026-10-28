@@ -70,6 +70,17 @@ describe('unitsCompatible', () => {
     assert.equal(unitsCompatible('dona', ['metr']), false);
   });
 
+  it('counts a serving as a piece, as the classifier writes "dona (portsiya)" and binds "dona"', () => {
+    for (const form of ['porsiya', 'portsiya', 'порция', 'порц.', '1 porsiya', 'Porsiya']) {
+      assert.equal(resolveUnit(form)?.id, 1, `failed for ${form}`);
+      assert.equal(unitsCompatible(form, ['dona']), true, `conflict for ${form}`);
+    }
+    // The official unit itself is still reachable by its full name.
+    assert.equal(resolveUnit('dona (porsiya)')?.id, 50);
+    assert.equal(resolveUnit('дона (порция)')?.id, 50);
+    assert.equal(unitsCompatible('porsiya', ['kilogramm']), false);
+  });
+
   it('accepts a hit against any member of a multi-unit binding', () => {
     assert.equal(unitsCompatible('tonna', ['kilogramm', 'tonna', 'gramm']), true);
     assert.equal(unitsCompatible('litr', ['kilogramm', 'tonna', 'gramm']), false);

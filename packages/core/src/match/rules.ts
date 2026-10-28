@@ -7,37 +7,24 @@ import { earnsIdentifying, identifyingMatch, type RowIdentity } from './identify
 import type { MxikCandidate } from './types.js';
 
 /**
- * Prepared dishes deliberately have no detailed MXIK, so the correct answer is
- * the general code and the user should not be sent hunting for a specific one.
- * Folded keys, so both scripts and every apostrophe spelling hit.
+ * The food-service group of the classifier: the menu (10202001: dishes, drinks
+ * and set meals by family), the outlet's other services (10202002) and
+ * catering (10202003). A row that reads as a cafe's (normalize/synonyms.ts, the
+ * catering lexicon) belongs here, whatever foodstuff shares its words.
  */
-const PREPARED_DISH_TERMS = [
-  'palov', 'osh', 'manti', 'mantı', 'kabob', 'shashlik', 'shourpa', 'shorva',
-  'lagman', 'somsa', 'chuchvara', 'norin', 'dimlama', 'qovurma', 'shoʻrva',
-  'plov', 'shashlyk', 'lagman', 'samsa', 'pelmeni', 'tushbera',
-  'tayyor taom', 'tayyor ovqat', 'gotovoye blyudo', 'obshestvennoye pitaniye',
-  'ovqatlanish', 'restoran', 'kafe', 'oshxona',
-].map(matchKeyOf);
+export const CATERING_GROUP = '10202';
 
-/** True when the product name reads as a prepared dish / food-service item. */
-export function isPreparedDish(name: string): boolean {
-  const key = matchKeyOf(name);
-  if (!key) return false;
-  const tokens = new Set(key.split(' '));
-  return PREPARED_DISH_TERMS.some((term) => {
-    if (!term) return false;
-    // Multi-word terms are substring-matched; single words must be whole tokens
-    // so "osh" does not fire inside "oshqozon".
-    return term.includes(' ') ? key.includes(term) : tokens.has(term);
-  });
+/** True for a code of the food-service group. */
+export function isCateringCode(code: string): boolean {
+  return code.startsWith(CATERING_GROUP);
 }
 
 export type RuleContext = {
   candidate: MxikCandidate;
   /** The catalogue row's own unit of measure, as written by the user. */
   rowUnit: string | null;
-  /** Whether the product name reads as a prepared dish. */
-  preparedDish: boolean;
+  /** Whether the row reads as a food-service item: a dish, a drink the outlet makes, or its service. */
+  catering: boolean;
   /** The row's folded words (normalised tokens and synonym terms); absent = no word-based rule. */
   productTokens?: readonly string[];
   /** The row's brand, size and pack tokens (identifying.ts rowIdentity); absent = identifyingPreferred never fires. */
@@ -73,7 +60,7 @@ function materialsIn(tokens: readonly string[]): Set<string> {
 /** Stable names of the rules, stored in match evidence and translated in the UI. */
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
-  'identifyingPreferred', 'preparedDishBase', 'preparedDishSpecific', 'strictUnitConflict',
+  'identifyingPreferred', 'cateringPreferred', 'cateringOutside', 'strictUnitConflict',
   'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial',
 ] as const;
 
@@ -109,9 +96,14 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
    * that earns the identifying code ranks it above the base code.
    */
   identifyingPreferred: 0.08,
-  /** A prepared dish should land on the general code. */
-  preparedDishBase: 0.08,
-  preparedDishSpecific: -0.1,
+  /**
+   * A food-service row belongs in the catering group (10202), whose menu codes
+   * are named by family, not by dish; a foodstuff, seasoning or utensil that
+   * shares the dish's words is the wrong group. Until 2026-10-28 this pair
+   * preferred base codes for a dish, which the menu position does not have.
+   */
+  cateringPreferred: 0.08,
+  cateringOutside: -0.1,
   /** Row unit contradicts a strictly bound unit: probably the wrong code. */
   strictUnitConflict: -0.15,
   /** Recommended binding: the row's unit is one the portal recommends for this code. */
@@ -129,7 +121,7 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
 
 /** Evaluates every rule against one candidate. */
 export function applyRules(ctx: RuleContext): RuleOutcome {
-  const { candidate, rowUnit, preparedDish } = ctx;
+  const { candidate, rowUnit, catering } = ctx;
   const notes: string[] = [];
   const keys: RuleKey[] = [];
   let adjustment = 0;
@@ -146,7 +138,13 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
   const earned = identifying !== null && earnsIdentifying(identifying);
   const identifyingTokens = earned ? [...(identifying.brand ? [identifying.brand] : []), ...identifying.attributes] : [];
 
-  if (candidate.isBase) {
+  // In the catering group the family codes (…000001 and up) are the answers
+  // and the few base codes are other families, so the shape rules say nothing
+  // there for a food-service row.
+  const cateringHome = catering && isCateringCode(candidate.code);
+  if (cateringHome) {
+    fire('cateringPreferred', 'Food-service item: the catering group (10202) is its home.');
+  } else if (candidate.isBase) {
     fire('baseCodePreferred', 'Base code (…000000), the usual choice in practice when no exact match exists.');
   } else if (candidate.isMarked === true) {
     fire('identifyingMarked', 'Identifying code for a digitally marked category.');
@@ -155,14 +153,10 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
   } else if (!earned) {
     fire('identifyingUnknownMarking', 'Identifying code and the classifier does not state whether the category is marked.');
   }
-  if (earned) fire('identifyingPreferred', `The name repeats this identifying code's ${identifyingTokens.join(', ')}.`);
+  if (earned && !cateringHome) fire('identifyingPreferred', `The name repeats this identifying code's ${identifyingTokens.join(', ')}.`);
 
-  if (preparedDish) {
-    if (candidate.isBase) {
-      fire('preparedDishBase', 'Prepared dishes have no detailed MXIK; the general code is correct.');
-    } else {
-      fire('preparedDishSpecific', 'Prepared dish matched to a detailed code, which the classifier does not provide for these.');
-    }
+  if (catering && !cateringHome) {
+    fire('cateringOutside', 'Food-service item matched outside the catering group: a foodstuff or utensil that shares its words.');
   }
 
   // Only a strict binding can conflict. Recommended units never produce findings.
