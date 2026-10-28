@@ -207,3 +207,121 @@ every file. MISMATCH precision is 51% only because of the cafe menu: 33 dish row
 - **Scratch databases.** `mxik_tnved` and `mxik_scratch` are stale (older than main) and
   `mxik_v2` is the copy used for the integration test run; all three can be dropped once the
   migration is on the local DB.
+
+## 8. Catering blind spot closed (branch `claude/stoic-bhabha-5b8b93`, 28 Oct 2026)
+
+§7's first item. On the cafe menu every correctly coded dish was reported as MISMATCH and no
+dish without a code got the right suggestion, because a prepared dish never reached the
+candidate pool: the menu codes of position 10202001 are named by family ("Asosiy taomlar, umumiy
+ovqatlanish shaxobchalarida tayyorlangan go'shtli"), never by dish, so "Palov", "Lag'mon" or
+"Somsa" share no word with them.
+
+### Diagnosis (no reranker, the cafe file alone, bench run "catering baseline")
+
+Per retrieval stage, where the first code of group 10202 appeared for five failing rows:
+
+| row | lexical query | trigram | full-text | identifying | vector (uz) | pool of 20 | top-1 |
+|---|---|---|---|---|---|---|---|
+| Palov 1 porsiya | `palov` | none (50 hits, all "palov uchun" seasonings) | none | none | none | none | 02103002006002022 seasoning |
+| Sho'rva 1 kosa | `shorva kosa` | none (1 hit) | none ("shorva" ≠ "sho'rvalar", no stemming) | none | none | none | 06911001012000000 porcelain bowl |
+| Mol go'shtli shashlik 1 six | `mol goshtli shashlik six` | none | none (50 sausage codes on "mol go'shtli") | none | none | none | 08215001020000000 skewer |
+| Manti 5 dona | `manti` | none (frozen dumplings 01905999) | none | none | none | none | 01905999001171009 |
+| Tovuq kabob 1 porsiya | `tovuq kabob` | none | none (raw chicken 00207) | none | none | none | 00207001001000000 |
+
+Two rows that do share a word reached the pool and still lost: "Makaron sabzavotli 1 porsiya"
+(10202001006000004 at trigram rank 6, pool rank 20, final rank > 5) and "Olivye salati 1 porsiya"
+(10202001003000000 at full-text rank 5, pool rank 6, final rank 3 at 0.46). Two reasons: the
+raw-food codes carry the same words with trigram and vector support, and the old prepared-dish
+rule gave +0.08 to *base* codes and −0.10 to every other code, which in the menu position (whose
+family codes are not base codes) pushed the right code *down* and lifted a seasoning base code.
+
+### Fix (retrieval, ranking, unit)
+
+1. **Catering lexicon** in `packages/core/src/normalize/synonyms.ts`, 43 entries in the same
+   table as the construction synonyms, group `catering`. A dish word adds its family's official
+   wording to the lexical query (Uzbek Latin words of the code name plus the one Russian word only
+   that family has, "с мясом" against "с птицей"): trigram then scores the near-complete name,
+   full-text selects the position on its rare words and ranks the family on the distinguishing
+   ones. The seller's word stays (vector stage, relevance guard, evidence). Three kinds of entry:
+   - **anchor**, fires alone: dish names (palov/osh/plov, lag'mon, dimlama, norin, manti, somsa,
+     chuchvara, pelmeni, omlet/quymoq, sho'rva/shurpa/mastava/moshxo'rda, vinegret/olivye/sezar/
+     achchiq-chuchuk, gamburger/shaurma/pitsa, gazak, garnir/fri, tuzlama, kapuchino/latte/
+     espresso, mojito, biznes-lanch, xizmat haqi, olib ketish, banket, keytering, chilim), the
+     protein-neutral mains (shashlik, kabob, steyk, grill, nuggets) and "taom";
+   - **contextual**, fires only in a cafe's context: words a shop sells too (choy, kofe/qahva,
+     kompot/limonad, non/lavash, makaron, salat, tort/chak-chak/pechenye, muzqaymoq, meva,
+     assorti, desert, kokteyl, nonushta, servis, ijara, qovurilgan). The context is a serving
+     word in the name as written (porsiya, kosa, six, bo'lak, stakan, choynak, krujka, grafin,
+     "uy usulida", zal, stol, restoran, kafe…), a portion unit on the row, another catering entry
+     firing, or the row's own code lying in group 10202 (the uploader says it is a cafe row; the
+     name still has to win inside the group);
+   - **qualifier**, fires only after the group fired, to pick the main-course family: mol/qo'y/
+     go'shtli/qazi → go'shtli с мясом; tovuq/parranda → с птицей; baliq/losos/sazan → с рыбой;
+     tuxum → из яиц; sabzavot → из овощей. Raw chicken or eggs in a grocery list fire nothing.
+   Every anchor is blocked by a grocery word beside it (muzlatilgan, yarim tayyor, qadoq, konserv,
+   "uchun"/"для", ziravor, sous, quruq, konsentrat…): "Palov uchun ziravor" and "Chuchvara
+   muzlatilgan 1 kg" are products, not dishes. Entries and the codes they aim at: meat mains
+   10202001006000001, poultry …002, fish …003, vegetables/grain/pasta …004, flour …005, eggs …006;
+   soups 10202001004000000; salads 10202001003000000; fast food 10202001002000000; snacks
+   10202001001…; garnish 10202001007000001; bread 10202001005000001; desserts 10202001008001–003;
+   tea 10202001010000001, coffee …002, compote/lemonade …003; cocktails 10202001011000001; set
+   meals 10202001009001–003; service charge 10202002003000001, takeaway containers 10202002005,
+   rental 10202002002, hookah 10202002003000005; banquets 10202003002, catering 10202003001.
+2. **Ranking rule** (`rules.ts`): `preparedDishBase`/`preparedDishSpecific` became
+   `cateringPreferred` (+0.08 for a code of group 10202 when the row reads as a food-service item,
+   with the base-code and marking shape rules silent inside the group) and `cateringOutside`
+   (−0.10 for every other code). The row reads as a food-service item when a catering entry fired;
+   `rules.ts isPreparedDish` and its separate word list are gone. Labels in `packages/i18n`,
+   tones in `row-signals.ts`, table in `docs/scoring.md`.
+3. **Unit alias** (`normalize/units.ts`): "porsiya", "portsiya", "порция", "порц." resolve to
+   `dona`, as the classifier itself canonicalises "dona (portsiya)" (no live code binds the
+   official unit 50); an alias now wins over the reading derived from a parenthesised qualifier.
+   The full form "dona (porsiya)" still resolves to 50. UNIT_CONFLICT no longer fires on the three
+   portion rows.
+
+### Five test catalogues (`npm run bench:files`, run 2 → run 4 of `docs/bench-results.json`, no reranker)
+
+| file | rows exactly right | top-1 (no code) | fix (wrong/unknown code) | MISMATCH precision |
+|---|---|---|---|---|
+| test-oziq-ovqat-2 | 75/75 → 75/75 | 14/15 → 14/15 | 13/13 → 13/13 | 100 → 100 |
+| test-stroymarket-2 | 72/72 → 72/72 | 12/12 → 12/12 | 10/11 → 10/11 | 100 → 100 |
+| test-dorixona | 72/72 → 72/72 | 12/16 → 12/16 | 7/10 → 7/10 | 100 → 100 |
+| test-elektronika | 71/71 → 71/71 | 13/17 → 13/17 | 6/10 → 6/10 | 100 → 100 |
+| test-umumiy-ovqatlanish | 35/68 → **66/68** | 5/16 → **15/16** | 3/10 → **10/10** | 15 → **100** |
+| **total** | **325/358 → 356/358** | **56/76 (73.7%) → 66/76 (86.8%)** | **39/54 (72.2%) → 46/54 (85.2%)** | 51 → 100 |
+
+The other four files are identical row for row. UNIT_CONFLICT precision on the cafe file 67 → 100.
+The three cafe rows still off the key: "Kompot 1 stakan" and "Qo'y go'shtli shashlik (1 six)",
+wrong codes inside position 10202001 (the first suggestion is now the right code in both, but
+MISMATCH is by design position-level and cannot see a swap inside one position, `POSITION_DIGITS`);
+"Chak-chak 200 g" with no code and no serving word in the name, which stays a confectionery product
+(10202001008000002 would need a cafe context the row does not give).
+
+### Eval (`RERANK_PROVIDER=off npm run eval -- --no-ablate`, run 70 → run 72 of `docs/eval-results.json`)
+
+| set (n) | top-1 before → after | top-5 before → after |
+|---|---|---|
+| golden (12) | 9 → **10** | 9 → **10** |
+| real-construction (102) | 85 → 85 | 94 → 94 |
+| real-metal (168) | 90 → 90 | 166 → 166 |
+| real-tnved (49) | 49 → 49 | 49 → 49 |
+| competitor-22 (22) | 16 → **17** | 21 → **22** |
+| synthetic (191) | 178 → 178 | 187 → 187 |
+| all real (331) | 233 (70.4%) → **234 (70.7%)** | 318 → **319** |
+
+No set lost a case. The gain is "Palov 1 porsiya" in golden and in the 22-query set (§6 listed it
+as the one miss the reranker could not fix because the code was not in the pool; it is now
+top-1 at 0.86 without a reranker). "Guruch bo'tqasi" stays on the porridge code (no dish word).
+
+Tests: `npm test` 2,123 tests, 2,121 pass, 0 fail, 2 skipped (both Redis-only); typecheck clean;
+lint 0 errors, 1 pre-existing warning (`scripts/lib/xlsx.ts`). New unit tests: the lexicon
+(every entry, context, qualifiers, grocery guards, phrases), the unit alias, the catering rule,
+the pipeline note.
+
+**Quota note.** The first eval run of this branch was started without `RERANK_PROVIDER=off` and
+picked up the free-tier Gemini key from `.env`: 285 calls, 433 of 456 rows failed on quota, the
+run was not appended (removed before commit) and repeated with the reranker off. Run benchmarks
+on this key with `RERANK_PROVIDER=off` unless the reranker is the point; the key's day quota is
+likely spent until 07:00 UTC.
+
+Still open from §7: the paid Gemini key and the scratch databases.
