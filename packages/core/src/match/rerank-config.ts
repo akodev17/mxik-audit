@@ -41,6 +41,8 @@ export type RerankConfig = {
   gate: RerankGate;
   batchSize: number;
   batchWaitMs: number;
+  /** API calls in flight at once. */
+  maxConcurrent: number;
   timeoutMs: number;
   maxRetries: number;
   /** USD per million tokens, for the cost estimate only. Null when unknown. */
@@ -64,11 +66,19 @@ const PRICES: Record<string, { inputPerMTok: number; outputPerMTok: number }> = 
   'claude-fable-5-1': { inputPerMTok: 10, outputPerMTok: 50 },
   // Paid-tier standard text prices from https://ai.google.dev/gemini-api/docs/pricing
   // (page dated 2026-10-27, checked 2026-10-28). Thinking tokens bill as output.
-  // The free tier costs nothing but is rate-limited; these are what a paid key pays.
+  // The free tier costs nothing but allows 20 requests a day per model; these are
+  // what a paid key pays. 3.6/3.8 Flash double on 2027-01-01 ($1.50 / $7.50):
+  // set GEMINI_PRICE_*_PER_MTOK then, or update this table.
+  'gemini-3.8-flash': { inputPerMTok: 0.75, outputPerMTok: 3.75 },
+  'gemini-3.6-flash': { inputPerMTok: 0.75, outputPerMTok: 3.75 },
+  'gemini-3-flash-preview': { inputPerMTok: 0.5, outputPerMTok: 3 },
+  'gemini-3.5-flash-lite': { inputPerMTok: 0.3, outputPerMTok: 2.5 },
+  'gemini-3.1-flash-lite': { inputPerMTok: 0.25, outputPerMTok: 1.5 },
+  'gemini-3.1-pro-preview': { inputPerMTok: 2, outputPerMTok: 12 },
+  // Listed by the API but closed to new keys since 2026-10 (HTTP 404 "no longer available to new users").
   'gemini-2.5-flash': { inputPerMTok: 0.3, outputPerMTok: 2.5 },
   'gemini-2.5-pro': { inputPerMTok: 1.25, outputPerMTok: 10 },
   'gemini-2.5-flash-lite': { inputPerMTok: 0.1, outputPerMTok: 0.4 },
-  'gemini-3-flash-preview': { inputPerMTok: 0.5, outputPerMTok: 3 },
 };
 
 /** Models that accept `fallbacks: "default"`. Haiku 5.5 has no server-side fallback. */
@@ -173,7 +183,8 @@ export function rerankConfigFromEnv(env: EnvLike): RerankConfig {
       minMargin: num(env['RERANK_GATE_MARGIN'], DEFAULT_GATE.minMargin, 0, 1),
     },
     batchSize: Math.round(num(env['RERANK_BATCH_SIZE'], 8, 1, 25)),
-    batchWaitMs: Math.round(num(env['RERANK_BATCH_WAIT_MS'], 30, 0, 2000)),
+    batchWaitMs: Math.round(num(env['RERANK_BATCH_WAIT_MS'], 30, 0, 10_000)),
+    maxConcurrent: Math.round(num(env['RERANK_MAX_CONCURRENT'], 4, 1, 32)),
     timeoutMs: Math.round(num(env['RERANK_TIMEOUT_MS'], 60_000, 1000, 600_000)),
     maxRetries: Math.round(num(env['RERANK_MAX_RETRIES'], 2, 0, 5)),
     price: priceFor(provider, model, env),

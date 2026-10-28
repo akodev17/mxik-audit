@@ -172,3 +172,25 @@ describe('BatchedReranker cache after a classifier rename', () => {
     assert.equal(reranker.usage().cacheHits, 0);
   });
 });
+
+describe('BatchedReranker concurrency', () => {
+  it('keeps at most maxConcurrent calls in flight', async () => {
+    let active = 0;
+    let peak = 0;
+    const slow: RerankClient = {
+      name: 'slow',
+      async rankBatch(rows) {
+        active++;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        active--;
+        return new FakeClient().rankBatch(rows);
+      },
+    };
+    const reranker = new BatchedReranker(slow, { ...OPTIONS, batchSize: 1, maxConcurrent: 2 });
+    const results = await Promise.all(['a', 'b', 'c', 'd', 'e'].map((n) => reranker.rerank(request(n, [A]))));
+    assert.equal(results.length, 5);
+    assert.equal(peak, 2);
+    assert.equal(reranker.usage().apiCalls, 5);
+  });
+});
