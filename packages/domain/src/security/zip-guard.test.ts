@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import JSZip from 'jszip';
-import { looksLikeZip, zipWithinLimits } from './zip-guard.js';
+import { looksLikeZip, zipUsage, zipWithinLimits } from './zip-guard.js';
 
 const MB = 1024 * 1024;
 
@@ -50,5 +50,16 @@ describe('zipWithinLimits', () => {
     const csv = Buffer.from('nomi;kod\nGuruch;123\n');
     assert.equal(looksLikeZip(csv), false);
     assert.equal(await zipWithinLimits(csv), false);
+  });
+});
+
+describe('zipUsage', () => {
+  it('reports the entries and the inflated bytes, "over" past a limit, null for what is not a zip', async () => {
+    const buffer = await zipOf({ 'a.txt': Buffer.alloc(3000, 1), 'c.txt': 'xy' });
+    assert.deepEqual(await zipUsage(buffer), { entries: 2, bytes: 3002 });
+    assert.equal(await zipUsage(buffer, { maxEntries: 1, maxTotalBytes: MB }), 'over');
+    assert.equal(await zipUsage(buffer, { maxEntries: 10, maxTotalBytes: 1000 }), 'over');
+    assert.equal(await zipUsage(lieAboutSizes(buffer, 10), { maxEntries: 10, maxTotalBytes: 1000 }), 'over', 'a lying size is caught by what really inflates');
+    assert.equal(await zipUsage(Buffer.from('not a zip')), null);
   });
 });

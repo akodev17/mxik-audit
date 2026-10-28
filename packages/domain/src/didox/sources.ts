@@ -2,14 +2,14 @@
 //   - the user's Didox zip export: "a zip of zips: per document a JSON, a PDF, .p7s signatures and
 //     a readme" (research note §1; the internal naming is [UNKNOWN]), so the archive is walked for
 //     `*.json` entries that parse as documents, nested zips one level deep, every archive through
-//     zip-guard first;
+//     zip-guard first and all of them against one entry and inflation budget (Phase C F6);
 //   - a single document JSON;
 //   - an XLSX in Didox's own «ЭСФ» Excel template. The official instruction channel publishes the
 //     template but its exact layout was not read (research note §1), so the columns are guessed
 //     from header words and the user confirms them, like the catalogue wizard. verified: false.
 import JSZip from 'jszip';
 import { z } from 'zod';
-import { looksLikeZip, zipWithinLimits } from '../security/zip-guard.js';
+import { looksLikeZip, ZIP_LIMITS, zipUsage, zipWithinLimits, type ZipLimits } from '../security/zip-guard.js';
 import { parseErrorCode, parseUpload, type ParseResult } from '../spreadsheet.js';
 import { unwrap, type DidoxKind } from './document.js';
 
@@ -26,6 +26,10 @@ export type UploadRead =
 const MAX_DEPTH = 2;
 const MAX_DOCUMENTS = 500;
 
+/** What the whole walk may still inflate, across every nesting level: one budget per upload, not one per archive. */
+type Budget = { entries: number; bytes: number };
+class OverBudget extends Error {}
+
 const isXlsxArchive = (zip: JSZip): boolean => zip.file('[Content_Types].xml') !== null && Object.keys(zip.files).some((n) => n.startsWith('xl/'));
 
 function parseJson(buffer: Buffer): unknown {
@@ -35,11 +39,15 @@ function parseJson(buffer: Buffer): unknown {
 const stem = (name: string): string => name.replace(/\.[^./]+$/, '').toLowerCase();
 const folder = (name: string): string => (name.includes('/') ? name.slice(0, name.lastIndexOf('/')) : '');
 
-async function walk(buffer: Buffer, prefix: string, depth: number, out: { documents: FoundDocument[]; skipped: SkippedEntry[] }): Promise<void> {
-  if (!(await zipWithinLimits(buffer))) {
+async function walk(buffer: Buffer, prefix: string, depth: number, out: { documents: FoundDocument[]; skipped: SkippedEntry[] }, budget: Budget): Promise<void> {
+  const usage = await zipUsage(buffer, { maxEntries: budget.entries, maxTotalBytes: budget.bytes });
+  if (usage === 'over') throw new OverBudget();
+  if (usage === null) {
     out.skipped.push({ entry: prefix || '(archive)', reason: 'zip_limits' });
     return;
   }
+  budget.entries -= usage.entries;
+  budget.bytes -= usage.bytes;
   const zip = await JSZip.loadAsync(buffer);
   const entries = Object.values(zip.files).filter((f) => !f.dir && !f.name.startsWith('__MACOSX/'));
   const pdfs = new Map<string, JSZip.JSZipObject>();
@@ -49,7 +57,7 @@ async function walk(buffer: Buffer, prefix: string, depth: number, out: { docume
     const name = `${prefix}${e.name}`;
     if (/\.zip$/i.test(e.name)) {
       if (depth >= MAX_DEPTH) { out.skipped.push({ entry: name, reason: 'nested_too_deep' }); continue; }
-      await walk(await e.async('nodebuffer'), `${name}/`, depth + 1, out);
+      await walk(await e.async('nodebuffer'), `${name}/`, depth + 1, out, budget);
       continue;
     }
     if (!/\.json$/i.test(e.name)) {
@@ -73,16 +81,20 @@ async function walk(buffer: Buffer, prefix: string, depth: number, out: { docume
   }
 }
 
-/** Reads an upload by content: a Didox archive, one document JSON, or an ЭСФ spreadsheet. */
-export async function readDidoxUpload(buffer: Buffer, filename: string): Promise<UploadRead> {
+/** Reads an upload by content: a Didox archive, one document JSON, or an ЭСФ spreadsheet. `limits` is what the archive and every archive inside it may inflate together. */
+export async function readDidoxUpload(buffer: Buffer, filename: string, limits: ZipLimits = ZIP_LIMITS): Promise<UploadRead> {
   if (buffer.length === 0) return { kind: 'error', error: 'empty' };
   if (looksLikeZip(buffer)) {
-    if (!(await zipWithinLimits(buffer))) return { kind: 'error', error: 'zip_limits' };
+    if (!(await zipWithinLimits(buffer, limits))) return { kind: 'error', error: 'zip_limits' };
     let zip: JSZip;
     try { zip = await JSZip.loadAsync(buffer); } catch { return { kind: 'error', error: 'unreadable' }; }
     if (isXlsxArchive(zip)) return readSheet(buffer, filename);
     const out = { documents: [] as FoundDocument[], skipped: [] as SkippedEntry[] };
-    try { await walk(buffer, '', 1, out); } catch { return { kind: 'error', error: 'unreadable' }; }
+    try {
+      await walk(buffer, '', 1, out, { entries: limits.maxEntries, bytes: limits.maxTotalBytes });
+    } catch (error) {
+      return { kind: 'error', error: error instanceof OverBudget ? 'zip_limits' : 'unreadable' };
+    }
     if (out.documents.length === 0) return { kind: 'error', error: 'no_documents' };
     return { kind: 'documents', ...out };
   }
