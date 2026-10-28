@@ -347323,6 +347323,359 @@
           ]
         }
       ]
+    },
+    {
+      "label": "integration-v2 47a752c: competitor-22 with gemini-3.1-flash-lite reranker",
+      "ranAt": "2026-10-28T08:24:48.543Z",
+      "code": "a8e0156",
+      "classifierLiveCodes": 442964,
+      "classifierSnapshotId": 4,
+      "classifierTakenAt": "2026-10-21T07:51:50.918Z",
+      "database": "mxik",
+      "providers": {
+        "embedding": "local:Xenova/multilingual-e5-small#natural-v2",
+        "embeddingSemantic": true,
+        "vectorUsable": true,
+        "embeddingTextShape": "natural",
+        "vectorColumns": [
+          "uz",
+          "ru"
+        ],
+        "reranker": "gemini:gemini-3.1-flash-lite",
+        "rerankerAvailable": true,
+        "gate": {
+          "minConfidence": 1.01,
+          "minMargin": 0.1
+        },
+        "fullText": {
+          "column": "searchVector",
+          "selectWeights": null
+        },
+        "ranking": {},
+        "tnved": true,
+        "efSearch": null
+      },
+      "cases": {
+        "real": 0,
+        "synthetic": 0,
+        "benchmark": 22,
+        "excluded": []
+      },
+      "metrics": {
+        "full": {
+          "real": {
+            "n": 0,
+            "top1": 0,
+            "top5": 0,
+            "top1Pct": 0,
+            "top5Pct": 0,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0,
+            "meanConfidenceWrong": 0,
+            "ceilingPct": 0,
+            "llmSharePct": 0
+          },
+          "synthetic": {
+            "n": 0,
+            "top1": 0,
+            "top5": 0,
+            "top1Pct": 0,
+            "top5Pct": 0,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0,
+            "meanConfidenceWrong": 0,
+            "ceilingPct": 0,
+            "llmSharePct": 0
+          },
+          "all": {
+            "n": 0,
+            "top1": 0,
+            "top5": 0,
+            "top1Pct": 0,
+            "top5Pct": 0,
+            "highCount": 0,
+            "highCoveragePct": 0,
+            "highPrecisionPct": null,
+            "meanConfidenceRight": 0,
+            "meanConfidenceWrong": 0,
+            "ceilingPct": 0,
+            "llmSharePct": 0
+          }
+        }
+      },
+      "metricsBySet": {
+        "full": {
+          "competitor-22": {
+            "n": 22,
+            "top1": 20,
+            "top5": 21,
+            "top1Pct": 90.9090909090909,
+            "top5Pct": 95.45454545454545,
+            "highCount": 4,
+            "highCoveragePct": 18.181818181818183,
+            "highPrecisionPct": 100,
+            "meanConfidenceRight": 0.7112878999953817,
+            "meanConfidenceWrong": 0.5970856822548827,
+            "ceilingPct": 95.45454545454545,
+            "llmSharePct": 81.81818181818183
+          }
+        }
+      },
+      "llm": {
+        "model": "gemini-3.1-flash-lite",
+        "rowsRequested": 18,
+        "rowsSent": 18,
+        "cacheHits": 0,
+        "rowsFailed": 0,
+        "codesDiscarded": 1,
+        "apiCalls": 3,
+        "inputTokens": 81015,
+        "outputTokens": 3151,
+        "latencyMs": 17783,
+        "batchLatencyP50Ms": 5633,
+        "estimatedCostUsd": 0.02498025,
+        "costPer1000Rows": 1.1354659090909092
+      },
+      "llmEstimate": null,
+      "readRetries": 0,
+      "outcomes": [
+        {
+          "id": "competitor-22.csv:2",
+          "source": "real",
+          "predicted": "07306001005015618",
+          "rank": 1,
+          "confidence": 0.7369,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:3",
+          "source": "real",
+          "predicted": "07306001005011429",
+          "rank": 1,
+          "confidence": 0.587,
+          "band": "low",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:4",
+          "source": "real",
+          "predicted": "07216001015000000",
+          "rank": 2,
+          "confidence": 0.6567,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:5",
+          "source": "real",
+          "predicted": "07208001001000560",
+          "rank": 1,
+          "confidence": 0.4837,
+          "band": "low",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:6",
+          "source": "real",
+          "predicted": "07214001001000311",
+          "rank": 1,
+          "confidence": 0.6809,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:7",
+          "source": "real",
+          "predicted": "02505001002000010",
+          "rank": 1,
+          "confidence": 0.7241,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:8",
+          "source": "real",
+          "predicted": "02517001004000115",
+          "rank": 1,
+          "confidence": 0.4719,
+          "band": "low",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:9",
+          "source": "real",
+          "predicted": "02520002003000000",
+          "rank": 1,
+          "confidence": 0.8177,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:10",
+          "source": "real",
+          "predicted": "02522003002000000",
+          "rank": 1,
+          "confidence": 0.7853,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:11",
+          "source": "real",
+          "predicted": "03208006002000002",
+          "rank": 1,
+          "confidence": 0.5698,
+          "band": "low",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:12",
+          "source": "real",
+          "predicted": "06901001002000017",
+          "rank": 1,
+          "confidence": 0.5447,
+          "band": "low",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:13",
+          "source": "real",
+          "predicted": "02523002001016002",
+          "rank": 1,
+          "confidence": 0.5357,
+          "band": "low",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:14",
+          "source": "real",
+          "predicted": "00701001001000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "competitor-22.csv:15",
+          "source": "real",
+          "predicted": "01701001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "competitor-22.csv:16",
+          "source": "real",
+          "predicted": "02523002001004002",
+          "rank": 1,
+          "confidence": 0.4264,
+          "band": "low",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:17",
+          "source": "real",
+          "predicted": "06901001002000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "competitor-22.csv:18",
+          "source": "real",
+          "predicted": "02103002006002022",
+          "rank": null,
+          "confidence": 0.5375,
+          "band": "low",
+          "decidedBy": "fusion",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:19",
+          "source": "real",
+          "predicted": "01901001003000000",
+          "rank": 1,
+          "confidence": 0.95,
+          "band": "high",
+          "decidedBy": "exact",
+          "sentToLlm": false
+        },
+        {
+          "id": "competitor-22.csv:20",
+          "source": "real",
+          "predicted": "03004452001001004",
+          "rank": 1,
+          "confidence": 0.8249,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:21",
+          "source": "real",
+          "predicted": "05705003001000000",
+          "rank": 1,
+          "confidence": 0.7481,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:22",
+          "source": "real",
+          "predicted": "02202002001019011",
+          "rank": 1,
+          "confidence": 0.7137,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        },
+        {
+          "id": "competitor-22.csv:23",
+          "source": "real",
+          "predicted": "08471001001002007",
+          "rank": 1,
+          "confidence": 0.7749,
+          "band": "medium",
+          "decidedBy": "rerank",
+          "sentToLlm": true
+        }
+      ],
+      "realTop5Misses": [
+        {
+          "id": "competitor-22.csv:18",
+          "query": "palov",
+          "correctCode": "10202001006000001",
+          "shared": [],
+          "inflection": [],
+          "queryOnly": [
+            "palov"
+          ]
+        }
+      ]
     }
   ]
 }
