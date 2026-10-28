@@ -134,6 +134,7 @@ export const PipelineMeta = z.object({
   degradedReasons: z.array(z.enum(['rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed'])),
   rowsWithoutAi: z.number().int(),
   llmRowsFailed: z.number().int(),
+  llmRowsNone: z.number().int(),
   vectorErrors: z.number().int(),
   rowsAudited: z.number().int(),
   fromRow: z.number().int(),

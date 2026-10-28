@@ -97,7 +97,7 @@ export type MatchResult = {
   notes: string[];
   rerank: RerankOutcome;
   vector: VectorOutcome;
-  /** Set when stage 6 vetoed every candidate; `candidates` is then empty. */
+  /** Set when stage 6 judged that no candidate fits; `candidates` then keep retrieval order, capped. */
   veto: RerankVeto | null;
   /**
    * Codes in the fused pool handed to the reranker, best-first. Wider than

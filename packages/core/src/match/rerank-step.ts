@@ -8,7 +8,7 @@ import type { CandidateStore, RerankOutcome, RerankProvider, RerankRequest, Rera
 export type LlmScore = { confidence: number; reason: string };
 
 export type RerankStep = {
-  /** Validated verdicts by code; empty unless the outcome is `ranked` or `none`. */
+  /** Validated verdicts by code; empty unless the outcome is `ranked`. */
   scores: Map<string, LlmScore>;
   outcome: Exclude<RerankOutcome, 'not_needed'>;
   notes: string[];
@@ -20,8 +20,13 @@ export type RerankStep = {
   unranked: number | undefined;
 };
 
-/** The reranker's own top confidence above which its ranking overrides retrieval order. */
-export const OVERRIDE_CONFIDENCE = Number(process.env['RERANK_OVERRIDE_CONFIDENCE'] ?? 0.5);
+/**
+ * The reranker's own top confidence from which its ranking overrides retrieval
+ * order. Measured 2026-10-28 (docs/scoring.md, "Reranker on (Gemini)"): with
+ * gemini-3.1-flash-lite 0.5 and 0 tie and 0.7 loses 49 real-metal top-1 hits;
+ * never overriding (old behaviour) loses 9 construction top-1 hits.
+ */
+export const OVERRIDE_CONFIDENCE = 0.5;
 
 export type RerankStepInput = {
   reranker: RerankProvider;
@@ -59,11 +64,14 @@ export async function rerankStep(input: RerankStepInput): Promise<RerankStep> {
   }
   if (valid.length === 0) return { scores, outcome: 'failed', notes: [...notes, 'Reranker gave no usable verdict; falling back to fusion order.'], unranked: undefined };
 
-  for (const v of valid) scores.set(v.code, { confidence: v.confidence, reason: v.reason });
   const none = valid.every((v) => v.confidence === 0 && v.reason === NONE_REASON);
-  if (none) notes.push('Reranker judged that no candidate fits; no code is suggested.');
+  // A "none" is a fallback, not a veto (2026-10-28, docs/scoring.md): it was wrong
+  // 43 times in 46 on the eval sets. No candidate is scored, so all stay in
+  // retrieval order under the no-reranker cap, and the outcome still says 'none'.
+  if (none) return { scores, outcome: 'none', notes: [...notes, 'Reranker judged that no candidate fits; retrieval order kept, capped.'], unranked: undefined };
+  for (const v of valid) scores.set(v.code, { confidence: v.confidence, reason: v.reason });
   const top = Math.max(...valid.map((v) => v.confidence));
-  return { scores, outcome: none ? 'none' : 'ranked', notes, unranked: !none && top >= OVERRIDE_CONFIDENCE ? 0 : undefined };
+  return { scores, outcome: 'ranked', notes, unranked: top >= OVERRIDE_CONFIDENCE ? 0 : undefined };
 }
 
 /** Drops any verdict whose code was not offered or is not a live classifier code. */

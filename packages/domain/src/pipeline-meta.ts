@@ -19,6 +19,8 @@ export type PipelineMeta = {
   rowsWithoutAi: number;
   /** Rows whose AI call failed or returned nothing usable. */
   llmRowsFailed: number;
+  /** Rows where the AI judged that no candidate fits: shown in retrieval order, capped, marked rerankNone. */
+  llmRowsNone: number;
   /** Rows whose vector stage threw. */
   vectorErrors: number;
   /** Rows matched in this run; a resumed run counts only its own rows. */
@@ -43,9 +45,9 @@ export type PipelineSetup = {
   classifier?: ClassifierProvenance | undefined;
 };
 
-export type PipelineCounters = { rowsAudited: number; rowsWithoutAi: number; llmRowsFailed: number; vectorErrors: number };
+export type PipelineCounters = { rowsAudited: number; rowsWithoutAi: number; llmRowsFailed: number; llmRowsNone: number; vectorErrors: number };
 
-export const emptyCounters = (): PipelineCounters => ({ rowsAudited: 0, rowsWithoutAi: 0, llmRowsFailed: 0, vectorErrors: 0 });
+export const emptyCounters = (): PipelineCounters => ({ rowsAudited: 0, rowsWithoutAi: 0, llmRowsFailed: 0, llmRowsNone: 0, vectorErrors: 0 });
 
 const WITHOUT_AI = new Set<RerankOutcome>(['off', 'skipped', 'failed']);
 
@@ -54,6 +56,7 @@ export function countMatch(counters: PipelineCounters, match: { rerank: RerankOu
   counters.rowsAudited++;
   if (WITHOUT_AI.has(match.rerank)) counters.rowsWithoutAi++;
   if (match.rerank === 'failed') counters.llmRowsFailed++;
+  if (match.rerank === 'none') counters.llmRowsNone++;
   if (match.vector === 'failed') counters.vectorErrors++;
 }
 
@@ -91,6 +94,7 @@ const Stored = z.object({
   degradedReasons: z.array(z.string()).catch([]),
   rowsWithoutAi: count,
   llmRowsFailed: count,
+  llmRowsNone: count,
   vectorErrors: count,
   rowsAudited: count,
   fromRow: count,

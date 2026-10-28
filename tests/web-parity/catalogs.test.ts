@@ -79,7 +79,7 @@ describe('catalogue screens: web copies equal the domain', () => {
     const meta: PipelineMeta = {
       embedder: 'e', vectorUsable: false, reranker: { enabled: false, model: null, promptVersion: 'v1' },
       degradedReasons: ['rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed'],
-      rowsWithoutAi: 3, llmRowsFailed: 4, vectorErrors: 5, rowsAudited: 10, fromRow: 0, finishedAt: '2026-10-01T00:00:00.000Z',
+      rowsWithoutAi: 3, llmRowsFailed: 4, llmRowsNone: 0, vectorErrors: 5, rowsAudited: 10, fromRow: 0, finishedAt: '2026-10-01T00:00:00.000Z',
       classifierSnapshotId: null, classifierTakenAt: null,
     };
     for (const locale of ['uz', 'ru'] as const) assert.deepEqual(degradedNotes(meta, appDict(locale)), domainNotes(meta, appDict(locale)));

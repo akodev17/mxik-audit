@@ -75,6 +75,7 @@ describe('toGeminiSchema', () => {
             type: 'OBJECT',
             properties: {
               id: { type: 'STRING' },
+              none: { type: 'BOOLEAN' },
               ranking: {
                 type: 'ARRAY',
                 items: {
@@ -84,10 +85,9 @@ describe('toGeminiSchema', () => {
                   required: ['code', 'confidence', 'reason'],
                 },
               },
-              none: { type: 'BOOLEAN' },
             },
-            propertyOrdering: ['id', 'ranking', 'none'],
-            required: ['id', 'ranking', 'none'],
+            propertyOrdering: ['id', 'none', 'ranking'],
+            required: ['id', 'none', 'ranking'],
           },
         },
       },
@@ -111,7 +111,7 @@ describe('GeminiRerankClient', () => {
     assert.equal(calls.length, 1);
     const call = calls[0];
     assert.ok(call);
-    assert.equal(call.url, 'http://gemini.test/v1beta/models/gemini-2.5-flash:generateContent');
+    assert.equal(call.url, 'http://gemini.test/v1beta/models/gemini-3.1-flash-lite:generateContent');
     assert.equal(call.init.method, 'POST');
     const headers = call.init.headers as Record<string, string>;
     assert.equal(headers['x-goog-api-key'], 'test-key');
@@ -277,8 +277,8 @@ describe('Gemini through the batched reranker', () => {
     assert.equal(usage.apiCalls, 2);
     assert.equal(usage.inputTokens, 2400);
     assert.equal(usage.outputTokens, 400);
-    // 2,400 × $0.30 + 400 × $2.50 per million tokens.
-    assert.ok(Math.abs((usage.estimatedCostUsd ?? 0) - 0.00172) < 1e-9);
+    // 2,400 × $0.25 + 400 × $1.50 per million tokens.
+    assert.ok(Math.abs((usage.estimatedCostUsd ?? 0) - 0.0012) < 1e-9);
     assert.equal(typeof usage.batchLatencyP50Ms, 'number');
     assert.match(formatLlmUsage(usage, 3), /p50 per call/);
   });

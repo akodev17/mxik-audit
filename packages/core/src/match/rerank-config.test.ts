@@ -113,7 +113,7 @@ describe('rerankConfigFromEnv', () => {
   it('knows prices for current models and accepts an override', () => {
     assert.deepEqual(rerankConfigFromEnv(ANTHROPIC).price, { inputPerMTok: 4, outputPerMTok: 20 });
     assert.equal(rerankConfigFromEnv({ ...ANTHROPIC, ANTHROPIC_MODEL: 'claude-unknown' }).price, null);
-    assert.deepEqual(rerankConfigFromEnv({}).price, { inputPerMTok: 0.3, outputPerMTok: 2.5 });
+    assert.deepEqual(rerankConfigFromEnv({}).price, { inputPerMTok: 0.25, outputPerMTok: 1.5 });
     assert.deepEqual(rerankConfigFromEnv({ GEMINI_MODEL: 'gemini-2.5-pro' }).price, { inputPerMTok: 1.25, outputPerMTok: 10 });
     assert.equal(rerankConfigFromEnv({ GEMINI_MODEL: 'gemini-unknown' }).price, null);
     assert.deepEqual(

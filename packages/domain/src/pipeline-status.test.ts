@@ -42,9 +42,9 @@ describe('lastAuditLine', () => {
   const at = new Date('2026-10-19T09:00:00Z');
 
   it('shows the latest run as full or degraded from its stored codes', () => {
-    const full = lastAuditLine(buildPipelineMeta(setup, { rowsAudited: 1, rowsWithoutAi: 0, llmRowsFailed: 0, vectorErrors: 0 }, 0, at), view);
+    const full = lastAuditLine(buildPipelineMeta(setup, { rowsAudited: 1, rowsWithoutAi: 0, llmRowsFailed: 0, llmRowsNone: 0, vectorErrors: 0 }, 0, at), view);
     assert.equal(full.ok, true);
-    const degraded = lastAuditLine(buildPipelineMeta({ ...setup, vectorUsable: false }, { rowsAudited: 1, rowsWithoutAi: 0, llmRowsFailed: 0, vectorErrors: 0 }, 0, at), view);
+    const degraded = lastAuditLine(buildPipelineMeta({ ...setup, vectorUsable: false }, { rowsAudited: 1, rowsWithoutAi: 0, llmRowsFailed: 0, llmRowsNone: 0, vectorErrors: 0 }, 0, at), view);
     assert.equal(degraded.ok, false);
     assert.match(degraded.value, /vektor oʻchiq/);
     assert.match(degraded.value, /19\.10\.2026 14:00/);

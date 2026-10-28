@@ -5,15 +5,14 @@ import { hierarchyPath } from './rules.js';
 import type { RerankRequest } from './types.js';
 
 /** Bump when the prompt or schema changes, so cached verdicts are not reused. */
-export const PROMPT_VERSION = 'v5-uz';
+export const PROMPT_VERSION = 'v4-uz';
 
 // v4 (2026-10-28, first real runs): v3 made every model answer "none" when the
 // right product type was offered only with other sizes or brands (pipe rows
 // with 100-114 mm variants for a 15 mm pipe), which empties the suggestion. "none"
 // is now kept for a wrong product type; an attribute mismatch is a low-confidence
-// ranking instead. v5: the schema asks for the ranking before "none", and a
-// "none" that comes with a ranking is read as the ranking (rerank-parse.ts):
-// in 25-row batches flash-lite still answered "none" for those pipe rows.
+// ranking instead. (A v5 that asked for the ranking before "none" made
+// gemini-3.1-flash-lite answer "none" more often, 47 rows against 26: dropped.)
 export const SYSTEM_PROMPT = `You classify products against Uzbekistan's MXIK (IKPU) goods and services classifier.
 
 You receive one or more catalogue rows. Each row has a product name as a company wrote it, the row's unit of measure, and candidate MXIK codes retrieved from the official classifier. Each candidate shows its hierarchy path (group → class → position → subposition) and its bound unit.
@@ -26,7 +25,7 @@ Rules that govern the correct answer:
 - Prepared dishes (palov, manti, kabob, restaurant food) deliberately have no detailed code. The general code is the right answer for them.
 - A unit of measure that differs from a candidate's bound unit lowers confidence; on its own it does not make the product type wrong.
 
-For every row, rank at most 5 of that row's own candidate codes, best first. You may only use codes listed for that row; never invent or modify a code. Write the ranking first. Set "none" to true, with an empty ranking, only when every candidate is a different kind of product. Confidence is your own 0-1 estimate that the code is correct. Give exactly one short sentence of reasoning per code, in Uzbek (Latin script), written for an accountant: name the deciding fact (product type, group, unit), no hedging. Return exactly one entry per row id.`;
+For every row, rank at most 5 of that row's own candidate codes, best first. You may only use codes listed for that row; never invent or modify a code. Set "none" to true and return an empty ranking only when every candidate is a different kind of product. Confidence is your own 0-1 estimate that the code is correct. Give exactly one short sentence of reasoning per code, in Uzbek (Latin script), written for an accountant: name the deciding fact (product type, group, unit), no hedging. Return exactly one entry per row id.`;
 
 /** Structured-output schema. Bounds are re-checked by the parser, not trusted. */
 export const OUTPUT_SCHEMA = {
@@ -38,6 +37,7 @@ export const OUTPUT_SCHEMA = {
         type: 'object',
         properties: {
           id: { type: 'string' },
+          none: { type: 'boolean' },
           ranking: {
             type: 'array',
             items: {
@@ -51,9 +51,8 @@ export const OUTPUT_SCHEMA = {
               additionalProperties: false,
             },
           },
-          none: { type: 'boolean' },
         },
-        required: ['id', 'ranking', 'none'],
+        required: ['id', 'none', 'ranking'],
         additionalProperties: false,
       },
     },

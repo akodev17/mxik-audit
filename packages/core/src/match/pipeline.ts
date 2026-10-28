@@ -391,7 +391,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   }).sort((a, b) => b.confidence - a.confidence);
 
   // A missing suggestion beats a wrong one: drop weak candidates that share no word with the product.
-  const kept = rerankNone ? [] : scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
+  const kept = scored.filter((c) => !isUnrelated(input.rawName, c.candidate, c.confidence, synonyms.added));
   if (!rerankNone && kept.length < scored.length) notes.push(`${scored.length - kept.length} unrelated low-confidence candidate(s) hidden.`);
 
   return {

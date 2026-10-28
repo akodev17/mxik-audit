@@ -54,8 +54,12 @@ export type RerankConfig = {
 // Default is the model that page recommends starting with.
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 
-/** Fast, cheap and on the free tier; the reranker was measured with it (docs/scoring.md). */
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+/**
+ * The only Gemini model that finished a full eval on a free-tier key (2026-10-28):
+ * cheapest, p50 ~9 s per 25-row call; the 2.5 models answer 404 to new keys and
+ * the 3.x Flash models timed out or ran out of quota (docs/scoring.md).
+ */
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 const PRICES: Record<string, { inputPerMTok: number; outputPerMTok: number }> = {
   'claude-opus-5-5': { inputPerMTok: 4, outputPerMTok: 20 },
@@ -86,8 +90,12 @@ const FALLBACK_MODELS = new Set(['claude-opus-5-5', 'claude-opus-5', 'claude-son
 
 const EFFORTS = new Set<Effort>(['low', 'medium', 'high', 'xhigh', 'max']);
 
-/** Conservative defaults: anything short of a clear, confident winner goes to the LLM. */
-export const DEFAULT_GATE: RerankGate = { minConfidence: 0.95, minMargin: 0.1 };
+/**
+ * Every fuzzy row goes to the LLM (confidence 1.01 is never reached). Tuned
+ * 2026-10-28: the old 0.95/0.10 skipped 7 of 399 rows and cost 3 points of
+ * synthetic high-band coverage; precision stayed 100% either way.
+ */
+export const DEFAULT_GATE: RerankGate = { minConfidence: 1.01, minMargin: 0.1 };
 
 function num(value: string | undefined, fallback: number, min: number, max: number): number {
   if (value === undefined || value.trim() === '') return fallback;
