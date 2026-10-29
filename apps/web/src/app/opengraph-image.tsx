@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
 //
 // The bundled font has Latin only and no U+02BB, so the copy avoids oʻ / gʻ
 // rather than render a wrong apostrophe on a page that makes a point of them.
-export const alt = 'Tasnivo | MXIK katalogingizni tekshiring, xatolarni aniqlang';
+export const alt = 'Tasnivo | MXIK katalogini tekshiring. Hujjatlarni 1C ga tayyorlang.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -50,11 +50,11 @@ export default function OpengraphImage() {
           Tasnivo
         </div>
         <div style={{ display: 'flex', marginTop: 22, fontSize: 64, lineHeight: 1.08, color: '#14161c', maxWidth: 980 }}>
-          Katalogingizdagi xavfli MXIK kodlarini toping
+          MXIK katalogini tekshiring. Hujjatlarni 1C ga tayyorlang.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 'auto' }}>
-          {row('Excel / CSV katalog', '17 xonali kod', 'tekshiriladi', false)}
-          {row('Rasmiy tasniflagich bilan solishtirish', 'har bir qator', 'xato ajratiladi', true)}
+          {row('Excel / CSV katalog', 'MXIK kodi', 'xato ajratiladi', true)}
+          {row('Bank va Didox hujjatlari', 'kl_to_1c.txt, Excel', '1C uchun fayl', false)}
           <div style={{ display: 'flex', marginTop: 22, fontSize: 24, color: '#4e5564' }}>
             Risk auditi bepul · Qarorni siz qabul qilasiz
           </div>

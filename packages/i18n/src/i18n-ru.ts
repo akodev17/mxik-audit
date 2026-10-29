@@ -8,7 +8,7 @@ const n = (v: number): string => fmtNumber('ru', v);
 
 export const ru: Dict = {
   appName: 'Tasnivo',
-  tagline: 'Найдите рискованные позиции в вашем каталоге',
+  tagline: 'Аудит ИКПУ и файлы для 1С из документов',
   signIn: 'Вход',
   signOut: 'Выйти',
   email: 'Электронная почта',

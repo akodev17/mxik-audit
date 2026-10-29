@@ -217,21 +217,31 @@ export const CHECKS = [
    - Stored: the whole file. Lead uploads keep the bytes (Lead.fileData,
      POST /api/lead, packages/domain/src/lead-submit.ts); app uploads keep every original cell
      (CatalogItem.attrs.original) so Export can rebuild the file.
-   - Read by the audit: name, barcode, MXIK, unit (src/lib/audit-runner.ts).
+   - Read by the audit: name, barcode, MXIK, unit (packages/domain/src/audit-runner.ts).
      Price is stored but not used.
    - Leaves the server, and only when a provider key is configured:
        · the product name, normalized, to the embedding provider (OpenAI or
-         Voyage) — src/core/match/pipeline.ts, embedder.embed([query]);
+         Voyage) — packages/core/src/match/pipeline.ts, embedder.embed([vectorText]);
        · for uncertain rows only, the cleaned product name, the row's unit and
          a derived yes/no "prepared dish" flag, to the reranker (Anthropic) —
-         renderRow in src/core/match/rerank-prompt.ts (since eb10b2c).
+         renderRow in packages/core/src/match/rerank-prompt.ts (since eb10b2c).
      Barcode, price and every other column never do.
    - Deletion: lead files are erased after LEAD_FILE_RETENTION_DAYS by
      `npm run purge:expired` (daily job, DEPLOY.md) and at once on request
-     (`npm run lead:delete`), src/lib/retention.ts. App users delete their own
+     (`npm run lead:delete`), packages/domain/src/retention.ts. App users delete their own
      catalogues at /catalogs, which also removes findings, cached AI verdicts
      and the log entries naming its products (deleteCatalog,
-     src/lib/catalogs.ts). */
+     packages/domain/src/catalogs.ts).
+   - Documents (bank statements, Didox invoices, product lists; feature-inventory.md §3.6):
+       · bank AI, only with ANTHROPIC_API_KEY and MXIK_LLM_ENABLED not "false", at most
+         AI_CAP lines: purpose and counterparty name with digit runs of 9+ masked, and the
+         direction; never account, ИНН or amount (batchPrompt, packages/domain/src/bank/ai.ts);
+       · product and invoice lines run the audit's cascade (products/classify.ts), so only
+         name and unit can reach the providers above;
+       · only the MXIK code goes to tasnif.soliq.uz for packaging and activity, unless
+         TASNIF_LIVE=false (products/tasnif-client.ts); the catalogue audit never calls it;
+       · the Didox token only reads incoming invoices (owner 0) from api.didox.uz, stored
+         sealed (didox/seal.ts) and never logged (didox/client.ts). */
 export const DATA_FLOW = {
   stored:
     'Fayl serverimizda saqlanadi: tuzatilgan Excelni asl koʻrinishida '
@@ -249,6 +259,16 @@ export const DATA_FLOW = {
     'Ilovaga yuklagan katalogingizni istalgan payt oʻzingiz oʻchirasiz, '
     + 'topilmalari va qarorlar yozuvlari bilan birga.',
   purpose: 'Fayl faqat shu audit uchun ishlatiladi.',
+  documents:
+    'Bank koʻchirmalari, Didox hisob-fakturalari va mahsulotlar roʻyxati ham serverimizda saqlanadi. '
+    + 'Tashqi AI yoqilgan boʻlsa, bank qatoridan faqat toʻlov maqsadi, kontragent nomi (ikkalasida '
+    + 'uzun raqamlar yashiriladi) va pul yoʻnalishi yuboriladi: hisob raqami, STIR va summa chiqmaydi. '
+    + 'Mahsulot va hisob-faktura qatorlaridan katalog auditidagidek faqat nom va oʻlchov birligi '
+    + 'borishi mumkin. Qadoq kodi va kod holatini bilish uchun rasmiy tasnif.soliq.uz ga faqat '
+    + 'MXIK kodi yuboriladi.',
+  didoxToken:
+    'Didox tokeningiz faqat kiruvchi hisob-fakturalarni olish uchun ishlatiladi: u shifrlangan '
+    + 'holda saqlanadi, qayta koʻrsatilmaydi va jurnallarga yozilmaydi.',
 } as const;
 
 /* ----------------------------------------------------------------- accounting
