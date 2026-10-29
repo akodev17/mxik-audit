@@ -11,10 +11,10 @@ const PROD = { NODE_ENV: 'production' };
 
 /** A resolver that answers `answers` in turn (the last one again after that) and counts its calls. */
 function resolver(...answers: string[][]): Resolve & { calls: number } {
-  const fn = Object.assign(async (_host: string) => {
+  const fn = Object.assign((_host: string) => {
     const now = answers[Math.min(fn.calls, answers.length - 1)] ?? [];
     fn.calls++;
-    return now.map((address) => ({ address, family: address.includes(':') ? 6 : 4 }));
+    return Promise.resolve(now.map((address) => ({ address, family: address.includes(':') ? 6 : 4 })));
   }, { calls: 0 });
   return fn;
 }

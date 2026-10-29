@@ -93,7 +93,7 @@ export function pinnedFetch(address: string, family: 4 | 6): typeof fetch {
         const headers = new Headers();
         for (const [name, value] of Object.entries(res.headers)) for (const one of [value ?? []].flat()) headers.append(name, one);
         const nullBody = [101, 204, 205, 304].includes(status);
-        resolve(new Response(nullBody ? null : new Uint8Array(bytes.buffer as ArrayBuffer, bytes.byteOffset, bytes.byteLength), { status, headers }));
+        resolve(new Response(nullBody ? null : new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength), { status, headers }));
       };
       res.on('data', (chunk: Buffer) => {
         size += chunk.length;
