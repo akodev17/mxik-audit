@@ -65,6 +65,8 @@ describe('didox (database)', { skip }, () => {
   before(async () => {
     app = await startApp();
     owner = await makeUser();
+    // A running trial: an ended plan refuses uploads.
+    await db.organization.update({ where: { id: owner.orgId }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
     orgs.push(owner.orgId);
     clientId = await makeClient(owner.orgId, 'Didox mijoz');
     cookie = await sessionCookie(owner);

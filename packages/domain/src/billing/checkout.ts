@@ -12,11 +12,11 @@ import { planById } from './plans';
 export type CheckoutInput = { planId: string; catalogId: string | null; provider: Provider };
 
 /**
- * Why nothing can be paid (a Purchase kind), `paid` (the catalogue is paid for already),
+ * Why nothing can be paid (a Purchase kind), `already_paid` (the catalogue is paid for already),
  * `plan_change` (another tier while a subscription runs, not an upgrade: plan D2), or `failed`
  * when the order or URL could not be made.
  */
-export type CheckoutRefusal = Exclude<Purchase['kind'], 'available'> | 'paid' | 'plan_change' | 'failed';
+export type CheckoutRefusal = Exclude<Purchase['kind'], 'available'> | 'already_paid' | 'plan_change' | 'failed';
 
 export type CheckoutResult = { ok: true; url: string } | { ok: false; reason: CheckoutRefusal };
 

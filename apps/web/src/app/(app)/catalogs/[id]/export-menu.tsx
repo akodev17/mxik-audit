@@ -86,7 +86,8 @@ export function ExportMenu({ catalogId, ready, locked, panel, share }: Props) {
   }
 
   const item = (kind: Kind): MenuItem => ({ label: x.items[kind], description: x.hints[kind], icon: ICON[kind], onSelect: () => { void download(kind); }, disabled: busy !== null });
-  const items = locked ? [item('pdf'), item('pdfClient')] : [item('xlsx'), item('oneCXlsx'), item('oneCCsv'), item('pdf'), item('pdfClient')];
+  // Locked (BILLING_REQUIRED_FOR_EXPORT, not paid): the client PDF waits with the corrected files; the internal PDF stays (D3).
+  const items = locked ? [item('pdf')] : [item('xlsx'), item('oneCXlsx'), item('oneCCsv'), item('pdf'), item('pdfClient')];
 
   return (
     <div className="no-print flex flex-wrap items-center gap-2" aria-busy={busy !== null || undefined}>

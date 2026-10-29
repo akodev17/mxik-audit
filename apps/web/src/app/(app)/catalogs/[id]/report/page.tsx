@@ -8,7 +8,7 @@ import { catalogHeader, orNotFound, signedInUser } from '@/lib/catalogs/server';
 import { getI18n } from '@/lib/locale';
 import { groupDecisions } from '@/lib/pure/activity-groups';
 import { Badge } from '@/ui/badge';
-import { ButtonLink } from '@/ui/button';
+import { Button, ButtonLink } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { EmptyState } from '@/ui/empty-state';
 import { IconDownload } from '@/ui/icons';
@@ -112,6 +112,12 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
             <>
               <ButtonLink href={api.catalogs.exportPdf.url({ catalog: catalog.id, download: '1' })} variant="secondary" download><IconDownload size={16} />{r.pdf}</ButtonLink>
               <ButtonLink href={api.catalogs.exportReportCsv.url({ catalog: catalog.id })} variant="secondary" download>{r.csv}</ButtonLink>
+            </>
+          ) : catalog.exportLocked ? (
+            // The client PDF waits for payment like the corrected file (D3), with the same reason.
+            <>
+              <Button variant="secondary" disabled aria-describedby="client-pdf-locked"><IconDownload size={16} />{r.pdfClient}</Button>
+              <span id="client-pdf-locked" className="max-w-64 text-small text-muted">{ta.setX.billing.locked}</span>
             </>
           ) : (
             <ButtonLink href={api.catalogs.exportPdf.url({ catalog: catalog.id, audience: 'client', download: '1' })} variant="secondary" download><IconDownload size={16} />{r.pdfClient}</ButtonLink>

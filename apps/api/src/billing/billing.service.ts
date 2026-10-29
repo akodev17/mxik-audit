@@ -35,7 +35,7 @@ export class BillingService {
     if (result.ok) return result;
     // Another tier while a subscription runs (not an upgrade): refused outright, with the rule in words.
     if (result.reason === 'plan_change') throw new ApiError(403, 'plan_change', ta.setX.plan.planChange);
-    if (result.reason === 'paid') return { ok: false, error: ta.setX.billing.alreadyPaid };
+    if (result.reason === 'already_paid') return { ok: false, error: ta.setX.billing.alreadyPaid };
     return { ok: false, error: result.reason === 'failed' ? t.errorGeneric : why[result.reason] };
   }
 }

@@ -242,6 +242,8 @@ describe('1C exports (database)', { skip }, () => {
 
   it('counterparties: a 1C «Контрагенты» export loads, and loads again without duplicates', async () => {
     const org = await makeOrg();
+    // A running trial: an ended plan refuses the import (checked below).
+    await db.organization.update({ where: { id: org.orgId }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
     orgs.push(org.orgId);
     const client = await makeClient(org.orgId, 'Mijoz K');
     const file = await buildCounterpartiesXlsx([
@@ -258,6 +260,9 @@ describe('1C exports (database)', { skip }, () => {
     assert.equal(second.updated, 3);
     assert.equal(await db.counterparty.count({ where: { orgId: org.orgId, clientId: client } }), 3);
     assert.deepEqual(await importCounterparties(org.orgId, client, Buffer.from('a;b\n1;2\n'), 'x.csv'), { ok: false, error: 'no_name_column' });
+    // The trial has ended: nothing is loaded (refused like any upload; not counted in the monthly rows, D4).
+    await db.organization.update({ where: { id: org.orgId }, data: { trialEndsAt: new Date(Date.now() - 1000) } });
+    assert.deepEqual(await importCounterparties(org.orgId, client, file, 'kontragenty.xlsx'), { ok: false, error: 'expired' });
   });
 });
 

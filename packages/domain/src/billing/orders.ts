@@ -13,7 +13,7 @@ type Client = Prisma.TransactionClient | typeof db;
 export type NewOrder = { planId: string; catalogId: string | null };
 
 /** Why an order cannot be made or paid: a catalogue already paid for, or a tier change the rule refuses (plan D2). */
-export type PayRefusal = 'paid' | 'plan_change';
+export type PayRefusal = 'already_paid' | 'plan_change';
 export type OrderResult = { ok: true; id: string; amount: number } | { ok: false; reason: 'invalid' | PayRefusal };
 
 /** The org's subscription while it runs: the tier of its latest paid subscription order (none = the top tier, set by hand). */
@@ -30,7 +30,7 @@ export async function activeSubscription(client: Client, orgId: string, now = ne
 async function payable(client: Client, orgId: string, plan: Plan, catalogId: string | null, now: Date, force = false): Promise<{ ok: true; period: NextPeriod | null } | { ok: false; reason: PayRefusal }> {
   if (plan.kind === 'catalog') {
     const paid = await client.order.count({ where: { orgId, catalogId, status: 'paid' } });
-    return paid > 0 ? { ok: false, reason: 'paid' } : { ok: true, period: null };
+    return paid > 0 ? { ok: false, reason: 'already_paid' } : { ok: true, period: null };
   }
   const period = nextPeriod(await activeSubscription(client, orgId, now), plan, now, force);
   return period.ok ? { ok: true, period } : { ok: false, reason: period.reason };
@@ -56,7 +56,7 @@ export async function createOrder(actor: Actor, input: NewOrder, provider: 'clic
     const catalog = await db.catalog.findFirst({ where: { id: input.catalogId, orgId: actor.orgId, status: 'ready' }, select: { rowCount: true } });
     if (!catalog || catalogPlan(catalog.rowCount)?.id !== plan.id) return { ok: false, reason: 'invalid' };
     // An active subscription already unlocks every catalogue.
-    if (await catalogPaid(actor.orgId, input.catalogId, now)) return { ok: false, reason: 'paid' };
+    if (await catalogPaid(actor.orgId, input.catalogId, now)) return { ok: false, reason: 'already_paid' };
   }
   const check = await payable(db, actor.orgId, plan, plan.kind === 'catalog' ? input.catalogId : null, now);
   if (!check.ok) return check;
@@ -70,6 +70,9 @@ export async function createOrder(actor: Actor, input: NewOrder, provider: 'clic
 }
 
 export type PaidOutcome = 'paid' | 'not_payable' | PayRefusal;
+
+/** A provider's confirmation waits for a connection and for the org's lock rather than fail on a busy pool. */
+export const PAY_TX = { maxWait: 10_000, timeout: 20_000 } as const;
 
 export type MarkPaidOptions = {
   /** An operator's bank transfer: a cheaper tier while a subscription runs is converted instead of refused. */
@@ -116,7 +119,7 @@ export async function markPaid(orderId: string, provider: string, options: MarkP
       },
     });
     return 'paid';
-  });
+  }, PAY_TX);
 }
 
 export type TransferResult = { ok: true; orderId: string; amount: number } | { ok: false; reason: 'unknown_plan' | 'catalog' | PayRefusal };

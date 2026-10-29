@@ -36,7 +36,7 @@ if (!orgId) {
 
 const REFUSED = {
   catalog: 'a catalogue plan needs --catalog: a ready catalogue of this organisation in that size tier',
-  paid: 'this catalogue is already paid for',
+  already_paid: 'this catalogue is already paid for',
   plan_change: 'a subscription of a dearer tier is running: a cheaper tier waits until it ends (or pass --force to convert the unused days at the price ratio)',
 } as const;
 

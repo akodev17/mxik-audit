@@ -196,7 +196,15 @@ export default async function DiffPage({ params, searchParams }: { params: Promi
       title={ta.diff.title} hint={diff.linked ? ta.diff.hint : d.chosenHint} wide crumbs={crumbs}
       actions={(
         <>
-          <ButtonLink href={api.catalogs.exportDiffCsv.url({ catalog: catalog.id, ...(against ? { with: against } : {}) })} variant="secondary" download><IconDownload size={16} />{d.exportCsv}</ButtonLink>
+          {catalog.exportLocked ? (
+            // The diff CSV waits for payment like the corrected file (D3), with the same reason.
+            <>
+              <Button variant="secondary" disabled aria-describedby="diff-csv-locked"><IconDownload size={16} />{d.exportCsv}</Button>
+              <span id="diff-csv-locked" className="max-w-64 text-small text-muted">{ta.setX.billing.locked}</span>
+            </>
+          ) : (
+            <ButtonLink href={api.catalogs.exportDiffCsv.url({ catalog: catalog.id, ...(against ? { with: against } : {}) })} variant="secondary" download><IconDownload size={16} />{d.exportCsv}</ButtonLink>
+          )}
           <ButtonLink href={`/catalogs/${diff.previousId}`} variant="ghost">{diff.linked ? ta.diff.openPrevious : d.openChosen}</ButtonLink>
         </>
       )}

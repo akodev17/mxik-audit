@@ -65,7 +65,7 @@ export const ONLINE_PAYMENT = process.env.NEXT_PUBLIC_ONLINE_PAYMENT === 'true';
 
 /* Prices and limits the pricing section shows, as numbers. They are a copy of PLANS in
    packages/domain/src/billing/plans.ts, which the app enforces and charges: the web app does not
-   import the domain package, so tests/pricing-parity.test.ts fails when the two differ. Change
+   import the domain package, so tests/web-parity/pricing.test.ts fails when the two differ. Change
    both together. Names and texts are in packages/i18n/src/i18n-parts/pricing.ts. Pricing is a
    hypothesis (docs/PRICING_PROPOSAL.md), which is a reason to keep it easy to edit, not to hide it. */
 export const PRICING = {

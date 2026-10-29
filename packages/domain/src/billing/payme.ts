@@ -5,7 +5,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { db } from '@tasnivo/db';
 import type { PaymeConfig } from './config.js';
-import { cancelOrder, markPaid, orderPayable } from './orders.js';
+import { cancelOrder, markPaid, orderPayable, PAY_TX } from './orders.js';
 
 const TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
@@ -118,7 +118,7 @@ const METHODS: Record<string, (p: Params, ctx: Context) => Promise<unknown>> = {
           state: 1, providerTime: time.success ? BigInt(time.data) : null, createTime: BigInt(Date.now()),
         },
       });
-    });
+    }, PAY_TX);
     if (tx.state !== 1) throw new PaymeError(ERRORS.cannotPerform);
     return { create_time: num(tx.createTime), transaction: String(tx.id), state: 1 };
   },
