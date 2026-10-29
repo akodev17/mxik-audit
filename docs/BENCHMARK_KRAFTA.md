@@ -183,3 +183,25 @@ What the numbers say:
 - Food and construction are near the ceiling because their names are classifier names with noise
   (the earlier generators' method); they guard against regressions more than they measure recall.
   Pharmacy, electronics and catering use shop-style names and are the harder half.
+
+## 4. The official portal and Krafta's Telegram bot (29 Oct 2026)
+
+**tasnif.soliq.uz text search**, driven through the site on 29 Oct with the 22-query set:
+- "Топилган ўхшашлар" (exact matches) is **0 for every multi-token seller-style name** in the set
+  ("Цемент М400 50 кг" → 0, "Кока-Кола 1,5л" → 0, "Труба ВГП 15х2,5" → 0). Only single clean
+  words return exact hits, and then unranked: "Цемент" → 29 exact, first shown 03816001001000000
+  (refractory cements), not 02523002*.
+- The fallback "Эҳтимол шуни қидиргансиз" (route `/search-deep?search=…`) is token-driven and
+  dominated by numbers and short fragments: "Кока-Кола 1,5л пэт" → Фитин tablets, "Ноутбук Lenovo
+  IdeaPad 15" → THERMEX boilers, "Щебень гранитный 5-20" → horse-meat sausage (matches "от"),
+  "Цемент М400 50 кг" and "Кирпич керамический одинарный М150" → the same list. Latin Uzbek works for
+  one word ("Kartoshka" → 00701001001000000 first) and fails for phrases ("Palov 1 porsiya",
+  "G'isht keramik M150", "Guruch bo'tqasi" → 0 results).
+- Verdict: the portal is a lookup tool for one clean word plus manual browsing, not a matcher.
+  Scored as a matcher on the 22 queries it would be 1/22 top-1 (Kartoshka). It also offers brand,
+  barcode, TN VED, MNN and registration-number search, which the matcher does not need to beat.
+
+**@tasnif_krafta_bot**: Telegram front of tasnif.krafta.uz ("Код ИКПУ за секунды: напишите товар
+своими словами — получите код и упаковку. Бесплатно."). Not driven from here (needs a Telegram
+account); the site search it wraps scored 19/22 top-1 on 28 Oct (§1). It answers one name at a
+time with a code and packaging; no file audit, no findings, no unit or TN VED checks.
