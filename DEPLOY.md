@@ -493,7 +493,9 @@ It applies the database lexicon exactly as an audit does, runs `bench:files` and
 reranker off, and compares them with the last run recorded in `docs/bench-results.json` and
 `docs/eval-results.json`; any drop fails it (`DROP` lines name the file or set and the metric). Disable
 the entry that caused the drop on the page and run it again. The history files are not touched;
-the runs land in `tmp/lexicon-check/`. Every save on the page also runs the normaliser's own
+the runs land in `tmp/lexicon-check/`. Compare on the same database the baselines were recorded on: a
+restored copy rebuilds the vector indexes and its top-5 lists shift on their own; on a copy, record a
+run with `LEXICON=off` and `--out` first and pass it as `--baseline-bench` / `--baseline-eval`. Every save on the page also runs the normaliser's own
 invariants in-process and refuses an entry that breaks them, so the check is for retrieval effects
 the invariants cannot see.
 

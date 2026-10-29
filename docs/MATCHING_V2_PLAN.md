@@ -381,7 +381,10 @@ aliases → PipelineOptions.aliases → one more RRF list ("alias") + pool slots
   the database lexicon applied (reranker off) and compares every file's top-1 / fix / exact-row
   counts and per-type precision and recall, and every eval set's top-1 / top-5 / high-precision /
   pool %, with the last run recorded in `docs/bench-results.json` and `docs/eval-results.json`.
-  Any drop fails it. `LEXICON=off` measures the file tables alone. DEPLOY.md says when to run it.
+  Any drop fails it. `LEXICON=off` measures the file tables alone; `--baseline-bench` /
+  `--baseline-eval` compare with a run record instead of the history (needed on a database copy: a
+  pg_restore rebuilds the HNSW indexes and real-metal top-5 moved 166 → 117 between `mxik` and
+  `mxik_lexicon` with identical code, top-1 unchanged). DEPLOY.md says when to run it.
 
 ### Deferred
 

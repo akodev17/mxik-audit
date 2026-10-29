@@ -5,6 +5,13 @@
 // touched: the runs are written to tmp/lexicon-check/.
 //
 //   npm run lexicon:check [-- --bench-only | --eval-only] [--set competitor-22]
+//                         [--baseline-bench run.json --baseline-eval run.json]
+//
+// The baselines are the last runs in the history files unless --baseline-bench / --baseline-eval name
+// a run record written with --out. Compare on the same database: a restored copy rebuilds the HNSW
+// vector indexes and its top-5 lists differ from the original's (seen 29 Oct: real-metal top-5 166
+// vs 117 between mxik and a pg_restore copy, identical code). On a copy, first record a run with
+// LEXICON=off and --out, then pass it as the baseline.
 //
 // The reranker is forced off (the recorded baselines ran without one; a key in .env would also
 // burn the free-tier quota). Run it on the database the audit uses, before approving aliases or
@@ -21,6 +28,12 @@ const OUT_DIR = 'tmp/lexicon-check';
 const BENCH_ONLY = process.argv.includes('--bench-only');
 const EVAL_ONLY = process.argv.includes('--eval-only');
 const extraEvalArgs = process.argv.flatMap((a, i) => (process.argv[i - 1] === '--set' ? ['--set', a] : []));
+const argValue = (flag: string): string | undefined => {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+};
+const BASELINE_BENCH = argValue('--baseline-bench');
+const BASELINE_EVAL = argValue('--baseline-eval');
 
 type TypeScore = { expected: number; got: number; tp: number; precision: number | null; recall: number | null };
 type FileScore = { top1: { n: number; hit: number }; fix: { n: number; hit: number }; rowsExact: number; audited: number; byType: Record<string, TypeScore> };
@@ -42,10 +55,12 @@ function run(script: string, args: string[]): void {
   }
 }
 
-function lastRun<T>(file: string): T | null {
-  if (!existsSync(file)) return null;
-  const history = JSON.parse(readFileSync(file, 'utf8')) as { runs: T[] };
-  return history.runs[history.runs.length - 1] ?? null;
+/** The run to compare with: a record file named on the command line, else the last run of the history file. */
+function baselineRun<T>(history: string, record: string | undefined): T | null {
+  if (record) return existsSync(record) ? (JSON.parse(readFileSync(record, 'utf8')) as T) : null;
+  if (!existsSync(history)) return null;
+  const runs = (JSON.parse(readFileSync(history, 'utf8')) as { runs: T[] }).runs;
+  return runs[runs.length - 1] ?? null;
 }
 
 /** The lines where before and after differ, per file and per metric; a lower "after" is a drop. */
@@ -103,9 +118,9 @@ mkdirSync(OUT_DIR, { recursive: true });
 let ok = true;
 
 if (!EVAL_ONLY) {
-  const baseline = lastRun<BenchRun>(BENCH_HISTORY);
+  const baseline = baselineRun<BenchRun>(BENCH_HISTORY, BASELINE_BENCH);
   if (!baseline) {
-    console.error(`${BENCH_HISTORY}: no recorded run to compare with`);
+    console.error(`${BASELINE_BENCH ?? BENCH_HISTORY}: no recorded run to compare with`);
     process.exit(1);
   }
   const out = join(OUT_DIR, 'bench.json');
@@ -114,9 +129,9 @@ if (!EVAL_ONLY) {
 }
 
 if (!BENCH_ONLY) {
-  const baseline = lastRun<EvalRun>(EVAL_HISTORY);
+  const baseline = baselineRun<EvalRun>(EVAL_HISTORY, BASELINE_EVAL);
   if (!baseline) {
-    console.error(`${EVAL_HISTORY}: no recorded run to compare with`);
+    console.error(`${BASELINE_EVAL ?? EVAL_HISTORY}: no recorded run to compare with`);
     process.exit(1);
   }
   const out = join(OUT_DIR, 'eval.json');
