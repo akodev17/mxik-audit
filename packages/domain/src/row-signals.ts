@@ -82,6 +82,9 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, t
   if (evidence.identifyingMatchedTokens && evidence.identifyingMatchedTokens.length > 0) {
     out.push({ label: ta.matchX.identifyingLabel, text: ta.matchX.identifying(evidence.identifyingMatchedTokens.join(', ')), tone: 'good' });
   }
+  if (evidence.aliasOrgs !== undefined && evidence.aliasOrgs > 0) {
+    out.push({ label: ta.matchX.aliasLabel, text: ta.matchX.alias(evidence.aliasOrgs), tone: 'good' });
+  }
   if (evidence.synonymApplied && evidence.synonymApplied.length > 0) {
     out.push({ label: ta.matchX.synonymLabel, text: ta.matchX.synonym(evidence.synonymApplied.join('; ')), tone: 'neutral' });
   }
