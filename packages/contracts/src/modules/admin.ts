@@ -1,8 +1,8 @@
-// Platform-admin pages: traction, pipeline status, accuracy metrics and their CSV, and the
+// Platform-admin pages: traction, billing, pipeline status, accuracy metrics and their CSV, and the
 // learned lexicon (synonyms, unit aliases, global alias candidates). Anyone who is not a
 // platform admin gets 404, as the pages and the CSV route did.
 import { z } from 'zod';
-import { Id, IsoDateTime, Ok } from '../common';
+import { Id, IsoDateTime, Ok, PLAN_TIERS } from '../common';
 import { defineModule, endpoint } from '../endpoint';
 import { FEATURE_STATES, ModuleKeyOf } from '../feature-modules';
 
@@ -58,6 +58,24 @@ export const AliasCandidate = z.object({
 /** ok with the entry's id, or the problems the normaliser's check (or a duplicate key) raised. */
 export const LexiconSave = z.object({ ok: z.boolean(), id: z.string().optional(), problems: z.array(z.string()).optional() });
 
+/** billing/admin-billing.ts Paid30: real paid orders of the last 30 days, their sum, and test-mode ones apart. */
+const Paid30 = z.object({ count: z.number().int(), sum: z.number().int(), test: z.number().int() });
+
+export const OrgBilling = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** The account was closed (waiting for deletion). */
+  closedAt: IsoDateTime.nullable(),
+  state: z.enum(['trial', 'firm', 'expired']),
+  tier: z.enum(PLAN_TIERS).nullable(),
+  trialEndsAt: IsoDateTime.nullable(),
+  subscriptionUntil: IsoDateTime.nullable(),
+  lastPaid: z.object({
+    id: z.string(), planId: z.string(), amount: z.number().int(), provider: z.string().nullable(), paidAt: IsoDateTime, testMode: z.boolean(),
+  }).nullable(),
+  last30: Paid30,
+});
+
 export const admin = defineModule('admin', {
   traction: endpoint({
     method: 'GET', path: '/api/admin/traction', auth: 'session', role: 'platformAdmin',
@@ -75,6 +93,13 @@ export const admin = defineModule('admin', {
       leads: z.object({ total: z.number().int(), withFile: z.number().int(), last30Days: z.number().int() }),
     }),
     replaces: ['page:(app)/admin#traction'],
+  }),
+  billing: endpoint({
+    method: 'GET', path: '/api/admin/billing', auth: 'session', role: 'platformAdmin',
+    summary: 'Customer orgs with plan, trial and subscription ends and last paid order; paid orders of the last 30 days (test mode apart)',
+    responds: 'json',
+    response: z.object({ generatedAt: IsoDateTime, last30: Paid30, orgs: z.array(OrgBilling) }),
+    replaces: ['page:(app)/admin/billing'],
   }),
   pipeline: endpoint({
     method: 'GET', path: '/api/admin/pipeline', auth: 'session', role: 'platformAdmin',

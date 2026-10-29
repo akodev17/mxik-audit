@@ -65,7 +65,7 @@ export async function handleClick(f: Fields, config: ClickConfig): Promise<Reply
 
   if (f['action'] === '0') {
     if (order.status === 'paid') return { ...base, ...CLICK_ERRORS.paid };
-    if (order.status === 'cancelled') return { ...base, ...CLICK_ERRORS.cancelled };
+    if (order.status === 'cancelled' || order.status === 'refunded') return { ...base, ...CLICK_ERRORS.cancelled };
     // Refused before Click takes the money: a catalogue already paid, or a tier change the rule forbids.
     if (!(await orderPayable(order))) {
       await cancelOrder(order.id);

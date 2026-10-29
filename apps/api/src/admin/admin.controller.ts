@@ -1,4 +1,4 @@
-// Platform-admin pages: traction, pipeline status and accuracy, the accuracy CSV, the module flags
+// Platform-admin pages: traction, billing, pipeline status and accuracy, the accuracy CSV, the module flags
 // and the learned lexicon. Anyone who is not a platform admin, signed in or not, gets 404 as the
 // pages and the CSV route did: the routes read the session with OptionalSessionGuard and
 // PlatformAdminGuard decides (Route's AccessGuard refuses the platformAdmin role).
@@ -8,6 +8,7 @@ import type { Response } from 'express';
 import { endpoints, type Endpoint } from '@tasnivo/contracts';
 import type { ModuleStates } from '@tasnivo/contracts/feature-modules';
 import { accuracyReport, metricsCsv } from '@tasnivo/domain/accuracy';
+import { billingOverview } from '@tasnivo/domain/billing/admin-billing';
 import { createEntry, decideAlias, lexiconPage, updateEntry } from '@tasnivo/domain/lexicon';
 import { pipelineStatus } from '@tasnivo/domain/pipeline-status';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
@@ -44,6 +45,11 @@ export class AdminController {
   @AdminRoute(e.traction)
   traction() {
     return tractionMetrics();
+  }
+
+  @AdminRoute(e.billing)
+  billing() {
+    return billingOverview();
   }
 
   @AdminRoute(e.pipeline)

@@ -46,7 +46,7 @@ export default async function AdminPage() {
   return (
     <Page
       title={t.adminTitle} hint={t.adminHint} wide
-      actions={<><ButtonLink href="/admin/lexicon" variant="secondary">{ta.lexiconX.title}</ButtonLink><ButtonLink href="/admin/metrics" variant="secondary">{ta.metrics.title}</ButtonLink></>}
+      actions={<><ButtonLink href="/admin/billing" variant="secondary">{ta.setX.adminBilling.title}</ButtonLink><ButtonLink href="/admin/lexicon" variant="secondary">{ta.lexiconX.title}</ButtonLink><ButtonLink href="/admin/metrics" variant="secondary">{ta.metrics.title}</ButtonLink></>}
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

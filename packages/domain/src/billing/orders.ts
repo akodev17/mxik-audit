@@ -20,8 +20,9 @@ export type OrderResult = { ok: true; id: string; amount: number } | { ok: false
 export async function activeSubscription(client: Client, orgId: string, now = new Date()): Promise<ActiveSubscription | null> {
   const org = await client.organization.findUnique({ where: { id: orgId }, select: { subscriptionUntil: true } });
   if (!org?.subscriptionUntil || org.subscriptionUntil <= now) return null;
+  // A refunded order still names the tier: the days a refund leaves are days of that tier (refunds.ts).
   const last = await client.order.findFirst({
-    where: { orgId, status: 'paid', planId: { in: SUBSCRIPTION_IDS } }, orderBy: { paidAt: 'desc' }, select: { planId: true },
+    where: { orgId, status: { in: ['paid', 'refunded'] }, planId: { in: SUBSCRIPTION_IDS } }, orderBy: { paidAt: 'desc' }, select: { planId: true },
   });
   return { tier: (last ? planById(last.planId)?.tier : null) ?? 'firm', until: org.subscriptionUntil };
 }

@@ -15,6 +15,7 @@ export type PlanStatus = {
   /** The subscription tier while state is 'firm' (any paid subscription); null otherwise. */
   tier: Tier | null;
   trialEndsAt: Date | null;
+  /** Whole days (rounded up) until the trial ends ('trial') or the subscription ends ('firm'); null otherwise. */
   daysLeft: number | null;
   limits: Limits;
   usage: Usage;
@@ -42,10 +43,13 @@ export async function usageOf(orgId: string, now = new Date()): Promise<Usage> {
   return { clients, rowsPerMonth: rows, seats: users + invites };
 }
 
-/** The org's latest paid subscription plan (its tier and period); null when it never paid for one. */
+/**
+ * The org's latest paid subscription plan (its tier and period); null when it never paid for one.
+ * A refunded order still counts: the days a refund leaves are days of its tier (billing/refunds.ts).
+ */
 export async function lastSubscription(orgId: string): Promise<Plan | null> {
   const order = await db.order.findFirst({
-    where: { orgId, status: 'paid', planId: { in: SUBSCRIPTION_IDS } },
+    where: { orgId, status: { in: ['paid', 'refunded'] }, planId: { in: SUBSCRIPTION_IDS } },
     orderBy: { paidAt: 'desc' },
     select: { planId: true },
   });
@@ -71,7 +75,9 @@ export async function planStatus(orgId: string, now = new Date()): Promise<PlanS
   // which has the limits the single firm plan had.
   const tier = state === 'firm' ? (await lastSubscription(orgId))?.tier ?? 'firm' : null;
   const active = state === 'unlimited' ? none : tier ? limits[tier] : limits.trial;
-  const daysLeft = state === 'trial' && org?.trialEndsAt ? Math.max(0, Math.ceil((org.trialEndsAt.getTime() - now.getTime()) / 86_400_000)) : null;
+  // Days to the end of the trial, or of the paid subscription (S7: the "ending soon" banner covers both).
+  const end = state === 'trial' ? org?.trialEndsAt : state === 'firm' ? org?.subscriptionUntil : null;
+  const daysLeft = end ? Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86_400_000)) : null;
   const capped = KEYS.filter((k) => active[k] !== null);
   return {
     state,
