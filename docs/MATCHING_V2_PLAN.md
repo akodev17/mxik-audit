@@ -325,3 +325,143 @@ on this key with `RERANK_PROVIDER=off` unless the reranker is the point; the key
 likely spent until 07:00 UTC.
 
 Still open from §7: the paid Gemini key and the scratch databases.
+
+## 9. Real data: pharmacy (session S1 of `docs/REAL_DATA_TEST_PLAN_2026-10-29.md`, 29 Oct 2026)
+
+**The file.** `tmp/real-catalogs/pharm/apteka-2026.xlsx` (main checkout, gitignored): 400 rows of
+the Pharmacy agency's 1 Oct 2026 reference-price register (`ref-prices-2026-10-01.xlsx`, 2,070
+rows), stratified by dosage form and origin (tablets 85, capsules 32, injections 75, infusions
+75, powders 44, and the small strata whole: drops 27, sprays 20, suppositories 18, suspensions
+11, syrups 5, ointments 5, oral solutions 3; 168 Uzbek, 232 foreign). Columns as a pharmacy
+writes them: `Nomi` (the register's "Упаковка ЛП" string verbatim, e.g. "ЭДАРБИ Таблетки 80 мг
+блистеры №28(2x14)"), `Birlik` (упак for "№N" > 1, else dona), `Narx` (limit price in sum + 20%),
+no code column. Built by `build-apteka.mjs` from the register and the classifier dump
+(`dump-data.mjs`), deterministic.
+
+**The key** ("Javob kaliti", the five test files' layout; every row expects MISSING). Per row,
+among live non-base group-030 codes: (1) brand: the register's trade mark equals the classifier
+brand without its "(maker)", folded (®/™/*, case, ё, hyphens, spaces, Latin look-alike letters in
+Cyrillic words; else the first words of the pack string; else both transliterated to Latin,
+"Неуропаин" = "Neuropain"); (2) coarse dosage form; (3) dose: the
+multiset of strengths and volumes (g→mg, mcg→mg, ratios reduced, "40 мг/12,5 мг" = "40 мг + 12,5
+мг"), with fall-back tiers for the same numbers written differently, a code that omits part of
+the dose, or a row that does; (4) pack count "№N" (none = 1); (5) the maker label sharing a word
+with the register's manufacturer; (6) packaging words (блистеры / упаковки контурные ячейковые,
+флаконы / бутылки) and exact text; (7) a code of another registrant with the same brand, dose and
+pack whose text fits the row as well stays as an alternative, since the row names no
+manufacturer (8 rows; the maker-only "strict" key is kept too). Result: 371 rows with a key
+(359 one code, 12 with `|` alternatives), 29 NOT_FOUND: brand absent 11, dose or fill volume
+absent 15 (mostly a 100 ml bottle where the classifier has only 200 ml), pack absent 3. 167
+rows were read by hand against the classifier names (two 1-in-7 samples, every alternative,
+tier and NOT_FOUND row); 6 hand corrections, each with its reason in the script (`OVERRIDES`):
+two register typos ("50 мг/1.25 мг", "50 флаконы"), one classifier typo (ЦЕФЗОСУЛ 2 written
+"100 мг + 1000 мг"), a fill-volume mismatch, a brand field naming two brands ("ЛОРКАР®, ЛОРКАР®
+ФОРТЕ") and a registrant the fold missed ("ГИДРОКСИЭТИЛКРАХМАЛ (ГЭК)").
+
+### Diagnosis (no reranker, main `0ddcc4d`)
+
+Top-1 61.2%, top-5 73.0% on the 371 keyed rows. 123 of the 144 misses were another brand's
+code: the brand is the only rare word of a pharmacy name ("ЭНАМ" is in 8 codes, "таблетки" in
+14,234) and full-text has no IDF, so codes that repeat "раствор для инфузий … флаконы" twice
+(НИРМИКС™, Декарин, СМОФКАБИВЕН®) outranked the brand's own code, which for 96 rows never
+reached the top five. The pack token made it worse: "№100(10x10)" left "100" in the query
+(codes repeating 100 anywhere ranked up) and its "(10x10)" was read as a size, so 9 misses' top
+codes "earned" identifying on 10x10. The rest were siblings of the right brand: another
+strength (micrograms and per cents were not measures: "250 мкг" vs "125 мкг", "0,1%" vs "1%"),
+the box of ten for a row naming one vial, or a sibling without the row's dose.
+
+### Fix (retrieval and ranking, `packages/core`; rules in `docs/scoring.md`)
+
+- **Anchored full-text** (`store.ts byFullText(…, { anchored: true })`): the identifying query
+  plus the row's two-letter words ("RG"), selecting only on words in at most 50 codes, else in
+  under 1,000; numbers never select. Term counts are now cached from 50 codes up.
+- **Brand list**: the anchored hits whose brand the row names (`identifying.ts namesBrandOf`: the
+  brand matches and the code's own part repeats an attribute or a row word) enter fusion as a
+  fourth list.
+- **`otherBrand` −0.10** once such a code exists, for codes of another brand or of a shorter
+  brand inside the named one ("ИРБЕСАН" for "КО-ИРБЕСАН 300"), unless their names carry the
+  named brand ("PEPSI, Pepsi Max"); a brand's one-letter suffix must be in the row ("Ситафор-M").
+- **Pack and strength tokens**: "№28(2x14)" is a pack of 28 with a breakdown, never a size, and
+  the same breakdown is one more attribute; "№N" leaves the lexical query and comes back in the
+  identifying query as a number; "10шт." is a pack; a code's №N > 1 contradicts a row naming no
+  pack; micrograms and per cents are measures (so another strength contradicts); measures in
+  parentheses count only for a kind the name does not state ("1,5 г (1,0г+0,5г)"); a trade mark
+  splits words in full-text as Postgres splits the classifier ("КАРЛОН®ПЛЮС").
+- **`identifyingPreferred`** +0.01 per attribute beyond the first (at most +0.03), so the
+  sibling with the row's dose and pack ranks first.
+- UI: `otherBrand` labels (uz, ru) and a warn tone in the row signals.
+
+### Pharmacy file (no reranker; bench run 7 → run 8 of `docs/bench-results.json`)
+
+| | before | after |
+|---|---|---|
+| top-1, 371 keyed rows | 227 (61.2%) | **356 (96.0%)** |
+| top-1, strict maker key | 224 (60.4%) | **351 (94.6%)** |
+| top-5 | 271 (73.0%) | **364 (98.1%)** |
+| right position (8 digits) | 272 | 367 |
+| findings exactly as keyed (all MISSING) | 400/400 | 400/400 |
+| first suggestion "likely" (≥ 0.75): right / wrong | 189 / 24 | 283 / 7 |
+| NOT_FOUND rows (29): first suggestion "check" / "likely" | 26 / 3 | 26 / 3 |
+
+By stratum after: infusions, sprays, suppositories, drops, syrups, ointments and foreign tablets
+100%; injections 66/69, powders 34/39 (Uzbek powders 7/10), capsules 28/32, Uzbek tablets 28/30. NOT_FOUND: the
+matcher has no "no code fits" answer without a reranker; 26 of the 29 rows where none fits get a
+"check" (low) first suggestion, 3 a "likely" one; a "check" label is not a NOT_FOUND signal on
+its own (73 right answers carry it too: precision 26/107, recall 26/29).
+
+**Misses by class** (the plan's classes; one row, one class; "before" from the automatic
+classifier `classify-misses.mjs` over the stored per-row results):
+
+| class | before | after | after: what is left, fix or reason deferred |
+|---|---|---|---|
+| another brand ranked first (brand not retrieved, or outranked by look-alike codes) | 101 | 3 | ЗЕТАЛИН "250 мг/мл" vs the code's "500 мг/2мл" (concentration, below), ЛИФОТАМ 2 and АПРОТОКС ("10000АТрЕ" glued): one-offs, deferred |
+| … the same, name with ® ™ * | 16 | 1 | "milgamma® N" loses to "МИЛЬГАММА®" (Latin vs Cyrillic sibling brand, text equal to the row); the mark-specific failure (glued "КАРЛОН®ПЛЮС") is fixed |
+| Latin letters in a Cyrillic brand | 5 | 1 | "ФЛУКОНАЗОЛ-RG" not retrieved ("RG" is in 205 codes, the anchor needs under 50); deferred |
+| transliteration: Cyrillic name, Latin brand in the classifier | 1 | 1 | "Юниронтин" is "Unirontin (Unimed)": the row has no Latin token to search with (Неуропаин = "Neuropain" is found by the vectors). Deferred: a transliterated brand query (ю = u) is its own change |
+| dose or volume mismatch, same brand | 12 | 5 | 2 data errors (register "50 флаконы", classifier ЦЕФЗОСУЛ typo); АМБРОКСОЛ "15 мг/мл" vs "15 мг/2 мл": a concentration-aware measure (mg/ml) is its own change, deferred; ТЕКНАЗОЛ (a sibling without the dose wins a tie) and БЛОКФАЗОЛ (vial vs "№1"): ties a reranker decides |
+| pack mismatch, same brand | 6 | 2 | Метронидазол №100 ×2: an INN used as brand by 30+ registrants, the key's code not retrieved; deferred (needs the manufacturer column) |
+| pack tokens "№28(2x14)" read as a size (cross-cutting) | 9 | 0 | fixed |
+| packaging words, same brand | 3 | 2 | СПАРЕКС (3x10) vs (2x15), ФОРСИЛ №50 vs №50(50x1): ties without a reranker |
+| manufacturer / registrant | 8 key rows took alternatives | 0 | the name carries no manufacturer; reading a Производитель column is the real fix (deferred: `guessMapping` and the identifying rule would need it) |
+| brand absent from the classifier | 11 rows, NOT_FOUND | 11 | not a matcher miss; see NOT_FOUND above |
+| **total misses** | **144** | **15** | |
+
+### Through the app (fresh test org, credentials in `tmp/found-catalogs/test-account.txt`)
+
+Sign-in, preview, commit, report on an API (port 4031) started from this branch. Reranker off,
+400 rows: the mapping read Nomi/Birlik/Narx unaided, 400 MISSING, top-1 356/371 (the same rows
+as the harness), 211 s. Reranker on (`gemini-3.1-flash-lite`, free tier, batch 25, wait 5 s, 2
+concurrent, timeout 300 s), 100-row sample `apteka-2026-100.xlsx` (91 keyed): top-1 88 →
+**89**/91; 65 rows reach the high band (≥ 0.9, bulk-acceptable), all 65 right; of the 9 NOT_FOUND
+rows none is in the high band, 3 are "likely"; 8 rows (one batch's tail) fell back to fusion, no
+quota error; 160 s. (The run also caught a key error: "Неуропаин", first keyed as brand absent,
+is the classifier's Latin "Neuropain"; the key now falls back to transliterated brands.)
+
+### No regression elsewhere (no reranker)
+
+Five test files (bench run 5 → run 6): top-1 66/76 → **70/76** (dorixona 12 → 13/16,
+elektronika 13 → 16/17), fix 46/54 → **49/54** (elektronika 6 → 9/10); every finding type's
+precision and recall and the 356/358 exact rows unchanged; no file lost a row.
+
+Eval (`npm run eval -- --label "pharmacy fix" --no-ablate`, run 73 → run 74 of
+`docs/eval-results.json`):
+
+| set (n) | top-1 before → after | top-5 before → after |
+|---|---|---|
+| golden (12) | 10 → 10 | 10 → 10 |
+| real-construction (102) | 85 → 85 | 94 → 94 |
+| real-metal (168) | 90 → 90 | 166 → 166 |
+| real-tnved (49) | 49 → 49 | 49 → 49 |
+| competitor-22 (22) | 17 → 17 | 22 → 22 |
+| synthetic (191) | 178 → 178 | 187 → 187 |
+
+One case moved (synthetic row 2, rank 4 → 3). Two intermediate versions did move sets and were
+changed before landing: the "longer brand" rule cost the cafe file "PEPSI Pepsi Max, 0,5 l"
+(the PEPSI code names Pepsi Max in its attributes: now exempt), and brand matching through the
+position's words ("barcha turdagi") sent two synthetic rows with an injected brand to a Nestle
+juice (now the code's own part must repeat the row).
+
+Tests: `npm test` 2,161 tests, 2,159 pass, 0 fail, 2 skipped (Redis-only); typecheck clean; lint 0
+errors, 1 pre-existing warning (`scripts/lib/xlsx.ts`). New unit tests: pack breakdown, micrograms
+and per cents, the query key, the identifying pack/strength/brand-suffix rules, `namesBrandOf`,
+`otherBrand`, the per-attribute step, anchored selection, the brand list in the pipeline.
