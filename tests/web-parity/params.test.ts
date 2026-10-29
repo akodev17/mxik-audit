@@ -15,7 +15,7 @@ import { MIN_PASSWORD_LENGTH } from '@/app/sign-in/credentials-check';
 describe('dictionary URL', () => {
   it('reads the filter as the domain does', () => {
     assert.deepEqual([...DICT_FILTERS], [...domainDictionary.DICT_FILTERS]);
-    for (const f of [undefined, '', 'all', 'confirmed', 'unverified', 'stale', 'STALE', 'x']) assert.equal(parseDictFilter(f), domainDictionary.parseDictFilter(f));
+    for (const f of [undefined, '', 'all', 'confirmed', 'unverified', 'reconfirm', 'stale', 'STALE', 'x']) assert.equal(parseDictFilter(f), domainDictionary.parseDictFilter(f));
   });
 });
 

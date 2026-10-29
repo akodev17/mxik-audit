@@ -446,6 +446,14 @@ describe('firm dictionary against the barcode', () => {
     assert.equal(r.candidates[0]?.evidence.dictionaryConfirmations, 0);
     assert.equal(r.candidates[0]?.evidence.dictionaryUses, 9);
   });
+
+  it('names the entry in the evidence, and its hold when it waits for a person', async () => {
+    const plain = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop, dictionary: lookup({ id: 'm4', code: GURUCH, uses: 2, kind: 'name', confirmations: 1 }) });
+    assert.equal(plain.candidates[0]?.evidence.dictionaryEntryId, 'm4');
+    assert.equal('dictionaryHold' in (plain.candidates[0]?.evidence ?? {}), false);
+    const held = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop, dictionary: lookup({ id: 'm5', code: GURUCH, uses: 2, kind: 'name', confirmations: 3, hold: 'disputed' }) });
+    assert.equal(held.candidates[0]?.evidence.dictionaryHold, 'disputed');
+  });
 });
 
 class FailingEmbedder implements EmbeddingProvider {

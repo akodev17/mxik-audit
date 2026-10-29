@@ -8,6 +8,7 @@ import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Badge, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
+import { Checkbox } from '@/ui/checkbox';
 import { CodeChip } from '@/ui/code-chip';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Field, Input } from '@/ui/input';
@@ -19,32 +20,41 @@ export type DictRow = {
   uses: number; confirmations: number; source: string | null; stale: boolean; updated: string;
   /** E-mail of whoever last taught or edited the entry; null when it was not recorded. */
   approver: string | null;
+  /** Auto-accept skips the entry until someone confirms it again. */
+  needsReconfirm: boolean;
+  /** Formatted date of the dispute; null = not disputed. */
+  disputed: string | null;
+  disputedBy: string | null;
 };
 
 const CODE = /^\d{17}$/;
 
 /**
- * How much people stood behind an entry: individual confirmations, or only bulk accepts.
- * Entries learned before provenance was recorded have no source and no count: unknown, not "bulk only".
+ * How much people stood behind an entry: individual confirmations, or only bulk accepts, and whether
+ * it waits for a fresh confirmation or was disputed. Entries learned before provenance was recorded
+ * have no source and no count: unknown, not "bulk only".
  */
 function Trust({ row }: { row: DictRow }) {
   const { ta, locale } = useI18n();
   const x = ta.wsX.dict;
   const source = row.source ? x.sourceLabel[row.source] : null;
   let badge: ReactNode;
-  if (row.confirmations > 0) badge = <Badge tone="good" icon={<StatusIcon tone="good" size={12} />}>{x.confirmed(fmtNumber(locale, row.confirmations), row.confirmations)}</Badge>;
+  if (row.disputed) badge = <Badge tone="danger" icon={<StatusIcon tone="danger" size={12} />} title={x.disputedHint}>{x.disputed}</Badge>;
+  else if (row.needsReconfirm) badge = <Badge tone="warn" icon={<StatusIcon tone="warn" size={12} />} title={x.needsReconfirmHint}>{x.needsReconfirm}</Badge>;
+  else if (row.confirmations > 0) badge = <Badge tone="good" icon={<StatusIcon tone="good" size={12} />}>{x.confirmed(fmtNumber(locale, row.confirmations), row.confirmations)}</Badge>;
   else if (row.source === null) badge = <Badge tone="neutral" icon={<StatusIcon tone="neutral" size={12} />} title={x.noHistoryHint}>{x.noHistory}</Badge>;
   else badge = <Badge tone="warn" icon={<StatusIcon tone="warn" size={12} />}>{x.bulkOnly}</Badge>;
   return (
     <span className="flex flex-col items-start gap-0.5">
       {badge}
+      {row.disputed ? <span className="max-w-48 truncate text-micro text-muted">{x.disputedBy(row.disputedBy ?? x.approverUnknown, row.disputed)}</span> : null}
       {source ? <span className="text-micro text-muted">{source}</span> : null}
       <span className="max-w-48 truncate text-micro text-muted" title={row.approver ?? undefined}>{x.colApprover}: {row.approver ?? x.approverUnknown}</span>
     </span>
   );
 }
 
-function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
+function Row({ row, canConfirm, admin }: { row: DictRow; canConfirm: boolean; admin: boolean }) {
   const { ta, locale } = useI18n();
   const x = ta.wsX.dict;
   const queryClient = useQueryClient();
@@ -53,15 +63,17 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
   const refetch = (): void => { void queryClient.invalidateQueries({ queryKey: ['dictionary'] }); };
   const [editing, setEditing] = useState(false);
   const [code, setCode] = useState(row.code);
+  const [confirmNow, setConfirmNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Unconfirmed, waiting for a fresh confirmation, or disputed (which only an admin clears); the server checks it again.
+  const confirmable = !row.stale && (row.confirmations === 0 || row.needsReconfirm || row.disputed !== null) && (admin || (canConfirm && row.disputed === null));
 
-  // Accepting an unverified entry is pointing it at the code it already has: one manual confirmation.
   async function accept(): Promise<void> {
     setBusy(true);
     try {
-      const result = await api.dictionary.update({ entryId: row.id, code: row.code });
+      const result = await api.dictionary.confirm({ entryId: row.id });
       if (!result.ok) { toast(result.error ?? ta.wsX.toast.failed, { tone: 'error' }); return; }
       toast(ta.wsUi.dict.accepted);
       refetch();
@@ -78,7 +90,7 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
     setBusy(true);
     setError(null);
     try {
-      const result = await api.dictionary.update({ entryId: row.id, code: value });
+      const result = await api.dictionary.update({ entryId: row.id, code: value, confirm: confirmNow });
       if (!result.ok) { setError(result.error ?? ta.wsX.toast.failed); return; }
       setEditing(false);
       toast(x.savedToast);
@@ -103,9 +115,10 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
             <Field label={x.codeLabel} hint={x.editHint} error={error ?? undefined}>
               <Input value={code} onChange={(e) => setCode(e.target.value)} maxLength={20} inputMode="numeric" size="compact" className="font-mono" autoFocus />
             </Field>
+            <Checkbox label={x.confirmNow} checked={confirmNow} onChange={(e) => setConfirmNow(e.target.checked)} />
             <span className="flex gap-2">
               <Button type="submit" size="sm" variant="primary" loading={busy}>{x.save}</Button>
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEditing(false); setCode(row.code); setError(null); }}>{x.cancel}</Button>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEditing(false); setCode(row.code); setConfirmNow(false); setError(null); }}>{x.cancel}</Button>
             </span>
           </form>
         ) : (
@@ -121,34 +134,41 @@ function Row({ row, canEdit }: { row: DictRow; canEdit: boolean }) {
       <Td numeric>{fmtNumber(locale, row.uses)}</Td>
       <Td className="whitespace-nowrap text-muted">{row.updated}</Td>
       <Td>
-        {canEdit && !editing ? (
+        {(canConfirm || admin) && !editing ? (
           <span className="flex justify-end gap-1.5">
-            {row.confirmations === 0 && !row.stale ? (
+            {confirmable ? (
               <Button size="compact" variant="secondary" loading={busy} onClick={() => { void accept(); }} aria-label={ta.wsUi.dict.acceptLabel(row.label)} title={ta.wsUi.dict.acceptHint}>
                 {ta.wsUi.dict.accept}
               </Button>
             ) : null}
-            <Button size="compact" variant={row.stale ? 'secondary' : 'ghost'} disabled={busy} onClick={() => setEditing(true)} aria-label={`${x.edit}: ${row.label}`}>{x.edit}</Button>
-            <Button size="compact" variant="danger-ghost" disabled={busy} onClick={() => setConfirmDelete(true)} aria-label={`${x.delete}: ${row.label}`}>{x.delete}</Button>
+            {admin ? (
+              <>
+                <Button size="compact" variant={row.stale ? 'secondary' : 'ghost'} disabled={busy} onClick={() => setEditing(true)} aria-label={`${x.edit}: ${row.label}`}>{x.edit}</Button>
+                <Button size="compact" variant="danger-ghost" disabled={busy} onClick={() => setConfirmDelete(true)} aria-label={`${x.delete}: ${row.label}`}>{x.delete}</Button>
+              </>
+            ) : null}
           </span>
         ) : null}
-        <ConfirmDialog
-          open={confirmDelete} onClose={() => setConfirmDelete(false)}
-          title={x.deleteTitle} description={x.deleteBody} scope={row.label} tone="danger" confirmLabel={x.deleteConfirm}
-          onConfirm={async () => {
-            const result = await api.dictionary.remove({ entryId: row.id }).catch((error: unknown) => ({ ok: false, error: isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed }));
-            if (!result.ok) return { ok: false, error: result.error };
-            toast(x.deleted);
-            refetch();
-            return { ok: true };
-          }}
-        />
+        {admin ? (
+          <ConfirmDialog
+            open={confirmDelete} onClose={() => setConfirmDelete(false)}
+            title={x.deleteTitle} description={x.deleteBody} scope={row.label} tone="danger" confirmLabel={x.deleteConfirm}
+            onConfirm={async () => {
+              const result = await api.dictionary.remove({ entryId: row.id }).catch((error: unknown) => ({ ok: false, error: isNetworkFailure(error) ? ta.wsX.toast.network : ta.wsX.toast.failed }));
+              if (!result.ok) return { ok: false, error: result.error };
+              toast(x.deleted);
+              refetch();
+              return { ok: true };
+            }}
+          />
+        ) : null}
       </Td>
     </tr>
   );
 }
 
-export function DictionaryTable({ rows, canEdit }: { rows: DictRow[]; canEdit: boolean }) {
+/** canConfirm: may confirm an entry's code (writers who see every client); admin: may also edit, delete and clear a dispute. */
+export function DictionaryTable({ rows, canConfirm, admin }: { rows: DictRow[]; canConfirm: boolean; admin: boolean }) {
   const { ta } = useI18n();
   return (
     <Table label={ta.dict.title}>
@@ -158,7 +178,7 @@ export function DictionaryTable({ rows, canEdit }: { rows: DictRow[]; canEdit: b
           <Th numeric>{ta.dict.colUses}</Th><Th>{ta.dict.colUpdated}</Th><Th><span className="sr-only">{ta.wsX.dict.actions}</span></Th>
         </tr>
       </thead>
-      <tbody>{rows.map((r) => <Row key={r.id} row={r} canEdit={canEdit} />)}</tbody>
+      <tbody>{rows.map((r) => <Row key={r.id} row={r} canConfirm={canConfirm} admin={admin} />)}</tbody>
     </Table>
   );
 }

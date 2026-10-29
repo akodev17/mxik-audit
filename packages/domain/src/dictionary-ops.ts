@@ -7,7 +7,7 @@ import { db } from '@tasnivo/db';
 import { isAdminRole } from './access.js';
 import { codeDetails } from './code-details.js';
 import type { Actor } from './decisions.js';
-import { editMapping, mayUseDictionary, removeMapping } from './dictionary.js';
+import { confirmMapping, editMapping, mayUseDictionary, removeMapping } from './dictionary.js';
 import { acceptDictionaryButton } from './dictionary-button.js';
 import { approverEmails, dictionaryCounts, dictionaryWhere, parseDictFilter, retiredEntryCodes, type DictFilter } from './dictionary-review.js';
 import type { ManyOutcome } from './workspace-ops.js';
@@ -19,6 +19,10 @@ export const DICT_PAGE = 100;
 export type DictEntry = {
   id: string; kind: string; label: string; unit: string | null; code: string; codeName: string | null;
   uses: number; confirmations: number; source: string | null; stale: boolean; updatedAt: Date; approver: string | null;
+  /** Waiting for a fresh confirmation before auto-accept trusts it again. */
+  needsReconfirm: boolean;
+  /** When a reviewer rejected or reported wrong a suggestion from it, and who (e-mail, same org); null = not disputed. */
+  disputedAt: Date | null; disputedBy: string | null;
 };
 
 export type DictionaryPage = {
@@ -34,7 +38,7 @@ export type DictionaryPage = {
   page: number;
 };
 
-const NO_COUNTS: Record<DictFilter, number> = { all: 0, confirmed: 0, unverified: 0, stale: 0 };
+const NO_COUNTS: Record<DictFilter, number> = { all: 0, confirmed: 0, unverified: 0, reconfirm: 0, stale: 0 };
 
 /** One page of entries, searched and filtered, most used first. */
 export async function dictionaryPage(
@@ -56,13 +60,14 @@ export async function dictionaryPage(
   ]);
   const [details, approvers] = await Promise.all([
     codeDetails(entries.map((e) => e.code), locale),
-    approverEmails(user.orgId, entries.map((e) => e.updatedBy ?? e.createdBy)),
+    approverEmails(user.orgId, entries.flatMap((e) => [e.updatedBy ?? e.createdBy, e.disputedBy])),
   ]);
   const rows: DictEntry[] = entries.map((e) => ({
     id: e.id, kind: e.kind, label: e.label, unit: e.unit, code: e.code, codeName: details.get(e.code)?.name ?? null,
     uses: e.uses, confirmations: e.confirmations, source: e.source,
     approver: approvers.get(e.updatedBy ?? e.createdBy ?? '') ?? null,
     stale: e.staleAt !== null || details.get(e.code)?.live === false, updatedAt: e.updatedAt,
+    needsReconfirm: e.needsReconfirm, disputedAt: e.disputedAt, disputedBy: e.disputedBy ? approvers.get(e.disputedBy) ?? null : null,
   }));
   return { rows, counts, total, pageSize: DICT_PAGE, available: true, q, filter, page };
 }
@@ -77,13 +82,24 @@ export type EditResult = { ok: boolean; error?: string };
 
 const CODE = /^\d{17}$/;
 
-/** Points an entry at another code; only a live classifier code is taken, as one confirmation. */
-export async function updateDictionaryEntry(user: Actor, id: string, code: string, locale: Locale): Promise<EditResult> {
+/**
+ * An admin points an entry at another code; only a live classifier code is taken. It needs a fresh
+ * confirmation unless `confirmNow` (the admin vouches for it: one confirmation).
+ */
+export async function updateDictionaryEntry(user: Actor, id: string, code: string, locale: Locale, confirmNow = false): Promise<EditResult> {
   const { t, ta } = i18nFor(locale);
   if (!CODE.test(code)) return { ok: false, error: ta.wsX.dict.codeFormat };
-  const result = await editMapping(user, id, code);
+  const result = await editMapping(user, id, code, confirmNow);
   if (!result.ok) return { ok: false, error: result.code === 'not_in_classifier' ? ta.msg.codeNotInClassifier : t.errorGeneric };
   return { ok: true };
+}
+
+/** "Tasdiqlash": the entry's code is right as it is; a disputed entry needs an admin. */
+export async function confirmDictionaryEntry(user: Actor, id: string, locale: Locale): Promise<EditResult> {
+  const { t, ta } = i18nFor(locale);
+  const result = await confirmMapping(user, id);
+  if (result.ok) return { ok: true };
+  return { ok: false, error: result.code === 'not_in_classifier' ? ta.msg.codeNotInClassifier : result.code === 'forbidden' ? ta.wsX.dict.disputedAdminOnly : t.errorGeneric };
 }
 
 export async function deleteDictionaryEntry(user: Actor, id: string, locale: Locale): Promise<EditResult> {

@@ -170,6 +170,8 @@ function dictionaryCandidate(input: MatchInput, candidate: MxikCandidate, hit: D
       ...evidenceFor({ stage: 'dictionary', productName: input.rawName, rowUnit: input.unit ?? null, candidate }),
       dictionaryUses: hit.uses,
       dictionaryConfirmations: hit.confirmations ?? 0,
+      dictionaryEntryId: hit.id,
+      ...(hit.hold ? { dictionaryHold: hit.hold } : {}),
     },
   };
 }

@@ -32,6 +32,13 @@ describe('rowSignals: dictionary', () => {
     assert.equal(s[0]?.text, uz.matchX.dictionary.legacy);
   });
 
+  it('says when the entry waits for a fresh confirmation or was disputed, whatever its count', () => {
+    const held = signals(evidence({ stage: 'dictionary', dictionaryUses: 4, dictionaryConfirmations: 3, dictionaryHold: 'reconfirm' }));
+    assert.deepEqual([held[0]?.text, held[0]?.tone], [uz.matchX.dictionary.reconfirm, 'warn']);
+    const disputed = signals(evidence({ stage: 'dictionary', dictionaryUses: 4, dictionaryConfirmations: 3, dictionaryHold: 'disputed' }));
+    assert.deepEqual([disputed[0]?.text, disputed[0]?.tone], [uz.matchX.dictionary.disputed, 'warn']);
+  });
+
   it('flags a dictionary entry that disagrees with the barcode', () => {
     const s = signals(evidence({ stage: 'barcode', barcode: true, dictionaryConflict: '01901001003000000' }));
     assert.ok(s.some((x) => x.text === uz.matchX.dictionary.conflict('01901001003000000') && x.tone === 'warn'));

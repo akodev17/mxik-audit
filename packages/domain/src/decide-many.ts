@@ -7,7 +7,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
-import { learnQuietly, snapshotMappings, type Learnable } from './dictionary.js';
+import { learnerOf, learnQuietly, snapshotMappings, type Learnable, type Learner } from './dictionary.js';
+import { disputeEntries } from './dictionary-dispute.js';
 import { batchConflicts } from './effective-code.js';
 
 export type ManyTarget = {
@@ -28,6 +29,10 @@ export type ManyOptions = {
   source: 'bulk' | 'bulk_sure' | 'group' | 'dictionary';
   /** Extra audit payload (mode, filter, threshold). */
   payload?: Record<string, Prisma.InputJsonValue>;
+  /** The decider's e-mail and scope when the caller knows them; read from the user otherwise. */
+  learner?: Learner;
+  /** Rejects only: finding id → the dictionary entry its suggestion came from, disputed with the decision. */
+  disputes?: ReadonlyMap<string, string>;
 };
 
 /** Codes from the list that are live in the classifier now. */
@@ -78,6 +83,7 @@ export async function decideMany(o: ManyOptions, targets: readonly ManyTarget[])
   const accept = o.decision === 'accepted';
   const teaches = accept && o.source !== 'dictionary';
   const ids = ready.map((t) => t.id);
+  const learner = o.learner ?? await learnerOf(o.orgId, o.userId);
   const done = await db.$transaction(async (tx) => {
     // Same queue as recordDecision: lock the rows (in id order, so two batches cannot deadlock),
     // then the sibling check inside the statement sees every decision committed before us.
@@ -103,6 +109,8 @@ export async function decideMany(o: ManyOptions, targets: readonly ManyTarget[])
     const touched = new Set(updated.map((r) => r.id));
     const rows = ready.filter((t) => touched.has(t.id));
     const dictionaryBefore = teaches ? await snapshotMappings(tx, o.orgId, learnable(rows)) : [];
+    const disputes = !accept && o.disputes ? new Map([...o.disputes].filter(([findingId]) => touched.has(findingId))) : new Map<string, string>();
+    const disputed = await disputeEntries(tx, { orgId: o.orgId, userId: o.userId, at: now, via: 'rejected', catalogId: o.catalogId, byFinding: disputes });
     await tx.auditEvent.create({
       data: {
         id: eventId, orgId: o.orgId, actorId: o.userId, createdAt: now,
@@ -112,7 +120,10 @@ export async function decideMany(o: ManyOptions, targets: readonly ManyTarget[])
           catalogId: o.catalogId, source: o.source, count: rows.length, ...o.payload,
           skipped: { ...skipped, raced: ready.length - rows.length },
           findings: rows.map((r) => ({ id: r.id, productName: r.rawName, chosenMxik: accept ? r.code : null })),
+          deciderEmail: learner.email,
+          ...(learner.scoped ? { scoped: true } : {}),
           ...(dictionaryBefore.length > 0 ? { dictionaryBefore } : {}),
+          ...(disputed.length > 0 ? { dictionaryDisputed: disputed } : {}),
         },
       },
     });
@@ -120,6 +131,7 @@ export async function decideMany(o: ManyOptions, targets: readonly ManyTarget[])
   }, { timeout: 120_000 });
 
   if (!done) return { count: 0, eventId: null, ids: [], skipped };
-  if (teaches) await learnQuietly(o.orgId, o.userId, learnable(done), o.source);
+  // A scoped member's group decision is kept, unconfirmed, like their single ones.
+  if (teaches) await learnQuietly(o.orgId, o.userId, learnable(done), o.source, { scoped: learner.scoped });
   return { count: done.length, eventId, ids: done.map((r) => r.id), skipped };
 }

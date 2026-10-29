@@ -5,6 +5,7 @@ import { matchKeyOf, normalizeName, tokenize } from '../normalize/index.js';
 import { resolveUnit } from '../normalize/units.js';
 import { MIN_QUERY_WORD } from './query.js';
 import { RULE_KEYS, type RuleKey } from './rules.js';
+import type { DictionaryHold } from './dictionary.js';
 import type { MatchStage } from './types.js';
 
 export type UnitEvidence = 'match' | 'conflict' | 'unknown' | 'none';
@@ -29,6 +30,10 @@ export type MatchEvidence = {
   dictionaryConfirmations?: number;
   /** The firm dictionary maps this product's name to this other code; the barcode identity was kept. */
   dictionaryConflict?: string;
+  /** The firm_mapping row the suggestion came from, so the drawer can show who confirmed it and when. */
+  dictionaryEntryId?: string;
+  /** The entry needed a fresh confirmation or was reported wrong when the audit read it. */
+  dictionaryHold?: DictionaryHold;
   /** Rule adjustments applied to this code (rules.ts keys). */
   rules?: RuleKey[];
   /** Seller words searched as the classifier's term ("арматура → прокат арматурный"), normalize/synonyms.ts. */
@@ -120,6 +125,8 @@ const UNITS = new Set<UnitEvidence>(['match', 'conflict', 'unknown', 'none']);
 const RULES = new Set<string>(RULE_KEYS);
 
 const isCount = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+const HOLDS = new Set<string>(['reconfirm', 'disputed']);
+const ENTRY_ID = /^[\w-]{1,64}$/;
 
 /** Reads stored evidence back; anything malformed is treated as absent. */
 export function readEvidence(value: unknown): MatchEvidence | null {
@@ -140,6 +147,8 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     ...(isCount(v['dictionaryUses']) ? { dictionaryUses: v['dictionaryUses'] } : {}),
     ...(isCount(v['dictionaryConfirmations']) ? { dictionaryConfirmations: v['dictionaryConfirmations'] } : {}),
     ...(typeof v['dictionaryConflict'] === 'string' && /^\d{17}$/.test(v['dictionaryConflict']) ? { dictionaryConflict: v['dictionaryConflict'] } : {}),
+    ...(typeof v['dictionaryEntryId'] === 'string' && ENTRY_ID.test(v['dictionaryEntryId']) ? { dictionaryEntryId: v['dictionaryEntryId'] } : {}),
+    ...(typeof v['dictionaryHold'] === 'string' && HOLDS.has(v['dictionaryHold']) ? { dictionaryHold: v['dictionaryHold'] as DictionaryHold } : {}),
     ...(rules.length > 0 ? { rules } : {}),
     ...(synonymApplied.length > 0 ? { synonymApplied } : {}),
     ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),

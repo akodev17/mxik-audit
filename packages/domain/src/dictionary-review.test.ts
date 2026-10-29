@@ -13,7 +13,7 @@ describe('dictionary filters (pure)', () => {
   });
 
   it('always scopes the query to the org, whatever the view or the search', () => {
-    for (const f of ['all', 'confirmed', 'unverified', 'stale'] as const) {
+    for (const f of ['all', 'confirmed', 'unverified', 'reconfirm', 'stale'] as const) {
       const where = JSON.stringify(dictionaryWhere('org-1', f, ['123'], 'sut'));
       assert.ok(where.includes('"orgId":"org-1"'), f);
     }
@@ -61,9 +61,9 @@ describe('dictionary review (database)', { skip }, () => {
   });
 
   it('counts each view for the chips', async () => {
-    assert.deepEqual(await dictionaryCounts(a.orgId), { all: 3, confirmed: 1, unverified: 1, stale: 1 });
-    assert.deepEqual(await dictionaryCounts(a.orgId, 'non'), { all: 1, confirmed: 0, unverified: 1, stale: 0 });
-    assert.deepEqual(await dictionaryCounts(b.orgId), { all: 1, confirmed: 1, unverified: 0, stale: 0 });
+    assert.deepEqual(await dictionaryCounts(a.orgId), { all: 3, confirmed: 1, unverified: 1, reconfirm: 0, stale: 1 });
+    assert.deepEqual(await dictionaryCounts(a.orgId, 'non'), { all: 1, confirmed: 0, unverified: 1, reconfirm: 0, stale: 0 });
+    assert.deepEqual(await dictionaryCounts(b.orgId), { all: 1, confirmed: 1, unverified: 0, reconfirm: 0, stale: 0 });
   });
 
   it('names an approver only when they belong to the same org', async () => {

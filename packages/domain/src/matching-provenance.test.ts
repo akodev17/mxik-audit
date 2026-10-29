@@ -15,10 +15,16 @@ import { carryOver } from './versions.js';
 
 const skip = await dbSkipReason();
 
-const dictEvidence = (confirmations: number | null) => ({
+const dictEvidence = (confirmations: number | null, entryId?: string) => ({
   stage: 'dictionary', barcode: false, exactName: false, matchedWords: [], unit: 'none', rerankReason: null, rerankNone: false,
-  dictionaryUses: 5, ...(confirmations === null ? {} : { dictionaryConfirmations: confirmations }),
+  dictionaryUses: 5, ...(confirmations === null ? {} : { dictionaryConfirmations: confirmations }), ...(entryId ? { dictionaryEntryId: entryId } : {}),
 });
+
+/** A dictionary entry as the audit read it; auto-accept checks it again before trusting it. */
+async function makeEntry(orgId: string, code: string, confirmations: number): Promise<string> {
+  const key = `prov-${randomBytes(4).toString('hex')}||1`;
+  return (await db.firmMapping.create({ data: { orgId, kind: 'name', key, label: key, code, confirmations, source: confirmations > 0 ? 'manual' : 'bulk' } })).id;
+}
 
 async function catalogWith(orgId: string, rows: { name: string; unit?: string; mxik?: string | null }[], previousId: string | null = null) {
   const catalog = await db.catalog.create({
@@ -73,7 +79,7 @@ describe('matching provenance (database)', { skip }, () => {
     assert.equal(e?.confirmations, 2, 'an unattributed caller confirms nothing');
 
     const lookup = await loadDictionary(a.orgId);
-    const found = lookup.find({ barcode: null, name: e?.key ?? null, label: '', unit: null });
+    const found = lookup.find({ barcode: null, name: e?.key ?? null, attrs: '', label: '', unit: null });
     assert.equal(found?.confirmations, 2);
     assert.equal(found?.kind, 'name');
 
@@ -87,10 +93,11 @@ describe('matching provenance (database)', { skip }, () => {
   it('auto-accepts only confirmed dictionary matches, as the system, with its own action', async () => {
     const [x = ''] = codes;
     const { catalogId, items } = await catalogWith(a.orgId, [{ name: 'Lugʻat bir' }, { name: 'Lugʻat ikki' }]);
+    const entries = [await makeEntry(a.orgId, x, 2), await makeEntry(a.orgId, x, 0)];
     const [confirmed, bulkOnly] = await Promise.all(items.map((it, i) => db.finding.create({
       data: {
         itemId: it.id, type: 'MISSING', severity: 'high', suggestedMxik: x, confidence: 0.96, alternatives: [], reason: 'test',
-        evidence: dictEvidence(i === 0 ? 2 : 0),
+        evidence: dictEvidence(i === 0 ? 2 : 0, entries[i]),
       },
     })));
 
@@ -118,7 +125,7 @@ describe('matching provenance (database)', { skip }, () => {
     const [x = ''] = codes;
     const { catalogId, items } = await catalogWith(a.orgId, [{ name: `Undo lugʻat ${randomBytes(3).toString('hex')}` }]);
     const finding = await db.finding.create({
-      data: { itemId: items[0]!.id, type: 'MISSING', severity: 'high', suggestedMxik: x, confidence: 0.96, alternatives: [], reason: 'test', evidence: dictEvidence(1) },
+      data: { itemId: items[0]!.id, type: 'MISSING', severity: 'high', suggestedMxik: x, confidence: 0.96, alternatives: [], reason: 'test', evidence: dictEvidence(1, await makeEntry(a.orgId, x, 1)) },
     });
     const auto = await acceptDictionaryMatches({ orgId: a.orgId, userId: a.userId }, catalogId, 'auto');
     assert.equal(auto.count, 1);
@@ -165,7 +172,10 @@ describe('matching provenance (database)', { skip }, () => {
     assert.equal(event?.actorId, null);
     const payload = event?.payload as { triggeredBy: string; findings: { findingId: string; sourceFindingId: string; decidedBy: string }[] };
     assert.equal(payload.triggeredBy, a.userId);
-    assert.deepEqual(payload.findings, [{ findingId: nextFindings[0]!.id, sourceFindingId: prevFindings[0]!.id, decidedBy: decider, decision: 'accepted', chosenMxik: x }]);
+    assert.deepEqual(payload.findings, [{
+      findingId: nextFindings[0]!.id, sourceFindingId: prevFindings[0]!.id, decidedBy: decider, decision: 'accepted', chosenMxik: x,
+      fromCatalogId: prev.catalogId, originalDecidedAt: prevFindings[0]!.decidedAt?.toISOString() ?? null,
+    }]);
   });
 
   it('records the classifier snapshot and how the pipeline ran on the catalogue', async () => {

@@ -5,7 +5,8 @@ import { makeClient } from './firm-test-fixtures.js';
 import { storeDocList } from './docs.js';
 import { storePurchaseList } from './purchases.js';
 import { parseUpload } from './spreadsheet.js';
-import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
+import { dbSkipReason, dropOrgs, liveCodes, makeOrg, type TestActor } from './test-fixtures.js';
+import { findingProvenance } from './finding-provenance.js';
 import { carryOver, compareCandidates, linkPrevious, versionDiff } from './versions.js';
 
 const skip = await dbSkipReason();
@@ -48,6 +49,43 @@ describe('catalogue versions (database)', { skip }, () => {
     await db.catalog.update({ where: { id: first }, data: { status: 'ready' } });
     await carryOver(second, null);
     assert.equal(await previousOf(second), first, 'linked before decisions carry over');
+  });
+
+  it('a carried-over decision keeps the upload and the moment it was first made, across two carry-overs', async () => {
+    const [code = ''] = await liveCodes(1);
+    const decider = (await db.user.create({ data: { orgId: a.orgId, email: `carry-${Date.now()}@test.local`, passwordHash: 'x' } })).id;
+    const finding = async (catalogId: string, decided: Date | null) => {
+      const [item] = await db.catalogItem.findMany({ where: { catalogId }, orderBy: { rowIndex: 'asc' }, take: 1 });
+      return (await db.finding.create({
+        data: {
+          itemId: item!.id, type: 'MISSING', severity: 'high', suggestedMxik: code, confidence: 0.9, alternatives: [], reason: 'test',
+          ...(decided ? { decision: 'accepted', chosenMxik: code, decidedBy: decider, decidedAt: decided, decisionSource: 'manual' } : {}),
+        },
+      })).id;
+    };
+    const first = await catalog('ready', ['Sabzi']);
+    const decidedAt = new Date(Date.UTC(2026, 8, 1, 9, 30));
+    await finding(first, decidedAt);
+    const second = await catalog('ready', ['Sabzi'], first);
+    const inSecond = await finding(second, null);
+    assert.equal(await carryOver(second, null), 1);
+    const once = await db.finding.findUniqueOrThrow({ where: { id: inSecond } });
+    assert.equal(once.carriedFromCatalogId, first);
+    assert.equal(once.originalDecidedAt?.toISOString(), decidedAt.toISOString());
+    assert.notEqual(once.decidedAt?.toISOString(), decidedAt.toISOString(), 'decidedAt is the carry-over time');
+
+    const third = await catalog('ready', ['Sabzi'], second);
+    const inThird = await finding(third, null);
+    assert.equal(await carryOver(third, null), 1);
+    const twice = await db.finding.findUniqueOrThrow({ where: { id: inThird } });
+    assert.equal(twice.carriedFromCatalogId, first, 'still the upload it was first made in');
+    assert.equal(twice.originalDecidedAt?.toISOString(), decidedAt.toISOString());
+    assert.equal(twice.decidedBy, decider);
+
+    const shown = await findingProvenance({ orgId: a.orgId, clientIds: null }, inThird);
+    assert.deepEqual(shown?.carriedFrom, { catalogId: first, filename: (await db.catalog.findUniqueOrThrow({ where: { id: first } })).filename, originalDecidedAt: decidedAt });
+    await db.catalog.delete({ where: { id: first } });
+    assert.equal((await findingProvenance({ orgId: a.orgId, clientIds: null }, inThird))?.carriedFrom?.filename, null, 'a deleted upload is named as such');
   });
 
   it('lists added and removed rows in file order', async () => {

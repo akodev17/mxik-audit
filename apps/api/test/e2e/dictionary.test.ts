@@ -1,5 +1,6 @@
 // The dictionary module through the real app: the page's list (compared with the domain read the
-// web page makes), the accept-all button on a catalogue, edits, deletes and the auto-accept setting;
+// web page makes), the accept-all button on a catalogue, confirmations, admin-only edits and deletes,
+// the auto-accept setting and a finding's provenance;
 // refusals for a viewer, an accountant on the admin setting, another org and a scoped member.
 import '../setup-env';
 import assert from 'node:assert/strict';
@@ -73,28 +74,60 @@ describe('dictionary module (e2e)', { skip }, () => {
     assert.equal((shaped(d.list, (await get('/api/dictionary', stranger)).body) as { total: number }).total, 0);
   });
 
-  it('update: a bad code answers the form message; a live code is one confirmation', async () => {
+  it('update: admins only; a bad code answers the form message; an edit needs a fresh confirmation unless confirmed now', async () => {
     const t = i18nFor('uz');
-    const bad = await as(http().patch(`/api/dictionary/${entries[0]}`), accountant).send({ code: '123' });
+    assert.equal((await as(http().patch(`/api/dictionary/${entries[0]}`), accountant).send({ code: codes[2] })).status, 403);
+    assert.equal((await as(http().patch(`/api/dictionary/${entries[0]}`), viewer).send({ code: codes[1] })).status, 403);
+    const bad = await as(http().patch(`/api/dictionary/${entries[0]}`), admin).send({ code: '123' });
     assert.deepEqual(bad.body, { ok: false, error: t.ta.wsX.dict.codeFormat });
-    const missing = await as(http().patch(`/api/dictionary/${entries[0]}`), accountant).send({ code: '99999999999999999' });
+    const missing = await as(http().patch(`/api/dictionary/${entries[0]}`), admin).send({ code: '99999999999999999' });
     assert.deepEqual(missing.body, { ok: false, error: t.ta.msg.codeNotInClassifier });
-    const ok = await as(http().patch(`/api/dictionary/${entries[0]}`), accountant).send({ code: codes[2] });
+    const ok = await as(http().patch(`/api/dictionary/${entries[0]}`), admin).send({ code: codes[2] });
     assert.deepEqual(shaped(d.update, ok.body), { ok: true });
-    const row = await db.firmMapping.findUniqueOrThrow({ where: { id: entries[0]! } });
-    assert.equal(row.code, codes[2]);
-    assert.equal(row.confirmations, 1);
-    assert.equal(row.source, 'edit');
+    let row = await db.firmMapping.findUniqueOrThrow({ where: { id: entries[0]! } });
+    assert.deepEqual([row.code, row.confirmations, row.needsReconfirm, row.source], [codes[2], 0, true, 'edit']);
+    await as(http().patch(`/api/dictionary/${entries[0]}`), admin).send({ code: codes[2], confirm: true });
+    row = await db.firmMapping.findUniqueOrThrow({ where: { id: entries[0]! } });
+    assert.deepEqual([row.confirmations, row.needsReconfirm], [1, false]);
     const foreign = await as(http().patch(`/api/dictionary/${entries[0]}`), stranger).send({ code: codes[1] });
     assert.deepEqual(foreign.body, { ok: false, error: t.t.errorGeneric });
-    assert.equal((await as(http().patch(`/api/dictionary/${entries[0]}`), viewer).send({ code: codes[1] })).status, 403);
   });
 
-  it('remove: deletes for the org, refuses another org and a viewer', async () => {
+  it('confirm: a writer confirms an entry as it is; a disputed one only an admin; a viewer never', async () => {
+    const t = i18nFor('uz');
+    assert.equal((await as(http().post(`/api/dictionary/${entries[1]}/confirm`), viewer).send()).status, 403);
+    await db.firmMapping.update({ where: { id: entries[1]! }, data: { needsReconfirm: true } });
+    assert.deepEqual(shaped(d.confirm, (await as(http().post(`/api/dictionary/${entries[1]}/confirm`), accountant).send()).body), { ok: true });
+    let row = await db.firmMapping.findUniqueOrThrow({ where: { id: entries[1]! } });
+    assert.deepEqual([row.confirmations, row.needsReconfirm, row.source], [2, false, 'confirm']);
+    await db.firmMapping.update({ where: { id: entries[1]! }, data: { disputedAt: new Date(), disputedBy: accountant.userId } });
+    assert.deepEqual((await as(http().post(`/api/dictionary/${entries[1]}/confirm`), accountant).send()).body, { ok: false, error: t.ta.wsX.dict.disputedAdminOnly });
+    assert.deepEqual((await as(http().post(`/api/dictionary/${entries[1]}/confirm`), admin).send()).body, { ok: true });
+    row = await db.firmMapping.findUniqueOrThrow({ where: { id: entries[1]! } });
+    assert.equal(row.disputedAt, null);
+    assert.equal(bodyOf<Ok>(await as(http().post(`/api/dictionary/${entries[1]}/confirm`), stranger).send()).ok, false);
+  });
+
+  it('remove: admins only, for their own org', async () => {
     assert.equal((await as(http().delete(`/api/dictionary/${entries[2]}`), viewer)).status, 403);
+    assert.equal((await as(http().delete(`/api/dictionary/${entries[2]}`), accountant)).status, 403);
     assert.equal(bodyOf<Ok>(await as(http().delete(`/api/dictionary/${entries[2]}`), stranger)).ok, false);
-    assert.deepEqual((await as(http().delete(`/api/dictionary/${entries[2]}`), accountant)).body, { ok: true });
+    assert.deepEqual((await as(http().delete(`/api/dictionary/${entries[2]}`), admin)).body, { ok: true });
     assert.equal(await db.firmMapping.count({ where: { id: entries[2]! } }), 0);
+  });
+
+  it('provenance: the entry behind a dictionary suggestion for any reader who sees every client; 404 outside', async () => {
+    const { findingIds } = await makeCatalog(admin.orgId, [{ rawName: 'sut 1l', suggestedMxik: codes[2]!, confidence: 0.96 }]);
+    await db.finding.update({ where: { id: findingIds[0]! }, data: { evidence: { stage: 'dictionary', barcode: false, exactName: false, matchedWords: [], unit: 'none', rerankReason: null, rerankNone: false, dictionaryEntryId: entries[0]! } } });
+    const res = await get(`/api/findings/${findingIds[0]}/provenance`, viewer);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const body = shaped(d.provenance, res.body) as { dictionary: { entryId: string; label: string; createdBy: string | null } | null; carriedFrom: unknown };
+    assert.equal(body.dictionary?.entryId, entries[0]);
+    assert.equal(body.dictionary?.label, 'sut 1l');
+    assert.equal(body.dictionary?.createdBy, admin.email);
+    assert.equal(body.carriedFrom, null);
+    assert.equal((await get(`/api/findings/${findingIds[0]}/provenance`, stranger)).status, 404);
+    assert.equal((await get(`/api/findings/${findingIds[0]}/provenance`, scoped)).status, 404, 'a catalogue without a client is not a scoped member\'s');
   });
 
   it('auto-accept: admins only, recorded in the audit log', async () => {

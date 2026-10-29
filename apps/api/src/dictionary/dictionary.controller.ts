@@ -1,14 +1,17 @@
-// The firm dictionary: the /dictionary page's list, the workspace's accept-all button, edits, and
-// the org's auto-accept setting. Thin: the domain (dictionary-ops) decides, as for the server actions.
+// The firm dictionary: the /dictionary page's list, the workspace's accept-all button, confirmations,
+// admin edits, the org's auto-accept setting, and where a row's suggestion or decision came from.
+// Thin: the domain (dictionary-ops, finding-provenance) decides, as for the server actions.
 import { Body, Controller, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { endpoints } from '@tasnivo/contracts';
 import {
-  acceptDictionaryFor, deleteDictionaryEntry, dictionaryPage, setDictionaryAutoAccept, updateDictionaryEntry,
+  acceptDictionaryFor, confirmDictionaryEntry, deleteDictionaryEntry, dictionaryPage, setDictionaryAutoAccept, updateDictionaryEntry,
 } from '@tasnivo/domain/dictionary-ops';
+import { findingProvenance } from '@tasnivo/domain/finding-provenance';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import type { z, ZodTypeAny } from 'zod';
+import { ApiError } from '../http/errors';
 import { Route } from '../http/route';
 import { CurrentUser, Locale } from '../http/decorators';
 import { ZodValidationPipe } from '../http/zod-validation.pipe';
@@ -41,11 +44,23 @@ export class DictionaryController {
     @CurrentUser() user: User, @Locale() locale: LocaleCode,
     @Param(pipe(e.update.params)) p: In<typeof e.update.params>, @Body(pipe(e.update.body)) body: In<typeof e.update.body>,
   ) {
-    return updateDictionaryEntry(user, p.entryId, body.code, locale);
+    return updateDictionaryEntry(user, p.entryId, body.code, locale, body.confirm === true);
+  }
+
+  @Route(e.confirm)
+  confirm(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(pipe(e.confirm.params)) p: In<typeof e.confirm.params>) {
+    return confirmDictionaryEntry(user, p.entryId, locale);
   }
 
   @Route(e.remove)
   remove(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Param(pipe(e.remove.params)) p: In<typeof e.remove.params>) {
     return deleteDictionaryEntry(user, p.entryId, locale);
+  }
+
+  @Route(e.provenance)
+  async provenance(@CurrentUser() user: User, @Param(pipe(e.provenance.params)) p: In<typeof e.provenance.params>) {
+    const found = await findingProvenance(user, p.findingId);
+    if (!found) throw new ApiError(404, 'not_found', 'Not found.');
+    return found;
   }
 }

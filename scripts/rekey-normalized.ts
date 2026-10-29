@@ -3,7 +3,9 @@
 // expansion folds "Труба ВГП 15х2,5" to "truba vodogazoprovodnaya", where the
 // stored key still says "truba vgp". Two stored keys depend on it:
 //
-//   firm_mapping.key (kind 'name')   sortedKey|unit, recomputed from the stored label
+//   firm_mapping.key (kind 'name')   sortedKey|attrsKey|unit, recomputed from the stored label
+//                                    (the S4 re-key itself, with its needs-reconfirm marks, is
+//                                    scripts/rekey-dictionary.ts; run that first)
 //   catalog_item."normalizedName"    matchKey of the row's raw name
 //
 // Group keys are computed on the fly and need nothing. Idempotent: a second run
@@ -12,7 +14,8 @@
 // Run: npm run rekey:normalized [-- --dry-run --org <orgId>]
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { Client } from 'pg';
-import { normalizeName } from '@tasnivo/core/normalize/index';
+import { nameKeyOf } from '@tasnivo/core/match/dictionary';
+import { attrsKey, normalizeName } from '@tasnivo/core/normalize/index';
 
 const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik';
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -20,10 +23,10 @@ const orgArg = process.argv.indexOf('--org');
 const ORG = orgArg >= 0 ? process.argv[orgArg + 1] ?? null : null;
 const BATCH = 2000;
 
-/** The name key dictionaryKeys() builds today, from what the entry stored. */
+/** The name key dictionaryKeys() builds today (sortedKey|attrsKey|unit since S4), from what the entry stored. */
 function nameKey(label: string, unit: string | null): string | null {
-  const sorted = normalizeName(label).sortedKey;
-  return sorted ? `${sorted}|${unit ?? ''}` : null;
+  const normalized = normalizeName(label);
+  return nameKeyOf(normalized.sortedKey, attrsKey(normalized.attrs), unit);
 }
 
 const log = (line: string): void => console.log(line);

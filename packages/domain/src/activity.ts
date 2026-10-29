@@ -25,7 +25,7 @@ export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[
     'onec.connection_saved',
   ],
   classifier: ['classifier.updated'],
-  dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept', 'product.mxik_confirmed', 'product.from_audit', 'product.import_applied'],
+  dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept', 'dictionary.confirmed', 'dictionary.disputed', 'dictionary.code_replaced', 'dictionary.rekeyed', 'product.mxik_confirmed', 'product.from_audit', 'product.import_applied'],
 };
 const KNOWN = Object.values(GROUPS).flat();
 
