@@ -646,16 +646,24 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // no-reranker cap is lifted only for candidates the reranker actually scored,
   // so a failed or skipped call can never push a retrieval-only guess into the
   // bulk-accept band.
-  const pool = fused.map((f) => ({ fused: f, signals: { ...retrievalSignals(f), llm: llmScore.get(f.item.code)?.confidence ?? step.unranked }, rules: rulesOf(f) }));
+  // A verdict may not override what the row states: a code whose dose, volume,
+  // weight or pack contradicts the name (rules.ts statedConflict), or that
+  // carries another brand than the one the row names (otherBrand), keeps its
+  // retrieval score, as if the reranker had left it out of its ranking.
+  const pool = fused.map((f) => {
+    const rules = rulesOf(f);
+    const verdict = rules.statedConflict || rules.keys.includes('otherBrand') ? undefined : llmScore.get(f.item.code);
+    return { fused: f, signals: { ...retrievalSignals(f), llm: verdict?.confidence ?? step.unranked }, rules, verdict };
+  });
   const poolScores = calibratePool(pool.map((p) => ({
-    signals: p.signals, rerankAvailable: llmScore.has(p.fused.item.code), adjustment: p.rules.adjustment, weights: opts.weights,
+    signals: p.signals, rerankAvailable: p.verdict !== undefined, adjustment: p.rules.adjustment, weights: opts.weights,
   })));
   const ranked = pool
     .map((p, i) => ({ ...p, score: poolScores[i] ?? { adjusted: 0, confidence: 0 } }))
     .sort((a, b) => b.score.adjusted - a.score.adjusted);
 
   const scored: ScoredCandidate[] = ranked.map((p, index): ScoredCandidate => {
-    const llm = llmScore.get(p.fused.item.code);
+    const llm = p.verdict;
     const stage = llm ? 'rerank' : 'fusion';
     return {
       candidate: p.fused.item,

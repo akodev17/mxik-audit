@@ -195,6 +195,12 @@ export function identifyingMatch(row: RowIdentity, candidate: IdentifyingCandida
   for (const m of row.measures) {
     const sameKind = theirs.filter((t) => t.kind === m.kind);
     if (sameKind.some((t) => same(t.value, m.value))) attributes.push(m.text);
+    // A strength per volume: the same mg per ml is the attribute; the same mass
+    // under another spelling ("15 мг/мл 2 мл" for "15 мг/2 мл") is compatible
+    // and earns nothing; another mass at another strength contradicts.
+    else if (m.kind === 'concentration') {
+      if (sameKind.length > 0 && !sameKind.some((t) => t.mass !== undefined && m.mass !== undefined && same(t.mass, m.mass))) conflict = true;
+    }
     // Lengths never contradict: a code states a diameter, a wall and a length in millimetres alike.
     else if (sameKind.length > 0 && m.kind !== 'length') conflict = true;
   }

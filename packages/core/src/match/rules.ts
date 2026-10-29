@@ -68,7 +68,7 @@ function materialsIn(tokens: readonly string[]): Set<string> {
 /** Stable names of the rules, stored in match evidence and translated in the UI. */
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
-  'identifyingPreferred', 'otherBrand', 'cateringPreferred', 'cateringOutside', 'strictUnitConflict',
+  'identifyingPreferred', 'otherBrand', 'statedConflict', 'cateringPreferred', 'cateringOutside', 'strictUnitConflict',
   'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial', 'headNounMismatch',
 ] as const;
 
@@ -87,6 +87,8 @@ export type RuleOutcome = {
   identifyingTokens: string[];
   /** identifyingPreferred fired on the brand, not on sizes alone. */
   identifyingBrand: boolean;
+  /** statedConflict fired: the row's own dose, volume, weight or pack contradicts this code of its product. */
+  statedConflict: boolean;
 };
 
 const ADJUSTMENTS: Record<RuleKey, number> = {
@@ -112,6 +114,15 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
    * brand of their own (base codes, unbranded positions) are never judged by it.
    */
   otherBrand: -0.1,
+  /**
+   * The row names this code's product (its brand, or its words) and states a
+   * dose, strength, volume, weight or pack the code contradicts: "СЕМАКС 0,1%"
+   * is not the 1% drops, "ЛАТРИД 100 мг" not the 50 mg tablets. The score is
+   * already without identifyingPreferred; the rule's work is in the pipeline,
+   * where the reranker's verdict may not override what the row states
+   * (2026-10-29: the reranker moved 11 of 400 pharmacy rows onto such codes).
+   */
+  statedConflict: 0,
   /**
    * A food-service row belongs in the catering group (10202), whose menu codes
    * are named by family, not by dish; a foodstuff, seasoning or utensil that
@@ -187,6 +198,12 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     const detail = IDENTIFYING_DETAIL * Math.min(3, Math.max(0, identifying.attributes.length - 1));
     fire('identifyingPreferred', `The name repeats this identifying code's ${identifyingTokens.join(', ')}.`, ADJUSTMENTS.identifyingPreferred + detail);
   }
+  // The row talks about this product (its brand, or shared words) and states a
+  // dose, volume, weight or pack this code does not have.
+  const statedConflict = identifying !== null && identifying.conflict && (identifying.brand !== null || identifying.sharedWords.length > 0);
+  if (statedConflict) {
+    fire('statedConflict', `The row states a dose, volume, weight or pack this code of ${identifying.brand ?? 'the same product'} does not carry.`);
+  }
   const named = ctx.brandNamed ?? [];
   if (named.length > 0 && identifying?.ownBrand && identifying.brandWords.length < named.length
     // "PEPSI, Pepsi Max, ПЭТ бутылка" is the "Pepsi Max" the row names, under a shorter brand field.
@@ -239,7 +256,7 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     }
   }
 
-  return { adjustment, notes, keys, unitConflict, identifyingTokens, identifyingBrand: earned && identifying.brand !== null };
+  return { adjustment, notes, keys, unitConflict, identifyingTokens, identifyingBrand: earned && identifying.brand !== null, statedConflict };
 }
 
 /** The hierarchy path, which is the reranker's strongest disambiguation signal. */

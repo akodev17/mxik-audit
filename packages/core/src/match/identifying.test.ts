@@ -181,6 +181,29 @@ describe('identifying codes: pharmacy packs and strengths', () => {
     assert.equal(earns('СЕМАКС Капли назальные 0,1% 2.5мл флаконы', semax1), false);
   });
 
+  it('a strength per volume is compared per millilitre, whatever the spelling', () => {
+    const perMl = pharma('03004554005059001', 'АМБРОКСОЛ (Dongkwang Pharm)', 'Раствор для инъекций 15 мг/мл 2миллилитр ампулы №10(1x10)', 'Амброксол - R05CB06');
+    const perAmpoule = pharma('03004554005069002', 'АМБРОКСОЛ (Radiks)', 'Раствор для инъекций 15 мг/2 мл 2миллилитр ампулы №10(1x10)', 'Амброксол - R05CB06');
+    const row = rowIdentity('АМБРОКСОЛ Раствор для инъекций 15 мг/мл 2мл ампулы №10(1x10)');
+    assert.deepEqual(identifyingMatch(row, perMl).attributes, ['15 мг/мл', '2мл', '№10', '(1x10)']);
+    assert.equal(identifyingMatch(row, perMl).conflict, false);
+    // "15 мг/2 мл" is the same 15 mg ampoule under the register's other spelling: compatible, but not the row's strength.
+    assert.deepEqual(identifyingMatch(row, perAmpoule).attributes, ['2мл', '№10', '(1x10)']);
+    assert.equal(identifyingMatch(row, perAmpoule).conflict, false);
+    // Another mass at another strength is another ampoule.
+    const double = pharma('03004554005059009', 'АМБРОКСОЛ (Dongkwang Pharm)', 'Раствор для инъекций 30 мг/мл 2миллилитр ампулы №10(1x10)', 'Амброксол - R05CB06');
+    assert.equal(identifyingMatch(row, double).conflict, true);
+    assert.equal(earnsIdentifying(identifyingMatch(row, double)), false);
+    // "500 мг/100 мл" is "5 мг/мл".
+    const total = pharma('03004326008214001', 'ЛЕВАНТА (Jurabek)', 'Раствор для инфузий 500 мг/100 мл 100мл флаконы', 'Левофлоксацин - J01MA12');
+    const m = identifyingMatch(rowIdentity('ЛЕВАНТА Раствор для инфузий 5 мг/мл 100мл флаконы'), total);
+    assert.deepEqual(m.attributes, ['5 мг/мл', '100мл']);
+    assert.equal(m.conflict, false);
+    // The classifier's "50 мг/мл 2 мл" for a 50 mg/2 ml ampoule (row 274 of the pharmacy register) is the same mass.
+    const sloppy = pharma('03004411007088001', 'Дексап (BAYAN MEDICAL)', 'раствор для инъекций 50 мг/мл 2 мл №5', 'Декскетопрофен - M01AE17');
+    assert.equal(identifyingMatch(rowIdentity('Дексап Раствор для инъекций 50 мг/2 мл 2мл ампулы №5(1x5)'), sloppy).conflict, false);
+  });
+
   it('a row that names no pack is not the code\'s box of ten', () => {
     const vial = pharma('03004314001001001', 'ЗИДИМБИОТИК (Tenamyd Pharmaceutical)', 'Порошок для приготовления инъекционного раствора 1000 мг флаконы', 'Цефтазидим - J01DD02');
     const box = pharma('03004314001001002', 'ЗИДИМБИОТИК (Tenamyd Pharmaceutical)', 'Порошок для приготовления инъекционного раствора 1000 мг флаконы №10(10x1)', 'Цефтазидим - J01DD02');

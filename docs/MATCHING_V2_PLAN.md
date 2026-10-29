@@ -708,3 +708,54 @@ aliases → PipelineOptions.aliases → one more RRF list ("alias") + pool slots
   group was added) and no per-group context words (`GROUP_CONTEXT`) from the database yet.
 - Alias approval checks that the code is live but not that the name still retrieves it; the check
   script is the guard for that.
+
+## 12. Strengths per volume, and what a reranker verdict may not override (29 Oct 2026, main)
+
+Follow-up to §9's deferred items, measured on the pharmacy file (`apteka-2026.xlsx`, 371 keyed
+rows) through the bench (reranker off) and through the app on the test organisation with the
+Gemini reranker on (verdicts served from the cache, so no new calls).
+
+**What was wrong.** (1) "15 мг/мл" and "15 мг/2 мл" were read as a 15 mg weight each, so the two
+Амброксол ampoules tied and the wrong registrant won; "250 мг/ мл" (space after the slash) the
+same. (2) The reranker's order overrode retrieval on 11 of 400 rows where the rules had already
+found that the chosen code contradicts the row's own dose, pack or volume (СЕМАКС 1% for 0,1%,
+ЛАТРИД 50 мг for 100 мг, МУПИРОБАН 15 г for 10 г, Сорбитол-SEEM 200 мл for 100 мл, ТОРВАЗИН 10+10
+for 20+10) or carries another brand than the one the row names (Реосорблактол for РЕМПАР,
+ГЛИЦЕТАМ for Акита, МАПРОФЕН for ФЛУРБИФЕН).
+
+**What changed.**
+- `normalize/noise.ts measuresIn`: a new measure kind `concentration`, read whole before the other
+  kinds ("15 мг/мл", "15 мг/2 мл", "500 мг/100 мл", "50 мкг/мл"), in mg per ml, with the mass as
+  written kept on the measure. `identifying.ts`: the same mg per ml is an attribute; the same mass
+  under another spelling is compatible and earns nothing (the register and the classifier both write
+  "50 мг/мл 2 мл" for the 50 mg/2 ml Дексап ampoule, row 274); another mass at another strength
+  contradicts. "/доза" and "/г" are untouched.
+- `rules.ts statedConflict` (adjustment 0): the row talks about this product (brand, or shared
+  words) and states a dose, strength, volume, weight or pack the code does not have. Shown in the UI
+  as a red signal.
+- `pipeline.ts`: for a candidate with `statedConflict` or `otherBrand` the reranker's verdict is
+  ignored (the candidate keeps its retrieval score, as if left out of the ranking), so a verdict
+  cannot move a row onto a wrong neighbour or another brand. The reranker still decides between
+  compatible codes.
+
+**Numbers** (pharmacy 371 keyed rows; five files `tmp/found-catalogs`; eval sets):
+
+| | before | after |
+|---|---|---|
+| pharmacy, bench, reranker off, top-1 | 356 | **357** |
+| pharmacy, app, Gemini reranker on, top-1 | 354 | **359** (96.8%) |
+| pharmacy rows with exactly the expected findings | 400/400 | 400/400 |
+| five files top-1 / fix / exact rows | 70/76, 49/54, 356/358 | 70/76, 49/54, 356/358 |
+| golden, construction, metal, tnved, xarid, competitor-22, synthetic top-1 | 10, 86, 93, 49, 72, 17, 179 | unchanged |
+
+App run before → after by row: fixed 89 ТОРВАЗИН, 163 РЕМПАР, 181 Милап, 230 СЕМАКС, 265
+ФЛУРБИФЕН, 286 Акита, 314 МУПИРОБАН, 358 Латрид, 368 Сорбитол-SEEM; newly missed 115 Метронидазол
+(a generic with many registrants, §9) and 306 ЛИФОТАМ, where the brand block now keeps a verdict
+that had happened to be right. Remaining 12 misses: two classifier entries for one package
+(ФОРСИЛ, ТЕКНАЗОЛ, АПРИД, Актесол), Latin↔Cyrillic brand (Юниронтин), generics (Метронидазол ×2),
+Амброксол (both registrants compatible, the reranker picks the other), Асиброкс, Апротокс,
+ФЛУКОНАЗОЛ-RG (the brandless Remedy Group code outranks the "-RG" brand), ЛИФОТАМ.
+
+Tests: `normalize/noise.test.ts` (concentrations), `identifying.test.ts` (per-ml comparison and the
+sloppy spelling), `rules.test.ts` (statedConflict), `pipeline.test.ts` (a verdict may not override a
+stated dose nor move a named brand onto another brand).

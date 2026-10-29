@@ -174,4 +174,17 @@ describe('pharmacy packs and strengths', () => {
     assert.deepEqual(measuresIn('Капли 0,1% 2.5мл').map((m) => [m.kind, m.value]), [['volume', 2.5], ['percent', 0.1]]);
     assert.deepEqual(measuresIn('Гель 1.25 % 60г').map((m) => [m.kind, m.value]), [['weight', 60], ['percent', 1.25]]);
   });
+
+  it('measuresIn reads a strength per volume as one concentration in mg per ml, apart from the vial', () => {
+    assert.deepEqual(measuresIn('Раствор 15 мг/мл 2мл ампулы').map((m) => [m.kind, m.value]), [['concentration', 15], ['volume', 2]]);
+    assert.deepEqual(measuresIn('Раствор 15 мг/2 мл 2миллилитр').map((m) => [m.kind, m.value]), [['concentration', 7.5], ['volume', 2]]);
+    // "500 мг/100 мл" and "5 мг/мл" are one strength.
+    assert.deepEqual(measuresIn('Раствор для инфузий 500 мг/100 мл 100мл').map((m) => [m.kind, m.value]), [['concentration', 5], ['volume', 100]]);
+    assert.deepEqual(measuresIn('Раствор для инфузий 5мг/мл 100мл').map((m) => [m.kind, m.value]), [['concentration', 5], ['volume', 100]]);
+    assert.deepEqual(measuresIn('Раствор 50 мкг/мл 2мл').map((m) => [m.kind, m.value]), [['concentration', 0.05], ['volume', 2]]);
+    assert.deepEqual(measuresIn('Капли 0,05 мг/мл + 5 мг/мл 2.5мл').map((m) => [m.kind, m.value]), [['concentration', 0.05], ['concentration', 5], ['volume', 2.5]]);
+    // Per dose or per gram is not a concentration per volume: read as before.
+    assert.deepEqual(measuresIn('Aэрозоль 250 мкг/доза').map((m) => [m.kind, m.value]), [['weight', 0.00025]]);
+    assert.equal(measuresIn('Раствор 15 мг/мл 2мл')[0]?.text, '15 мг/мл');
+  });
 });

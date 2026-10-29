@@ -883,6 +883,44 @@ describe('pool codes a stage did not return (2026-10-29, procurement names)', ()
   });
 });
 
+describe('a verdict may not override a stated dose, volume, weight or pack (2026-10-29)', () => {
+  const drops = (code: string, strength: string): MxikCandidate => candidate(code, `semaks kapli nazalnie ${strength} 2.5ml flakoni`, {
+    isMarked: true, brandName: 'СЕМАКС (ИНПЦ "Пептоген")', attributeName: `Капли назальные ${strength} 2.5мл флаконы`,
+    nameRu: `Семакс - N06BX: СЕМАКС (ИНПЦ "Пептоген"), Капли назальные ${strength} 2.5мл флаконы`, subPositionName: 'Семакс - N06BX',
+  });
+  const weak = drops('03004499039001001', '0,1%');
+  const strong = drops('03004499039001003', '1%');
+
+  it('keeps the row\'s strength first although the reranker preferred the other one', async () => {
+    const reranker = new StubReranker([{ code: strong.code, confidence: 0.95, reason: 'the 1% drops' }, { code: weak.code, confidence: 0.4, reason: 'weaker' }]);
+    const r = await matchProduct({ rawName: 'СЕМАКС Капли назальные 0,1% 2.5мл флаконы' }, { store: new FakeStore([weak, strong]), embedder, reranker });
+    assert.equal(r.candidates[0]?.candidate.code, weak.code);
+    const overruled = r.candidates.find((c) => c.candidate.code === strong.code);
+    assert.ok(overruled?.evidence.rules?.includes('statedConflict'));
+    assert.equal(overruled?.evidence.rerankReason, null);
+    assert.equal(overruled?.stage, 'fusion');
+    assert.equal(r.candidates[0]?.stage, 'rerank');
+  });
+
+  it('nor move a named brand onto a code of another brand', async () => {
+    const enam = candidate('03004184002020007', 'enam tabletki 5mg №100', {
+      isMarked: true, brandName: 'ЭНАМ® (Dr.Reddy\'s Laboratories)', attributeName: 'таблетки 5 мг №100', subPositionName: 'Эналаприл - C09AA02',
+      nameRu: 'Эналаприл - C09AA02: ЭНАМ® (Dr.Reddy\'s Laboratories), таблетки 5 мг №100',
+    });
+    // Retrieved by the vector stage (the fake store returns every row there); its own words name no ЭНАМ.
+    const nimid = candidate('03004419018001006', 'nimid tabletki 100mg №100', {
+      isMarked: true, brandName: 'НИМИД® (Kusum Healthcare)', attributeName: 'Таблетки 100 мг блистеры №100(10x10)', subPositionName: 'Нимесулид - M01AX17',
+      nameRu: 'Нимесулид - M01AX17: НИМИД® (Kusum Healthcare), Таблетки 100 мг блистеры №100(10x10)',
+    });
+    const reranker = new StubReranker([{ code: nimid.code, confidence: 0.95, reason: 'looks right' }, { code: enam.code, confidence: 0.4, reason: 'weaker' }]);
+    const r = await matchProduct({ rawName: 'ЭНАМ® Таблетки 5мг №100' }, { store: new FakeStore([nimid, enam]), embedder, reranker });
+    assert.equal(r.candidates[0]?.candidate.code, enam.code);
+    const other = r.candidates.find((c) => c.candidate.code === nimid.code);
+    assert.ok(other?.evidence.rules?.includes('otherBrand'));
+    assert.equal(other?.evidence.rerankReason, null);
+  });
+});
+
 describe('global aliases (plan §11)', () => {
   const aliases = aliasLookup([{ key: aliasKey('Palov 1 porsiya'), code: '01901001003002001', orgs: 3, confirmations: 7 }]);
   const opts = { embedder, reranker: noop, disabledStages: new Set(['vector'] as const), aliases };

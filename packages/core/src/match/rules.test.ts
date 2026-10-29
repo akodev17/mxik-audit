@@ -274,6 +274,32 @@ describe('identifyingPreferred', () => {
   });
 });
 
+describe('statedConflict', () => {
+  const drops = (code: string, attributeName: string): MxikCandidate => candidate({
+    code, subPositionCode: code.slice(0, 11), isBase: false, isMarked: true, brandName: 'СЕМАКС (ИНПЦ "Пептоген")', attributeName,
+    positionName: 'Другие психостимуляторы и ноотропные препараты', subPositionName: 'Семакс - N06BX',
+    nameRu: `Семакс - N06BX: СЕМАКС (ИНПЦ "Пептоген"), ${attributeName}`, nameUz: `Semaks - N06BX: СЕМАКС (ИНПЦ "Пептоген"), ${attributeName}`,
+  });
+  const weak = drops('03004499039001001', 'Капли назальные 0,1% 2.5мл флаконы');
+  const strong = drops('03004499039001003', 'Капли назальные 1% 2.5мл флаконы');
+  const rules = (c: MxikCandidate, row: string) => applyRules({ candidate: c, rowUnit: null, catering: false, identity: rowIdentity(row) });
+
+  it('fires on the code of the same product whose strength the row contradicts, and only there', () => {
+    const row = 'СЕМАКС Капли назальные 0,1% 2.5мл флаконы';
+    const wrong = rules(strong, row);
+    assert.ok(wrong.keys.includes('statedConflict'));
+    assert.equal(wrong.statedConflict, true);
+    assert.equal(wrong.adjustment - rules(weak, row).adjustment < 0, true, 'the right strength keeps identifyingPreferred');
+    assert.ok(!rules(weak, row).keys.includes('statedConflict'));
+    assert.equal(rules(weak, row).statedConflict, false);
+  });
+
+  it('stays silent for a code of another product, which the row says nothing about', () => {
+    const other = candidate({ code: '03004419018001006', subPositionCode: '03004419018', isBase: false, isMarked: true, brandName: 'НИМИД® (Kusum Healthcare)', attributeName: 'Таблетки 100 мг блистеры №100(10x10)', nameRu: 'Нимесулид - M01AX17: НИМИД® (Kusum Healthcare), Таблетки 100 мг блистеры №100(10x10)', nameUz: 'Nimesulid - M01AX17: НИМИД® (Kusum Healthcare), Таблетки 100 мг блистеры №100(10x10)' });
+    assert.ok(!rules(other, 'СЕМАКС Капли назальные 0,1% 2.5мл флаконы').keys.includes('statedConflict'));
+  });
+});
+
 describe('otherBrand', () => {
   const drug = (code: string, brandName: string, attributeName: string): MxikCandidate => candidate({
     code, subPositionCode: code.slice(0, 11), isBase: false, isMarked: true, brandName, attributeName,
