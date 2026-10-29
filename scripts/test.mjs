@@ -5,7 +5,7 @@
 // recognise the .ts extension when given a directory. So we walk for the files
 // ourselves and hand tsx an explicit list.
 import { spawn } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Every workspace plus eval/ and tests/ (cross-workspace tests). Run from the repo root: tests read
@@ -38,9 +38,23 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+// Each test file runs in its own process with its own Prisma pool (2 × cores + 1 connections by
+// default), so a 16-core machine can exceed the dev Postgres's 100 connections. Cap the pool for
+// the run when neither the environment nor .env sets connection_limit.
+function databaseUrl() {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  if (!existsSync('.env')) return undefined;
+  const line = readFileSync('.env', 'utf8').split(/\r?\n/).find((l) => /^DATABASE_URL=/.test(l));
+  return line ? line.slice('DATABASE_URL='.length).trim().replace(/^["']|["']$/g, '') : undefined;
+}
+const url = databaseUrl();
+const env = { ...process.env };
+if (url && !/connection_limit=/.test(url)) env.DATABASE_URL = `${url}${url.includes('?') ? '&' : '?'}connection_limit=4`;
+
 console.log(`running ${files.length} test files`);
 const tsx = join('node_modules', 'tsx', 'dist', 'cli.mjs');
 const child = spawn(process.execPath, [tsx, '--test', ...files, ...process.argv.slice(2)], {
   stdio: 'inherit',
+  env,
 });
 child.on('exit', (code, signal) => process.exit(signal ? 1 : (code ?? 1)));

@@ -25,7 +25,7 @@ export type ClientSeed = {
 
 export type OrgSeed = {
   viewId: string; entryId: string; memberId: string; inviteId: string; apiKeyId: string; telegramLinkId: string;
-  sessionId: string; bankFormatId: string; orgRuleId: string; notificationId: string;
+  sessionId: string; bankFormatId: string; orgRuleId: string; notificationId: string; orderId: string;
   marks: string[];
 };
 
@@ -136,10 +136,11 @@ export async function seedOrg(orgId: string, owner: { userId: string }, label: s
   const format = await db.bankFormat.create({ data: { orgId, name: `${label} format ${t}`, headerSignature: `${label}-${t}`, columnMap: {}, conventions: {}, createdBy: owner.userId } });
   const orgRule = await db.bankRule.create({ data: { orgId, clientId: null, kind: 'purpose_contains', value: `${label}-umumiy-${t}`, operation: 'other_out', createdBy: owner.userId } });
   const note = await db.notification.create({ data: { orgId, kind: 'catalog.ready', title: `${label} xabar ${t}`, body: `${label} xabar matni ${t}` } });
+  const order = await db.order.create({ data: { orgId, orgName: `${label} MChJ ${t}`, planId: 'firm_monthly', amount: 1_800_000, provider: 'click', status: 'paid', paidAt: new Date() } });
   return {
     viewId: view.id, entryId: entry.id, memberId: member.id, inviteId: invite.id, apiKeyId: key.id, telegramLinkId: link.id, sessionId,
-    bankFormatId: format.id, orgRuleId: orgRule.id, notificationId: note.id,
-    marks: [view.name, entry.label, memberEmail, inviteEmail, key.name, `${label}_tg_${t}`, format.name, `${label}-umumiy-${t}`, note.title],
+    bankFormatId: format.id, orgRuleId: orgRule.id, notificationId: note.id, orderId: order.id,
+    marks: [view.name, entry.label, memberEmail, inviteEmail, key.name, `${label}_tg_${t}`, format.name, `${label}-umumiy-${t}`, note.title, `${label} MChJ ${t}`],
   };
 }
 

@@ -66,6 +66,7 @@ export const OUTSIDE: Record<string, string> = {
   'auth.telegramUnbind': 'the caller\'s own Telegram (noDemo guard covered)',
   'auth.endOtherSessions': 'the caller\'s own sessions (noDemo guard covered)',
   'account.setTour': 'the caller\'s own tour flag',
+  'account.setOnboardingHidden': 'the caller\'s own checklist flag',
   'notifications.markAllRead': 'the caller\'s own read marks',
 };
 
@@ -75,6 +76,7 @@ export const ANY_ROLE_WRITES: Record<string, string> = {
   'auth.twoFactorStart': 'own account', 'auth.twoFactorFinish': 'own account', 'auth.twoFactorOff': 'own account',
   'auth.recoveryCodes': 'own account', 'auth.endSession': 'own sessions', 'auth.endOtherSessions': 'own sessions',
   'auth.telegramBindStart': 'own account', 'auth.telegramUnbind': 'own account', 'account.setTour': 'own preference',
+  'account.setOnboardingHidden': 'own preference',
   'clients.switchActive': 'which visible client the session shows', 'notifications.markRead': 'own read marks',
   'notifications.markAllRead': 'own read marks', 'team.joinWithAccount': 'own account joins a firm',
   'onec.prepare': 'a dry run that builds the file in memory and stores nothing',
@@ -101,7 +103,7 @@ export function paramValue(e: Endpoint, name: string, s: Seeds): string | undefi
   const plain: Record<string, string> = {
     clientId: c.clientId, catalogId: c.catalogId, findingId: c.findingId, eventId: c.flagEventId, taskId: c.reminderTaskId,
     exportId: c.exportId, ruleId: c.bankRuleId, productId: c.productId, viewId: o.viewId, userId: o.memberId,
-    inviteId: o.inviteId, keyId: o.apiKeyId, sid: o.sessionId, formatId: o.bankFormatId,
+    inviteId: o.inviteId, keyId: o.apiKeyId, sid: o.sessionId, formatId: o.bankFormatId, orderId: o.orderId,
   };
   return plain[name];
 }
