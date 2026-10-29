@@ -2,7 +2,7 @@
 // size, dosage, volume, pack or model it names is the one an identifying code
 // carries. Pure. The token rules are written down in docs/scoring.md
 // ("Identifying codes"); keep the two in step.
-import { matchKeyOf, measuresIn, normalizeName, tokenize, type Measure } from '../normalize/index.js';
+import { matchKeyOf, measuresIn, normalizeName, tokenize, withoutPackBreakdown, type Measure } from '../normalize/index.js';
 import type { MxikCandidate } from './types.js';
 
 /** What a row name says that could pick one identifying code. Built once per row. */
@@ -12,8 +12,10 @@ export type RowIdentity = {
   measures: readonly Measure[];
   /** "15х2,5" as written, and its segments: each segment lists its slash alternatives ("3,0/3,5"). */
   size: { text: string; segments: readonly (readonly number[])[] } | null;
-  /** "N12", "№12": the count in a pack. */
+  /** "N12", "№12", "10шт.": the count in a pack. */
   pack: { text: string; count: number } | null;
+  /** "2x14" of "№28(2x14)": how the pack is laid out (blisters of 14). */
+  breakdown: string | null;
   /** Letters glued to digits that are not a measure, a pack or a size ("15itl6", "m400"). */
   models: readonly string[];
 };
@@ -27,8 +29,14 @@ export type IdentifyingMatch = {
   conflict: boolean;
   /** The code names a brand of its own (brandWords). */
   ownBrand: boolean;
+  /** Folded words and suffix letters of the matched brand ("КО-ИРБЕСАН": ko, irbesan); empty when the brand does not match. */
+  brandWords: string[];
+  /** Folded words of the code's own names, for asking whether it repeats another code's brand. */
+  ownWords: ReadonlySet<string>;
   /** Row words of three letters or more, besides the brand, that the code's names also carry. */
   sharedWords: string[];
+  /** The shared words found in the code's own part (brand and attributes), not only in its position's name. */
+  leafWords: string[];
   /** How many such row words there are. */
   contentWords: number;
 };
@@ -55,10 +63,16 @@ const RE_PACK = /(?<![\p{L}\d])(?:n|№|no)\s*\.?\s*(\d+)(?![\p{L}\d])/iu;
 const hasDigit = (s: string): boolean => /\d/.test(s);
 const letters = (s: string): number => (s.match(/\p{L}/gu) ?? []).length;
 
+// "10шт. блистеры": a pack count written as pieces, when no "№" says it.
+const RE_PIECES = /(?<![\p{L}\d])(\d+)\s*(?:шт|sht)\.?(?![\p{L}])/iu;
+const RE_BREAKDOWN = /№\s*\d+\s*\(\s*(\d+\s*[xх×*]\s*\d+)\s*\)/iu;
+
 function packOf(text: string): { text: string; count: number } | null {
-  const m = RE_PACK.exec(text);
+  const m = RE_PACK.exec(text) ?? RE_PIECES.exec(text);
   return m?.[1] ? { text: m[0].trim(), count: Number(m[1]) } : null;
 }
+
+const breakdownOf = (text: string): string | null => RE_BREAKDOWN.exec(text)?.[1]?.replace(/\s+/g, '').replace(/[х×*]/gi, 'x').toLowerCase() ?? null;
 
 function sizeOf(dimensions: string | null): RowIdentity['size'] {
   if (!dimensions) return null;
@@ -80,13 +94,25 @@ function modelsIn(text: string): string[] {
   return gluedIn(text).filter((t) => measuresIn(t).length === 0 && packOf(t) === null);
 }
 
+/**
+ * The row's measures, those in parentheses only for a kind the rest of the name
+ * does not state: "1,5 г (1,0г+0,5г)" is a 1.5 g vial whose parts are spelled
+ * out, and no code repeats the parts.
+ */
+function outerMeasures(text: string): Measure[] {
+  const outer = measuresIn(text.replace(/\([^()]*\)/g, ' '));
+  const inner = measuresIn((text.match(/\([^()]*\)/g) ?? []).join(' '));
+  return [...outer, ...inner.filter((m) => !outer.some((o) => o.kind === m.kind))];
+}
+
 export function rowIdentity(rawName: string): RowIdentity {
   const normalized = normalizeName(rawName);
   return {
     words: new Set([...tokenize(matchKeyOf(rawName)), ...normalized.tokens].map(brandFold).filter(Boolean)),
-    measures: measuresIn(normalized.display),
+    measures: outerMeasures(normalized.display),
     size: sizeOf(normalized.attrs.dimensions),
     pack: packOf(normalized.display),
+    breakdown: breakdownOf(normalized.display),
     models: modelsIn(normalized.display),
   };
 }
@@ -104,9 +130,11 @@ export function rowIdentity(rawName: string): RowIdentity {
 export function identifyingQuery(lexicalText: string, rawName: string): string | null {
   const words = lexicalText.split(/\s+/).filter(Boolean);
   const spelled = words.filter((w) => w.includes('k')).map((w) => w.replace(/k/g, 'c'));
-  const glued = gluedIn(rawName);
-  const parts = tokenize(matchKeyOf(rawName)).flatMap((t) => t.split(/(?<=\d)(?=\p{L})|(?<=\p{L})(?=\d)/u));
-  const numbers = parts.filter((p) => /^\d+$/.test(p));
+  const name = withoutPackBreakdown(rawName);
+  const glued = gluedIn(name);
+  const parts = tokenize(matchKeyOf(name)).flatMap((t) => t.split(/(?<=\d)(?=\p{L})|(?<=\p{L})(?=\d)/u));
+  // The pack count too ("№100"), which the lexical query drops as a bare number.
+  const numbers = [...parts.filter((p) => /^\d+$/.test(p)), ...[...name.matchAll(/№\s*(\d+)/gu)].map((m) => m[1] ?? '')];
   const units = glued.flatMap((t) => t.split(/\d+/)).filter((p) => letters(p) >= 2);
   const extra = [...spelled, ...numbers, ...glued, ...units].filter((t) => !words.includes(t));
   return extra.length === 0 ? null : [...new Set([...words, ...extra])].join(' ');
@@ -138,11 +166,20 @@ export function brandWords(candidate: IdentifyingCandidate): string[] {
     .filter((w) => letters(w) >= 2 && !NO_BRAND.has(w) && !hierarchy.has(w));
 }
 
+/**
+ * Single letters of the brand ("Ситафор-M", "ЛАКОМА-Т"): too short to name a
+ * brand alone, but a code with one is another product than the bare brand.
+ */
+function brandLetters(candidate: IdentifyingCandidate): string[] {
+  return tokenize(matchKeyOf(primaryBrand(candidate.brandName))).map(brandFold).filter((w) => w.length === 1 && letters(w) === 1);
+}
+
 /** Which of the row's identifying tokens this code repeats. Base codes match nothing. */
 export function identifyingMatch(row: RowIdentity, candidate: IdentifyingCandidate): IdentifyingMatch {
-  if (candidate.isBase) return { brand: null, attributes: [], conflict: false, ownBrand: false, sharedWords: [], contentWords: 0 };
+  if (candidate.isBase) return { brand: null, attributes: [], conflict: false, ownBrand: false, brandWords: [], ownWords: new Set(), sharedWords: [], leafWords: [], contentWords: 0 };
   const brand = brandWords(candidate);
-  const brandMatched = brand.length > 0 && brand.every((w) => row.words.has(w));
+  const suffix = brand.length > 0 ? brandLetters(candidate) : [];
+  const brandMatched = brand.length > 0 && [...brand, ...suffix].every((w) => row.words.has(w));
   const ownWords = new Set(tokenize(matchKeyOf(`${candidate.nameUz} ${candidate.nameRu}`)).map(brandFold));
   const content = [...row.words].filter((w) => letters(w) >= 3 && !brand.includes(w));
   const sharedWords = content.filter((w) => ownWords.has(w));
@@ -150,6 +187,7 @@ export function identifyingMatch(row: RowIdentity, candidate: IdentifyingCandida
   const text = [candidate.attributeName ?? '', afterColon(candidate.nameRu), afterColon(candidate.nameUz)].join(' | ');
   const numbers = (text.match(/\d+(?:[.,]\d+)?/g) ?? []).map(num);
   const theirs = measuresIn(text);
+  const leaf = new Set(tokenize(matchKeyOf(text)).map(brandFold));
   const attributes: string[] = [];
   let conflict = false;
 
@@ -160,17 +198,23 @@ export function identifyingMatch(row: RowIdentity, candidate: IdentifyingCandida
     // Lengths never contradict: a code states a diameter, a wall and a length in millimetres alike.
     else if (sameKind.length > 0 && m.kind !== 'length') conflict = true;
   }
+  const theirPack = packOf(text);
   if (row.pack) {
-    const theirPack = packOf(text);
     if (theirPack?.count === row.pack.count) attributes.push(row.pack.text);
     else if (theirPack) conflict = true;
+    if (row.breakdown && [...text.matchAll(/\((\d+\s*[xх×*]\s*\d+)\)/giu)].some((m) => m[1]?.replace(/\s+/g, '').replace(/[х×*]/gi, 'x').toLowerCase() === row.breakdown)) {
+      attributes.push(`(${row.breakdown})`);
+    }
+  } else if (theirPack && theirPack.count > 1) {
+    // A row that names no pack is one piece, a vial or a pack as sold: not the code's box of ten.
+    conflict = true;
   }
   const theirModels = new Set(modelsIn(text));
   for (const model of row.models) if (theirModels.has(model)) attributes.push(model);
 
   return {
     brand: brandMatched ? primaryBrand(candidate.brandName) : null,
-    attributes, conflict, ownBrand: brand.length > 0, sharedWords, contentWords: content.length,
+    attributes, conflict, ownBrand: brand.length > 0, brandWords: brandMatched ? [...brand, ...suffix] : [], ownWords, sharedWords, leafWords: sharedWords.filter((w) => leaf.has(w)), contentWords: content.length,
   };
 }
 
@@ -189,4 +233,15 @@ export function earnsIdentifying(match: IdentifyingMatch): boolean {
   if (match.conflict) return false;
   if (match.brand !== null) return match.attributes.length > 0 || match.sharedWords.length > 0;
   return match.attributes.length > 0 && !match.ownBrand && match.sharedWords.length >= Math.min(2, match.contentWords);
+}
+
+/**
+ * Stricter, for retrieving and ranking by the brand alone (pipeline brand list,
+ * rules.ts otherBrand): the row names the code's brand and the code's own part
+ * repeats an attribute or a word of the row. A word only its position shares
+ * ("(всех видов)") does not count: "NESTLE ELEKTROSAMOKATLAR (barcha turdagi)"
+ * is no Nestle juice.
+ */
+export function namesBrandOf(match: IdentifyingMatch): boolean {
+  return match.brand !== null && !match.conflict && (match.attributes.length > 0 || match.leafWords.length > 0);
 }

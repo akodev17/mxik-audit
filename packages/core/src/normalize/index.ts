@@ -75,7 +75,8 @@ export function normalizeName(input: string): NormalizedName {
   const matchKey = matchKeyOf(core);
   const tokens = tokenize(matchKey);
   const sortedKey = [...tokens].sort().join(' ');
-  const wordTokens = tokens.filter((t) => !/^\d+$/.test(t));
+  // A pack count ("№100") is a number too: it ranks the codes that repeat 100 anywhere.
+  const wordTokens = tokens.filter((t) => !/^№?\d+$/.test(t));
   // Fall back to the full key rather than searching for nothing.
   const queryKey = wordTokens.length > 0 ? wordTokens.join(' ') : matchKey;
   const literalKeys = core === stripped.core ? [] : literalKeysOf(stripped.core);

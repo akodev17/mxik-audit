@@ -5,7 +5,7 @@
 //   2 folded name exact  confidence 0.95
 //   3 lexical (trigram)  |
 //   4 vector (pgvector)  |-> 5 reciprocal rank fusion -> 6 LLM rerank
-import { barcodeIdentity, normalizeName, type BarcodeIdentity } from '../normalize/index.js';
+import { barcodeIdentity, normalizeName, tokenize, type BarcodeIdentity } from '../normalize/index.js';
 import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
@@ -17,7 +17,7 @@ import { headingPrefix, outsideHeading, readTnved } from './tnved.js';
 import { lexicalQuery } from './query.js';
 import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, type RuleOutcome } from './rules.js';
-import { identifyingQuery, rowIdentity } from './identifying.js';
+import { identifyingMatch, identifyingQuery, namesBrandOf, rowIdentity } from './identifying.js';
 import { adjustedScore, bandOf, calibratePool, fullTextToUnit, vectorToUnit, type SignalWeights, type VectorCalibration } from './score.js';
 import type { VectorColumn } from './vector-readiness.js';
 import { embeddingText } from '../embed/text.js';
@@ -360,13 +360,22 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // The numbers and brand spellings normalization strips for retrieval, searched
   // again so an identifying code ("15х2,5", "PANADOL 500mg N12") can be reached at all.
   // `retrieval` is the store limited to the row's TN VED heading when it has one (T4).
-  const identifyingText = off('lexical') || opts.identifyingRetrieval === false ? null : identifyingQuery(lexicalText, input.rawName);
-  const [lexical, fullText, vectorRaw, identifyingHits] = await Promise.all([
+  const identifyingOn = !off('lexical') && opts.identifyingRetrieval !== false;
+  const identifyingText = identifyingOn ? identifyingQuery(lexicalText, input.rawName) : null;
+  // The same words again, selecting on the rare ones only: a brand in a handful
+  // of codes ("ЭНАМ® Таблетки 5мг №100") is otherwise outranked by codes that
+  // repeat the common words ("таблетки", "раствор для инфузий") more often.
+  // Two-letter words come back here, which the lexical query drops: "ФЛУКОНАЗОЛ-RG" is told apart by its "RG".
+  const shortWords = tokenize(normalized.matchKey).filter((w) => /^\p{L}{2}$/u.test(w));
+  const anchoredText = [identifyingText ?? lexicalText, ...shortWords].join(' ').trim();
+  const [lexical, fullText, vectorRaw, identifyingFirst, anchoredHits] = await Promise.all([
     off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'lexical', () => retrieval.byLexical(lexicalText, limits.retrievalLimit)),
     off('lexical') ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => retrieval.byFullText(lexicalText, limits.retrievalLimit)),
     vectorStage,
     identifyingText === null ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => retrieval.byFullText(identifyingText, limits.retrievalLimit)),
+    !identifyingOn || !anchoredText ? Promise.resolve([] as Hit[]) : timed(opts.timer, 'fulltext', () => retrieval.byFullText(anchoredText, limits.retrievalLimit, { anchored: true })),
   ]);
+  const identifyingHits = mergeHits(identifyingFirst, anchoredHits);
   const vector = opts.vectorPerPosition === undefined
     ? vectorRaw
     : diversify(vectorRaw, (h) => h.candidate.subPositionCode, opts.vectorPerPosition);
@@ -381,11 +390,28 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
 
   const productTokens = [...normalized.tokens, ...synonyms.added];
   const identity = opts.identifyingRule === false ? undefined : rowIdentity(input.rawName);
+  /**
+   * The words of this code's brand when the row names and earns it (identifying.ts), else none:
+   * "ЭНАМ® Таблетки 5мг №100" and an ЭНАМ® 5 mg code.
+   */
+  const brandEarnedWords = (candidate: MxikCandidate): string[] => {
+    if (identity === undefined || candidate.isBase) return [];
+    const m = identifyingMatch(identity, candidate);
+    return namesBrandOf(m) ? m.brandWords : [];
+  };
+  const brandEarned = (candidate: MxikCandidate): boolean => brandEarnedWords(candidate).length > 0;
+  // Then the codes of other brands are the wrong product (rules.ts otherBrand); the most specific brand counts.
+  const brandNamed = [...identifyingHits, ...lexical, ...fullText, ...vector]
+    .map((h) => brandEarnedWords(h.candidate))
+    .reduce<string[]>((best, words) => (words.length > best.length ? words : best), []);
+  // The anchored hits of the row's own brand are a retrieval list of their own:
+  // found only there, a brand code would have no fusion rank against codes every list repeats.
+  const brandHits = anchoredHits.filter((h) => brandEarned(h.candidate));
   const ruleCache = new Map<string, RuleOutcome>();
   const rulesOf = (f: { item: MxikCandidate }): RuleOutcome => {
     const cached = ruleCache.get(f.item.code);
     if (cached) return cached;
-    const outcome = applyRules({ candidate: f.item, rowUnit, catering, productTokens, identity });
+    const outcome = applyRules({ candidate: f.item, rowUnit, catering, productTokens, identity, brandNamed });
     ruleCache.set(f.item.code, outcome);
     return outcome;
   };
@@ -408,6 +434,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     { name: 'lexical', items: lexical.map((r) => r.candidate) },
     { name: 'fullText', items: fullText.map((r) => r.candidate) },
     { name: 'vector', items: vector.map((r) => r.candidate), weight: vectorWeight },
+    { name: 'brand', items: brandHits.map((r) => r.candidate) },
   ];
   const fusedAll = reciprocalRankFusion(lists, (c) => c.code);
   // A size alone does not say which heading: "57х3,5" is also a 7305 "other
@@ -536,6 +563,17 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     veto: rerankNone ? { offered: fused.map((f) => f.item.code) } : null,
     tnved: tnvedOutcome,
   };
+}
+
+/** Two hit lists as one, each code once at its better score, best first. */
+export function mergeHits<T extends { candidate: MxikCandidate; score: number }>(a: readonly T[], b: readonly T[]): T[] {
+  if (b.length === 0) return [...a];
+  const best = new Map<string, T>();
+  for (const hit of [...a, ...b]) {
+    const seen = best.get(hit.candidate.code);
+    if (!seen || hit.score > seen.score) best.set(hit.candidate.code, hit);
+  }
+  return [...best.values()].sort((x, y) => y.score - x.score || x.candidate.code.localeCompare(y.candidate.code));
 }
 
 /** Fallback explanation when no reranker supplied one. */

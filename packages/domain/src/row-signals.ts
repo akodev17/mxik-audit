@@ -22,6 +22,7 @@ const RULE_TONE: Record<RuleKey, SignalTone> = {
   identifyingUnmarked: 'warn',
   identifyingUnknownMarking: 'warn',
   identifyingPreferred: 'good',
+  otherBrand: 'warn',
   cateringPreferred: 'good',
   cateringOutside: 'warn',
   strictUnitConflict: 'bad',

@@ -272,3 +272,50 @@ describe('identifyingPreferred', () => {
     assert.deepEqual(r.keys, ['identifyingUnmarked']);
   });
 });
+
+describe('otherBrand', () => {
+  const drug = (code: string, brandName: string, attributeName: string): MxikCandidate => candidate({
+    code, subPositionCode: code.slice(0, 11), isBase: false, isMarked: true, brandName, attributeName,
+    positionName: 'Ингибиторы АПФ', subPositionName: 'Эналаприл - C09AA02',
+    nameRu: `Эналаприл - C09AA02: ${brandName}, ${attributeName}`, nameUz: `Enalapril - C09AA02: ${brandName}, ${attributeName}`,
+  });
+  const enam = drug('03004184002020007', 'ЭНАМ® (Dr.Reddy\'s Laboratories)', 'таблетки 5 мг №100.');
+  const nimid = drug('03004419018001006', 'НИМИД® (Kusum Healthcare)', 'Таблетки 100 мг блистеры №100(10x10)');
+  const row = 'ЭНАМ® Таблетки 5мг блистеры №100(10x10)';
+  const rules = (c: MxikCandidate, brandNamed?: readonly string[]) => applyRules({ candidate: c, rowUnit: null, catering: false, identity: rowIdentity(row), brandNamed });
+
+  it('marks down a code of another brand once the row\'s brand was retrieved', () => {
+    const r = rules(nimid, ['enam']);
+    assert.ok(r.keys.includes('otherBrand'));
+    assert.ok(Math.abs(r.adjustment - (0.03 - 0.1)) < 1e-9);
+    assert.ok(!rules(nimid).keys.includes('otherBrand'));
+    assert.ok(!rules(enam, ['enam']).keys.includes('otherBrand'));
+  });
+
+  it('never judges a code without a brand of its own', () => {
+    const generic = drug('03004184002020099', 'Эналаприл', 'Таблетки блистеры №100(10x10)'); // the brand is a hierarchy word
+    assert.ok(!rules(generic, ['enam']).keys.includes('otherBrand'));
+  });
+
+  it('marks down the shorter brand inside a longer one the row names', () => {
+    const irbesan = drug('03004187003001001', 'ИРБЕСАН (Nobel Pharmsanoat)', 'таблетки покрытые оболочкой 300 мг №28(4x7)');
+    const r = applyRules({ candidate: irbesan, rowUnit: null, catering: false, identity: rowIdentity('КО-ИРБЕСАН 300 Таблетки покрытые оболочкой 300 мг №28(4x7)'), brandNamed: ['ko', 'irbesan'] });
+    assert.ok(r.keys.includes('identifyingPreferred'));
+    assert.ok(r.keys.includes('otherBrand'));
+  });
+
+  it('keeps a code whose own names carry the longer brand under a shorter brand field', () => {
+    const pepsi = candidate({
+      code: '02202002001039044', subPositionCode: '02202002001', isBase: false, isMarked: true, brandName: 'PEPSI', attributeName: 'Pepsi Max, ПЭТ бутылка 0,5 л',
+      nameRu: 'Безалкогольные напитки: PEPSI, Pepsi Max, ПЭТ бутылка 0,5 л', nameUz: 'Alkogolsiz ichimliklar: PEPSI, Pepsi Max, PET butilka 0,5 l',
+    });
+    const r = applyRules({ candidate: pepsi, rowUnit: null, catering: false, identity: rowIdentity('PEPSI Pepsi Max, 0,5 l'), brandNamed: ['pepsi', 'maks'] });
+    assert.ok(!r.keys.includes('otherBrand'));
+  });
+
+  it('identifyingPreferred counts each further attribute the code repeats', () => {
+    const withDose = rules(enam);
+    assert.deepEqual(withDose.identifyingTokens, ['ЭНАМ®', '5мг', '№100']);
+    assert.ok(Math.abs(withDose.adjustment - (0.03 + 0.08 + 0.01)) < 1e-9);
+  });
+});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { brandFold, brandWords, earnsIdentifying, identifyingMatch, identifyingQuery, rowIdentity } from './identifying.js';
+import { brandFold, brandWords, earnsIdentifying, identifyingMatch, identifyingQuery, namesBrandOf, rowIdentity } from './identifying.js';
 import type { MxikCandidate } from './types.js';
 
 function code(overrides: Partial<MxikCandidate>): MxikCandidate {
@@ -146,5 +146,82 @@ describe('identifyingQuery', () => {
 
   it('is null when it would add nothing', () => {
     assert.equal(identifyingQuery('guruch botqasi', "Guruch bo'tqasi"), null);
+  });
+});
+
+// Pharmacy rows from the 2026-10 reference-price register (docs/MATCHING_V2_PLAN.md §9).
+const pharma = (code_: string, brandName: string, attributeName: string, sub = 'Метронидазол - P01AB01'): MxikCandidate => code({
+  code: code_, isMarked: true, brandName, attributeName, subPositionName: sub,
+  nameRu: `${sub}: ${brandName}, ${attributeName}`, nameUz: `${sub}: ${brandName}, ${attributeName}`,
+});
+
+describe('identifying codes: pharmacy packs and strengths', () => {
+  it('a pack breakdown "№100(10x10)" is no 10x10 size', () => {
+    const generic = pharma('03004332001056002', 'Метронидазол (Samarkand England Ecomedical)', 'Таблетки блистеры №100(10x10)');
+    const row = rowIdentity('ЭНАМ® Таблетки 5мг блистеры №100(10x10)');
+    assert.equal(row.size, null);
+    assert.equal(row.breakdown, '10x10');
+    // The pack and its layout, never a "10x10" size that any code with two tens would repeat.
+    assert.deepEqual(identifyingMatch(row, generic).attributes, ['№100', '(10x10)']);
+  });
+
+  it('the same breakdown is an attribute of its own', () => {
+    const blister = pharma('03004337002001006', 'СПАРЕКС® (Канонфарма продакшн)', 'Капсулы 200 мг блистеры №30(3x10)', 'Мебеверин - A03AA04');
+    const strip = pharma('03004337002001007', 'СПАРЕКС® (Канонфарма продакшн)', 'Капсулы 200 мг блистеры №30(2x15)', 'Мебеверин - A03AA04');
+    const row = rowIdentity('СПАРЕКС® Капсулы 200 мг блистеры №30(3x10)');
+    assert.deepEqual(identifyingMatch(row, blister).attributes, ['200 мг', '№30', '(3x10)']);
+    assert.deepEqual(identifyingMatch(row, strip).attributes, ['200 мг', '№30']);
+  });
+
+  it('another strength in micrograms or per cent contradicts the code', () => {
+    const selefly125 = pharma('03004532004006002', 'СЕЛЕФЛУ (Jewim Pharmaceutical (Shandong))', 'Aэрозоль для ингаляций 125 мкг/доза 60доза ингалятор', 'Флутиказон - R03BA05');
+    assert.equal(earns('СЕЛЕФЛУ Aэрозоль для ингаляций 250 мкг/доза 60доза ингалятор', selefly125), false);
+    assert.equal(earns('СЕЛЕФЛУ Aэрозоль для ингаляций 125 мкг/доза 60доза ингалятор', selefly125), true);
+    const semax1 = pharma('03004499001001001', 'СЕМАКС (ИНПЦ "Пептоген")', 'Капли назальные 1% 2.5мл флаконы', 'Семакс - N06BX');
+    assert.equal(earns('СЕМАКС Капли назальные 0,1% 2.5мл флаконы', semax1), false);
+  });
+
+  it('a row that names no pack is not the code\'s box of ten', () => {
+    const vial = pharma('03004314001001001', 'ЗИДИМБИОТИК (Tenamyd Pharmaceutical)', 'Порошок для приготовления инъекционного раствора 1000 мг флаконы', 'Цефтазидим - J01DD02');
+    const box = pharma('03004314001001002', 'ЗИДИМБИОТИК (Tenamyd Pharmaceutical)', 'Порошок для приготовления инъекционного раствора 1000 мг флаконы №10(10x1)', 'Цефтазидим - J01DD02');
+    const row = 'ЗИДИМБИОТИК Порошок для приготовления инъекционного раствора 1000 мг флаконы';
+    assert.equal(earns(row, vial), true);
+    assert.equal(earns(row, box), false);
+  });
+
+  it('reads "10шт." as a pack count', () => {
+    assert.deepEqual(rowIdentity('Лосавин® 100 Таблетки 100 мг 10шт. блистеры').pack, { text: '10шт.', count: 10 });
+  });
+
+  it('measures in parentheses spell out the parts only when the name states no total', () => {
+    const santal = pharma('03004314018037001', 'Сантал (ИП ООО АТМ SANITA PHARMA)', 'порошок для приготовления инъекционного раствора 1,5 г № 1', 'Цефоперазон и сульбактам - J01DD62');
+    assert.equal(earns('Сантал Порошок для приготовления инъекционного раствора 1,5 г (1,0г+0,5г) флаконы', santal), true);
+    assert.deepEqual(rowIdentity('Таблетки (500 мг)').measures.map((m) => m.value), [0.5]);
+  });
+
+  it('a brand with a suffix letter is another product than the bare brand', () => {
+    const plain = pharma('03004339001001001', 'Ситафор (ИП ООО Novugen Pharma)', 'Таблетки покрытые оболочкой 100 мг блистеры №30(3x10)', 'Ситаглиптин - A10BH01');
+    const metformin = pharma('03004339001002001', 'Ситафор-M (ИП ООО Novugen Pharma)', 'Таблетки покрытые оболочкой 50 мг + 850 мг №28(2x14)', 'Ситаглиптин и метформин - A10BD07');
+    const row = rowIdentity('Ситафор® Таблетки покрытые оболочкой 100 мг №30(3x10)');
+    assert.equal(identifyingMatch(row, plain).brand, 'Ситафор');
+    assert.deepEqual(identifyingMatch(row, plain).brandWords, ['sitafor']);
+    assert.equal(identifyingMatch(row, metformin).brand, null);
+    assert.deepEqual(identifyingMatch(rowIdentity('Ситафор-M Таблетки 50 мг + 850 мг'), metformin).brandWords, ['sitafor', 'm']);
+  });
+
+  it('namesBrandOf wants the code\'s own part to repeat the row, not just its position', () => {
+    const juice = code({
+      code: '02009001006053002', isMarked: true, brandName: 'Nestle', attributeName: 'Multifrukt, Tetra pak 1 l',
+      nameUz: 'Meva va sabzavot sharbatlari (barcha turdagi): Nestle, Multifrukt, Tetra pak 1 l',
+      nameRu: 'Фруктовые и овощные соки (всех видов): Nestle, Мультифрукт, Тетра пак 1 л',
+    });
+    const scooter = identifyingMatch(rowIdentity('NESTLE ELEKTROSAMOKATLAR (BARCHA TURDAGI)'), juice);
+    assert.equal(earnsIdentifying(scooter), true); // the position shares "barcha turdagi"
+    assert.equal(namesBrandOf(scooter), false);
+    assert.equal(namesBrandOf(identifyingMatch(rowIdentity('Nestle Multifrukt 1 l'), juice)), true);
+  });
+
+  it('identifyingQuery keeps the pack count and drops the breakdown', () => {
+    assert.equal(identifyingQuery('enam tabletki blisteri', 'ЭНАМ® Таблетки 5мг блистеры №100(10x10)'), 'enam tabletki blisteri tabletci 5 100 5mg mg');
   });
 });

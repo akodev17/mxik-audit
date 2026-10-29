@@ -172,8 +172,15 @@ export const FULLTEXT_RANK_WEIGHTS = [0.0125, 0.025, 0.05, 0.1] as const;
 
 /** GIN index on "searchVectorWeighted"; built last by the fill scripts, so its validity means "filled". */
 export const WEIGHTED_INDEX = 'mxik_code_search_vector_weighted_idx';
-/** Floor for the cached term counts; any useful cutoff sits above it. */
-const TERM_STATS_FLOOR = 1000;
+/** Floor for the cached term counts (~11k terms); any useful cutoff sits above it. */
+const TERM_STATS_FLOOR = 50;
+/**
+ * Anchored full-text (byFullText): the words in at most ANCHOR_DOCS codes
+ * select ("ЭНАМ" is in 8, "суппозитории" in hundreds), else those in fewer than
+ * ANCHOR_MAX_DOCS ("метронидазол", 301). Cut at the stats floor, which counts nothing below it.
+ */
+const ANCHOR_DOCS = TERM_STATS_FLOOR;
+const ANCHOR_MAX_DOCS = 1000;
 /** Per pool and column: how many live rows contain each frequent full-text term. */
 const termStats = new WeakMap<Pool, Map<string, Promise<Map<string, number>>>>();
 /** Per pool: whether the weighted column is filled and indexed. */
@@ -391,14 +398,29 @@ export class PostgresCandidateStore implements CandidateStore {
    * whose position says "горячекатаный" (plan §3.1). The words that hit only
    * the hierarchy come back for the evidence.
    */
-  async byFullText(query: string, limit: number): Promise<FullTextHit[]> {
-    const terms = query.split(/\s+/).filter(Boolean);
+  async byFullText(query: string, limit: number, opts: { anchored?: boolean } = {}): Promise<FullTextHit[]> {
+    // A trade mark separates words as Postgres reads the classifier: "КАРЛОН®ПЛЮС" is indexed as karlon, plyus.
+    const terms = query.split(/[\s®™©]+/).filter(Boolean);
     if (terms.length === 0) return [];
     // OR the terms so a partial cover still retrieves; ranking sorts it out.
     const words = terms.map((t) => t.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()).filter(Boolean);
     if (words.length === 0) return [];
     const column = await this.fullTextSource();
     const weights = column === 'searchVector' ? '' : this.fullTextSelectWeights;
+    if (opts.anchored) {
+      // Only the rare words (a brand: "ЭНАМ" is in 8 codes, "таблетки" in 14k)
+      // select, so a code sharing just that word is found however many codes
+      // repeat the name's common words more often. Numbers never anchor.
+      const stats = await loadTermStats(this.pool, column, weights);
+      const named = words.filter((w) => !/^\d+$/.test(w));
+      for (const cutoff of [ANCHOR_DOCS, ANCHOR_MAX_DOCS - 1]) {
+        const anchors = named.filter((w) => (stats.get(w) ?? 0) <= cutoff);
+        // The rarest words may be no word of the classifier at all (a typo, a spelling variant): then the next tier.
+        const hits = anchors.length === 0 ? [] : await this.fullTextQuery(words, anchors, limit, column);
+        if (hits.length > 0) return hits;
+      }
+      return [];
+    }
     const selecting = await this.selectingTerms(words, column, weights);
     const hits = await this.fullTextQuery(words, selecting, limit, column);
     // Within a heading the classifier-wide rare words may not occur at all

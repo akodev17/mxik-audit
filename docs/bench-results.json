@@ -2753,6 +2753,1746 @@
           }
         }
       }
+    },
+    {
+      "label": "five files baseline, main 0ddcc4d core (S1)",
+      "ranAt": "2026-10-29T07:35:08.126Z",
+      "code": "0ddcc4d",
+      "providers": {
+        "embedding": "local:Xenova/multilingual-e5-small#natural-v2",
+        "embeddingSemantic": true,
+        "reranker": "noop (bench:files)",
+        "rerankerAvailable": false,
+        "degraded": [
+          "reranker off (run with --rerank)"
+        ]
+      },
+      "files": {
+        "test-oziq-ovqat-2.xlsx": {
+          "rows": 76,
+          "audited": 75,
+          "byType": {
+            "MISSING": {
+              "expected": 15,
+              "got": 15,
+              "tp": 15,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 9,
+              "got": 9,
+              "tp": 9,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 5,
+              "got": 5,
+              "tp": 5,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 15,
+            "hit": 14,
+            "position": 15,
+            "pct": 93.33333333333333
+          },
+          "fix": {
+            "n": 13,
+            "hit": 13,
+            "position": 13,
+            "pct": 100
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 75,
+          "byKind": {
+            "xatosiz": {
+              "n": 40,
+              "exact": 40
+            },
+            "notoʻgʻri kod": {
+              "n": 7,
+              "exact": 7
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            },
+            "birlik ziddiyati": {
+              "n": 5,
+              "exact": 5
+            },
+            "faqat shtrix-kod": {
+              "n": 7,
+              "exact": 7
+            },
+            "kod yoʻq": {
+              "n": 8,
+              "exact": 8
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "shtrix-kod va kod zid": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 4.324
+        },
+        "test-stroymarket-2.xlsx": {
+          "rows": 73,
+          "audited": 72,
+          "byType": {
+            "MISSING": {
+              "expected": 12,
+              "got": 12,
+              "tp": 12,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 7,
+              "got": 7,
+              "tp": 7,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 9,
+              "got": 9,
+              "tp": 9,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 8,
+              "got": 8,
+              "tp": 8,
+              "precision": 100,
+              "recall": 100
+            },
+            "TNVED_MISMATCH": {
+              "expected": 2,
+              "got": 2,
+              "tp": 2,
+              "precision": 100,
+              "recall": 100
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 12,
+            "hit": 12,
+            "position": 12,
+            "pct": 100
+          },
+          "fix": {
+            "n": 11,
+            "hit": 10,
+            "position": 11,
+            "pct": 90.9090909090909
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 72,
+          "byKind": {
+            "xatosiz": {
+              "n": 32,
+              "exact": 32
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "cheklangan kod": {
+              "n": 8,
+              "exact": 8
+            },
+            "faqat shtrix-kod": {
+              "n": 3,
+              "exact": 3
+            },
+            "kod yoʻq": {
+              "n": 9,
+              "exact": 9
+            },
+            "birlik ziddiyati": {
+              "n": 5,
+              "exact": 5
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "notoʻgʻri kod": {
+              "n": 7,
+              "exact": 7
+            },
+            "ТН ВЭД zid": {
+              "n": 2,
+              "exact": 2
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 11.691
+        },
+        "test-dorixona.xlsx": {
+          "rows": 73,
+          "audited": 72,
+          "byType": {
+            "MISSING": {
+              "expected": 16,
+              "got": 16,
+              "tp": 16,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 6,
+              "got": 6,
+              "tp": 6,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 16,
+            "hit": 12,
+            "position": 14,
+            "pct": 75
+          },
+          "fix": {
+            "n": 10,
+            "hit": 7,
+            "position": 9,
+            "pct": 70
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 72,
+          "byKind": {
+            "xatosiz": {
+              "n": 40,
+              "exact": 40
+            },
+            "birlik ziddiyati": {
+              "n": 4,
+              "exact": 4
+            },
+            "notoʻgʻri kod": {
+              "n": 6,
+              "exact": 6
+            },
+            "faqat shtrix-kod": {
+              "n": 9,
+              "exact": 9
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            },
+            "kod yoʻq": {
+              "n": 7,
+              "exact": 7
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 1.854
+        },
+        "test-elektronika.xlsx": {
+          "rows": 72,
+          "audited": 71,
+          "byType": {
+            "MISSING": {
+              "expected": 17,
+              "got": 17,
+              "tp": 17,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 6,
+              "got": 6,
+              "tp": 6,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 17,
+            "hit": 13,
+            "position": 17,
+            "pct": 76.47058823529412
+          },
+          "fix": {
+            "n": 10,
+            "hit": 6,
+            "position": 10,
+            "pct": 60
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 71,
+          "byKind": {
+            "kod yoʻq": {
+              "n": 9,
+              "exact": 9
+            },
+            "xatosiz": {
+              "n": 38,
+              "exact": 38
+            },
+            "faqat shtrix-kod": {
+              "n": 8,
+              "exact": 8
+            },
+            "birlik ziddiyati": {
+              "n": 4,
+              "exact": 4
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "notoʻgʻri kod": {
+              "n": 6,
+              "exact": 6
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 2.803
+        },
+        "test-umumiy-ovqatlanish.xlsx": {
+          "rows": 69,
+          "audited": 68,
+          "byType": {
+            "MISSING": {
+              "expected": 16,
+              "got": 16,
+              "tp": 16,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 6,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 66.66666666666667
+            },
+            "UNIT_CONFLICT": {
+              "expected": 6,
+              "got": 6,
+              "tp": 6,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 16,
+            "hit": 15,
+            "position": 15,
+            "pct": 93.75
+          },
+          "fix": {
+            "n": 10,
+            "hit": 10,
+            "position": 10,
+            "pct": 100
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 66,
+          "byKind": {
+            "notoʻgʻri kod": {
+              "n": 6,
+              "exact": 4
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "birlik ziddiyati": {
+              "n": 4,
+              "exact": 4
+            },
+            "xatosiz": {
+              "n": 33,
+              "exact": 33
+            },
+            "kod yoʻq": {
+              "n": 11,
+              "exact": 11
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            },
+            "faqat shtrix-kod": {
+              "n": 5,
+              "exact": 5
+            },
+            "xatosiz (porsiya)": {
+              "n": 3,
+              "exact": 3
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 6.375
+        }
+      },
+      "total": {
+        "rows": 363,
+        "audited": 358,
+        "byType": {
+          "MISSING": {
+            "expected": 76,
+            "got": 76,
+            "tp": 76,
+            "precision": 100,
+            "recall": 100
+          },
+          "NOT_FOUND": {
+            "expected": 20,
+            "got": 20,
+            "tp": 20,
+            "precision": 100,
+            "recall": 100
+          },
+          "MISMATCH": {
+            "expected": 34,
+            "got": 32,
+            "tp": 32,
+            "precision": 100,
+            "recall": 94.11764705882354
+          },
+          "UNIT_CONFLICT": {
+            "expected": 28,
+            "got": 28,
+            "tp": 28,
+            "precision": 100,
+            "recall": 100
+          },
+          "RESTRICTED": {
+            "expected": 8,
+            "got": 8,
+            "tp": 8,
+            "precision": 100,
+            "recall": 100
+          },
+          "TNVED_MISMATCH": {
+            "expected": 2,
+            "got": 2,
+            "tp": 2,
+            "precision": 100,
+            "recall": 100
+          }
+        },
+        "unscored": {},
+        "top1": {
+          "n": 76,
+          "hit": 66,
+          "position": 73,
+          "pct": 86.84210526315789
+        },
+        "fix": {
+          "n": 54,
+          "hit": 46,
+          "position": 53,
+          "pct": 85.18518518518519
+        },
+        "imports": {
+          "duplicates": {
+            "expected": 10,
+            "got": 10
+          },
+          "noName": {
+            "expected": 5,
+            "got": 5
+          }
+        },
+        "rowsExact": 356,
+        "byKind": {
+          "xatosiz": {
+            "n": 183,
+            "exact": 183
+          },
+          "notoʻgʻri kod": {
+            "n": 32,
+            "exact": 30
+          },
+          "dublikat": {
+            "n": 10,
+            "exact": 10
+          },
+          "birlik ziddiyati": {
+            "n": 22,
+            "exact": 22
+          },
+          "faqat shtrix-kod": {
+            "n": 32,
+            "exact": 32
+          },
+          "kod yoʻq": {
+            "n": 44,
+            "exact": 44
+          },
+          "bosh nol yoʻqolgan": {
+            "n": 10,
+            "exact": 10
+          },
+          "mavjud boʻlmagan kod": {
+            "n": 10,
+            "exact": 10
+          },
+          "shtrix-kod va kod zid": {
+            "n": 2,
+            "exact": 2
+          },
+          "cheklangan kod": {
+            "n": 8,
+            "exact": 8
+          },
+          "ТН ВЭД zid": {
+            "n": 2,
+            "exact": 2
+          },
+          "xatosiz (porsiya)": {
+            "n": 3,
+            "exact": 3
+          }
+        }
+      }
+    },
+    {
+      "label": "five files, pharmacy fix (S1)",
+      "ranAt": "2026-10-29T08:29:41.270Z",
+      "code": "5ad438a",
+      "providers": {
+        "embedding": "local:Xenova/multilingual-e5-small#natural-v2",
+        "embeddingSemantic": true,
+        "reranker": "noop (bench:files)",
+        "rerankerAvailable": false,
+        "degraded": [
+          "reranker off (run with --rerank)"
+        ]
+      },
+      "files": {
+        "test-oziq-ovqat-2.xlsx": {
+          "rows": 76,
+          "audited": 75,
+          "byType": {
+            "MISSING": {
+              "expected": 15,
+              "got": 15,
+              "tp": 15,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 9,
+              "got": 9,
+              "tp": 9,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 5,
+              "got": 5,
+              "tp": 5,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 15,
+            "hit": 14,
+            "position": 15,
+            "pct": 93.33333333333333
+          },
+          "fix": {
+            "n": 13,
+            "hit": 13,
+            "position": 13,
+            "pct": 100
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 75,
+          "byKind": {
+            "xatosiz": {
+              "n": 40,
+              "exact": 40
+            },
+            "notoʻgʻri kod": {
+              "n": 7,
+              "exact": 7
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            },
+            "birlik ziddiyati": {
+              "n": 5,
+              "exact": 5
+            },
+            "faqat shtrix-kod": {
+              "n": 7,
+              "exact": 7
+            },
+            "kod yoʻq": {
+              "n": 8,
+              "exact": 8
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "shtrix-kod va kod zid": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 5.306
+        },
+        "test-stroymarket-2.xlsx": {
+          "rows": 73,
+          "audited": 72,
+          "byType": {
+            "MISSING": {
+              "expected": 12,
+              "got": 12,
+              "tp": 12,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 7,
+              "got": 7,
+              "tp": 7,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 9,
+              "got": 9,
+              "tp": 9,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 8,
+              "got": 8,
+              "tp": 8,
+              "precision": 100,
+              "recall": 100
+            },
+            "TNVED_MISMATCH": {
+              "expected": 2,
+              "got": 2,
+              "tp": 2,
+              "precision": 100,
+              "recall": 100
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 12,
+            "hit": 12,
+            "position": 12,
+            "pct": 100
+          },
+          "fix": {
+            "n": 11,
+            "hit": 10,
+            "position": 11,
+            "pct": 90.9090909090909
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 72,
+          "byKind": {
+            "xatosiz": {
+              "n": 32,
+              "exact": 32
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "cheklangan kod": {
+              "n": 8,
+              "exact": 8
+            },
+            "faqat shtrix-kod": {
+              "n": 3,
+              "exact": 3
+            },
+            "kod yoʻq": {
+              "n": 9,
+              "exact": 9
+            },
+            "birlik ziddiyati": {
+              "n": 5,
+              "exact": 5
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "notoʻgʻri kod": {
+              "n": 7,
+              "exact": 7
+            },
+            "ТН ВЭД zid": {
+              "n": 2,
+              "exact": 2
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 12.94
+        },
+        "test-dorixona.xlsx": {
+          "rows": 73,
+          "audited": 72,
+          "byType": {
+            "MISSING": {
+              "expected": 16,
+              "got": 16,
+              "tp": 16,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 6,
+              "got": 6,
+              "tp": 6,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 16,
+            "hit": 13,
+            "position": 14,
+            "pct": 81.25
+          },
+          "fix": {
+            "n": 10,
+            "hit": 7,
+            "position": 9,
+            "pct": 70
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 72,
+          "byKind": {
+            "xatosiz": {
+              "n": 40,
+              "exact": 40
+            },
+            "birlik ziddiyati": {
+              "n": 4,
+              "exact": 4
+            },
+            "notoʻgʻri kod": {
+              "n": 6,
+              "exact": 6
+            },
+            "faqat shtrix-kod": {
+              "n": 9,
+              "exact": 9
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            },
+            "kod yoʻq": {
+              "n": 7,
+              "exact": 7
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 4.432
+        },
+        "test-elektronika.xlsx": {
+          "rows": 72,
+          "audited": 71,
+          "byType": {
+            "MISSING": {
+              "expected": 17,
+              "got": 17,
+              "tp": 17,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 6,
+              "got": 6,
+              "tp": 6,
+              "precision": 100,
+              "recall": 100
+            },
+            "UNIT_CONFLICT": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 17,
+            "hit": 16,
+            "position": 17,
+            "pct": 94.11764705882354
+          },
+          "fix": {
+            "n": 10,
+            "hit": 9,
+            "position": 10,
+            "pct": 90
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 71,
+          "byKind": {
+            "kod yoʻq": {
+              "n": 9,
+              "exact": 9
+            },
+            "xatosiz": {
+              "n": 38,
+              "exact": 38
+            },
+            "faqat shtrix-kod": {
+              "n": 8,
+              "exact": 8
+            },
+            "birlik ziddiyati": {
+              "n": 4,
+              "exact": 4
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "notoʻgʻri kod": {
+              "n": 6,
+              "exact": 6
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 4.587
+        },
+        "test-umumiy-ovqatlanish.xlsx": {
+          "rows": 69,
+          "audited": 68,
+          "byType": {
+            "MISSING": {
+              "expected": 16,
+              "got": 16,
+              "tp": 16,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 4,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 100
+            },
+            "MISMATCH": {
+              "expected": 6,
+              "got": 4,
+              "tp": 4,
+              "precision": 100,
+              "recall": 66.66666666666667
+            },
+            "UNIT_CONFLICT": {
+              "expected": 6,
+              "got": 6,
+              "tp": 6,
+              "precision": 100,
+              "recall": 100
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 16,
+            "hit": 15,
+            "position": 15,
+            "pct": 93.75
+          },
+          "fix": {
+            "n": 10,
+            "hit": 10,
+            "position": 10,
+            "pct": 100
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 2,
+              "got": 2
+            },
+            "noName": {
+              "expected": 1,
+              "got": 1
+            }
+          },
+          "rowsExact": 66,
+          "byKind": {
+            "notoʻgʻri kod": {
+              "n": 6,
+              "exact": 4
+            },
+            "bosh nol yoʻqolgan": {
+              "n": 2,
+              "exact": 2
+            },
+            "birlik ziddiyati": {
+              "n": 4,
+              "exact": 4
+            },
+            "xatosiz": {
+              "n": 33,
+              "exact": 33
+            },
+            "kod yoʻq": {
+              "n": 11,
+              "exact": 11
+            },
+            "dublikat": {
+              "n": 2,
+              "exact": 2
+            },
+            "faqat shtrix-kod": {
+              "n": 5,
+              "exact": 5
+            },
+            "xatosiz (porsiya)": {
+              "n": 3,
+              "exact": 3
+            },
+            "mavjud boʻlmagan kod": {
+              "n": 2,
+              "exact": 2
+            }
+          },
+          "seconds": 9.673
+        }
+      },
+      "total": {
+        "rows": 363,
+        "audited": 358,
+        "byType": {
+          "MISSING": {
+            "expected": 76,
+            "got": 76,
+            "tp": 76,
+            "precision": 100,
+            "recall": 100
+          },
+          "NOT_FOUND": {
+            "expected": 20,
+            "got": 20,
+            "tp": 20,
+            "precision": 100,
+            "recall": 100
+          },
+          "MISMATCH": {
+            "expected": 34,
+            "got": 32,
+            "tp": 32,
+            "precision": 100,
+            "recall": 94.11764705882354
+          },
+          "UNIT_CONFLICT": {
+            "expected": 28,
+            "got": 28,
+            "tp": 28,
+            "precision": 100,
+            "recall": 100
+          },
+          "RESTRICTED": {
+            "expected": 8,
+            "got": 8,
+            "tp": 8,
+            "precision": 100,
+            "recall": 100
+          },
+          "TNVED_MISMATCH": {
+            "expected": 2,
+            "got": 2,
+            "tp": 2,
+            "precision": 100,
+            "recall": 100
+          }
+        },
+        "unscored": {},
+        "top1": {
+          "n": 76,
+          "hit": 70,
+          "position": 73,
+          "pct": 92.10526315789474
+        },
+        "fix": {
+          "n": 54,
+          "hit": 49,
+          "position": 53,
+          "pct": 90.74074074074075
+        },
+        "imports": {
+          "duplicates": {
+            "expected": 10,
+            "got": 10
+          },
+          "noName": {
+            "expected": 5,
+            "got": 5
+          }
+        },
+        "rowsExact": 356,
+        "byKind": {
+          "xatosiz": {
+            "n": 183,
+            "exact": 183
+          },
+          "notoʻgʻri kod": {
+            "n": 32,
+            "exact": 30
+          },
+          "dublikat": {
+            "n": 10,
+            "exact": 10
+          },
+          "birlik ziddiyati": {
+            "n": 22,
+            "exact": 22
+          },
+          "faqat shtrix-kod": {
+            "n": 32,
+            "exact": 32
+          },
+          "kod yoʻq": {
+            "n": 44,
+            "exact": 44
+          },
+          "bosh nol yoʻqolgan": {
+            "n": 10,
+            "exact": 10
+          },
+          "mavjud boʻlmagan kod": {
+            "n": 10,
+            "exact": 10
+          },
+          "shtrix-kod va kod zid": {
+            "n": 2,
+            "exact": 2
+          },
+          "cheklangan kod": {
+            "n": 8,
+            "exact": 8
+          },
+          "ТН ВЭД zid": {
+            "n": 2,
+            "exact": 2
+          },
+          "xatosiz (porsiya)": {
+            "n": 3,
+            "exact": 3
+          }
+        }
+      }
+    },
+    {
+      "label": "S1 pharmacy apteka-2026 (400 rows, real register), main 0ddcc4d (before)",
+      "ranAt": "2026-10-29T08:37:54.958Z",
+      "code": "0ddcc4d",
+      "providers": {
+        "embedding": "local:Xenova/multilingual-e5-small#natural-v2",
+        "embeddingSemantic": true,
+        "reranker": "noop (bench:files)",
+        "rerankerAvailable": false,
+        "degraded": [
+          "reranker off (run with --rerank)"
+        ]
+      },
+      "files": {
+        "apteka-2026.xlsx": {
+          "rows": 400,
+          "audited": 400,
+          "byType": {
+            "MISSING": {
+              "expected": 400,
+              "got": 400,
+              "tp": 400,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "UNIT_CONFLICT": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 371,
+            "hit": 227,
+            "position": 272,
+            "pct": 61.18598382749326
+          },
+          "fix": {
+            "n": 0,
+            "hit": 0,
+            "position": 0,
+            "pct": null
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 0,
+              "got": 3
+            },
+            "noName": {
+              "expected": 0,
+              "got": 0
+            }
+          },
+          "rowsExact": 400,
+          "byKind": {
+            "kod yoʻq": {
+              "n": 371,
+              "exact": 371
+            },
+            "kod yoʻq, tasniflagichda yoʻq": {
+              "n": 29,
+              "exact": 29
+            }
+          },
+          "seconds": 60.014
+        }
+      },
+      "total": {
+        "rows": 400,
+        "audited": 400,
+        "byType": {
+          "MISSING": {
+            "expected": 400,
+            "got": 400,
+            "tp": 400,
+            "precision": 100,
+            "recall": 100
+          },
+          "NOT_FOUND": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "MISMATCH": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "UNIT_CONFLICT": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "RESTRICTED": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "TNVED_MISMATCH": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          }
+        },
+        "unscored": {},
+        "top1": {
+          "n": 371,
+          "hit": 227,
+          "position": 272,
+          "pct": 61.18598382749326
+        },
+        "fix": {
+          "n": 0,
+          "hit": 0,
+          "position": 0,
+          "pct": null
+        },
+        "imports": {
+          "duplicates": {
+            "expected": 0,
+            "got": 3
+          },
+          "noName": {
+            "expected": 0,
+            "got": 0
+          }
+        },
+        "rowsExact": 400,
+        "byKind": {
+          "kod yoʻq": {
+            "n": 371,
+            "exact": 371
+          },
+          "kod yoʻq, tasniflagichda yoʻq": {
+            "n": 29,
+            "exact": 29
+          }
+        }
+      }
+    },
+    {
+      "label": "S1 pharmacy apteka-2026 (400 rows, real register), pharmacy fix",
+      "ranAt": "2026-10-29T08:39:38.446Z",
+      "code": "5ad438a",
+      "providers": {
+        "embedding": "local:Xenova/multilingual-e5-small#natural-v2",
+        "embeddingSemantic": true,
+        "reranker": "noop (bench:files)",
+        "rerankerAvailable": false,
+        "degraded": [
+          "reranker off (run with --rerank)"
+        ]
+      },
+      "files": {
+        "apteka-2026.xlsx": {
+          "rows": 400,
+          "audited": 400,
+          "byType": {
+            "MISSING": {
+              "expected": 400,
+              "got": 400,
+              "tp": 400,
+              "precision": 100,
+              "recall": 100
+            },
+            "NOT_FOUND": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "UNIT_CONFLICT": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "RESTRICTED": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            },
+            "TNVED_MISMATCH": {
+              "expected": 0,
+              "got": 0,
+              "tp": 0,
+              "precision": null,
+              "recall": null
+            }
+          },
+          "unscored": {},
+          "top1": {
+            "n": 371,
+            "hit": 356,
+            "position": 367,
+            "pct": 95.95687331536388
+          },
+          "fix": {
+            "n": 0,
+            "hit": 0,
+            "position": 0,
+            "pct": null
+          },
+          "imports": {
+            "duplicates": {
+              "expected": 0,
+              "got": 3
+            },
+            "noName": {
+              "expected": 0,
+              "got": 0
+            }
+          },
+          "rowsExact": 400,
+          "byKind": {
+            "kod yoʻq": {
+              "n": 371,
+              "exact": 371
+            },
+            "kod yoʻq, tasniflagichda yoʻq": {
+              "n": 29,
+              "exact": 29
+            }
+          },
+          "seconds": 101.71
+        }
+      },
+      "total": {
+        "rows": 400,
+        "audited": 400,
+        "byType": {
+          "MISSING": {
+            "expected": 400,
+            "got": 400,
+            "tp": 400,
+            "precision": 100,
+            "recall": 100
+          },
+          "NOT_FOUND": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "MISMATCH": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "UNIT_CONFLICT": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "RESTRICTED": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          },
+          "TNVED_MISMATCH": {
+            "expected": 0,
+            "got": 0,
+            "tp": 0,
+            "precision": null,
+            "recall": null
+          }
+        },
+        "unscored": {},
+        "top1": {
+          "n": 371,
+          "hit": 356,
+          "position": 367,
+          "pct": 95.95687331536388
+        },
+        "fix": {
+          "n": 0,
+          "hit": 0,
+          "position": 0,
+          "pct": null
+        },
+        "imports": {
+          "duplicates": {
+            "expected": 0,
+            "got": 3
+          },
+          "noName": {
+            "expected": 0,
+            "got": 0
+          }
+        },
+        "rowsExact": 400,
+        "byKind": {
+          "kod yoʻq": {
+            "n": 371,
+            "exact": 371
+          },
+          "kod yoʻq, tasniflagichda yoʻq": {
+            "n": 29,
+            "exact": 29
+          }
+        }
+      }
     }
   ]
 }
