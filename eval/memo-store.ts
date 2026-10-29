@@ -49,6 +49,14 @@ export class MemoStore implements CandidateStore {
   byVector(embedding: readonly number[], limit: number, column?: 'uz' | 'ru'): Promise<(Hit & { cosine?: number })[]> {
     return this.once(`v:${limit}:${column ?? ''}:${embedding.join(',')}`, () => this.inner.byVector(embedding, limit, column));
   }
+  cosinesFor(embedding: readonly number[], codes: readonly string[], column?: 'uz' | 'ru'): Promise<Map<string, number>> {
+    if (!this.inner.cosinesFor) return Promise.resolve(new Map<string, number>());
+    return this.once(`vc:${column ?? ''}:${[...codes].sort().join(',')}:${embedding.join(',')}`, () => this.inner.cosinesFor?.(embedding, codes, column) ?? Promise.resolve(new Map<string, number>()));
+  }
+  lexicalFor(query: string, codes: readonly string[]): Promise<Map<string, number>> {
+    if (!this.inner.lexicalFor) return Promise.resolve(new Map<string, number>());
+    return this.once(`lf:${query}:${[...codes].sort().join(',')}`, () => this.inner.lexicalFor?.(query, codes) ?? Promise.resolve(new Map<string, number>()));
+  }
   byCode(code: string): Promise<MxikCandidate | null> {
     return this.once(`c:${code}`, () => this.inner.byCode(code));
   }

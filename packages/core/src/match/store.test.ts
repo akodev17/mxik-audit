@@ -248,6 +248,20 @@ describe('trigram threshold cascade against the database', async () => {
       assert.deepEqual(a.map((h) => [h.candidate.code, h.score]), b.map((h) => [h.candidate.code, h.score]), query);
     }
   });
+
+  it('scores codes by key exactly as the trigram and vector lists do', { skip }, async () => {
+    const store = new PostgresCandidateStore(pool);
+    const hits = await store.byLexical('truba vodogazoprovodnaya', 5);
+    const byKey = await store.lexicalFor('truba vodogazoprovodnaya', hits.map((h) => h.candidate.code));
+    for (const h of hits) assert.ok(Math.abs((byKey.get(h.candidate.code) ?? -1) - h.score) < 1e-6, h.candidate.code);
+    const filled = await pool.query<{ v: string }>('SELECT "embeddingUz"::text AS v FROM mxik_code WHERE "embeddingUz" IS NOT NULL LIMIT 1');
+    const vector = filled.rows[0] ? (JSON.parse(filled.rows[0].v) as number[]) : null;
+    if (!vector) return; // no vectors loaded here
+    const near = await store.byVector(vector, 5, 'uz');
+    const cosines = await store.cosinesFor(vector, near.map((h) => h.candidate.code), 'uz');
+    for (const h of near) assert.ok(Math.abs((cosines.get(h.candidate.code) ?? -1) - (h.cosine ?? 0)) < 1e-6, h.candidate.code);
+    assert.deepEqual(await store.cosinesFor(vector, ['99999999999999999'], 'uz'), new Map());
+  });
 });
 
 /**

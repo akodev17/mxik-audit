@@ -768,3 +768,86 @@ describe('identifying codes and the reranker pool (plan T2)', () => {
     assert.ok(capped.notes.some((n) => n.includes('3 left out over the per-subposition cap')));
   });
 });
+
+describe('pool codes a stage did not return (2026-10-29, procurement names)', () => {
+  const semantic: EmbeddingProvider = { name: 'semantic test', dimensions: 384, semantic: true, embed: (t) => embedder.embed(t) };
+  const PRINTER = candidate('08443001001000000', 'printerlar', { nameRu: 'Принтеры всех видов' });
+  const TONER = candidate('03707001002001001', 'printer toneri: hp', { nameRu: 'Тонер для принтера: HP', brandName: 'HP', isMarked: true });
+  /** The base only the vector list finds; the long leaf only trigram finds; cosines by code on request. */
+  class SplitStore extends FakeStore {
+    asked: string[] = [];
+    override byLexical(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([{ candidate: TONER, score: 1 }]);
+    }
+    override byFullText(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([]);
+    }
+    override byVector(): Promise<{ candidate: MxikCandidate; score: number; cosine?: number }[]> {
+      return Promise.resolve([{ candidate: PRINTER, score: 0.96, cosine: 0.93 }]);
+    }
+    cosinesFor(_e: readonly number[], codes: readonly string[]): Promise<Map<string, number>> {
+      this.asked.push(...codes);
+      return Promise.resolve(new Map(codes.map((c) => [c, 0.8])));
+    }
+  }
+
+  it('scores a lexical-only leaf on its cosine too, so it no longer outranks the code the model put first', async () => {
+    const opts = { embedder: semantic, reranker: noop, headNounRule: false };
+    const filled = await matchProduct({ rawName: 'printer laser' }, { ...opts, store: new SplitStore([PRINTER, TONER]) });
+    assert.equal(filled.candidates[0]?.candidate.code, PRINTER.code);
+    assert.equal(filled.candidates.find((c) => c.candidate.code === TONER.code)?.signals.vector, 0);
+    const off = await matchProduct({ rawName: 'printer laser' }, { ...opts, store: new SplitStore([PRINTER, TONER]), vectorFill: false });
+    assert.equal(off.candidates[0]?.candidate.code, TONER.code);
+    assert.equal(off.candidates.find((c) => c.candidate.code === TONER.code)?.signals.vector, undefined);
+  });
+
+  it('leaves the row own code and a code the row earns without a filled cosine', async () => {
+    const own = new SplitStore([PRINTER, TONER]);
+    await matchProduct({ rawName: 'printer laser', existingMxik: TONER.code }, { store: own, embedder: semantic, reranker: noop });
+    assert.deepEqual(own.asked, []);
+    const earned = new SplitStore([PRINTER, TONER]);
+    await matchProduct({ rawName: 'printer HP' }, { store: earned, embedder: semantic, reranker: noop });
+    assert.deepEqual(earned.asked, [], 'the brand earns the leaf');
+  });
+
+  const BASE = candidate('08536007013000000', 'rele', { nameRu: 'Реле всех видов' });
+  const LEAVES = [
+    candidate('08536007013000611', 'rele vremeni po-415', { nameRu: 'Реле всех видов, Реле времени PO-415' }),
+    candidate('08536007013000060', 'rele puskatel', { nameRu: 'Реле всех видов: Пускатель электромагнитный' }),
+  ];
+  const GLASS = candidate('07020999029000000', 'himoya oynasi', { nameRu: 'Защитное стекло для сотовых телефонов' });
+  /** Retrieval returns the leaves and another product, never the base; trigram scores codes on request. */
+  class LeafStore extends FakeStore {
+    override byLexical(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([{ candidate: GLASS, score: 0.69 }, { candidate: LEAVES[0]!, score: 0.8 }, { candidate: LEAVES[1]!, score: 0.75 }]);
+    }
+    override byFullText(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([]);
+    }
+    override byVector(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([{ candidate: GLASS, score: 0.7 }, { candidate: LEAVES[0]!, score: 0.6 }]);
+    }
+    lexicalFor(_q: string, codes: readonly string[]): Promise<Map<string, number>> {
+      return Promise.resolve(new Map(codes.map((c) => [c, 0.5])));
+    }
+  }
+  const rows = [BASE, ...LEAVES, GLASS];
+
+  it('adds the base code of a subposition retrieved only through leaves the name does not earn', async () => {
+    const r = await matchProduct({ rawName: 'Реле защитное' }, { store: new LeafStore(rows), embedder, reranker: noop });
+    assert.ok(r.pool.includes(BASE.code));
+    const base = r.candidates.find((c) => c.candidate.code === BASE.code);
+    assert.equal(base?.signals.lexical, 0.5, 'scored on its own name');
+    assert.ok(base?.evidence.rules?.includes('baseCodePreferred'));
+    assert.ok(r.notes.some((n) => n.startsWith('Base code added for 08536007013')));
+  });
+
+  it('adds none for a name with a digit, for a food-service row, or when switched off', async () => {
+    const sized = await matchProduct({ rawName: 'Реле защитное 220В' }, { store: new LeafStore(rows), embedder, reranker: noop });
+    assert.ok(!sized.pool.includes(BASE.code));
+    const off = await matchProduct({ rawName: 'Реле защитное' }, { store: new LeafStore(rows), embedder, reranker: noop, baseForLeaves: false });
+    assert.ok(!off.pool.includes(BASE.code));
+    const cafe = await matchProduct({ rawName: 'Palov 1 porsiya' }, { store: new LeafStore(rows), embedder, reranker: noop });
+    assert.ok(!cafe.pool.includes(BASE.code));
+  });
+});
