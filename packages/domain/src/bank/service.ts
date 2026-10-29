@@ -98,8 +98,20 @@ async function knownLayout(orgId: string, file: StatementFile): Promise<{ layout
   return null;
 }
 
-async function earlierBatch(orgId: string, fingerprint: string): Promise<{ id: string; filename: string | null; createdAt: Date } | null> {
-  return db.importBatch.findUnique({ where: { orgId_kind_fingerprint: { orgId, kind: KIND, fingerprint } }, select: { id: true, filename: true, createdAt: true } });
+type Earlier = { id: string; filename: string | null; createdAt: Date; clientId: string | null };
+
+async function earlierBatch(orgId: string, fingerprint: string): Promise<Earlier | null> {
+  return db.importBatch.findUnique({ where: { orgId_kind_fingerprint: { orgId, kind: KIND, fingerprint } }, select: { id: true, filename: true, createdAt: true, clientId: true } });
+}
+
+/** The earlier statement as this user may see it (visibleBatch's rule); otherwise only that the file was read before (F20). */
+const shownEarlier = (user: CurrentUser, earlier: Earlier): Earlier | null =>
+  (earlier.clientId ? canSeeClient(user, earlier.clientId) : user.clientIds == null) ? earlier : null;
+
+/** "Read before" with the statement's id only when the user may open it. */
+function refusedDuplicate(user: CurrentUser, error: string, earlier: Earlier): Fail & { duplicateOf?: string } {
+  const shown = shownEarlier(user, earlier);
+  return shown ? { ok: false, error, duplicateOf: shown.id } : { ok: false, error };
 }
 
 /** Reads a statement for the preview step: nothing is stored. */
@@ -119,6 +131,7 @@ export async function previewStatement(user: CurrentUser, locale: Locale, input:
   const parsed = readLines(file, layout);
   if (file.sheet.body.length === 0) return { ok: false, error: i18nFor(locale).ta.bankX.errors.empty };
   const earlier = await earlierBatch(user.orgId, file.fingerprint);
+  const shown = earlier ? shownEarlier(user, earlier) : null;
   // A guess that cannot read amounts yet (no date or amount column) judges no row: the mapping step shows the file as it is.
   const usable = mappingProblem(layout.columnMap, layout.conventions) === null;
   const dropped = usable ? parsed.dropped : [];
@@ -140,7 +153,9 @@ export async function previewStatement(user: CurrentUser, locale: Locale, input:
       dataRows: usable ? parsed.lines.length : file.sheet.body.length,
       totalRows: parsed.extra.totalRows,
       truncated: parsed.extra.truncated,
-      duplicateOf: earlier ? { batchId: earlier.id, filename: earlier.filename, createdAt: earlier.createdAt.toISOString() } : null,
+      duplicateOf: !earlier ? null : shown
+        ? { batchId: shown.id, filename: shown.filename, createdAt: shown.createdAt.toISOString() }
+        : { batchId: null, filename: null, createdAt: null },
       header: {
         account: parsed.meta.account, currency: parsed.meta.currency, periodFrom: parsed.meta.periodFrom, periodTo: parsed.meta.periodTo,
         openingBalance: parsed.meta.openingBalance, closingBalance: parsed.meta.closingBalance, bankName: parsed.meta.bankName,
@@ -176,7 +191,7 @@ export async function createStatement(user: CurrentUser, locale: Locale, input: 
   if (!read.ok) return read;
   const { file } = read;
   const earlier = await earlierBatch(user.orgId, file.fingerprint);
-  if (earlier) return { ok: false, error: e.duplicate, duplicateOf: earlier.id };
+  if (earlier) return refusedDuplicate(user, e.duplicate, earlier);
 
   const map = BankColumnMap.safeParse(jsonField(input.columnMap));
   const conventions = BankConventions.safeParse(jsonField(input.conventions));
@@ -215,7 +230,7 @@ export async function createStatement(user: CurrentUser, locale: Locale, input: 
   } catch {
     // The unique (org, kind, fingerprint) index: the same file uploaded twice at once.
     const twin = await earlierBatch(user.orgId, file.fingerprint);
-    return twin ? { ok: false, error: e.duplicate, duplicateOf: twin.id } : { ok: false, error: e.saveFailed };
+    return twin ? refusedDuplicate(user, e.duplicate, twin) : { ok: false, error: e.saveFailed };
   }
   const run = processStatement({ batchId, orgId: user.orgId, clientId: read.clientId, parsed, ...(options.suggester !== undefined ? { suggester: options.suggester } : {}) })
     .finally(() => inflight.delete(batchId));
@@ -747,9 +762,15 @@ export async function bankRules(user: CurrentUser): Promise<{ id: string; client
 type OrgRuleKind = 'purpose_contains' | 'inn_equals' | 'counterparty_equals' | 'amount_sign';
 const isRuleKind = (v: string): v is OrgRuleKind => ['purpose_contains', 'inn_equals', 'counterparty_equals', 'amount_sign'].includes(v);
 
+/** A client's rule for someone who may open that client; an org-wide rule (no client) only for an unscoped member. */
+const ruleVisible = (user: CurrentUser, clientId: string | null): boolean => (clientId ? canSeeClient(user, clientId) : user.clientIds == null);
+
 export async function removeBankRule(user: CurrentUser, locale: Locale, ruleId: string): Promise<{ ok: true } | Fail> {
   const e = i18nFor(locale).ta.bankX.errors;
   if (!writer(user)) return { ok: false, error: e.client };
-  return (await removeRule(user.orgId, ruleId)) ? { ok: true } : { ok: false, error: e.notFound };
+  // A rule the user cannot see is answered like a missing one (F20).
+  const rule = await db.bankRule.findFirst({ where: { id: ruleId, orgId: user.orgId }, select: { clientId: true } });
+  if (!rule || !ruleVisible(user, rule.clientId)) return { ok: false, error: e.notFound };
+  return (await removeRule(user.orgId, ruleId, rule.clientId)) ? { ok: true } : { ok: false, error: e.notFound };
 }
 

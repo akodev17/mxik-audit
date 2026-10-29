@@ -62,7 +62,7 @@ export default async function CatalogsPage({ searchParams }: { searchParams: Pro
 
       <CatalogResults
         client={sp.client} status={status} page={page} initial={{ items, total, pageSize }} initialDrafts={drafts.items}
-        writer={writer} showClient={clientId === null && clients.length > 1} uploadHref={uploadHref}
+        writer={writer} canDelete={user.role === 'admin' && !user.demo} showClient={clientId === null && clients.length > 1} uploadHref={uploadHref}
       />
     </Page>
   );

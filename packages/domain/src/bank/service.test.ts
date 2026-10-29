@@ -16,7 +16,7 @@ import { parseBankExchange } from '../onec/bank-exchange.js';
 import { setOperationSuggester, type OperationSuggester } from './ai.js';
 import {
   approveMany, bankFormats, bankRules, clientOptions, createStatement, decideRecord, exportStatement, listStatements, prepareStatement, previewStatement, processing,
-  reconcileCsvFile, reconcileStatement, removeBankFormat, removeStatement, statementDetail, statementRecords,
+  reconcileCsvFile, reconcileStatement, removeBankFormat, removeBankRule, removeStatement, statementDetail, statementRecords,
 } from './service.js';
 
 const skip = await dbSkipReason();
@@ -301,6 +301,30 @@ describe('bank statements (database)', { skip }, () => {
     assert.deepEqual([undecided?.payload.operationSuggestion?.basis, undecided?.payload.operationSuggestion?.id], ['ai', 'other_out']);
     assert.ok(undecided?.issues.some((i) => i.code === 'operation_suggested' && i.severity === 'info' && i.suggestion === 'other_out'));
     assert.equal(lines.find((l) => l.payload.purpose === 'Комиссия банка')?.payload.operationSuggestion, null, 'a rule decided it; not sent');
+  });
+
+  it('a scoped accountant cannot remove another client’s rule or an org-wide one, and is not told about another client’s statement (F20)', async () => {
+    const otherClient = await makeClient(admin.orgId, 'Boshqa bank mijoz');
+    const scoped: CurrentUser = { ...(await makePerson(admin.orgId, 'accountant', [otherClient])), demo: false, clientId: null };
+    const theirs = await db.bankRule.create({ data: { orgId: admin.orgId, clientId: otherClient, kind: 'purpose_contains', value: 'ijara', operation: 'other_out', createdBy: admin.userId } });
+    const foreign = await db.bankRule.create({ data: { orgId: admin.orgId, clientId, kind: 'purpose_contains', value: 'kredit', operation: 'loan', createdBy: admin.userId } });
+    const orgWide = await db.bankRule.create({ data: { orgId: admin.orgId, clientId: null, kind: 'purpose_contains', value: 'soliq', operation: 'other_out', createdBy: admin.userId } });
+    assert.deepEqual(await removeBankRule(scoped, 'uz', foreign.id), { ok: false, error: e.notFound });
+    assert.deepEqual(await removeBankRule(scoped, 'uz', orgWide.id), { ok: false, error: e.notFound });
+    assert.equal(await db.bankRule.count({ where: { id: { in: [foreign.id, orgWide.id] } } }), 2, 'nothing was removed');
+    assert.deepEqual(await removeBankRule(scoped, 'uz', theirs.id), { ok: true });
+    assert.deepEqual(await removeBankRule(admin, 'uz', orgWide.id), { ok: true });
+    assert.deepEqual(await removeBankRule(stranger, 'uz', foreign.id), { ok: false, error: e.notFound });
+
+    // The file was read for "Bank mijoz", which this accountant cannot open: refused, but with no id, name or date.
+    const file = fixture('ru-debit-credit.xlsx');
+    const p = await previewStatement(scoped, 'uz', { clientId: otherClient, file });
+    assert.ok(p.ok, JSON.stringify(p));
+    assert.deepEqual(p.preview.duplicateOf, { batchId: null, filename: null, createdAt: null });
+    const again = await createStatement(scoped, 'uz', { clientId: otherClient, file, columnMap: JSON.stringify(p.preview.columnMap), conventions: JSON.stringify(p.preview.conventions) });
+    assert.deepEqual(again, { ok: false, error: e.duplicate });
+    // The next test lists the org's clients: this one goes again.
+    await db.client.delete({ where: { id: otherClient } });
   });
 
   it('access: list by client, refusals for viewers and other orgs, removal', async () => {

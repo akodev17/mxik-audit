@@ -137,9 +137,16 @@ describe('review assignments (database)', { skip }, () => {
     assert.deepEqual(await completeReview(viewer, ready, null, NOW), { ok: false, error: 'not found' });
     assert.deepEqual(await completeReview({ ...worker, orgId: b.orgId }, ready, null, NOW), { ok: false, error: 'not found' });
     assert.deepEqual(await completeReview(worker, ready, 'x'.repeat(501), NOW), { ok: false, error: 'bad note' });
-    assert.deepEqual(await completeReview(worker, ready, 'tayyor', NOW), { ok: true });
-    assert.deepEqual(await completeReview(worker, ready, null, NOW), { ok: false, error: 'already done' });
-    assert.deepEqual(await completeReview(admin, ready, null, NOW), { ok: false, error: 'already done' });
+    // The catalogue's one problem is still undecided: closing says so and waits for a confirmation.
+    assert.deepEqual(await completeReview(worker, ready, 'tayyor', NOW), { ok: false, error: 'pending', pending: 1 });
+    assert.equal((await reviewsFor(worker, [ready], NOW)).get(ready)?.pending, 1);
+    assert.equal((await db.reviewAssignment.findUnique({ where: { catalogId: ready } }))?.status, 'open');
+    assert.deepEqual(await completeReview(worker, ready, 'tayyor', NOW, true), { ok: true });
+    assert.deepEqual(await completeReview(worker, ready, null, NOW, true), { ok: false, error: 'already done' });
+    assert.deepEqual(await completeReview(admin, ready, null, NOW, true), { ok: false, error: 'already done' });
+    const shown = (await reviewsFor(admin, [ready], NOW)).get(ready);
+    assert.equal(shown?.doneBy, worker.email);
+    assert.equal(shown?.doneNote, 'tayyor');
 
     const row = await db.reviewAssignment.findUnique({ where: { catalogId: ready } });
     assert.equal(row?.status, 'done');
@@ -154,7 +161,14 @@ describe('review assignments (database)', { skip }, () => {
   it('an admin may close any review, and a finished one assigned again is open again', async () => {
     assert.equal((await assignReview(boss, input(worker.userId, { note: 'qayta' }), NOW)).ok, true);
     assert.equal((await db.reviewAssignment.findUnique({ where: { catalogId: ready } }))?.status, 'open');
-    assert.deepEqual(await completeReview(admin, ready, null, NOW), { ok: true });
+    assert.deepEqual(await completeReview(admin, ready, null, NOW, true), { ok: true });
+  });
+
+  it('a catalogue with every problem decided closes without a confirmation', async () => {
+    const decided = (await makeClientCatalog(a.orgId, c1, [{ name: 'z', findings: [{ decision: 'accepted' }, { severity: 'info' }] }], { status: 'ready' })).catalogId;
+    assert.equal((await assignReview(admin, input(worker.userId, { catalogId: decided }), NOW)).ok, true);
+    assert.equal((await reviewsFor(worker, [decided], NOW)).get(decided)?.pending, 0, 'an info finding is not a problem to review');
+    assert.deepEqual(await completeReview(worker, decided, null, NOW), { ok: true });
   });
 
   it('counts open, overdue and own reviews within the user scope; overdue is computed from the date', async () => {

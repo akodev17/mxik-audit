@@ -1,6 +1,6 @@
 // Members, roles and client access, invites (create, resend, revoke) and joining with one.
 import { z } from 'zod';
-import { Fail, Id, IsoDateTime, Ok, Redirect, ROLES } from '../common';
+import { Fail, Id, IsoDateTime, Ok, QueryFlag, Redirect, ROLES, ShortId } from '../common';
 import { defineModule, endpoint } from '../endpoint';
 import { ErrorState } from './auth';
 
@@ -64,12 +64,24 @@ export const team = defineModule('team', {
     responds: 'json', response: TeamResult,
     replaces: ['action:team.ts#updateMember'],
   }),
+  removalCheck: endpoint({
+    method: 'GET', path: '/api/team/members/{userId}/removal', auth: 'session', role: 'admin', noDemo: true,
+    summary: 'Before a removal: the member\'s open reviews and who could take them all',
+    params: z.object({ userId: Id }),
+    responds: 'json',
+    response: z.object({ openReviews: z.number().int(), reassignTo: z.array(z.object({ id: z.string(), email: z.string() })) }).nullable(),
+    replaces: ['page:(app)/team#removal'],
+    notes: 'null for a member of another org or one already removed.',
+  }),
   removeMember: endpoint({
     method: 'DELETE', path: '/api/team/members/{userId}', auth: 'session', role: 'admin', noDemo: true,
-    summary: 'Remove a member: sessions end, their Telegram chats unlink, their invites die',
+    summary: 'Remove a member: sessions end, their Telegram chats unlink, their invites die, their open reviews are handed over or dropped',
     params: z.object({ userId: Id }),
-    responds: 'json', response: TeamResult,
+    /** Needed only when the member holds open reviews: hand them to another member, or drop them on purpose. */
+    query: z.object({ reassignTo: ShortId.optional(), dropReviews: QueryFlag.optional() }),
+    responds: 'json', response: z.union([Ok, Fail.extend({ openReviews: z.number().int().optional() })]),
     replaces: ['action:team.ts#removeMember'],
+    notes: 'A member with open reviews and neither field answers { ok: false, error, openReviews }.',
   }),
   revokeInvite: endpoint({
     method: 'DELETE', path: '/api/team/invites/{inviteId}', auth: 'session', role: 'admin', noDemo: true,

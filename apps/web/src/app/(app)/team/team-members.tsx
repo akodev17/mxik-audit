@@ -2,21 +2,19 @@
 
 import { useState } from 'react';
 import { fmtDateTime } from '@tasnivo/i18n/format';
-import { api } from '@/lib/api/browser';
 import type { Role } from '@/lib/api/me';
 import { useI18n } from '@/lib/locale-client';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
-import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { Table, Td, Th } from '@/ui/table';
-import { useToast } from '@/ui/toast';
 import { Avatar } from '../_manage/avatar';
 import { Card, FLUSH_TABLE } from '../_manage/card';
 import { ROLE_TONE } from '../_manage/roles';
 import { agoLabel } from '../settings/session-rows';
 import type { ClientOption } from './access-fields';
 import { MemberDialog } from './member-dialog';
-import { useRefreshTeam, useTeam, type Team } from './team-data';
+import { RemoveMemberDialog } from './remove-dialog';
+import { useTeam, type Team } from './team-data';
 
 export type Member = { id: string; email: string; role: Role; clientIds: string[]; you: boolean; lastSeenAt?: string | null };
 
@@ -32,19 +30,9 @@ function LastSeen({ at }: { at: string | null | undefined }) {
 function MemberRow({ member, clients, adminCount }: { member: Member; clients: readonly ClientOption[]; adminCount: number }) {
   const { ta } = useI18n();
   const s = ta.setX.team;
-  const toast = useToast();
-  const refresh = useRefreshTeam();
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const access = member.role === 'admin' || member.clientIds.length === 0 ? s.accessAll : s.accessCount(member.clientIds.length);
-
-  const remove = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    const result = await api.team.removeMember({ userId: member.id }).catch(() => ({ ok: false as const, error: s.errors.invalid }));
-    if (!result.ok) return result;
-    toast(s.removed(member.email));
-    await refresh();
-    return { ok: true };
-  };
 
   const actions = (
     <>
@@ -77,11 +65,7 @@ function MemberRow({ member, clients, adminCount }: { member: Member; clients: r
       <Td className="hidden sm:table-cell">
         <div className="flex justify-end gap-1.5">{actions}</div>
         <MemberDialog member={member} clients={clients} adminCount={adminCount} open={editing} onClose={() => setEditing(false)} />
-        <ConfirmDialog
-          open={removing} onClose={() => setRemoving(false)} tone="danger"
-          title={s.removeTitle(member.email)} description={s.removeText}
-          confirmLabel={s.remove} onConfirm={remove}
-        />
+        <RemoveMemberDialog member={member} open={removing} onClose={() => setRemoving(false)} />
       </Td>
     </tr>
   );

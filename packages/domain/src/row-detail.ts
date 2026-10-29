@@ -9,6 +9,7 @@ import { db } from '@tasnivo/db';
 import { readDecisionSource, type DecisionSource } from './decision-source';
 import { decisionMode, noSuggestion, type DecisionMode } from './finding-kinds';
 import { findingRows } from './finding-view';
+import { memberEmails } from './member-emails';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import { cleanPrivilegeName, LEVEL_SPLITS, levelPrefixes, rankAlternatives, reasonFacts, type ReasonFacts } from './row-detail-parts';
@@ -154,7 +155,8 @@ export async function rowDetail(
   const [levels, details, decider] = await Promise.all([
     db.mxikCode.findMany({ where: { code: { in: codes } }, select: { code: true, unitBinding: true, unitCanonical: true, unitContainer: true, ...LEVEL_SELECT } }),
     codeDetails(codes, locale),
-    f.decidedBy ? db.user.findFirst({ where: { id: f.decidedBy, orgId: scope.orgId }, select: { email: true } }) : null,
+    // A member removed since still shows, by the address their removal event kept.
+    memberEmails(scope.orgId, [f.decidedBy]),
   ]);
   const names = new Map(levels.map((l) => [l.code.trim(), l]));
   // A code the classifier lacks still shows which of its levels exist.
@@ -205,7 +207,7 @@ export async function rowDetail(
     decision: f.decision,
     decisionEventId: f.decisionEventId,
     decisionSource: readDecisionSource(f.decisionSource),
-    decidedBy: decider?.email ?? null,
+    decidedBy: f.decidedBy ? decider.get(f.decidedBy) ?? null : null,
     decidedAt: f.decidedAt?.toISOString() ?? null,
   };
 }

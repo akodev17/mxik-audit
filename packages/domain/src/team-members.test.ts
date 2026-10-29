@@ -3,7 +3,9 @@ import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import { db } from '@tasnivo/db';
 import { createRecord, isLive } from './security/session-store.js';
-import { changeMember, removeTeamMember, revokeTeamInvite } from './team-members.js';
+import { makeClient, makeClientCatalog, makePerson } from './firm-test-fixtures.js';
+import { memberEmails } from './member-emails.js';
+import { changeMember, memberRemovalCheck, removeTeamMember, revokeTeamInvite } from './team-members.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
@@ -127,6 +129,55 @@ describe('team members (database)', { skip }, () => {
     assert.ok(event);
     assert.equal((event.payload as { sessionsEnded: number }).sessionsEnded, 1);
     assert.equal((event.payload as { telegramUnlinked: number }).telegramUnlinked, 1);
+  });
+
+  it('a member with open reviews is removed only when they are handed over or dropped on purpose (F18)', async () => {
+    const c1 = await makeClient(a.orgId, `R1-${tag()}`);
+    const c2 = await makeClient(a.orgId, `R2-${tag()}`);
+    const leaving = await makePerson(a.orgId, 'accountant', [c1, c2]);
+    const narrow = await makePerson(a.orgId, 'accountant', [c1]);
+    const wide = await makePerson(a.orgId, 'accountant', [c1, c2]);
+    const watcher = await makePerson(a.orgId, 'viewer');
+    const reviews: { id: string }[] = [];
+    for (const clientId of [c1, c2]) {
+      const { catalogId } = await makeClientCatalog(a.orgId, clientId, [{ name: 'x', findings: [{}] }]);
+      reviews.push(await db.reviewAssignment.create({ data: { orgId: a.orgId, clientId, catalogId, assigneeId: leaving.userId } }));
+    }
+
+    const check = await memberRemovalCheck(a, leaving.userId);
+    assert.equal(check?.openReviews, 2);
+    const takers = check?.reassignTo.map((p) => p.id) ?? [];
+    assert.ok(takers.includes(wide.userId) && takers.includes(a.userId));
+    assert.ok(!takers.includes(narrow.userId) && !takers.includes(watcher.userId) && !takers.includes(leaving.userId), 'only members who see both clients');
+    assert.equal(await memberRemovalCheck(other, leaving.userId), null);
+
+    assert.deepEqual(await removeTeamMember(a, leaving.userId), { ok: false, reason: 'open_reviews', openReviews: 2 });
+    assert.deepEqual(await removeTeamMember(a, leaving.userId, { reassignTo: narrow.userId }), { ok: false, reason: 'bad_reassign' });
+    assert.deepEqual(await removeTeamMember(a, leaving.userId, { reassignTo: watcher.userId }), { ok: false, reason: 'bad_reassign' });
+    assert.ok(await db.user.findUnique({ where: { id: leaving.userId } }), 'a refused removal changes nothing');
+
+    const done = await removeTeamMember(a, leaving.userId, { reassignTo: wide.userId });
+    assert.ok(done.ok);
+    assert.equal(done.reviewsReassigned, 2);
+    const moved = await db.reviewAssignment.findMany({ where: { id: { in: reviews.map((r) => r.id) } } });
+    assert.equal(moved.length, 2);
+    assert.ok(moved.every((r) => r.assigneeId === wide.userId && r.revision === 2));
+    const event = await db.auditEvent.findFirstOrThrow({ where: { orgId: a.orgId, action: 'team.removed', targetId: leaving.userId } });
+    assert.equal((event.payload as { openReviews: number }).openReviews, 2);
+    assert.equal((event.payload as { reviewsReassignedTo: string }).reviewsReassignedTo, wide.email);
+
+    // Dropping is explicit, and its count is kept too.
+    const second = await makePerson(a.orgId, 'accountant', [c1]);
+    const { catalogId } = await makeClientCatalog(a.orgId, c1, [{ name: 'y', findings: [{}] }]);
+    await db.reviewAssignment.create({ data: { orgId: a.orgId, clientId: c1, catalogId, assigneeId: second.userId } });
+    const dropped = await removeTeamMember(a, second.userId, { dropReviews: true });
+    assert.ok(dropped.ok);
+    assert.equal(dropped.reviewsDropped, 1);
+    assert.equal(await db.reviewAssignment.count({ where: { catalogId } }), 0);
+    const dropEvent = await db.auditEvent.findFirstOrThrow({ where: { orgId: a.orgId, action: 'team.removed', targetId: second.userId } });
+    assert.equal((dropEvent.payload as { reviewsDropped: number }).reviewsDropped, 1);
+    // Their address stays readable for what they decided and closed.
+    assert.equal((await memberEmails(a.orgId, [second.userId])).get(second.userId), second.email);
   });
 
   it('a non-admin actor is refused and nothing changes', async () => {

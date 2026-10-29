@@ -30,8 +30,9 @@ describe('W2a routes in the Swagger document', () => {
 
   it('has one operation per registry entry, at its method and path, with its operation id', () => {
     // 53, plus the code step (verifyCode, resendCode), Google sign-in (google, googleCallback), the tour flag (setTour) and the module states (modules),
-    // plus S1: the Telegram sign-in state (telegramLoginStart) and joining with an existing account (joinCheck, joinWithAccount).
-    assert.equal(mine.length, 62);
+    // plus S1: the Telegram sign-in state (telegramLoginStart) and joining with an existing account (joinCheck, joinWithAccount),
+    // plus S2: the removal check (team.removalCheck).
+    assert.equal(mine.length, 63);
     for (const e of mine) {
       const path = expressPath(e.path).replace(/:(\w+)/g, '{$1}');
       const op = doc.paths[path]?.[e.method.toLowerCase() as 'get'];

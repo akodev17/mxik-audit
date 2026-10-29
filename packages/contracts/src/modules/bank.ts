@@ -101,8 +101,8 @@ export const BankPreview = z.object({
   dataRows: z.number().int(),
   totalRows: z.number().int(),
   truncated: z.boolean(),
-  /** The same file was read before: that statement. */
-  duplicateOf: z.object({ batchId: z.string(), filename: z.string().nullable(), createdAt: IsoDateTime }).nullable(),
+  /** The same file was read before: that statement; batchId and createdAt are null when it belongs to a client this user cannot open. */
+  duplicateOf: z.object({ batchId: z.string().nullable(), filename: z.string().nullable(), createdAt: IsoDateTime.nullable() }).nullable(),
   header: z.object({
     account: BankAccount.nullable(),
     currency: Currency.nullable(),

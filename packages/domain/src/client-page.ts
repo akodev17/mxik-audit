@@ -60,7 +60,7 @@ export type ClientPage = {
   drafts: CatalogListItem[];
   history: { rows: ActivityRow[]; hasMore: boolean };
   schedule: ClientSchedule | null;
-  /** Members who can be reminded about this client: not viewers, and able to open it (the current assignee stays listed). */
+  /** Members who can be reminded about this client: not viewers, and able to open it (the current assignee stays listed). clientIds: admins only, [] for anyone else. */
   staff: { id: string; email: string; role: CurrentUser['role']; clientIds: string[] }[];
   /** Admins only. */
   accountants: AssignableAccountant[] | null;
@@ -103,7 +103,8 @@ export async function clientPage(user: CurrentUser, clientId: string): Promise<C
       : null,
     staff: staff
       .filter((p) => p.id === schedule?.assigneeId || p.role === 'admin' || p.assignments.length === 0 || p.assignments.some((a) => a.clientId === client.id))
-      .map((p) => ({ id: p.id, email: p.email, role: p.role, clientIds: p.assignments.map((a) => a.clientId) })),
+      // Who works on which other clients is the team page's business: admins only (F20).
+      .map((p) => ({ id: p.id, email: p.email, role: p.role, clientIds: admin ? p.assignments.map((a) => a.clientId) : [] })),
     accountants,
     dependants,
   };

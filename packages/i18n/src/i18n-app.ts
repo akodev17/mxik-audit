@@ -393,6 +393,10 @@ const coreUz = {
     doneNote: 'Yakun izohi',
     markedDone: 'Tekshiruv yakunlandi',
     noMembers: 'Bu mijozni koʻra oladigan jamoa aʼzosi yoʻq.',
+    pendingOpen: (n: string) => `${n} ta muammo hali koʻrib chiqilmagan.`,
+    pendingConfirm: (n: string) => `${n} ta muammo hali koʻrib chiqilmagan. Baribir yakunlansinmi? Ular katalogda qoladi.`,
+    closeAnyway: 'Baribir yakunlash',
+    doneBy: (who: string) => `Yakunladi: ${who}`,
     errors: {
       'not found': 'Katalog topilmadi',
       'not ready': 'Katalog hali tekshirilmagan',

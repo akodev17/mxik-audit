@@ -34,11 +34,11 @@ export function CheckStep({ preview, busy, onBack, onColumns, onRead }: {
   return (
     <Card title={preview.filename} as="h2">
       <div className="space-y-5">
-        {preview.duplicateOf ? (
+        {preview.duplicateOf?.batchId && preview.duplicateOf.createdAt ? (
           <Notice tone="danger" action={<ButtonLink href={`/bank/${preview.duplicateOf.batchId}`} size="sm">{u.openEarlier}</ButtonLink>}>
             {u.duplicate(fmtDate(locale, preview.duplicateOf.createdAt))}
           </Notice>
-        ) : null}
+        ) : preview.duplicateOf ? <Notice tone="danger">{u.duplicateElsewhere}</Notice> : null}
         {preview.format ? (
           <Notice tone={preview.format.verified ? 'good' : 'warn'} action={<Button size="sm" variant="ghost" onClick={onColumns}>{u.changeColumns}</Button>}>
             <span className="font-medium">{preview.format.builtIn ? u.recognised(preview.format.name) : u.savedFormat(preview.format.name)}</span>
