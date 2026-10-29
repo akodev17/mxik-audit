@@ -27,8 +27,26 @@ function field(form: FormData, key: string): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** `ip` is the client address the per-address limit counts (five per ten minutes, in the database). */
-export async function submitLeadForm(form: FormData, ip: string): Promise<LeadState> {
+/**
+ * Spends one of the address's lead submissions: the refusal to answer, or null when it is within
+ * the limit. Five per address per ten minutes, kept in the database so a restart or a second
+ * instance does not reset it: a person who mistyped their number twice is never blocked, a script
+ * filling the leads table is. The API calls it before reading the body (F20); `typed` is echoed
+ * back when the form was already read.
+ */
+export async function leadRateRefusal(ip: string, typed?: string): Promise<LeadState | null> {
+  const echo = typed === undefined ? {} : { contact: typed };
+  const verdict = await hit(RULES.leadIp, ip).catch(() => null);
+  if (!verdict) return { error: SAVE_FAILED, ...echo };
+  if (!verdict.allowed) return { error: `Soʻrovlar juda koʻp. ${minutesOf(verdict.retryAfterMs)} daqiqadan keyin qayta urinib koʻring.`, ...echo };
+  return null;
+}
+
+/**
+ * `ip` is the client address the per-address limit counts; `rateChecked` when the caller already
+ * spent the submission with leadRateRefusal.
+ */
+export async function submitLeadForm(form: FormData, ip: string, options: { rateChecked?: boolean } = {}): Promise<LeadState> {
   const raw = field(form, 'contact');
   // Echoed back to the form, so never more than the field can hold; validation sees it all.
   const typed = raw.slice(0, LEAD_LIMITS.contact);
@@ -37,16 +55,9 @@ export async function submitLeadForm(form: FormData, ip: string): Promise<LeadSt
   // telling it what tripped would only teach it to skip the field.
   if (isHoneypotFilled(form)) return { ok: true };
 
-  /* Five requests per address per ten minutes, kept in the database so a restart or a
-     second instance does not reset it: a person who mistyped their number twice is
-     never blocked, a script filling the leads table is. */
-  const verdict = await hit(RULES.leadIp, ip).catch(() => null);
-  if (!verdict) return { error: SAVE_FAILED, contact: typed };
-  if (!verdict.allowed) {
-    return {
-      error: `Soʻrovlar juda koʻp. ${minutesOf(verdict.retryAfterMs)} daqiqadan keyin qayta urinib koʻring.`,
-      contact: typed,
-    };
+  if (!options.rateChecked) {
+    const refused = await leadRateRefusal(ip, typed);
+    if (refused) return refused;
   }
 
   const contact = parseContact(raw);
