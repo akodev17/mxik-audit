@@ -46,7 +46,7 @@ describe('monthly row usage survives deletion (database)', { skip }, () => {
   };
   const commit = async (rows: number, actor = a, client = clientId): Promise<string> => {
     const catalogId = await preview(actor, client, rows);
-    assert.deepEqual(await applyMapping(actor.orgId, catalogId, MAP), { rows });
+    assert.deepEqual(await applyMapping(actor.orgId, catalogId, MAP), { rows, skipped: 0 });
     return catalogId;
   };
 
@@ -200,7 +200,7 @@ describe('clients and seats cannot be recycled into more processing (database)',
 
     const parsed = await parseUpload(Buffer.from(csv(30), 'utf8'), 'k.csv');
     const { catalogId } = await storeCatalog({ orgId: a.orgId, userId: a.userId, clientId: gone, filename: 'k.csv', parsed, mapping: MAP });
-    assert.deepEqual(await applyMapping(a.orgId, catalogId, MAP), { rows: 30 });
+    assert.deepEqual(await applyMapping(a.orgId, catalogId, MAP), { rows: 30, skipped: 0 });
     assert.ok((await deleteClient(a, gone, 'Uchinchi')).ok);
     const usage = await usageOf(a.orgId);
     assert.equal(usage.clients, 2);

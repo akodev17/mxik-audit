@@ -54,5 +54,5 @@ export function importIssuesCsv(input: ImportIssuesInput, labels: ImportIssuesCs
   if (parse?.cellsPastColumnLimit) {
     lines.push([cell(''), cell(''), cell(`> ${MAX_COLUMNS}`), cell(labels.pastColumns(parse.cellsPastColumnLimit, MAX_COLUMNS)), cell('')].join(','));
   }
-  return `﻿${lines.join('\r\n')}\r\n`;
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
 }

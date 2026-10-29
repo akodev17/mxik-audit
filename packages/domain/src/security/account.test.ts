@@ -40,8 +40,10 @@ describe('raw file retention (database)', { skip }, () => {
       },
     });
     await db.catalogItem.create({ data: { catalogId: catalog.id, rowIndex: 0, rawName: 'Guruch', normalizedName: 'guruch', attrs: { original: ['Guruch', 'maxfiy izoh'] } } });
+    await db.catalogSkippedRow.create({ data: { catalogId: catalog.id, rowIndex: 1, reason: 'no_name', original: ['', 'maxfiy jami'] } });
     return catalog.id;
   };
+  const skippedOf = async (catalogId: string) => (await db.catalogSkippedRow.findFirstOrThrow({ where: { catalogId } })).original;
   const state = async (catalogId: string) => {
     const c = await db.catalog.findUniqueOrThrow({ where: { id: catalogId }, select: { rawPurgedAt: true } });
     const item = await db.catalogItem.findFirstOrThrow({ where: { catalogId }, select: { attrs: true } });
@@ -60,6 +62,8 @@ describe('raw file retention (database)', { skip }, () => {
     assert.deepEqual(await state(due), { purged: true, original: ['Guruch', ''] });
     assert.deepEqual(await state(recent), { purged: false, original: ['Guruch', 'maxfiy izoh'] });
     assert.deepEqual(await state(unset), { purged: false, original: ['Guruch', 'maxfiy izoh'] }, 'an org without rawRetentionSince is skipped');
+    assert.deepEqual(await skippedOf(due), ['', ''], 'a row the commit skipped (no name) is blanked like the items');
+    assert.deepEqual(await skippedOf(recent), ['', 'maxfiy jami']);
     assert.equal(await db.auditEvent.count({ where: { orgId: a.orgId, action: 'retention.purged' } }), 1);
     assert.equal(await db.auditEvent.count({ where: { orgId: noSince.orgId, action: 'retention.purged' } }), 0);
   });

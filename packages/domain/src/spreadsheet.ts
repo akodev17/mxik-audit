@@ -2,6 +2,7 @@
 // and writing the corrected file back out. Server-only (exceljs). Deliberately
 // separate from scripts/lib/xlsx.ts, which is a stripped-down streaming reader
 // for the one 205 MB classifier layout.
+import { PassThrough } from 'node:stream';
 import ExcelJS from 'exceljs';
 import { formulaSafe } from './csv-safe.js';
 import { XLSX_HELD_BYTES, zipWithinLimits } from './security/zip-guard.js';
@@ -202,6 +203,12 @@ export type ExportOptions = {
  * accountant expects; otherwise a column is appended. The status column is always
  * appended, so nothing is silently changed without a trace. Every cell is
  * written as text and guarded against formula injection.
+ *
+ * Written with ExcelJS's streaming writer: each row is serialised and dropped as
+ * soon as it is added, so a 60,000-row export never holds the workbook's cell
+ * objects; only the zipped bytes are collected. The cells, styles, column widths,
+ * frozen header and sheet name are those the in-memory builder wrote (spreadsheet
+ * export test compares the two).
  */
 export async function buildExport(options: ExportOptions): Promise<Buffer> {
   const { headers, rows, mxikColumn, unitColumn, labels } = options;
@@ -213,16 +220,31 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
   const statusIndex = outHeaders.push(labels.auditStatus) - 1;
   const restrictedIndex = outHeaders.push(labels.restricted) - 1;
 
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Tasnivo';
-  const sheet = workbook.addWorksheet(options.sheetName ?? 'Katalog');
+  const sink = new PassThrough();
+  const chunks: Buffer[] = [];
+  sink.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const finished = new Promise<void>((resolve, reject) => {
+    sink.on('end', resolve);
+    sink.on('error', reject);
+  });
 
-  sheet.addRow(outHeaders.map(formulaSafe));
-  const header = sheet.getRow(1);
+  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useStyles: true, useSharedStrings: true });
+  workbook.creator = 'Tasnivo';
+  const sheet = workbook.addWorksheet(options.sheetName ?? 'Katalog', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+  // Columns first: the streaming writer puts <cols> ahead of the first row, and new cells take the column's style.
+  // MXIK codes are 17 digits: force text so Excel does not render 1.7E+16.
+  sheet.getColumn(mxikIndex + 1).numFmt = '@';
+  sheet.getColumn(mxikIndex + 1).width = 20;
+  sheet.getColumn(statusIndex + 1).width = 24;
+  sheet.getColumn(restrictedIndex + 1).width = 26;
+
+  const header = sheet.addRow(outHeaders.map(formulaSafe));
   header.font = { bold: true };
   header.eachCell((cell) => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
   });
+  header.commit();
 
   for (const row of rows) {
     const cells = [...row.original];
@@ -232,16 +254,11 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
     cells[packagingIndex] = row.packaging;
     cells[statusIndex] = row.auditStatus;
     cells[restrictedIndex] = row.restricted ?? '';
-    sheet.addRow(cells.map(formulaSafe));
+    sheet.addRow(cells.map(formulaSafe)).commit();
   }
 
-  // MXIK codes are 17 digits: force text so Excel does not render 1.7E+16.
-  sheet.getColumn(mxikIndex + 1).numFmt = '@';
-  sheet.getColumn(mxikIndex + 1).width = 20;
-  sheet.getColumn(statusIndex + 1).width = 24;
-  sheet.getColumn(restrictedIndex + 1).width = 26;
-  sheet.views = [{ state: 'frozen', ySplit: 1 }];
-
-  const out = await workbook.xlsx.writeBuffer();
-  return Buffer.from(out);
+  sheet.commit();
+  await workbook.commit();
+  await finished;
+  return Buffer.concat(chunks);
 }

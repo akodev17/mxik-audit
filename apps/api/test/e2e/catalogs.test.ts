@@ -95,7 +95,7 @@ describe('catalogs + share (database)', { skip }, () => {
 
     const committed = await post(`/api/catalogs/${catalogId}/commit`).send({ mapping });
     assert.equal(committed.status, 200, JSON.stringify(committed.body));
-    assert.deepEqual(committed.body, { ok: true, catalogId });
+    assert.deepEqual(committed.body, { ok: true, catalogId, skipped: 0 });
     assert.ok(String(committed.headers['set-cookie'] ?? '').includes('mxik_audit_session='), 'the uploaded client becomes the active one');
     const twice = await post(`/api/catalogs/${catalogId}/commit`).send({ mapping });
     assert.deepEqual(twice.body, { ok: false, error: ta.importX.errors.alreadyCommitted, committed: true });
@@ -263,7 +263,7 @@ describe('catalogs + share (database)', { skip }, () => {
     const preview = bodyOf<Preview>(res);
     assert.ok(preview.ok, JSON.stringify(preview));
     const next = preview.preview.catalogId;
-    assert.deepEqual((await post(`/api/catalogs/${next}/commit`).send({ mapping: preview.preview.mapping })).body, { ok: true, catalogId: next });
+    assert.deepEqual((await post(`/api/catalogs/${next}/commit`).send({ mapping: preview.preview.mapping })).body, { ok: true, catalogId: next, skipped: 0 });
     await eventually(async () => {
       const p = bodyOf<{ status: string }>(await http().get(`/api/catalogs/${next}/progress`).set('Cookie', cookie));
       assert.notEqual(p.status, 'failed');
