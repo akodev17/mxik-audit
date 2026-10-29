@@ -347,3 +347,23 @@ What breaks: with the new code still running, every audit fails on its first row
 workspace summary answers 500. Deploy the previous code first; it never reads the column. Rows that
 were marked failed lose the mark and then look checked with no findings: re-audit those catalogues
 after a rollback.
+
+### `20261108000700_skipped_rows_file_hash`
+
+Adds the table `catalog_skipped_row` (S8, F7): the file rows a commit did not turn into items
+(no name), with their original cells, so the corrected Excel and 1C files keep every row in file
+order. Cascades with the catalogue; the retention job blanks its unmapped cells like the items'.
+Also adds the nullable `catalog."fileHash"` (SHA-256 of the uploaded file) and its index, for the
+wizard's "same file as an earlier catalogue" warning. No backfill.
+
+```sql
+DROP INDEX IF EXISTS "catalog_orgId_fileHash_idx";
+ALTER TABLE "catalog" DROP COLUMN IF EXISTS "fileHash";
+DROP TABLE IF EXISTS "catalog_skipped_row";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000700_skipped_rows_file_hash';
+```
+
+What breaks: with the new code still running, every commit, preview and corrected export answers
+500. Deploy the previous code first; it never reads either. The skipped rows' cells are gone with the
+table: exports of catalogues committed meanwhile lose those rows again (as before S8), and nothing
+else changes.

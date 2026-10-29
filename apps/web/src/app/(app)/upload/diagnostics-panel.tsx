@@ -1,15 +1,20 @@
 'use client';
 
+import { api } from '@/lib/api/browser';
 import type { ImportDiagnostics, ParseMeta } from '@/lib/catalogs/types';
 import { fileLine } from '@/lib/catalogs/upload';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { StatusIcon } from '@/ui/badge';
+import { ButtonLink } from '@/ui/button';
 import { cx } from '@/ui/cx';
+import { IconDownload } from '@/ui/icons';
 import { Spinner } from '@/ui/spinner';
 import { Notice } from './notice';
 
 type Props = {
+  /** The upload: the row-by-row CSV is read from it, under the mapping diagnose last kept. */
+  catalogId: string;
   diagnostics: ImportDiagnostics | null;
   /** How the file was read: turns data-row samples into the file lines Excel shows. */
   parse: ParseMeta | null;
@@ -25,7 +30,7 @@ const RULE: Record<Severity, string> = { danger: 'border-danger', warn: 'border-
 const INK: Record<Severity, string> = { danger: 'text-danger-ink', warn: 'text-warn-ink', info: 'text-info-ink' };
 
 /** What the import will do under the current mapping, computed on the server, grouped by how much it matters. */
-export function DiagnosticsPanel({ diagnostics: d, parse, updating, error }: Props) {
+export function DiagnosticsPanel({ catalogId, diagnostics: d, parse, updating, error }: Props) {
   const { locale, t, ta } = useI18n();
   const g = ta.importX.diag;
   const f = ta.importX.flow;
@@ -49,6 +54,9 @@ export function DiagnosticsPanel({ diagnostics: d, parse, updating, error }: Pro
     ...(d.duplicates.count > 0 ? [{ tone: 'info' as const, text: g.duplicates(d.duplicates.count, d.duplicates.groups), sample: d.duplicates.sample }] : []),
   ] : [];
   const share = d && d.rows > 0 ? Math.min(1, d.importable / d.rows) : 0;
+  // Offered once the shown diagnostics are the stored ones (diagnose keeps the mapping it answered for).
+  const unread = Boolean(parse?.truncated) || (parse?.cellsPastColumnLimit ?? 0) > 0;
+  const report = d && !updating && (items.length > 0 || unread);
 
   return (
     <section aria-labelledby="diag-title" aria-busy={updating || undefined} className="space-y-3">
@@ -84,6 +92,11 @@ export function DiagnosticsPanel({ diagnostics: d, parse, updating, error }: Pro
               </div>
             );
           })}
+          {report ? (
+            <ButtonLink href={api.catalogs.importIssues.url({ catalogId })} variant="secondary" size="sm" download leadingIcon={<IconDownload />}>
+              {g.download}
+            </ButtonLink>
+          ) : null}
         </div>
       ) : null}
     </section>
