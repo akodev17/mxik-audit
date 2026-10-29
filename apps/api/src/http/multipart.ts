@@ -2,16 +2,18 @@
 // files kept per field on `req.parts`, text fields on `req.body`. A file over its cap is not a 413:
 // the old actions answered "too big" in the user's language next to their other refusals (and
 // after the demo and role checks), so the part is kept with its name and no bytes, and the
-// domain refuses it like before.
+// domain refuses it like before. Each upload holds one of upload-slots.ts's slots from before its
+// body is read until its handler is done (F13).
 import {
   createParamDecorator, Injectable, mixin, PayloadTooLargeException,
   type CallHandler, type ExecutionContext, type NestInterceptor, type Type,
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
-import type { Observable } from 'rxjs';
+import { finalize, type Observable } from 'rxjs';
 import type { Multipart } from '@tasnivo/contracts';
 import type { UploadedFile } from '@tasnivo/domain/catalog-upload';
 import type { ApiRequest } from './request';
+import { acquireUploadSlot } from './upload-slots';
 
 /** One received file part; `buffer` null when it was over the cap (`size` is then cap + 1). */
 export type Part = { field: string; name: string; size: number; buffer: Buffer | null };
@@ -44,14 +46,17 @@ export function MultipartInterceptor(multipart: Multipart): Type<NestInterceptor
     async intercept(ctx: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
       const req = ctx.switchToHttp().getRequest<UploadRequest>();
       const parts: Record<string, Part> = {};
+      const release = await acquireUploadSlot(req);
       try {
         await this.multer.intercept(ctx, { handle: () => undefined as unknown as Observable<unknown> });
       } catch (error) {
-        if (!(error instanceof PayloadTooLargeException)) throw error;
         // multer stops at the part over the cap: the last one it saw.
         const over = req.seenParts?.at(-1);
         const cap = over ? multipart.files[over.field]?.maxBytes : undefined;
-        if (!over || cap === undefined) throw error;
+        if (!(error instanceof PayloadTooLargeException) || !over || cap === undefined) {
+          release();
+          throw error;
+        }
         parts[over.field] = { field: over.field, name: over.name, size: cap + 1, buffer: null };
       }
       for (const file of (Array.isArray(req.files) ? req.files : []) as MulterFile[]) {
@@ -63,7 +68,7 @@ export function MultipartInterceptor(multipart: Multipart): Type<NestInterceptor
       }
       req.parts = parts;
       req.body ??= {};
-      return next.handle();
+      return next.handle().pipe(finalize(release));
     }
   }
   return mixin(Interceptor);

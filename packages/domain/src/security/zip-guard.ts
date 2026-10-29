@@ -6,7 +6,13 @@ import yauzl, { type Entry, type ZipFile } from 'yauzl';
 const MB = 1024 * 1024;
 
 export type ZipLimits = { maxEntries: number; maxTotalBytes: number };
+/** The whole archive; a worksheet streams (xlsx-stream.ts), so its size costs time, not memory. */
 export const ZIP_LIMITS: ZipLimits = { maxEntries: 5_000, maxTotalBytes: 100 * MB };
+/**
+ * An .xlsx's parts held in memory while its sheet streams (workbook, rels, styles, shared strings).
+ * Not the whole archive: one sheet of 60,000 rows x 20 columns alone inflates to about 43 MB.
+ */
+export const XLSX_HELD_BYTES = 30 * MB;
 
 const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 

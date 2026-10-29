@@ -6,7 +6,7 @@
 import { Controller, Param, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { buildOpenApi, endpoints } from '@tasnivo/contracts';
+import { buildOpenApi, endpoints, LIMITS } from '@tasnivo/contracts';
 import { appOrigin } from '@tasnivo/domain/app-url';
 import { HEADERS } from '@tasnivo/domain/api/contract';
 import { checkOperation, listCatalogsOperation, reportOperation, uploadCatalogOperation, type Reply } from '@tasnivo/domain/api/handlers';
@@ -15,7 +15,8 @@ import { apiConfig } from '@tasnivo/domain/api/limits';
 import { ApiKeyGuard } from '../auth-core/api-key.guard';
 import { Route } from '../http/route';
 import { header, type ApiRequest } from '../http/request';
-import { readFormData, readJson } from '../http/request-body';
+import { MULTIPART_ALLOWANCE, readFormData, readJson } from '../http/request-body';
+import { acquireUploadSlot } from '../http/upload-slots';
 
 const e = endpoints.publicApi;
 
@@ -57,15 +58,21 @@ export class PublicApiController {
   @UseGuards(ApiKeyGuard)
   @ApiBearerAuth()
   async uploadCatalog(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
-    const form = await readFormData(req);
-    const file = form?.get('file');
-    const requested = form?.get('clientId');
-    send(res, await uploadCatalogOperation(callerOf(req), {
-      idempotencyKey: header(req, HEADERS.idempotencyKey),
-      form: form !== null,
-      file: file instanceof File ? { name: file.name, size: file.size, bytes: async () => Buffer.from(await file.arrayBuffer()) } : null,
-      clientId: typeof requested === 'string' && requested ? requested : null,
-    }));
+    // One of the org's upload slots (F13) while the body is read and parsed; the body is capped at the 20 MB file plus its form.
+    const release = await acquireUploadSlot(req);
+    try {
+      const form = await readFormData(req, { maxBytes: LIMITS.uploadBytes + MULTIPART_ALLOWANCE });
+      const file = form?.get('file');
+      const requested = form?.get('clientId');
+      send(res, await uploadCatalogOperation(callerOf(req), {
+        idempotencyKey: header(req, HEADERS.idempotencyKey),
+        form: form !== null,
+        file: file instanceof File ? { name: file.name, size: file.size, bytes: async () => Buffer.from(await file.arrayBuffer()) } : null,
+        clientId: typeof requested === 'string' && requested ? requested : null,
+      }));
+    } finally {
+      release();
+    }
   }
 
   @Route(e.report)

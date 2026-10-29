@@ -10,7 +10,7 @@ import { Route } from '../http/route';
 import { SkipCsrf } from '../http/decorators';
 import { ApiError } from '../http/errors';
 import { header, type ApiRequest } from '../http/request';
-import { readFormFields, readJson } from '../http/request-body';
+import { PAYMENT_CALLBACK_CAP, readFormFields, readJson } from '../http/request-body';
 
 const e = endpoints.billing;
 
@@ -23,7 +23,7 @@ export class PaymentsController {
   async click(@Req() req: ApiRequest) {
     const config = billingConfig().click;
     if (!config) throw new ApiError(404, 'not_found', 'click disabled');
-    const fields = await readFormFields(req).catch(() => null);
+    const fields = await readFormFields(req, { maxBytes: PAYMENT_CALLBACK_CAP }).catch(() => null);
     if (!fields) return CLICK_ERRORS.request;
     return handleClick(fields, config);
   }
@@ -33,6 +33,6 @@ export class PaymentsController {
   async payme(@Req() req: ApiRequest) {
     const config = billingConfig().payme;
     if (!config) throw new ApiError(404, 'not_found', 'payme disabled');
-    return answerPayme(await readJson(req), header(req, 'authorization'), config);
+    return answerPayme(await readJson(req, { maxBytes: PAYMENT_CALLBACK_CAP }), header(req, 'authorization'), config);
   }
 }

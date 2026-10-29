@@ -4,11 +4,12 @@
 // for the one 205 MB classifier layout.
 import ExcelJS from 'exceljs';
 import { formulaSafe } from './csv-safe.js';
-import { zipWithinLimits } from './security/zip-guard.js';
-import { MAX_ROWS, shapeGrid } from './sheet-shape.js';
+import { XLSX_HELD_BYTES, zipWithinLimits } from './security/zip-guard.js';
+import { MAX_COLUMNS, MAX_ROWS, shapeGrid } from './sheet-shape.js';
 import { decodeText, looksBinary, parseDelimited, sniffDelimiter, type Delimiter, type TextEncodingName } from './spreadsheet-text.js';
+import { eachSheetRow, XlsxReadError } from './xlsx-stream.js';
 
-export { MAX_ROWS } from './sheet-shape.js';
+export { MAX_COLUMNS, MAX_ROWS } from './sheet-shape.js';
 
 export type SheetData = {
   headers: string[];
@@ -32,6 +33,8 @@ export type ParseMeta = {
   truncated: boolean;
   /** See Shaped.lineJumps (sheet-shape.ts); absent on uploads read before it was kept. */
   lineJumps?: [number, number][] | null;
+  /** Cells holding a value right of MAX_COLUMNS, not read (.xlsx only); absent when there were none. */
+  cellsPastColumnLimit?: number;
 };
 
 export type ParseResult = SheetData & { truncated: boolean; totalSeen: number; meta: ParseMeta };
@@ -66,8 +69,8 @@ export function numberText(value: number): string {
   return /^-?[1-9]\d{0,2}\.\d{3}$/.test(text) ? `${text}0` : text;
 }
 
-/** Cell to string, without ExcelJS's object wrappers leaking through. */
-function cellText(value: ExcelJS.CellValue): string {
+/** Cell to string, without ExcelJS's object wrappers leaking through (exported for the reader-equality test). */
+export function cellText(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   if (typeof value === 'number') return numberText(value);
@@ -89,36 +92,26 @@ function cellText(value: ExcelJS.CellValue): string {
 /** Rows the reader keeps before counting the rest: room for title rows above the header. */
 const KEEP = MAX_ROWS + 20;
 
-async function readXlsx(buffer: Buffer): Promise<{ grid: (string[] | undefined)[]; extra: number }> {
-  // An .xlsx is a zip: refuse one that would inflate past the limits before ExcelJS opens it.
+async function readXlsx(buffer: Buffer): Promise<{ grid: (string[] | undefined)[]; extra: number; cellsPastColumnLimit: number }> {
+  // An .xlsx is a zip: refuse one that would inflate past the limits before anything parses it.
   if (!(await zipWithinLimits(buffer))) throw new ParseError('zip_limits');
-  const workbook = new ExcelJS.Workbook();
-  try {
-    // exceljs declares its own Buffer type, which drifts from @types/node's
-    // generic Buffer<ArrayBufferLike>. Same bytes either way.
-    await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
-  } catch {
-    throw new ParseError('unreadable');
-  }
-  const sheet = workbook.worksheets[0];
-  if (!sheet) throw new ParseError('no_sheet');
-
   // Rows sit at their sheet row number, so the header can be named by the row the user sees.
   const grid: (string[] | undefined)[] = [];
   let kept = 0;
   let extra = 0;
-  sheet.eachRow({ includeEmpty: false }, (row) => {
-    const values: string[] = [];
-    row.eachCell((cell, col) => {
-      // A merged title repeats its text in every merged cell; only the first one holds it.
-      if (cell.type === ExcelJS.ValueType.Merge) return;
-      values[col - 1] = cellText(cell.value);
-    });
-    const cells = Array.from(values, (v) => v ?? '');
-    if (!cells.some((v) => v !== '')) return;
-    if (kept < KEEP) { grid[row.number - 1] = cells; kept++; } else extra++;
-  });
-  return { grid, extra };
+  try {
+    // The sheet streams (xlsx-stream.ts): rows past KEEP are counted, not kept, so the truncation notice still quotes the file's total.
+    const { cellsPastColumnLimit } = await eachSheetRow(buffer, (rowNumber, values) => {
+      // A merged title repeats its text in every merged cell; the reader left only the first one.
+      const cells = Array.from(values, (v) => (v === undefined ? '' : cellText(v as ExcelJS.CellValue)));
+      if (!cells.some((v) => v !== '')) return;
+      if (kept < KEEP) { grid[rowNumber - 1] = cells; kept++; } else extra++;
+    }, { maxColumns: MAX_COLUMNS, maxHeldBytes: XLSX_HELD_BYTES });
+    return { grid, extra, cellsPastColumnLimit };
+  } catch (error) {
+    if (!(error instanceof XlsxReadError)) throw new ParseError('unreadable');
+    throw new ParseError(error.code === 'held_limit' ? 'zip_limits' : error.code);
+  }
 }
 
 function readText(buffer: Buffer): { grid: string[][]; encoding: TextEncodingName; delimiter: Delimiter } {
@@ -134,6 +127,8 @@ export type RawGrid = {
   grid: (string[] | undefined)[];
   /** Non-empty rows past the reader's limit, counted and not kept. */
   extra: number;
+  /** Cells holding a value right of MAX_COLUMNS, not read (.xlsx; 0 for text). */
+  cellsPastColumnLimit: number;
   encoding: TextEncodingName | null;
   delimiter: Delimiter | null;
 };
@@ -147,7 +142,7 @@ export async function readGrid(buffer: Buffer): Promise<RawGrid> {
   const kind = sniffKind(buffer);
   if (kind === 'xls') throw new ParseError('legacy_xls');
   if (kind === 'xlsx') return { kind, ...(await readXlsx(buffer)), encoding: null, delimiter: null };
-  return { kind, extra: 0, ...readText(buffer) };
+  return { kind, extra: 0, cellsPastColumnLimit: 0, ...readText(buffer) };
 }
 
 /**
@@ -157,7 +152,7 @@ export async function readGrid(buffer: Buffer): Promise<RawGrid> {
  * Throws ParseError with a stable code.
  */
 export async function parseUpload(buffer: Buffer, filename?: string): Promise<ParseResult> {
-  const { kind, grid, extra, encoding, delimiter } = await readGrid(buffer);
+  const { kind, grid, extra, cellsPastColumnLimit, encoding, delimiter } = await readGrid(buffer);
   const shaped = shapeGrid(grid, extra);
   // Named .xlsx but not a zip, and no table in it as text either (no rows, not even two columns): a damaged
   // or renamed file, not an empty one (B11). A header-only CSV renamed to .xlsx is still "no rows".
@@ -167,6 +162,7 @@ export async function parseUpload(buffer: Buffer, filename?: string): Promise<Pa
     headerRow: shaped.headerRow, skippedAbove: shaped.skippedAbove, emptyRowsSkipped: shaped.emptyRowsSkipped,
     repeatedHeadersSkipped: shaped.repeatedHeadersSkipped,
     totalSeen: shaped.totalSeen, truncated: shaped.truncated, lineJumps: shaped.lineJumps,
+    ...(cellsPastColumnLimit > 0 ? { cellsPastColumnLimit } : {}),
   };
   return { headers: shaped.headers, rows: shaped.rows, truncated: shaped.truncated, totalSeen: shaped.totalSeen, meta };
 }

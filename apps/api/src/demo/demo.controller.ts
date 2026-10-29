@@ -4,15 +4,16 @@
 import { Body, Controller, Inject, Param, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { endpoints } from '@tasnivo/contracts';
+import { endpoints, LIMITS } from '@tasnivo/contracts';
 import { demoTimes, enterDemo, openDemoLink, peekDemo, requestDemo, type DemoFields, type DemoState } from '@tasnivo/domain/demo-request';
-import { submitLeadForm, type LeadState } from '@tasnivo/domain/lead-submit';
+import { leadRateRefusal, submitLeadForm, type LeadState } from '@tasnivo/domain/lead-submit';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
 import { Route } from '../http/route';
 import { Locale } from '../http/decorators';
 import { clientIp, header, type ApiRequest } from '../http/request';
-import { readFormData } from '../http/request-body';
+import { discardBody, MULTIPART_ALLOWANCE, readFormData } from '../http/request-body';
+import { acquireUploadSlot } from '../http/upload-slots';
 
 const e = endpoints.demo;
 
@@ -49,9 +50,26 @@ export class DemoController {
     return { redirect: opened.landing };
   }
 
-  /** Multipart: contact, optional company/note, the honeypot and an optional sample file (5 MB, .xlsx/.csv). */
+  /**
+   * Multipart: contact, optional company/note, the honeypot and an optional sample file (5 MB, .xlsx/.csv).
+   * The address limit is spent before the body is read, so a refused sender's upload is never held;
+   * the body is capped at the file's 5 MB plus the form around it (413 past it).
+   */
   @Route(e.lead)
   async lead(@Req() req: ApiRequest): Promise<LeadState> {
-    return submitLeadForm(await readFormData(req) ?? new FormData(), clientIp(req));
+    const ip = clientIp(req);
+    const refused = await leadRateRefusal(ip);
+    if (refused) {
+      // Nothing of the body is kept or parsed; it is only read to its end so the answer arrives.
+      await discardBody(req);
+      return refused;
+    }
+    const release = await acquireUploadSlot(req);
+    try {
+      const form = await readFormData(req, { maxBytes: LIMITS.leadBytes + MULTIPART_ALLOWANCE });
+      return await submitLeadForm(form ?? new FormData(), ip, { rateChecked: true });
+    } finally {
+      release();
+    }
   }
 }
