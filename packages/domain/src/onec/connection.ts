@@ -7,14 +7,13 @@
 // owner's environment has been tested. The entity sets and attribute names below are the typical
 // names of «Бухгалтерия для Узбекистана 3.0» (research note §2, third-party list) and are editable
 // per org. No COM. The password is sealed like the 2FA secrets and never logged or answered.
-import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import { accounting } from '@tasnivo/contracts';
 import { ObjectMap, ObjectTarget } from '@tasnivo/contracts/modules/onec';
 import { db } from '@tasnivo/db';
 import { z } from 'zod';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { derivedKey } from '../security/secret.js';
+import { hostFetcher } from './host-guard.js';
 import type { ReadyTransaction } from './plan.js';
 
 export type ConnectionKind = (typeof accounting.ONEC_CONNECTION_KINDS)[number];
@@ -165,31 +164,8 @@ export async function saveConnection(orgId: string, actorId: string, body: unkno
 
 export const REQUEST_TIMEOUT_MS = 10_000;
 
-/** Loopback, private, link-local and unique-local addresses: refused in production unless allowed. */
-export function privateAddress(ip: string): boolean {
-  if (isIP(ip) === 4) {
-    const [a = 0, b = 0] = ip.split('.').map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
-  }
-  const v6 = ip.toLowerCase();
-  return v6 === '::1' || v6 === '::' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80') || v6.startsWith('::ffff:127.') || v6.startsWith('::ffff:10.') || v6.startsWith('::ffff:192.168.');
-}
-
-/**
- * Whether the server may call this host. A SaaS must not become a proxy into its own network: in
- * production a host that resolves to a private address is refused unless ONEC_ALLOW_PRIVATE_HOSTS=1
- * (a self-hosted install next to the client's 1C). Development and tests allow it.
- */
-export async function hostAllowed(baseUrl: string, env: Record<string, string | undefined> = process.env): Promise<boolean> {
-  if (env['NODE_ENV'] !== 'production' || env['ONEC_ALLOW_PRIVATE_HOSTS'] === '1') return true;
-  const host = new URL(baseUrl).hostname.replace(/^\[|\]$/g, '');
-  try {
-    const addresses = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
-    return addresses.length > 0 && addresses.every((a) => !privateAddress(a.address));
-  } catch {
-    return false;
-  }
-}
+// Which hosts may be called, and the fetch pinned to the checked address: host-guard.ts (F20).
+export { hostAllowed, hostFetcher, privateAddress } from './host-guard.js';
 
 type Credentials = { baseUrl: string; username: string | null; password: string | null };
 
@@ -231,7 +207,7 @@ async function credentialsOf(orgId: string): Promise<(Credentials & { kind: Conn
  * `POST /api/onec/connection/test`: GET `<base>/odata/standard.odata/$metadata` (odata) or the base
  * URL (http) with Basic auth and a 10 s timeout; stores the verdict on the connection.
  */
-export async function testConnection(orgId: string, fetcher: typeof fetch = fetch): Promise<TestResult> {
+export async function testConnection(orgId: string, fetcher?: typeof fetch): Promise<TestResult> {
   const testedAt = new Date();
   const c = await credentialsOf(orgId);
   const done = async (result: Omit<TestResult, 'testedAt'>): Promise<TestResult> => {
@@ -239,11 +215,13 @@ export async function testConnection(orgId: string, fetcher: typeof fetch = fetc
     return { ...result, testedAt: testedAt.toISOString() };
   };
   if (!c || c.kind === 'none') return done({ ok: false, status: null, code: 'no_url', entitySets: null, missing: [] });
-  if (!(await hostAllowed(c.baseUrl))) return done({ ok: false, status: null, code: 'host_refused', entitySets: null, missing: [] });
+  // The checked address is the one connected to (no second DNS answer between the check and the call).
+  const pinned = await hostFetcher(c.baseUrl);
+  if (!pinned) return done({ ok: false, status: null, code: 'host_refused', entitySets: null, missing: [] });
   const url = c.kind === 'odata' ? `${odataRoot(c.baseUrl)}/$metadata` : c.baseUrl;
   let res: Response;
   try {
-    res = await fetcher(url, { method: 'GET', headers: { ...authHeader(c), accept: 'application/xml, application/json' }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), redirect: 'manual' });
+    res = await (fetcher ?? pinned)(url, { method: 'GET', headers: { ...authHeader(c), accept: 'application/xml, application/json' }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), redirect: 'manual' });
   } catch (error) {
     return done({ ok: false, status: null, code: failure(error), entitySets: null, missing: [] });
   }

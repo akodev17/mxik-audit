@@ -6,7 +6,7 @@ import { accounting } from '@tasnivo/contracts';
 import { db } from '@tasnivo/db';
 import type { z } from 'zod';
 import { refreshCounts } from './batch-state.js';
-import { bankDocument, credentialsOf, hostAllowed, invoiceDocument, postDocument, productDocument, type PostResult } from './connection.js';
+import { bankDocument, credentialsOf, hostFetcher, invoiceDocument, postDocument, productDocument, type PostResult } from './connection.js';
 import { outcomeOf, planFor, recordOutcomes, type PrepareInput } from './export.js';
 
 type ImportOutcome = z.infer<typeof accounting.ImportOutcome>;
@@ -29,11 +29,13 @@ async function inPool<T, R>(items: readonly T[], limit: number, run: (item: T) =
 }
 
 /** Sends the batch through the org's direct 1C connection (odata), when one is configured. */
-export async function transferExport(input: PrepareInput & { actorId: string }, fetcher: typeof fetch = fetch): Promise<Transferred> {
+export async function transferExport(input: PrepareInput & { actorId: string }, fetcher?: typeof fetch): Promise<Transferred> {
   if (input.format !== 'odata') return { ok: false, error: input.format === 'http' ? 'http_transfer_unsupported' : 'format_not_transfer' };
   const c = await credentialsOf(input.orgId);
   if (!c || c.kind !== 'odata') return { ok: false, error: 'no_connection' };
-  if (!(await hostAllowed(c.baseUrl))) return { ok: false, error: 'host_refused' };
+  // Pinned to the checked address (host-guard.ts): the name is not resolved again for the POSTs.
+  const pinned = await hostFetcher(c.baseUrl);
+  if (!pinned) return { ok: false, error: 'host_refused' };
   const planned = await planFor(input);
   if (!planned.ok) return planned;
   const { loaded: { batch }, plan } = planned;
@@ -58,7 +60,7 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
       ...(i.kind === 'bank_statement' ? bankDocument(c.objectMap, i.payload) : i.kind === 'product_catalog' ? productDocument(c.objectMap, i.payload) : { entitySet: '', body: {} }),
     }));
   }
-  const results: PostResult[] = await inPool(jobs, CONCURRENCY, (job) => postDocument(c, job.entitySet, job.body, fetcher));
+  const results: PostResult[] = await inPool(jobs, CONCURRENCY, (job) => postDocument(c, job.entitySet, job.body, fetcher ?? pinned));
 
   const imported: { id: string; onecRef: string | null }[] = [];
   const rejected: { id: string; reason: string; message: string | null }[] = [];
