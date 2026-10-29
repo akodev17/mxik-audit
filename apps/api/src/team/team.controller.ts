@@ -1,6 +1,6 @@
 // endpoints.team: members, invites and joining with one. Thin: each handler parses with the
 // registry's schemas and calls @tasnivo/domain/team-forms, as the web app's team actions do.
-import { Body, Controller, Inject, Param, Req, Res } from '@nestjs/common';
+import { Body, Controller, Inject, Param, Query, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { endpoints, type ResponseOf } from '@tasnivo/contracts';
@@ -8,8 +8,9 @@ import { isDemoOrg } from '@tasnivo/domain/demo';
 import { readInvite } from '@tasnivo/domain/invites';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
 import {
-  inviteMemberForm, joinWithInviteForm, removeMemberForm, resendInviteForm, revokeInviteForm, teamOverview, updateMemberForm, type InviteInput,
+  inviteMemberForm, joinWithInviteForm, resendInviteForm, revokeInviteForm, teamOverview, updateMemberForm, type InviteInput,
 } from '@tasnivo/domain/team-forms';
+import { removalCheckFor, removeMemberForm } from '@tasnivo/domain/team-removal';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
 import { CurrentUser, Locale } from '../http/decorators';
@@ -56,9 +57,20 @@ export class TeamController {
     return updateMemberForm(user, { userId, ...body }, locale);
   }
 
+  @Route(e.removalCheck)
+  removalCheck(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.removalCheck.params)) { userId }: UserParam): Promise<Answer<'removalCheck'>> {
+    return removalCheckFor(user, userId);
+  }
+
+  /** The member's open reviews go to `reassignTo`, or with `dropReviews` are dropped; neither, and they hold some, is refused. */
   @Route(e.removeMember)
-  removeMember(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.removeMember.params)) { userId }: UserParam, @Locale() locale: LocaleCode): Promise<Answer<'removeMember'>> {
-    return removeMemberForm(user, userId, locale);
+  removeMember(
+    @CurrentUser() user: User,
+    @Param(new ZodValidationPipe(e.removeMember.params)) { userId }: UserParam,
+    @Query(new ZodValidationPipe(e.removeMember.query)) query: { reassignTo?: string; dropReviews?: boolean },
+    @Locale() locale: LocaleCode,
+  ): Promise<Answer<'removeMember'>> {
+    return removeMemberForm(user, userId, query, locale);
   }
 
   @Route(e.revokeInvite)

@@ -4,7 +4,9 @@
 import { Prisma } from '@prisma/client';
 import { canSeeClient } from './access.js';
 import { db } from '@tasnivo/db';
+import { memberEmails } from './member-emails.js';
 import { orgLocale } from './org-locale.js';
+import { RISKY_SEVERITIES } from './risk.js';
 import { inEveryLocale, reviewAssignedText, reviewCompletedText } from './notification-text.js';
 import { notify } from './notifications.js';
 import { localDate } from './reminder-dates.js';
@@ -36,21 +38,36 @@ export type ReviewView = {
   status: 'open' | 'done';
   overdue: boolean;
   doneAt: Date | null;
+  /** Who closed it (their address, also once they left the team) and what they wrote. */
+  doneBy: string | null;
+  doneNote: string | null;
+  /** Problems of the catalogue still without a decision; what closing now would leave open. */
+  pending: number;
 };
 
 const viewSelect = {
-  id: true, catalogId: true, assigneeId: true, dueOn: true, note: true, status: true, doneAt: true,
+  id: true, catalogId: true, assigneeId: true, dueOn: true, note: true, status: true, doneAt: true, doneBy: true, doneNote: true,
   assignee: { select: { email: true } },
 } satisfies Prisma.ReviewAssignmentSelect;
 
 type Row = Prisma.ReviewAssignmentGetPayload<{ select: typeof viewSelect }>;
 
-function toView(r: Row, now: Date): ReviewView {
+function toView(r: Row, now: Date, emails: ReadonlyMap<string, string>, pending: number): ReviewView {
   return {
     id: r.id, catalogId: r.catalogId, assigneeId: r.assigneeId, assigneeEmail: r.assignee.email, dueOn: r.dueOn, note: r.note,
-    status: r.status, doneAt: r.doneAt,
+    status: r.status, doneAt: r.doneAt, doneBy: r.doneBy ? emails.get(r.doneBy) ?? null : null, doneNote: r.doneNote, pending,
     overdue: r.status === 'open' && r.dueOn !== null && r.dueOn < localDate(now).date,
   };
+}
+
+/** Risky findings without a decision, per catalogue: the same "muammo" the workspace counts as not reviewed. */
+async function pendingByCatalog(catalogIds: readonly string[]): Promise<Map<string, number>> {
+  if (catalogIds.length === 0) return new Map();
+  const rows = await db.$queryRaw<{ catalogId: string; n: bigint }[]>`
+    SELECT i."catalogId", count(*) AS n FROM finding f JOIN catalog_item i ON i.id = f."itemId"
+    WHERE i."catalogId" = ANY(${[...catalogIds]}) AND f.decision = 'pending'::decision AND f.severity::text = ANY(${[...RISKY_SEVERITIES]})
+    GROUP BY i."catalogId"`;
+  return new Map(rows.map((r) => [r.catalogId, Number(r.n)]));
 }
 
 /** Same rule as session.ts: admins and members with no assignments see every client. */
@@ -77,7 +94,11 @@ export async function reviewsFor(who: Who, catalogIds: readonly string[], now = 
     where: { orgId: who.orgId, catalogId: { in: [...catalogIds] }, ...(who.clientIds ? { clientId: { in: who.clientIds } } : {}) },
     select: viewSelect,
   });
-  return new Map(rows.map((r) => [r.catalogId, toView(r, now)]));
+  const [emails, pending] = await Promise.all([
+    memberEmails(who.orgId, rows.map((r) => r.doneBy)),
+    pendingByCatalog(rows.filter((r) => r.status === 'open').map((r) => r.catalogId)),
+  ]);
+  return new Map(rows.map((r) => [r.catalogId, toView(r, now, emails, pending.get(r.catalogId) ?? 0)]));
 }
 
 export type AssignResult = { ok: true; changed: boolean; id: string } | { ok: false; error: ReviewError };
@@ -149,10 +170,13 @@ export async function assignReview(who: Who, input: AssignInput, now = new Date(
   return { ok: true, changed: saved.changed, id: saved.id };
 }
 
-export type CompleteResult = { ok: true } | { ok: false; error: ReviewError };
+export type CompleteResult = { ok: true } | { ok: false; error: ReviewError } | { ok: false; error: 'pending'; pending: number };
 
-/** Closes a review. Only its assignee or an admin may; closing twice is refused, not repeated. */
-export async function completeReview(who: Who, catalogId: string, doneNote: string | null, now = new Date()): Promise<CompleteResult> {
+/**
+ * Closes a review. Only its assignee or an admin may; closing twice is refused, not repeated. A
+ * catalogue with problems still undecided is closed only with `confirm`, so "done" never hides them.
+ */
+export async function completeReview(who: Who, catalogId: string, doneNote: string | null, now = new Date(), confirm = false): Promise<CompleteResult> {
   if (!mayWrite(who)) return { ok: false, error: 'not found' };
   const task = await db.reviewAssignment.findFirst({
     where: { catalogId, orgId: who.orgId },
@@ -163,6 +187,8 @@ export async function completeReview(who: Who, catalogId: string, doneNote: stri
   if (task.status === 'done') return { ok: false, error: 'already done' };
   const note = doneNote?.trim() || null;
   if (note && [...note].length > NOTE_MAX) return { ok: false, error: 'bad note' };
+  const pending = (await pendingByCatalog([catalogId])).get(catalogId) ?? 0;
+  if (pending > 0 && !confirm) return { ok: false, error: 'pending', pending };
 
   const closed = await db.$transaction(async (tx) => {
     const res = await tx.reviewAssignment.updateMany({
@@ -171,7 +197,7 @@ export async function completeReview(who: Who, catalogId: string, doneNote: stri
     });
     if (res.count === 0) return false;
     await tx.auditEvent.create({
-      data: { orgId: who.orgId, actorId: who.userId, action: 'review.completed', targetId: catalogId, payload: { clientId: task.clientId, assigneeId: task.assigneeId } },
+      data: { orgId: who.orgId, actorId: who.userId, action: 'review.completed', targetId: catalogId, payload: { clientId: task.clientId, assigneeId: task.assigneeId, pending } },
     });
     return true;
   });
