@@ -28,13 +28,14 @@ describe('invite verification (database)', { skip }, () => {
     await db.$disconnect();
   });
 
-  it('an invite sent to an address confirms that address, so the member can sign in again once SMTP is on', async () => {
+  it('an invite sent to an address does not confirm it: the code goes to that address (F2)', async () => {
     const to = email();
     const { url } = await createInvite(a, { email: to, role: 'accountant', clientIds: [] });
-    const joined = await acceptInvite(tokenOf(url), to, 'password-123');
+    const joined = await withMail(() => acceptInvite(tokenOf(url), to, 'password-123'));
     assert.ok(joined.ok);
-    const user = await db.user.findUniqueOrThrow({ where: { email: to } });
-    assert.ok(user.emailVerifiedAt);
+    const user = await db.user.findUniqueOrThrow({ where: { email: to }, include: { emailCodes: true } });
+    assert.deepEqual([user.emailVerifiedAt, user.verifiedVia], [null, null]);
+    assert.equal(user.emailCodes.filter((c) => !c.usedAt).length, 1);
   });
 
   it('a link without an address leaves it unconfirmed and mails a confirmation code', async () => {

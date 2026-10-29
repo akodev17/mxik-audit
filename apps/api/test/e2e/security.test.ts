@@ -1,11 +1,13 @@
-// endpoints.auth, signed-in half: password change, sessions, two-factor setup, the security panel,
-// and Telegram sign-in (login callback, binding), against the development database.
+// endpoints.auth, signed-in half: password change, sessions (and their 30-day limit), two-factor
+// setup, the security panel, Telegram sign-in (login callback with its one-time state, binding) and
+// Google never joining an unconfirmed account, against the development database.
 import '../setup-env';
 import assert from 'node:assert/strict';
 import { randomInt } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import type { INestApplication } from '@nestjs/common';
 import { db } from '@tasnivo/db';
+import { googleUser } from '@tasnivo/domain/security/google';
 import { codeAt, stepOf } from '@tasnivo/domain/security/totp';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { bodyOf, dbSkipReason, startApp } from '../helpers';
@@ -93,9 +95,10 @@ describe('auth: security settings and Telegram sign-in (database)', { skip }, ()
     assert.equal((await call(theirs).get('/api/auth/me')).status, 200);
   });
 
-  it('two-factor setup: start, a wrong code, finish; recovery codes renew; off', async () => {
+  it('two-factor setup: start, a wrong code, finish (every other session ends, F20); recovery codes renew; off', async () => {
     const u = await fx.user();
     const cookie = await sessionCookie(u);
+    const other = await sessionCookie(u);
     assert.deepEqual(bodyOf(await call(cookie).get('/api/auth/2fa')), { enabled: false, recoveryLeft: 0 });
     const start = bodyOf<{ secret: string; uri: string; qr: { size: number; path: string } }>(await call(cookie).post('/api/auth/2fa/start'));
     assert.match(start.uri, /^otpauth:\/\/totp\//);
@@ -104,8 +107,12 @@ describe('auth: security settings and Telegram sign-in (database)', { skip }, ()
     assert.equal(bodyOf(await call(cookie).post('/api/auth/2fa/finish').send({ code: '000000' })), null);
     const short = await call(cookie).post('/api/auth/2fa/finish').send({ code: '123' });
     assert.equal(short.status, 400);
+    assert.equal((await call(other).get('/api/auth/me')).status, 200, 'a wrong code ends nothing');
     const codes = bodyOf<string[]>(await call(cookie).post('/api/auth/2fa/finish').send({ code: codeAt(start.secret, stepOf()) }));
     assert.equal(codes.length, 8);
+    assert.equal((await call(other).get('/api/auth/me')).status, 401, 'a session opened before two-factor does not outlive it');
+    assert.equal((await call(cookie).get('/api/auth/me')).status, 200, 'this browser stays signed in');
+    assert.deepEqual((await db.auditEvent.findFirstOrThrow({ where: { orgId: u.orgId, action: 'security.2fa_enabled' } })).payload, { sessionsEnded: 1 });
     assert.deepEqual(bodyOf(await call(cookie).get('/api/auth/2fa')), { enabled: true, recoveryLeft: 8 });
     // Starting again while on answers null.
     assert.equal(bodyOf(await call(cookie).post('/api/auth/2fa/start')), null);
@@ -166,7 +173,8 @@ describe('auth: security settings and Telegram sign-in (database)', { skip }, ()
   });
 
   it('Telegram sign-in: off without a bot; the bound user signs in once per signed answer; a notification chat is refused', async () => {
-    const off = await call().get(`/api/auth/telegram?${query(telegramData('1'))}`);
+    assert.equal(bodyOf(await call().post('/api/auth/telegram/login')), null, 'no state while Telegram is off');
+    const off = await call().get(`/api/auth/telegram/login/x?${query(telegramData('1'))}`);
     assert.equal(off.status, 307);
     assert.equal(off.headers['location'], '/sign-in');
 
@@ -177,18 +185,81 @@ describe('auth: security settings and Telegram sign-in (database)', { skip }, ()
     await db.telegramLink.create({ data: { orgId: u.orgId, chatId: chat, linkedBy: u.userId } });
 
     await withEnv(TELEGRAM_ON, async () => {
+      /** A browser that opened the sign-in page: its cookie and the state in the widget's callback path. */
+      const page = async (): Promise<{ cookie: string; path: (data: Record<string, string>) => string }> => {
+        const started = await call().post('/api/auth/telegram/login');
+        const state = bodyOf<string>(started);
+        return { cookie: sessionPair(started)!, path: (data) => `/api/auth/telegram/login/${state}?${query(data)}` };
+      };
       const data = telegramData(id);
-      const res = await call().get(`/api/auth/telegram?${query(data)}`);
+      const one = await page();
+      const res = await call(one.cookie).get(one.path(data));
       assert.equal(res.status, 307);
       assert.equal(res.headers['location'], '/dashboard');
       assert.equal((await call(sessionPair(res)).get('/api/auth/me')).status, 200);
 
-      const replay = await call().get(`/api/auth/telegram?${query(data)}`);
-      assert.equal(replay.headers['location'], '/sign-in?error=telegram_expired');
-      const unsigned = await call().get(`/api/auth/telegram?${query({ ...telegramData(id), hash: 'ab'.repeat(32) })}`);
-      assert.equal(unsigned.headers['location'], '/sign-in?error=telegram_invalid');
-      const notification = await call().get(`/api/auth/telegram?${query(telegramData(chat))}`);
-      assert.equal(notification.headers['location'], '/sign-in?error=telegram_unbound');
+      const replay = await page();
+      assert.equal((await call(replay.cookie).get(replay.path(data))).headers['location'], '/sign-in?error=telegram_expired');
+      const unsigned = await page();
+      assert.equal((await call(unsigned.cookie).get(unsigned.path({ ...telegramData(id), hash: 'ab'.repeat(32) }))).headers['location'], '/sign-in?error=telegram_invalid');
+      const notification = await page();
+      assert.equal((await call(notification.cookie).get(notification.path(telegramData(chat)))).headers['location'], '/sign-in?error=telegram_unbound');
     });
+  });
+
+  it('Telegram sign-in needs the state this browser got from the sign-in page (login CSRF, F20)', async () => {
+    const u = await fx.user();
+    const id = telegramId();
+    await db.user.update({ where: { id: u.userId }, data: { telegramUserId: id } });
+    await withEnv(TELEGRAM_ON, async () => {
+      const started = await call().post('/api/auth/telegram/login');
+      const state = bodyOf<string>(started);
+      assert.match(state, /^[\w-]{20,}$/);
+      // The attacker's own signed answer and state, replayed in a victim's browser that holds no state.
+      const noCookie = await call().get(`/api/auth/telegram/login/${state}?${query(telegramData(id))}`);
+      assert.equal(noCookie.headers['location'], '/sign-in?error=telegram_state');
+      assert.equal(await db.userSession.count({ where: { userId: u.userId } }), 0, 'nobody was signed in');
+      // A browser with its own state but someone else's path: refused, and its state is spent.
+      const wrong = await call(sessionPair(started)!).get(`/api/auth/telegram/login/not-the-state?${query(telegramData(id))}`);
+      assert.equal(wrong.headers['location'], '/sign-in?error=telegram_state');
+      assert.equal((await unsealPair(sessionPair(wrong)!)).tgLogin, undefined);
+      assert.equal((await call(sessionPair(wrong)!).get(`/api/auth/telegram/login/${state}?${query(telegramData(id))}`)).headers['location'], '/sign-in?error=telegram_state');
+    });
+  });
+
+  it('a session ends 30 days after its sign-in however active it is (F20)', async () => {
+    const u = await fx.user();
+    const young = await sessionCookie(u);
+    const old = await sessionCookie(u);
+    const day = 86_400_000;
+    await db.userSession.update({ where: { id: (await unsealPair(young)).sid! }, data: { createdAt: new Date(Date.now() - 29 * day), lastSeenAt: new Date() } });
+    await db.userSession.update({ where: { id: (await unsealPair(old)).sid! }, data: { createdAt: new Date(Date.now() - 31 * day), lastSeenAt: new Date() } });
+    assert.equal((await call(young).get('/api/auth/me')).status, 200);
+    assert.equal((await call(old).get('/api/auth/me')).status, 401);
+    assert.deepEqual(bodyOf<Row[]>(await call(young).get('/api/auth/sessions')).map((r) => r.current), [true], 'the expired one is not listed');
+  });
+
+  it('Google never binds itself to an account whose address was not confirmed by code or link (F2)', async () => {
+    const firm = await fx.user({ plan: 'firm' });
+    const victim = `victim-${randomInt(1e9)}@gmail.com`;
+    // The admin invites the victim's address and accepts the link with a password of their own.
+    const { url } = bodyOf<{ url: string }>(await call(await sessionCookie(firm)).post('/api/team/invites').send({ role: 'viewer', kind: 'email', email: victim }));
+    await call().post(`/api/invites/${url.split('/invite/')[1]}/join`).send({ email: victim, password: 'attacker-pass-1' });
+    const squat = await db.user.findUniqueOrThrow({ where: { email: victim } });
+    assert.equal(squat.emailVerifiedAt, null);
+
+    const identity = { sub: `g-${randomInt(1e9)}`, email: victim, name: null };
+    assert.deepEqual(await googleUser(identity, 'test-ip'), { ok: false, error: 'google_unconfirmed' });
+    // Confirmed before verifiedVia existed (such invites were confirmed on accept): still not enough.
+    await db.user.update({ where: { id: squat.id }, data: { emailVerifiedAt: new Date(), verifiedVia: 'legacy' } });
+    assert.deepEqual(await googleUser(identity, 'test-ip'), { ok: false, error: 'google_unconfirmed' });
+    assert.equal((await db.user.findUniqueOrThrow({ where: { id: squat.id } })).googleSub, null);
+    assert.ok(ta.verifyX.notices['google_unconfirmed'], 'the sign-in page explains it');
+
+    // Once the holder confirms the address with the mailed code, Google may join it.
+    await db.user.update({ where: { id: squat.id }, data: { verifiedVia: 'code' } });
+    const linked = await googleUser(identity, 'test-ip');
+    assert.ok(linked.ok && linked.user.id === squat.id);
+    assert.equal((await db.user.findUniqueOrThrow({ where: { id: squat.id } })).googleSub, identity.sub);
   });
 });

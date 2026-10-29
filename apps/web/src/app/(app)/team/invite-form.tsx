@@ -112,6 +112,7 @@ export function InviteForm({ clients, mailOn, days, blocked }: Props) {
             {state.email ? (state.emailed ? s.invite.emailed(state.email) : mailOn ? s.invite.mailFailed(state.email) : s.invite.linkReady) : s.invite.linkReady}
           </p>
           <CopyField label={s.invite.link} value={state.url} mono size="compact" />
+          {state.existingAccount ? <p className="text-small text-muted">{state.existingAccount}</p> : null}
         </div>
       ) : null}
     </div>

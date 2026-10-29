@@ -5,7 +5,7 @@ import { signedIn } from '@/lib/api/me';
 import { serverApi } from '@/lib/api/server';
 import { AuthDivider, AuthSwitch } from '@/ui/auth-parts';
 import { GoogleLogin } from '@/ui/google-login';
-import { TelegramLogin } from '@/ui/telegram-login';
+import { TelegramSignIn } from '../sign-in/telegram-sign-in';
 import { SignUpForm } from './sign-up-form';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,7 +27,7 @@ export default async function SignUpPage() {
           <AuthDivider label={ta.authX.signIn.or} />
           <div className="space-y-3">
             {google ? <GoogleLogin label={ta.verifyX.google} /> : null}
-            {telegramBot ? <TelegramLogin bot={telegramBot} /> : null}
+            {telegramBot ? <TelegramSignIn bot={telegramBot} /> : null}
           </div>
         </>
       ) : null}
