@@ -585,6 +585,7 @@ const coreUz = {
       'demo.started': 'Demo ishga tushirildi',
       'billing.order_created': 'Toʻlov buyurtmasi yaratildi',
       'billing.paid': 'Toʻlov qabul qilindi',
+      'billing.refunded': 'Toʻlov qaytarildi',
       'sales.uploaded': 'Sotuv fayli yuklandi',
       'sales.checked': 'Sotuv fayli tekshirildi',
       'cheques.checked': 'Cheklardagi kodlar tekshirildi',

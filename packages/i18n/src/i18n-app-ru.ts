@@ -587,6 +587,7 @@ const coreRu: CoreAppDict = {
       'demo.started': 'Демо запущено',
       'billing.order_created': 'Создан заказ на оплату',
       'billing.paid': 'Оплата получена',
+      'billing.refunded': 'Оплата возвращена',
       'sales.uploaded': 'Файл продаж загружен',
       'sales.checked': 'Файл продаж проверен',
       'cheques.checked': 'Коды из чеков проверены',

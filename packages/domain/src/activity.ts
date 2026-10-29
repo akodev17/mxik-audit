@@ -22,7 +22,7 @@ export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[
     'team.invited', 'team.invite_revoked', 'team.joined', 'team.updated', 'team.removed', 'account.created', 'demo.started', 'apikey.created', 'apikey.revoked',
     'security.2fa_enabled', 'security.2fa_disabled', 'security.session_revoked', 'security.password_changed', 'security.password_reset', 'security.telegram_bound', 'security.telegram_unbound', 'security.google_bound',
     'telegram.linked', 'telegram.unlinked', 'account.deletion_requested', 'account.restored', 'retention.changed', 'retention.purged', 'billing.order_created', 'billing.paid',
-    'onec.connection_saved',
+    'billing.refunded', 'onec.connection_saved',
   ],
   classifier: ['classifier.updated'],
   dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept', 'dictionary.confirmed', 'dictionary.disputed', 'dictionary.code_replaced', 'dictionary.rekeyed', 'product.mxik_confirmed', 'product.from_audit', 'product.import_applied'],
@@ -30,7 +30,7 @@ export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[
 const KNOWN = Object.values(GROUPS).flat();
 
 /** Events about the org itself rather than a client; only admins read other people's. */
-const ORG_LEVEL = [...GROUPS.team, 'team.invite_revoked', 'billing.paid', 'billing.order_created', 'dictionary.auto_accept', 'account.exported', 'retention.changed', 'retention.purged'];
+const ORG_LEVEL = [...GROUPS.team, 'team.invite_revoked', 'billing.paid', 'billing.order_created', 'billing.refunded', 'dictionary.auto_accept', 'account.exported', 'retention.changed', 'retention.purged'];
 
 
 export type ActivityFilter = { clientId: string | null; userId: string | null; category: Category; from: string | null; to: string | null; page: number };
