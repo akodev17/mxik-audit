@@ -392,6 +392,26 @@
         "$env:API_PORT='4010'; $env:EMBEDDING_PROVIDER='local'; $env:RERANK_PROVIDER='gemini'; $env:RERANK_BATCH_SIZE='25'; $env:RERANK_BATCH_WAIT_MS='5000'; $env:RERANK_MAX_CONCURRENT='2'; $env:RERANK_TIMEOUT_MS='300000'; npm run dev:api"
       ],
       "port": 4010
+    },
+    {
+      "name": "lexicon-api-4031",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4031'; $env:ADMIN_EMAILS='lexicon-admin@test.local'; npm run dev:api"
+      ],
+      "port": 4031
+    },
+    {
+      "name": "lexicon-web-3031",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4031'; npx next dev apps/web -p 3031"
+      ],
+      "port": 3031
     }
   ]
 }

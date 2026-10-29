@@ -5,7 +5,9 @@
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
 // Run: npm run eval [-- --label "after key" --no-ablate --no-tnved --set competitor-22 --fulltext-common-docs N
-//                       --fulltext-column plain|weighted --fulltext-select A|AB]
+//                       --fulltext-column plain|weighted --fulltext-select A|AB --no-append --out run.json]
+// The learned lexicon (docs/MATCHING_V2_PLAN.md §11) is applied as in the audit unless LEXICON=off;
+// --out writes the run's record to a file (for `npm run lexicon:check`), --no-append keeps it out of the history.
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -23,6 +25,7 @@ import { rerankConfigFromEnv } from '@tasnivo/core/match/rerank-config';
 import { OUTPUT_SCHEMA, renderRow, SYSTEM_PROMPT } from '@tasnivo/core/match/rerank-prompt';
 import { lexicalQuery } from '@tasnivo/core/match/query';
 import { matchKeyOf, normalizeName, tokenize } from '@tasnivo/core/normalize/index';
+import { applyLexicon } from '@tasnivo/domain/lexicon';
 import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
 import { diagnoseMiss, type MissDiagnostic } from './diagnose.js';
 import { MemoStore } from './memo-store.js';
@@ -47,6 +50,9 @@ const argValue = (flag: string): string | undefined => {
 };
 const LABEL = argValue('--label') ?? 'eval';
 const ABLATE = !process.argv.includes('--no-ablate');
+const APPEND = !process.argv.includes('--no-append');
+const OUT = argValue('--out');
+const USE_LEXICON = process.env['LEXICON'] !== 'off';
 // --no-tnved: ignore the cases' TN VED column, to measure what the heading adds.
 const USE_TNVED = !process.argv.includes('--no-tnved');
 // Ranking options under test (pipeline.ts): --position-fusion off|subposition|position,
@@ -125,6 +131,9 @@ const cases = loaded.flatMap((c) => {
 });
 
 const { reranker: realReranker, gate } = rerankFromEnv(process.env, new MemoryRerankCache());
+// The learned lexicon as the audit applies it: entries merged into the normaliser, aliases to the pipeline.
+const lexicon = USE_LEXICON ? await applyLexicon({ fresh: true }) : null;
+const aliases = lexicon?.aliases;
 
 /** Without a key, still measure what the gate would send, at zero cost and no effect on scores. */
 class DryRunReranker implements RerankProvider {
@@ -208,6 +217,7 @@ if (readiness.reason) console.log(`  vector stage    ${readiness.usable ? 'SUBST
 console.log(`reranker        ${realReranker.name}${realReranker.available ? '' : '   <-- DISABLED (gate measured in dry run)'}`);
 console.log(`rerank gate     top-1 < ${gate.minConfidence} or margin < ${gate.minMargin}`);
 console.log(`tn ved          ${USE_TNVED ? 'used' : 'IGNORED (--no-tnved)'} · ${cases.filter((c) => c.tnved).length} cases carry one`);
+console.log(`lexicon         ${lexicon ? `${lexicon.counts.synonyms} synonyms, ${lexicon.counts.units} unit aliases, ${lexicon.counts.aliases} aliases from the database` : 'OFF (file tables only)'}`);
 console.log('');
 console.log('  NOTE: "real" mixes hand-written cases (golden) with customer-file sets');
 console.log('  (real-*.csv); each real set is also reported on its own below.');
@@ -238,7 +248,7 @@ async function runConfig(config: Config): Promise<Outcome[]> {
       const t0 = Date.now();
       const result = await matchProduct(
         { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit, tnved: USE_TNVED ? testCase.tnved : null },
-        { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled), vectorColumns, ...ranking },
+        { store, embedder, reranker: tracked, aliases, rerankGate: gate, disabledStages: new Set(config.disabled), vectorColumns, ...ranking },
       );
       const rankIndex = result.candidates.findIndex((c) => accepts(testCase.correct, c.candidate.code));
       const top = result.candidates[0];
@@ -404,7 +414,7 @@ if (existsSync(RESULTS)) {
     : { note: NOTE, runs: [{ label: 'gate 1 (single-run format)', ...previous }] };
 }
 
-history.runs.push({
+const record = {
   label: LABEL,
   ranAt: new Date().toISOString(),
   code: commit,
@@ -420,6 +430,7 @@ history.runs.push({
     ranking,
     tnved: USE_TNVED,
     efSearch: efSearchArg === undefined ? null : Number(efSearchArg),
+    lexicon: lexicon?.counts ?? null,
   },
   cases: { real: real.length, synthetic: synthetic.length, benchmark: benchmark.length, excluded },
   metrics: results,
@@ -432,8 +443,15 @@ history.runs.push({
     confidence: Number(o.confidence.toFixed(4)), band: o.band, decidedBy: o.decidedBy, sentToLlm: o.sentToLlm,
   })),
   realTop5Misses: missDiagnostics,
-});
-writeFileSync(RESULTS, JSON.stringify(history, null, 2) + '\n');
-console.log(`\nappended run ${history.runs.length} to ${RESULTS}`);
+};
+if (OUT) {
+  writeFileSync(OUT, JSON.stringify(record, null, 2) + '\n');
+  console.log(`\nwrote the run to ${OUT}`);
+}
+if (APPEND) {
+  history.runs.push(record);
+  writeFileSync(RESULTS, JSON.stringify(history, null, 2) + '\n');
+  console.log(`\nappended run ${history.runs.length} to ${RESULTS}`);
+}
 
 await pool.end();

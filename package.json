@@ -41,6 +41,7 @@
     "eval:recall": "tsx eval/vector-recall.ts",
     "eval:synthetic": "tsx eval/make-synthetic.ts",
     "bench:files": "tsx scripts/bench-files.ts",
+    "lexicon:check": "tsx scripts/lexicon-check.ts",
     "perf": "tsx scripts/perf-catalog.ts",
     "perf:nav": "tsx scripts/perf-nav.ts",
     "lint": "eslint apps/web/src apps/web/e2e apps/web/next.config.ts apps/api packages scripts eval tests apps/worker/src",

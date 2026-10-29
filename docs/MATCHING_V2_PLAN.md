@@ -325,3 +325,73 @@ on this key with `RERANK_PROVIDER=off` unless the reranker is the point; the key
 likely spent until 07:00 UTC.
 
 Still open from §7: the paid Gemini key and the scratch databases.
+
+## 11. Learned lexicon (branch `claude/epic-driscoll-478159`, 29 Oct 2026)
+
+Every new catalogue type so far (cafe menus, pharmacy lists, procurement names) needed a
+developer session to add synonyms, unit aliases and ranking rules (§7, §8). The learned lexicon is
+the first version of letting the product learn from customers instead: what organisations confirm
+becomes a candidate, a platform admin approves it, and the matcher reads the approved entries
+beside the hand-written tables. Nothing changes for existing users until an admin approves
+something; with an empty database lexicon the bench and the eval are byte-for-byte the runs
+recorded before (verified: run 4 of `docs/bench-results.json` and run 72 of `docs/eval-results.json`
+against `npm run lexicon:check` on a copy of `mxik`, see the branch report).
+
+### Data flow
+
+```
+decision (accept / change a code, individual or group)          bulk accepts, dictionary auto-accept
+        │  dictionary.ts learn(source)                                      │ (never counted)
+        ▼                                                                   ✗
+firm_mapping (per org, name+unit, confirmations)      learned_alias (per org, name key, code, confirmations)
+                                                               │  GROUP BY key, code
+                                                               │  HAVING count(DISTINCT org) >= 2  (ALIAS_MIN_ORGS)
+                                                               ▼
+                                                 global alias candidates  ──►  /admin/lexicon  (approve / reject)
+                                                                                        │
+lexicon_entry (kind: synonym | unit | alias; status: active | disabled | rejected) ◄──────┘  (+ synonyms and unit
+        │  applyLexicon() at the start of an audit (cached 60 s), bench:files, eval              aliases typed by an admin)
+        ▼
+installLexicon(): synonyms.ts and units.ts extensions, merged after / over the file tables
+aliases → PipelineOptions.aliases → one more RRF list ("alias") + pool slots, evidence aliasOrgs
+```
+
+- **Learning** (`packages/domain/src/lexicon.ts recordAliasConfirmations`, called from `learn()`):
+  the same sources that count as dictionary confirmations (`manual`, `group`); the key is the
+  name's folded, word-sorted key (`match/alias.ts aliasKey`), no unit, so "Stekloveta 50 mm, dona"
+  and "СТЕКЛОВАТА 50мм, kg" are one name. A different code for the same name is a row of its own.
+- **Candidates**: a (name, code) pair at least two distinct organisations confirmed. Listed with the
+  organisation count, the confirmation sum and up to three example names; never auto-activated.
+- **Matcher** (`match/pipeline.ts`): the approved alias codes (live, inside the row's TN VED heading
+  when it has one) form one more ranked list in reciprocal rank fusion and keep up to three slots in
+  the reranker pool after the fused window. The list exists only when an alias matched, so the RRF
+  normalisation of every other row is unchanged. Evidence: `aliasOrgs`, `aliasConfirmations`; the
+  row signal reads "N tashkilot tasdiqlagan". Stages 0-2 are untouched: a barcode identity, an
+  exact name and the org's own dictionary still decide before retrieval runs.
+- **Entries** (`/admin/lexicon`, `GET/POST /api/admin/lexicon`, `PATCH /api/admin/lexicon/{id}`,
+  `POST /api/admin/lexicon/aliases`; platform admins only, everyone else 404): a synonym entry has
+  the shape of a `synonyms.ts` row (forms, term, replace, unless, group, kind), a unit alias maps
+  free text to an official unit. Every save runs `normalize/lexicon.ts checkLexicon()`: shape
+  checks, then the active lexicon with the change installed for one synchronous pass over the
+  normaliser's invariants (the cases `synonyms.test.ts` and `units.test.ts` pin: rebar, angle
+  steel, mineral wool, PP, an unchanged "Лист г/к", the catering context, kg / dona / tsentner /
+  "500 gramm" / "dona (paket) 500 gramm"), then the previous lexicon is restored. An entry that
+  breaks one is answered `{ ok: false, problems }` and not stored.
+- **Regression safety**: `npm run lexicon:check` runs the five-file bench and the eval sets with
+  the database lexicon applied (reranker off) and compares every file's top-1 / fix / exact-row
+  counts and per-type precision and recall, and every eval set's top-1 / top-5 / high-precision /
+  pool %, with the last run recorded in `docs/bench-results.json` and `docs/eval-results.json`.
+  Any drop fails it. `LEXICON=off` measures the file tables alone. DEPLOY.md says when to run it.
+
+### Deferred
+
+- Undoing a decision does not subtract its alias confirmation (the dictionary's `restoreMappings`
+  does for `firm_mapping`); a candidate can therefore count an undone decision until the next one.
+- No score boost for an alias hit beyond the RRF list and the pool slot: a code only the alias
+  found lands in the pool with low confidence and needs the reranker (or the dictionary) to win.
+  A `globalAlias` rule key (+0.05 or so) is the natural next step once a few aliases are approved
+  and the bench shows where they land.
+- The admin page edits synonym entries one at a time; no import of a whole group (as the catering
+  group was added) and no per-group context words (`GROUP_CONTEXT`) from the database yet.
+- Alias approval checks that the code is live but not that the name still retrieves it; the check
+  script is the guard for that.
