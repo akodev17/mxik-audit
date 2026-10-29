@@ -40,6 +40,11 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     description: { uz: 'API kalitlari va chegaralar, Telegram xabarnomalari, Google Sheets qoʻshimchasi.', ru: 'Ключи API и лимиты, уведомления в Telegram, дополнение для Google Таблиц.' },
   },
   {
+    slug: '1c-bank-didox',
+    title: { uz: '1C, bank va Didox', ru: '1С, банк и Didox' },
+    description: { uz: 'Bank koʻchirmasi, Didox hisob-fakturasi va mahsulotlar roʻyxatidan 1C ga yuklanadigan faylgacha: qadamlar, fayl turlari, sinov holati.', ru: 'От банковской выписки, счёта-фактуры Didox и списка товаров до файла для 1С: шаги, виды файлов, статус проверки.' },
+  },
+  {
     slug: 'tez-tez-soraladigan-savollar',
     title: { uz: 'Tez-tez beriladigan savollar', ru: 'Частые вопросы' },
     description: { uz: 'Fayllar, rollar, mijoz havolasi, API va EHF haqida javoblar.', ru: 'Ответы о файлах, ролях, ссылке для клиента, API и ЭСФ.' },

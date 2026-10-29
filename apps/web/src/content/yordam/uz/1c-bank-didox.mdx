@@ -1,0 +1,64 @@
+Tasnivo bank koʻchirmasi, Didox hisob-fakturasi va mahsulotlar roʻyxatini 1C ga qoʻlda qayta yozmaslik uchun ishlatiladi: faylni yuklaysiz, dastur qatorlarni oʻqib tekshiradi, siz shubhali joylarni koʻrib tasdiqlaysiz va 1C ga yuklanadigan faylni olasiz.
+
+## Umumiy yoʻl
+
+Har uchala boʻlim bir xil yoʻldan oʻtadi: manba → oʻqish → solishtirish → tekshiruv → tasdiqlash → 1C fayli.
+
+Har bir yuklangan fayl **paket** deb ataladi. Paket holatlari: Yuklandi, Oʻqildi, Koʻrib chiqilmoqda, Tasdiqlandi, 1C ga tayyorlandi, Xato. Paket ichidagi har bir yozuvning oʻz holati bor: Toʻgʻri, Tuzatildi, Shubhali, Hal qilinmagan, Oʻtkazib yuborildi, 1C ga yuborildi.
+
+Dastur hech qachon oʻzi qaror qilmaydi: qoidalar hal qila olmagan yozuv **Hal qilinmagan** boʻlib qoladi, sunʼiy intellekt taklifi esa siz qabul qilmaguningizcha faqat taklif boʻlib turadi.
+
+## Bank koʻchirmalari
+
+1. **Bank koʻchirmalari** sahifasida bankdan yuklab olingan Excel yoki CSV koʻchirmani yuklang (qaysi mijoz uchun ekanini tanlang).
+2. Dastur ustunlarni oʻzi taniydi. Tanimasa, ustunlarni bir marta qoʻlda koʻrsatasiz; shu bankning keyingi koʻchirmasi uchun bu eslab qolinadi.
+3. Qatorlar oʻqiladi: sana, summa, kontragent (STIR, hisob raqami, MFO), toʻlov maqsadi. Boshlangʻich va yakuniy qoldiq koʻchirmadagi bilan solishtiriladi. Bir toʻlov ikki marta kelsa, belgilanadi.
+4. Operatsiya turi qoidalar bilan aniqlanadi (masalan, bank xizmati, mijoz toʻlovi). Qoidalarni **Bank koʻchirmalari** sahifasining sozlamalar qismida oʻzingiz qoʻshasiz.
+5. Shubhali va hal qilinmagan qatorlarni koʻrib chiqasiz, keyin paketni tasdiqlaysiz.
+6. Tasdiqlangan paketdan `kl_to_1c.txt` fayli va solishtirma hisobot olinadi.
+
+## Didox hisob-fakturalar
+
+1. **Didox hisob-fakturalar** sahifasida Didox dan yuklab olingan arxivni (.zip), bitta hujjat JSON faylini yoki ESF Excel shablonini (.xlsx, 20 MB gacha) yuklang.
+2. Boshqa yoʻl: administrator Sozlamalar → **Didox ulanishi** boʻlimida Didox tokenini kiritadi, keyin yangi hisob-fakturalar toʻgʻridan-toʻgʻri olinadi. Bu yoʻl haqiqiy Didox bilan hali sinovdan oʻtmagan (quyida).
+3. Hisob-faktura qatorlari mahsulotlar katalogingiz bilan solishtiriladi: MXIK kodi, qadoq kodi va oʻlchov birligi tekshiriladi. Katalogda yoʻq mahsulot **Hal qilinmagan** boʻladi.
+4. Qatorlarni koʻrib chiqib, hisob-fakturani tasdiqlaysiz.
+5. Natija: tovar kirimi Excel fayli (har hisob-faktura uchun bitta varaq) va nomenklatura Excel fayli.
+
+## Mahsulotlar katalogi
+
+**Mahsulotlar katalogi** firmangiz va mijozlaringiz tovarlarining bitta roʻyxati. Unga uch yoʻl bilan mahsulot kiradi: Excel fayldan, 1C «Номенклатура» eksportidan yoki tugagan audit sahifasidagi **Mahsulotlar katalogiga qoʻshish** tugmasi bilan.
+
+Har bir mahsulot uchun tekshiriladi: MXIK kodi tasniflagichda bormi, u hali amal qiladimi, cheklangan kod emasmi, qadoq kodi va oʻlchov birligi kodga mos keladimi. Mos kelmasa, taklif chiqadi; siz **MXIKni tasdiqlash** bilan qaror qilasiz. Tasdiqlangan kod firma lugʻatiga ham yoziladi: [Firma lugʻati](/yordam/firma-lugati).
+
+Tasdiqlangan roʻyxat 1C uchun nomenklatura Excel fayli sifatida yuklab olinadi.
+
+## 1C ga yuklash
+
+**1C import va tarix** sahifasida hamma paketlar bitta roʻyxatda: bank, Didox va mahsulotlar. Paketni ochib **1C ga tayyorlash** tugmasini bossangiz, dastur faylga nima kirishini, nima oʻtkazib yuborilishini va ogohlantirishlarni koʻrsatadi; hali hech narsa oʻzgarmaydi. Keyin faylni yuklab olasiz.
+
+Fayl turlari va ular 1C da qayerga yuklanadi:
+
+- `kl_to_1c.txt` — bank koʻchirmasi: Банк и касса → Банковские выписки → Загрузить.
+- `postuplenie-…xlsx` — Didox hisob-fakturasi: Поступление товаров и услуг, jadvaldan yuklash.
+- `…-nomenklatura.xlsx` — mahsulotlar roʻyxati: Номенклатура → Загрузить из файла.
+- `…-kontragenty.xlsx` — yangi kontragentlar: Контрагенты, jadvaldan yuklash.
+
+Oldin 1C ga yuborilgan yozuv qayta kelsa, dastur buni belgilaydi, shuning uchun bitta toʻlov yoki hisob-faktura ikki marta kirmaydi. Kontragentlar roʻyxatini 1C dan eksport qilib shu yerga yuklash ham mumkin: shunda bank qatorlari tanish kontragentlarga oson bogʻlanadi.
+
+**1C sozlamalari** boʻlimida ulanish turi tanlanadi: faqat fayllar (asosiy yoʻl), toʻgʻridan-toʻgʻri ulanish (OData) yoki HTTP xizmati. Bank fayli uchun MFO kaliti varianti ham shu yerda: standart yoki Oʻzbekiston nashri uchun qoʻshimcha kalit bilan.
+
+## Hal qilinmagan nima degani
+
+**Hal qilinmagan** yozuv dastur ishonch bilan hal qila olmagan yozuv: kontragent topilmadi, mahsulot katalogda yoʻq, MXIK kodi tasniflagichda yoʻq yoki qoidalar operatsiya turini aniqlay olmadi. Bunday yozuv faylga kirmaydi. Uni koʻrib chiqib tuzatasiz yoki **Oʻtkazib yuborish** bilan faylsiz qoldirasiz; ikkala qaror ham tarixda qoladi.
+
+## Sinov holati
+
+Hozirgi holat ochiq aytilgan, chunki buxgalteriya hujjatlarida xato qimmatga tushadi:
+
+- Fayllar 1C almashuv standarti boʻyicha tuzilgan, lekin haqiqiy «1C:Buxgalteriya (Oʻzbekiston uchun)» bazasiga hali yuklab sinab koʻrilmagan. Birinchi faylni sinov bazasida tekshiring.
+- Bank koʻchirmalarini oʻqish sunʼiy namunalarda tekshirilgan; haqiqiy bank fayli bilan hali tasdiqlanmagan.
+- Didox hujjat tuzilishi uchinchi tomon manbalaridan olingan; toʻgʻridan-toʻgʻri ulanish haqiqiy Didox bilan sinovdan oʻtmagan. Arxiv yuklash ishlaydi.
+- 1C ga toʻgʻridan-toʻgʻri ulanish (OData) haqiqiy bazada sinalmagan; fayl orqali yuklash asosiy yoʻl.
+
+Bu boʻlimlar hamma tariflarga kiradi: [Tariflar va limitlar](/yordam/tariflar-va-limitlar). API orqali ulanish haqida: [API va integratsiyalar](/yordam/api-va-integratsiyalar).
