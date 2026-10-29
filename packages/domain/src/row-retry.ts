@@ -20,7 +20,8 @@ const DATABASE = /prisma|postgres|ECONNREFUSED|ECONNRESET|connection|P\d{4}|dead
 
 /** The kind of a row error, from its class name and message. */
 export function rowFailureKind(error: unknown): RowFailureKind {
-  const text = error instanceof Error ? `${error.name} ${error.message} ${(error as { code?: unknown }).code ?? ''}` : String(error);
+  const code = error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : '';
+  const text = error instanceof Error ? `${error.name} ${error.message} ${code}` : String(error);
   if (TIMEOUT.test(text)) return 'timeout';
   if (DATABASE.test(text)) return 'database';
   return 'other';
