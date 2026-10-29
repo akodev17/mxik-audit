@@ -376,6 +376,7 @@ describe('billing module (database)', { skip }, () => {
     assert.equal(bodyOf<{ ok: boolean }>(open).ok, true, JSON.stringify(open.body));
     const counterparties = await upload('/api/onec/counterparties/import', 'kontragenty.csv', Buffer.from('Наименование;ИНН\nАльфа;301111111\n'));
     assert.equal(bodyOf<{ ok: boolean }>(counterparties).ok, true, JSON.stringify(counterparties.body));
-    assert.equal((await http().get('/api/billing/plan').set('Cookie', cookie)).body.status.usage.rowsPerMonth, 0, 'not counted in the monthly rows (D4)');
+    const plan = fits(e.plan.response, (await http().get('/api/billing/plan').set('Cookie', cookie)).body);
+    assert.equal(plan.status.usage.rowsPerMonth, 0, 'not counted in the monthly rows (D4)');
   });
 });

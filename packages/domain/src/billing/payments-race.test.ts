@@ -35,8 +35,8 @@ describe('payments: races, expiry, purge (database)', { skip }, () => {
     const o = await order(orgId, 'company_monthly');
     const seen: string[] = [];
     const results = await Promise.all([
-      markPaid(o.id, 'payme', { within: async () => { seen.push('a'); } }),
-      markPaid(o.id, 'click', { within: async () => { seen.push('b'); } }),
+      markPaid(o.id, 'payme', { within: () => { seen.push('a'); return Promise.resolve(); } }),
+      markPaid(o.id, 'click', { within: () => { seen.push('b'); return Promise.resolve(); } }),
     ]);
     assert.deepEqual([...results].sort(), ['not_payable', 'paid']);
     assert.equal(seen.length, 1, 'the provider state is written by the winner only');
@@ -60,7 +60,7 @@ describe('payments: races, expiry, purge (database)', { skip }, () => {
   it('a provider step that throws rolls the claim back: the order stays payable', async () => {
     const orgId = await org();
     const o = await order(orgId, 'accountant_monthly');
-    await assert.rejects(markPaid(o.id, 'payme', { within: async () => { throw new Error('cancelled meanwhile'); } }), /cancelled meanwhile/);
+    await assert.rejects(markPaid(o.id, 'payme', { within: () => Promise.reject(new Error('cancelled meanwhile')) }), /cancelled meanwhile/);
     assert.equal((await db.order.findUniqueOrThrow({ where: { id: o.id } })).status, 'created');
     assert.equal(await until(orgId), null);
     assert.equal(await markPaid(o.id, 'payme', { testMode: true }), 'paid');
