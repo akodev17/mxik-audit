@@ -8,7 +8,8 @@ import { readEvidence } from '@tasnivo/core/match/evidence';
 import { BANDS } from '@tasnivo/core/match/score';
 import { catalogScope } from './access.js';
 import { decideMany, liveCodeSet, screenTargets, type ManyDone, type ManyTarget, type Skipped } from './decide-many.js';
-import { confirms, learnKeys, learnQuietly, readMappingsBefore, restoreMappings, snapshotMappings, type LearnSource } from './dictionary.js';
+import { confirms, learnerOf, learnKeys, learnQuietly, readMappingsBefore, restoreMappings, snapshotMappings, type LearnSource } from './dictionary.js';
+import { dictionaryEntriesOf, disputeEntries, liftDisputes, readDisputed } from './dictionary-dispute.js';
 import { db } from '@tasnivo/db';
 import { conflictingSibling } from './effective-code.js';
 import { acceptCode } from './finding-kinds.js';
@@ -17,7 +18,8 @@ import { filterConditions } from './workspace.js';
 import type { WsFilter } from './workspace-filter.js';
 import { mayWrite, type RoleCarrier } from './write-access.js';
 
-export type Actor = { userId: string; orgId: string; clientIds?: string[] | null } & RoleCarrier;
+/** email: a signed-in CurrentUser carries it; otherwise it is read when a decision records it. */
+export type Actor = { userId: string; orgId: string; clientIds?: string[] | null; email?: string } & RoleCarrier;
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export const DECISION_ACTIONS = ['finding.accepted', 'finding.rejected', 'finding.bulk_accepted', 'finding.bulk_rejected', 'finding.carried_over', 'finding.auto_accepted'] as const;
@@ -97,6 +99,9 @@ export async function recordDecision(
   if (chosen && !(await liveCodeSet([chosen])).has(chosen)) return failure('not_in_classifier');
 
   const learnable = chosen ? [{ rawName: finding.item.rawName, unit: finding.item.unit, barcode: finding.item.barcode, code: chosen }] : [];
+  const learner = await learnerOf(actor.orgId, actor.userId, actor);
+  // Rejecting what the dictionary suggested disputes the entry behind it.
+  const disputes = input.decision === 'rejected' ? await dictionaryEntriesOf(actor.orgId, [finding]) : new Map<string, string>();
   try {
     const eventId = await db.$transaction(async (tx) => {
       // Decisions on one row queue up here, so two reviewers cannot give it two codes.
@@ -112,6 +117,8 @@ export async function recordDecision(
         }
       }
       const dictionaryBefore = learnable.length > 0 ? await snapshotMappings(tx, actor.orgId, learnable) : [];
+      const at = new Date();
+      const disputed = await disputeEntries(tx, { orgId: actor.orgId, userId: actor.userId, at, via: 'rejected', catalogId: finding.item.catalogId, byFinding: disputes });
       // This record is the long-term asset: a product-name-to-verified-code
       // dataset, and what a client shows an inspector as due diligence.
       const event = await tx.auditEvent.create({
@@ -120,6 +127,7 @@ export async function recordDecision(
           actorId: actor.userId,
           action: `finding.${input.decision}`,
           targetId: finding.id,
+          createdAt: at,
           payload: {
             catalogId: finding.item.catalogId,
             type: finding.type,
@@ -128,7 +136,11 @@ export async function recordDecision(
             suggestedMxik: finding.suggestedMxik,
             chosenMxik: chosen,
             overrodeSuggestion: chosen !== null && chosen !== finding.suggestedMxik,
+            // Kept so the decision still names a person after their account is removed.
+            deciderEmail: learner.email,
+            ...(learner.scoped ? { scoped: true } : {}),
             ...(dictionaryBefore.length > 0 ? { dictionaryBefore } : {}),
+            ...(disputed.length > 0 ? { dictionaryDisputed: disputed } : {}),
           },
         },
       });
@@ -144,7 +156,8 @@ export async function recordDecision(
       return event.id;
     });
     // Accepting teaches the firm dictionary; a later row with the same product reuses it.
-    if (chosen) await learnQuietly(actor.orgId, actor.userId, learnable, 'manual');
+    // A scoped accountant's decision is kept unconfirmed until someone who sees every client confirms it.
+    if (chosen) await learnQuietly(actor.orgId, actor.userId, learnable, 'manual', { scoped: learner.scoped });
     return { ok: true, eventId };
   } catch (error) {
     if (error instanceof Abort && error.outcome.code !== 'failed') return error.outcome;
@@ -171,7 +184,12 @@ export async function recordGroupDecision(
     id: r.id, itemId: r.item.id, rawName: r.item.rawName, unit: r.item.unit, barcode: r.item.barcode,
     code: acceptCode({ type: r.type, suggestedMxik: r.suggestedMxik, existingMxik: r.item.existingMxik, rerankNone: readEvidence(r.evidence)?.rerankNone === true }),
   }));
-  const done = await decideMany({ orgId: actor.orgId, userId: actor.userId, catalogId, decision: input.decision, source: 'group', payload: { mode: 'group' } }, targets);
+  const inCatalog = rows.filter((r) => r.item.catalogId === catalogId);
+  const disputes = input.decision === 'rejected' ? await dictionaryEntriesOf(actor.orgId, inCatalog) : undefined;
+  const done = await decideMany({
+    orgId: actor.orgId, userId: actor.userId, catalogId, decision: input.decision, source: 'group', payload: { mode: 'group' },
+    learner: await learnerOf(actor.orgId, actor.userId, actor), ...(disputes ? { disputes } : {}),
+  }, targets);
   return { ok: true, ...done };
 }
 
@@ -231,6 +249,7 @@ export async function bulkAccept(
   const done = await decideMany({
     orgId: actor.orgId, userId: actor.userId, catalogId: catalog.id, decision: 'accepted', source: 'bulk_sure',
     payload: { minConfidence: input.minConfidence, scope: input.filter ? 'filter' : 'catalogue' },
+    learner: await learnerOf(actor.orgId, actor.userId, actor),
   }, targets);
   return { ok: true, ...done };
 }
@@ -271,7 +290,7 @@ export async function undoDecision(actor: Actor, eventId: string, onlyFindingId?
   if (!mayWrite(actor)) return fail('forbidden');
   const event = await db.auditEvent.findFirst({
     where: { id: eventId, orgId: actor.orgId, action: { in: [...DECISION_ACTIONS] } },
-    select: { id: true, action: true, payload: true },
+    select: { id: true, action: true, payload: true, createdAt: true, actorId: true },
   });
   if (!event) return fail('not found');
   const payload = (typeof event.payload === 'object' && event.payload !== null ? event.payload : {}) as Record<string, unknown>;
@@ -294,7 +313,11 @@ export async function undoDecision(actor: Actor, eventId: string, onlyFindingId?
         data: { decision: 'pending', chosenMxik: null, decidedBy: null, decidedAt: null, decisionEventId: null, decisionSource: null },
       });
       if (reverted.count === 0) throw new Error('already undone');
-      const restored = restore.length > 0 ? await restoreMappings(tx, actor.orgId, restore, confirms(sourceOf(payload, event.action))) : 0;
+      // A scoped member's decision taught no confirmation, so none is taken back.
+      const confirmed = confirms(sourceOf(payload, event.action)) && payload['scoped'] !== true;
+      const restored = restore.length > 0 ? await restoreMappings(tx, actor.orgId, restore, confirmed) : 0;
+      // A partial undo of a group reject keeps the disputes: the other rows still say the entry was wrong.
+      const lifted = remaining.length === 0 ? await liftDisputes(tx, actor.orgId, readDisputed(payload), event.createdAt, event.actorId) : 0;
       await tx.auditEvent.create({
         data: {
           orgId: actor.orgId,
@@ -309,6 +332,7 @@ export async function undoDecision(actor: Actor, eventId: string, onlyFindingId?
               id: f.id, productName: f.item.rawName, previousDecision: f.decision, previousChosenMxik: f.chosenMxik,
             })),
             ...(restore.length > 0 ? { dictionaryRestored: restore.map((b) => `${b.kind}:${b.key}`), dictionaryChanged: restored } : {}),
+            ...(lifted > 0 ? { dictionaryUndisputed: lifted } : {}),
           },
         },
       });

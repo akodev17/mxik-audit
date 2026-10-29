@@ -37,7 +37,7 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
     <Page title={ta.dict.title} hint={ta.dict.hint} wide>
       <DictionaryExplainer admin={user.role === 'admin'} />
       <DictionarySearch initial={q} />
-      <DictionaryView key={`${q}|${filter}|${page}`} q={q} filter={filter} page={page} initial={data} editable={user.role !== 'viewer'} />
+      <DictionaryView key={`${q}|${filter}|${page}`} q={q} filter={filter} page={page} initial={data} editable={user.role !== 'viewer'} admin={user.role === 'admin'} />
     </Page>
   );
 }

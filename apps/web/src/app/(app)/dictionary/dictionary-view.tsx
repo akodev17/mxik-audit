@@ -19,10 +19,10 @@ export type DictionaryList = ResponseOf<typeof endpoints.dictionary.list>;
 /** Every dictionary listing in the cache; an edit or delete refetches the one on screen. */
 export const DICTIONARY = ['dictionary'] as const;
 
-type Props = { q: string; filter: DictFilter; page: number; initial: DictionaryList; editable: boolean };
+type Props = { q: string; filter: DictFilter; page: number; initial: DictionaryList; editable: boolean; admin: boolean };
 
 /** Filter chips with counts, the entries and the pager; the page read the first copy, edits refetch it. */
-export function DictionaryView({ q, filter, page, initial, editable }: Props) {
+export function DictionaryView({ q, filter, page, initial, editable, admin }: Props) {
   const { ta, locale } = useI18n();
   const x = ta.wsX.dict;
   const queryClient = useQueryClient();
@@ -34,7 +34,7 @@ export function DictionaryView({ q, filter, page, initial, editable }: Props) {
   // A new server render of the same URL brings a fresh copy.
   useEffect(() => { queryClient.setQueryData([...DICTIONARY, { q, filter, page }], initial); }, [queryClient, q, filter, page, initial]);
   const { counts, total, pageSize } = data;
-  const rows: DictRow[] = data.rows.map(({ updatedAt, ...e }) => ({ ...e, updated: fmtDate(locale, updatedAt) }));
+  const rows: DictRow[] = data.rows.map(({ updatedAt, disputedAt, ...e }) => ({ ...e, updated: fmtDate(locale, updatedAt), disputed: disputedAt ? fmtDate(locale, disputedAt) : null }));
   const params = (over: { p?: number; f?: DictFilter }): string => {
     const f = over.f ?? filter;
     return `/dictionary?${new URLSearchParams({ ...(q ? { q } : {}), ...(f !== 'all' ? { f } : {}), page: String(over.p ?? 0) })}`;
@@ -62,7 +62,7 @@ export function DictionaryView({ q, filter, page, initial, editable }: Props) {
           })}
         </nav>
       ) : null}
-      {filter === 'unverified' || filter === 'stale' ? <p className="mb-3 text-small text-muted">{x.filterHints[filter]}</p> : null}
+      {filter === 'unverified' || filter === 'reconfirm' || filter === 'stale' ? <p className="mb-3 text-small text-muted">{x.filterHints[filter]}</p> : null}
       {rows.length === 0 ? (
         q || filter !== 'all'
           ? <EmptyState icon={<IconSearch size={20} />} title={x.emptySearch} hint={x.emptySearchHint} action={<ButtonLink size="sm" variant="secondary" href="/dictionary">{ta.wsX.filter.reset}</ButtonLink>} />
@@ -71,9 +71,9 @@ export function DictionaryView({ q, filter, page, initial, editable }: Props) {
         <>
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-section">{x.total(fmtNumber(locale, total), total)}</h2>
-            {editable ? null : <p className="text-small text-muted">{x.viewerHint}</p>}
+            {editable ? (admin ? null : <p className="text-small text-muted">{x.adminOnlyHint}</p>) : <p className="text-small text-muted">{x.viewerHint}</p>}
           </div>
-          <DictionaryTable rows={rows} canEdit={editable} />
+          <DictionaryTable rows={rows} canConfirm={editable} admin={admin} />
           {page > 0 || (page + 1) * pageSize < total ? (
             <nav aria-label={x.pages} className="mt-3 flex flex-wrap items-center justify-end gap-2">
               {page > 0 ? <ButtonLink size="sm" variant="ghost" href={href(page - 1)}>{x.prev}</ButtonLink> : null}

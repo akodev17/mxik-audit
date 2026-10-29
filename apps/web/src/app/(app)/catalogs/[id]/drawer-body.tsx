@@ -15,6 +15,7 @@ import { CodeCompare, CodePair } from './code-compare';
 import { CodeSearch } from './code-search';
 import { ConfidenceMeter } from './confidence-meter';
 import { DecisionInfo } from './decision-info';
+import { DictionarySource } from './dictionary-source';
 import { DrawerSection, SectionNav, type SectionKey } from './drawer-sections';
 import { NameFromBarcodeOffer } from './name-from-barcode';
 import { reasonLines } from './reason-text';
@@ -163,6 +164,7 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
             {detail.chosen ? <CodeCompare title={x.act.chosen} view={detail.chosen} other={detail.current} empty="—" /> : null}
 
             <SignalList signals={detail.signals} />
+            {suggesting && detail.stage === 'dictionary' ? <DictionarySource findingId={detail.findingId} /> : null}
 
             {suggesting ? (
               <section>

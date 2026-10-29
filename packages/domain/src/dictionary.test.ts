@@ -15,12 +15,23 @@ const skip = await dbSkipReason();
 
 const tag = (): string => randomBytes(3).toString('hex');
 
-const dictEvidence = {
+const dictEvidence = (entryId: string | undefined) => ({
   stage: 'dictionary', barcode: false, exactName: false, matchedWords: [], unit: 'none', rerankReason: null, rerankNone: false,
-  dictionaryUses: 3, dictionaryConfirmations: 2,
-};
+  dictionaryUses: 3, dictionaryConfirmations: 2, ...(entryId ? { dictionaryEntryId: entryId } : {}),
+});
 
 type FindingSpec = { type: FindingType; suggestedMxik?: string | null; decision?: 'pending' | 'accepted'; chosenMxik?: string | null; dictionary?: boolean };
+
+/** One confirmed entry per code, as the audit would have read them; auto-accept checks them again. */
+const entries = new Map<string, string>();
+async function entryFor(orgId: string, code: string): Promise<string> {
+  const known = entries.get(code);
+  if (known) return known;
+  const key = `auto-${tag()}||1`;
+  const id = (await db.firmMapping.create({ data: { orgId, kind: 'name', key, label: key, code, confirmations: 2, source: 'manual' } })).id;
+  entries.set(code, id);
+  return id;
+}
 
 async function rowsWith(orgId: string, rows: FindingSpec[][]): Promise<{ catalogId: string; findings: string[][] }> {
   const catalog = await db.catalog.create({
@@ -34,7 +45,8 @@ async function rowsWith(orgId: string, rows: FindingSpec[][]): Promise<{ catalog
       const created = await db.finding.create({
         data: {
           itemId: item.id, type: f.type, severity: 'high', suggestedMxik: f.suggestedMxik ?? null, confidence: 0.96, alternatives: [], reason: 'test',
-          evidence: f.dictionary ? dictEvidence : undefined, decision: f.decision ?? 'pending', chosenMxik: f.chosenMxik ?? null,
+          evidence: f.dictionary ? dictEvidence(f.suggestedMxik ? await entryFor(orgId, f.suggestedMxik) : undefined) : undefined,
+          decision: f.decision ?? 'pending', chosenMxik: f.chosenMxik ?? null,
           decisionSource: f.decision === 'accepted' ? 'manual' : null, decidedAt: f.decision === 'accepted' ? new Date() : null,
         },
       });
