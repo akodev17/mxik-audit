@@ -19,7 +19,10 @@ function signed(fields: Record<string, string>, secondsAgo = 0): Record<string, 
   return { ...data, hash };
 }
 
-const session = (): SignInSession => Object.defineProperty({}, 'save', { value: () => Promise.resolve() }) as SignInSession;
+const blank = (): SignInSession => Object.defineProperty({}, 'save', { value: () => Promise.resolve() }) as SignInSession;
+const STATE = 'state-from-the-sign-in-page';
+/** A browser that opened the sign-in page: it holds the one-time Telegram state. */
+const session = (): SignInSession => Object.assign(blank(), { tgLogin: STATE, tgLoginAt: Date.now() });
 
 describe('Telegram sign-in callback (database)', { skip: await dbSkipReason() }, () => {
   const orgs: string[] = [];
@@ -46,7 +49,7 @@ describe('Telegram sign-in callback (database)', { skip: await dbSkipReason() },
   it('a new Telegram account gets a confirmed 14-day trial org, bound to it, and lands on the dashboard', async () => {
     const id = newId();
     const s = session();
-    assert.equal(await telegramSignIn(s, signed({ id, first_name: 'Aziz', username: 'aziz_t' }), req()), '/dashboard');
+    assert.equal(await telegramSignIn(s, STATE, signed({ id, first_name: 'Aziz', username: 'aziz_t' }), req()), '/dashboard');
     const user = await db.user.findUniqueOrThrow({ where: { telegramUserId: id }, include: { org: true } });
     orgs.push(user.orgId);
     assert.ok(user.emailVerifiedAt, 'counts as confirmed');
@@ -62,7 +65,7 @@ describe('Telegram sign-in callback (database)', { skip: await dbSkipReason() },
 
     // Signing in again is the same user and org, not a second trial.
     const again = session();
-    assert.equal(await telegramSignIn(again, signed({ id, first_name: 'Aziz' }, 1), req()), '/dashboard');
+    assert.equal(await telegramSignIn(again, STATE, signed({ id, first_name: 'Aziz' }, 1), req()), '/dashboard');
     assert.equal(again.userId, user.id);
     assert.equal(await db.organization.count({ where: { users: { some: { telegramUserId: id } } } }), 1);
   });
@@ -70,19 +73,32 @@ describe('Telegram sign-in callback (database)', { skip: await dbSkipReason() },
   it('refuses replayed, stale, forged or foreign data', async () => {
     const id = newId();
     const data = signed({ id, first_name: 'Bek' });
-    assert.equal(await telegramSignIn(session(), data, req()), '/dashboard');
+    assert.equal(await telegramSignIn(session(), STATE, data, req()), '/dashboard');
     orgs.push((await db.user.findUniqueOrThrow({ where: { telegramUserId: id } })).orgId);
-    assert.equal(await telegramSignIn(session(), data, req()), '/sign-in?error=telegram_expired', 'the same hash twice');
-    assert.equal(await telegramSignIn(session(), signed({ id }, 600), req()), '/sign-in?error=telegram_expired', 'older than five minutes');
-    assert.equal(await telegramSignIn(session(), { ...signed({ id: newId() }), id }, req()), '/sign-in?error=telegram_invalid', 'a changed id (Q14: not "expired")');
-    assert.equal(await telegramSignIn(session(), { ...signed({ id: newId() }), hash: 'ab'.repeat(32) }, req()), '/sign-in?error=telegram_invalid', 'a forged hash');
-    assert.equal(await telegramSignIn(session(), { auth_date: String(Math.floor(Date.now() / 1000)), hash: 'ab' }, req()), '/sign-in?error=telegram_invalid', 'no id');
+    assert.equal(await telegramSignIn(session(), STATE, data, req()), '/sign-in?error=telegram_expired', 'the same hash twice');
+    assert.equal(await telegramSignIn(session(), STATE, signed({ id }, 600), req()), '/sign-in?error=telegram_expired', 'older than five minutes');
+    assert.equal(await telegramSignIn(session(), STATE, { ...signed({ id: newId() }), id }, req()), '/sign-in?error=telegram_invalid', 'a changed id (Q14: not "expired")');
+    assert.equal(await telegramSignIn(session(), STATE, { ...signed({ id: newId() }), hash: 'ab'.repeat(32) }, req()), '/sign-in?error=telegram_invalid', 'a forged hash');
+    assert.equal(await telegramSignIn(session(), STATE, { auth_date: String(Math.floor(Date.now() / 1000)), hash: 'ab' }, req()), '/sign-in?error=telegram_invalid', 'no id');
+  });
+
+  it('refuses a callback without this browser\'s state, a wrong or stale one, and spends the state either way (F20)', async () => {
+    const id = newId();
+    const none = blank();
+    assert.equal(await telegramSignIn(none, STATE, signed({ id }), req()), '/sign-in?error=telegram_state', 'no state was issued here');
+    const wrong = session();
+    assert.equal(await telegramSignIn(wrong, 'someone-elses-state', signed({ id }), req()), '/sign-in?error=telegram_state');
+    assert.equal(wrong.tgLogin, undefined, 'spent by the wrong try');
+    assert.equal(await telegramSignIn(wrong, STATE, signed({ id }), req()), '/sign-in?error=telegram_state', 'and not usable after it');
+    const stale = Object.assign(blank(), { tgLogin: STATE, tgLoginAt: Date.now() - 11 * 60_000 });
+    assert.equal(await telegramSignIn(stale, STATE, signed({ id }), req()), '/sign-in?error=telegram_state');
+    assert.equal(await db.user.count({ where: { telegramUserId: id } }), 0, 'nothing was opened');
   });
 
   it('without a bot configured the callback goes back to sign-in', async () => {
     delete process.env['TELEGRAM_BOT_USERNAME'];
     try {
-      assert.equal(await telegramSignIn(session(), signed({ id: newId() }), req()), '/sign-in');
+      assert.equal(await telegramSignIn(session(), STATE, signed({ id: newId() }), req()), '/sign-in');
     } finally {
       process.env['TELEGRAM_BOT_USERNAME'] = 'tasnivo_test_bot';
     }

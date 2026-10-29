@@ -20,12 +20,12 @@ describe('reason lines', () => {
 
   it('read wholly in Russian for a Russian viewer', () => {
     const unit = (u: string): string => unitLabel('ru', u);
-    const restriction = { code: '02523001001000000', date: '01.07.2026', inForce: true };
+    const restriction = { code: '02523001001000000', date: '01.07.2026', inForce: true, source: 'https://tasnif.soliq.uz/news/5063' };
     for (const type of ['MISSING', 'NOT_FOUND', 'MISMATCH', 'UNIT_CONFLICT', 'NOT_PURCHASED', 'PRIVILEGE_CODE', 'PRIVILEGE_OPPORTUNITY', 'RESTRICTED']) {
       const lines = reasonLines({ type, facts: { ...facts, requiredUnits: ['dona'], retired: true, afterUpdate: true, rowUnit: null, restriction }, noSuggestion: true }, ru, unit);
       assert.ok(lines.length > 0, type);
-      // mkinfo.uz is a site name, the same in every language.
-      for (const line of lines) assert.equal(latin.test(line.replace(/\d+/g, '').replace('mkinfo.uz', '')), false, `${type}: ${line}`);
+      // mkinfo.uz and the list's address are site names, the same in every language.
+      for (const line of lines) assert.equal(latin.test(line.replace(/\d+/g, '').replace('mkinfo.uz', '').replace('tasnif.soliq.uz/news/', '')), false, `${type}: ${line}`);
     }
   });
 
@@ -47,7 +47,7 @@ describe('reason lines', () => {
   });
 
   it('give a restricted code\'s date, and where to ask when its position has no detailed code', () => {
-    const restriction = { code: '02523001001000000', date: '01.07.2026', inForce: false };
+    const restriction = { code: '02523001001000000', date: '01.07.2026', inForce: false, source: null };
     const soon = reasonLines({ type: 'RESTRICTED', facts: { ...facts, restriction }, noSuggestion: false }, uz, String);
     assert.deepEqual(soon, [uz.explain['RESTRICTED'], uz.reason.restricted('02523001001000000', '01.07.2026', false)]);
     assert.match(soon[1] ?? '', /01\.07\.2026 dan 02523001001000000 kodidan EHFda foydalanish cheklanadi/);
@@ -63,6 +63,14 @@ describe('reason lines', () => {
     const none = reasonLines({ type: 'TNVED_MISMATCH', facts: { ...facts, tnved }, noSuggestion: true }, ru, String);
     assert.deepEqual(none.slice(1), [ru.reason.tnved('7304390000', '7304', '7306'), ru.reason.tnvedNone]);
     assert.match(none[1] ?? '', /ТН ВЭД/);
+  });
+
+  it('name where the restricted list was published and from when, in uz and ru', () => {
+    const restriction = { code: '02523001001000000', date: '01.07.2026', inForce: true, source: 'https://tasnif.soliq.uz/news/5063' };
+    const uzLines = reasonLines({ type: 'RESTRICTED', facts: { ...facts, restriction }, noSuggestion: false }, uz, String);
+    assert.equal(uzLines.at(-1), 'Manba: tasnif.soliq.uz/news/5063; kuchga kirish sanasi: 01.07.2026.');
+    const ruLines = reasonLines({ type: 'RESTRICTED', facts: { ...facts, restriction }, noSuggestion: false }, ru, String);
+    assert.equal(ruLines.at(-1), 'Источник: tasnif.soliq.uz/news/5063; дата вступления в силу: 01.07.2026.');
   });
 
   it('use the dictionary term for the classifier', () => {

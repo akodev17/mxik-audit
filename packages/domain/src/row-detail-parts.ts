@@ -24,8 +24,8 @@ export type ReasonFacts = {
   purchasedOtherUnit: boolean;
   /** PRIVILEGE_CODE: the code does not fit the name, so the privilege is doubtful. */
   privilegeMismatch: boolean;
-  /** RESTRICTED: the restricted code, its date as dd.mm.yyyy, and whether that date has passed. */
-  restriction: { code: string; date: string; inForce: boolean } | null;
+  /** RESTRICTED: the restricted code, its date as dd.mm.yyyy, whether that date has passed, and where the list was published. */
+  restriction: { code: string; date: string; inForce: boolean; source: string | null } | null;
   /** TNVED_MISMATCH: the row's TN VED code, its heading, and the heading the row's MXIK code is in. */
   tnved: { code: string; heading: string; codeHeading: string } | null;
 };
@@ -37,7 +37,7 @@ const OTHER_UNIT = /boshqa o.lchov birligida/;
 type FindingFacts = {
   type: string; severity: string; reason: string; wasRetired: boolean; snapshotId: number | null;
   existingMxik: string | null; unit: string | null; codeUnits: readonly string[];
-  restrictedMxik?: string | null; restrictedFrom?: Date | null;
+  restrictedMxik?: string | null; restrictedFrom?: Date | null; restrictedSource?: string | null;
   tnved?: string | null;
 };
 
@@ -51,7 +51,7 @@ export function reasonFacts(f: FindingFacts, today: Date = new Date()): ReasonFa
     purchasedOtherUnit: f.type === 'NOT_PURCHASED' && OTHER_UNIT.test(f.reason),
     privilegeMismatch: f.type === 'PRIVILEGE_CODE' && f.severity !== 'info',
     restriction: f.type === 'RESTRICTED' && f.restrictedMxik && f.restrictedFrom
-      ? { code: f.restrictedMxik, date: restrictionDate(f.restrictedFrom), inForce: f.restrictedFrom.getTime() <= today.getTime() }
+      ? { code: f.restrictedMxik, date: restrictionDate(f.restrictedFrom), inForce: f.restrictedFrom.getTime() <= today.getTime(), source: f.restrictedSource ?? null }
       : null,
     tnved: tnvedFacts(f),
   };

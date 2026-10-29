@@ -37,6 +37,8 @@ describe('onec (database)', { skip }, () => {
   before(async () => {
     app = await startApp();
     owner = await makeUser();
+    // A running trial: an ended plan refuses uploads (the counterparty import among them).
+    await db.organization.update({ where: { id: owner.orgId }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
     orgs.push(owner.orgId);
     // A paying firm: a fresh customer org has no trial, so its exports would be refused as expired.
     await db.organization.update({ where: { id: owner.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });

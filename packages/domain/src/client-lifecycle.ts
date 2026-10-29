@@ -133,8 +133,10 @@ export async function deleteClient(actor: AdminActor, clientId: string, typedNam
   }
   try {
     await db.$transaction(async (tx) => {
-      // Checked again here: an assignment may have changed while the catalogues were deleted.
+      // Checked again here, with the assigned members' rows locked as setClientAccountants locks them:
+      // an assignment may have changed while the catalogues were deleted.
       const now = new Date();
+      await lockUsers(tx, (await tx.clientAssignment.findMany({ where: { clientId: client.id }, select: { userId: true } })).map((a) => a.userId));
       const { deleteBlockers } = await clientDependants(actor.orgId, client.id, now, tx);
       if (deleteBlockers.length > 0) throw new Blocked(deleteBlockers);
       const invites = await tx.invite.findMany({ where: { orgId: actor.orgId, usedAt: null, clientIds: { has: client.id } }, select: { id: true, clientIds: true } });
@@ -201,11 +203,39 @@ export async function setClientAccountants(actor: AdminActor, clientId: string, 
   if (remove.some((p) => p.onlyThis)) return { ok: false, error: 'last' };
   if (add.length === 0 && remove.length === 0) return { ok: true, added: 0, removed: 0 };
 
-  await db.$transaction([
-    db.clientAssignment.createMany({ data: add.map((p) => ({ userId: p.id, clientId: client.id })), skipDuplicates: true }),
-    db.clientAssignment.deleteMany({ where: { clientId: client.id, userId: { in: remove.map((p) => p.id) } } }),
-    event(actor, 'client.accountants_set', client.id, { added: add.map((p) => p.email), removed: remove.map((p) => p.email) }),
-  ]);
+  try {
+    await db.$transaction(async (tx) => {
+      // The read above is advisory: two removals at once could each see another client left. With the
+      // people's rows locked they take turns, and the assignments read after the lock are the ones that hold.
+      await lockUsers(tx, [...add, ...remove].map((p) => p.id));
+      const held = await tx.clientAssignment.findMany({ where: { userId: { in: [...add, ...remove].map((p) => p.id) } }, select: { userId: true, clientId: true } });
+      const left = (userId: string, without?: string): number => held.filter((a) => a.userId === userId && a.clientId !== without).length;
+      if (add.some((p) => left(p.id) === 0)) throw new Refused('unrestricted');
+      if (remove.some((p) => left(p.id, client.id) === 0)) throw new Refused('last');
+      await tx.clientAssignment.createMany({ data: add.map((p) => ({ userId: p.id, clientId: client.id })), skipDuplicates: true });
+      await tx.clientAssignment.deleteMany({ where: { clientId: client.id, userId: { in: remove.map((p) => p.id) } } });
+      await tx.auditEvent.create({
+        data: {
+          orgId: actor.orgId, actorId: actor.userId, action: 'client.accountants_set', targetId: client.id,
+          payload: { clientId: client.id, added: add.map((p) => p.email), removed: remove.map((p) => p.email) },
+        },
+      });
+    });
+  } catch (err) {
+    if (err instanceof Refused) return { ok: false, error: err.reason };
+    throw err;
+  }
   return { ok: true, added: add.length, removed: remove.length };
+}
+
+class Refused extends Error {
+  constructor(readonly reason: 'unrestricted' | 'last') { super(reason); }
+}
+
+/** Locks these users' rows until the transaction ends, in id order so two callers cannot deadlock. */
+async function lockUsers(tx: Prisma.TransactionClient, ids: readonly string[]): Promise<void> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return;
+  await tx.$queryRaw`SELECT id FROM "user" WHERE id = ANY(${unique}) ORDER BY id FOR UPDATE`;
 }
 

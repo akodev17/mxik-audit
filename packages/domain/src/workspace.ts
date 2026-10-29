@@ -4,8 +4,10 @@
 import { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
 import { mergeTypeCounts } from '@tasnivo/db/finding-type';
+import { catalogScope } from './access';
 import { findingTypeCounts } from './finding-type-counts';
 import { RISKY_FINDING, RISKY_ITEM } from './risk';
+import { readCheckErrorKind, type RowFailureKind } from './row-retry';
 import { sureBandSql } from './sure-band';
 import { pendingSubset, type WsFilter, type WsSort } from './workspace-filter';
 
@@ -25,10 +27,12 @@ export type WsSummary = {
   dictionaryPending: number;
   /** Pending high-match code suggestions: what "accept all high-match" would consider. */
   surePending: number;
+  /** Rows whose check still failed after its retries: not checked, never "ok" (the FAILED filter). */
+  failedRows: number;
 };
 
 export async function workspaceSummary(catalogId: string, rowCount: number): Promise<WsSummary> {
-  const [byType, riskyRows, markingTotal, markingRisky, riskyFindings, reviewed, dictionaryPending, sure] = await Promise.all([
+  const [byType, riskyRows, markingTotal, markingRisky, riskyFindings, reviewed, dictionaryPending, sure, failedRows] = await Promise.all([
     findingTypeCounts(catalogId),
     db.catalogItem.count({ where: { catalogId, ...RISKY_ITEM } }),
     db.catalogItem.count({ where: { catalogId, markingRequired: true } }),
@@ -39,9 +43,10 @@ export async function workspaceSummary(catalogId: string, rowCount: number): Pro
     db.$queryRaw<{ n: bigint }[]>(Prisma.sql`
       SELECT count(*) AS n FROM finding f JOIN catalog_item ci ON ci.id = f."itemId"
       WHERE ci."catalogId" = ${catalogId} AND ${sureBandSql()}`),
+    db.catalogItem.count({ where: { catalogId, checkError: { not: null } } }),
   ]);
   return {
-    total: rowCount, riskyRows, riskyFindings, reviewed, markingTotal, markingRisky, dictionaryPending,
+    total: rowCount, riskyRows, riskyFindings, reviewed, markingTotal, markingRisky, dictionaryPending, failedRows,
     surePending: Number(sure[0]?.n ?? 0),
     byType: Object.fromEntries(byType.map((r) => [r.type, r.count])),
   };
@@ -71,6 +76,8 @@ const RISKY_SEVERITY = Prisma.sql`f.severity IN ('high'::severity, 'medium'::sev
 export function filterConditions(catalogId: string, filter: WsFilter): Prisma.Sql[] {
   const where = scopeConditions(catalogId, filter);
   if (filter.type === 'MARKING') where.push(Prisma.sql`ci."markingRequired" = true`);
+  // Findings a failed row still has (the purchase or privilege check); its rows are workspaceFailedRows.
+  else if (filter.type === 'FAILED') where.push(Prisma.sql`ci."checkError" IS NOT NULL`);
   else if (filter.type) where.push(Prisma.sql`f.type = ${filter.type}::finding_type`);
   else where.push(RISKY_SEVERITY);
   return where;
@@ -202,4 +209,31 @@ export async function workspaceAllIds(catalogId: string, filter: WsFilter, limit
     ORDER BY ${orderBy(filter.sort)}
     LIMIT ${limit}`);
   return rows.map((r) => r.id);
+}
+
+/** A row the audit could not check: its kind of failure only, the raw message stays in the database and the log. */
+export type FailedRow = { itemId: string; rowIndex: number; productName: string; currentMxik: string | null; kind: RowFailureKind };
+
+export const FAILED_ROWS_LIMIT = 500;
+
+/** The FAILED filter's rows, in file order; null when the catalogue is not the user's. */
+export async function workspaceFailedRows(
+  scope: { orgId: string; clientIds?: string[] | null }, catalogId: string, limit = FAILED_ROWS_LIMIT,
+): Promise<{ total: number; rows: FailedRow[] } | null> {
+  const catalog = await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(scope) }, select: { id: true } });
+  if (!catalog) return null;
+  const where = { catalogId, checkError: { not: null } };
+  const [total, items] = await Promise.all([
+    db.catalogItem.count({ where }),
+    db.catalogItem.findMany({
+      where, orderBy: { rowIndex: 'asc' }, take: limit,
+      select: { id: true, rowIndex: true, rawName: true, existingMxik: true, checkError: true },
+    }),
+  ]);
+  return {
+    total,
+    rows: items.map((i) => ({
+      itemId: i.id, rowIndex: i.rowIndex, productName: i.rawName, currentMxik: i.existingMxik, kind: readCheckErrorKind(i.checkError ?? ''),
+    })),
+  };
 }

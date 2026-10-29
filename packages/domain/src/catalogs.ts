@@ -9,7 +9,6 @@ import { catalogScope } from './access.js';
 import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
 import { RISKY_ITEM } from './risk.js';
-import { mayWrite } from './write-access.js';
 
 export type CatalogSummary = {
   id: string;
@@ -118,8 +117,9 @@ export async function resolveCatalog(orgId: string, requestedId?: string | null,
 
 export type DeleteOutcome = { rows: number; findings: number; cacheEntries: number; keptEvents: number };
 
+/** Admins only (D1): the cascade takes the findings and every decision made on them. Callers without a role are internal. */
 export async function deleteCatalog(actor: Actor, catalogId: string): Promise<Result<DeleteOutcome>> {
-  if (!mayWrite(actor)) return { ok: false, error: 'forbidden' };
+  if (actor.role !== undefined && actor.role !== 'admin') return { ok: false, error: 'forbidden' };
   const catalog = await db.catalog.findFirst({ where: { id: catalogId, ...catalogScope(actor) }, select: { id: true, clientId: true, filename: true } });
   if (!catalog) return { ok: false, error: 'not found' };
 

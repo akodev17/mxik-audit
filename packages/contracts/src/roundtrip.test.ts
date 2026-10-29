@@ -153,7 +153,7 @@ describe('round trips', () => {
     roundTrip(E.admin.accuracy.query, { by: 'week' }, 'accuracy query');
     assert.deepEqual(E.admin.accuracy.query.parse({}), { by: 'stage' });
     roundTrip(E.cron.classifierUpdate.response, { started: true, pid: null, log: 'data/classifier-update.log' }, 'classifier');
-    roundTrip(E.health.get.response, { status: 'ok', database: true, classifier: { loaded: true, takenAt: AT, ageDays: 2, codeCount: 210000, stale: false, lastUpdate: { outcome: 'failed', at: AT, message: 'timeout' } } }, 'health');
+    roundTrip(E.health.get.response, { status: 'ok', database: true, classifier: { loaded: true, takenAt: AT, ageDays: 2, codeCount: 210000, stale: false, lastUpdate: { outcome: 'failed', at: AT, message: 'timeout' }, restricted: { codes: 140, importedAt: AT } } }, 'health');
     refused(E.share.view.params, { token: '' }, 'empty share token');
   });
 });

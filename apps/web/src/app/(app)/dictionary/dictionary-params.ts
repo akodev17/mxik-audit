@@ -1,7 +1,7 @@
 // The /dictionary URL read the way dictionary-ops.ts dictionaryPage() reads it, so the API gets
 // only values it accepts and the links keep what the page shows.
 
-export const DICT_FILTERS = ['all', 'confirmed', 'unverified', 'stale'] as const;
+export const DICT_FILTERS = ['all', 'confirmed', 'unverified', 'reconfirm', 'stale'] as const;
 export type DictFilter = (typeof DICT_FILTERS)[number];
 
 export function parseDictFilter(value: unknown): DictFilter {

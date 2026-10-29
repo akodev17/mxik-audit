@@ -27,7 +27,7 @@ describe('audit heartbeat (database)', { skip }, () => {
 
     heartbeat.mark(7);
     await new Promise((r) => setTimeout(r, HEARTBEAT_MS + 500));
-    heartbeat.stop();
+    await heartbeat.stop();
     const later = await read();
     assert.ok(later.auditHeartbeatAt && later.auditHeartbeatAt > first.auditHeartbeatAt);
     assert.equal(later.progressDone, 7);

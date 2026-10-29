@@ -366,6 +366,9 @@ model User {
   role         UserRole @default(admin)
   /// Set when the address was confirmed (or the account predates verification).
   emailVerifiedAt DateTime?
+  /// How the address was confirmed: code, link (verify or reset mail), google, telegram, or legacy
+  /// (confirmed before this was recorded). Null while unconfirmed. Google joins only code or link.
+  verifiedVia String?
   emailTokens  EmailToken[]
   savedViews   SavedView[]
   /// Interface language, uz or ru; null = the default.
@@ -462,6 +465,13 @@ model FirmMapping {
   confirmations Int @default(0)
   /// How the entry was last learned: manual, group, bulk, edit.
   source    String?
+  /// Name entries: the size attributes in the key (noise.ts attrsKey); "" = none. Null = barcode, or not re-keyed yet.
+  attrsKey  String?
+  /// Auto-accept ignores the entry until an unscoped person confirms it again (re-key, code replaced, scoped learner, edit).
+  needsReconfirm Boolean @default(false)
+  /// A reviewer rejected or reported wrong a suggestion from this entry; cleared when an admin confirms or edits it.
+  disputedAt DateTime?
+  disputedBy String?
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -854,6 +864,9 @@ model CatalogItem {
   /// The current code or a suggested code is flagged for digital marking
   /// (classifier `label` = 1). Set by the audit; drives the report filter.
   markingRequired Boolean @default(false)
+  /// Set when the row's check still failed after its retries ("<kind>: <message>"): the row was
+  /// not checked and is never shown or exported as "ok". Cleared when a re-check succeeds.
+  checkError     String?
 
   catalog  Catalog   @relation(fields: [catalogId], references: [id], onDelete: Cascade)
   findings Finding[]
@@ -940,6 +953,9 @@ model Finding {
   /// RESTRICTED only: the restricted code this finding is about, and when EHF stops accepting it.
   restrictedMxik String?
   restrictedFrom DateTime? @db.Date
+  /// carry_over only: the catalogue the decision was first made in, and when (decidedAt is the carry-over time).
+  carriedFromCatalogId String?
+  originalDecidedAt    DateTime?
 
   item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   comments FindingComment[]
@@ -1088,20 +1104,25 @@ model TelegramPending {
 }
 
 /// A purchase: one "Toʻgʻrilangan katalog" for a catalogue, or a month of the
-/// firm plan. Amount in soʻm, fixed when the order is created.
+/// firm plan. Amount in soʻm, fixed when the order is created. Kept when the org is purged (orgId
+/// becomes null, orgName says whose it was): the providers' CheckTransaction and GetStatement need it.
 model Order {
   id          String      @id @default(cuid())
-  orgId       String
+  orgId       String?
+  /// The org's name when the order was made.
+  orgName     String?
   catalogId   String?
   planId      String
   amount      Int
   status      OrderStatus @default(created)
   provider    String?
+  /// Paid through a provider's sandbox (PAYME_TEST_MODE): no real money moved.
+  testMode    Boolean     @default(false)
   createdAt   DateTime    @default(now())
   paidAt      DateTime?
   cancelledAt DateTime?
 
-  org          Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org          Organization?        @relation(fields: [orgId], references: [id], onDelete: SetNull)
   transactions PaymentTransaction[]
 
   @@index([orgId, createdAt])

@@ -6,7 +6,7 @@ import type { EmbeddingProvider } from '@tasnivo/core/match/types';
 import { db } from '@tasnivo/db';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import { buildPipelineMeta } from './pipeline-meta.js';
-import { lastAuditLine, vectorLine } from './pipeline-status.js';
+import { lastAuditLine, restrictedLine, vectorLine } from './pipeline-status.js';
 
 const view = { ta: appDict('uz'), locale: 'uz' as const };
 const semantic: EmbeddingProvider = { name: 'local:Xenova/multilingual-e5-small', dimensions: 384, semantic: true, embed: () => Promise.resolve([]) };
@@ -52,5 +52,20 @@ describe('lastAuditLine', () => {
 
   it('says there is no run yet', () => {
     assert.equal(lastAuditLine(null, view).value, view.ta.matchX.status.lastAuditNone);
+  });
+});
+
+describe('restrictedLine', () => {
+  it('says how many restricted codes are loaded and when', () => {
+    const line = restrictedLine({ codes: 1234, importedAt: new Date('2026-10-01T06:00:00Z') }, view);
+    assert.equal(line.ok, true);
+    assert.match(line.value, /1.234 ta kod · yuklangan 01\.10\.2026 11:00/);
+  });
+
+  it('is degraded and names the loader when the list is empty, and degraded when it cannot be read', () => {
+    const empty = restrictedLine({ codes: 0, importedAt: null }, view);
+    assert.equal(empty.ok, false);
+    assert.match(empty.value, /npm run load:restricted/);
+    assert.equal(restrictedLine(null, view).ok, false);
   });
 });

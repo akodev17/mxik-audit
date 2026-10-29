@@ -17,6 +17,14 @@ const Stage = z.enum(MATCH_STAGES).nullable();
 const Mode = z.enum(['suggest', 'pick', 'confirm']);
 const Source = z.enum(DECISION_SOURCES).nullable();
 
+/** domain row-retry.ts ROW_FAILURE_KINDS: why a row's check failed after its retries. */
+export const ROW_FAILURE_KINDS = ['timeout', 'database', 'other'] as const;
+
+/** workspace.ts FailedRow. */
+export const FailedRow = z.object({
+  itemId: z.string(), rowIndex: z.number().int(), productName: z.string(), currentMxik: z.string().nullable(), kind: z.enum(ROW_FAILURE_KINDS),
+});
+
 /** workspace-rows.ts GridRow. */
 export const GridRow = z.object({
   findingId: z.string(),
@@ -45,6 +53,8 @@ export const GridRow = z.object({
   chosenName: z.string().nullable(),
   decisionEventId: z.string().nullable(),
   groupKey: z.string().nullable(),
+  /** The row's own check failed after its retries (row-retry.ts kind): not checked, never "ok". */
+  checkError: z.enum(ROW_FAILURE_KINDS).nullable(),
 });
 
 const CodeView = z.object({
@@ -71,7 +81,7 @@ export const RowDetail = z.object({
     requiredUnits: z.array(z.string()),
     purchasedOtherUnit: z.boolean(),
     privilegeMismatch: z.boolean(),
-    restriction: z.object({ code: z.string(), date: z.string(), inForce: z.boolean() }).nullable(),
+    restriction: z.object({ code: z.string(), date: z.string(), inForce: z.boolean(), source: z.string().nullable() }).nullable(),
     tnved: z.object({ code: z.string(), heading: z.string(), codeHeading: z.string() }).nullable(),
   }),
   confidence: z.number().nullable(),
@@ -99,6 +109,8 @@ export const RowDetail = z.object({
   decisionSource: Source,
   decidedBy: z.string().nullable(),
   decidedAt: z.string().nullable(),
+  /** The row's own check failed after its retries: the code was not checked. */
+  checkError: z.enum(ROW_FAILURE_KINDS).nullable(),
 });
 
 /** decisions.ts DecideFailure, with the error text the action added. */
@@ -184,6 +196,14 @@ export const workspace = defineModule('workspace', {
     query: FilterInput,
     responds: 'json', response: z.object({ count: z.number().int(), chips: z.object({ all: z.number().int(), byType: z.record(z.number().int()), marking: z.number().int() }) }),
     replaces: ['page:(app)/catalogs/[id]#counts'],
+  }),
+  failedRows: endpoint({
+    method: 'GET', path: '/api/catalogs/{catalogId}/failed-rows', auth: 'session', role: 'any',
+    summary: 'Rows the audit could not check after its retries (the "technical failure" filter), first 500 in file order',
+    params: CatalogPath,
+    responds: 'json', response: z.object({ total: z.number().int(), rows: z.array(FailedRow) }),
+    replaces: ['page:(app)/catalogs/[id]#failedRows'],
+    notes: 'Only the kind of failure is sent; the raw message stays in catalog_item.checkError and the server log. 404 for a catalogue that is not the user\'s.',
   }),
   moneyAtRisk: endpoint({
     method: 'GET', path: '/api/catalogs/{catalogId}/money-at-risk', auth: 'session', role: 'any',

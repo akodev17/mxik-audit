@@ -131,6 +131,7 @@ export async function previewProductImport(user: CurrentUser | null, locale: Loc
   const e = i18nFor(locale).ta.importX.errors;
   if (!wrote(user)) return { ok: false as const, error: e.client };
   if (await isDemoOrg(user.orgId)) return { ok: false as const, error: i18nFor(locale).t.demoUploadDisabled };
+  // An ended trial or subscription closes uploads; product lists do not use the monthly rows (D4).
   if (!(await uploadsOpen(user.orgId)).ok) return { ok: false as const, error: i18nFor(locale).ta.msg.gate.expired };
   const client = await clientFor(user, input.clientId);
   if (!client.ok) return { ok: false as const, error: e.client };

@@ -3,6 +3,8 @@
 // .xlsx and the text readers.
 
 export const MAX_ROWS = 60_000;
+/** Columns an .xlsx is read to; cells right of it are counted (ParseMeta.cellsPastColumnLimit), not kept. */
+export const MAX_COLUMNS = 500;
 /** The header row is looked for among this many non-empty rows. */
 const HEADER_WINDOW = 10;
 /** Rows used to learn the table's usual width. */

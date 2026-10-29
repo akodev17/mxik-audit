@@ -133,13 +133,15 @@ export const PipelineMeta = z.object({
   embedder: z.string(),
   vectorUsable: z.boolean(),
   reranker: z.object({ enabled: z.boolean(), model: z.string().nullable(), promptVersion: z.string() }),
-  degradedReasons: z.array(z.enum(['rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed'])),
+  degradedReasons: z.array(z.enum(['rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed', 'restricted_unchecked', 'rows_failed'])),
   rowsWithoutAi: z.number().int(),
   llmRowsFailed: z.number().int(),
   llmRowsNone: z.number().int(),
   vectorErrors: z.number().int(),
   rowsAudited: z.number().int(),
+  rowsFailed: z.number().int(),
   fromRow: z.number().int(),
+  throughRow: z.number().int().nullable(),
   finishedAt: z.string(),
   classifierSnapshotId: z.number().int().nullable(),
   classifierTakenAt: z.string().nullable(),
@@ -203,9 +205,15 @@ export const ReviewView = z.object({
   status: z.enum(['open', 'done']),
   overdue: z.boolean(),
   doneAt: IsoDateTime.nullable(),
+  /** Who closed it (their address, also after they left the team) and their closing note. */
+  doneBy: z.string().nullable(),
+  doneNote: z.string().nullable(),
+  /** Problems still without a decision (counted for an open review; 0 once done). */
+  pending: z.number().int(),
 });
 
-const ReviewResult = z.union([z.object({ ok: z.literal(true), changed: z.boolean().optional() }), Fail]);
+/** `pending`: closing was refused because that many problems are undecided; send `confirm: true` to close anyway. */
+const ReviewResult = z.union([z.object({ ok: z.literal(true), changed: z.boolean().optional() }), Fail.extend({ pending: z.number().int().optional() })]);
 /** review-assignments.ts NOTE_MAX × 4, as the action allowed. */
 const ReviewNote = z.string().max(2000).nullable();
 
@@ -289,18 +297,18 @@ export const catalogs = defineModule('catalogs', {
     params: CatalogPath,
     responds: 'json', response: UploadProgress,
     replaces: ['route:GET /upload/progress'],
-    notes: 'Old URL /upload/progress?catalog=<id>; 404 for another org\'s catalogue. Cache-Control: no-store. An analyzing audit without a heartbeat is handed to jobs() again (resumeStaleAudits), as the old route did; the worker also resumes on boot.',
+    notes: 'Old URL /upload/progress?catalog=<id>; 404 for another org\'s catalogue. Cache-Control: no-store. An analyzing audit without a heartbeat is handed to jobs() again (resumeStaleAudits) only for a writer and only with JOBS_MODE=inline (Q15); with bullmq the worker resumes on boot and every 2 minutes.',
   }),
   retry: endpoint({
     method: 'POST', path: '/api/catalogs/{catalogId}/retry', auth: 'session', role: 'writer',
-    summary: 'Restart an audit that failed',
+    summary: 'Re-check failed rows: resume a failed audit from its watermark, or check again the rows a ready audit could not check',
     params: CatalogPath,
     responds: 'json', response: OkFlag,
     replaces: ['action:catalog.ts#retryCatalogAudit'],
   }),
   remove: endpoint({
-    method: 'DELETE', path: '/api/catalogs/{catalogId}', auth: 'session', role: 'writer',
-    summary: 'Delete a catalogue and everything derived from it',
+    method: 'DELETE', path: '/api/catalogs/{catalogId}', auth: 'session', role: 'admin', noDemo: true,
+    summary: 'Delete a catalogue and everything derived from it (admins only: its findings and decisions go with it)',
     params: CatalogPath,
     responds: 'json', response: z.union([z.object({ ok: z.literal(true), rows: z.number().int() }), Fail]),
     replaces: ['action:catalog.ts#removeCatalog'],
@@ -344,6 +352,7 @@ export const catalogs = defineModule('catalogs', {
       markingRisky: z.number().int(),
       dictionaryPending: z.number().int(),
       surePending: z.number().int(),
+      failedRows: z.number().int(),
     }),
     replaces: ['page:(app)/catalogs/[id]#summary'],
   }),
@@ -440,9 +449,9 @@ export const catalogs = defineModule('catalogs', {
   }),
   finishReview: endpoint({
     method: 'POST', path: '/api/catalogs/{catalogId}/review/done', auth: 'session', role: 'writer', noDemo: true,
-    summary: 'Mark the review done (assignee or admin)',
+    summary: 'Mark the review done (assignee or admin); with problems still undecided only when confirmed',
     params: CatalogPath,
-    body: z.object({ note: ReviewNote }),
+    body: z.object({ note: ReviewNote, confirm: z.boolean().optional() }),
     responds: 'json', response: ReviewResult,
     replaces: ['action:reviews.ts#finishCatalogReview'],
   }),

@@ -4,10 +4,11 @@ import { useEffect, useRef } from 'react';
 import { cx } from './cx';
 
 /**
- * Telegram's own login button; it redirects to `authUrl` (default /api/auth/telegram) with signed data.
+ * Telegram's own login button; it redirects to `authUrl` with signed data. Every callback path carries
+ * a one-time state of this browser (sign-in: app/sign-in/telegram-sign-in.tsx; binding: Settings).
  * Redirect mode on purpose: the widget's data-onauth mode needs eval, which the CSP does not allow.
  */
-export function TelegramLogin({ bot, authUrl = '/api/auth/telegram', radius = 8, className }: { bot: string; authUrl?: string; radius?: number; className?: string }) {
+export function TelegramLogin({ bot, authUrl, radius = 8, className }: { bot: string; authUrl: string; radius?: number; className?: string }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = box.current;

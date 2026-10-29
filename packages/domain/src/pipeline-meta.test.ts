@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import {
-  buildPipelineMeta, countMatch, degradedNotes, emptyCounters, readPipelineMeta, setupReasons, type PipelineSetup,
+  addCounters, buildPipelineMeta, countMatch, degradedNotes, emptyCounters, readPipelineMeta, resumeCounters, setupReasons, type PipelineSetup,
 } from './pipeline-meta.js';
 
 const FULL: PipelineSetup = {
@@ -96,5 +96,51 @@ describe('degradedNotes', () => {
 
   it('is empty for a full run', () => {
     assert.deepEqual(degradedNotes(buildPipelineMeta(FULL, emptyCounters(), 0, AT), appDict('uz')), []);
+  });
+
+  it('says the restricted list was not checked, and how many rows were not checked, in uz and ru', () => {
+    const meta = buildPipelineMeta({ ...FULL, restrictedCodes: 0 }, emptyCounters(), 0, AT, { rowsFailed: 3 });
+    assert.deepEqual(meta.degradedReasons, ['restricted_unchecked', 'rows_failed']);
+    const [restricted, failed] = degradedNotes(meta, appDict('uz'));
+    assert.match(restricted ?? '', /Cheklangan kodlar roʻyxati tekshirilmadi/);
+    assert.match(failed ?? '', /^3 ta qator texnik xato/);
+    assert.match(degradedNotes(meta, appDict('ru'))[1] ?? '', /^3 строки не проверены/);
+  });
+});
+
+describe('restricted list and failed rows', () => {
+  it('flags an empty (or unreadable) restricted list, and not an unknown one', () => {
+    assert.deepEqual(setupReasons({ ...FULL, restrictedCodes: 0 }), ['restricted_unchecked']);
+    assert.deepEqual(setupReasons({ ...FULL, restrictedCodes: 140 }), []);
+    assert.deepEqual(setupReasons(FULL), []);
+  });
+
+  it('round-trips rowsFailed and throughRow, and reads older metadata as 0 and null', () => {
+    const meta = buildPipelineMeta(FULL, emptyCounters(), 0, AT, { rowsFailed: 2, throughRow: 40 });
+    assert.deepEqual(readPipelineMeta(JSON.parse(JSON.stringify(meta))), meta);
+    const old = readPipelineMeta({ embedder: 'x', vectorUsable: true, reranker: { enabled: true, model: 'm', promptVersion: 'v' }, degradedReasons: [], rowsAudited: 5, fromRow: 0 });
+    assert.equal(old?.rowsFailed, 0);
+    assert.equal(old?.throughRow, null);
+  });
+});
+
+describe('resumeCounters', () => {
+  const stored = buildPipelineMeta(FULL, { rowsAudited: 30, rowsWithoutAi: 4, llmRowsFailed: 1, llmRowsNone: 0, vectorErrors: 2 }, 0, AT, { throughRow: 30 });
+
+  it('keeps the counts of the rows below the resume point, so a resumed run adds to them', () => {
+    const base = resumeCounters(stored, 30);
+    assert.deepEqual(base, { rowsAudited: 30, rowsWithoutAi: 4, llmRowsFailed: 1, llmRowsNone: 0, vectorErrors: 2 });
+    const merged = addCounters(base, { rowsAudited: 10, rowsWithoutAi: 1, llmRowsFailed: 1, llmRowsNone: 0, vectorErrors: 0 });
+    const meta = buildPipelineMeta(FULL, merged, 30, AT, { throughRow: 40 });
+    assert.equal(meta.rowsAudited, 40);
+    assert.equal(meta.llmRowsFailed, 2);
+    assert.deepEqual(meta.degradedReasons, ['rerank_failed', 'vector_failed']);
+  });
+
+  it('starts from nothing for a fresh run, an unknown store or counts of another stretch', () => {
+    assert.deepEqual(resumeCounters(stored, 0), emptyCounters());
+    assert.deepEqual(resumeCounters(null, 30), emptyCounters());
+    assert.deepEqual(resumeCounters(stored, 25), emptyCounters());
+    assert.deepEqual(resumeCounters({ ...stored, throughRow: null }, 30), emptyCounters());
   });
 });

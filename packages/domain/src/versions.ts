@@ -72,7 +72,10 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
   const prevByNext = new Map(same.map((p) => [p.next.id, p.prev.id]));
   const decided = await chunked(same.map((p) => p.prev.id), (part) => db.finding.findMany({
     where: { itemId: { in: part }, decision: { in: ['accepted', 'rejected'] } },
-    select: { id: true, itemId: true, type: true, decision: true, chosenMxik: true, suggestedMxik: true, decidedBy: true },
+    select: {
+      id: true, itemId: true, type: true, decision: true, chosenMxik: true, suggestedMxik: true, decidedBy: true,
+      decidedAt: true, decisionSource: true, carriedFromCatalogId: true, originalDecidedAt: true,
+    },
   }));
   const decidedKey = new Map(decided.map((f) => [`${f.itemId}|${f.type}`, f]));
   const pending = await chunked([...prevByNext.keys()], (part) => db.finding.findMany({
@@ -84,12 +87,21 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
   const live = accepted.length === 0 ? new Set<string>() : new Set((await db.$queryRaw<{ code: string }[]>`
     SELECT code FROM mxik_code WHERE code = ANY(${[...new Set(accepted)]}::bpchar[]) AND "retiredAt" IS NULL`).map((r) => r.code.trim()));
 
-  type Carried = { findingId: string; sourceFindingId: string; decision: 'accepted' | 'rejected'; chosenMxik: string | null; decidedBy: string | null };
+  type Carried = {
+    findingId: string; sourceFindingId: string; decision: 'accepted' | 'rejected'; chosenMxik: string | null; decidedBy: string | null;
+    fromCatalogId: string; originalDecidedAt: string | null;
+  };
   const carried: Carried[] = [];
   for (const f of pending) {
     const before = decidedKey.get(`${prevByNext.get(f.itemId) ?? ''}|${f.type}`);
     if (!before) continue;
-    const from = { findingId: f.id, sourceFindingId: before.id, decidedBy: before.decidedBy };
+    // A decision carried more than once still names the upload and the moment it was first made.
+    const chained = before.decisionSource === 'carry_over';
+    const from = {
+      findingId: f.id, sourceFindingId: before.id, decidedBy: before.decidedBy,
+      fromCatalogId: (chained ? before.carriedFromCatalogId : null) ?? loaded.previousId,
+      originalDecidedAt: ((chained ? before.originalDecidedAt : null) ?? before.decidedAt)?.toISOString() ?? null,
+    };
     if (before.decision === 'accepted' && before.chosenMxik && live.has(before.chosenMxik)) {
       carried.push({ ...from, decision: 'accepted', chosenMxik: before.chosenMxik });
     } else if (before.decision === 'rejected' && before.suggestedMxik === f.suggestedMxik) {
@@ -110,9 +122,11 @@ export async function carryOver(catalogId: string, actorId: string | null): Prom
     });
     await tx.$executeRaw`
       UPDATE finding f SET decision = v.dec::decision, "chosenMxik" = v.code,
-        "decidedBy" = v.by, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}, "decisionSource" = 'carry_over'
+        "decidedBy" = v.by, "decidedAt" = ${event.createdAt}, "decisionEventId" = ${event.id}, "decisionSource" = 'carry_over',
+        "carriedFromCatalogId" = v.src, "originalDecidedAt" = v.orig::timestamp(3)
       FROM unnest(${carried.map((c) => c.findingId)}::text[], ${carried.map((c) => c.decision)}::text[],
-                  ${carried.map((c) => c.chosenMxik)}::text[], ${carried.map((c) => c.decidedBy)}::text[]) AS v(id, dec, code, by)
+                  ${carried.map((c) => c.chosenMxik)}::text[], ${carried.map((c) => c.decidedBy)}::text[],
+                  ${carried.map((c) => c.fromCatalogId)}::text[], ${carried.map((c) => c.originalDecidedAt)}::text[]) AS v(id, dec, code, by, src, orig)
       WHERE f.id = v.id AND f.decision = 'pending'::decision`;
   }, { timeout: 120_000 });
   return carried.length;

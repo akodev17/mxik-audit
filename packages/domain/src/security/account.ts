@@ -36,7 +36,10 @@ export async function purgeDate(orgId: string): Promise<Date | null> {
   return org?.deletedAt ? new Date(org.deletedAt.getTime() + deleteAfterDays() * DAY) : null;
 }
 
-/** Erases accounts closed longer than the grace period; everything under the org goes with it. */
+/**
+ * Erases accounts closed longer than the grace period; everything under the org goes with it except
+ * its orders and their provider transactions, which stay as payment records (Order.orgId set null).
+ */
 export async function purgeDeletedAccounts(now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - deleteAfterDays() * DAY);
   const due = await db.organization.findMany({ where: { kind: 'customer', deletedAt: { lt: cutoff } }, select: { id: true } });

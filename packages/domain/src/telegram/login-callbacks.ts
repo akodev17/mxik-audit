@@ -8,7 +8,8 @@
 //
 // Settings → Security: binds the signed-in user's own Telegram account. The one-time state in the
 // path must match the one this browser's session got from startTelegramBind, so a link from
-// someone else cannot bind their Telegram here.
+// someone else cannot bind their Telegram here. Sign-in works the same way since S1
+// (startTelegramLogin), so nobody can sign a victim's browser into the attacker's account.
 import { randomBytes } from 'node:crypto';
 import { db } from '@tasnivo/db';
 import { isDemoOrg } from '../demo.js';
@@ -39,10 +40,34 @@ async function openTelegramAccount(telegramId: string, data: TelegramLoginData):
   return { id: userId, orgId, email };
 }
 
-/** The sign-in page's callback: the path to send the browser to. `ip` is the client address for the signup limit. */
-export async function telegramSignIn(session: SignInSession, data: TelegramLoginData, req: { ip: string; userAgent: string | null }): Promise<string> {
+/**
+ * Starts Telegram sign-in on the sign-in or sign-up page: a one-time state in this browser's session
+ * that the widget's callback path must bring back, as binding does. Null when Telegram sign-in is off.
+ */
+export async function startTelegramLogin(session: SignInSession): Promise<string | null> {
+  const config = telegramConfig();
+  if (!config.token || !config.username) return null;
+  const state = randomBytes(18).toString('base64url');
+  session.tgLogin = state;
+  session.tgLoginAt = Date.now();
+  await session.save();
+  return state;
+}
+
+/**
+ * The sign-in page's callback: the path to send the browser to. `state` must be the one this browser
+ * got from startTelegramLogin (spent whatever the outcome), so a signed answer captured from someone
+ * else's widget cannot sign this browser in (login CSRF). `ip` is the client address for the signup limit.
+ */
+export async function telegramSignIn(session: SignInSession, state: string, data: TelegramLoginData, req: { ip: string; userAgent: string | null }): Promise<string> {
   const config = telegramConfig();
   if (!config.token || !config.username) return '/sign-in';
+  const expected = session.tgLogin;
+  const fresh = session.tgLoginAt !== undefined && Date.now() - session.tgLoginAt <= BIND_STATE_TTL_MS;
+  session.tgLogin = undefined;
+  session.tgLoginAt = undefined;
+  await session.save();
+  if (!expected || !fresh || !safeEqualText(expected, state)) return '/sign-in?error=telegram_state';
   // A bad signature is not "expired" (Q14): the page says the data could not be checked.
   const check = checkTelegramLogin(data, config.token);
   if (check !== 'ok') return `/sign-in?error=telegram_${check}`;

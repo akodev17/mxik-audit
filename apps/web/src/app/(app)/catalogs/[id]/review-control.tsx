@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api/browser';
 import { catalogKeys, failureText } from '@/lib/catalogs/client';
 import type { ReviewView } from '@/lib/catalogs/types';
-import { fmtDate } from '@tasnivo/i18n/format';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -26,6 +26,10 @@ export type ReviewState = {
   status: 'open' | 'done';
   overdue: boolean;
   doneAt: string | null;
+  doneBy: string | null;
+  doneNote: string | null;
+  /** Problems still undecided: closing with any asks to confirm. */
+  pending: number;
 };
 
 type ReviewRead = { review: ReviewView | null; assignable: { id: string; email: string }[] };
@@ -33,7 +37,7 @@ type ReviewRead = { review: ReviewView | null; assignable: { id: string; email: 
 /** The header's form of a review: the due day as YYYY-MM-DD. */
 const stateOf = (v: ReviewView): ReviewState => ({
   assigneeId: v.assigneeId, assigneeEmail: v.assigneeEmail, dueOn: v.dueOn ? v.dueOn.slice(0, 10) : null, note: v.note,
-  status: v.status, overdue: v.overdue, doneAt: v.doneAt,
+  status: v.status, overdue: v.overdue, doneAt: v.doneAt, doneBy: v.doneBy, doneNote: v.doneNote, pending: v.pending,
 });
 
 type Props = {
@@ -66,13 +70,21 @@ export function ReviewControl({ catalogId, initial, canAssign, finisher, today }
   const [doneNote, setDoneNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Undecided problems the server reported on a close (newer than the count read with the review).
+  const [reportedPending, setReportedPending] = useState<number | null>(null);
+  const pending = reportedPending ?? review?.pending ?? 0;
 
-  async function run(job: () => Promise<{ ok: true; changed?: boolean } | { ok: false; error: string }>, success: (changed: boolean | undefined) => string): Promise<void> {
+  async function run(job: () => Promise<{ ok: true; changed?: boolean } | { ok: false; error: string; pending?: number }>, success: (changed: boolean | undefined) => string): Promise<void> {
     setBusy(true);
     setError(null);
     try {
       const result = await job();
-      if (!result.ok) { setError(result.error); return; }
+      if (!result.ok) {
+        if (result.pending !== undefined) setReportedPending(result.pending);
+        setError(result.error);
+        return;
+      }
+      setReportedPending(null);
       toast(success(result.changed), { tone: 'ok' });
       setOpen(false);
       await queryClient.invalidateQueries({ queryKey: key });
@@ -94,6 +106,8 @@ export function ReviewControl({ catalogId, initial, canAssign, finisher, today }
           : review.overdue ? <Badge tone="danger">{r.overdue}</Badge> : <Badge tone="info">{r.open}</Badge>}
         {review.dueOn && review.status === 'open' ? <span className="tabular-nums text-muted">{fmtDate(locale, review.dueOn)}</span> : null}
         {review.doneAt && review.status === 'done' ? <span className="text-muted">{fmtDate(locale, review.doneAt)}</span> : null}
+        {review.status === 'done' && review.doneBy ? <span className="min-w-0 max-w-56 truncate text-muted" title={review.doneBy}>{r.doneBy(review.doneBy)}</span> : null}
+        {review.status === 'done' && review.doneNote ? <span className="min-w-0 max-w-72 truncate text-muted" title={review.doneNote}>«{review.doneNote}»</span> : null}
       </span>
     );
 
@@ -134,13 +148,15 @@ export function ReviewControl({ catalogId, initial, canAssign, finisher, today }
             className="mt-4 space-y-2 border-t border-line pt-3"
             onSubmit={(event) => {
               event.preventDefault();
-              void run(() => api.catalogs.finishReview({ catalogId, note: doneNote.trim() || null }), () => r.markedDone);
+              // With problems still undecided the warning is on screen, so this click is the confirmation.
+              void run(() => api.catalogs.finishReview({ catalogId, note: doneNote.trim() || null, ...(pending > 0 ? { confirm: true } : {}) }), () => r.markedDone);
             }}
           >
+            {pending > 0 ? <p className="rounded-ctl bg-warn-tint px-2 py-1.5 text-small text-warn-ink">{r.pendingOpen(fmtNumber(locale, pending))}</p> : null}
             <Field label={r.doneNote}>
               <Textarea rows={2} maxLength={NOTE_MAX} value={doneNote} onChange={(e) => setDoneNote(e.target.value)} />
             </Field>
-            <Button type="submit" size="sm" variant="secondary" loading={busy}>{r.markDone}</Button>
+            <Button type="submit" size="sm" variant="secondary" loading={busy}>{pending > 0 ? r.closeAnyway : r.markDone}</Button>
           </form>
         ) : null}
         {error ? <p role="alert" className="mt-2 text-small text-danger-ink">{error}</p> : null}

@@ -5,8 +5,9 @@
 // nonce. No extra dependency.
 //
 // Who signs in: the user bound to the Google account (`googleSub`); else a user with the same
-// address, only when that address is confirmed (then the Google account is bound to them); else a
-// new 14-day trial account, confirmed, since Google vouches for the address.
+// address, only when that address was confirmed by the mailed code or link (`verifiedVia`; then the
+// Google account is bound to them); else a new 14-day trial account, confirmed, since Google vouches
+// for the address.
 import { createHash, createPublicKey, randomBytes, verify as verifySignature, type JsonWebKey } from 'node:crypto';
 import { db } from '@tasnivo/db';
 import { appOrigin } from '../app-url.js';
@@ -170,18 +171,26 @@ export const googleDeps: GoogleDeps = { exchange: exchangeCode, keys: fetchKeys 
 
 type Who = { id: string; orgId: string; email: string };
 export type GoogleIdentity = { sub: string; email: string; name: string | null };
-export type GoogleUser = { ok: true; user: Who } | { ok: false; error: 'google_conflict' | 'google_limit' | 'google' };
+export type GoogleUser = { ok: true; user: Who } | { ok: false; error: 'google_conflict' | 'google_unconfirmed' | 'google_limit' | 'google' };
+
+/**
+ * Confirmations that prove the account's own holder reached the mailbox. An invite (before S1) or an
+ * unknown origin ('legacy') proves nothing: whoever set the password may not own the address.
+ */
+const LINKABLE = new Set(['code', 'link']);
 
 /** Who a verified Google identity signs in as (see the file comment). `ip` is for the signup limit. */
 export async function googleUser(identity: GoogleIdentity, ip: string): Promise<GoogleUser> {
-  const select = { id: true, orgId: true, email: true, emailVerifiedAt: true, googleSub: true } as const;
+  const select = { id: true, orgId: true, email: true, emailVerifiedAt: true, verifiedVia: true, googleSub: true } as const;
   const bound = await db.user.findUnique({ where: { googleSub: identity.sub }, select });
   if (bound) return { ok: true, user: bound };
   const email = identity.email.trim().toLowerCase();
   const existing = await db.user.findUnique({ where: { email }, select });
   if (existing) {
-    // An unconfirmed account may have been opened by someone else with this address: never join it.
-    if (!existing.emailVerifiedAt || existing.googleSub) return { ok: false, error: 'google_conflict' };
+    if (existing.googleSub) return { ok: false, error: 'google_conflict' };
+    // The account may have been opened by someone else with this address (an invite they accepted
+    // themselves): never join it until its holder confirms the address with the mailed code or link.
+    if (!existing.emailVerifiedAt || !existing.verifiedVia || !LINKABLE.has(existing.verifiedVia)) return { ok: false, error: 'google_unconfirmed' };
     const done = await db.user.updateMany({ where: { id: existing.id, googleSub: null }, data: { googleSub: identity.sub } }).catch(() => ({ count: 0 }));
     if (done.count !== 1) return { ok: false, error: 'google_conflict' };
     await db.auditEvent.create({ data: { orgId: existing.orgId, actorId: existing.id, action: 'security.google_bound', targetId: existing.id, payload: {} } });

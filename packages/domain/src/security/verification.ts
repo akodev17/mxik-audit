@@ -21,7 +21,7 @@ export async function sendVerification(userId: string, email: string, locale: Lo
 /** Checks the code and, when it is right, marks the address confirmed. */
 export async function confirmCode(userId: string, code: string): Promise<CodeCheck> {
   const result = await checkCode(userId, code);
-  if (result === 'ok') await db.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
+  if (result === 'ok') await db.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date(), verifiedVia: 'code' } });
   return result;
 }
 
@@ -29,7 +29,7 @@ export async function confirmCode(userId: string, code: string): Promise<CodeChe
 export async function confirmEmail(token: string): Promise<{ userId: string; orgId: string; email: string } | null> {
   const userId = await claimToken(token, 'verify');
   if (!userId) return null;
-  const user = await db.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() }, select: { id: true, orgId: true, email: true } });
+  const user = await db.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date(), verifiedVia: 'link' }, select: { id: true, orgId: true, email: true } });
   return { userId: user.id, orgId: user.orgId, email: user.email };
 }
 

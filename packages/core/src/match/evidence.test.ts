@@ -69,7 +69,7 @@ describe('readEvidence', () => {
   it('round-trips every field the pipeline stores', () => {
     const stored = {
       ...evidenceFor({ stage: 'barcode', productName: 'guruch', rowUnit: null, candidate: CANDIDATE, rules: ['identifyingMarked'] }),
-      dictionaryUses: 4, dictionaryConfirmations: 2, dictionaryConflict: '01901001003000000',
+      dictionaryUses: 4, dictionaryConfirmations: 2, dictionaryConflict: '01901001003000000', dictionaryEntryId: 'cm1abc-2', dictionaryHold: 'reconfirm' as const,
       synonymApplied: ['минвата → минеральная вата'],
       matchedHierarchyWords: ['goryachekataniy'],
       tnvedHeading: '7306', tnvedOutside: true as const, tnvedExistingOutside: true as const, tnvedFallback: true as const,
@@ -97,12 +97,14 @@ describe('readEvidence', () => {
   it('drops unknown rule keys and malformed counts instead of trusting them', () => {
     const e = readEvidence({
       stage: 'fusion', unit: 'none', rules: ['baseCodePreferred', 'madeUp', 3],
-      dictionaryConfirmations: -1, dictionaryUses: 1.5, dictionaryConflict: 'abc',
+      dictionaryConfirmations: -1, dictionaryUses: 1.5, dictionaryConflict: 'abc', dictionaryEntryId: 'x y', dictionaryHold: 'maybe',
     });
     assert.deepEqual(e?.rules, ['baseCodePreferred']);
     assert.equal(e?.dictionaryConfirmations, undefined);
     assert.equal(e?.dictionaryUses, undefined);
     assert.equal(e?.dictionaryConflict, undefined);
+    assert.equal(e?.dictionaryEntryId, undefined);
+    assert.equal(e?.dictionaryHold, undefined);
   });
 
   it('keeps reading evidence stored before these fields existed', () => {

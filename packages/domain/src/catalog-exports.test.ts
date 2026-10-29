@@ -7,7 +7,7 @@ import { catalogDiffCsv, catalogExport, catalogReportCsv, catalogReportPdf, demo
 import { makeClient, makeClientCatalog, makePerson } from './firm-test-fixtures.js';
 import { fontDir } from './pdf/report-pdf.js';
 import type { CurrentUser } from './session.js';
-import { dbSkipReason, dropOrgs, makeOrg } from './test-fixtures.js';
+import { dbSkipReason, dropOrgs, liveCodes, makeOrg } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
 
@@ -85,6 +85,39 @@ describe('downloads: refusals (database)', { skip }, () => {
     const pdf = await catalogReportPdf(admin, 'ru', ready, { audience: 'client', download: true });
     assert.ok(pdf.ok);
     assert.match(pdf.file.headers['content-disposition'] ?? '', /^attachment; /);
+  });
+
+  it('under BILLING_REQUIRED_FOR_EXPORT the client PDF and the diff CSV wait for payment; the internal PDF and the report CSV leave out the chosen codes (D3)', async () => {
+    const [suggested, chosen] = await liveCodes(2);
+    assert.ok(suggested && chosen);
+    const [findingId] = (await db.finding.findMany({ where: { item: { catalogId: ready } }, select: { id: true } })).map((f) => f.id);
+    await db.finding.update({ where: { id: findingId }, data: { suggestedMxik: suggested, decision: 'accepted', chosenMxik: chosen, decidedAt: new Date() } });
+    const csvText = (d: Awaited<ReturnType<typeof catalogReportCsv>>) => (d.ok ? String(d.file.body) : '');
+
+    process.env['BILLING_REQUIRED_FOR_EXPORT'] = 'true';
+    try {
+      for (const d of [
+        await catalogReportPdf(admin, 'uz', ready, { audience: 'client', download: true }),
+        await catalogDiffCsv(admin, 'uz', ready, null),
+        await catalogExport(admin, 'uz', ready, '1c'),
+      ]) assert.deepEqual(d.ok ? null : [d.status, d.code], [402, 'payment_required']);
+      const pdf = await catalogReportPdf(admin, 'uz', ready, { audience: 'internal', download: true });
+      assert.ok(pdf.ok, 'the internal PDF is still there');
+      const lockedCsv = csvText(await catalogReportCsv(admin, 'uz', ready));
+      assert.match(lockedCsv, new RegExp(suggested), 'the suggestion is still shown');
+      assert.doesNotMatch(lockedCsv, new RegExp(chosen), 'the chosen code is not');
+
+      // Paid for: everything, with the chosen code.
+      await db.order.create({ data: { orgId: admin.orgId, catalogId: ready, planId: 'catalog_500', amount: 700_000, status: 'paid', paidAt: new Date(), provider: 'bank' } });
+      assert.match(csvText(await catalogReportCsv(admin, 'uz', ready)), new RegExp(chosen));
+      assert.ok((await catalogReportPdf(admin, 'uz', ready, { audience: 'client', download: true })).ok);
+      const diff = await catalogDiffCsv(admin, 'uz', ready, null);
+      assert.equal(diff.ok ? 200 : diff.status, 404, 'past the payment gate: nothing to compare');
+    } finally {
+      delete process.env['BILLING_REQUIRED_FOR_EXPORT'];
+      await db.order.deleteMany({ where: { orgId: admin.orgId } });
+    }
+    assert.match(csvText(await catalogReportCsv(admin, 'uz', ready)), new RegExp(chosen), 'without the flag nothing is held back');
   });
 
   it('a demo org runs out of downloads; a customer never does', async () => {

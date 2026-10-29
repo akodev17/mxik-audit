@@ -84,11 +84,48 @@ export async function changeMember(actor: Actor, input: MemberChange): Promise<C
   });
 }
 
-export type RemoveResult =
-  | { ok: true; email: string; sessionsEnded: number; apiKeysRevoked: number; telegramUnlinked: number; invitesRevoked: number }
-  | { ok: false; reason: 'forbidden' | 'self' | 'not_found' | 'last_admin' };
+/** What happens to the member's open reviews: handed to another member, or dropped on purpose. */
+export type ReviewHandling = { reassignTo?: string | null; dropReviews?: boolean };
 
-export async function removeTeamMember(actor: Actor, userId: string): Promise<RemoveResult> {
+export type RemoveResult =
+  | { ok: true; email: string; sessionsEnded: number; apiKeysRevoked: number; telegramUnlinked: number; invitesRevoked: number; reviewsReassigned: number; reviewsDropped: number }
+  | { ok: false; reason: 'forbidden' | 'self' | 'not_found' | 'last_admin' | 'bad_reassign' }
+  | { ok: false; reason: 'open_reviews'; openReviews: number };
+
+type Member = { id: string; email: string; role: Role; assignments: { clientId: string }[] };
+
+/** Admins and members with no assignments see every client (session.ts); others their assigned ones. */
+const seesAll = (m: Member, clientIds: readonly string[]): boolean =>
+  m.role === 'admin' || m.assignments.length === 0 || clientIds.every((id) => m.assignments.some((a) => a.clientId === id));
+
+/** Members who could take over all of these reviews: not the one leaving, not viewers, able to open every client. */
+async function takers(tx: Pick<Tx, 'user'>, orgId: string, leaving: string, clientIds: readonly string[]): Promise<Member[]> {
+  const people = await tx.user.findMany({
+    where: { orgId, id: { not: leaving }, role: { not: 'viewer' } }, orderBy: { email: 'asc' },
+    select: { id: true, email: true, role: true, assignments: { select: { clientId: true } } },
+  });
+  return people.filter((p) => seesAll(p, clientIds));
+}
+
+export type RemovalCheck = { openReviews: number; reassignTo: { id: string; email: string }[] };
+
+/** Asked before a removal: how many open reviews the member holds and who could take them all. */
+export async function memberRemovalCheck(actor: Actor, userId: string): Promise<RemovalCheck | null> {
+  if (actor.role !== 'admin') return null;
+  const target = await db.user.findFirst({ where: { id: userId, orgId: actor.orgId }, select: { id: true } });
+  if (!target) return null;
+  const open = await db.reviewAssignment.findMany({ where: { orgId: actor.orgId, assigneeId: target.id, status: 'open' }, select: { clientId: true } });
+  if (open.length === 0) return { openReviews: 0, reassignTo: [] };
+  const people = await takers(db, actor.orgId, target.id, [...new Set(open.map((r) => r.clientId))]);
+  return { openReviews: open.length, reassignTo: people.map((p) => ({ id: p.id, email: p.email })) };
+}
+
+/**
+ * Removes a member. Their open reviews would go with them (the assignee cascade), so a member who
+ * holds any is removed only with `reassignTo` (another member who can open all those clients) or
+ * an explicit `dropReviews`; the count is kept in the removal's audit event.
+ */
+export async function removeTeamMember(actor: Actor, userId: string, handling: ReviewHandling = {}): Promise<RemoveResult> {
   if (actor.role !== 'admin') return { ok: false, reason: 'forbidden' };
   if (userId === actor.userId) return { ok: false, reason: 'self' };
   const target = await db.user.findFirst({ where: { id: userId, orgId: actor.orgId }, select: { id: true, email: true, role: true } });
@@ -98,16 +135,37 @@ export async function removeTeamMember(actor: Actor, userId: string): Promise<Re
   // refused removal signs nobody out, and a failure halfway leaves the member as they were.
   return db.$transaction(async (tx): Promise<RemoveResult> => {
     if (target.role === 'admin' && (await lockedAdminCount(tx, actor.orgId)) <= 1) return { ok: false, reason: 'last_admin' };
+    // The member's row is locked first, so no review can be handed to them while they are removed.
+    await tx.$queryRaw`SELECT id FROM "user" WHERE id = ${target.id} FOR UPDATE`;
+    const open = await tx.reviewAssignment.findMany({ where: { orgId: actor.orgId, assigneeId: target.id, status: 'open' }, select: { id: true, clientId: true } });
     const now = new Date();
+    let reassigned: { id: string; email: string } | null = null;
+    if (open.length > 0) {
+      if (handling.reassignTo) {
+        const taker = (await takers(tx, actor.orgId, target.id, [...new Set(open.map((r) => r.clientId))])).find((p) => p.id === handling.reassignTo);
+        if (!taker) return { ok: false, reason: 'bad_reassign' };
+        await tx.reviewAssignment.updateMany({
+          where: { id: { in: open.map((r) => r.id) } },
+          data: { assigneeId: taker.id, revision: { increment: 1 }, updatedAt: now },
+        });
+        reassigned = { id: taker.id, email: taker.email };
+      } else if (handling.dropReviews !== true) {
+        return { ok: false, reason: 'open_reviews', openReviews: open.length };
+      }
+    }
     const sessions = await tx.userSession.updateMany({ where: { userId: target.id, revokedAt: null }, data: { revokedAt: now } });
     const { keyIds, chats } = await cutOrgWideAccess(tx, actor, target.id, 'member_removed', now);
     const invites = await tx.invite.deleteMany({ where: { orgId: actor.orgId, createdBy: target.id, usedAt: null } });
     await tx.user.delete({ where: { id: target.id } });
-    const counts = { sessionsEnded: sessions.count, apiKeysRevoked: keyIds.length, telegramUnlinked: chats, invitesRevoked: invites.count };
+    const counts = {
+      sessionsEnded: sessions.count, apiKeysRevoked: keyIds.length, telegramUnlinked: chats, invitesRevoked: invites.count,
+      reviewsReassigned: reassigned ? open.length : 0, reviewsDropped: reassigned ? 0 : open.length,
+    };
     await tx.auditEvent.create({
       data: {
         orgId: actor.orgId, actorId: actor.userId, action: 'team.removed', targetId: target.id,
-        payload: { email: target.email, role: target.role, ...counts, apiKeyIds: keyIds },
+        // The e-mail stays here for good: decisions keep the removed member's id, and row-detail.ts reads the address back from this event.
+        payload: { email: target.email, role: target.role, ...counts, openReviews: open.length, apiKeyIds: keyIds, ...(reassigned ? { reviewsReassignedTo: reassigned.email } : {}) },
       },
     });
     return { ok: true, email: target.email, ...counts };

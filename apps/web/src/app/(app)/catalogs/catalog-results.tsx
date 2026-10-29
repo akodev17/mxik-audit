@@ -25,8 +25,10 @@ type Props = {
   /** What the server page read, so the first paint needs no request. */
   initial: ListPage;
   initialDrafts: CatalogListItem[];
-  /** May upload and delete (a writer outside a demo); drafts are listed only for them, on the first page. */
+  /** May upload (a writer outside a demo); drafts are listed only for them, on the first page. */
   writer: boolean;
+  /** May delete a catalogue: an admin outside a demo (the API refuses anyone else). */
+  canDelete: boolean;
   showClient: boolean;
   uploadHref: string;
 };
@@ -35,7 +37,7 @@ type Props = {
  * The catalogues and open drafts of /catalogs as React Query reads (catalogs.list), seeded by the
  * server render: deleting a catalogue invalidates them instead of rendering the page again.
  */
-export function CatalogResults({ client, status, page, initial, initialDrafts, writer, showClient, uploadHref }: Props) {
+export function CatalogResults({ client, status, page, initial, initialDrafts, writer, canDelete, showClient, uploadHref }: Props) {
   const { locale, t, ta } = useI18n();
   const words = ta.firmX.catalogs;
   const f = ta.importX.flow;
@@ -83,7 +85,7 @@ export function CatalogResults({ client, status, page, initial, initialDrafts, w
       ) : (
         <>
           <p className="mb-2 text-small text-muted">{words.total(fmtNumber(locale, total), total)}</p>
-          <CatalogList items={items} showClient={showClient} canDelete={writer} refreshAfterDelete={false} />
+          <CatalogList items={items} showClient={showClient} canDelete={canDelete} refreshAfterDelete={false} />
           {pages > 1 ? (
             <nav aria-label={t.catalogsTitle} className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <span className="text-small text-muted">{ta.firmX.clients.page(page, pages)}</span>

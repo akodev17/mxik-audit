@@ -5,7 +5,9 @@ import { z } from 'zod';
 import type { RerankOutcome, VectorOutcome } from '@tasnivo/core/match/types';
 import type { AppDict } from '@tasnivo/i18n/i18n-app';
 
-export const DEGRADED_REASONS = ['rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed'] as const;
+export const DEGRADED_REASONS = [
+  'rerank_off', 'vector_off', 'vector_not_semantic', 'rerank_failed', 'vector_failed', 'restricted_unchecked', 'rows_failed',
+] as const;
 export type DegradedReason = (typeof DEGRADED_REASONS)[number];
 
 export type PipelineMeta = {
@@ -23,10 +25,14 @@ export type PipelineMeta = {
   llmRowsNone: number;
   /** Rows whose vector stage threw. */
   vectorErrors: number;
-  /** Rows matched in this run; a resumed run counts only its own rows. */
+  /** Rows matched, across every run of the audit (a resumed run adds to the counts stored before it). */
   rowsAudited: number;
-  /** First row of this run, above 0 for a resumed audit. */
+  /** Rows still failing after their retries (CatalogItem.checkError set): not checked, never "ok". */
+  rowsFailed: number;
+  /** First row of the last run, above 0 for a resumed audit or a re-check. */
   fromRow: number;
+  /** The counters cover every row below this index; a resume merges them only when it starts there. Null before 2026-10-29. */
+  throughRow: number | null;
   finishedAt: string;
   /** catalog_snapshot id the run matched against; null when unknown (audits before 2026-10-21). */
   classifierSnapshotId: number | null;
@@ -43,6 +49,8 @@ export type PipelineSetup = {
   reranker: { enabled: boolean; model: string | null; promptVersion: string };
   /** Absent when the caller does not know the snapshot; stored as nulls. */
   classifier?: ClassifierProvenance | undefined;
+  /** Restricted codes loaded for the run: 0 when the table is empty or could not be read; absent when unknown. */
+  restrictedCodes?: number | undefined;
 };
 
 export type PipelineCounters = { rowsAudited: number; rowsWithoutAi: number; llmRowsFailed: number; llmRowsNone: number; vectorErrors: number };
@@ -60,26 +68,57 @@ export function countMatch(counters: PipelineCounters, match: { rerank: RerankOu
   if (match.vector === 'failed') counters.vectorErrors++;
 }
 
+/** Counters of two stretches of one audit, added. */
+export function addCounters(a: PipelineCounters, b: PipelineCounters): PipelineCounters {
+  return {
+    rowsAudited: a.rowsAudited + b.rowsAudited,
+    rowsWithoutAi: a.rowsWithoutAi + b.rowsWithoutAi,
+    llmRowsFailed: a.llmRowsFailed + b.llmRowsFailed,
+    llmRowsNone: a.llmRowsNone + b.llmRowsNone,
+    vectorErrors: a.vectorErrors + b.vectorErrors,
+  };
+}
+
+/**
+ * The counters a run starts from: the stored ones when they cover exactly the rows below `fromRow`
+ * (the heartbeat writes them together with the watermark), else none.
+ */
+export function resumeCounters(stored: PipelineMeta | null, fromRow: number): PipelineCounters {
+  if (fromRow === 0 || !stored || stored.throughRow !== fromRow) return emptyCounters();
+  const { rowsAudited, rowsWithoutAi, llmRowsFailed, llmRowsNone, vectorErrors } = stored;
+  return { rowsAudited, rowsWithoutAi, llmRowsFailed, llmRowsNone, vectorErrors };
+}
+
 /** Degradations known before any row runs, from the provider setup alone. */
 export function setupReasons(setup: PipelineSetup): DegradedReason[] {
   const reasons: DegradedReason[] = [];
   if (!setup.reranker.enabled) reasons.push('rerank_off');
   if (!setup.vectorUsable) reasons.push('vector_off');
   else if (!setup.embedder.semantic) reasons.push('vector_not_semantic');
+  if (setup.restrictedCodes === 0) reasons.push('restricted_unchecked');
   return reasons;
 }
 
-export function buildPipelineMeta(setup: PipelineSetup, counters: PipelineCounters, fromRow: number, finishedAt: Date): PipelineMeta {
+/** What the counters cover: rows still failing, and the index below which every row is counted. */
+export type RunExtent = { rowsFailed?: number; throughRow?: number | null };
+
+export function buildPipelineMeta(
+  setup: PipelineSetup, counters: PipelineCounters, fromRow: number, finishedAt: Date, extent: RunExtent = {},
+): PipelineMeta {
   const reasons = setupReasons(setup);
+  const rowsFailed = extent.rowsFailed ?? 0;
   if (counters.llmRowsFailed > 0) reasons.push('rerank_failed');
   if (counters.vectorErrors > 0) reasons.push('vector_failed');
+  if (rowsFailed > 0) reasons.push('rows_failed');
   return {
     embedder: setup.embedder.name,
     vectorUsable: setup.vectorUsable,
     reranker: setup.reranker,
     degradedReasons: reasons,
     ...counters,
+    rowsFailed,
     fromRow,
+    throughRow: extent.throughRow ?? null,
     finishedAt: finishedAt.toISOString(),
     classifierSnapshotId: setup.classifier?.snapshotId ?? null,
     classifierTakenAt: setup.classifier?.takenAt ?? null,
@@ -97,7 +136,9 @@ const Stored = z.object({
   llmRowsNone: count,
   vectorErrors: count,
   rowsAudited: count,
+  rowsFailed: count,
   fromRow: count,
+  throughRow: z.number().int().min(0).nullable().catch(null),
   finishedAt: z.string().catch(''),
   classifierSnapshotId: z.number().int().nullable().catch(null),
   classifierTakenAt: z.string().nullable().catch(null),
@@ -119,6 +160,7 @@ export function degradedNotes(meta: PipelineMeta, ta: AppDict): string[] {
   return meta.degradedReasons.map((code) => {
     if (code === 'rerank_failed') return d.rerank_failed(meta.llmRowsFailed);
     if (code === 'vector_failed') return d.vector_failed(meta.vectorErrors);
+    if (code === 'rows_failed') return d.rows_failed(meta.rowsFailed);
     return d[code];
   });
 }

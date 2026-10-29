@@ -14,9 +14,9 @@ import { canSeeClient, canWrite } from '../access.js';
 import { uploadTarget, type UploadedFile } from '../catalog-upload.js';
 import type { FileOut } from '../catalog-exports.js';
 import { isDemoOrg } from '../demo.js';
+import { uploadsOpen } from '../plan.js';
 import { looksLikeZip } from '../security/zip-guard.js';
 import { buildExport, invoiceLineFingerprint, prepareExport, refreshCounts } from '../onec/index.js';
-import { uploadsOpen } from '../plan.js';
 import { classifyProducts, upsertProducts } from '../products/index.js';
 import type { CurrentUser } from '../session.js';
 import { checkInvoice, defaultDeps, statusFor, type CheckDeps, type CheckedInvoice, type ProductRecord, type RecordStatus } from './check.js';
@@ -223,7 +223,7 @@ export async function uploadDidoxFile(user: Writer, locale: Locale, input: { fil
       }, deps);
       items.push(result.ok
         ? { entry: doc.entry, ok: true, batchId: result.batchId, lines: result.lines }
-        : { entry: doc.entry, ok: false, code: result.code, error: importMessage(locale, result), ...(result.duplicateOf ? { duplicateOf: result.duplicateOf } : {}) });
+        : { entry: doc.entry, ok: false, code: result.code, error: importMessage(locale, result), ...(await shownDuplicate(gate.user, result.duplicateOf)) });
     } catch {
       items.push({ entry: doc.entry, ok: false, code: 'store_failed', error: e.generic });
     }
@@ -244,7 +244,13 @@ export async function commitDidoxSheet(user: Writer, locale: Locale, input: { fi
   const doc = sheetToDocument(read.sheet, map.data, header.data);
   const result = await importDocument(gate.user.orgId, gate.user.userId, { json: doc, source: 'xlsx', clientId: gate.clientId, filename: gate.name }, deps);
   if (result.ok) return { ok: true, batchId: result.batchId };
-  return { ok: false, error: importMessage(locale, result), ...(result.duplicateOf ? { duplicateOf: result.duplicateOf } : {}) };
+  return { ok: false, error: importMessage(locale, result), ...(await shownDuplicate(gate.user, result.duplicateOf)) };
+}
+
+/** The earlier invoice a refusal names, only when the user may open it (batchScope); otherwise the message alone (F20). */
+async function shownDuplicate(user: CurrentUser, dup: DuplicateOf | undefined): Promise<{ duplicateOf?: DuplicateOf }> {
+  if (!dup) return {};
+  return (await db.importBatch.count({ where: { ...batchScope(user), id: dup.batchId } })) > 0 ? { duplicateOf: dup } : {};
 }
 
 function safeJson(text: string): unknown {

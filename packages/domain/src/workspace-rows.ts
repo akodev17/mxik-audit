@@ -8,6 +8,7 @@ import { db } from '@tasnivo/db';
 import { readDecisionSource, type DecisionSource } from './decision-source';
 import { decisionMode, noSuggestion, type DecisionMode } from './finding-kinds';
 import type { Locale } from '@tasnivo/i18n/i18n';
+import { readCheckErrorKind, type RowFailureKind } from './row-retry';
 
 export type CodeState = 'ok' | 'archived' | 'unknown';
 
@@ -45,6 +46,8 @@ export type GridRow = {
   chosenName: string | null;
   decisionEventId: string | null;
   groupKey: string | null;
+  /** The row's own check failed after its retries (its kind): not checked, so never "ok" (exports print it as such). */
+  checkError: RowFailureKind | null;
 };
 
 export const codeState = (code: string | null, d: CodeDetail | undefined): CodeState | null =>
@@ -55,7 +58,7 @@ export async function gridRows(orgId: string, catalogId: string, ids: readonly s
   if (ids.length === 0) return [];
   const findings = await db.finding.findMany({
     where: { id: { in: [...ids] }, item: { catalogId, catalog: { orgId } } },
-    include: { item: { select: { rowIndex: true, rawName: true, existingMxik: true, unit: true, markingRequired: true } } },
+    include: { item: { select: { rowIndex: true, rawName: true, existingMxik: true, unit: true, markingRequired: true, checkError: true } } },
   });
   const [details, counts] = await Promise.all([
     codeDetails(findings.flatMap((f) => [f.item.existingMxik, f.suggestedMxik, f.chosenMxik]), locale),
@@ -99,6 +102,7 @@ export async function gridRows(orgId: string, catalogId: string, ids: readonly s
       chosenName: chosen?.name ?? null,
       decisionEventId: f.decisionEventId,
       groupKey: groupKeyOf({ productName: f.item.rawName, type: f.type, suggestedMxik: f.suggestedMxik, split: f.groupSplit }),
+      checkError: f.item.checkError === null ? null : readCheckErrorKind(f.item.checkError),
     };
     return [row];
   });

@@ -47,6 +47,8 @@ describe('Didox service (database)', { skip }, () => {
   before(async () => {
     a = await makeOrg();
     other = await makeOrg();
+    // Running trials: an ended plan refuses uploads.
+    await db.organization.updateMany({ where: { id: { in: [a.orgId, other.orgId] } }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
     demo = await makeOrg('demo', new Date(Date.now() + 86_400_000));
     // Paying firms: a fresh customer org has no trial, so its uploads would be refused as expired.
     await db.organization.updateMany({ where: { id: { in: [a.orgId, other.orgId] } }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
@@ -111,6 +113,15 @@ describe('Didox service (database)', { skip }, () => {
     const reissued = await uploadDidoxFile(admin, 'uz', { file: fileOf('re.json', Buffer.from(JSON.stringify(doc))), clientId: clientA }, S);
     assert.ok(reissued.ok && reissued.kind === 'documents');
     assert.equal((reissued.items[0] as { code: string }).code, 'duplicate_invoice');
+    // An accountant of client B is refused the same, but the earlier batch (client A's) is not named (F20).
+    const scopedB = userOf(a, { role: 'accountant', clientIds: [clientB] });
+    const hidden = await uploadDidoxFile(scopedB, 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: clientB }, S);
+    assert.ok(hidden.ok && hidden.kind === 'documents');
+    const hiddenItem = hidden.items[0];
+    assert.ok(hiddenItem && !hiddenItem.ok);
+    assert.equal(hiddenItem.code, 'duplicate_invoice');
+    assert.equal(hiddenItem.duplicateOf, undefined);
+    assert.equal(hiddenItem.error, item.error, 'the same words, without the link');
     // Another org may hold the same invoice.
     const elsewhere = await uploadDidoxFile(userOf(other), 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: null }, S);
     assert.ok(elsewhere.ok && elsewhere.kind === 'documents' && elsewhere.items[0]?.ok);

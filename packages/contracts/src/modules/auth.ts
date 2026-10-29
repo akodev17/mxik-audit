@@ -253,13 +253,21 @@ export const auth = defineModule('auth', {
     responds: 'json', response: z.number().int(),
     replaces: ['action:security.ts#endOtherSessions'],
   }),
+  telegramLoginStart: endpoint({
+    method: 'POST', path: '/api/auth/telegram/login', auth: 'public',
+    summary: 'One-time state for the Telegram Login Widget on the sign-in and sign-up pages; null when Telegram is off',
+    responds: 'json', response: z.string().nullable(),
+    replaces: ['page:sign-in'],
+    notes: 'The state is kept in this browser\'s session cookie for ten minutes; the widget\'s callback path must carry it (S1, F20).',
+  }),
   telegramLogin: endpoint({
-    method: 'GET', path: '/api/auth/telegram', auth: 'public',
+    method: 'GET', path: '/api/auth/telegram/login/{state}', auth: 'public',
     summary: 'Telegram Login Widget callback on the sign-in page',
+    params: z.object({ state: z.string() }),
     query: TelegramLogin.passthrough(),
     responds: 'redirect',
     replaces: ['route:GET /api/auth/telegram'],
-    notes: 'Signature checked with the bot token (verifyTelegramLogin), hash claimed once.',
+    notes: 'The state must be the one this browser got from telegramLoginStart (spent either way), so a widget answer from someone else cannot sign this browser in. Signature checked with the bot token (verifyTelegramLogin), hash claimed once.',
   }),
   telegramBindStart: endpoint({
     method: 'POST', path: '/api/auth/telegram/bind', auth: 'session', role: 'any', noDemo: true,

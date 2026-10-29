@@ -25,7 +25,7 @@ export const GROUPS: Record<Exclude<Category, 'all' | 'other'>, readonly string[
     'onec.connection_saved',
   ],
   classifier: ['classifier.updated'],
-  dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept', 'product.mxik_confirmed', 'product.from_audit', 'product.import_applied'],
+  dictionary: ['dictionary.edited', 'dictionary.deleted', 'dictionary.auto_accept', 'dictionary.confirmed', 'dictionary.disputed', 'dictionary.code_replaced', 'dictionary.rekeyed', 'product.mxik_confirmed', 'product.from_audit', 'product.import_applied'],
 };
 const KNOWN = Object.values(GROUPS).flat();
 
@@ -107,6 +107,14 @@ function conditions(user: ActivityViewer, f: ActivityFilter, committedOnly = fal
   }
   if (user.role !== 'admin') where.push(Prisma.sql`(NOT (e.action = ANY(${ORG_LEVEL})) OR e."actorId" = ${user.userId})`);
   return where;
+}
+
+/** Who acted on the events this user may see: the log's member picker for a non-admin (F20). */
+export async function activityActorIds(user: ActivityViewer): Promise<string[]> {
+  const where = Prisma.join(conditions(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }), ' AND ');
+  const rows = await db.$queryRaw<{ actorId: string }[]>(Prisma.sql`
+    SELECT DISTINCT e."actorId" FROM audit_event e WHERE ${where} AND e."actorId" IS NOT NULL`);
+  return rows.map((r) => r.actorId);
 }
 
 /** One page of the log, newest first, with the number of matching events. */

@@ -4,7 +4,7 @@
 import type { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
 
-export const DICT_FILTERS = ['all', 'confirmed', 'unverified', 'stale'] as const;
+export const DICT_FILTERS = ['all', 'confirmed', 'unverified', 'reconfirm', 'stale'] as const;
 export type DictFilter = (typeof DICT_FILTERS)[number];
 
 export function parseDictFilter(value: unknown): DictFilter {
@@ -23,7 +23,8 @@ export async function retiredEntryCodes(orgId: string): Promise<string[]> {
 
 /**
  * Prisma filter for a dictionary view. "stale" = flagged by an audit or pointing at a retired code;
- * "confirmed" = at least one individual confirmation; "unverified" = live entries nobody confirmed one by one.
+ * "reconfirm" = live entries waiting for a fresh confirmation or disputed; "confirmed" = live entries
+ * with at least one individual confirmation and neither; "unverified" = the rest of the live ones.
  */
 export function dictionaryWhere(orgId: string, filter: DictFilter, retired: readonly string[], q = ''): Prisma.FirmMappingWhereInput {
   const search: Prisma.FirmMappingWhereInput = q
@@ -31,11 +32,13 @@ export function dictionaryWhere(orgId: string, filter: DictFilter, retired: read
     : {};
   const stale: Prisma.FirmMappingWhereInput = { OR: [{ staleAt: { not: null } }, { code: { in: [...retired] } }] };
   const live: Prisma.FirmMappingWhereInput = { staleAt: null, code: { notIn: [...retired] } };
+  const settled: Prisma.FirmMappingWhereInput = { ...live, needsReconfirm: false, disputedAt: null };
   const by: Prisma.FirmMappingWhereInput =
     filter === 'stale' ? stale
-      : filter === 'confirmed' ? { ...live, confirmations: { gt: 0 } }
-        : filter === 'unverified' ? { ...live, confirmations: 0 }
-          : {};
+      : filter === 'confirmed' ? { ...settled, confirmations: { gt: 0 } }
+        : filter === 'unverified' ? { ...settled, confirmations: 0 }
+          : filter === 'reconfirm' ? { AND: [live, { OR: [{ needsReconfirm: true }, { disputedAt: { not: null } }] }] }
+            : {};
   return { AND: [{ orgId }, by, search] };
 }
 

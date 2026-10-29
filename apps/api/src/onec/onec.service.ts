@@ -26,8 +26,11 @@ const actor = (u: CurrentUser) => ({ ...reader(u), userId: u.userId });
 
 /** `{ ok: false, error: <words>, code }` from a domain refusal code. */
 export function refused(locale: Locale, code: string, extra: Record<string, unknown> = {}): Refused {
-  const words = i18nFor(locale).ta.onecX.errors;
-  return { ok: false, error: words[code] ?? words['generic'] ?? code, code, ...extra };
+  const { ta } = i18nFor(locale);
+  const words = ta.onecX.errors;
+  // The plan refusal reads as everywhere else in the app (the trial or subscription has ended).
+  const text = code === 'expired' ? ta.msg.gate.expired : words[code];
+  return { ok: false, error: text ?? words['generic'] ?? code, code, ...extra };
 }
 
 @Injectable()

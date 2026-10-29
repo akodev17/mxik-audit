@@ -31,6 +31,14 @@ describe('ModuleGuard', () => {
     }
   });
 
+  it('refuses a switched-off module in any letter case of its path (Express routes /api/DIDOX to the same controller)', async () => {
+    for (const path of ['/api/DIDOX/invoices', '/api/Didox/connection', '/API/didox/invoices/i1/approve']) {
+      assert.equal(await answer(path, didox('HIDDEN')), '404 not_found', path);
+      assert.equal(await answer(path, didox('COMING_SOON')), '404 not_found', path);
+      assert.equal(await answer(path, didox('ENABLED')), 'pass', path);
+    }
+  });
+
   it('leaves the other modules and the rest of the API alone', async () => {
     const hidden = didox('HIDDEN');
     assert.equal(await answer('/api/bank/statements', hidden), 'pass');

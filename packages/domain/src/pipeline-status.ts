@@ -11,6 +11,7 @@ import { fmtDateTime, fmtNumber } from '@tasnivo/i18n/format';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { appDict, type AppDict } from '@tasnivo/i18n/i18n-app';
 import { readPipelineMeta, type PipelineMeta } from './pipeline-meta.js';
+import { restrictedState, type RestrictedState } from './restricted-state.js';
 
 export type StatusLine = { label: string; value: string; ok: boolean };
 
@@ -34,6 +35,15 @@ export function lastAuditLine(meta: PipelineMeta | null, { ta, locale }: View): 
   return { label: s.lastAuditLabel, value: s.lastAuditDegraded(when, reasons), ok: false };
 }
 
+/** The restricted-code list: how many codes and when; empty or unreadable means audits do not check RESTRICTED. */
+export function restrictedLine(state: RestrictedState, { ta, locale }: View): StatusLine {
+  const s = ta.matchX.status;
+  if (!state) return { label: s.restrictedLabel, value: s.restrictedFailed, ok: false };
+  if (state.codes === 0) return { label: s.restrictedLabel, value: s.restrictedEmpty, ok: false };
+  const when = state.importedAt ? fmtDateTime(locale, state.importedAt) : '';
+  return { label: s.restrictedLabel, value: s.restrictedOk(state.codes, fmtNumber(locale, state.codes), when), ok: true };
+}
+
 /** The most recent audit's pipeline metadata, across orgs: this page is for platform operators. */
 async function latestMeta(): Promise<PipelineMeta | null> {
   const row = await db.catalog.findFirst({
@@ -47,7 +57,7 @@ async function latestMeta(): Promise<PipelineMeta | null> {
 export async function pipelineStatus(env: NodeJS.ProcessEnv = process.env, view: View = { ta: appDict('uz'), locale: 'uz' }): Promise<StatusLine[]> {
   const s = view.ta.matchX.status;
   const rerank = rerankConfigFromEnv(env);
-  const [readiness, meta] = await Promise.all([vectorReadiness().catch(() => null), latestMeta()]);
+  const [readiness, meta, restricted] = await Promise.all([vectorReadiness().catch(() => null), latestMeta(), restrictedState()]);
   return [
     {
       label: s.rerankLabel,
@@ -55,6 +65,7 @@ export async function pipelineStatus(env: NodeJS.ProcessEnv = process.env, view:
       ok: rerank.enabled,
     },
     readiness ? vectorLine(readiness, view) : { label: s.vectorLabel, value: s.vectorOff(''), ok: false },
+    restrictedLine(restricted, view),
     lastAuditLine(meta, view),
   ];
 }

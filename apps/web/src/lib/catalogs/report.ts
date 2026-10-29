@@ -32,6 +32,7 @@ export function degradedNotes(meta: PipelineMeta, ta: AppDict): string[] {
   return meta.degradedReasons.map((code) => {
     if (code === 'rerank_failed') return d.rerank_failed(meta.llmRowsFailed);
     if (code === 'vector_failed') return d.vector_failed(meta.vectorErrors);
+    if (code === 'rows_failed') return d.rows_failed(meta.rowsFailed);
     return d[code];
   });
 }

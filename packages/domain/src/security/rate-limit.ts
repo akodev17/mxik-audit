@@ -27,6 +27,8 @@ export const RULES = {
   verifyCodeUser: { kind: 'verify_code', limit: 10, windowMs: 15 * MINUTE },
   resendIp: { kind: 'resend_ip', limit: 10, windowMs: 60 * MINUTE },
   signupIp: { kind: 'signup', limit: 8, windowMs: 60 * MINUTE },
+  /** Accounts created with an invite link from one address, right or wrong (a link must not probe addresses). */
+  inviteJoinIp: { kind: 'invite_join_ip', limit: 10, windowMs: 60 * MINUTE },
   /** Public lead form submissions from one address. */
   leadIp: { kind: 'lead_ip', limit: 5, windowMs: 10 * MINUTE },
   /** Demo access requests from one address, and for one mailbox (aliases counted as one). */

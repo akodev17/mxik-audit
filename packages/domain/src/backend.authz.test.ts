@@ -385,6 +385,14 @@ describe('backend authorization and tenant isolation (database)', { skip }, () =
     assert.equal(result.ok, false);
   });
 
+  it('catalogue delete: admins only (D1), an accountant of the client is refused and nothing goes', async () => {
+    const spare = await makeClientCatalog(admin.orgId, clientA, [row(93, 'A')], { createdAt: new Date(2000, 0, 1) });
+    assert.deepEqual(await deleteCatalog(acct, spare.catalogId), { ok: false, error: 'forbidden' });
+    assert.deepEqual(await deleteCatalog({ ...acct, clientIds: null }, spare.catalogId), { ok: false, error: 'forbidden' });
+    assert.equal(await db.catalog.count({ where: { id: spare.catalogId } }), 1);
+    assert.equal((await deleteCatalog(admin, spare.catalogId)).ok, true);
+  });
+
   it('upload discard: a viewer cannot discard someone\'s upload', async () => {
     const open = await makeClientCatalog(admin.orgId, clientA, [row(92, 'A')], { status: 'uploaded' });
     assert.equal(await discardUpload({ ...viewer }, open.catalogId), false);

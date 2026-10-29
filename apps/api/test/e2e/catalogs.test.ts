@@ -12,6 +12,7 @@ import { makeClient, makePerson } from '@tasnivo/domain/firm-test-fixtures';
 import { setJobs } from '@tasnivo/domain/jobs/dispatcher';
 import { InlineDispatcher } from '@tasnivo/domain/jobs/inline';
 import { liveCodes } from '@tasnivo/domain/test-fixtures';
+import { fmtNumber } from '@tasnivo/i18n/format';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { bodyOf, dbSkipReason, dropOrgs, makeUser, serverOf, startApp, type TestUser } from '../helpers';
 import { binary, eventually, matches, sessionCookie, xlsx } from '../upload-fixtures';
@@ -233,10 +234,17 @@ describe('catalogs + share (database)', { skip }, () => {
     assert.equal(assigned.status, 200);
     assert.deepEqual(assigned.body, { ok: true, changed: true });
     const review = await http().get(`/api/catalogs/${catalogId}/review`).set('Cookie', cookie);
-    assert.equal(bodyOf<{ review: { assigneeId: string } }>(review).review.assigneeId, accountant.userId);
-    const done = await post(`/api/catalogs/${catalogId}/review/done`).send({ note: null });
+    const seen = bodyOf<{ review: { assigneeId: string; pending: number } }>(review).review;
+    assert.equal(seen.assigneeId, accountant.userId);
+    // Nothing is decided yet: closing names the undecided problems and waits for confirm (F18).
+    assert.ok(seen.pending > 0, 'the uploaded file has problems without a decision');
+    const refused = await post(`/api/catalogs/${catalogId}/review/done`).send({ note: null });
+    assert.deepEqual(refused.body, { ok: false, error: ta.review.pendingConfirm(fmtNumber('uz', seen.pending)), pending: seen.pending });
+    const done = await post(`/api/catalogs/${catalogId}/review/done`).send({ note: 'Koʻrildi', confirm: true });
     assert.deepEqual(done.body, { ok: true });
-    const again = await post(`/api/catalogs/${catalogId}/review/done`).send({ note: null });
+    const closed = bodyOf<{ review: { status: string; doneBy: string | null; doneNote: string | null } }>(await http().get(`/api/catalogs/${catalogId}/review`).set('Cookie', cookie)).review;
+    assert.deepEqual([closed.status, closed.doneBy, closed.doneNote], ['done', owner.email, 'Koʻrildi']);
+    const again = await post(`/api/catalogs/${catalogId}/review/done`).send({ note: null, confirm: true });
     assert.deepEqual(again.body, { ok: false, error: ta.review.errors['already done'] });
   });
 
@@ -247,7 +255,7 @@ describe('catalogs + share (database)', { skip }, () => {
     assert.deepEqual((await put({ assigneeId: accountant.userId, note: 'x'.repeat(5000) })).body, { ok: false, error: ta.review.errors['bad note'] });
     assert.deepEqual((await put({ assigneeId: accountant.userId })).body, { ok: true, changed: true });
     assert.deepEqual((await post(`/api/catalogs/${catalogId}/review/done`).send({ note: 'x'.repeat(5000) })).body, { ok: false, error: ta.review.errors['bad note'] });
-    assert.deepEqual((await post(`/api/catalogs/${catalogId}/review/done`).send({})).body, { ok: true });
+    assert.deepEqual((await post(`/api/catalogs/${catalogId}/review/done`).send({ confirm: true })).body, { ok: true });
   });
 
   it('a second version: the diff against the previous one, and its CSV', async () => {
@@ -334,6 +342,13 @@ describe('catalogs + share (database)', { skip }, () => {
     assert.equal((await http().get(`/api/catalogs/${catalogId}`).set('Cookie', viewerCookie)).status, 200, 'a viewer still reads');
     assert.equal((await http().get('/api/catalogs').set('Cookie', '')).status, 401);
 
+    // Deleting a catalogue is for admins only (D1): an accountant of the client gets 403 and nothing goes.
+    const accountant = await makePerson(owner.orgId, 'accountant', [clientId]);
+    const acctDelete = await http().delete(`/api/catalogs/${catalogId}`).set('Cookie', await sessionCookie(accountant)).set('X-Requested-With', 'tasnivo');
+    assert.equal(acctDelete.status, 403);
+    assert.equal(bodyOf(acctDelete).error.code, 'forbidden');
+    assert.equal(await db.catalog.count({ where: { id: catalogId } }), 1);
+
     const demo = await makeUser({ kind: 'demo', expiresAt: new Date(Date.now() + 3_600_000) });
     orgs.push(demo.orgId);
     const demoCookie = await sessionCookie(demo, { demo: true });
@@ -346,6 +361,7 @@ describe('catalogs + share (database)', { skip }, () => {
     demoRefused(await upload(file, 'a.xlsx', demoCookie, { clientId: demoClient }));
     demoRefused(await post(`/api/catalogs/${catalogId}/commit`, demoCookie).send({ mapping: { name: 0, barcode: -1, mxik: -1, unit: -1, price: -1 } }));
     demoRefused(await http().put(`/api/catalogs/${catalogId}/review`).set('Cookie', demoCookie).set('X-Requested-With', 'tasnivo').send({ assigneeId: demo.userId, dueOn: null, note: null }));
+    demoRefused(await http().delete(`/api/catalogs/${catalogId}`).set('Cookie', demoCookie).set('X-Requested-With', 'tasnivo'));
     assert.equal((await http().get(`/api/catalogs/${catalogId}/progress`).set('Cookie', demoCookie)).status, 404, 'reads are not refused, only scoped');
   });
 });

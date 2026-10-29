@@ -181,19 +181,26 @@ describe('Google sign-in (database)', { skip: await dbSkipReason() }, () => {
     assert.equal(await db.user.count({ where: { googleSub: id } }), 1);
   });
 
-  it('joins an existing user by address only when that address is confirmed', async () => {
-    const confirmed = await db.user.create({ data: { orgId: a.orgId, email: gmail(), passwordHash: 'x', emailVerifiedAt: new Date() } });
+  it('joins an existing user by address only when that address was confirmed by code or link', async () => {
+    const confirmed = await db.user.create({ data: { orgId: a.orgId, email: gmail(), passwordHash: 'x', emailVerifiedAt: new Date(), verifiedVia: 'code' } });
     const { s, state, nonce } = await started();
     const id = sub();
     assert.equal(await googleCallback(s, { code: 'c', state }, facts(), deps({ nonce, sub: id, email: confirmed.email.toUpperCase(), email_verified: true })), '/dashboard');
     assert.equal((await db.user.findUniqueOrThrow({ where: { id: confirmed.id } })).googleSub, id);
     assert.equal(s.userId, confirmed.id);
 
-    const unconfirmed = await db.user.create({ data: { orgId: a.orgId, email: gmail(), passwordHash: 'x' } });
-    const next = await started();
-    assert.equal(await googleCallback(next.s, { code: 'c', state: next.state }, facts(), deps({ nonce: next.nonce, sub: sub(), email: unconfirmed.email, email_verified: true })), '/sign-in?error=google_conflict');
-    assert.equal(next.s.userId, undefined);
-    assert.equal((await db.user.findUniqueOrThrow({ where: { id: unconfirmed.id } })).googleSub, null);
+    // Unconfirmed, or confirmed in a way that proves nothing about who holds the password (F2).
+    for (const data of [{}, { emailVerifiedAt: new Date(), verifiedVia: 'legacy' }, { emailVerifiedAt: new Date() }]) {
+      const unconfirmed = await db.user.create({ data: { orgId: a.orgId, email: gmail(), passwordHash: 'x', ...data } });
+      const next = await started();
+      assert.equal(await googleCallback(next.s, { code: 'c', state: next.state }, facts(), deps({ nonce: next.nonce, sub: sub(), email: unconfirmed.email, email_verified: true })), '/sign-in?error=google_unconfirmed');
+      assert.equal(next.s.userId, undefined);
+      assert.equal((await db.user.findUniqueOrThrow({ where: { id: unconfirmed.id } })).googleSub, null);
+    }
+
+    // Already bound to another Google account.
+    const third = await started();
+    assert.equal(await googleCallback(third.s, { code: 'c', state: third.state }, facts(), deps({ nonce: third.nonce, sub: sub(), email: confirmed.email, email_verified: true })), '/sign-in?error=google_conflict');
   });
 
   it('refuses an address Google has not verified, a bad token and an error from Google', async () => {

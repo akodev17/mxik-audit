@@ -121,8 +121,9 @@ export async function upsertRule(input: { orgId: string; clientId: string | null
   return row.id;
 }
 
-export async function removeRule(orgId: string, id: string): Promise<boolean> {
-  return (await db.bankRule.deleteMany({ where: { id, orgId } })).count > 0;
+/** Deletes the rule; with `clientId` given (null = an org-wide rule) only while it still belongs there. */
+export async function removeRule(orgId: string, id: string, clientId?: string | null): Promise<boolean> {
+  return (await db.bankRule.deleteMany({ where: { id, orgId, ...(clientId !== undefined ? { clientId } : {}) } })).count > 0;
 }
 
 async function countHits(hits: ReadonlyMap<string, number>): Promise<void> {

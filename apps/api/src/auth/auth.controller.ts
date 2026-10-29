@@ -25,7 +25,7 @@ import type { SignedInUser, CurrentUser as User } from '@tasnivo/domain/session'
 import { signUpForm } from '@tasnivo/domain/signup';
 import { telegramConfig } from '@tasnivo/domain/telegram/config';
 import { unbindTelegram } from '@tasnivo/domain/telegram/identity';
-import { telegramBindCallback, telegramSignIn } from '@tasnivo/domain/telegram/login-callbacks';
+import { startTelegramLogin, telegramBindCallback, telegramSignIn } from '@tasnivo/domain/telegram/login-callbacks';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import { setLocaleCookie } from '../account/prefs';
@@ -191,9 +191,12 @@ export class AuthController {
     return startTwoFactor(user);
   }
 
+  /** Turning two-factor on ends every other session of the user; this browser's stays. */
   @Route(e.twoFactorFinish)
-  twoFactorFinish(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.twoFactorFinish.body)) body: { code: string }): Promise<Answer<'twoFactorFinish'>> {
-    return finishTwoFactor(user, body.code);
+  async twoFactorFinish(
+    @CurrentUser() user: User, @Body(new ZodValidationPipe(e.twoFactorFinish.body)) body: { code: string }, @Req() req: ApiRequest,
+  ): Promise<Answer<'twoFactorFinish'>> {
+    return finishTwoFactor(user, body.code, (await this.sessions.read(req)).sid ?? null);
   }
 
   @Route(e.twoFactorOff)
@@ -232,10 +235,15 @@ export class AuthController {
     return revokeOthers(user, (await this.sessions.read(req)).sid ?? null);
   }
 
+  @Route(e.telegramLoginStart)
+  async telegramLoginStart(@Req() req: ApiRequest, @Res({ passthrough: true }) res: Response): Promise<Answer<'telegramLoginStart'>> {
+    return startTelegramLogin(await this.sessions.forSignIn(req, res));
+  }
+
   @Route(e.telegramLogin)
-  async telegramLogin(@Req() req: ApiRequest, @Res() res: Response): Promise<void> {
+  async telegramLogin(@Param(new ZodValidationPipe(e.telegramLogin.params)) { state }: { state: string }, @Req() req: ApiRequest, @Res() res: Response): Promise<void> {
     const session = await this.sessions.forSignIn(req, res);
-    go(res, await telegramSignIn(session, queryPairs(req), requestFacts(req)));
+    go(res, await telegramSignIn(session, state, queryPairs(req), requestFacts(req)));
   }
 
   @Route(e.telegramBindStart)

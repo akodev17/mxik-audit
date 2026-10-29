@@ -29,6 +29,9 @@ describe('review assignments and notifications', () => {
       },
     });
     catalogA = catalog.id;
+    // One problem left undecided, so closing the review has to say so (F18).
+    const item = await db.catalogItem.create({ data: { catalogId: catalogA, rowIndex: 0, rawName: 'Guruch', normalizedName: '', attrs: { original: ['Guruch'] } } });
+    await db.finding.create({ data: { itemId: item.id, type: 'MISSING', severity: 'high', alternatives: [], reason: 'e2e' } });
     browser = await launch();
     admin = await newPage(browser);
     accountant = await newPage(browser);
@@ -93,14 +96,19 @@ describe('review assignments and notifications', () => {
     await page.waitForURL((url) => url.searchParams.get('rv') === 'mine', COMMIT);
   });
 
-  test('the accountant closes it and the admin is told', { timeout: 90_000 }, async () => {
+  test('the accountant is told what is still pending, closes it anyway, and the admin is told', { timeout: 90_000 }, async () => {
     const { page } = accountant;
     await page.goto(`/catalogs/${catalogA}`);
     await page.getByRole('button', { name: r.change, exact: true }).click();
+    await page.getByText(r.pendingOpen('1'), { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: r.markDone, exact: true }).count(), 0, 'the plain "done" button is replaced while problems are open');
     await page.getByLabel(r.doneNote).fill('Tekshirildi');
-    await page.getByRole('button', { name: r.markDone, exact: true }).click();
+    await page.getByRole('button', { name: r.closeAnyway, exact: true }).click();
     await page.getByText(r.markedDone, { exact: true }).waitFor();
     await field(page).getByText(r.done, { exact: true }).waitFor();
+    // Who closed it and what they wrote stay on the header.
+    await field(page).getByText(r.doneBy(fx.accountant.email)).waitFor();
+    await field(page).getByText('«Tekshirildi»').waitFor();
     assert.equal((await db.reviewAssignment.findUnique({ where: { catalogId: catalogA } }))?.status, 'done');
 
     await admin.page.goto('/notifications?topic=review');

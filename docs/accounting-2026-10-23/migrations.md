@@ -257,3 +257,93 @@ not recorded` on every decision and the audit logs `[lexicon] not loaded, file t
 minute; matching itself continues on the hand-written tables. `/admin/lexicon` answers 500. The
 old code never reads the tables. Approved entries and the organisations' confirmation counts are
 lost; the firm dictionaries (`firm_mapping`) are untouched.
+
+## SaaS hardening S1: identity and invites (`202611080001*`)
+
+### `20261108000100_user_verified_via` (S1, `feat/s1-identity`)
+
+Adds the nullable `user.verifiedVia` text: how the address was confirmed (`code`, `link`, `google`,
+`telegram`, `legacy`). Backfill: `legacy` for every row with `emailVerifiedAt` set. Google sign-in
+binds itself to an existing account only when this is `code` or `link`.
+
+```sql
+ALTER TABLE "user" DROP COLUMN IF EXISTS "verifiedVia";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000100_user_verified_via';
+```
+
+What breaks: with the new code still running, every read or write of `user` that names the column
+answers 500 (sign-in, the code step, Google sign-in, invites). Deploy the previous code first; it
+never reads the column. Nothing is lost by dropping it: the origin of each confirmation is only
+recorded, and the previous code ignores it.
+
+## Billing integrity (`2026110800040*`, S5)
+
+### `20261108000400_order_keep`
+
+`order.orgId` becomes nullable with `ON DELETE SET NULL` (an org purge keeps its orders and their
+`payment_transaction` rows, which Payme's CheckTransaction / GetStatement still answer), adds
+`order.orgName` (the org's name at order time, backfilled from `organization.name`) and
+`order.testMode` (paid through a provider's sandbox; default false).
+
+```sql
+-- Orders of orgs purged since the migration: the old schema cannot hold them. Export them first
+-- (COPY (SELECT * FROM "order" WHERE "orgId" IS NULL) TO ...), then:
+DELETE FROM "order" WHERE "orgId" IS NULL;
+ALTER TABLE "order" DROP CONSTRAINT IF EXISTS "order_orgId_fkey";
+ALTER TABLE "order" ALTER COLUMN "orgId" SET NOT NULL;
+ALTER TABLE "order" ADD CONSTRAINT "order_orgId_fkey"
+    FOREIGN KEY ("orgId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order" DROP COLUMN IF EXISTS "testMode";
+ALTER TABLE "order" DROP COLUMN IF EXISTS "orgName";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000400_order_keep';
+```
+
+What breaks: with the new code still running, creating or paying an order answers 500 (it writes
+`orgName` / `testMode`). Deploy the previous code first; it never reads the two columns.
+
+## SaaS hardening S4: dictionary safety (`202611080003*`)
+
+### `20261108000300_firm_mapping_attrs` (S4, `feat/s4-dictionary`)
+
+Adds `firm_mapping."attrsKey"` (nullable text), `"needsReconfirm"` (boolean, default false),
+`"disputedAt"` (nullable timestamp), `"disputedBy"` (nullable text), and `finding."carriedFromCatalogId"`
+(nullable text), `"originalDecidedAt"` (nullable timestamp). No data change in the migration itself.
+After it, run `npm run dictionary:rekey` once (idempotent): every name entry's key becomes
+`sortedKey|attrsKey|unit`, recomputed from its stored label; entries whose label carried sizes, a
+percent, dimensions or a model code get `needsReconfirm = true` and `confirmations = 0`. Barcode
+entries are untouched.
+
+```sql
+ALTER TABLE "finding" DROP COLUMN IF EXISTS "originalDecidedAt";
+ALTER TABLE "finding" DROP COLUMN IF EXISTS "carriedFromCatalogId";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "disputedBy";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "disputedAt";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "needsReconfirm";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "attrsKey";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000300_firm_mapping_attrs';
+```
+
+What breaks: with the new code still running, every dictionary read and write, every decision and
+the carry-over answer 500. Deploy the previous code first. The re-key is not undone by dropping the
+columns: after a rollback the previous code (key `sortedKey|unit`) finds no name entry until
+`npm run rekey:normalized` of that code has run, which rewrites the keys back from the labels; the
+confirmations reset by the re-key stay at 0 (the `dictionary.rekeyed` audit events keep the old
+counts).
+
+## SaaS hardening (`20261108*`)
+
+### `20261108000200_item_check_error`
+
+Adds the nullable `catalog_item."checkError"` (S3, plan D7): the kind and text of a row's check that
+still failed after its retries. The audit continues, the catalogue becomes `ready` with the
+`rows_failed` count in `pipelineMeta`, and "Re-check failed rows" re-runs only those rows.
+
+```sql
+ALTER TABLE "catalog_item" DROP COLUMN IF EXISTS "checkError";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000200_item_check_error';
+```
+
+What breaks: with the new code still running, every audit fails on its first row write and the
+workspace summary answers 500. Deploy the previous code first; it never reads the column. Rows that
+were marked failed lose the mark and then look checked with no findings: re-audit those catalogues
+after a rollback.

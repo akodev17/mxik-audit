@@ -37,6 +37,9 @@ function dictionarySignal(evidence: MatchEvidence, ta: AppDict): Signal {
   const m = ta.msg.signals;
   const x = ta.matchX.dictionary;
   const n = evidence.dictionaryConfirmations;
+  // A held entry is not vouched for, whatever its count says; the drawer's source block tells who and when.
+  if (evidence.dictionaryHold === 'disputed') return { label: m.dictionaryLabel, text: x.disputed, tone: 'warn' };
+  if (evidence.dictionaryHold === 'reconfirm') return { label: m.dictionaryLabel, text: x.reconfirm, tone: 'warn' };
   // Confirmations count individual and group decisions only; bulk accepts are never shown as confirmations.
   if (n === undefined) return { label: m.dictionaryLabel, text: x.legacy, tone: 'neutral' };
   if (n === 0) return { label: m.dictionaryLabel, text: x.bulkOnly, tone: 'warn' };

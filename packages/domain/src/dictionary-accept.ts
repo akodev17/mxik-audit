@@ -16,9 +16,30 @@ export type DictionaryAcceptMode = 'button' | 'auto';
 
 type Candidate = { evidence: unknown };
 
-/** Auto-accept trusts only entries a person confirmed at least once; bulk-learned ones wait for review. */
+/**
+ * Auto-accept trusts only entries a person confirmed at least once; bulk-learned ones wait for review,
+ * and so do entries the audit read as needing a fresh confirmation or disputed.
+ */
 export function eligibleForAuto(finding: Candidate): boolean {
-  return (readEvidence(finding.evidence)?.dictionaryConfirmations ?? 0) >= AUTO_ACCEPT_MIN_CONFIRMATIONS;
+  const evidence = readEvidence(finding.evidence);
+  return (evidence?.dictionaryConfirmations ?? 0) >= AUTO_ACCEPT_MIN_CONFIRMATIONS && evidence?.dictionaryHold === undefined;
+}
+
+type Trusted = { id: string; suggestedMxik: string | null; evidence: unknown };
+
+/**
+ * The same rule against the entry as it is now: a dispute or edit after the audit counts. A finding
+ * whose evidence names no entry (audited before S4) is left for a person.
+ */
+async function trustedNow<T extends Trusted>(orgId: string, found: T[]): Promise<T[]> {
+  const ids = [...new Set(found.flatMap((f) => { const id = readEvidence(f.evidence)?.dictionaryEntryId; return id ? [id] : []; }))];
+  if (ids.length === 0) return [];
+  const entries = await db.firmMapping.findMany({
+    where: { orgId, id: { in: ids }, staleAt: null, needsReconfirm: false, disputedAt: null, confirmations: { gte: AUTO_ACCEPT_MIN_CONFIRMATIONS } },
+    select: { id: true, code: true },
+  });
+  const code = new Map(entries.map((e) => [e.id, e.code]));
+  return found.filter((f) => { const id = readEvidence(f.evidence)?.dictionaryEntryId; return id !== undefined && code.get(id) === f.suggestedMxik; });
 }
 
 type Found = { id: string; suggestedMxik: string | null; confidence: number | null; evidence: unknown; item: { id: string; rawName: string; unit: string | null; barcode: string | null } };
@@ -51,7 +72,7 @@ export async function acceptDictionaryMatches(
     select: { id: true, suggestedMxik: true, confidence: true, evidence: true, item: { select: { id: true, rawName: true, unit: true, barcode: true } } },
   });
   const auto = mode === 'auto';
-  const targets = await screened(auto ? found.filter(eligibleForAuto) : found);
+  const targets = await screened(auto ? await trustedNow(who.orgId, found.filter(eligibleForAuto)) : found);
   if (targets.length === 0) return none;
 
   const source: DecisionSource = auto ? 'dictionary_auto' : 'dictionary';

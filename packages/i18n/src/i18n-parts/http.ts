@@ -10,6 +10,7 @@ export const uz = {
     tooLarge: 'Soʻrov juda katta.',
     csrf: 'Soʻrov rad etildi. Sahifani yangilab, qayta urinib koʻring.',
     badRequest: 'Soʻrov notoʻgʻri. Sahifani yangilab, qayta urinib koʻring.',
+    uploadBusy: 'Hozir bir vaqtda juda koʻp fayl oʻqilmoqda. Bir necha soniyadan keyin qayta urinib koʻring.',
   },
 };
 
@@ -21,5 +22,6 @@ export const ru: typeof uz = {
     tooLarge: 'Слишком большой запрос.',
     csrf: 'Запрос отклонён. Обновите страницу и попробуйте снова.',
     badRequest: 'Неверный запрос. Обновите страницу и попробуйте снова.',
+    uploadBusy: 'Сейчас одновременно читается слишком много файлов. Повторите через несколько секунд.',
   },
 };

@@ -173,7 +173,7 @@ export default async function ClientPage({ params }: Props) {
                   action={writer && !archived ? <ButtonLink href={`/upload?client=${client.id}`} variant="secondary"><IconUpload size={16} />{t.clientUpload}</ButtonLink> : undefined}
                 />
               </Card>
-            ) : <CatalogList items={items} showClient={false} canDelete={writer} />}
+            ) : <CatalogList items={items} showClient={false} canDelete={admin && !user.demo} />}
           </Section>
 
           <Card
