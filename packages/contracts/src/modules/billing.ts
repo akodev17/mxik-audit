@@ -31,6 +31,27 @@ export const Purchase = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('too_large') }),
 ]);
 
+/** billing/history.ts OrderRow: one order of the org, as its billing history lists it. */
+export const OrderRow = z.object({
+  id: z.string(),
+  createdAt: IsoDateTime,
+  paidAt: IsoDateTime.nullable(),
+  planId: z.string(),
+  /** Null for a plan id this version does not know. */
+  kind: z.enum(['subscription', 'catalog']).nullable(),
+  tier: z.enum(PLAN_TIERS).nullable(),
+  months: z.number().int().nullable(),
+  maxRows: z.number().int().nullable(),
+  catalogId: z.string().nullable(),
+  amount: z.number().int(),
+  provider: z.string().nullable(),
+  status: z.enum(['created', 'paid', 'cancelled', 'refunded']),
+  /** Paid in a provider's sandbox: no real money moved. */
+  testMode: z.boolean(),
+  /** The paid period's end this payment set; null for catalogues and orders paid before it was recorded. */
+  periodEnd: IsoDateTime.nullable(),
+});
+
 export const billing = defineModule('billing', {
   plan: endpoint({
     method: 'GET', path: '/api/billing/plan', auth: 'session', role: 'any',
@@ -59,6 +80,20 @@ export const billing = defineModule('billing', {
     responds: 'json', response: z.object({ purchase: Purchase, planId: z.string().nullable(), maxRows: z.number().int().nullable(), requiredForExport: z.boolean() }),
     replaces: ['page:(app)/catalogs/[id]#billing'],
     provisional: 'billing-box.tsx calls catalogPlan, catalogPaid and catalogPurchase itself',
+  }),
+  orders: endpoint({
+    method: 'GET', path: '/api/billing/orders', auth: 'session', role: 'admin',
+    summary: 'The org\'s orders, newest first (at most 200): plan, period, amount, provider, status and test mode',
+    responds: 'json', response: z.array(OrderRow),
+    replaces: ['page:(app)/settings#billing-history'],
+  }),
+  receipt: endpoint({
+    method: 'GET', path: '/api/billing/orders/{orderId}', auth: 'session', role: 'admin',
+    summary: 'One paid (or refunded) order of the org, for its printable receipt',
+    params: z.object({ orderId: Id }),
+    responds: 'json', response: OrderRow.extend({ orgName: z.string().nullable() }),
+    replaces: ['page:(app)/settings/receipt/[orderId]'],
+    notes: '404 for another org\'s order and for one that was never paid.',
   }),
   checkout: endpoint({
     method: 'POST', path: '/api/billing/checkout', auth: 'session', role: 'admin',

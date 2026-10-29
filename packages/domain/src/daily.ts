@@ -1,5 +1,6 @@
 // What the daily cron runs. Each job is independent: one failing never stops the others.
 import { pruneIdempotency } from './api/idempotency';
+import { sendExpiryReminders } from './billing/expiry-reminders';
 import { expireStaleOrders } from './billing/orders';
 import { dailyClassifierUpdate } from './classifier-start';
 import { jobs } from './jobs/dispatcher';
@@ -28,6 +29,7 @@ export async function runDailyJobs(now = new Date(), classifierUpdate: typeof da
     authAttempts: await attempt(() => pruneAttempts(now)),
     apiIdempotency: await attempt(() => pruneIdempotency(now)),
     staleOrders: await attempt(() => expireStaleOrders(now)),
+    expiryReminders: await attempt(() => sendExpiryReminders(now)),
     classifierUpdate: await attempt(() => classifierUpdate(now)),
   };
 }

@@ -1,8 +1,10 @@
-// actions/billing.ts startCheckout and the plan/payment reads of the settings and catalogue pages.
+// actions/billing.ts startCheckout and the plan/payment reads of the settings and catalogue pages;
+// the org's order history and receipts (S7).
 import { Injectable } from '@nestjs/common';
 import { endpoints } from '@tasnivo/contracts';
 import { canWrite, isAdminRole } from '@tasnivo/domain/access';
 import { startCheckout } from '@tasnivo/domain/billing/checkout';
+import { orderHistory, orderReceipt } from '@tasnivo/domain/billing/history';
 import { billingPlan, catalogBilling } from '@tasnivo/domain/billing/overview';
 import { isDemoOrg } from '@tasnivo/domain/demo';
 import type { CurrentUser } from '@tasnivo/domain/session';
@@ -22,6 +24,18 @@ export class BillingService {
     const billing = await catalogBilling(user, catalogId, await isDemoOrg(user.orgId));
     if (!billing) throw new ApiError(404, 'not_found', 'Catalogue not found.');
     return billing;
+  }
+
+  /** The org's orders (AccessGuard lets admins only through). */
+  orders(user: CurrentUser) {
+    return orderHistory(user);
+  }
+
+  /** One paid order of the org; anything else, another org's included, is 404. */
+  async receipt(user: CurrentUser, orderId: string) {
+    const receipt = await orderReceipt(user, orderId);
+    if (!receipt) throw new ApiError(404, 'not_found', 'Order not found.');
+    return receipt;
   }
 
   /** Admins only, but a writer is told why in the answer (admin_only) rather than refused with a 403. */

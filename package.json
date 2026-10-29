@@ -33,6 +33,7 @@
     "privileges:fetch": "tsx scripts/fetch-privileges.ts",
     "load:restricted": "tsx scripts/load-restricted.ts",
     "billing:activate": "tsx scripts/billing-activate.ts",
+    "billing:refund": "tsx scripts/billing-refund.ts",
     "telegram:bot": "tsx scripts/telegram-bot.ts",
     "telegram:webhook": "tsx scripts/telegram-webhook.ts",
     "embed:catalog": "tsx scripts/embed-catalog.ts",
