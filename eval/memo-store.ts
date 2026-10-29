@@ -7,8 +7,22 @@ type FullTextHit = Hit & { hierarchyWords?: string[] };
 
 export class MemoStore implements CandidateStore {
   private readonly memo = new Map<string, Promise<unknown>>();
+  private readonly scoped = new Map<string, MemoStore>();
+  /** Present only when the inner store can limit retrieval, so the pipeline sees the same capability. */
+  readonly withinPrefix?: (prefix: string) => CandidateStore;
 
-  constructor(private readonly inner: CandidateStore) {}
+  constructor(private readonly inner: CandidateStore) {
+    const within = inner.withinPrefix?.bind(inner);
+    if (within) {
+      this.withinPrefix = (prefix) => {
+        const hit = this.scoped.get(prefix);
+        if (hit) return hit;
+        const store = new MemoStore(within(prefix));
+        this.scoped.set(prefix, store);
+        return store;
+      };
+    }
+  }
 
   private once<T>(key: string, load: () => Promise<T>): Promise<T> {
     const hit = this.memo.get(key);
@@ -34,6 +48,14 @@ export class MemoStore implements CandidateStore {
   }
   byVector(embedding: readonly number[], limit: number, column?: 'uz' | 'ru'): Promise<(Hit & { cosine?: number })[]> {
     return this.once(`v:${limit}:${column ?? ''}:${embedding.join(',')}`, () => this.inner.byVector(embedding, limit, column));
+  }
+  cosinesFor(embedding: readonly number[], codes: readonly string[], column?: 'uz' | 'ru'): Promise<Map<string, number>> {
+    if (!this.inner.cosinesFor) return Promise.resolve(new Map<string, number>());
+    return this.once(`vc:${column ?? ''}:${[...codes].sort().join(',')}:${embedding.join(',')}`, () => this.inner.cosinesFor?.(embedding, codes, column) ?? Promise.resolve(new Map<string, number>()));
+  }
+  lexicalFor(query: string, codes: readonly string[]): Promise<Map<string, number>> {
+    if (!this.inner.lexicalFor) return Promise.resolve(new Map<string, number>());
+    return this.once(`lf:${query}:${[...codes].sort().join(',')}`, () => this.inner.lexicalFor?.(query, codes) ?? Promise.resolve(new Map<string, number>()));
   }
   byCode(code: string): Promise<MxikCandidate | null> {
     return this.once(`c:${code}`, () => this.inner.byCode(code));

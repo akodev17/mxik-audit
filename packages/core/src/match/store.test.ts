@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 import { Pool } from 'pg';
-import { isTransient, PostgresCandidateStore, storeRetryCount, WEIGHTED_INDEX } from './store.js';
+import { isTransient, PostgresCandidateStore, SCOPED_SCAN_MAX, storeRetryCount, WEIGHTED_INDEX } from './store.js';
 
 /** A pool whose query() fails with the given errors, in order, then answers. */
 function flakyPool(errors: Error[]): { pool: Pool; calls: () => number } {
@@ -133,6 +133,27 @@ describe('PostgresCandidateStore full-text term selection', () => {
     assert.match(plain.sqls[0] ?? '', /"searchVector" @@ f/);
   });
 
+  it('anchors on the rarest words: a brand first, then words in under 1,000 codes, never numbers', async () => {
+    const { pool, searches } = statsPool({ tabletki: 14_234, suppozitorii: 300 });
+    const hits = await new PostgresCandidateStore(pool).byFullText('enam tabletki suppozitorii 5', 50, { anchored: true });
+    assert.deepEqual(hits, []);
+    // "enam" selects first; the fake finds nothing, so the next tier adds "suppozitorii".
+    assert.deepEqual(searches.map((s) => s[2]), ['enam', 'enam | suppozitorii']);
+    assert.equal(searches[0]?.[0], 'enam | tabletki | suppozitorii | 5');
+  });
+
+  it('runs no anchored query when every word is common', async () => {
+    const { pool, searches } = statsPool({ tabletki: 14_234, blisteri: 6_733 });
+    assert.deepEqual(await new PostgresCandidateStore(pool).byFullText('tabletki blisteri 100', 50, { anchored: true }), []);
+    assert.equal(searches.length, 0);
+  });
+
+  it('reads a trade mark as a word break, as Postgres indexes the classifier', async () => {
+    const { pool, searches } = statsPool({});
+    await new PostgresCandidateStore(pool, { fullTextCommonDocs: 0 }).byFullText('karlon®plyus tabletki', 50);
+    assert.equal(searches[0]?.[0], 'karlon | plyus | tabletki');
+  });
+
   it('falls back to every term when the statistics fail, and retries later', async () => {
     const { pool, searches, statLoads } = statsPool(new Error('canceling statement'));
     const store = new PostgresCandidateStore(pool, { fullTextCommonDocs: 10_000 });
@@ -247,5 +268,144 @@ describe('trigram threshold cascade against the database', async () => {
       const b = await single.byLexical(query, 50);
       assert.deepEqual(a.map((h) => [h.candidate.code, h.score]), b.map((h) => [h.candidate.code, h.score]), query);
     }
+  });
+
+  it('scores codes by key exactly as the trigram and vector lists do', { skip }, async () => {
+    const store = new PostgresCandidateStore(pool);
+    const hits = await store.byLexical('truba vodogazoprovodnaya', 5);
+    const byKey = await store.lexicalFor('truba vodogazoprovodnaya', hits.map((h) => h.candidate.code));
+    for (const h of hits) assert.ok(Math.abs((byKey.get(h.candidate.code) ?? -1) - h.score) < 1e-6, h.candidate.code);
+    const filled = await pool.query<{ v: string }>('SELECT "embeddingUz"::text AS v FROM mxik_code WHERE "embeddingUz" IS NOT NULL LIMIT 1');
+    const vector = filled.rows[0] ? (JSON.parse(filled.rows[0].v) as number[]) : null;
+    if (!vector) return; // no vectors loaded here
+    const near = await store.byVector(vector, 5, 'uz');
+    const cosines = await store.cosinesFor(vector, near.map((h) => h.candidate.code), 'uz');
+    for (const h of near) assert.ok(Math.abs((cosines.get(h.candidate.code) ?? -1) - (h.cosine ?? 0)) < 1e-6, h.candidate.code);
+    assert.deepEqual(await store.cosinesFor(vector, ['99999999999999999'], 'uz'), new Map());
+  });
+});
+
+/**
+ * A pool for a store limited to a code prefix: the prefix-size count answers
+ * `size`, every other statement (pool or dedicated client) is recorded with its
+ * parameters and answers nothing.
+ */
+function prefixPool(size: number, stats: Record<string, number> = {}): { pool: Pool; seen: { sql: string; params: unknown[] }[]; counts: () => number } {
+  const seen: { sql: string; params: unknown[] }[] = [];
+  let counts = 0;
+  const query = (sql: string, params: unknown[] = []) => {
+    if (sql.includes('count(*) AS n')) {
+      counts++;
+      return Promise.resolve({ rows: [{ n: String(size) }] });
+    }
+    if (sql.includes('ts_stat')) return Promise.resolve({ rows: Object.entries(stats).map(([word, ndoc]) => ({ word, ndoc })) });
+    seen.push({ sql, params });
+    return Promise.resolve({ rows: [] });
+  };
+  const client = { query, release: () => undefined };
+  const pool = { query, connect: () => Promise.resolve(client) } as unknown as Pool;
+  return { pool, seen, counts: () => counts };
+}
+
+describe('PostgresCandidateStore limited to a TN VED heading', () => {
+  it('adds the prefix to exact, full-text and both trigram paths, and never to a known-code lookup', async () => {
+    const { pool, seen } = prefixPool(15_000);
+    const store = new PostgresCandidateStore(pool, { fullTextCommonDocs: 0, lexicalStrictThreshold: null }).withinPrefix('07306');
+    await store.byMatchKey(['truba']);
+    await store.byFullText('truba 57', 50);
+    await store.byLexical('truba 57', 50);
+    await store.byCode('07304001001000000');
+    const [exact, fullText, lexical, byCode] = seen;
+    assert.match(exact?.sql ?? '', /AND code LIKE \$2/);
+    assert.deepEqual(exact?.params, [['truba'], '07306%']);
+    assert.match(fullText?.sql ?? '', /AND code LIKE \$4/);
+    assert.deepEqual(fullText?.params, ['truba | 57', 50, 'truba | 57', '07306%']);
+    assert.match(lexical?.sql ?? '', /\$1 <% "searchText" AND "retiredAt" IS NULL AND code LIKE \$3/);
+    assert.deepEqual(lexical?.params, ['truba 57', 50, '07306%']);
+    assert.doesNotMatch(byCode?.sql ?? '', /LIKE/);
+  });
+
+  it('selects on the rare words first, and on every word when the heading has none of them', async () => {
+    const { pool, seen } = prefixPool(15_000, { truba: 60_000 });
+    await new PostgresCandidateStore(pool, { fullTextCommonDocs: 10_000 }).withinPrefix('07304').byFullText('truba 57', 50);
+    assert.deepEqual(seen.map((q) => q.params[2]), ['57', 'truba | 57']);
+    // The whole classifier never retries with the common words.
+    const global = prefixPool(15_000, { truba: 60_000 });
+    await new PostgresCandidateStore(global.pool, { fullTextCommonDocs: 10_000 }).byFullText('truba 57', 50);
+    assert.deepEqual(global.seen.map((q) => q.params[2]), ['57']);
+  });
+
+  it('scores every code of a small heading, and scans its vectors exactly', async () => {
+    const { pool, seen, counts } = prefixPool(SCOPED_SCAN_MAX);
+    const store = new PostgresCandidateStore(pool).withinPrefix('08471');
+    await store.byLexical('noutbuk', 50);
+    await store.byVector([0.1, 0.2], 50, 'ru');
+    assert.doesNotMatch(seen[0]?.sql ?? '', /<%/);
+    assert.match(seen[0]?.sql ?? '', /WHERE score > 0/);
+    assert.deepEqual(seen[0]?.params, ['noutbuk', 50, '08471%']);
+    const vector = seen.find((s) => s.sql.includes('<=>'));
+    assert.match(vector?.sql ?? '', /WITH s AS MATERIALIZED/);
+    assert.deepEqual(vector?.params.slice(1), [50, '08471%']);
+    assert.equal(seen.some((s) => s.sql.includes('hnsw')), false);
+    // The heading's size is asked once per pool and prefix.
+    assert.equal(counts(), 1);
+  });
+
+  it('walks the HNSW graph iteratively for a large heading', async () => {
+    const { pool, seen } = prefixPool(SCOPED_SCAN_MAX + 1);
+    await new PostgresCandidateStore(pool).withinPrefix('06810').byVector([0.1, 0.2], 50);
+    const statements = seen.map((s) => s.sql);
+    assert.ok(statements.includes('SET LOCAL hnsw.iterative_scan = relaxed_order'));
+    assert.doesNotMatch(statements.find((s) => s.includes('<=>')) ?? '', /MATERIALIZED/);
+  });
+
+  it('accepts only digits as a prefix', () => {
+    const { pool } = prefixPool(1);
+    assert.throws(() => new PostgresCandidateStore(pool).withinPrefix('07%'), /not a code prefix/);
+  });
+});
+
+describe('heading-limited retrieval against the database', async () => {
+  const pool = new Pool({
+    connectionString: process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@localhost:54329/mxik',
+    connectionTimeoutMillis: 1500,
+    max: 2,
+  });
+  after(() => pool.end());
+  let skip: string | false = 'database not available';
+  let vector: number[] | null = null;
+  try {
+    const r = await pool.query<{ v: string | null }>(
+      `SELECT "embeddingRu"::text AS v FROM mxik_code WHERE code LIKE '07306%' AND "embeddingRu" IS NOT NULL AND "retiredAt" IS NULL LIMIT 1`,
+    );
+    const v = r.rows[0]?.v;
+    vector = v ? (JSON.parse(v) as number[]) : null;
+    skip = vector ? false : 'classifier or its vectors not loaded';
+  } catch {
+    // keep the reason
+  }
+
+  it('every stage returns codes of the heading only, a large heading filling the limit', { skip }, async () => {
+    const store = new PostgresCandidateStore(pool).withinPrefix('07306');
+    const lexical = await store.byLexical('truba profilnaya', 20);
+    const fullText = await store.byFullText('truba profilnaya', 20);
+    const vectors = await store.byVector(vector ?? [], 20, 'ru');
+    for (const hits of [lexical, fullText, vectors]) {
+      assert.ok(hits.length > 0);
+      for (const h of hits) assert.ok(h.candidate.code.startsWith('07306'), h.candidate.code);
+    }
+    // 15k codes: the iterative scan keeps going until the limit is filled, nearest first.
+    assert.equal(vectors.length, 20);
+    for (let i = 1; i < vectors.length; i++) assert.ok((vectors[i - 1]?.score ?? 0) >= (vectors[i]?.score ?? 0));
+  });
+
+  it('a small heading is scanned: its codes rank for a name the trigram threshold would drop', { skip }, async () => {
+    const store = new PostgresCandidateStore(pool).withinPrefix('08471');
+    const hits = await store.byLexical('noutbuk 15', 10);
+    assert.ok(hits.length > 0);
+    for (const h of hits) assert.ok(h.candidate.code.startsWith('08471'), h.candidate.code);
+    const vectors = await store.byVector(vector ?? [], 10, 'ru');
+    assert.equal(vectors.length, 10);
+    for (const h of vectors) assert.ok(h.candidate.code.startsWith('08471'), h.candidate.code);
   });
 });

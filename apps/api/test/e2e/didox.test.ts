@@ -16,6 +16,7 @@ import { FIXTURE_DIR, fakePdf } from '@tasnivo/domain/didox/fake-server';
 import { makeClient, makePerson } from '@tasnivo/domain/firm-test-fixtures';
 import { liveCodes } from '@tasnivo/domain/test-fixtures';
 import ExcelJS from 'exceljs';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import { bodyOf, dbSkipReason, dropOrgs, makeUser, serverOf, startApp, type TestUser } from '../helpers';
 import { binary, matches, sessionCookie } from '../upload-fixtures';
 /** A sheet cell as text (ExcelJS cells may be rich objects). */
@@ -66,6 +67,8 @@ describe('didox (database)', { skip }, () => {
     app = await startApp();
     owner = await makeUser();
     orgs.push(owner.orgId);
+    // A paying firm: a fresh customer org has no trial, so its uploads would be refused as expired.
+    await db.organization.update({ where: { id: owner.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
     clientId = await makeClient(owner.orgId, 'Didox mijoz');
     cookie = await sessionCookie(owner);
     viewerCookie = await sessionCookie(await makePerson(owner.orgId, 'viewer'));
@@ -96,6 +99,16 @@ describe('didox (database)', { skip }, () => {
     const dup = bodyOf<Uploaded>(again).items[0];
     assert.equal(dup?.code, 'duplicate_invoice');
     assert.equal(dup?.duplicateOf?.batchId, ids.standard);
+  });
+
+  it('an ended trial closes the upload, like the bank path (Phase C F1)', async () => {
+    const expired = await makeUser();
+    orgs.push(expired.orgId);
+    await db.organization.update({ where: { id: expired.orgId }, data: { trialEndsAt: new Date(Date.now() - 86_400_000) } });
+    const res = await send('post', '/api/didox/upload', await sessionCookie(expired)).attach('file', raw('invoice-vat0-pinfl.json'), 'x.json');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { ok: false, error: i18nFor('uz').ta.didoxX.errors.expired });
+    assert.equal(await db.importBatch.count({ where: { orgId: expired.orgId } }), 0);
   });
 
   it('a viewer may read but not upload or decide; CSRF header required', async () => {

@@ -10,13 +10,21 @@
     {
       "name": "integ-api-4027",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location 'C:\\Users\\User\\Desktop\\pets\\mxik-audit\\.claude\\worktrees\\tasnivo-integration'; $env:API_PORT='4027'; npx tsx apps/api/src/main.ts"],
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "Set-Location 'C:\\Users\\User\\Desktop\\pets\\mxik-audit\\.claude\\worktrees\\tasnivo-integration'; $env:API_PORT='4027'; npx tsx apps/api/src/main.ts"
+      ],
       "port": 4027
     },
     {
       "name": "integ-web-3027-prod",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location 'C:\\Users\\User\\Desktop\\pets\\mxik-audit\\.claude\\worktrees\\tasnivo-integration'; $env:API_INTERNAL_URL='http://localhost:4027'; npx next start apps/web -p 3027"],
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "Set-Location 'C:\\Users\\User\\Desktop\\pets\\mxik-audit\\.claude\\worktrees\\tasnivo-integration'; $env:API_INTERNAL_URL='http://localhost:4027'; npx next start apps/web -p 3027"
+      ],
       "port": 3027
     },
     {
@@ -400,6 +408,36 @@
         "$env:API_INTERNAL_URL='http://localhost:4061'; npx.cmd next dev apps/web -p 3061"
       ],
       "port": 3061
+    },
+    {
+      "name": "tasnivo-api-4010-ai",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4010'; $env:EMBEDDING_PROVIDER='local'; $env:RERANK_PROVIDER='gemini'; $env:RERANK_BATCH_SIZE='25'; $env:RERANK_BATCH_WAIT_MS='5000'; $env:RERANK_MAX_CONCURRENT='2'; $env:RERANK_TIMEOUT_MS='300000'; npm run dev:api"
+      ],
+      "port": 4010
+    },
+    {
+      "name": "lexicon-api-4031",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_PORT='4031'; $env:ADMIN_EMAILS='lexicon-admin@test.local'; npm run dev:api"
+      ],
+      "port": 4031
+    },
+    {
+      "name": "lexicon-web-3031",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:API_INTERNAL_URL='http://localhost:4031'; npx next dev apps/web -p 3031"
+      ],
+      "port": 3031
     }
   ]
 }

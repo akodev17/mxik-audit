@@ -67,8 +67,8 @@ describe('round trips', () => {
     const preview = {
       catalogId: 'c1', filename: 'k.xlsx', client: { id: 'cl1', name: 'Mijoz' }, headers: ['Nomi', 'MXIK'], sample: [['Sut', '']], rows: 120,
       parse: { format: 'xlsx', encoding: null, delimiter: null, headerRow: 2, skippedAbove: 1, emptyRowsSkipped: 0, totalSeen: 121, truncated: false, lineJumps: [[4, 9]] },
-      mapping: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1 }, remembered: 'client',
-      fields: { name: 'remembered', barcode: 'none', mxik: 'guess', unit: 'none', price: 'none', sales: 'none' },
+      mapping: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1, tnved: -1 }, remembered: 'client',
+      fields: { name: 'remembered', barcode: 'none', mxik: 'guess', unit: 'none', price: 'none', sales: 'none', tnved: 'none' },
       diagnostics: null, previous: { id: 'c0', filename: 'k-old.xlsx', createdAt: AT, rowCount: 118 },
     };
     roundTrip(E.catalogs.previewUpload.response, { ok: true, preview }, 'preview');
@@ -76,7 +76,7 @@ describe('round trips', () => {
     roundTrip(E.catalogs.commit.response, { ok: false, error: 'Allaqachon', committed: true }, 'commit already');
     roundTrip(E.catalogs.diagnose.response, {
       ok: true, issues: [{ kind: 'duplicate', fields: ['name', 'unit'], column: 0 }],
-      diagnostics: { rows: 3, importable: 2, noName: { count: 1, sample: [3] }, duplicates: { count: 0, sample: [], groups: 0 }, noCode: { count: 0, sample: [] }, badCodes: { count: 0, sample: [] }, lostZero: { count: 0, sample: [] }, ambiguousAmounts: { count: 0, sample: [] } },
+      diagnostics: { rows: 3, importable: 2, noName: { count: 1, sample: [3] }, duplicates: { count: 0, sample: [], groups: 0 }, noCode: { count: 0, sample: [] }, badCodes: { count: 0, sample: [] }, lostZero: { count: 0, sample: [] }, ambiguousAmounts: { count: 0, sample: [] }, badTnved: { count: 0, sample: [] }, tnvedZero: { count: 0, sample: [] } },
     }, 'diagnose');
     roundTrip(E.catalogs.progress.response, { status: 'analyzing', done: 40, total: 120, etaSeconds: 30 }, 'progress');
     roundTrip(E.catalogs.progress.response, { status: 'ready', summary: { rows: 120, riskyRows: 9, byType: [{ type: 'MISSING', count: 4 }], carried: 2, previousId: null, notRead: 0, dropped: 1 } }, 'progress ready');

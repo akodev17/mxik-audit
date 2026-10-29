@@ -2,43 +2,41 @@
 // than hard filters, so a strong retrieval signal can still outvote a heuristic.
 // Pure: no I/O, fully unit-testable.
 import { matchKeyOf, tokenize } from '../normalize/index.js';
+import { headNouns, headStem } from '../normalize/russian.js';
 import { kindOfUnit, resolveUnit, unitsCompatible } from '../normalize/units.js';
+import { earnsIdentifying, identifyingMatch, type RowIdentity } from './identifying.js';
 import type { MxikCandidate } from './types.js';
 
 /**
- * Prepared dishes deliberately have no detailed MXIK, so the correct answer is
- * the general code and the user should not be sent hunting for a specific one.
- * Folded keys, so both scripts and every apostrophe spelling hit.
+ * The food-service group of the classifier: the menu (10202001: dishes, drinks
+ * and set meals by family), the outlet's other services (10202002) and
+ * catering (10202003). A row that reads as a cafe's (normalize/synonyms.ts, the
+ * catering lexicon) belongs here, whatever foodstuff shares its words.
  */
-const PREPARED_DISH_TERMS = [
-  'palov', 'osh', 'manti', 'mantı', 'kabob', 'shashlik', 'shourpa', 'shorva',
-  'lagman', 'somsa', 'chuchvara', 'norin', 'dimlama', 'qovurma', 'shoʻrva',
-  'plov', 'shashlyk', 'lagman', 'samsa', 'pelmeni', 'tushbera',
-  'tayyor taom', 'tayyor ovqat', 'gotovoye blyudo', 'obshestvennoye pitaniye',
-  'ovqatlanish', 'restoran', 'kafe', 'oshxona',
-].map(matchKeyOf);
+export const CATERING_GROUP = '10202';
 
-/** True when the product name reads as a prepared dish / food-service item. */
-export function isPreparedDish(name: string): boolean {
-  const key = matchKeyOf(name);
-  if (!key) return false;
-  const tokens = new Set(key.split(' '));
-  return PREPARED_DISH_TERMS.some((term) => {
-    if (!term) return false;
-    // Multi-word terms are substring-matched; single words must be whole tokens
-    // so "osh" does not fire inside "oshqozon".
-    return term.includes(' ') ? key.includes(term) : tokens.has(term);
-  });
+/** True for a code of the food-service group. */
+export function isCateringCode(code: string): boolean {
+  return code.startsWith(CATERING_GROUP);
 }
 
 export type RuleContext = {
   candidate: MxikCandidate;
   /** The catalogue row's own unit of measure, as written by the user. */
   rowUnit: string | null;
-  /** Whether the product name reads as a prepared dish. */
-  preparedDish: boolean;
+  /** Whether the row reads as a food-service item: a dish, a drink the outlet makes, or its service. */
+  catering: boolean;
   /** The row's folded words (normalised tokens and synonym terms); absent = no word-based rule. */
   productTokens?: readonly string[];
+  /** The row's brand, size and pack tokens (identifying.ts rowIdentity); absent = identifyingPreferred never fires. */
+  identity?: RowIdentity;
+  /**
+   * The folded words of the most specific brand a retrieved code earned identifyingPreferred on
+   * (identifying.ts brandWords): the row names that brand (pipeline). Absent or empty = otherBrand never fires.
+   */
+  brandNamed?: readonly string[];
+  /** The Russian row's head noun as normalize/russian.ts headStem folds it; absent = headNounMismatch never fires. */
+  head?: string | undefined;
 };
 
 /**
@@ -70,8 +68,8 @@ function materialsIn(tokens: readonly string[]): Set<string> {
 /** Stable names of the rules, stored in match evidence and translated in the UI. */
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
-  'preparedDishBase', 'preparedDishSpecific', 'strictUnitConflict',
-  'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial',
+  'identifyingPreferred', 'otherBrand', 'statedConflict', 'cateringPreferred', 'cateringOutside', 'strictUnitConflict',
+  'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial', 'headNounMismatch',
 ] as const;
 
 export type RuleKey = (typeof RULE_KEYS)[number];
@@ -85,6 +83,12 @@ export type RuleOutcome = {
   keys: RuleKey[];
   /** True when the row's unit contradicts a strictly bound unit. */
   unitConflict: boolean;
+  /** Row tokens that earned identifyingPreferred (brand first); empty when it did not fire. */
+  identifyingTokens: string[];
+  /** identifyingPreferred fired on the brand, not on sizes alone. */
+  identifyingBrand: boolean;
+  /** statedConflict fired: the row's own dose, volume, weight or pack contradicts this code of its product. */
+  statedConflict: boolean;
 };
 
 const ADJUSTMENTS: Record<RuleKey, number> = {
@@ -96,9 +100,37 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
   identifyingUnknownMarking: -0.05,
   /** Identifying code for a genuinely marked category is the right shape. */
   identifyingMarked: 0.03,
-  /** A prepared dish should land on the general code. */
-  preparedDishBase: 0.08,
-  preparedDishSpecific: -0.1,
+  /**
+   * The row names this identifying code's brand, or its size, dosage, volume,
+   * pack or model (identifying.ts). Larger than baseCodePreferred, so a name
+   * that earns the identifying code ranks it above the base code.
+   */
+  identifyingPreferred: 0.08,
+  /**
+   * The row names a brand that a retrieved code carries, and this code carries
+   * another one: "ЭНАМ® Таблетки 5мг №100" is no НИМИД® tablet, however many of
+   * its words the НИМИД® code repeats. Nor is "КО-ИРБЕСАН 300" an ИРБЕСАН tablet:
+   * a shorter brand inside the named one counts as another. Codes without a
+   * brand of their own (base codes, unbranded positions) are never judged by it.
+   */
+  otherBrand: -0.1,
+  /**
+   * The row names this code's product (its brand, or its words) and states a
+   * dose, strength, volume, weight or pack the code contradicts: "СЕМАКС 0,1%"
+   * is not the 1% drops, "ЛАТРИД 100 мг" not the 50 mg tablets. The score is
+   * already without identifyingPreferred; the rule's work is in the pipeline,
+   * where the reranker's verdict may not override what the row states
+   * (2026-10-29: the reranker moved 11 of 400 pharmacy rows onto such codes).
+   */
+  statedConflict: 0,
+  /**
+   * A food-service row belongs in the catering group (10202), whose menu codes
+   * are named by family, not by dish; a foodstuff, seasoning or utensil that
+   * shares the dish's words is the wrong group. Until 2026-10-28 this pair
+   * preferred base codes for a dish, which the menu position does not have.
+   */
+  cateringPreferred: 0.08,
+  cateringOutside: -0.1,
   /** Row unit contradicts a strictly bound unit: probably the wrong code. */
   strictUnitConflict: -0.15,
   /** Recommended binding: the row's unit is one the portal recommends for this code. */
@@ -112,36 +144,77 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
   unitKindMismatch: -0.05,
   /** A metal semi-product whose name declares a metal the row never mentions. */
   unrequestedMaterial: -0.05,
+  /**
+   * A Russian row names its product by a head noun ("Принтер", "Реле
+   * защитное"); this code's Russian name offers only other nouns as what it is
+   * ("Тонер для принтера", "Защитное стекло"), the row's noun at most in a
+   * dependent phrase (normalize/russian.ts). Number-blind: "Принтеры всех
+   * видов" names a printer. Same size as the other soft rules; -0.03 and -0.08
+   * measured worse or no better on the procurement set (2026-10-29).
+   */
+  headNounMismatch: -0.05,
 };
+
+/** identifyingPreferred's extra per attribute beyond the first that the code repeats. */
+const IDENTIFYING_DETAIL = 0.01;
 
 /** Evaluates every rule against one candidate. */
 export function applyRules(ctx: RuleContext): RuleOutcome {
-  const { candidate, rowUnit, preparedDish } = ctx;
+  const { candidate, rowUnit, catering } = ctx;
   const notes: string[] = [];
   const keys: RuleKey[] = [];
   let adjustment = 0;
-  const fire = (key: RuleKey, note: string): void => {
-    adjustment += ADJUSTMENTS[key];
+  const fire = (key: RuleKey, note: string, amount = ADJUSTMENTS[key]): void => {
+    adjustment += amount;
     keys.push(key);
     notes.push(note);
   };
 
-  if (candidate.isBase) {
+  // The name earns an identifying code when it repeats the code's brand or size;
+  // then the "a base code is usually safer" penalties do not apply. A marked
+  // code keeps identifyingMarked and gets the preference on top.
+  const identifying = ctx.identity && !candidate.isBase ? identifyingMatch(ctx.identity, candidate) : null;
+  const earned = identifying !== null && earnsIdentifying(identifying);
+  const identifyingTokens = earned ? [...(identifying.brand ? [identifying.brand] : []), ...identifying.attributes] : [];
+
+  // In the catering group the family codes (…000001 and up) are the answers
+  // and the few base codes are other families, so the shape rules say nothing
+  // there for a food-service row.
+  const cateringHome = catering && isCateringCode(candidate.code);
+  if (cateringHome) {
+    fire('cateringPreferred', 'Food-service item: the catering group (10202) is its home.');
+  } else if (candidate.isBase) {
     fire('baseCodePreferred', 'Base code (…000000), the usual choice in practice when no exact match exists.');
   } else if (candidate.isMarked === true) {
     fire('identifyingMarked', 'Identifying code for a digitally marked category.');
-  } else if (candidate.isMarked === false) {
+  } else if (!earned && candidate.isMarked === false) {
     fire('identifyingUnmarked', 'Identifying code, but the category is not digitally marked — a base code is usually safer.');
-  } else {
+  } else if (!earned) {
     fire('identifyingUnknownMarking', 'Identifying code and the classifier does not state whether the category is marked.');
   }
+  // Each further attribute the code repeats counts a little, so of two codes of the
+  // brand the one with the row's dose and pack ranks first (at most +0.03).
+  if (earned && !cateringHome) {
+    const detail = IDENTIFYING_DETAIL * Math.min(3, Math.max(0, identifying.attributes.length - 1));
+    fire('identifyingPreferred', `The name repeats this identifying code's ${identifyingTokens.join(', ')}.`, ADJUSTMENTS.identifyingPreferred + detail);
+  }
+  // The row talks about this product (its brand, or shared words) and states a
+  // dose, volume, weight or pack this code does not have.
+  const statedConflict = identifying !== null && identifying.conflict && (identifying.brand !== null || identifying.sharedWords.length > 0);
+  if (statedConflict) {
+    fire('statedConflict', `The row states a dose, volume, weight or pack this code of ${identifying.brand ?? 'the same product'} does not carry.`);
+  }
+  const named = ctx.brandNamed ?? [];
+  if (named.length > 0 && identifying?.ownBrand && identifying.brandWords.length < named.length
+    // "PEPSI, Pepsi Max, ПЭТ бутылка" is the "Pepsi Max" the row names, under a shorter brand field.
+    && !named.every((w) => identifying.ownWords.has(w))) {
+    fire('otherBrand', identifying.brand === null
+      ? `The row names another brand; this code is ${candidate.brandName ?? ''}.`
+      : `The row names a longer brand than this code's ${identifying.brand}.`);
+  }
 
-  if (preparedDish) {
-    if (candidate.isBase) {
-      fire('preparedDishBase', 'Prepared dishes have no detailed MXIK; the general code is correct.');
-    } else {
-      fire('preparedDishSpecific', 'Prepared dish matched to a detailed code, which the classifier does not provide for these.');
-    }
+  if (catering && !cateringHome) {
+    fire('cateringOutside', 'Food-service item matched outside the catering group: a foodstuff or utensil that shares its words.');
   }
 
   // Only a strict binding can conflict. Recommended units never produce findings.
@@ -156,6 +229,14 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     const declared = materialsIn(tokenize(`${matchKeyOf(candidate.nameUz)} ${matchKeyOf(candidate.nameRu)}`));
     const extra = [...declared].filter((m) => !asked.has(m));
     if (extra.length > 0) fire('unrequestedMaterial', `The code is ${extra.join('/')}; the row names no such metal (unnamed means carbon steel).`);
+  }
+
+  // A code whose Russian name offers no noun at all (codes and brands only) is not judged.
+  if (ctx.head) {
+    const heads = [...headNouns(candidate.nameRu)];
+    if (heads.length > 0 && !heads.some((h) => headStem(h) === ctx.head)) {
+      fire('headNounMismatch', `The code names ${heads.slice(0, 3).join(', ')}; the row's product noun is not among them.`);
+    }
   }
 
   // A recommended binding never conflicts (no UNIT_CONFLICT finding), but it
@@ -175,7 +256,7 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     }
   }
 
-  return { adjustment, notes, keys, unitConflict };
+  return { adjustment, notes, keys, unitConflict, identifyingTokens, identifyingBrand: earned && identifying.brand !== null, statedConflict };
 }
 
 /** The hierarchy path, which is the reranker's strongest disambiguation signal. */

@@ -27,6 +27,11 @@ const ALIASES: Record<string, string> = {
   // count
   sht: 'dona', шт: 'dona', 'шт.': 'dona', pcs: 'dona', pc: 'dona',
   piece: 'dona', pieces: 'dona', ea: 'dona', adet: 'dona', don: 'dona',
+  // A serving is a piece: the classifier writes "dona (portsiya)" on the
+  // catering codes and canonicalises it to "dona" (no code binds the
+  // official unit 50 "dona (porsiya)"), so a row written in portions must not
+  // conflict with them. The full form "dona (porsiya)" still resolves to 50.
+  porsiya: 'dona', portsiya: 'dona', porciya: 'dona', порция: 'dona', портсия: 'dona', 'порц.': 'dona', порц: 'dona', portion: 'dona',
   komplekt: 'toʻplam', комплект: 'toʻplam', set: 'toʻplam', компл: 'toʻplam',
   para: 'juft', пара: 'juft', pair: 'juft',
   // length / area / volume geometry
@@ -40,6 +45,9 @@ const ALIASES: Record<string, string> = {
   kun: 'kun', день: 'kun', day: 'kun',
   daqiqa: 'daqiqa', минута: 'daqiqa', min: 'daqiqa',
 };
+
+/** How many aliases the file table holds, for the admin lexicon page. */
+export const UNIT_ALIAS_COUNT = Object.keys(ALIASES).length;
 
 /** Both readings of ц, because the portal uses each in different words. */
 function tsAlternates(value: string): string[] {
@@ -58,28 +66,55 @@ function baseKey(input: string): string {
     .trim();
 }
 
-const INDEX = new Map<string, OfficialUnit>();
+/** A unit alias learned outside this file (the admin lexicon, normalize/lexicon.ts): same shape as an ALIASES row. */
+export type UnitAlias = { alias: string; target: string };
 
-function index(key: string, unit: OfficialUnit): void {
-  const k = baseKey(key);
-  if (k && !INDEX.has(k)) INDEX.set(k, unit);
-}
-
-for (const unit of OFFICIAL_UNITS) {
-  for (const form of [unit.cyrillic, unit.latin]) {
-    for (const variant of tsAlternates(baseKey(form))) index(variant, unit);
-    // "дона (бутылка)" should also be reachable as "dona" and as "butilka".
-    const withoutParen = form.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
-    if (withoutParen && withoutParen !== form) {
-      for (const variant of tsAlternates(baseKey(withoutParen))) index(variant, unit);
+/**
+ * The lookup table: every official form, its ц alternates and parenthesised
+ * readings, then the aliases on top. Built once for the file's own table and
+ * again whenever the lexicon installs extra aliases (setUnitAliasExtension).
+ */
+function buildIndex(extra: readonly UnitAlias[]): Map<string, OfficialUnit> {
+  const index = new Map<string, OfficialUnit>();
+  const put = (key: string, unit: OfficialUnit): void => {
+    const k = baseKey(key);
+    if (k && !index.has(k)) index.set(k, unit);
+  };
+  for (const unit of OFFICIAL_UNITS) {
+    for (const form of [unit.cyrillic, unit.latin]) {
+      for (const variant of tsAlternates(baseKey(form))) put(variant, unit);
+      // "дона (бутылка)" should also be reachable as "dona" and as "butilka".
+      const withoutParen = form.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+      if (withoutParen && withoutParen !== form) {
+        for (const variant of tsAlternates(baseKey(withoutParen))) put(variant, unit);
+      }
+      const inner = /\(([^)]+)\)/.exec(form)?.[1];
+      if (inner) for (const variant of tsAlternates(baseKey(inner))) put(variant, unit);
     }
-    const inner = /\(([^)]+)\)/.exec(form)?.[1];
-    if (inner) for (const variant of tsAlternates(baseKey(inner))) index(variant, unit);
   }
+  // An alias wins over a reading derived from an official form: "porsiya" is
+  // the qualifier inside "dona (porsiya)", but written alone it means pieces.
+  // A learned alias wins over the file's, so an admin can correct one.
+  const aliases: UnitAlias[] = [...Object.entries(ALIASES).map(([alias, target]) => ({ alias, target })), ...extra];
+  for (const { alias, target } of aliases) {
+    const resolved = index.get(baseKey(target));
+    if (resolved) for (const variant of tsAlternates(baseKey(alias))) index.set(variant, resolved);
+  }
+  return index;
 }
-for (const [alias, target] of Object.entries(ALIASES)) {
-  const resolved = INDEX.get(baseKey(target));
-  if (resolved) for (const variant of tsAlternates(baseKey(alias))) index(variant, resolved);
+
+const BASE_INDEX = buildIndex([]);
+let INDEX = BASE_INDEX;
+
+/** Replaces the learned aliases (none = the file's table alone). Aliases whose target is no official unit are ignored. */
+export function setUnitAliasExtension(aliases: readonly UnitAlias[]): void {
+  INDEX = aliases.length === 0 ? BASE_INDEX : buildIndex(aliases);
+}
+
+/** Whether `target` names an official unit the file's table knows (the check a learned alias must pass). */
+export function isOfficialUnitForm(target: string): boolean {
+  const key = baseKey(target);
+  return key !== '' && tsAlternates(key).some((v) => BASE_INDEX.get(v) !== undefined);
 }
 
 /**

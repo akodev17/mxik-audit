@@ -155,9 +155,13 @@ Copy `.env.example` to `.env`; every variable is documented there. Only
 | Variable | Effect if unset |
 |---|---|
 | `DATABASE_URL` | defaults to the docker-compose database on port 54329 |
-| `ANTHROPIC_API_KEY` | **stage 6 is skipped** and confidence is capped at 0.85, so nothing reaches the bulk-accept band |
+| `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` | with neither, **stage 6 is skipped** and confidence is capped at 0.85, so nothing reaches the bulk-accept band |
+| `RERANK_PROVIDER` | Gemini when `GEMINI_API_KEY` is set, else Anthropic when `ANTHROPIC_API_KEY` is set, else off; `gemini`, `anthropic` or `off` forces one (no fallback to the other) |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite`; measured in `docs/scoring.md`. The 2.5 models refuse keys created after Oct 2026 |
+| `GEMINI_PRICE_INPUT_PER_MTOK` / `GEMINI_PRICE_OUTPUT_PER_MTOK` | built-in price table (dated in `rerank-config.ts`); cost estimates only |
 | `ANTHROPIC_MODEL` | `claude-opus-5-5`; see `.env.example` for cheaper models and prices |
 | `MXIK_LLM_ENABLED` | `true`; set `false` to never call the LLM, even with a key |
+| `RERANK_BATCH_SIZE` / `RERANK_BATCH_WAIT_MS` / `RERANK_MAX_CONCURRENT` | `8` / `30` / `4`; on the Gemini free tier (20 requests a day per model) use `25` / `5000` / `2` |
 | `RERANK_GATE_CONFIDENCE` / `RERANK_GATE_MARGIN` | `0.95` / `0.10`: only rows below these go to the LLM |
 | `EMBEDDING_PROVIDER` | `local` (recommended) embeds with multilingual-e5-small on the server's CPU; unset = Voyage/OpenAI when a key is set, else the non-semantic stand-in |
 | `VOYAGE_API_KEY` / `OPENAI_API_KEY` | hosted embeddings for stage 4; not measured (no key), and they would send every row name to that provider |
@@ -181,7 +185,7 @@ Both fallbacks are loud: `npm run eval` prints a warning banner, every
 `MatchResult` carries a note, and `npm run check:providers` reports the
 current selection without making any API call.
 
-The biggest remaining lever is the reranker. Set `ANTHROPIC_API_KEY` and re-run
+The biggest remaining lever is the reranker. Set `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`) and re-run
 `npm run eval`; no re-embedding is needed. Top-1 sits 8.3 points below the
 retrieval pool on real cases (66.7 vs 75.0) and 17.8 on synthetic (79.1 vs
 96.9): that is what stage 6 can win back. Then re-run

@@ -12,6 +12,7 @@ import { makeClient, makePerson } from '@tasnivo/domain/firm-test-fixtures';
 import { seedBankBatch, seedInvoiceBatch } from '@tasnivo/domain/onec/fixtures/seed';
 import { buildCounterpartiesXlsx } from '@tasnivo/domain/onec/sheets';
 import { decodeBankExchange } from '@tasnivo/domain/onec/bank-exchange';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import { bodyOf, dbSkipReason, dropOrgs, makeUser, serverOf, startApp, type TestUser } from '../helpers';
 import { matches, sessionCookie } from '../upload-fixtures';
 
@@ -37,6 +38,8 @@ describe('onec (database)', { skip }, () => {
     app = await startApp();
     owner = await makeUser();
     orgs.push(owner.orgId);
+    // A paying firm: a fresh customer org has no trial, so its exports would be refused as expired.
+    await db.organization.update({ where: { id: owner.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
     cookie = await sessionCookie(owner);
     clientId = await makeClient(owner.orgId, 'Mijoz bank');
     otherClient = await makeClient(owner.orgId, 'Boshqa mijoz');
@@ -153,6 +156,23 @@ describe('onec (database)', { skip }, () => {
     const demoExport = await send('post', `/api/onec/batches/${demoBatch}/export`, await sessionCookie(demo)).send({ format: 'receipt_xlsx' });
     assert.equal(demoExport.status, 403);
     assert.equal(bodyOf(demoExport).error.code, 'demo');
+  });
+
+  it('an ended trial closes the export and the transfer, like the bank uploads (Phase C F1)', async () => {
+    const expired = await makeUser();
+    orgs.push(expired.orgId);
+    await db.organization.update({ where: { id: expired.orgId }, data: { trialEndsAt: new Date(Date.now() - 86_400_000) } });
+    const expiredCookie = await sessionCookie(expired);
+    const batch = await seedInvoiceBatch({ orgId: expired.orgId });
+    const closed = { ok: false, error: i18nFor('uz').ta.onecX.errors.expired, code: 'expired' };
+    const exp = await send('post', `/api/onec/batches/${batch}/export`, expiredCookie).send({ format: 'receipt_xlsx' });
+    assert.equal(exp.status, 200, JSON.stringify(exp.body));
+    matches(o.exportBatch.response, exp.body, 'export refused');
+    assert.deepEqual(exp.body, closed);
+    const transfer = await send('post', `/api/onec/batches/${batch}/transfer`, expiredCookie).send({ format: 'odata' });
+    assert.equal(transfer.status, 200, JSON.stringify(transfer.body));
+    assert.deepEqual(transfer.body, closed);
+    assert.equal(await db.oneCExport.count({ where: { batch: { orgId: expired.orgId } } }), 0);
   });
 
   it('connection: save (password never answered), test against an unreachable address', async () => {

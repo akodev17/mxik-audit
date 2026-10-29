@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { attrsKey, stripNoise } from './noise.js';
+import { attrsKey, measuresIn, stripNoise, withoutPackBreakdown } from './noise.js';
 
 describe('stripNoise', () => {
   it('handles the brief\'s canonical example', () => {
@@ -144,5 +144,47 @@ describe('attrsKey', () => {
 
   it('is empty when nothing was extracted', () => {
     assert.equal(key('Kartoshka'), '');
+  });
+});
+
+describe('pharmacy packs and strengths', () => {
+  it('reads "№28(2x14)" as a pack of 28, not a 2x14 size, and keeps "№28" in the name', () => {
+    const r = stripNoise('ЭДАРБИ Таблетки 80 мг блистеры №28(2x14)');
+    assert.equal(r.attrs.packCount, 28);
+    assert.equal(r.attrs.dimensions, null);
+    assert.equal(r.core, 'ЭДАРБИ Таблетки блистеры №28');
+    assert.ok(r.removed.includes('(2x14)'));
+  });
+
+  it('takes the Cyrillic х and spaces inside the breakdown too', () => {
+    assert.equal(stripNoise('Таблетки №28 (4 х 7)').attrs.packCount, 28);
+    assert.equal(stripNoise('Таблетки №28 (4 х 7)').attrs.dimensions, null);
+  });
+
+  it('leaves a real size alone', () => {
+    assert.equal(stripNoise('Труба ВГП 15х2,5').attrs.dimensions, '15х2,5');
+  });
+
+  it('withoutPackBreakdown keeps the count', () => {
+    assert.equal(withoutPackBreakdown('ЭНАМ® 5мг №100(10x10)').trim(), 'ЭНАМ® 5мг №100');
+  });
+
+  it('measuresIn reads micrograms and per cents as strengths', () => {
+    assert.deepEqual(measuresIn('Aэрозоль 250 мкг/доза 60доза').map((m) => [m.kind, m.value]), [['weight', 0.00025]]);
+    assert.deepEqual(measuresIn('Капли 0,1% 2.5мл').map((m) => [m.kind, m.value]), [['volume', 2.5], ['percent', 0.1]]);
+    assert.deepEqual(measuresIn('Гель 1.25 % 60г').map((m) => [m.kind, m.value]), [['weight', 60], ['percent', 1.25]]);
+  });
+
+  it('measuresIn reads a strength per volume as one concentration in mg per ml, apart from the vial', () => {
+    assert.deepEqual(measuresIn('Раствор 15 мг/мл 2мл ампулы').map((m) => [m.kind, m.value]), [['concentration', 15], ['volume', 2]]);
+    assert.deepEqual(measuresIn('Раствор 15 мг/2 мл 2миллилитр').map((m) => [m.kind, m.value]), [['concentration', 7.5], ['volume', 2]]);
+    // "500 мг/100 мл" and "5 мг/мл" are one strength.
+    assert.deepEqual(measuresIn('Раствор для инфузий 500 мг/100 мл 100мл').map((m) => [m.kind, m.value]), [['concentration', 5], ['volume', 100]]);
+    assert.deepEqual(measuresIn('Раствор для инфузий 5мг/мл 100мл').map((m) => [m.kind, m.value]), [['concentration', 5], ['volume', 100]]);
+    assert.deepEqual(measuresIn('Раствор 50 мкг/мл 2мл').map((m) => [m.kind, m.value]), [['concentration', 0.05], ['volume', 2]]);
+    assert.deepEqual(measuresIn('Капли 0,05 мг/мл + 5 мг/мл 2.5мл').map((m) => [m.kind, m.value]), [['concentration', 0.05], ['concentration', 5], ['volume', 2.5]]);
+    // Per dose or per gram is not a concentration per volume: read as before.
+    assert.deepEqual(measuresIn('Aэрозоль 250 мкг/доза').map((m) => [m.kind, m.value]), [['weight', 0.00025]]);
+    assert.equal(measuresIn('Раствор 15 мг/мл 2мл')[0]?.text, '15 мг/мл');
   });
 });

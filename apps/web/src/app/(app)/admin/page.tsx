@@ -44,7 +44,10 @@ export default async function AdminPage() {
   const fmt = (n: number): string => fmtNumber(locale, n);
 
   return (
-    <Page title={t.adminTitle} hint={t.adminHint} wide actions={<ButtonLink href="/admin/metrics" variant="secondary">{ta.metrics.title}</ButtonLink>}>
+    <Page
+      title={t.adminTitle} hint={t.adminHint} wide
+      actions={<><ButtonLink href="/admin/lexicon" variant="secondary">{ta.lexiconX.title}</ButtonLink><ButtonLink href="/admin/metrics" variant="secondary">{ta.metrics.title}</ButtonLink></>}
+    >
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label={t.adminOrgs} value={fmt(m.orgs.customers)} hint={t.adminLast30(m.orgs.newLast30Days)} />

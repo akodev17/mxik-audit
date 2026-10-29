@@ -1,10 +1,14 @@
 // Matching evaluation. Reads eval/golden.csv and eval/real-*.csv (real: hand-written
-// cases and customer files) and eval/synthetic.csv
+// cases and customer files), eval/competitor-*.csv (competitor benchmarks, reported
+// as their own sets only) and eval/synthetic.csv
 // (derived from classifier names), runs the full pipeline plus one ablation per
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
-// Run: npm run eval [-- --label "after key" --no-ablate --fulltext-common-docs N
-//                       --fulltext-column plain|weighted --fulltext-select A|AB]
+// Run: npm run eval [-- --label "after key" --no-ablate --no-tnved --set competitor-22 --fulltext-common-docs N
+//                       --fulltext-column plain|weighted --fulltext-select A|AB --no-vector-fill --no-head-rule
+//                       --no-base-for-leaves --no-append --out run.json]
+// The learned lexicon (docs/MATCHING_V2_PLAN.md §11) is applied as in the audit unless LEXICON=off;
+// --out writes the run's record to a file (for `npm run lexicon:check`), --no-append keeps it out of the history.
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,6 +26,7 @@ import { rerankConfigFromEnv } from '@tasnivo/core/match/rerank-config';
 import { OUTPUT_SCHEMA, renderRow, SYSTEM_PROMPT } from '@tasnivo/core/match/rerank-prompt';
 import { lexicalQuery } from '@tasnivo/core/match/query';
 import { matchKeyOf, normalizeName, tokenize } from '@tasnivo/core/normalize/index';
+import { applyLexicon } from '@tasnivo/domain/lexicon';
 import { accepts, isPrefix, parseCases, type EvalCase } from './cases.js';
 import { diagnoseMiss, type MissDiagnostic } from './diagnose.js';
 import { MemoStore } from './memo-store.js';
@@ -29,7 +34,14 @@ import { bySet, bySource, setOf, type GroupMetrics, type Outcome } from './metri
 
 // Customer-file sets are picked up by name, so adding one is adding a file.
 const REAL_SETS = readdirSync('eval').filter((f) => /^real-.+\.csv$/.test(f)).sort().map((f) => `eval/${f}`);
-const FILES = ['eval/golden.csv', ...REAL_SETS, 'eval/synthetic.csv'];
+// Competitor benchmarks (competitor-*.csv) reuse rows of the sets above, so they are reported on
+// their own and kept out of the "real" totals, which stay comparable with earlier runs.
+const BENCH_SETS = readdirSync('eval').filter((f) => /^competitor-.+\.csv$/.test(f)).sort().map((f) => `eval/${f}`);
+const isBenchSet = (id: string): boolean => setOf(id).startsWith('competitor-');
+// --set NAME (repeatable) runs only those sets, e.g. --set competitor-22.
+const onlySets = process.argv.flatMap((a, i) => (process.argv[i - 1] === '--set' ? [a.replace(/\.csv$/, '')] : []));
+const FILES = ['eval/golden.csv', ...REAL_SETS, ...BENCH_SETS, 'eval/synthetic.csv']
+  .filter((f) => onlySets.length === 0 || onlySets.includes(f.replace(/^eval\//, '').replace(/\.csv$/, '')));
 const RESULTS = 'docs/eval-results.json';
 const CONCURRENCY = 6;
 
@@ -39,6 +51,11 @@ const argValue = (flag: string): string | undefined => {
 };
 const LABEL = argValue('--label') ?? 'eval';
 const ABLATE = !process.argv.includes('--no-ablate');
+const APPEND = !process.argv.includes('--no-append');
+const OUT = argValue('--out');
+const USE_LEXICON = process.env['LEXICON'] !== 'off';
+// --no-tnved: ignore the cases' TN VED column, to measure what the heading adds.
+const USE_TNVED = !process.argv.includes('--no-tnved');
 // Ranking options under test (pipeline.ts): --position-fusion off|subposition|position,
 // --nonsemantic-vector-weight N. Absent flags leave the pipeline defaults.
 const positionFusionArg = argValue('--position-fusion');
@@ -46,10 +63,20 @@ const vectorWeightArg = argValue('--nonsemantic-vector-weight');
 // --vector-calibration legacy | floor,ceil: how a semantic cosine becomes a signal (score.ts).
 const calibrationArg = argValue('--vector-calibration');
 const perPositionArg = argValue('--vector-per-position');
+// --no-vector-fill: pool codes the vector stage did not return get no vector signal (before 2026-10-29).
+const VECTOR_FILL = !process.argv.includes('--no-vector-fill');
+// --no-head-rule: switches off rules.ts headNounMismatch (Russian names, 2026-10-29).
+const HEAD_RULE = !process.argv.includes('--no-head-rule');
+// --no-base-for-leaves: no base code joins the pool for a subposition retrieved only through its identifying codes.
+const BASE_FOR_LEAVES = !process.argv.includes('--no-base-for-leaves');
 const calibrationBand = calibrationArg?.split(',').map(Number);
 const ranking: {
   positionFusion?: PositionFusion; nonSemanticVectorWeight?: number; vectorCalibration?: VectorCalibration | null; vectorPerPosition?: number;
+  vectorFill?: boolean; headNounRule?: boolean; baseForLeaves?: boolean;
 } = {
+  ...(VECTOR_FILL ? {} : { vectorFill: false }),
+  ...(HEAD_RULE ? {} : { headNounRule: false }),
+  ...(BASE_FOR_LEAVES ? {} : { baseForLeaves: false }),
   ...(positionFusionArg === 'off' || positionFusionArg === 'subposition' || positionFusionArg === 'position' ? { positionFusion: positionFusionArg } : {}),
   ...(vectorWeightArg === undefined ? {} : { nonSemanticVectorWeight: Number(vectorWeightArg) }),
   ...(perPositionArg === undefined ? {} : { vectorPerPosition: Number(perPositionArg) }),
@@ -115,6 +142,9 @@ const cases = loaded.flatMap((c) => {
 });
 
 const { reranker: realReranker, gate } = rerankFromEnv(process.env, new MemoryRerankCache());
+// The learned lexicon as the audit applies it: entries merged into the normaliser, aliases to the pipeline.
+const lexicon = USE_LEXICON ? await applyLexicon({ fresh: true }) : null;
+const aliases = lexicon?.aliases;
 
 /** Without a key, still measure what the gate would send, at zero cost and no effect on scores. */
 class DryRunReranker implements RerankProvider {
@@ -181,21 +211,24 @@ const commit = (() => {
   }
 })();
 
-const real = cases.filter((c) => c.source === 'real');
+const real = cases.filter((c) => c.source === 'real' && !isBenchSet(c.id));
 const synthetic = cases.filter((c) => c.source === 'synthetic');
+const benchmark = cases.filter((c) => isBenchSet(c.id));
 
 console.log('='.repeat(78));
 console.log(`MXIK matching evaluation — ${LABEL}`);
 console.log('='.repeat(78));
 console.log(`code            ${commit}`);
 console.log(`classifier      ${Number(codeCount).toLocaleString()} live codes · snapshot #${classifierSnapshotId ?? '?'} taken ${classifierTakenAt?.slice(0, 10) ?? '?'} · database ${database ?? '?'}`);
-console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
+console.log(`cases           real ${real.length} · synthetic ${synthetic.length}${benchmark.length ? ` · competitor benchmark ${benchmark.length}` : ''}${excluded.length ? ` · excluded ${excluded.length}` : ''}`);
 for (const e of excluded) console.log(`  excluded: ${e}`);
 console.log(`full-text       "${fullTextSource}"${fullTextSource === 'searchVectorWeighted' ? `, selecting on weight ${fullTextSelect ?? 'A'}` : ''}`);
 console.log(`embeddings      ${embedder.name}${embedder.semantic ? '' : '   <-- NOT SEMANTIC'} · text ${embedder.textShape ?? 'folded'} · columns ${vectorColumns.join('+')}`);
 if (readiness.reason) console.log(`  vector stage    ${readiness.usable ? 'SUBSTITUTED' : 'DISABLED'}: ${readiness.reason}`);
 console.log(`reranker        ${realReranker.name}${realReranker.available ? '' : '   <-- DISABLED (gate measured in dry run)'}`);
 console.log(`rerank gate     top-1 < ${gate.minConfidence} or margin < ${gate.minMargin}`);
+console.log(`tn ved          ${USE_TNVED ? 'used' : 'IGNORED (--no-tnved)'} · ${cases.filter((c) => c.tnved).length} cases carry one`);
+console.log(`lexicon         ${lexicon ? `${lexicon.counts.synonyms} synonyms, ${lexicon.counts.units} unit aliases, ${lexicon.counts.aliases} aliases from the database` : 'OFF (file tables only)'}`);
 console.log('');
 console.log('  NOTE: "real" mixes hand-written cases (golden) with customer-file sets');
 console.log('  (real-*.csv); each real set is also reported on its own below.');
@@ -225,8 +258,8 @@ async function runConfig(config: Config): Promise<Outcome[]> {
       };
       const t0 = Date.now();
       const result = await matchProduct(
-        { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit },
-        { store, embedder, reranker: tracked, rerankGate: gate, disabledStages: new Set(config.disabled), vectorColumns, ...ranking },
+        { rawName: testCase.name, barcode: testCase.barcode, unit: testCase.unit, tnved: USE_TNVED ? testCase.tnved : null },
+        { store, embedder, reranker: tracked, aliases, rerankGate: gate, disabledStages: new Set(config.disabled), vectorColumns, ...ranking },
       );
       const rankIndex = result.candidates.findIndex((c) => accepts(testCase.correct, c.candidate.code));
       const top = result.candidates[0];
@@ -267,7 +300,7 @@ for (const config of configs) {
   const t0 = Date.now();
   if (dryRun) dryRun.recording = config.key === 'full';
   const outcomes = await runConfig(config);
-  results[config.key] = bySource(outcomes);
+  results[config.key] = bySource(outcomes.filter((o) => !isBenchSet(o.id)));
   resultsBySet[config.key] = bySet(outcomes);
   if (config.key === 'full') fullOutcomes = outcomes;
   console.log(`ran ${config.label.padEnd(36)} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
@@ -392,7 +425,7 @@ if (existsSync(RESULTS)) {
     : { note: NOTE, runs: [{ label: 'gate 1 (single-run format)', ...previous }] };
 }
 
-history.runs.push({
+const record = {
   label: LABEL,
   ranAt: new Date().toISOString(),
   code: commit,
@@ -406,9 +439,11 @@ history.runs.push({
     reranker: realReranker.name, rerankerAvailable: realReranker.available, gate,
     fullText: { column: fullTextSource, selectWeights: fullTextSource === 'searchVectorWeighted' ? (fullTextSelect ?? 'A') : null },
     ranking,
+    tnved: USE_TNVED,
     efSearch: efSearchArg === undefined ? null : Number(efSearchArg),
+    lexicon: lexicon?.counts ?? null,
   },
-  cases: { real: real.length, synthetic: synthetic.length, excluded },
+  cases: { real: real.length, synthetic: synthetic.length, benchmark: benchmark.length, excluded },
   metrics: results,
   metricsBySet: resultsBySet,
   llm: usage ? { ...usage, costPer1000Rows: costPer1000Rows(usage, cases.length) } : null,
@@ -419,8 +454,15 @@ history.runs.push({
     confidence: Number(o.confidence.toFixed(4)), band: o.band, decidedBy: o.decidedBy, sentToLlm: o.sentToLlm,
   })),
   realTop5Misses: missDiagnostics,
-});
-writeFileSync(RESULTS, JSON.stringify(history, null, 2) + '\n');
-console.log(`\nappended run ${history.runs.length} to ${RESULTS}`);
+};
+if (OUT) {
+  writeFileSync(OUT, JSON.stringify(record, null, 2) + '\n');
+  console.log(`\nwrote the run to ${OUT}`);
+}
+if (APPEND) {
+  history.runs.push(record);
+  writeFileSync(RESULTS, JSON.stringify(history, null, 2) + '\n');
+  console.log(`\nappended run ${history.runs.length} to ${RESULTS}`);
+}
 
 await pool.end();

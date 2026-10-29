@@ -17,6 +17,7 @@ import * as didox from './didox';
 import * as products from './products';
 import * as tour from './tour';
 import * as features from './features';
+import * as lexicon from './lexicon';
 
 export const partsUz = {
   ...shell.uz,
@@ -37,6 +38,7 @@ export const partsUz = {
   ...products.uz,
   ...tour.uz,
   ...features.uz,
+  ...lexicon.uz,
 };
 
 export const partsRu: typeof partsUz = {
@@ -58,4 +60,5 @@ export const partsRu: typeof partsUz = {
   ...products.ru,
   ...tour.ru,
   ...features.ru,
+  ...lexicon.ru,
 };

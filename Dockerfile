@@ -61,6 +61,10 @@ ARG NEXT_PUBLIC_SITE_URL=
 ARG NEXT_PUBLIC_SHOW_LEGAL_223=false
 # Empty = the browser calls the API on the page's own origin (Caddy routes /api/* to it).
 ARG NEXT_PUBLIC_API_URL=
+# next.config.ts bakes the /api/* rewrite target into the build. Behind Caddy it never fires; without
+# Caddy (local compose) the default localhost:4000 would be the web container itself.
+ARG API_INTERNAL_URL=http://api:4000
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
 ENV NEXT_PUBLIC_DEMO_URL=$NEXT_PUBLIC_DEMO_URL \
     NEXT_PUBLIC_TELEGRAM_URL=$NEXT_PUBLIC_TELEGRAM_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \

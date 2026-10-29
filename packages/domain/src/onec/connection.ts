@@ -165,14 +165,72 @@ export async function saveConnection(orgId: string, actorId: string, body: unkno
 
 export const REQUEST_TIMEOUT_MS = 10_000;
 
-/** Loopback, private, link-local and unique-local addresses: refused in production unless allowed. */
-export function privateAddress(ip: string): boolean {
-  if (isIP(ip) === 4) {
-    const [a = 0, b = 0] = ip.split('.').map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+/** A dotted, shorthand, octal, hex or decimal IPv4 literal (127.0.0.1, 127.1, 0177.0.0.1, 0x7f000001, 2130706433) as its four octets; null when it is not one. */
+function ipv4Octets(host: string): number[] | null {
+  const parts = host.split('.');
+  if (parts.length > 4 || parts.some((p) => p === '')) return null;
+  const values: number[] = [];
+  for (const p of parts) {
+    if (!/^(0x[0-9a-f]+|0[0-7]*|[1-9]\d*)$/i.test(p)) return null;
+    values.push(/^0x/i.test(p) ? parseInt(p, 16) : p.length > 1 && p.startsWith('0') ? parseInt(p, 8) : Number(p));
   }
-  const v6 = ip.toLowerCase();
-  return v6 === '::1' || v6 === '::' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80') || v6.startsWith('::ffff:127.') || v6.startsWith('::ffff:10.') || v6.startsWith('::ffff:192.168.');
+  // The last part fills the remaining octets, as inet_aton reads it (127.1 is 127.0.0.1).
+  const last = values.pop() ?? 0;
+  const fill = 4 - values.length;
+  if (values.some((v) => v > 255) || last >= 256 ** fill) return null;
+  for (let i = fill - 1; i >= 0; i--) values.push(Math.floor(last / 256 ** i) % 256);
+  return values;
+}
+
+/** An IPv6 literal as eight hextets, or null. A dotted IPv4 tail (::ffff:127.0.0.1) becomes its two hextets. */
+function ipv6Hextets(host: string): number[] | null {
+  let s = host.toLowerCase().replace(/%.*$/, '');
+  const dotted = /^(.*:)(\d+\.\d+\.\d+\.\d+)$/.exec(s);
+  if (dotted) {
+    const v4 = ipv4Octets(dotted[2] ?? '');
+    if (!v4) return null;
+    s = `${dotted[1]}${(((v4[0] ?? 0) << 8) | (v4[1] ?? 0)).toString(16)}:${(((v4[2] ?? 0) << 8) | (v4[3] ?? 0)).toString(16)}`;
+  }
+  const halves = s.split('::');
+  if (halves.length > 2) return null;
+  const hextets = (part: string): number[] | null => {
+    if (part === '') return [];
+    const out: number[] = [];
+    for (const h of part.split(':')) {
+      if (!/^[0-9a-f]{1,4}$/.test(h)) return null;
+      out.push(parseInt(h, 16));
+    }
+    return out;
+  };
+  const head = hextets(halves[0] ?? '');
+  const tail = halves.length === 2 ? hextets(halves[1] ?? '') : [];
+  if (!head || !tail) return null;
+  const missing = 8 - head.length - tail.length;
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return null;
+  return [...head, ...Array.from({ length: missing }, () => 0), ...tail];
+}
+
+const privateV4 = ([a = 0, b = 0]: number[]): boolean =>
+  a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+
+/**
+ * Loopback, unspecified, private, link-local, carrier-grade NAT and unique-local addresses, in every
+ * spelling: dotted, shorthand, octal, hex or decimal IPv4, and IPv4 carried in IPv6 (IPv4-mapped
+ * `::ffff:127.0.0.1` or `::ffff:7f00:1` as `new URL()` writes it, IPv4-compatible `::127.0.0.1`,
+ * NAT64 `64:ff9b::7f00:1`), with or without brackets. What is not an address counts as private
+ * (Phase C F3: the dotted-only check let `[::ffff:7f00:1]` through). Refused in production unless allowed.
+ */
+export function privateAddress(ip: string): boolean {
+  const host = ip.trim().replace(/^\[|\]$/g, '');
+  const v4 = ipv4Octets(host);
+  if (v4) return privateV4(v4);
+  const v6 = ipv6Hextets(host);
+  if (!v6) return true;
+  const [h0 = 0, h1 = 0, h2 = 0, h3 = 0, h4 = 0, h5 = 0, h6 = 0, h7 = 0] = v6;
+  const zeroPrefix = h0 === 0 && h1 === 0 && h2 === 0 && h3 === 0 && h4 === 0;
+  const carriesV4 = (zeroPrefix && (h5 === 0xffff || h5 === 0)) || (h0 === 0x64 && h1 === 0xff9b && h2 === 0 && h3 === 0 && h4 === 0 && h5 === 0);
+  if (carriesV4) return privateV4([h6 >> 8, h6 & 0xff, h7 >> 8, h7 & 0xff]);
+  return (h0 & 0xfe00) === 0xfc00 || (h0 & 0xffc0) === 0xfe80;
 }
 
 /**

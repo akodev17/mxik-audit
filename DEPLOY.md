@@ -109,7 +109,9 @@ that reads it. At minimum:
 | `NEXT_PUBLIC_DEMO_URL` | `/demo` |
 | `NEXT_PUBLIC_TELEGRAM_URL` | your Telegram link, or leave empty to hide it |
 | `NEXT_PUBLIC_API_URL` | leave empty: the browser calls `/api` on the page's own origin |
-| `ANTHROPIC_API_KEY` | optional; without it suggestions stay capped below bulk-accept |
+| `GEMINI_API_KEY` | optional, the default reranker (`GEMINI_MODEL`, default `gemini-3.1-flash-lite`); without it or `ANTHROPIC_API_KEY` suggestions stay capped below bulk-accept. A free-tier key allows 20 requests a day per model: set `RERANK_BATCH_SIZE=25`, `RERANK_BATCH_WAIT_MS=5000`, `RERANK_MAX_CONCURRENT=2`, `RERANK_TIMEOUT_MS=300000`, or enable billing |
+| `ANTHROPIC_API_KEY` | optional; used for stage 6 when no `GEMINI_API_KEY` is set or `RERANK_PROVIDER=anthropic`, and for bank operation suggestions |
+| `RERANK_PROVIDER` | leave empty (Gemini when its key is set, else Anthropic); `off` disables stage 6 |
 | `EMBEDDING_PROVIDER` | `local` (already set in `.env.example`) |
 | `ADMIN_EMAILS` | sign-in emails allowed to open `/admin`, comma-separated |
 
@@ -471,6 +473,31 @@ docker compose --profile app up -d --remove-orphans   # removes the old app, sch
 
 The database volume and `./data`, `./backups` are reused as they are; nothing is migrated by hand.
 If the long-polling bot ran before, start it again with `--profile bot` (its service is now `bot`).
+
+### Lexicon approvals (learned synonyms, unit aliases, global aliases)
+
+`/admin/lexicon` (platform admins, 7g) lists the global alias candidates — product names that two or
+more organisations confirmed to the same code with individual or group decisions — and the synonym
+entries and unit aliases an admin adds by hand (docs/MATCHING_V2_PLAN.md §11). Nothing there is
+active until approved; the hand-written tables in `packages/core/src/normalize` always apply.
+
+Before approving aliases or adding entries in bulk, and again after, run the regression check on
+the server (the five test catalogues under `tmp/found-catalogs` and the eval sets must be present;
+docs/BENCHMARK_KRAFTA.md says how to build them):
+
+```bash
+mx npm run lexicon:check
+```
+
+It applies the database lexicon exactly as an audit does, runs `bench:files` and `eval` with the
+reranker off, and compares them with the last run recorded in `docs/bench-results.json` and
+`docs/eval-results.json`; any drop fails it (`DROP` lines name the file or set and the metric). Disable
+the entry that caused the drop on the page and run it again. The history files are not touched;
+the runs land in `tmp/lexicon-check/`. Compare on the same database the baselines were recorded on: a
+restored copy rebuilds the vector indexes and its top-5 lists shift on their own; on a copy, record a
+run with `LEXICON=off` and `--out` first and pass it as `--baseline-bench` / `--baseline-eval`. Every save on the page also runs the normaliser's own
+invariants in-process and refuses an entry that breaks them, so the check is for retrieval effects
+the invariants cannot see.
 
 ### Codes restricted in EHF
 

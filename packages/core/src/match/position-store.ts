@@ -50,8 +50,10 @@ export class PositionStore implements CandidateStore {
     return res.rows.map((r) => ({ candidate: toCandidate(r), score: Number(r.score) }));
   }
 
-  async byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]> {
-    const words = query.split(/\s+/).map((t) => t.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()).filter(Boolean);
+  /** Anchoring is for search over the whole classifier: within one position every code is ranked already. */
+  async byFullText(query: string, limit: number, opts: { anchored?: boolean } = {}): Promise<{ candidate: MxikCandidate; score: number }[]> {
+    if (opts.anchored) return [];
+    const words = query.split(/[\s®™©]+/).map((t) => t.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()).filter(Boolean);
     if (words.length === 0) return [];
     const res = await this.pool.query<Row & { score: number }>(
       `SELECT ${SELECT_FIELDS}, ts_rank_cd("searchVector", q) AS score

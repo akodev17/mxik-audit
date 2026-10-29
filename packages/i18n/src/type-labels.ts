@@ -12,6 +12,7 @@ export function typeLabels(t: Dict): Record<string, string> {
     PRIVILEGE_CODE: t.typePrivilegeCode,
     PRIVILEGE_OPPORTUNITY: t.typePrivilegeOpportunity,
     RESTRICTED: t.typeRestricted,
+    TNVED_MISMATCH: t.typeTnvedMismatch,
     OTHER: t.typeOther,
   };
 }

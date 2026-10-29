@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
+import { tnvedHeading } from '@tasnivo/core/match/tnved';
 import { accepts, parseCases } from './cases.js';
 import { parseCsv, toCsv } from './csv.js';
 
@@ -34,6 +36,26 @@ describe('parseCases', () => {
     assert.equal(cases[0]?.barcode, null);
   });
 
+  it('reads an optional TN VED column as written, absent when the file has none', () => {
+    const { cases, errors } = parseCases('name,unit,barcode,tnved,correct_code,source,notes\nТруба 57,м,,7304390000,07304001*,real,n\nЛист,кг,,,07208001*,real,n\n', 'real-tnved.csv');
+    assert.deepEqual(errors, []);
+    assert.deepEqual(cases.map((c) => c.tnved), ['7304390000', null]);
+    assert.equal(parseCases(`${HEADER}Kartoshka,kg,,00701001001000000,real,x\n`, 'g.csv').cases[0]?.tnved, null);
+  });
+
+  it('loads the TN VED set: 40+ real rows, every one with a readable code, 10+ of them vague names', () => {
+    const { cases, errors } = parseCases(readFileSync('eval/real-tnved.csv', 'utf8'), 'real-tnved.csv');
+    assert.deepEqual(errors, []);
+    assert.ok(cases.length >= 40);
+    for (const c of cases) {
+      const heading = tnvedHeading(c.tnved);
+      assert.ok(heading, c.id);
+      // Every label lies in the row's heading: MXIK digits 2-5 are the HS heading.
+      for (const label of c.correct) assert.equal(label.slice(1, 5), heading, c.id);
+    }
+    assert.ok(cases.filter((c) => c.notes.startsWith('vague name')).length >= 10);
+  });
+
   it('reports rows with a bad code or source instead of dropping them silently', () => {
     const { cases, errors } = parseCases(
       `${HEADER}A,,,123,real,x\nB,,,01901001003000000,customer,x\n`, 'golden.csv',
@@ -56,9 +78,17 @@ describe('code prefixes', () => {
     assert.deepEqual(cases[0]?.correct, ['07306001*', '07304001001000000']);
   });
 
-  it('rejects a prefix shorter than a position', () => {
-    const { errors } = parseCases(`${HEADER}X,,,0730*,real,x\n`, 'real-metal.csv');
+  it('rejects a prefix shorter than a class, or between a class and a position', () => {
+    const { errors } = parseCases(`${HEADER}X,,,0730*,real,x\nY,,,0730600*,real,y\n`, 'real-metal.csv');
+    assert.equal(errors.length, 2);
     assert.match(errors[0] ?? '', /code prefix/);
+  });
+
+  it('accepts a class prefix (the HS heading)', () => {
+    const { cases, errors } = parseCases(`${HEADER}Арматура 12 мм,тонна,,07214*|07213*,real,x\n`, 'competitor-22.csv');
+    assert.deepEqual(errors, []);
+    assert.equal(accepts(cases[0]?.correct ?? [], '07214001001000311'), true);
+    assert.equal(accepts(cases[0]?.correct ?? [], '07216001001000000'), false);
   });
 
   it('accepts any code under a prefix and only the exact code otherwise', () => {

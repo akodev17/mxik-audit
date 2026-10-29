@@ -3,10 +3,13 @@
 // codes, amounts that could be read two ways, and what the reader skipped.
 // Code cells are read like the audit reads them (readCode): no digits at all
 // is no code (MISSING), digits of the wrong length a code the classifier will
-// not have (NOT_FOUND). Pure; computed on the server and stored on
+// not have (NOT_FOUND). TN VED cells are read like the matcher reads them
+// (core/match/tnved.ts): an odd digit count gets its lost leading zero back,
+// anything else outside 4-10 digits is ignored. Pure; computed on the server and stored on
 // Catalog.importMeta with the final mapping.
 import { attrsKey, normalizeName } from '@tasnivo/core/normalize/index';
 import { identifyingBarcode } from '@tasnivo/core/normalize/barcode';
+import { readTnved } from '@tasnivo/core/match/tnved';
 import { readAmount } from './amount.js';
 import type { ColumnField, ColumnMap } from './column-map.js';
 import type { ParseMeta } from './spreadsheet.js';
@@ -33,6 +36,10 @@ export type ImportDiagnostics = {
   lostZero: Counted;
   /** Price or sales cells like "12,500" that read as thousands but could be decimals. */
   ambiguousAmounts: Counted;
+  /** TN VED cells with digits that are not an HS code of 4-10 digits: ignored when matching. */
+  badTnved: Counted;
+  /** TN VED cells with an odd digit count: Excel dropped the leading zero, which the import puts back. */
+  tnvedZero: Counted;
 };
 
 export type ImportMeta = {
@@ -60,6 +67,8 @@ export function importDiagnostics(rows: readonly (readonly string[])[], mapping:
   const badCodes = counted();
   const lostZero = counted();
   const ambiguousAmounts = counted();
+  const badTnved = counted();
+  const tnvedZero = counted();
   const seen = new Map<string, number>();
 
   rows.forEach((row, i) => {
@@ -89,6 +98,10 @@ export function importDiagnostics(rows: readonly (readonly string[])[], mapping:
       if (digits.length === 16) note(lostZero, n);
     }
 
+    const tnved = readTnved(cell(row, mapping.tnved));
+    if (tnved.status === 'bad') note(badTnved, n);
+    if (tnved.status === 'ok' && tnved.restoredZero) note(tnvedZero, n);
+
     const amounts = [cell(row, mapping.price), cell(row, mapping.sales)];
     if (amounts.some((a) => a !== '' && readAmount(a).ambiguous)) note(ambiguousAmounts, n);
   });
@@ -96,7 +109,7 @@ export function importDiagnostics(rows: readonly (readonly string[])[], mapping:
   return {
     rows: rows.length,
     importable: rows.length - noName.count,
-    noName, duplicates, noCode, badCodes, lostZero, ambiguousAmounts,
+    noName, duplicates, noCode, badCodes, lostZero, ambiguousAmounts, badTnved, tnvedZero,
   };
 }
 
@@ -113,11 +126,20 @@ export function readImportMeta(json: unknown): ImportMeta | null {
   const p = json['parse'];
   if (typeof d['rows'] !== 'number' || !isObject(d['noName']) || typeof p['totalSeen'] !== 'number') return null;
   const meta = json as unknown as ImportMeta;
-  return isObject(d['noCode']) ? meta : { ...meta, diagnostics: { ...meta.diagnostics, noCode: counted() } };
+  // Older meta predates the placeholder and TN VED counts: none of those rows were counted then.
+  return {
+    ...meta,
+    diagnostics: {
+      ...meta.diagnostics,
+      noCode: isObject(d['noCode']) ? meta.diagnostics.noCode : counted(),
+      badTnved: isObject(d['badTnved']) ? meta.diagnostics.badTnved : counted(),
+      tnvedZero: isObject(d['tnvedZero']) ? meta.diagnostics.tnvedZero : counted(),
+    },
+  };
 }
 
 /** True when nothing in the diagnostics needs the user's attention. */
 export function diagnosticsClean(d: ImportDiagnostics, parse: Pick<ParseMeta, 'truncated'>): boolean {
   return !parse.truncated && d.noName.count === 0 && d.duplicates.count === 0 && d.noCode.count === 0
-    && d.badCodes.count === 0 && d.ambiguousAmounts.count === 0;
+    && d.badCodes.count === 0 && d.ambiguousAmounts.count === 0 && d.badTnved.count === 0 && d.tnvedZero.count === 0;
 }

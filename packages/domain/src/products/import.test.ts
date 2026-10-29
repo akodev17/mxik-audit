@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import ExcelJS from 'exceljs';
 import { db } from '@tasnivo/db';
+import { i18nFor } from '@tasnivo/i18n/locale';
 import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeCatalog, makeOrg } from '../test-fixtures.js';
 import { exportProducts, productsFromAudit } from './catalog.js';
@@ -87,6 +88,21 @@ describe('product import flow (database, fake Tasnif)', { skip }, () => {
     ['00-004', '', '', 'шт', '', '', ''],
     ['00-005', 'Живые лошади', '', 'шт', codes[0] ?? '', '', ''],
   ];
+
+  it('an ended trial closes the import preview and commit, like the list uploads (Phase C F1)', async () => {
+    const org = await makeOrg();
+    await db.organization.update({ where: { id: org.orgId }, data: { trialEndsAt: new Date(Date.now() - 86_400_000) } });
+    const closed: CurrentUser = { userId: org.userId, orgId: org.orgId, email: 'x@test.local', demo: false, clientId: null, role: 'admin', clientIds: null };
+    try {
+      const expected = { ok: false, error: i18nFor('ru').ta.msg.gate.expired };
+      assert.deepEqual(await previewProductImport(closed, 'ru', { file: csvFile('nomenklatura.csv', rows()), clientId: null }), expected);
+      const mapping = JSON.stringify(guessProductMapping(ONEC_HEADERS));
+      assert.deepEqual(await commitProductImport(closed, 'ru', { file: csvFile('nomenklatura.csv', rows()), clientId: null, mapping }), expected);
+      assert.equal(await db.importBatch.count({ where: { orgId: org.orgId } }), 0);
+    } finally {
+      await dropOrgs([org.orgId]);
+    }
+  });
 
   it('previews with the 1C preset, imports, checks in the background and saves', async () => {
     const preview = await previewProductImport(user, 'ru', { file: csvFile('nomenklatura.csv', rows()), clientId: null });

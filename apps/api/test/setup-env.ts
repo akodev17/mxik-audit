@@ -5,6 +5,9 @@ import 'reflect-metadata';
 import { loadRootEnv } from '../src/config/load-env';
 
 loadRootEnv();
+// Never a real LLM call from a test: the root .env may hold a GEMINI_API_KEY (or an
+// Anthropic one), and stage 6 would then call the provider and make results non-deterministic.
+process.env['RERANK_PROVIDER'] = 'off';
 // The docker-compose development database (.env.example); a real .env or environment wins.
 process.env['DATABASE_URL'] ||= 'postgresql://mxik:mxik@127.0.0.1:54329/mxik?schema=public';
 process.env['SESSION_SECRET'] ||= 'apps-api-test-session-secret-0123456789abcdef';

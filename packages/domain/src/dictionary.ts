@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryKeys, type DictionaryLookup } from '@tasnivo/core/match/dictionary';
 import { db } from '@tasnivo/db';
+import { recordAliasConfirmationsQuietly } from './lexicon.js';
 import { mayWrite, type RoleCarrier } from './write-access.js';
 
 export type Learnable = { rawName: string; unit: string | null; barcode: string | null; code: string };
@@ -53,6 +54,8 @@ export async function learn(orgId: string, userId: string | null, items: readonl
       source = EXCLUDED.source,
       code = EXCLUDED.code, label = EXCLUDED.label, unit = EXCLUDED.unit,
       "updatedBy" = EXCLUDED."updatedBy", "updatedAt" = now(), "staleAt" = NULL`;
+  // The global alias candidates' evidence (lexicon.ts): the same confirming sources, no unit in the key.
+  await recordAliasConfirmationsQuietly(orgId, items, source);
 }
 
 type DictClient = Pick<Prisma.TransactionClient, 'firmMapping'>;

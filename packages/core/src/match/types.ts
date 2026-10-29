@@ -71,7 +71,17 @@ export type MatchInput = {
   barcode?: string | null;
   unit?: string | null;
   existingMxik?: string | null;
+  /** The row's TIF TN (TN VED / HS) code; its heading restricts retrieval (tnved.ts). */
+  tnved?: string | null;
 };
+
+/**
+ * What the row's TN VED code did: none on the row, unreadable (ignored),
+ * restricted retrieval to its heading, or restricted it to nothing so retrieval
+ * ran over the whole classifier ("fallback"). "unscoped": the store cannot
+ * restrict, so the heading was only recorded.
+ */
+export type TnvedOutcome = 'none' | 'invalid' | 'restricted' | 'fallback' | 'unscoped';
 
 /**
  * What stage 6 did for a row: not needed (settled before retrieval), off for
@@ -97,8 +107,10 @@ export type MatchResult = {
   notes: string[];
   rerank: RerankOutcome;
   vector: VectorOutcome;
-  /** Set when stage 6 vetoed every candidate; `candidates` is then empty. */
+  /** Set when stage 6 judged that no candidate fits; `candidates` then keep retrieval order, capped. */
   veto: RerankVeto | null;
+  /** What the row's TN VED code did; absent on results built before the column existed. */
+  tnved?: TnvedOutcome;
   /**
    * Codes in the fused pool handed to the reranker, best-first. Wider than
    * `candidates`, which is truncated to topK. Exposed so the eval can measure
@@ -113,14 +125,31 @@ export type CandidateStore = {
   byBarcode(barcode: string): Promise<MxikCandidate[]>;
   byMatchKey(keys: readonly string[]): Promise<MxikCandidate[]>;
   byLexical(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
-  /** `hierarchyWords`: query words found only in the code's position, class or group names (weighted column). */
-  byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
+  /**
+   * `hierarchyWords`: query words found only in the code's position, class or group names (weighted column).
+   * `anchored`: only the query's rarest words select (in at most 50 codes, else under 1,000: store.ts), every word
+   * still ranks; no rare word = no hits. A store that cannot count terms ignores it.
+   */
+  byFullText(query: string, limit: number, opts?: { anchored?: boolean }): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
   /** `column`: 'uz' (embeddingUz) or 'ru' (embeddingRu); the store's default when absent. `cosine`: raw similarity. */
   byVector(embedding: readonly number[], limit: number, column?: 'uz' | 'ru'): Promise<{ candidate: MxikCandidate; score: number; cosine?: number }[]>;
+  /**
+   * Raw cosine of `embedding` against each of `codes` that has a vector in `column`,
+   * for codes another stage retrieved. Absent = the store cannot look vectors up by code.
+   */
+  cosinesFor?(embedding: readonly number[], codes: readonly string[], column?: 'uz' | 'ru'): Promise<Map<string, number>>;
+  /** byLexical's trigram score of `query` for each of `codes`, without the similarity threshold. Absent = cannot score by code. */
+  lexicalFor?(query: string, codes: readonly string[]): Promise<Map<string, number>>;
   byCode(code: string): Promise<MxikCandidate | null>;
   baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null>;
   /** The subset of `codes` that exist in the classifier and are not retired. */
   liveCodes(codes: readonly string[]): Promise<Set<string>>;
+  /**
+   * The same store with exact, lexical, full-text and vector retrieval limited
+   * to codes starting with `prefix` (a TN VED heading, tnved.ts). Absent = the
+   * store cannot restrict, and the pipeline only records the heading.
+   */
+  withinPrefix?(prefix: string): CandidateStore;
 };
 
 export type EmbeddingProvider = {
@@ -171,6 +200,8 @@ export type RerankUsage = {
   inputTokens: number;
   outputTokens: number;
   latencyMs: number;
+  /** Median time of one answered API call; null before any call. */
+  batchLatencyP50Ms?: number | null;
   /** USD, null when the model's price is unknown. */
   estimatedCostUsd: number | null;
 };

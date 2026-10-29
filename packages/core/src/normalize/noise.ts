@@ -41,6 +41,9 @@ const RE_PERCENT = new RegExp(`${LEFT}${NUM}\\s*%`, 'gu');
 // alternative wall thicknesses after a slash: "Трубы эл/св 76х2,8/3,0/3,5".
 const SIZE = String.raw`\d+(?:[.,]\d+)?(?:/\d+(?:[.,]\d+)?)*`;
 const RE_DIMENSIONS = new RegExp(`${LEFT}(${SIZE}(?:\\s*[xх×*]\\s*${SIZE}){1,2})${RIGHT}`, 'giu');
+// A pharmacy pack: "№28(2x14)" is 28 tablets in 2 blisters of 14, not a 2x14 size.
+// Only the breakdown is taken; "№28" stays in the name, as the classifier writes it.
+const RE_PACK_BREAKDOWN = /№\s*(\d+)\s*(\(\s*\d+\s*[xх×*]\s*\d+\s*\))/giu;
 // Vendor/model codes: letters glued to digits, e.g. KT2049G, SI1003, ЦЕМ II.
 const RE_VENDOR = /(?<![\p{L}\d])(?=[\p{L}]*\d)(?=\d*[\p{L}])[\p{L}\d]*[\p{L}][\p{L}\d]*\d[\p{L}\d]*(?![\p{L}\d])/gu;
 
@@ -89,6 +92,11 @@ export function stripNoise(input: string): NoiseStripResult {
     });
   };
 
+  work = work.replace(RE_PACK_BREAKDOWN, (_whole, count: string, breakdown: string) => {
+    if (attrs.packCount === null) attrs.packCount = Number(count);
+    removed.push(breakdown.replace(/\s+/g, ''));
+    return `№${count} `;
+  });
   take(RE_DIMENSIONS, (g) => { if (attrs.dimensions === null && g[0]) attrs.dimensions = g[0].replace(/\s+/g, ''); });
   take(RE_PERCENT, (g) => { if (attrs.percent === null && g[0]) attrs.percent = num(g[0]); });
   take(RE_VOLUME, (g) => {
@@ -121,6 +129,77 @@ export function stripNoise(input: string): NoiseStripResult {
   work = work.replace(/(?<![\p{L}\d/])[xх×*](?![\p{L}\d/])/giu, ' ');
 
   return { core: squeezeWhitespace(work), attrs, removed };
+}
+
+/** The text without its pack breakdowns: "№28(2x14)" reads "№28". */
+export function withoutPackBreakdown(input: string): string {
+  return input.replace(RE_PACK_BREAKDOWN, (_whole, count: string) => `№${count} `);
+}
+
+export type Measure = {
+  kind: 'volume' | 'weight' | 'length' | 'percent' | 'concentration';
+  /** In ml, g, mm, % or mg per ml. */
+  value: number;
+  /** As written ("1,5л", "500 мг"). */
+  text: string;
+  /**
+   * A concentration's mass in mg as written ("15 мг/2 мл": 15). Registers and
+   * the classifier both write "15 мг/мл 2 мл" for a 15 mg ampoule of 2 ml, so
+   * two spellings with the same mass are compatible even when their mg per ml
+   * differ; only a different mass and a different strength contradict.
+   */
+  mass?: number;
+};
+
+// Micrograms are a dose only ("250 мкг/доза"), so stripNoise leaves them in the name.
+const RE_MICROGRAM = measure(['микрограмм', 'mikrogramm', 'мкг', 'mkg', 'mcg', 'µg']);
+const TO_G_MICRO: Record<string, number> = { микрограмм: 1e-6, mikrogramm: 1e-6, мкг: 1e-6, mkg: 1e-6, mcg: 1e-6, µg: 1e-6 };
+const RE_PERCENT_MEASURE = new RegExp(`${LEFT}${NUM}\\s*(%)`, 'gu');
+
+// A strength written per volume: "15 мг/мл", "15 мг/2 мл", "500 мг/100 мл",
+// "50 мкг/мл". Read whole, in mg per ml, so the two spellings of one strength
+// agree and "15 мг/мл" is not the same ampoule as "15 мг/2 мл" (7.5 mg/ml).
+const CONCENTRATION_MASS = ['микрограмм', 'mikrogramm', 'миллиграмм', 'milligramm', 'мкг', 'mkg', 'mcg', 'µg', 'мг', 'mg', 'грамм', 'gramm', 'гр', 'gr', 'г', 'g'] as const;
+const CONCENTRATION_VOLUME = ['миллилитр', 'millilitr', 'литр', 'litr', 'мл', 'ml', 'л', 'l'] as const;
+const TO_MG: Record<string, number> = { микрограмм: 0.001, mikrogramm: 0.001, миллиграмм: 1, milligramm: 1, мкг: 0.001, mkg: 0.001, mcg: 0.001, µg: 0.001, мг: 1, mg: 1, грамм: 1000, gramm: 1000, гр: 1000, gr: 1000, г: 1000, g: 1000 };
+const TO_ML_PER: Record<string, number> = { миллилитр: 1, millilitr: 1, литр: 1000, litr: 1000, мл: 1, ml: 1, л: 1000, l: 1000 };
+const RE_CONCENTRATION = new RegExp(
+  `${LEFT}${NUM}\\s*(${unitAlternation(CONCENTRATION_MASS)})\\s*/\\s*(?:${NUM}\\s*)?(${unitAlternation(CONCENTRATION_VOLUME)})\\.?${RIGHT}`, 'giu',
+);
+
+const MEASURES = [
+  ['volume', RE_VOLUME, TO_ML],
+  ['weight', RE_MICROGRAM, TO_G_MICRO],
+  ['weight', RE_WEIGHT, TO_G],
+  ['length', RE_LENGTH, TO_MM],
+  ['percent', RE_PERCENT_MEASURE, { '%': 1 }],
+] as const;
+
+/**
+ * Every quantity with a unit in a text, not just the first of each kind as
+ * stripNoise keeps: a code's attributes can name a diameter and a wall
+ * thickness ("диаметр 15 мм, толщиной стенки 2,5 мм"). Volume is read first
+ * so "500 мл" is not also read as metres. A strength in micrograms or per cent
+ * ("250 мкг/доза", "0,1%") is a measure too: it tells a drug's doses apart.
+ */
+export function measuresIn(input: string): Measure[] {
+  const out: Measure[] = [];
+  // Concentrations first, whole: their mass and volume are not the vial's.
+  let work = input.replace(RE_CONCENTRATION, (whole: string, mass: string, massUnit: string, per: string | undefined, volUnit: string) => {
+    const mg = TO_MG[massUnit.toLowerCase()];
+    const ml = TO_ML_PER[volUnit.toLowerCase()];
+    if (mg === undefined || ml === undefined) return whole;
+    out.push({ kind: 'concentration', value: (num(mass) * mg) / ((per ? num(per) : 1) * ml), text: whole.trim(), mass: num(mass) * mg });
+    return ' ';
+  });
+  for (const [kind, re, table] of MEASURES) {
+    work = work.replace(re, (whole: string, value: string, unit: string) => {
+      const factor = (table as Record<string, number>)[unit.toLowerCase()];
+      if (factor !== undefined) out.push({ kind, value: num(value) * factor, text: whole.trim() });
+      return ' ';
+    });
+  }
+  return out;
 }
 
 /**

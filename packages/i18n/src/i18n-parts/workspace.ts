@@ -59,6 +59,7 @@ export const uz = {
       PRIVILEGE_CODE: 'Kod tasniflagichda soliq imtiyozi bilan bogʻlangan.',
       PRIVILEGE_OPPORTUNITY: 'Taklif etilgan kod soliq imtiyozi bilan bogʻlangan, hozirgi kod esa yoʻq.',
       RESTRICTED: 'Kod EHFda foydalanish cheklanadigan umumiy MXIK kodlari roʻyxatida.',
+      TNVED_MISMATCH: 'Kod qatordagi TIF TN kodining tovar pozitsiyasiga tegishli emas: MXIK kodining 2–5-raqamlari TIF TN kodining dastlabki 4 raqamiga teng boʻlishi kerak.',
       OTHER: 'Boshqa turdagi tekshiruv natijasi; sababi quyida yozilgan.',
     } as Record<string, string>,
     /** What "Kod toʻgʻri" records for each confirming check. */
@@ -84,6 +85,8 @@ export const uz = {
         ? `${date} dan ${code} kodidan EHFda foydalanish cheklangan. Uni batafsil kodga almashtiring.`
         : `${date} dan ${code} kodidan EHFda foydalanish cheklanadi. Uni oldindan batafsil kodga almashtiring.`),
       restrictedNone: 'Tasniflagichda bu pozitsiyaning batafsil kodi topilmadi: mkinfo.uz shaxsiy kabineti orqali batafsil kod soʻrang.',
+      tnved: (tnved: string, heading: string, codeHeading: string) => `Qatordagi TIF TN kodi ${tnved} (${heading} pozitsiyasi), MXIK kodi esa ${codeHeading} pozitsiyasida. Bojxona deklaratsiyasi bilan solishtiring: xato yo MXIK kodida, yo TIF TN kodida.`,
+      tnvedNone: 'TIF TN pozitsiyasida tovar nomiga mos kod topilmadi: TIF TN kodini tekshiring yoki kodni oʻzingiz tanlang.',
       privileges: 'Bogʻlangan imtiyozlar',
     },
     act: {
@@ -542,6 +545,7 @@ export const ru: typeof uz = {
       PRIVILEGE_CODE: 'В классификаторе код связан с налоговой льготой.',
       PRIVILEGE_OPPORTUNITY: 'Предложенный код связан с налоговой льготой, а текущий — нет.',
       RESTRICTED: 'Код входит в перечень общих ИКПУ, применение которых в ЭСФ ограничивается.',
+      TNVED_MISMATCH: 'Код не относится к товарной позиции кода ТН ВЭД из строки: цифры 2–5 ИКПУ должны совпадать с первыми 4 цифрами кода ТН ВЭД.',
       OTHER: 'Результат проверки другого типа; причина указана ниже.',
     },
     confirmMeans: {
@@ -565,6 +569,8 @@ export const ru: typeof uz = {
         ? `С ${date} применение кода ${code} в ЭСФ ограничено. Замените его детализированным кодом.`
         : `С ${date} применение кода ${code} в ЭСФ будет ограничено. Замените его детализированным кодом заранее.`),
       restrictedNone: 'В классификаторе нет детализированного кода этой позиции: запросите его через личный кабинет на mkinfo.uz.',
+      tnved: (tnved, heading, codeHeading) => `Код ТН ВЭД в строке ${tnved} (позиция ${heading}), а ИКПУ относится к позиции ${codeHeading}. Сверьте с таможенной декларацией: ошибка либо в ИКПУ, либо в коде ТН ВЭД.`,
+      tnvedNone: 'В товарной позиции ТН ВЭД нет кода, подходящего по названию: проверьте код ТН ВЭД или выберите код сами.',
       privileges: 'Связанные льготы',
     },
     act: {

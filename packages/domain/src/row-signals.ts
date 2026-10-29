@@ -21,12 +21,16 @@ const RULE_TONE: Record<RuleKey, SignalTone> = {
   identifyingMarked: 'good',
   identifyingUnmarked: 'warn',
   identifyingUnknownMarking: 'warn',
-  preparedDishBase: 'good',
-  preparedDishSpecific: 'warn',
+  identifyingPreferred: 'good',
+  otherBrand: 'warn',
+  statedConflict: 'bad',
+  cateringPreferred: 'good',
+  cateringOutside: 'warn',
   strictUnitConflict: 'bad',
   recommendedUnitMatch: 'good',
   unitKindMismatch: 'warn',
   unrequestedMaterial: 'warn',
+  headNounMismatch: 'warn',
 };
 
 function dictionarySignal(evidence: MatchEvidence, ta: AppDict): Signal {
@@ -44,6 +48,18 @@ function ruleSignals(evidence: MatchEvidence, ta: AppDict): Signal[] {
   // The unit line already reports a strict conflict.
   const keys = (evidence.rules ?? []).filter((k) => !(k === 'strictUnitConflict' && evidence.unit === 'conflict'));
   return keys.map((k) => ({ label: x.rulesLabel, text: x.rules[k], tone: RULE_TONE[k] }));
+}
+
+/** The row's TN VED heading: where the code came from, and whether the row's own code sits outside it. */
+function tnvedSignals(evidence: MatchEvidence, heading: string, ta: AppDict): Signal[] {
+  const x = ta.matchX;
+  const out: Signal[] = [];
+  if (evidence.tnvedFallback) out.push({ label: x.tnvedLabel, text: x.tnvedFallback(heading), tone: 'warn' });
+  out.push(evidence.tnvedOutside
+    ? { label: x.tnvedLabel, text: x.tnvedOutside(heading), tone: 'bad' }
+    : { label: x.tnvedLabel, text: x.tnvedIn(heading), tone: 'good' });
+  if (evidence.tnvedExistingOutside) out.push({ label: x.tnvedLabel, text: x.tnvedExistingOutside(heading), tone: 'warn' });
+  return out;
 }
 
 export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, ta: AppDict): Signal[] {
@@ -64,6 +80,13 @@ export function rowSignals({ evidence, confidence, rowUnit, codeUnit }: Input, t
   }
   if (evidence.matchedHierarchyWords && evidence.matchedHierarchyWords.length > 0) {
     out.push({ label: ta.matchX.hierarchyLabel, text: ta.matchX.hierarchy(evidence.matchedHierarchyWords.join(', ')), tone: 'good' });
+  }
+  if (evidence.tnvedHeading) out.push(...tnvedSignals(evidence, evidence.tnvedHeading, ta));
+  if (evidence.identifyingMatchedTokens && evidence.identifyingMatchedTokens.length > 0) {
+    out.push({ label: ta.matchX.identifyingLabel, text: ta.matchX.identifying(evidence.identifyingMatchedTokens.join(', ')), tone: 'good' });
+  }
+  if (evidence.aliasOrgs !== undefined && evidence.aliasOrgs > 0) {
+    out.push({ label: ta.matchX.aliasLabel, text: ta.matchX.alias(evidence.aliasOrgs), tone: 'good' });
   }
   if (evidence.synonymApplied && evidence.synonymApplied.length > 0) {
     out.push({ label: ta.matchX.synonymLabel, text: ta.matchX.synonym(evidence.synonymApplied.join('; ')), tone: 'neutral' });

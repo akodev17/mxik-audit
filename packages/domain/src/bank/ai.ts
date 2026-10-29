@@ -6,7 +6,7 @@
 // Same client setup as the MXIK reranker (packages/core/src/match/rerank-claude.ts).
 import Anthropic from '@anthropic-ai/sdk';
 import { BANK_OPERATIONS, type BankOperation } from '@tasnivo/contracts/modules/bank';
-import { rerankConfigFromEnv, type EnvLike, type RerankConfig } from '@tasnivo/core/match/rerank-config';
+import { anthropicConfigFromEnv, type EnvLike, type RerankConfig } from '@tasnivo/core/match/rerank-config';
 import { z } from 'zod';
 
 export type SuggestRow = { id: string; purpose: string; counterparty: string; direction: 'debit' | 'credit' };
@@ -115,6 +115,7 @@ export function setOperationSuggester(suggester: OperationSuggester | null | und
 /** The suggester for this process: the override, else Claude when a key is configured, else none. */
 export function operationSuggester(env: EnvLike = process.env): OperationSuggester | null {
   if (override !== undefined) return override;
-  const config = rerankConfigFromEnv(env);
+  // Claude only, whichever provider RERANK_PROVIDER picks for the MXIK reranker.
+  const config = anthropicConfigFromEnv(env);
   return config.enabled && config.apiKey ? new ClaudeOperationSuggester(config) : null;
 }

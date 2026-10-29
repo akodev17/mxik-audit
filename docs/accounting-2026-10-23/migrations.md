@@ -216,3 +216,44 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261107000100_feature_
 What breaks: with the new code still running, every request under a module's prefix (API and web)
 answers 500 once the cached states expire, and `/admin/features` cannot save. Deploy the previous
 code first; it never reads the table.
+
+## Matching: TIF TN (TN VED) column (`202611060*`)
+
+### `20261106000100_tnved` (`claude/tnved-rebased`, first written as `20261028100000_tnved` on `claude/eager-bardeen-e698d3`)
+
+Adds the nullable `catalog_item.tnved` column (the row's TIF TN / TN VED code from the upload) and
+the `finding_type` value `TNVED_MISMATCH`.
+
+```sql
+-- Postgres cannot drop an enum value; it stays and is harmless (the redeploy's ADD VALUE IF NOT
+-- EXISTS is a no-op). The findings must not: an older Prisma client fails on a value it does not
+-- know. They become MISMATCH, which they replace (a row never has both), suggestion and decision kept.
+UPDATE "finding" SET "type" = 'MISMATCH' WHERE "type" = 'TNVED_MISMATCH';
+ALTER TABLE "catalog_item" DROP COLUMN IF EXISTS "tnved";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261106000100_tnved';
+```
+
+What breaks: the TN VED codes of uploaded catalogues are lost (uploading the file again restores
+them); re-audits match without the heading filter; former TN VED findings read as plain MISMATCH,
+with their TN VED explanation gone.
+
+## Matching: learned lexicon (`202611070*`)
+
+### `20261107000100_lexicon` (`claude/epic-driscoll-478159`)
+
+Adds two tables (docs/MATCHING_V2_PLAN.md §11): `learned_alias` (per organisation, which code it
+confirmed for a normalised product name, individual and group decisions only) and `lexicon_entry`
+(what a platform admin keeps on `/admin/lexicon`: synonym entries, unit aliases, approved or
+rejected global aliases). No existing table changes.
+
+```sql
+DROP TABLE IF EXISTS "lexicon_entry";
+DROP TABLE IF EXISTS "learned_alias";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261107000100_lexicon';
+```
+
+What breaks: with the new code and the tables gone, `learn()` logs `[lexicon] alias confirmation
+not recorded` on every decision and the audit logs `[lexicon] not loaded, file tables only` once a
+minute; matching itself continues on the hand-written tables. `/admin/lexicon` answers 500. The
+old code never reads the tables. Approved entries and the organisations' confirmation counts are
+lost; the firm dictionaries (`firm_mapping`) are untouched.

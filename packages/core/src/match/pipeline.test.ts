@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HashingEmbeddingProvider } from '../embed/index.js';
+import { aliasKey, aliasLookup } from './alias.js';
 import type { DictionaryEntry, DictionaryLookup } from './dictionary.js';
-import { matchProduct, vectorColumnsFor } from './pipeline.js';
+import { matchProduct, mergeHits, vectorColumnsFor } from './pipeline.js';
 import { NoopRerankProvider } from './rerank.js';
 import { NONE_REASON } from './rerank-parse.js';
 import { BANDS, NO_RERANK_CEILING } from './score.js';
@@ -185,10 +186,21 @@ describe('matchProduct cascade', () => {
     }
   });
 
-  it('reports the prepared-dish rule in its notes', async () => {
+  it('reports a food-service row in its notes and searches with the menu wording', async () => {
     const store = new FakeStore(ROWS);
     const r = await matchProduct({ rawName: 'Palov 1 porsiya' }, { store, embedder, reranker: noop });
-    assert.ok(r.notes.some((n) => n.includes('prepared dish')));
+    assert.ok(r.notes.some((n) => n.includes('food-service item')));
+    assert.ok(r.notes.some((n) => n.includes("palov → asosiy taomlar")));
+    const plain = await matchProduct({ rawName: 'Guruch 1 kg' }, { store, embedder, reranker: noop });
+    assert.ok(!plain.notes.some((n) => n.includes('food-service item')));
+  });
+
+  it('reads a shop word as the cafe\'s when the row\'s own code is in the catering group', async () => {
+    const store = new FakeStore(ROWS);
+    const shop = await matchProduct({ rawName: 'Ko\'k choy 100 g' }, { store, embedder, reranker: noop });
+    assert.ok(!shop.notes.some((n) => n.includes('food-service item')));
+    const cafe = await matchProduct({ rawName: 'Ko\'k choy 100 g', existingMxik: '10202001010000001' }, { store, embedder, reranker: noop });
+    assert.ok(cafe.notes.some((n) => n.includes('food-service item')));
   });
 
   it('warns when the embedder is not semantic', async () => {
@@ -348,11 +360,15 @@ class CountingEmbedder extends HashingEmbeddingProvider {
 }
 
 describe('stage outcomes and the veto', () => {
-  it('returns the veto on the result instead of silently emptying it', async () => {
+  it('keeps retrieval order, capped and marked, when the reranker finds no fit', async () => {
     const r = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: new NoneReranker() });
+    const plain = await matchProduct({ rawName: 'guruch' }, { store: new FakeStore(ROWS), embedder, reranker: noop });
     assert.equal(r.rerank, 'none');
-    assert.deepEqual(r.candidates, []);
-    assert.equal(r.decidedBy, 'none');
+    assert.deepEqual(r.candidates.map((c) => c.candidate.code), plain.candidates.map((c) => c.candidate.code));
+    assert.ok(r.candidates.length > 0);
+    assert.ok(r.candidates.every((c) => c.confidence <= NO_RERANK_CEILING && c.band !== 'high' && c.stage !== 'rerank'));
+    assert.ok(r.candidates.every((c) => c.evidence.rerankNone && c.evidence.rerankReason === null));
+    assert.equal(r.decidedBy, 'fusion');
     assert.ok(r.veto && r.veto.offered.length > 0);
     assert.ok(r.notes.some((n) => n.includes('no candidate fits')));
     assert.ok(!r.notes.some((n) => n.includes('unrelated')), 'a veto is not an unrelated-candidate filter');
@@ -574,5 +590,375 @@ describe('vectorColumnsFor', () => {
     assert.deepEqual(vectorColumnsFor('cyrillic', ['uz']), ['uz']);
     assert.deepEqual(vectorColumnsFor('neither', ['uz', 'ru']), ['uz', 'ru']);
     assert.deepEqual(vectorColumnsFor('latin', []), ['uz']);
+  });
+});
+
+/** A fake that can limit retrieval to a code prefix, like PostgresCandidateStore.withinPrefix. */
+class PrefixStore extends FakeStore {
+  prefixes: string[] = [];
+  constructor(private readonly all: MxikCandidate[]) {
+    super(all);
+  }
+  withinPrefix(prefix: string): CandidateStore {
+    this.prefixes.push(prefix);
+    return new FakeStore(this.all.filter((r) => r.code.startsWith(prefix)));
+  }
+}
+
+const PIPES = [
+  candidate('07304001001000000', 'truba besshovnaya'),
+  candidate('07306001001000000', 'truba elektrosvarnaya', { barcode: '04780000000014' }),
+  candidate('03917001001000000', 'truba plastmassovaya'),
+];
+
+describe('matchProduct with a TN VED code', () => {
+  it('limits retrieval to the heading and records it on every candidate', async () => {
+    const store = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '7304390000' }, { store, embedder, reranker: noop });
+    assert.deepEqual(store.prefixes, ['07304']);
+    assert.equal(r.tnved, 'restricted');
+    assert.ok(r.candidates.length > 0);
+    for (const c of r.candidates) {
+      assert.ok(c.candidate.code.startsWith('07304'), c.candidate.code);
+      assert.equal(c.evidence.tnvedHeading, '7304');
+      assert.equal(c.evidence.tnvedOutside, undefined);
+    }
+    assert.ok(r.notes.some((n) => n.includes('limited to TN VED heading 7304')));
+    // The barcode-free row never asked the whole classifier for names.
+    assert.ok(!store.calls.includes('byLexical'));
+  });
+
+  it('the same name under another heading gets that heading\'s code', async () => {
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '3917230000' }, { store: new PrefixStore(PIPES), embedder, reranker: noop });
+    assert.equal(r.candidates[0]?.candidate.code, '03917001001000000');
+  });
+
+  it('a name equal to a code outside the heading is not settled by the exact stage', async () => {
+    const r = await matchProduct({ rawName: 'truba elektrosvarnaya', tnved: '7304' }, { store: new PrefixStore(PIPES), embedder, reranker: noop });
+    assert.notEqual(r.decidedBy, 'exact');
+    assert.equal(r.candidates[0]?.candidate.code, '07304001001000000');
+  });
+
+  it('falls back to the whole classifier when the heading has nothing, and says so', async () => {
+    const store = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '8471300000' }, { store, embedder, reranker: noop });
+    assert.equal(r.tnved, 'fallback');
+    assert.ok(r.candidates.length > 0);
+    assert.match(r.notes[0] ?? '', /^TN VED heading 8471: no code of the heading was retrieved/);
+    for (const c of r.candidates) {
+      assert.equal(c.evidence.tnvedHeading, '8471');
+      assert.equal(c.evidence.tnvedFallback, true);
+      assert.equal(c.evidence.tnvedOutside, true);
+    }
+    // The result still describes the row as it came in.
+    assert.equal(r.input.tnved, '8471300000');
+  });
+
+  it('keeps a barcode identity outside the heading, flagged as outside', async () => {
+    const r = await matchProduct(
+      { rawName: 'Truba', barcode: '4780000000014', tnved: '7304' },
+      { store: new PrefixStore(PIPES), embedder, reranker: noop },
+    );
+    assert.equal(r.decidedBy, 'barcode');
+    assert.equal(r.candidates[0]?.candidate.code, '07306001001000000');
+    assert.equal(r.candidates[0]?.evidence.tnvedOutside, true);
+  });
+
+  it('records that the row\'s own code lies outside the heading', async () => {
+    const r = await matchProduct(
+      { rawName: 'Truba 57', tnved: '7304', existingMxik: '07306001001000000' },
+      { store: new PrefixStore(PIPES), embedder, reranker: noop },
+    );
+    assert.equal(r.candidates[0]?.evidence.tnvedExistingOutside, true);
+    const inside = await matchProduct(
+      { rawName: 'Truba 57', tnved: '7304', existingMxik: '07304001001000000' },
+      { store: new PrefixStore(PIPES), embedder, reranker: noop },
+    );
+    assert.equal(inside.candidates[0]?.evidence.tnvedExistingOutside, undefined);
+  });
+
+  it('ignores an unreadable code, and only records the heading when the store cannot limit', async () => {
+    const bad = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57', tnved: '73' }, { store: bad, embedder, reranker: noop });
+    assert.equal(r.tnved, 'invalid');
+    assert.deepEqual(bad.prefixes, []);
+    assert.ok(r.notes.some((n) => n.includes('"73" is not a 4-10 digit HS code')));
+    assert.equal(r.candidates[0]?.evidence.tnvedHeading, undefined);
+
+    const plain = await matchProduct({ rawName: 'Truba 57', tnved: '7304' }, { store: new FakeStore(PIPES), embedder, reranker: noop });
+    assert.equal(plain.tnved, 'unscoped');
+    assert.equal(plain.candidates[0]?.evidence.tnvedHeading, '7304');
+  });
+
+  it('changes nothing for a row without one', async () => {
+    const store = new PrefixStore(PIPES);
+    const r = await matchProduct({ rawName: 'Truba 57' }, { store, embedder, reranker: noop });
+    assert.equal(r.tnved, 'none');
+    assert.deepEqual(store.prefixes, []);
+    assert.ok(r.candidates.every((c) => c.evidence.tnvedHeading === undefined));
+  });
+});
+
+describe('identifying codes and the reranker pool (plan T2)', () => {
+  const PIPES = [
+    candidate('07306001005015618', 'truba vodogazoprovodnaya: diametr 15 mm, devor 2,5 mm', { attributeName: 'diametr 15 mm, devor 2,5 mm' }),
+    candidate('07306001005000000', 'truba vodogazoprovodnaya shovli'),
+    candidate('07306001005003162', 'truba vodogazoprovodnaya: 3, diametr 100 mm, devor 4,6 mm', { brandName: '3', attributeName: 'diametr 100 mm, devor 4,6 mm' }),
+  ];
+  /** Three sizes of one pipe a lexical search cannot tell apart: the rules decide. */
+  class PipeStore extends FakeStore {
+    override byLexical(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return super.byLexical(query, limit).then((hits) => hits.map((h, i) => ({ ...h, score: 0.8 - i * 0.01 })));
+    }
+  }
+
+  it('ranks the identifying code the name earns above the base code, still below the high band', async () => {
+    const r = await matchProduct({ rawName: 'Труба ВГП 15х2,5' }, { store: new PipeStore(PIPES), embedder, reranker: noop });
+    const top = r.candidates[0];
+    assert.equal(top?.candidate.code, '07306001005015618');
+    assert.deepEqual(top?.evidence.identifyingMatchedTokens, ['15х2,5']);
+    assert.ok(top?.evidence.rules?.includes('identifyingPreferred'));
+    for (const c of r.candidates) assert.ok(c.confidence <= NO_RERANK_CEILING && c.band !== 'high');
+  });
+
+  it('keeps the base code first for a generic name, and when the rule is switched off', async () => {
+    const generic = await matchProduct({ rawName: 'Труба ВГП' }, { store: new PipeStore(PIPES), embedder, reranker: noop });
+    assert.equal(generic.candidates[0]?.candidate.code, '07306001005000000');
+    const off = await matchProduct({ rawName: 'Труба ВГП 15х2,5' }, { store: new PipeStore(PIPES), embedder, reranker: noop, identifyingRule: false });
+    assert.equal(off.candidates[0]?.candidate.code, '07306001005000000');
+  });
+
+  it('lifts the ceiling only once the reranker scores the identifying code', async () => {
+    const reranker = new StubReranker([{ code: '07306001005015618', confidence: 1, reason: '15 mm, 2,5 mm' }]);
+    const r = await matchProduct({ rawName: 'Труба ВГП 15х2,5' }, { store: new PipeStore(PIPES), embedder, reranker });
+    assert.equal(r.candidates[0]?.candidate.code, '07306001005015618');
+    assert.ok((r.candidates[0]?.confidence ?? 0) > NO_RERANK_CEILING);
+    assert.ok(r.candidates.slice(1).every((c) => c.confidence <= NO_RERANK_CEILING));
+  });
+
+  it('adds a branded code only the identifying query finds to the pool', async () => {
+    const drinks = [
+      candidate('02202002001092003', 'koka kola pet butilka 1,5 l', { brandName: 'Bagca Saray', attributeName: 'Koka kola, PET butilka 1,5 l', isMarked: true }),
+      candidate('02202002001010009', 'alkogolsiz ichimliklar: coca-cola, shirin, pet butilka 1,5 l.', { brandName: 'COCA-COLA', attributeName: 'shirin, PET butilka 1,5 l.', isMarked: true }),
+    ];
+    class BrandStore extends FakeStore {
+      override byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]> {
+        // The Latin spelling only the identifying query carries.
+        if (query.includes('coca')) return Promise.resolve([{ candidate: drinks[1]!, score: 0.9 }]);
+        return super.byFullText(query, limit);
+      }
+    }
+    const opts = { embedder, reranker: noop, disabledStages: new Set(['vector'] as const) };
+    const r = await matchProduct({ rawName: 'Кока-Кола 1,5л пэт' }, { ...opts, store: new BrandStore(drinks) });
+    assert.ok(r.pool.includes('02202002001010009'));
+    assert.deepEqual(r.candidates.find((c) => c.candidate.code === '02202002001010009')?.evidence.identifyingMatchedTokens, ['COCA-COLA', '1,5л']);
+    const without = await matchProduct({ rawName: 'Кока-Кола 1,5л пэт' }, { ...opts, store: new BrandStore(drinks), identifyingRetrieval: false });
+    assert.ok(!without.pool.includes('02202002001010009'));
+  });
+
+  it('fuses the codes of the brand the row names, found by the anchored query, above codes of other brands', async () => {
+    const tablets = (code: string, brandName: string, attributeName: string): MxikCandidate => candidate(code, `enalapril: ${brandName}, ${attributeName}`, {
+      brandName, attributeName, isMarked: true, subPositionName: 'Enalapril - C09AA02',
+    });
+    // An attractor every name list repeats, and the brand's own code only an anchored query on "enam" finds.
+    const nimid = tablets('03004419018001006', 'НИМИД® (Kusum Healthcare)', 'tabletki 100 mg blisteri №100(10x10)');
+    const enam = tablets('03004184002020007', 'ЭНАМ® (Dr.Reddys Laboratories)', 'tabletki 5 mg №100.');
+    class AnchorStore extends FakeStore {
+      override byLexical(): Promise<{ candidate: MxikCandidate; score: number }[]> { return Promise.resolve([{ candidate: nimid, score: 0.85 }]); }
+      override byFullText(_query: string, _limit: number, opts: { anchored?: boolean } = {}): Promise<{ candidate: MxikCandidate; score: number }[]> {
+        return Promise.resolve(opts.anchored ? [{ candidate: enam, score: 0.6 }] : [{ candidate: nimid, score: 0.9 }]);
+      }
+    }
+    const opts = { embedder, reranker: noop, disabledStages: new Set(['vector'] as const) };
+    const r = await matchProduct({ rawName: 'ЭНАМ® Таблетки 5мг блистеры №100(10x10)' }, { ...opts, store: new AnchorStore([nimid, enam]) });
+    assert.equal(r.candidates[0]?.candidate.code, '03004184002020007');
+    assert.ok(r.candidates.find((c) => c.candidate.code === '03004419018001006')?.evidence.rules?.includes('otherBrand'));
+    const without = await matchProduct({ rawName: 'ЭНАМ® Таблетки 5мг блистеры №100(10x10)' }, { ...opts, store: new AnchorStore([nimid, enam]), identifyingRetrieval: false });
+    assert.equal(without.candidates[0]?.candidate.code, '03004419018001006');
+  });
+
+  it('describes the pool and caps it per subposition on request', async () => {
+    const many = [
+      ...Array.from({ length: 6 }, (_, i) => candidate(`0730600100500000${i + 1}`, `truba ${i + 1}`)),
+      candidate('07306001006000001', 'truba other'),
+    ];
+    const plain = await matchProduct({ rawName: 'truba' }, { store: new FakeStore(many), embedder, reranker: noop });
+    assert.ok(plain.notes.some((n) => n.startsWith('Rerank pool: 7 codes in 2 subpositions (07306001005 ×6, 07306001006)')));
+    const capped = await matchProduct({ rawName: 'truba' }, { store: new FakeStore(many), embedder, reranker: noop, poolPerPosition: 3 });
+    assert.equal(capped.pool.filter((c) => c.startsWith('07306001005')).length, 3);
+    assert.ok(capped.pool.includes('07306001006000001'));
+    assert.ok(capped.notes.some((n) => n.includes('3 left out over the per-subposition cap')));
+  });
+});
+
+describe('mergeHits', () => {
+  it('keeps each code once at its better score, best first', () => {
+    const a = candidate('01901001003002001', 'a');
+    const b = candidate('01901001003002002', 'b');
+    const merged = mergeHits([{ candidate: a, score: 0.4 }, { candidate: b, score: 0.3 }], [{ candidate: b, score: 0.9 }]);
+    assert.deepEqual(merged.map((h) => [h.candidate.code, h.score]), [['01901001003002002', 0.9], ['01901001003002001', 0.4]]);
+  });
+});
+
+describe('pool codes a stage did not return (2026-10-29, procurement names)', () => {
+  const semantic: EmbeddingProvider = { name: 'semantic test', dimensions: 384, semantic: true, embed: (t) => embedder.embed(t) };
+  const PRINTER = candidate('08443001001000000', 'printerlar', { nameRu: 'Принтеры всех видов' });
+  const TONER = candidate('03707001002001001', 'printer toneri: hp', { nameRu: 'Тонер для принтера: HP', brandName: 'HP', isMarked: true });
+  /** The base only the vector list finds; the long leaf only trigram finds; cosines by code on request. */
+  class SplitStore extends FakeStore {
+    asked: string[] = [];
+    override byLexical(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([{ candidate: TONER, score: 1 }]);
+    }
+    override byFullText(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([]);
+    }
+    override byVector(): Promise<{ candidate: MxikCandidate; score: number; cosine?: number }[]> {
+      return Promise.resolve([{ candidate: PRINTER, score: 0.96, cosine: 0.93 }]);
+    }
+    cosinesFor(_e: readonly number[], codes: readonly string[]): Promise<Map<string, number>> {
+      this.asked.push(...codes);
+      return Promise.resolve(new Map(codes.map((c) => [c, 0.8])));
+    }
+  }
+
+  it('scores a lexical-only leaf on its cosine too, so it no longer outranks the code the model put first', async () => {
+    const opts = { embedder: semantic, reranker: noop, headNounRule: false };
+    const filled = await matchProduct({ rawName: 'printer laser' }, { ...opts, store: new SplitStore([PRINTER, TONER]) });
+    assert.equal(filled.candidates[0]?.candidate.code, PRINTER.code);
+    assert.equal(filled.candidates.find((c) => c.candidate.code === TONER.code)?.signals.vector, 0);
+    const off = await matchProduct({ rawName: 'printer laser' }, { ...opts, store: new SplitStore([PRINTER, TONER]), vectorFill: false });
+    assert.equal(off.candidates[0]?.candidate.code, TONER.code);
+    assert.equal(off.candidates.find((c) => c.candidate.code === TONER.code)?.signals.vector, undefined);
+  });
+
+  it('leaves the row own code and a code the row earns without a filled cosine', async () => {
+    const own = new SplitStore([PRINTER, TONER]);
+    await matchProduct({ rawName: 'printer laser', existingMxik: TONER.code }, { store: own, embedder: semantic, reranker: noop });
+    assert.deepEqual(own.asked, []);
+    const earned = new SplitStore([PRINTER, TONER]);
+    await matchProduct({ rawName: 'printer HP' }, { store: earned, embedder: semantic, reranker: noop });
+    assert.deepEqual(earned.asked, [], 'the brand earns the leaf');
+  });
+
+  const BASE = candidate('08536007013000000', 'rele', { nameRu: 'Реле всех видов' });
+  const LEAVES = [
+    candidate('08536007013000611', 'rele vremeni po-415', { nameRu: 'Реле всех видов, Реле времени PO-415' }),
+    candidate('08536007013000060', 'rele puskatel', { nameRu: 'Реле всех видов: Пускатель электромагнитный' }),
+  ];
+  const GLASS = candidate('07020999029000000', 'himoya oynasi', { nameRu: 'Защитное стекло для сотовых телефонов' });
+  /** Retrieval returns the leaves and another product, never the base; trigram scores codes on request. */
+  class LeafStore extends FakeStore {
+    override byLexical(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([{ candidate: GLASS, score: 0.69 }, { candidate: LEAVES[0]!, score: 0.8 }, { candidate: LEAVES[1]!, score: 0.75 }]);
+    }
+    override byFullText(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([]);
+    }
+    override byVector(): Promise<{ candidate: MxikCandidate; score: number }[]> {
+      return Promise.resolve([{ candidate: GLASS, score: 0.7 }, { candidate: LEAVES[0]!, score: 0.6 }]);
+    }
+    lexicalFor(_q: string, codes: readonly string[]): Promise<Map<string, number>> {
+      return Promise.resolve(new Map(codes.map((c) => [c, 0.5])));
+    }
+  }
+  const rows = [BASE, ...LEAVES, GLASS];
+
+  it('adds the base code of a subposition retrieved only through leaves the name does not earn', async () => {
+    const r = await matchProduct({ rawName: 'Реле защитное' }, { store: new LeafStore(rows), embedder, reranker: noop });
+    assert.ok(r.pool.includes(BASE.code));
+    const base = r.candidates.find((c) => c.candidate.code === BASE.code);
+    assert.equal(base?.signals.lexical, 0.5, 'scored on its own name');
+    assert.ok(base?.evidence.rules?.includes('baseCodePreferred'));
+    assert.ok(r.notes.some((n) => n.startsWith('Base code added for 08536007013')));
+  });
+
+  it('adds none for a name with a digit, for a food-service row, or when switched off', async () => {
+    const sized = await matchProduct({ rawName: 'Реле защитное 220В' }, { store: new LeafStore(rows), embedder, reranker: noop });
+    assert.ok(!sized.pool.includes(BASE.code));
+    const off = await matchProduct({ rawName: 'Реле защитное' }, { store: new LeafStore(rows), embedder, reranker: noop, baseForLeaves: false });
+    assert.ok(!off.pool.includes(BASE.code));
+    const cafe = await matchProduct({ rawName: 'Palov 1 porsiya' }, { store: new LeafStore(rows), embedder, reranker: noop });
+    assert.ok(!cafe.pool.includes(BASE.code));
+  });
+});
+
+describe('a verdict may not override a stated dose, volume, weight or pack (2026-10-29)', () => {
+  const drops = (code: string, strength: string): MxikCandidate => candidate(code, `semaks kapli nazalnie ${strength} 2.5ml flakoni`, {
+    isMarked: true, brandName: 'СЕМАКС (ИНПЦ "Пептоген")', attributeName: `Капли назальные ${strength} 2.5мл флаконы`,
+    nameRu: `Семакс - N06BX: СЕМАКС (ИНПЦ "Пептоген"), Капли назальные ${strength} 2.5мл флаконы`, subPositionName: 'Семакс - N06BX',
+  });
+  const weak = drops('03004499039001001', '0,1%');
+  const strong = drops('03004499039001003', '1%');
+
+  it('keeps the row\'s strength first although the reranker preferred the other one', async () => {
+    const reranker = new StubReranker([{ code: strong.code, confidence: 0.95, reason: 'the 1% drops' }, { code: weak.code, confidence: 0.4, reason: 'weaker' }]);
+    const r = await matchProduct({ rawName: 'СЕМАКС Капли назальные 0,1% 2.5мл флаконы' }, { store: new FakeStore([weak, strong]), embedder, reranker });
+    assert.equal(r.candidates[0]?.candidate.code, weak.code);
+    const overruled = r.candidates.find((c) => c.candidate.code === strong.code);
+    assert.ok(overruled?.evidence.rules?.includes('statedConflict'));
+    assert.equal(overruled?.evidence.rerankReason, null);
+    assert.equal(overruled?.stage, 'fusion');
+    assert.equal(r.candidates[0]?.stage, 'rerank');
+  });
+
+  it('nor move a named brand onto a code of another brand', async () => {
+    const enam = candidate('03004184002020007', 'enam tabletki 5mg №100', {
+      isMarked: true, brandName: 'ЭНАМ® (Dr.Reddy\'s Laboratories)', attributeName: 'таблетки 5 мг №100', subPositionName: 'Эналаприл - C09AA02',
+      nameRu: 'Эналаприл - C09AA02: ЭНАМ® (Dr.Reddy\'s Laboratories), таблетки 5 мг №100',
+    });
+    // Retrieved by the vector stage (the fake store returns every row there); its own words name no ЭНАМ.
+    const nimid = candidate('03004419018001006', 'nimid tabletki 100mg №100', {
+      isMarked: true, brandName: 'НИМИД® (Kusum Healthcare)', attributeName: 'Таблетки 100 мг блистеры №100(10x10)', subPositionName: 'Нимесулид - M01AX17',
+      nameRu: 'Нимесулид - M01AX17: НИМИД® (Kusum Healthcare), Таблетки 100 мг блистеры №100(10x10)',
+    });
+    const reranker = new StubReranker([{ code: nimid.code, confidence: 0.95, reason: 'looks right' }, { code: enam.code, confidence: 0.4, reason: 'weaker' }]);
+    const r = await matchProduct({ rawName: 'ЭНАМ® Таблетки 5мг №100' }, { store: new FakeStore([nimid, enam]), embedder, reranker });
+    assert.equal(r.candidates[0]?.candidate.code, enam.code);
+    const other = r.candidates.find((c) => c.candidate.code === nimid.code);
+    assert.ok(other?.evidence.rules?.includes('otherBrand'));
+    assert.equal(other?.evidence.rerankReason, null);
+  });
+});
+
+describe('global aliases (plan §11)', () => {
+  const aliases = aliasLookup([{ key: aliasKey('Palov 1 porsiya'), code: '01901001003002001', orgs: 3, confirmations: 7 }]);
+  const opts = { embedder, reranker: noop, disabledStages: new Set(['vector'] as const), aliases };
+
+  it('adds the alias code to the pool with its own evidence line, and says so', async () => {
+    // "palov" retrieves nothing in this store: the alias is the only way to the code.
+    const r = await matchProduct({ rawName: 'Palov 1 porsiya', unit: 'porsiya' }, { ...opts, store: new FakeStore(ROWS) });
+    assert.ok(r.pool.includes('01901001003002001'));
+    const hit = r.candidates.find((c) => c.candidate.code === '01901001003002001');
+    assert.equal(hit?.evidence.aliasOrgs, 3);
+    assert.equal(hit?.evidence.aliasConfirmations, 7);
+    assert.equal(hit?.ranks.fusion, 1);
+    assert.ok(r.notes.some((n) => n.startsWith('Global alias: 01901001003002001 (3 organisations)')));
+    assert.ok(r.candidates.every((c) => c.candidate.code === '01901001003002001' || c.evidence.aliasOrgs === undefined));
+  });
+
+  it('changes nothing for a name without an alias, and without a lookup', async () => {
+    const withLookup = await matchProduct({ rawName: 'guruch botqasi osiyo' }, { ...opts, store: new FakeStore(ROWS) });
+    const without = await matchProduct({ rawName: 'guruch botqasi osiyo' }, { ...opts, aliases: undefined, store: new FakeStore(ROWS) });
+    assert.deepEqual(withLookup.candidates, without.candidates);
+    assert.deepEqual(withLookup.notes, without.notes);
+  });
+
+  it('never overrides a barcode identity or the firm dictionary', async () => {
+    const byBarcode = await matchProduct({ rawName: 'Palov 1 porsiya', barcode: '04601501483581' }, { ...opts, store: new FakeStore(ROWS) });
+    assert.equal(byBarcode.decidedBy, 'barcode');
+    assert.equal(byBarcode.candidates[0]?.candidate.code, '02202004002001001');
+    const dictionary: DictionaryLookup = { find: () => ({ id: 'd1', code: '00701001001000000', uses: 2, kind: 'name', confirmations: 1 }) };
+    const byDictionary = await matchProduct({ rawName: 'Palov 1 porsiya' }, { ...opts, dictionary, store: new FakeStore(ROWS) });
+    assert.equal(byDictionary.decidedBy, 'dictionary');
+    assert.equal(byDictionary.candidates[0]?.candidate.code, '00701001001000000');
+    assert.ok(byDictionary.candidates.some((c) => c.candidate.code === '01901001003002001' && c.evidence.aliasOrgs === 3), 'the alias is offered as an alternative');
+  });
+
+  it('skips an alias whose code left the classifier', async () => {
+    const gone = aliasLookup([{ key: aliasKey('Palov 1 porsiya'), code: '99999999999999999', orgs: 2, confirmations: 2 }]);
+    const r = await matchProduct({ rawName: 'Palov 1 porsiya' }, { ...opts, aliases: gone, store: new FakeStore(ROWS) });
+    assert.equal(r.decidedBy, 'none');
+    assert.ok(!r.notes.some((n) => n.startsWith('Global alias')));
   });
 });

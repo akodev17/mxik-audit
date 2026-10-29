@@ -43,6 +43,8 @@ export function DiagnosticsPanel({ diagnostics: d, parse, updating, error }: Pro
     ...(d.noName.count > 0 ? [{ tone: 'danger' as const, text: g.noName(d.noName.count), sample: d.noName.sample }] : []),
     ...(d.badCodes.count > 0 ? [{ tone: 'warn' as const, text: d.lostZero.count > 0 ? `${badCodes} ${g.lostZero(d.lostZero.count)}` : badCodes, sample: d.badCodes.sample }] : []),
     ...(d.noCode.count > 0 ? [{ tone: 'info' as const, text: g.noCode(d.noCode.count, t.typeMissing), sample: d.noCode.sample }] : []),
+    ...(d.badTnved.count > 0 ? [{ tone: 'warn' as const, text: g.badTnved(d.badTnved.count), sample: d.badTnved.sample }] : []),
+    ...(d.tnvedZero.count > 0 ? [{ tone: 'info' as const, text: g.tnvedZero(d.tnvedZero.count), sample: d.tnvedZero.sample }] : []),
     ...(d.ambiguousAmounts.count > 0 ? [{ tone: 'warn' as const, text: g.ambiguous(d.ambiguousAmounts.count), sample: d.ambiguousAmounts.sample }] : []),
     ...(d.duplicates.count > 0 ? [{ tone: 'info' as const, text: g.duplicates(d.duplicates.count, d.duplicates.groups), sample: d.duplicates.sample }] : []),
   ] : [];

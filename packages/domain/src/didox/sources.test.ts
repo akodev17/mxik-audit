@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
+import { zipWithinLimits } from '../security/zip-guard.js';
 import { parseDidoxDocument } from './document.js';
 import { FIXTURE_DIR, fakePdf } from './fake-server.js';
 import { guessSheetMap, readDidoxUpload, sheetToDocument } from './sources.js';
@@ -48,6 +49,22 @@ describe('Didox upload sources', () => {
     const deep = await zipOf({ 'a.zip': await zipOf({ 'b.zip': await zipOf({ 'c.json': raw('invoice-standard-3.json') }) }) });
     const read = await readDidoxUpload(deep, 'deep.zip');
     assert.deepEqual(read, { kind: 'error', error: 'no_documents' });
+  });
+
+  it('a zip of zips shares one budget across levels: many small inner archives are refused as too large (Phase C F6)', async () => {
+    const KB = 1024;
+    // Each inner archive inflates to about 45 KB, within a 100 KB budget on its own; three of them together are not.
+    const inner = (fill: number) => zipOf({ 'doc.json': raw('invoice-standard-3.json'), 'pad.txt': Buffer.alloc(40 * KB, fill) });
+    const outer = await zipOf({ 'a.zip': await inner(1), 'b.zip': await inner(2), 'c.zip': await inner(3) });
+    const bytes = { maxEntries: 5_000, maxTotalBytes: 100 * KB };
+    assert.equal(await zipWithinLimits(await inner(1), bytes), true, 'one inner archive alone fits');
+    assert.deepEqual(await readDidoxUpload(outer, 'bomb.zip', bytes), { kind: 'error', error: 'zip_limits' });
+    // The entry count is one budget too: 3 outer + 3 × 2 inner entries, while no archive alone has more than 3.
+    assert.deepEqual(await readDidoxUpload(outer, 'many.zip', { maxEntries: 5, maxTotalBytes: 100 * 1024 * KB }), { kind: 'error', error: 'zip_limits' });
+    // Within the budget the same archive reads as before.
+    const read = await readDidoxUpload(outer, 'fine.zip', { maxEntries: 5_000, maxTotalBytes: 1024 * KB });
+    assert.equal(read.kind, 'documents');
+    if (read.kind === 'documents') assert.deepEqual(read.documents.map((d) => d.entry), ['a.zip/doc.json', 'b.zip/doc.json', 'c.zip/doc.json']);
   });
 
   it('a single JSON (with BOM), a JSON array, and junk', async () => {

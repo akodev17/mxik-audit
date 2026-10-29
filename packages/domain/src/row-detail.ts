@@ -140,7 +140,7 @@ export async function rowDetail(
 ): Promise<RowDetail | null> {
   const f = await db.finding.findFirst({
     where: { id: findingId, item: { catalog: catalogScope(scope) } },
-    include: { item: { select: { id: true, rowIndex: true, rawName: true, existingMxik: true, unit: true, barcode: true } } },
+    include: { item: { select: { id: true, rowIndex: true, rawName: true, existingMxik: true, unit: true, barcode: true, tnved: true } } },
   });
   if (!f) return null;
   const { rows } = await findingRows([f], locale);
@@ -174,7 +174,7 @@ export async function rowDetail(
   const facts = reasonFacts({
     type: f.type, severity: f.severity, reason: f.reason, wasRetired: f.wasRetired, snapshotId: f.snapshotId,
     existingMxik: f.item.existingMxik, unit: f.item.unit, codeUnits: own?.unitCanonical ?? [],
-    restrictedMxik: f.restrictedMxik, restrictedFrom: f.restrictedFrom,
+    restrictedMxik: f.restrictedMxik, restrictedFrom: f.restrictedFrom, tnved: f.item.tnved,
   });
   const advice = unitAdvice({ rawName: f.item.rawName, rowUnit: f.item.unit, code: own });
   return {

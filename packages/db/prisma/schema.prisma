@@ -256,9 +256,58 @@ model Organization {
   rawRetentionDays Int? @default(30)
   /// Retention applies only to uploads created after this moment (no retroactive purge).
   rawRetentionSince DateTime? @default(now())
+  /// Codes this org confirmed per normalised product name (the global alias candidates' evidence).
+  learnedAliases LearnedAlias[]
 
   @@index([kind, expiresAt])
   @@map("organization")
+}
+
+/// One organisation's confirmations of a code for a normalised product name
+/// (match/alias.ts aliasKey). Written by learn() for individual and group
+/// decisions only, never bulk accepts. Aggregated across organisations into
+/// global alias candidates (docs/MATCHING_V2_PLAN.md §11); changes nothing by
+/// itself.
+model LearnedAlias {
+  id            String   @id @default(cuid())
+  orgId         String
+  /// The folded, word-sorted product name; no unit.
+  key           String
+  /// The name as one organisation wrote it, for the admin page's examples.
+  label         String
+  code          String
+  confirmations Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key, code])
+  @@index([key])
+  @@map("learned_alias")
+}
+
+/// What a platform admin keeps on /admin/lexicon: synonym entries (a
+/// normalize/synonyms.ts entry as JSON), unit aliases, and approved or rejected
+/// global aliases. Only active rows are merged with the hand-written tables.
+model LexiconEntry {
+  id        String   @id @default(cuid())
+  /// synonym | unit | alias
+  kind      String
+  /// active | disabled | rejected
+  status    String
+  /// Unique per kind: the folded forms of a synonym, the folded alias of a unit, "key|code" of an alias.
+  key       String
+  payload   Json
+  note      String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@unique([kind, key])
+  @@index([kind, status])
+  @@map("lexicon_entry")
 }
 
 /// customer = a real client. demo_template = the seeded demo catalogue, never
@@ -797,6 +846,9 @@ model CatalogItem {
   price          Decimal? @db.Decimal(18, 2)
   /// Sales amount from a mapped "Sotuv summasi" column, if the file has one.
   salesAmount    Decimal? @db.Decimal(20, 2)
+  /// TIF TN (TN VED / HS) code from a mapped column: 4-10 digits, a lost leading zero restored.
+  /// Its first four digits are the MXIK heading (MXIK digits 2-5); null when absent or unreadable.
+  tnved          String?
   /// Attributes parsed out of the name, plus every original cell for re-export.
   attrs          Json
   /// The current code or a suggested code is flagged for digital marking
@@ -832,6 +884,8 @@ enum FindingType {
   /// The row's code (on a MISSING row, the suggested one) is a generalized code
   /// EHF refuses from restricted_code.effectiveFrom on.
   RESTRICTED
+  /// The row's valid code lies outside the heading of the row's own TIF TN (TN VED) code.
+  TNVED_MISMATCH
 
   @@map("finding_type")
 }

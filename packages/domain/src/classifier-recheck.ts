@@ -59,7 +59,7 @@ async function recheckCatalog(target: Target, snapshotId: number, byCode: Map<st
       ],
     },
     select: {
-      id: true, rawName: true, barcode: true, existingMxik: true, unit: true,
+      id: true, rawName: true, barcode: true, existingMxik: true, unit: true, tnved: true,
       findings: { select: { type: true, decision: true, chosenMxik: true, decidedAt: true } },
     },
   });

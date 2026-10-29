@@ -77,7 +77,7 @@ describe('registry covers the Next app', () => {
       billing: ['checkout', 'click', 'payme', 'plan'],
       demo: ['request', 'open', 'lead'],
       publicApi: ['check', 'listCatalogs', 'uploadCatalog', 'report', 'openapi'],
-      admin: ['metricsCsv', 'traction', 'pipeline'],
+      admin: ['metricsCsv', 'traction', 'pipeline', 'lexicon', 'createLexiconEntry', 'updateLexiconEntry', 'decideAlias'],
       share: ['view', 'pdf'],
       cron: ['daily', 'classifierUpdate'],
       health: ['get'],
