@@ -28,7 +28,7 @@ describe('workspace, dictionary, reminders, notifications in Swagger', () => {
       const declared = Object.keys((e.params?.shape ?? {}) as Record<string, unknown>).sort();
       assert.deepEqual(inPath, declared, e.operationId);
     }
-    assert.equal(ours.length, 41);
+    assert.equal(ours.length, 43);
   });
 
   it('a session route without a cookie is 401 before anything else', async () => {

@@ -84,7 +84,7 @@ export const dictionary = defineModule('dictionary', {
     summary: 'Confirm an entry\'s code as it is: one confirmation, lifts needsReconfirm; a disputed entry needs an admin',
     params: z.object({ entryId: Id }),
     responds: 'json', response: Result,
-    replaces: [],
+    replaces: ['page:(app)/dictionary#confirm'],
   }),
   remove: endpoint({
     method: 'DELETE', path: '/api/dictionary/{entryId}', auth: 'session', role: 'admin',
@@ -110,7 +110,7 @@ export const dictionary = defineModule('dictionary', {
       dictionary: DictionarySource.nullable(),
       carriedFrom: z.object({ catalogId: z.string(), filename: z.string().nullable(), originalDecidedAt: z.string().nullable() }).nullable(),
     }),
-    replaces: [],
+    replaces: ['page:(app)/catalogs/[id]#provenance'],
     notes: '404 for a finding outside the reader\'s clients.',
   }),
 });
