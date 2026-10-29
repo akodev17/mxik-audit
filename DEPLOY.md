@@ -284,6 +284,19 @@ The callback URLs stayed the same through the backend split: Caddy sends `/api/p
 api service. A paid order writes `billing.paid` to the audit log;
 orders and provider transactions are in the `order` and `payment_transaction` tables.
 
+Org admins see their orders under Sozlamalar → Tarif ("Toʻlovlar tarixi") with a printable receipt per
+paid order; platform admins see every customer org's plan and payments at `/admin/billing` (test-mode
+payments flagged and left out of the sums).
+
+**Refunds.** No refund API is wired to Click or Payme: return the money in the provider's cabinet (or
+by bank transfer) first, then record it with
+`npm run billing:refund -- <orderId> [--days N] [--note "..."]`. It marks the paid order `refunded`,
+shortens the org's paid period by N days, or without `--days` by the months this order bought
+(never to before now), writes `billing.refunded` to the audit log and prints the period end before and
+after. A refunded catalogue order locks that catalogue's corrected file again. An order that is not
+paid (open, cancelled, already refunded) is refused and nothing changes. Needs migration
+`20261108000600_billing_lifecycle`.
+
 ## 7c. Team, email and roles (optional)
 
 ### Email delivery (required) and Gmail
@@ -382,6 +395,8 @@ Manual check with a real bot (once, after deploy):
 The worker runs them at 06:15 (section 7); `POST /api/cron/daily` with `CRON_SECRET` starts them by hand or from an external scheduler. Besides the jobs below they start a classifier update (section 7, same lock and log) when the newest snapshot is more than a day old and none is running.
 
 They create the monthly-check tasks that are due (per client: Sozlamalar of the client page), tell the accountant responsible on Telegram when the bot is configured, delete upload previews left uncommitted for 48 hours (7d) and run the retention jobs listed in 7g. Dates use Uzbekistan time (UTC+5).
+
+**Expiry reminders.** The same run reminds customer orgs whose access ends 7, 3 and 1 days ahead and on the day itself: the trial, or the paid subscription when it runs past the trial (an org already paid beyond its trial gets none; demo, internal and closed orgs get none). Each reminder is one in-app notice (kind `billing.expiring`, linking to Sozlamalar → Tarif; not sent to Telegram) and one e-mail to every admin of the org in the admin's language. Notice and mails go out once per org, end date and threshold, so running the job twice a day sends nothing new; a renewal moves the end date and the reminders start again. The mail goes through the same path as password resets: SMTP when `SMTP_URL`/`MAIL_FROM` are set, the development outbox without them, nothing in production without SMTP (the notice is still made). There is no grace period: uploads close at the end as before. A day the job does not run is not caught up the next day.
 
 ## 7f. Public API
 
