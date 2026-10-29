@@ -27,6 +27,7 @@
     "load:db": "tsx scripts/load-db.ts",
     "search:weighted": "tsx scripts/build-weighted-search.ts",
     "rekey:normalized": "tsx scripts/rekey-normalized.ts",
+    "dictionary:rekey": "tsx scripts/rekey-dictionary.ts",
     "reaudit:diff": "tsx scripts/reaudit-diff.ts",
     "classifier:update": "tsx scripts/update-classifier.ts",
     "privileges:fetch": "tsx scripts/fetch-privileges.ts",

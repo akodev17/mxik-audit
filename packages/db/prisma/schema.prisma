@@ -413,6 +413,13 @@ model FirmMapping {
   confirmations Int @default(0)
   /// How the entry was last learned: manual, group, bulk, edit.
   source    String?
+  /// Name entries: the size attributes in the key (noise.ts attrsKey); "" = none. Null = barcode, or not re-keyed yet.
+  attrsKey  String?
+  /// Auto-accept ignores the entry until an unscoped person confirms it again (re-key, code replaced, scoped learner, edit).
+  needsReconfirm Boolean @default(false)
+  /// A reviewer rejected or reported wrong a suggestion from this entry; cleared when an admin confirms or edits it.
+  disputedAt DateTime?
+  disputedBy String?
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -886,6 +893,9 @@ model Finding {
   /// RESTRICTED only: the restricted code this finding is about, and when EHF stops accepting it.
   restrictedMxik String?
   restrictedFrom DateTime? @db.Date
+  /// carry_over only: the catalogue the decision was first made in, and when (decidedAt is the carry-over time).
+  carriedFromCatalogId String?
+  originalDecidedAt    DateTime?
 
   item CatalogItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   comments FindingComment[]

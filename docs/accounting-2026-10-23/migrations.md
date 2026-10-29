@@ -216,3 +216,32 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261107000100_feature_
 What breaks: with the new code still running, every request under a module's prefix (API and web)
 answers 500 once the cached states expire, and `/admin/features` cannot save. Deploy the previous
 code first; it never reads the table.
+
+## SaaS hardening S4: dictionary safety (`202611080003*`)
+
+### `20261108000300_firm_mapping_attrs` (S4, `feat/s4-dictionary`)
+
+Adds `firm_mapping."attrsKey"` (nullable text), `"needsReconfirm"` (boolean, default false),
+`"disputedAt"` (nullable timestamp), `"disputedBy"` (nullable text), and `finding."carriedFromCatalogId"`
+(nullable text), `"originalDecidedAt"` (nullable timestamp). No data change in the migration itself.
+After it, run `npm run dictionary:rekey` once (idempotent): every name entry's key becomes
+`sortedKey|attrsKey|unit`, recomputed from its stored label; entries whose label carried sizes, a
+percent, dimensions or a model code get `needsReconfirm = true` and `confirmations = 0`. Barcode
+entries are untouched.
+
+```sql
+ALTER TABLE "finding" DROP COLUMN IF EXISTS "originalDecidedAt";
+ALTER TABLE "finding" DROP COLUMN IF EXISTS "carriedFromCatalogId";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "disputedBy";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "disputedAt";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "needsReconfirm";
+ALTER TABLE "firm_mapping" DROP COLUMN IF EXISTS "attrsKey";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000300_firm_mapping_attrs';
+```
+
+What breaks: with the new code still running, every dictionary read and write, every decision and
+the carry-over answer 500. Deploy the previous code first. The re-key is not undone by dropping the
+columns: after a rollback the previous code (key `sortedKey|unit`) finds no name entry until
+`npm run rekey:normalized` of that code has run, which rewrites the keys back from the labels; the
+confirmations reset by the re-key stay at 0 (the `dictionary.rekeyed` audit events keep the old
+counts).
