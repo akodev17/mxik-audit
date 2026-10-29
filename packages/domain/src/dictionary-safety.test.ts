@@ -99,7 +99,7 @@ describe('dictionary safety (database)', { skip }, () => {
     assert.equal(payload.deciderEmail, scoped.email, 'the decider\'s e-mail outlives the account');
 
     // Auto-accept does not use it, even with the evidence claiming confirmations.
-    const auto = await catalogOf(orgId, clientId, [{ rawName: name, suggestedMxik: x, entryId: entry!.id }]);
+    const auto = await catalogOf(orgId, clientId, [{ rawName: name, suggestedMxik: x, entryId: entry.id }]);
     assert.equal((await acceptDictionaryMatches({ orgId, userId: admin.userId }, auto.catalogId, 'auto')).count, 0);
 
     assert.ok((await recordDecision(accountant, { findingId: c.findingIds[1]!, decision: 'accepted' })).ok);
@@ -122,7 +122,7 @@ describe('dictionary safety (database)', { skip }, () => {
     assert.equal(entry?.code, y);
     assert.equal(entry?.confirmations, 1);
     assert.equal(entry?.needsReconfirm, true, 'two people disagree: someone has to look again');
-    const logged = await db.auditEvent.findFirstOrThrow({ where: { orgId, action: 'dictionary.code_replaced', targetId: entry!.id } });
+    const logged = await db.auditEvent.findFirstOrThrow({ where: { orgId, action: 'dictionary.code_replaced', targetId: entry.id } });
     const p = logged.payload as { previousCode: string; previousConfirmations: number; code: string };
     assert.deepEqual([p.previousCode, p.previousConfirmations, p.code], [x, 1, y]);
 
