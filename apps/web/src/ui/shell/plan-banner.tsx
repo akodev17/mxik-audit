@@ -7,9 +7,11 @@ import { cx } from '../cx';
 import { IconChevron } from '../icons';
 import type { ShellData } from './shell-queries';
 
+const ENDING_SOON_DAYS = 7;
+
 /**
  * One quiet line under the header when the plan needs a look: expired or a full limit (danger), a limit
- * near 80% or a trial ending soon (warn). A status icon and the words carry the meaning; the strip itself
+ * near 80% or a trial or subscription ending within a week (warn). A status icon and the words carry the meaning; the strip itself
  * stays on the page surface, so it informs without competing with the page.
  */
 export function PlanBanner({ plan }: { plan: ShellData['plan'] }) {
@@ -20,7 +22,9 @@ export function PlanBanner({ plan }: { plan: ShellData['plan'] }) {
   if (plan.state === 'expired') { text = ta.plan.expired; tone = 'danger'; }
   else if (plan.full.length > 0) { text = ta.plan.full(names(plan.full)); tone = 'danger'; }
   else if (plan.warnings.length > 0) text = ta.plan.warn(names(plan.warnings));
-  else if (plan.state === 'trial' && plan.daysLeft !== null && plan.daysLeft <= 5) text = ta.plan.trial(plan.daysLeft);
+  // The trial or the paid subscription ends within a week (the expiry reminders start at 7 days too).
+  else if (plan.state === 'trial' && plan.daysLeft !== null && plan.daysLeft <= ENDING_SOON_DAYS) text = ta.plan.trial(plan.daysLeft);
+  else if (plan.state === 'firm' && plan.daysLeft !== null && plan.daysLeft <= ENDING_SOON_DAYS) text = ta.setX.plan.endingSoon(plan.daysLeft);
   if (!text) return null;
   return (
     <div role="status" className="no-print flex items-center gap-2.5 border-b border-line bg-surface px-4 py-2 text-small sm:px-6">

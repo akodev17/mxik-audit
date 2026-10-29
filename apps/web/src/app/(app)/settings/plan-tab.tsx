@@ -9,6 +9,7 @@ import { ButtonLink } from '@/ui/button';
 import { cx } from '@/ui/cx';
 import { Table, Td, Th } from '@/ui/table';
 import { Card, FLUSH_TABLE } from '../_manage/card';
+import { BillingHistory } from './billing-history';
 import { PlanPicker, type TierChoice } from './plan-picker';
 import { PlanUsage, type PlanStatus } from './plan-usage';
 
@@ -22,13 +23,16 @@ type PlanRefusal = keyof AppDict['setX']['plan']['why'];
 const STATE_TONE: Record<PlanStatus['state'], Tone> = { unlimited: 'neutral', trial: 'info', firm: 'good', expired: 'danger' };
 const COLUMNS: Column[] = ['trial', 'company', 'accountant', 'firm'];
 
-/** Current plan as a card (name, who it is for, price, usage), how to pay for a tier, then all four plans side by side. */
+/** Current plan as a card (name, who it is for, price, usage), the order history (admins), how to pay for a tier, then all four plans side by side. */
 export async function PlanTab({ user }: { user: Me }) {
   const { locale, ta } = await getI18n();
   const s = ta.setX.plan;
   const pr = ta.prX;
   const admin = user.role === 'admin';
-  const [billing, { api: config, features }] = await Promise.all([serverApi().billing.plan(), serverApi().account.config()]);
+  // The order history is the org admins' (the API refuses anyone else with 403).
+  const [billing, { api: config, features }, orders] = await Promise.all([
+    serverApi().billing.plan(), serverApi().account.config(), admin ? serverApi().billing.orders() : Promise.resolve(null),
+  ]);
   const { status, limits, plan, purchase, tiers, subscriptionUntil: until } = billing;
   const byRequest = purchase.kind === 'not_for_sale' || purchase.kind === 'no_provider';
   const n = (v: number): string => fmtNumber(locale, v);
@@ -86,6 +90,8 @@ export async function PlanTab({ user }: { user: Me }) {
           <PlanUsage status={status} apiChecks={{ used: billing.api.checks, cap: billing.api.monthlyCap }} />
         </div>
       </Card>
+
+      {orders ? <BillingHistory orders={orders} ta={ta} locale={locale} /> : null}
 
       {status.state === 'unlimited' ? null : (
         <Card id="pay" title={s.choose} hint={until ? s.activeUntil(fmtDate(locale, until)) : undefined}>
