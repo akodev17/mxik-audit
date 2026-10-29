@@ -133,6 +133,27 @@ describe('PostgresCandidateStore full-text term selection', () => {
     assert.match(plain.sqls[0] ?? '', /"searchVector" @@ f/);
   });
 
+  it('anchors on the rarest words: a brand first, then words in under 1,000 codes, never numbers', async () => {
+    const { pool, searches } = statsPool({ tabletki: 14_234, suppozitorii: 300 });
+    const hits = await new PostgresCandidateStore(pool).byFullText('enam tabletki suppozitorii 5', 50, { anchored: true });
+    assert.deepEqual(hits, []);
+    // "enam" selects first; the fake finds nothing, so the next tier adds "suppozitorii".
+    assert.deepEqual(searches.map((s) => s[2]), ['enam', 'enam | suppozitorii']);
+    assert.equal(searches[0]?.[0], 'enam | tabletki | suppozitorii | 5');
+  });
+
+  it('runs no anchored query when every word is common', async () => {
+    const { pool, searches } = statsPool({ tabletki: 14_234, blisteri: 6_733 });
+    assert.deepEqual(await new PostgresCandidateStore(pool).byFullText('tabletki blisteri 100', 50, { anchored: true }), []);
+    assert.equal(searches.length, 0);
+  });
+
+  it('reads a trade mark as a word break, as Postgres indexes the classifier', async () => {
+    const { pool, searches } = statsPool({});
+    await new PostgresCandidateStore(pool, { fullTextCommonDocs: 0 }).byFullText('karlon®plyus tabletki', 50);
+    assert.equal(searches[0]?.[0], 'karlon | plyus | tabletki');
+  });
+
   it('falls back to every term when the statistics fail, and retries later', async () => {
     const { pool, searches, statLoads } = statsPool(new Error('canceling statement'));
     const store = new PostgresCandidateStore(pool, { fullTextCommonDocs: 10_000 });

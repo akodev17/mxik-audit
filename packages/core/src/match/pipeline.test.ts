@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HashingEmbeddingProvider } from '../embed/index.js';
 import type { DictionaryEntry, DictionaryLookup } from './dictionary.js';
-import { matchProduct, vectorColumnsFor } from './pipeline.js';
+import { matchProduct, mergeHits, vectorColumnsFor } from './pipeline.js';
 import { NoopRerankProvider } from './rerank.js';
 import { NONE_REASON } from './rerank-parse.js';
 import { BANDS, NO_RERANK_CEILING } from './score.js';
@@ -755,6 +755,27 @@ describe('identifying codes and the reranker pool (plan T2)', () => {
     assert.ok(!without.pool.includes('02202002001010009'));
   });
 
+  it('fuses the codes of the brand the row names, found by the anchored query, above codes of other brands', async () => {
+    const tablets = (code: string, brandName: string, attributeName: string): MxikCandidate => candidate(code, `enalapril: ${brandName}, ${attributeName}`, {
+      brandName, attributeName, isMarked: true, subPositionName: 'Enalapril - C09AA02',
+    });
+    // An attractor every name list repeats, and the brand's own code only an anchored query on "enam" finds.
+    const nimid = tablets('03004419018001006', 'НИМИД® (Kusum Healthcare)', 'tabletki 100 mg blisteri №100(10x10)');
+    const enam = tablets('03004184002020007', 'ЭНАМ® (Dr.Reddys Laboratories)', 'tabletki 5 mg №100.');
+    class AnchorStore extends FakeStore {
+      override byLexical(): Promise<{ candidate: MxikCandidate; score: number }[]> { return Promise.resolve([{ candidate: nimid, score: 0.85 }]); }
+      override byFullText(_query: string, _limit: number, opts: { anchored?: boolean } = {}): Promise<{ candidate: MxikCandidate; score: number }[]> {
+        return Promise.resolve(opts.anchored ? [{ candidate: enam, score: 0.6 }] : [{ candidate: nimid, score: 0.9 }]);
+      }
+    }
+    const opts = { embedder, reranker: noop, disabledStages: new Set(['vector'] as const) };
+    const r = await matchProduct({ rawName: 'ЭНАМ® Таблетки 5мг блистеры №100(10x10)' }, { ...opts, store: new AnchorStore([nimid, enam]) });
+    assert.equal(r.candidates[0]?.candidate.code, '03004184002020007');
+    assert.ok(r.candidates.find((c) => c.candidate.code === '03004419018001006')?.evidence.rules?.includes('otherBrand'));
+    const without = await matchProduct({ rawName: 'ЭНАМ® Таблетки 5мг блистеры №100(10x10)' }, { ...opts, store: new AnchorStore([nimid, enam]), identifyingRetrieval: false });
+    assert.equal(without.candidates[0]?.candidate.code, '03004419018001006');
+  });
+
   it('describes the pool and caps it per subposition on request', async () => {
     const many = [
       ...Array.from({ length: 6 }, (_, i) => candidate(`0730600100500000${i + 1}`, `truba ${i + 1}`)),
@@ -766,5 +787,14 @@ describe('identifying codes and the reranker pool (plan T2)', () => {
     assert.equal(capped.pool.filter((c) => c.startsWith('07306001005')).length, 3);
     assert.ok(capped.pool.includes('07306001006000001'));
     assert.ok(capped.notes.some((n) => n.includes('3 left out over the per-subposition cap')));
+  });
+});
+
+describe('mergeHits', () => {
+  it('keeps each code once at its better score, best first', () => {
+    const a = candidate('01901001003002001', 'a');
+    const b = candidate('01901001003002002', 'b');
+    const merged = mergeHits([{ candidate: a, score: 0.4 }, { candidate: b, score: 0.3 }], [{ candidate: b, score: 0.9 }]);
+    assert.deepEqual(merged.map((h) => [h.candidate.code, h.score]), [['01901001003002002', 0.9], ['01901001003002001', 0.4]]);
   });
 });

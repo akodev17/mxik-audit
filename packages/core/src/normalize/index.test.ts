@@ -88,6 +88,13 @@ describe('normalizeName', () => {
     assert.deepEqual(n.literalKeys, ['truba gd b sh', 'b gd sh truba']);
   });
 
+  it('drops a pack count from the query key but keeps it in the match key', () => {
+    const n = normalizeName('ЭНАМ® Таблетки 5мг блистеры №100(10x10)');
+    assert.equal(n.matchKey, 'enam® tabletki blisteri №100');
+    assert.equal(n.queryKey, 'enam® tabletki blisteri');
+    assert.equal(n.attrs.packCount, 100);
+  });
+
   it('has no literal keys when nothing was expanded', () => {
     const n = normalizeName('Шоколад молочный 100 г');
     assert.deepEqual(n.expanded, []);

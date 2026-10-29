@@ -125,8 +125,12 @@ export type CandidateStore = {
   byBarcode(barcode: string): Promise<MxikCandidate[]>;
   byMatchKey(keys: readonly string[]): Promise<MxikCandidate[]>;
   byLexical(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number }[]>;
-  /** `hierarchyWords`: query words found only in the code's position, class or group names (weighted column). */
-  byFullText(query: string, limit: number): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
+  /**
+   * `hierarchyWords`: query words found only in the code's position, class or group names (weighted column).
+   * `anchored`: only the query's rarest words select (in at most 50 codes, else under 1,000: store.ts), every word
+   * still ranks; no rare word = no hits. A store that cannot count terms ignores it.
+   */
+  byFullText(query: string, limit: number, opts?: { anchored?: boolean }): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
   /** `column`: 'uz' (embeddingUz) or 'ru' (embeddingRu); the store's default when absent. `cosine`: raw similarity. */
   byVector(embedding: readonly number[], limit: number, column?: 'uz' | 'ru'): Promise<{ candidate: MxikCandidate; score: number; cosine?: number }[]>;
   byCode(code: string): Promise<MxikCandidate | null>;

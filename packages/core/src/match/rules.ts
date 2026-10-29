@@ -29,6 +29,11 @@ export type RuleContext = {
   productTokens?: readonly string[];
   /** The row's brand, size and pack tokens (identifying.ts rowIdentity); absent = identifyingPreferred never fires. */
   identity?: RowIdentity;
+  /**
+   * The folded words of the most specific brand a retrieved code earned identifyingPreferred on
+   * (identifying.ts brandWords): the row names that brand (pipeline). Absent or empty = otherBrand never fires.
+   */
+  brandNamed?: readonly string[];
 };
 
 /**
@@ -60,7 +65,7 @@ function materialsIn(tokens: readonly string[]): Set<string> {
 /** Stable names of the rules, stored in match evidence and translated in the UI. */
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
-  'identifyingPreferred', 'cateringPreferred', 'cateringOutside', 'strictUnitConflict',
+  'identifyingPreferred', 'otherBrand', 'cateringPreferred', 'cateringOutside', 'strictUnitConflict',
   'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial',
 ] as const;
 
@@ -97,6 +102,14 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
    */
   identifyingPreferred: 0.08,
   /**
+   * The row names a brand that a retrieved code carries, and this code carries
+   * another one: "ЭНАМ® Таблетки 5мг №100" is no НИМИД® tablet, however many of
+   * its words the НИМИД® code repeats. Nor is "КО-ИРБЕСАН 300" an ИРБЕСАН tablet:
+   * a shorter brand inside the named one counts as another. Codes without a
+   * brand of their own (base codes, unbranded positions) are never judged by it.
+   */
+  otherBrand: -0.1,
+  /**
    * A food-service row belongs in the catering group (10202), whose menu codes
    * are named by family, not by dish; a foodstuff, seasoning or utensil that
    * shares the dish's words is the wrong group. Until 2026-10-28 this pair
@@ -119,14 +132,17 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
   unrequestedMaterial: -0.05,
 };
 
+/** identifyingPreferred's extra per attribute beyond the first that the code repeats. */
+const IDENTIFYING_DETAIL = 0.01;
+
 /** Evaluates every rule against one candidate. */
 export function applyRules(ctx: RuleContext): RuleOutcome {
   const { candidate, rowUnit, catering } = ctx;
   const notes: string[] = [];
   const keys: RuleKey[] = [];
   let adjustment = 0;
-  const fire = (key: RuleKey, note: string): void => {
-    adjustment += ADJUSTMENTS[key];
+  const fire = (key: RuleKey, note: string, amount = ADJUSTMENTS[key]): void => {
+    adjustment += amount;
     keys.push(key);
     notes.push(note);
   };
@@ -153,7 +169,20 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
   } else if (!earned) {
     fire('identifyingUnknownMarking', 'Identifying code and the classifier does not state whether the category is marked.');
   }
-  if (earned && !cateringHome) fire('identifyingPreferred', `The name repeats this identifying code's ${identifyingTokens.join(', ')}.`);
+  // Each further attribute the code repeats counts a little, so of two codes of the
+  // brand the one with the row's dose and pack ranks first (at most +0.03).
+  if (earned && !cateringHome) {
+    const detail = IDENTIFYING_DETAIL * Math.min(3, Math.max(0, identifying.attributes.length - 1));
+    fire('identifyingPreferred', `The name repeats this identifying code's ${identifyingTokens.join(', ')}.`, ADJUSTMENTS.identifyingPreferred + detail);
+  }
+  const named = ctx.brandNamed ?? [];
+  if (named.length > 0 && identifying?.ownBrand && identifying.brandWords.length < named.length
+    // "PEPSI, Pepsi Max, ПЭТ бутылка" is the "Pepsi Max" the row names, under a shorter brand field.
+    && !named.every((w) => identifying.ownWords.has(w))) {
+    fire('otherBrand', identifying.brand === null
+      ? `The row names another brand; this code is ${candidate.brandName ?? ''}.`
+      : `The row names a longer brand than this code's ${identifying.brand}.`);
+  }
 
   if (catering && !cateringHome) {
     fire('cateringOutside', 'Food-service item matched outside the catering group: a foodstuff or utensil that shares its words.');

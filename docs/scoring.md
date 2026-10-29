@@ -282,7 +282,8 @@ filters so a strong retrieval signal can outvote a heuristic.
 | Identifying code, category digitally marked | **+0.03** | Correct shape for a marked category. |
 | Identifying code, category not marked | **−0.10** | A base code is safer. Not applied when the name earns the code (`identifyingPreferred`). |
 | Identifying code, marking unknown | **−0.05** | Applies to the 8.7% of codes where the portal leaves `label` null. Penalised, but less — we are punishing our own ignorance, so we punish it gently. Not applied when the name earns the code. |
-| Identifying code the name earns: its brand, or its size, dosage, volume, pack or model (`identifyingPreferred`) | **+0.08** | Added 2026-10-28 (plan T2). Outweighs the base code's +0.05; a marked code keeps its +0.03 on top. Token rules in "Identifying codes" below. |
+| Identifying code the name earns: its brand, or its size, dosage, volume, pack or model (`identifyingPreferred`) | **+0.08**, +0.01 per further attribute (at most +0.11) | Added 2026-10-28 (plan T2). Outweighs the base code's +0.05; a marked code keeps its +0.03 on top. The per-attribute step (2026-10-29, plan §9) puts the brand's code with the row's dose and pack ahead of its siblings. Token rules in "Identifying codes" below. |
+| The row names a brand some retrieved code carries, and this code carries another one, or a shorter brand inside the named one (`otherBrand`) | **−0.10** | Added 2026-10-29 (plan §9). "ЭНАМ® Таблетки 5мг №100" is no НИМИД® tablet, "КО-ИРБЕСАН 300" no ИРБЕСАН. Never fires on a code without a brand of its own, nor on one whose names carry the named brand's words ("PEPSI, Pepsi Max, …" for "Pepsi Max"). |
 | Food-service row → a code of the catering group 10202 (`cateringPreferred`) | **+0.08** | Changed 2026-10-28 (plan §8). A row the catering lexicon in `normalize/synonyms.ts` reads as a dish, a drink the outlet makes or its service belongs in group 10202, whose menu codes are named by family ("Asosiy taomlar … go'shtli"), not by dish. Inside the group the base-code and marking rules are silent: the family codes are not base codes and the position has no base code for mains. Until this change the pair preferred base codes for a dish, which sent "Palov" to a seasoning base code. |
 | Food-service row → a code outside the group (`cateringOutside`) | **−0.10** | A foodstuff, seasoning or utensil that shares the dish's words. |
 | Row unit contradicts a **strict** binding | **−0.15** | 385,414 codes (87.8%) have a strict binding. |
@@ -302,7 +303,7 @@ construction top-1 with the vector stage off 75.5% → 76.5%.
 The base-code and marking rules encode practice, not a legal requirement; the
 UI words them that way. The keys of the rules that fired (`baseCodePreferred`,
 `identifyingMarked`, `identifyingUnmarked`, `identifyingUnknownMarking`, `identifyingPreferred`,
-`cateringPreferred`, `cateringOutside`, `strictUnitConflict`, `recommendedUnitMatch`,
+`otherBrand`, `cateringPreferred`, `cateringOutside`, `strictUnitConflict`, `recommendedUnitMatch`,
 `unitKindMismatch`) are stored in
 the evidence and translated in `ta.matchX.rules`.
 
@@ -322,9 +323,13 @@ case, no punctuation) before comparison.
 - *size*: the dimensions normalization strips ("15х2,5", "57х3,0/3,5",
   "5,00х1500х6000"), split on х/x/×/* into segments, each segment's slash
   alternatives as numbers; two segments or more.
-- *measures*: every number with a volume, weight or length unit
-  (`noise.ts measuresIn`: "1,5л" = 1500 ml, "500mg" = 0.5 g, "12 мм").
-- *pack*: `N12`, `№12`, `No 12` (not "N02BE01": a letter follows the digits).
+- *measures*: every number with a volume, weight, length or per-cent unit
+  (`noise.ts measuresIn`: "1,5л" = 1500 ml, "500mg" = 0.5 g, "250 мкг" =
+  0.00025 g, "0,1%", "12 мм"). Measures in parentheses count only for a kind
+  the rest of the name does not state ("1,5 г (1,0г+0,5г)" is 1.5 g).
+- *pack*: `N12`, `№12`, `No 12` (not "N02BE01": a letter follows the digits),
+  or "10шт." when no "№" says it; and its *breakdown*, the "2x14" of "№28(2x14)",
+  which is never read as a size.
 - *models*: folded tokens with two letters or more glued to digits that are
   neither a measure nor a pack ("15itl6"). A single letter makes a grade or a
   pack many codes share ("m400", "m150", "n12"), not a model.
@@ -346,7 +351,9 @@ letters collapse ("Кока-Кола" and "COCA-COLA" both fold to "koka kola").
 - *measure*: same kind, same value. A different value of the same kind is a
   **conflict** for volume and weight; lengths never conflict (a code states a
   diameter, a wall and a length in millimetres alike).
-- *pack*: same count; a different count is a conflict.
+- *pack*: same count; a different count is a conflict, and so is a code's
+  pack of more than one when the row names none (a vial is not the box of ten).
+  The same breakdown ("(3x10)") is one more attribute.
 - *model*: the same folded token.
 
 **The code is earned** when nothing conflicts and either
@@ -382,6 +389,33 @@ Feeding the query to fusion as a fourth list instead cost construction 4 and
 metal 1 top-1 rows and was dropped; without the heading guard metal lost 6.
 `identifyingRule: false` and `identifyingRetrieval: false` switch the two off
 for ablation.
+
+**Brands among many look-alikes (2026-10-29, plan §9).** On a pharmacy price
+list the brand is the only rare word ("ЭНАМ" is in 8 codes, "таблетки" in
+14,234), and full-text has no IDF: codes that repeat "раствор для инфузий …
+флаконы" twice outranked the brand's own code, which then never reached the
+pool (60% top-1 on 369 keyed rows). Four changes, each measured on the five
+test files and every eval set:
+
+- *Anchored query* (`byFullText(…, { anchored: true })`): the identifying
+  query's words plus the row's two-letter words ("RG"), selecting only on the
+  words in at most 50 codes, else on those in fewer than 1,000; numbers never
+  select. Term counts are cached from 50 codes up (`TERM_STATS_FLOOR`).
+- *Brand list*: its hits whose brand the row names (`namesBrandOf`: the brand
+  matches and the code's own part, not just its position's name, repeats an
+  attribute or a row word) enter fusion as a fourth list. Unlike the
+  identifying query above, this list holds only the row's own brand, which is
+  why it cost no eval row; without the own-part test the synthetic "NESTLE
+  ELEKTROSAMOKATLAR (barcha turdagi)" found a Nestle juice.
+- *`otherBrand`* (−0.10, table above) once such a code exists; the most
+  specific brand counts, and a brand's single-letter suffix must be in the row
+  ("Ситафор®" names no "Ситафор-M").
+- *Pack and strength tokens*: "№100" leaves the lexical query (its "100"
+  ranked codes that repeat 100 anywhere), "(10x10)" is a breakdown, not a size,
+  micrograms and per cents are measures, and a trade mark splits words in
+  full-text as Postgres splits the classifier ("КАРЛОН®ПЛЮС" = karlon plyus).
+
+Numbers in [MATCHING_V2_PLAN.md §9](MATCHING_V2_PLAN.md).
 
 **Position-diverse pool** (`poolPerPosition`, `fusion.ts positionPool`,
 opt-in): at most 3 codes per subposition (an over-full subposition keeps its
