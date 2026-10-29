@@ -21,7 +21,7 @@ import ExcelJS from 'exceljs';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { db } from '@tasnivo/db';
 import { uz } from '@tasnivo/i18n/i18n';
-import { taUz } from '@tasnivo/i18n/i18n-app';
+import { appDict, taUz } from '@tasnivo/i18n/i18n-app';
 import { hashPassword } from '@tasnivo/domain/password';
 import { attemptKey } from '@tasnivo/domain/security/rate-limit';
 
@@ -30,6 +30,8 @@ export const BASE_URL = (process.env['E2E_BASE_URL'] ?? 'http://localhost:3000')
 /** Uzbek Latin is the default interface language; the suite reads its copy from the app's own dictionaries. */
 export const T = uz;
 export const TA = taUz;
+/** The app's Russian copy, for checks of the ru interface. */
+export const TA_RU = appDict('ru');
 
 // ---------------------------------------------------------------------------
 // LOCAL E2E TEST CREDENTIALS. Only for the throwaway users this suite creates
@@ -116,7 +118,8 @@ export async function setupFirm(label: string): Promise<Fixture> {
       const email = emailFor(tag, who);
       emails.push(email);
       const created = await db.user.create({
-        data: { orgId, email, role, passwordHash: await hashPassword(password), emailVerifiedAt: verified, locale: 'uz' },
+        // The guided tour counts as seen: its overlay would cover every page this suite drives.
+        data: { orgId, email, role, passwordHash: await hashPassword(password), emailVerifiedAt: verified, tourCompletedAt: verified, locale: 'uz' },
         select: { id: true, email: true },
       });
       return created;
@@ -154,7 +157,7 @@ export async function setupEmptyOrg(label: string): Promise<EmptyFixture> {
   const org = await db.organization.create({ data: { name: `E2E yangi firma ${tag}`, kind: 'internal' } });
   try {
     const admin = await db.user.create({
-      data: { orgId: org.id, email, role: 'admin', passwordHash: await hashPassword(E2E_PASSWORDS.admin), emailVerifiedAt: new Date(), locale: 'uz' },
+      data: { orgId: org.id, email, role: 'admin', passwordHash: await hashPassword(E2E_PASSWORDS.admin), emailVerifiedAt: new Date(), tourCompletedAt: new Date(), locale: 'uz' },
       select: { id: true, email: true },
     });
     return { tag, orgId: org.id, admin, cleanup: () => removeOrgs([org.id], [email]) };

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { placeCard } from './tour-place';
+import { RETRY_MS, saveWithRetry } from './tour-save';
 import { clampIndex, STEP_KEYS, TOUR_STEPS, visibleSteps } from './tour-steps';
 import { resolveTarget, spotlightRect, type Rect } from './tour-target';
 
@@ -95,5 +96,40 @@ describe('card placement', () => {
     // A phone: the card is barely narrower than the screen, nothing fits beside a tall target.
     const phone = { width: 375, height: 667 };
     assert.equal(placeCard(rect(10, 60, 355, 560), { width: 343, height: 240 }, phone).side, 'center');
+  });
+});
+
+describe('saving the tour flag', () => {
+  const waits: number[] = [];
+  const wait = (ms: number): Promise<void> => {
+    waits.push(ms);
+    return Promise.resolve();
+  };
+  const answers = (...ok: boolean[]) => {
+    let calls = 0;
+    const save = (): Promise<void> => {
+      calls += 1;
+      return ok.shift() ? Promise.resolve() : Promise.reject(new Error('down'));
+    };
+    return { save, calls: () => calls };
+  };
+
+  it('saves once when the first write goes through', async () => {
+    waits.length = 0;
+    const api = answers(true);
+    assert.equal(await saveWithRetry(api.save, wait), true);
+    assert.equal(api.calls(), 1);
+    assert.deepEqual(waits, []);
+  });
+
+  it('retries once after a pause, then gives up quietly', async () => {
+    waits.length = 0;
+    const late = answers(false, true);
+    assert.equal(await saveWithRetry(late.save, wait), true);
+    assert.equal(late.calls(), 2);
+    assert.deepEqual(waits, [RETRY_MS]);
+    const down = answers(false, false, true);
+    assert.equal(await saveWithRetry(down.save, wait), false);
+    assert.equal(down.calls(), 2);
   });
 });

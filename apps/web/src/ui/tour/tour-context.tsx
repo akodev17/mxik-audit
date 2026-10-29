@@ -50,6 +50,9 @@ export function TourProvider({ canWrite, canManageTeam, onDone, children }: Prop
   const [mode, setMode] = useState<TourMode>('centred');
   const done = useRef(onDone);
   useEffect(() => { done.current = onDone; });
+  // Taken when start() is called, not when the card mounts: by then (and on a dev double mount) the
+  // card's own Next button already has focus.
+  const opener = useRef<HTMLElement | null>(null);
 
   const index = clampIndex(rawIndex, steps.length);
   const onDashboard = isActive(pathname, '/dashboard');
@@ -61,8 +64,18 @@ export function TourProvider({ canWrite, canManageTeam, onDone, children }: Prop
     setOpen(true);
   }, [pending, onDashboard]);
 
+  // Focus goes back to the opener once the card is gone, unless it left the page (start() from another route).
+  useEffect(() => {
+    if (open) return;
+    const el = opener.current;
+    opener.current = null;
+    const now = document.activeElement;
+    if (el?.isConnected && (!now || now === document.body)) el.focus({ preventScroll: true });
+  }, [open]);
+
   const start = useCallback(() => {
     if (steps.length === 0) return;
+    opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     setIndex(0);
     if (onDashboard) {
       setOpen(true);

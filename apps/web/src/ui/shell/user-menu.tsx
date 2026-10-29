@@ -8,7 +8,8 @@ import { LanguageSwitch } from '../language-switch';
 import { Segmented } from '../segmented';
 import type { Theme } from '../theme';
 import { useToast } from '../toast';
-import { IconGear } from '../icons';
+import { useTour } from '../tour/tour-context';
+import { IconGear, IconSparkle } from '../icons';
 import { IconHelp } from './icons';
 import { emailInitials } from './initials';
 import { helpHref } from './nav';
@@ -19,10 +20,11 @@ const ROW = 'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left
 const ITEM = `${ROW} text-fg hover:bg-surface`;
 const SIGN_OUT = `${ROW} text-danger-ink hover:bg-danger-tint`;
 
-/** Avatar button: account, language, theme, settings, help and sign-out. */
-export function UserMenu({ email }: { email: string }) {
+/** Avatar button: account, language, theme, settings, help, the guided tour and sign-out. */
+export function UserMenu({ email, canTour }: { email: string; canTour: boolean }) {
   const { t, ta, locale } = useI18n();
   const toast = useToast();
+  const tour = useTour();
   const dd = useDropdown();
   const themeCtx = useTheme();
   const [saving, setSaving] = useState(false);
@@ -110,6 +112,12 @@ export function UserMenu({ email }: { email: string }) {
           <div className="py-1">
             <Link href="/settings" onClick={() => dd.close(false)} className={ITEM}><IconGear size={16} className="text-muted" />{ta.nav.settings}</Link>
             <Link href={helpHref(locale)} onClick={() => dd.close(false)} className={ITEM}><IconHelp size={16} className="text-muted" />{ta.shellX.user.help}</Link>
+            {canTour ? (
+              // Focus goes back to the avatar first, so it is where the tour returns focus when it closes.
+              <button type="button" onClick={() => { dd.close(true); tour.start(); }} className={ITEM}>
+                <IconSparkle size={16} className="text-muted" />{ta.tourX.menuEntry}
+              </button>
+            ) : null}
           </div>
           <form onSubmit={signOut} className="border-t border-line pt-1">
             <button type="submit" className={SIGN_OUT} aria-busy={signingOut || undefined}>{t.signOut}</button>

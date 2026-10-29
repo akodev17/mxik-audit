@@ -12,8 +12,9 @@ import { IconMenu } from '../icons';
 import { TasnivoMark } from '../logo';
 import { ToastProvider } from '../toast';
 import { TourProvider } from '../tour/tour-context';
-import { TourDevTrigger } from '../tour/tour-dev-trigger';
+import { TourAutoStart } from '../tour/tour-auto-start';
 import { TourOverlay } from '../tour/tour-overlay';
+import { useTourFlag } from '../tour/use-tour-flag';
 import { ClientSwitcher } from './client-switcher';
 import { CommandPalette } from './command-palette';
 import { MobileNav } from './mobile-nav';
@@ -86,10 +87,11 @@ export function AppFrame({ shell, sidebar, children }: Props) {
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
 
+  const tour = useTourFlag(shell.tour);
   const canUpload = shell.canWrite && !shell.demo;
   return (
     <ToastProvider>
-      <TourProvider canWrite={canUpload} canManageTeam={shell.canManageTeam}>
+      <TourProvider canWrite={canUpload} canManageTeam={shell.canManageTeam} onDone={tour.onDone}>
         <div
           data-rail={pref}
           className="group/frame relative grid h-dvh grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-base print:block print:h-auto print:overflow-visible"
@@ -133,7 +135,7 @@ export function AppFrame({ shell, sidebar, children }: Props) {
               <SearchButton onOpen={() => setPaletteOpen(true)} expanded={paletteOpen} />
               {shell.demo ? <span className="hidden sm:inline-flex"><Badge tone="brand" title={ta.shell.demoTitle}>{ta.shell.demoPill}</Badge></span> : null}
               <NotificationBell initialUnread={shell.unread} />
-              <UserMenu email={shell.email} />
+              <UserMenu email={shell.email} canTour={!shell.demo} />
             </div>
           </header>
 
@@ -162,7 +164,7 @@ export function AppFrame({ shell, sidebar, children }: Props) {
           activeClientId={shell.activeClient?.id ?? null}
         />
         <TourOverlay />
-        <Suspense fallback={null}><TourDevTrigger /></Suspense>
+        <TourAutoStart pending={tour.pending && !shell.demo} />
       </TourProvider>
     </ToastProvider>
   );

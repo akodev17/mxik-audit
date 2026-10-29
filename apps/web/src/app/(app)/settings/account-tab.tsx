@@ -10,6 +10,7 @@ import { ROLE_TONE } from '../_manage/roles';
 import { BrandForm } from './brand-form';
 import { DictionarySetting } from './dictionary-setting';
 import { ThemeSetting } from './theme-setting';
+import { TourSetting } from './tour-setting';
 
 /** A setting as a row: what it is on the left, the control on the right (stacked on a phone). */
 function SettingRow({ label, hint, children, labelHidden = false }: { label: string; hint: string; children: ReactNode; labelHidden?: boolean }) {
@@ -24,7 +25,7 @@ function SettingRow({ label, hint, children, labelHidden = false }: { label: str
   );
 }
 
-/** Email, role and client access, language and theme; PDF branding and the dictionary setting for admins. */
+/** Email, role and client access, language and theme, the guided tour; PDF branding and the dictionary setting for admins. */
 export async function AccountTab({ user, demo }: { user: Me; demo: boolean }) {
   const { t, ta } = await getI18n();
   const s = ta.setX.account;
@@ -57,6 +58,8 @@ export async function AccountTab({ user, demo }: { user: Me; demo: boolean }) {
           <SettingRow label={s.theme} hint={s.themeHint} labelHidden><ThemeSetting /></SettingRow>
         </div>
       </Card>
+
+      {demo ? null : <Card id="tour" title={ta.tourX.settingsTitle} hint={ta.tourX.settingsHint} actions={<TourSetting />} />}
 
       {org ? <BrandForm initial={org} title={t.brandSection} hint={t.brandHint} /> : null}
       {org ? <DictionarySetting initial={org} /> : null}
