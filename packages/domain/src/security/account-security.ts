@@ -40,9 +40,9 @@ async function withCode<T>(user: Member, code: unknown, job: (code: string) => P
   return result;
 }
 
-/** Confirms the setup; the recovery codes once, or null. */
-export async function finishTwoFactor(user: Member, code: unknown): Promise<string[] | null> {
-  return withCode(user, code, (c) => confirmSetup(user, c));
+/** Confirms the setup; the recovery codes once, or null. Every session but `keepSid` (this browser's) ends. */
+export async function finishTwoFactor(user: Member, code: unknown, keepSid: string | null = null): Promise<string[] | null> {
+  return withCode(user, code, (c) => confirmSetup(user, c, keepSid));
 }
 
 export async function turnOffTwoFactor(user: Member, code: unknown): Promise<boolean> {

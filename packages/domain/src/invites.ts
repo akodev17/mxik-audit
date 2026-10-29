@@ -80,6 +80,12 @@ export async function createInvite(
   return { url, emailed };
 }
 
+/** The invite row behind a token while it is unused and unexpired, else null. */
+export async function usableInvite(token: string, now = new Date()) {
+  const invite = await db.invite.findUnique({ where: { tokenHash: hash(token) }, include: { org: { select: { name: true } } } });
+  return invite && !invite.usedAt && invite.expiresAt > now ? invite : null;
+}
+
 export type InviteView = { orgName: string; role: Role; email: string | null };
 
 /** The invite behind a token, when it is still usable. */
@@ -93,8 +99,9 @@ export type InviteError = 'inviteBad' | 'inviteWrongEmail' | 'emailBad' | 'passw
 export type AcceptResult = { ok: true; userId: string; orgId: string; email: string } | { ok: false; error: InviteError };
 
 /**
- * An invite sent to an address confirms that address (the admin chose it); a link without one
- * lets the person type any address, so it is confirmed with a mailed code.
+ * Creates the invited account, unconfirmed. Whoever holds the link may not own the address (the admin
+ * who made an address-bound invite gets the link too), so the address is always confirmed with the
+ * mailed code before anything opens, as at sign-up (F2).
  */
 export async function acceptInvite(token: string, emailInput: string, password: string): Promise<AcceptResult> {
   const invite = await db.invite.findUnique({ where: { tokenHash: hash(token) } });
@@ -108,12 +115,11 @@ export async function acceptInvite(token: string, emailInput: string, password: 
   if (await db.user.findUnique({ where: { email }, select: { id: true } })) return { ok: false, error: 'emailTaken' };
 
   const passwordHash = await hashPassword(password);
-  const emailBound = invite.email !== null;
   const user = await db.$transaction(async (tx) => {
     // The claim is atomic, so one link creates one account.
     const claimed = await tx.invite.updateMany({ where: { id: invite.id, usedAt: null }, data: { usedAt: new Date() } });
     if (claimed.count !== 1) throw new Error('used');
-    const created = await tx.user.create({ data: { orgId: invite.orgId, email, passwordHash, role: invite.role, emailVerifiedAt: emailBound ? new Date() : null } });
+    const created = await tx.user.create({ data: { orgId: invite.orgId, email, passwordHash, role: invite.role, emailVerifiedAt: null, verifiedVia: null } });
     if (invite.role !== 'admin' && invite.clientIds.length > 0) {
       await tx.clientAssignment.createMany({ data: invite.clientIds.map((clientId) => ({ userId: created.id, clientId })), skipDuplicates: true });
     }
@@ -122,6 +128,6 @@ export async function acceptInvite(token: string, emailInput: string, password: 
   }).catch(() => null);
   if (!user) return { ok: false, error: 'inviteUsed' };
   // The address must be confirmed with the mailed code before anything opens (AccessGuard).
-  if (!emailBound && mailDeliverable()) await sendVerification(user.id, email, await orgLocale(user.orgId));
+  if (mailDeliverable()) await sendVerification(user.id, email, await orgLocale(user.orgId));
   return { ok: true, userId: user.id, orgId: user.orgId, email };
 }

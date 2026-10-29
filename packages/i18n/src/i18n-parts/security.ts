@@ -30,6 +30,7 @@ export const uz = {
       telegram_expired: 'Telegram maʼlumotlari eskirgan yoki allaqachon ishlatilgan. Telegram tugmasini qayta bosing.',
       telegram_invalid: 'Telegram maʼlumotlarini tekshirib boʻlmadi. Telegram tugmasini qayta bosing; takrorlansa, elektron pochta va parol bilan kiring.',
       telegram_limit: 'Juda koʻp urinish. Birozdan soʻng qayta urinib koʻring.',
+      telegram_state: 'Telegram orqali kirish muddati tugadi yoki boshqa brauzerda boshlangan. Sahifani yangilab, Telegram tugmasini qayta bosing.',
     } as Record<string, string>,
     info: {
       reset_done: 'Parol yangilandi. Yangi parol bilan kiring.',
@@ -116,6 +117,7 @@ export const ru: typeof uz = {
       telegram_expired: 'Данные Telegram устарели или уже использованы. Нажмите кнопку Telegram ещё раз.',
       telegram_invalid: 'Не удалось проверить данные Telegram. Нажмите кнопку Telegram ещё раз; если не поможет, войдите по почте и паролю.',
       telegram_limit: 'Слишком много попыток. Повторите немного позже.',
+      telegram_state: 'Вход через Telegram устарел или начат в другом браузере. Обновите страницу и нажмите кнопку Telegram ещё раз.',
     },
     info: {
       reset_done: 'Пароль обновлён. Войдите с новым паролем.',

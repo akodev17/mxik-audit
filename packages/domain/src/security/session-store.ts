@@ -6,14 +6,19 @@ const TOUCH_EVERY_MS = 5 * 60_000;
 /** The cookie's lifetime; a record not seen for this long is dead too. */
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const MAX_IDLE_MS = SESSION_MAX_AGE_SECONDS * 1000;
+/**
+ * Absolute limit, counted from the record's createdAt: however active, a session ends 30 days after
+ * the sign-in that opened it (the idle limit alone let a busy, possibly stolen cookie live forever).
+ */
+export const SESSION_ABSOLUTE_MAX_MS = 30 * 24 * 60 * 60_000;
 
-/** How long a record may sit unused, and how often "last seen" is refreshed. */
-type Limits = { maxIdleMs: number; touchMs: number };
+/** How long a record may sit unused, how often "last seen" is refreshed, and how old it may get. */
+type Limits = { maxIdleMs: number; touchMs: number; maxAgeMs: number };
 
-const DEFAULT_LIMITS: Limits = { maxIdleMs: MAX_IDLE_MS, touchMs: TOUCH_EVERY_MS };
+const DEFAULT_LIMITS: Limits = { maxIdleMs: MAX_IDLE_MS, touchMs: TOUCH_EVERY_MS, maxAgeMs: SESSION_ABSOLUTE_MAX_MS };
 
 /** A demo ends after a short idle period (DEMO_IDLE_MINUTES), so its clock is refreshed every minute. */
-const demoLimits = (): Limits => ({ maxIdleMs: demoIdleMinutes() * 60_000, touchMs: 60_000 });
+const demoLimits = (): Limits => ({ maxIdleMs: demoIdleMinutes() * 60_000, touchMs: 60_000, maxAgeMs: SESSION_ABSOLUTE_MAX_MS });
 
 export type SessionRow = { id: string; userAgent: string | null; createdAt: Date; lastSeenAt: Date };
 
@@ -22,10 +27,14 @@ export async function createRecord(userId: string, orgId: string, userAgent: str
   return row.id;
 }
 
-/** True while the record exists, belongs to the user, is not revoked and was seen within the cookie lifetime. Refreshes "last seen" now and then. */
+/**
+ * True while the record exists, belongs to the user, is not revoked, was seen within the cookie
+ * lifetime and is younger than the absolute limit. Refreshes "last seen" now and then.
+ */
 export async function isLive(sid: string, userId: string, now = Date.now(), limits: Limits = DEFAULT_LIMITS): Promise<boolean> {
-  const row = await db.userSession.findUnique({ where: { id: sid }, select: { userId: true, revokedAt: true, lastSeenAt: true } });
+  const row = await db.userSession.findUnique({ where: { id: sid }, select: { userId: true, revokedAt: true, lastSeenAt: true, createdAt: true } });
   if (!row || row.userId !== userId || row.revokedAt) return false;
+  if (now - row.createdAt.getTime() > limits.maxAgeMs) return false;
   const idle = now - row.lastSeenAt.getTime();
   if (idle > limits.maxIdleMs) return false;
   if (idle > limits.touchMs) await db.userSession.update({ where: { id: sid }, data: { lastSeenAt: new Date(now) } });
@@ -42,7 +51,7 @@ export async function recordAccepted(sid: string | undefined, userId: string, de
 
 export async function listSessions(userId: string, now = Date.now()): Promise<SessionRow[]> {
   return db.userSession.findMany({
-    where: { userId, revokedAt: null, lastSeenAt: { gt: new Date(now - MAX_IDLE_MS) } },
+    where: { userId, revokedAt: null, lastSeenAt: { gt: new Date(now - MAX_IDLE_MS) }, createdAt: { gt: new Date(now - SESSION_ABSOLUTE_MAX_MS) } },
     orderBy: { lastSeenAt: 'desc' }, take: 50, select: { id: true, userAgent: true, createdAt: true, lastSeenAt: true },
   });
 }

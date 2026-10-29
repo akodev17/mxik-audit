@@ -317,6 +317,9 @@ model User {
   role         UserRole @default(admin)
   /// Set when the address was confirmed (or the account predates verification).
   emailVerifiedAt DateTime?
+  /// How the address was confirmed: code, link (verify or reset mail), google, telegram, or legacy
+  /// (confirmed before this was recorded). Null while unconfirmed. Google joins only code or link.
+  verifiedVia String?
   emailTokens  EmailToken[]
   savedViews   SavedView[]
   /// Interface language, uz or ru; null = the default.

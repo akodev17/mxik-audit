@@ -6,10 +6,12 @@ import { z } from 'zod';
 import { db } from '@tasnivo/db';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
+import { checkInviteMove, moveWithInvite, type MoveRefusal } from './invite-move.js';
 import { acceptInvite, createInvite, INVITE_DAYS, InviteRefused } from './invites.js';
-import { mailEnabled } from './mailer.js';
+import { mailDeliverable, mailEnabled } from './mailer.js';
 import { allows, planStatus } from './plan.js';
-import { openSession, type SignInSession } from './security/sign-in.js';
+import { hit, minutesOf, RULES } from './security/rate-limit.js';
+import { openSession, renewSession, type SignInSession } from './security/sign-in.js';
 import type { CurrentUser, Role } from './session.js';
 import { changeMember, ownedClientIds, removeTeamMember, revokeTeamInvite } from './team-members.js';
 
@@ -28,6 +30,8 @@ export type InviteState = {
   /** null when the invite is a link without an address. */
   email?: string | null;
   emailed?: boolean;
+  /** The address already has a Tasnivo account (in some org, never named): how that person joins. */
+  existingAccount?: string;
 };
 
 /** The invite form's fields as the form sent them; role, kind and access are checked here so a bad value answers { error }. */
@@ -64,7 +68,9 @@ export async function inviteMemberForm(user: Admin, input: InviteInput, locale: 
   try {
     // The cap again, counted under the org's lock: two invites sent at once cannot both take the last seat.
     const result = await createInvite(user, { email, role: role.data, clientIds, locale }, status.limits.seats);
-    return { url: result.url, email, emailed: result.emailed };
+    // Registered elsewhere (this org was checked above): they join with that account, if it can move (D5).
+    const registered = email !== null && (await db.user.findUnique({ where: { email }, select: { id: true } })) !== null;
+    return { url: result.url, email, emailed: result.emailed, ...(registered ? { existingAccount: s.invite.existingAccount } : {}) };
   } catch (error) {
     if (error instanceof InviteRefused && error.reason === 'seats') return { error: s.invite.seatsFull };
     throw error;
@@ -145,15 +151,52 @@ export async function resendInviteForm(user: Admin, inviteId: unknown, locale: L
   return { ok: true };
 }
 
-/** Public: accepts an invite, creates the account and signs it in (`{ redirect }`). */
+/**
+ * Public: accepts an invite, creates the account (unconfirmed: the code step comes next) and signs
+ * it in (`{ redirect }`). Limited per client address; an address that is already registered gets
+ * the same answer as one that cannot be used, so the form does not tell which addresses exist.
+ */
 export async function joinWithInviteForm(
-  session: SignInSession, token: string, input: { email: string; password: string }, req: { userAgent: string | null; locale: Locale },
+  session: SignInSession, token: string, input: { email: string; password: string }, req: { ip: string; userAgent: string | null; locale: Locale },
 ): Promise<{ redirect: string } | { error?: string }> {
   const { ta } = i18nFor(req.locale);
+  const verdict = await hit(RULES.inviteJoinIp, req.ip);
+  if (!verdict.allowed) return { error: ta.secX.tooMany(minutesOf(verdict.retryAfterMs)) };
+  // As at sign-up: without a way to deliver the code the account would stay locked, so none is made.
+  if (!mailDeliverable()) return { error: ta.verifyX.mailOff };
   const result = await acceptInvite(token, input.email, input.password);
-  if (!result.ok) return { error: ta.msg.account[result.error] };
+  if (!result.ok) return { error: result.error === 'emailTaken' ? ta.authX.invite.addressUnavailable : ta.msg.account[result.error] };
   const next = await openSession(session, { id: result.userId, orgId: result.orgId, email: result.email }, { via: 'invite', landing: '/catalogs' }, req.userAgent);
   return { redirect: next ?? '/sign-in' };
+}
+
+type Member = Pick<CurrentUser, 'userId' | 'orgId' | 'email'>;
+export type JoinCheck = { ok: true; orgName: string; role: Role } | { ok: false; error: string; adminEmail: string | null };
+
+function moveRefusal(reason: MoveRefusal, locale: Locale): string {
+  const { ta } = i18nFor(locale);
+  if (reason === 'inviteBad') return ta.msg.account.inviteBad;
+  if (reason === 'inviteWrongEmail') return ta.msg.account.inviteWrongEmail;
+  return ta.authX.invite.refused[reason];
+}
+
+/** For the invite page of a signed-in user: may they join with the account they are signed in with (D5). */
+export async function joinCheckForm(user: Member, token: string, locale: Locale): Promise<JoinCheck> {
+  const check = await checkInviteMove(user, token);
+  return check.ok ? check : { ok: false, error: moveRefusal(check.reason, locale), adminEmail: check.adminEmail };
+}
+
+/**
+ * Joins the inviting org with the signed-in account and closes the empty org it leaves (D5). Every
+ * session of the user ends; this browser gets a new one in the new org (`{ redirect }`).
+ */
+export async function joinWithAccountForm(
+  session: SignInSession, user: Member, token: string, req: { userAgent: string | null; locale: Locale },
+): Promise<{ redirect: string } | { error: string; adminEmail: string | null }> {
+  const moved = await moveWithInvite(user, token);
+  if (!moved.ok) return { error: moveRefusal(moved.reason, req.locale), adminEmail: moved.adminEmail };
+  await renewSession(session, { id: user.userId, orgId: moved.orgId, email: user.email }, 'invite', req.userAgent);
+  return { redirect: '/dashboard' };
 }
 
 export type TeamOverview = {

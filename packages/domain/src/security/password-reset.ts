@@ -49,9 +49,11 @@ export async function resetPassword(token: string, password: string, now = new D
   const passwordHash = await hashPassword(password);
   const userId = await claimToken(token, 'reset', now);
   if (!userId) return { ok: false, error: 'bad' };
-  const user = await db.user.findUnique({ where: { id: userId }, select: { orgId: true, email: true, emailVerifiedAt: true } });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { orgId: true, email: true, emailVerifiedAt: true, verifiedVia: true } });
   if (!user) return { ok: false, error: 'bad' };
-  await db.user.update({ where: { id: userId }, data: { passwordHash, emailVerifiedAt: user.emailVerifiedAt ?? now } });
+  // The reset link reached the mailbox, so the address counts as confirmed by link from now on (S1).
+  const verifiedVia = user.verifiedVia === 'code' ? 'code' : 'link';
+  await db.user.update({ where: { id: userId }, data: { passwordHash, emailVerifiedAt: user.emailVerifiedAt ?? now, verifiedVia } });
   const ended = await endUserSessions(userId);
   await clearAttempts(RULES.passwordEmail, user.email);
   await db.auditEvent.create({ data: { orgId: user.orgId, actorId: userId, action: 'security.password_reset', targetId: userId, payload: { via: 'email', sessionsEnded: ended } } });

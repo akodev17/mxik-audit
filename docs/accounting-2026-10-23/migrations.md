@@ -216,3 +216,21 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261107000100_feature_
 What breaks: with the new code still running, every request under a module's prefix (API and web)
 answers 500 once the cached states expire, and `/admin/features` cannot save. Deploy the previous
 code first; it never reads the table.
+
+## SaaS hardening S1: identity and invites (`202611080001*`)
+
+### `20261108000100_user_verified_via` (S1, `feat/s1-identity`)
+
+Adds the nullable `user.verifiedVia` text: how the address was confirmed (`code`, `link`, `google`,
+`telegram`, `legacy`). Backfill: `legacy` for every row with `emailVerifiedAt` set. Google sign-in
+binds itself to an existing account only when this is `code` or `link`.
+
+```sql
+ALTER TABLE "user" DROP COLUMN IF EXISTS "verifiedVia";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000100_user_verified_via';
+```
+
+What breaks: with the new code still running, every read or write of `user` that names the column
+answers 500 (sign-in, the code step, Google sign-in, invites). Deploy the previous code first; it
+never reads the column. Nothing is lost by dropping it: the origin of each confirmation is only
+recorded, and the previous code ignores it.

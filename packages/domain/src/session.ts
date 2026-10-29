@@ -22,6 +22,9 @@ export type SessionData = {
   /** One-time state for binding Telegram from Settings, and when it was issued. */
   tgBind?: string;
   tgBindAt?: number;
+  /** One-time state for Telegram sign-in from the sign-in or sign-up page, and when it was issued. */
+  tgLogin?: string;
+  tgLoginAt?: number;
   /** Google sign-in under way (security/google.ts): one-time state, PKCE verifier, nonce, when it began, where to land. */
   google?: { state: string; verifier: string; nonce: string; at: number; next?: string };
   /**

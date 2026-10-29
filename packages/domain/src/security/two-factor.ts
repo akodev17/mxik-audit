@@ -2,6 +2,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { db } from '@tasnivo/db';
 import { keyedHash } from './secret.js';
+import { endUserSessions } from './session-store.js';
 import { matchStep, newSecret, openSecret, otpauthUri, sealSecret } from './totp.js';
 
 const RECOVERY_COUNT = 8;
@@ -52,14 +53,19 @@ async function writeRecoveryCodes(userId: string): Promise<string[]> {
   return codes;
 }
 
-/** Activates two-factor once the user proves the app shows the right code; returns the recovery codes once. */
-export async function confirmSetup(user: { userId: string; orgId: string }, code: string): Promise<string[] | null> {
+/**
+ * Activates two-factor once the user proves the app shows the right code; returns the recovery codes
+ * once. Every other session of the user ends (`keepSid` is this browser's): a session opened before,
+ * perhaps by whoever made two-factor necessary, must not outlive it.
+ */
+export async function confirmSetup(user: { userId: string; orgId: string }, code: string, keepSid: string | null = null): Promise<string[] | null> {
   const row = await db.user.findUnique({ where: { id: user.userId }, select: { totpSecret: true, totpEnabledAt: true } });
   const secret = row?.totpSecret && !row.totpEnabledAt ? openSecret(row.totpSecret) : null;
   const step = secret ? matchStep(secret, code, null) : null;
   if (step === null) return null;
   await db.user.update({ where: { id: user.userId }, data: { totpEnabledAt: new Date(), totpLastStep: step } });
-  await db.auditEvent.create({ data: { orgId: user.orgId, actorId: user.userId, action: 'security.2fa_enabled', targetId: user.userId, payload: {} } });
+  const ended = await endUserSessions(user.userId, keepSid);
+  await db.auditEvent.create({ data: { orgId: user.orgId, actorId: user.userId, action: 'security.2fa_enabled', targetId: user.userId, payload: { sessionsEnded: ended } } });
   return writeRecoveryCodes(user.userId);
 }
 

@@ -76,7 +76,11 @@ export async function createAccount(input: Input): Promise<SignupResult> {
     // The org's default client exists from the start (Q4): uploads through the API work before any page was opened.
     await tx.client.create({ data: { id: defaultClientId(org.id), orgId: org.id, name, isDefault: true } });
     const created = await tx.user.create({
-      data: { orgId: org.id, email, passwordHash, role: 'admin', emailVerifiedAt: needsVerification ? null : new Date(), telegramUserId: input.telegramUserId ?? null, googleSub: input.googleSub ?? null },
+      data: {
+        orgId: org.id, email, passwordHash, role: 'admin', emailVerifiedAt: needsVerification ? null : new Date(),
+        verifiedVia: needsVerification ? null : via === 'signup' ? 'legacy' : via,
+        telegramUserId: input.telegramUserId ?? null, googleSub: input.googleSub ?? null,
+      },
     });
     await tx.auditEvent.create({ data: { orgId: org.id, actorId: created.id, action: 'account.created', payload: { via } } });
     return created;

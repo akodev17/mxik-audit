@@ -16,7 +16,13 @@ export const InviteState = z.object({
   /** null when the invite is a link without an address. */
   email: z.string().nullable().optional(),
   emailed: z.boolean().optional(),
+  /** The address already has an account somewhere (the org is never named): what that means for joining. */
+  existingAccount: z.string().optional(),
 });
+
+/** Why a signed-in user cannot join with their account, and whom to ask. */
+const JoinRefused = z.object({ error: z.string(), adminEmail: z.string().nullable() });
+const TokenParams = z.object({ token: z.string() });
 
 export const team = defineModule('team', {
   list: endpoint({
@@ -88,10 +94,28 @@ export const team = defineModule('team', {
   }),
   join: endpoint({
     method: 'POST', path: '/api/invites/{token}/join', auth: 'public',
-    summary: 'Accept an invite: create the account and sign it in',
-    params: z.object({ token: z.string() }),
+    summary: 'Accept an invite: create the account (unconfirmed, the e-mail code comes next) and sign it in',
+    params: TokenParams,
     body: z.object({ email: z.string().max(200), password: z.string().max(200) }),
     responds: 'json', response: z.union([Redirect, ErrorState]),
     replaces: ['action:team.ts#joinWithInvite'],
+    notes: 'Limited per client address (RULES.inviteJoinIp). An address that is already registered answers the same generic error as an unusable one.',
+  }),
+  joinCheck: endpoint({
+    method: 'GET', path: '/api/invites/{token}/account', auth: 'session', role: 'any', noDemo: true,
+    summary: 'Whether the signed-in user may join this invite\'s org with their account, and if not why and whom to ask',
+    params: TokenParams,
+    responds: 'json',
+    response: z.union([z.object({ ok: z.literal(true), orgName: z.string(), role: Role }), JoinRefused.extend({ ok: z.literal(false) })]),
+    replaces: ['page:invite/[token]'],
+    notes: 'Plan D5: allowed when the user\'s current org has no other users, no catalogues and no running paid subscription.',
+  }),
+  joinWithAccount: endpoint({
+    method: 'POST', path: '/api/invites/{token}/account', auth: 'session', role: 'any', noDemo: true,
+    summary: 'Join the inviting org with the signed-in account; the empty org it leaves is closed',
+    params: TokenParams,
+    responds: 'json', response: z.union([Redirect, JoinRefused]),
+    replaces: ['page:invite/[token]'],
+    notes: 'One transaction: invite claimed, old org re-checked and closed (deletedAt, purged after the grace period), role and client access from the invite, every session of the user ended; this browser gets a new session in the new org.',
   }),
 });

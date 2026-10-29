@@ -1,4 +1,5 @@
-// endpoints.team: members, invites and joining with one. Thin: each handler parses with the
+// endpoints.team: members, invites and joining with one (a new account, or an existing one that
+// moves in, plan D5). Thin: each handler parses with the
 // registry's schemas and calls @tasnivo/domain/team-forms, as the web app's team actions do.
 import { Body, Controller, Inject, Param, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -8,7 +9,8 @@ import { isDemoOrg } from '@tasnivo/domain/demo';
 import { readInvite } from '@tasnivo/domain/invites';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
 import {
-  inviteMemberForm, joinWithInviteForm, removeMemberForm, resendInviteForm, revokeInviteForm, teamOverview, updateMemberForm, type InviteInput,
+  inviteMemberForm, joinCheckForm, joinWithAccountForm, joinWithInviteForm, removeMemberForm, resendInviteForm, revokeInviteForm, teamOverview, updateMemberForm,
+  type InviteInput,
 } from '@tasnivo/domain/team-forms';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { SessionService } from '../auth-core/session.service';
@@ -85,5 +87,23 @@ export class TeamController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<Answer<'join'>> {
     return joinWithInviteForm(await this.sessions.forSignIn(req, res), token, body, requestFacts(req));
+  }
+
+  /** May the signed-in user join with this account (plan D5); if not, why and whom to ask. */
+  @Route(e.joinCheck)
+  joinCheck(@CurrentUser() user: User, @Param(new ZodValidationPipe(e.joinCheck.params)) { token }: TokenParam, @Locale() locale: LocaleCode): Promise<Answer<'joinCheck'>> {
+    return joinCheckForm(user, token, locale);
+  }
+
+  /** Moves the signed-in account into the inviting org; this browser's session is renewed there. */
+  @Route(e.joinWithAccount)
+  async joinWithAccount(
+    @CurrentUser() user: User,
+    @Param(new ZodValidationPipe(e.joinWithAccount.params)) { token }: TokenParam,
+    @Locale() locale: LocaleCode,
+    @Req() req: ApiRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Answer<'joinWithAccount'>> {
+    return joinWithAccountForm(await this.sessions.forSignIn(req, res), user, token, { userAgent: requestFacts(req).userAgent, locale });
   }
 }
