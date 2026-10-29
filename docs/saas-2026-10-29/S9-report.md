@@ -11,8 +11,8 @@ decision D8. Not pushed, not merged.
   `steps.some((s) => !s.done)` kept the checklist open until both were done; "hide" was the
   `mxik_onboarding` cookie (`onboarding-pref.ts`, `onboarding-toggle.tsx`); `visibleSteps` filtered by
   abilities only, so bank/didox/onec/products steps showed when their module was off.
-  The "GET resumes audits" item was already fixed by S2 (`resumesOnRead`), not redone. The plan
-  attributes it to S3; the S2 report and the code say S2.
+  The "GET resumes audits" item was already fixed by S2 (`resumesOnRead`), not redone. The brief
+  attributes it to S3; the plan (§4), the S2 report and the code say S2.
 - Where the code differed from the brief: there is no "dashboard" or "settings" contracts module.
   The dashboard lives in `packages/contracts/src/modules/workspace.ts` and Settings in `account.ts`,
   so those were changed. The dashboard composition is `overview.ts` (`dashboardView`), which got the
