@@ -216,3 +216,28 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261107000100_feature_
 What breaks: with the new code still running, every request under a module's prefix (API and web)
 answers 500 once the cached states expire, and `/admin/features` cannot save. Deploy the previous
 code first; it never reads the table.
+
+## Billing integrity (`2026110800040*`, S5)
+
+### `20261108000400_order_keep`
+
+`order.orgId` becomes nullable with `ON DELETE SET NULL` (an org purge keeps its orders and their
+`payment_transaction` rows, which Payme's CheckTransaction / GetStatement still answer), adds
+`order.orgName` (the org's name at order time, backfilled from `organization.name`) and
+`order.testMode` (paid through a provider's sandbox; default false).
+
+```sql
+-- Orders of orgs purged since the migration: the old schema cannot hold them. Export them first
+-- (COPY (SELECT * FROM "order" WHERE "orgId" IS NULL) TO ...), then:
+DELETE FROM "order" WHERE "orgId" IS NULL;
+ALTER TABLE "order" DROP CONSTRAINT IF EXISTS "order_orgId_fkey";
+ALTER TABLE "order" ALTER COLUMN "orgId" SET NOT NULL;
+ALTER TABLE "order" ADD CONSTRAINT "order_orgId_fkey"
+    FOREIGN KEY ("orgId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order" DROP COLUMN IF EXISTS "testMode";
+ALTER TABLE "order" DROP COLUMN IF EXISTS "orgName";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000400_order_keep';
+```
+
+What breaks: with the new code still running, creating or paying an order answers 500 (it writes
+`orgName` / `testMode`). Deploy the previous code first; it never reads the two columns.

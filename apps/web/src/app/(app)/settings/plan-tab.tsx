@@ -97,6 +97,8 @@ export async function PlanTab({ user }: { user: Me }) {
               labels={{ period: pr.period.label, monthly: pr.period.monthly, yearly: `${pr.period.yearly} · ${pr.period.yearlyBadge}`, tier: s.buy }}
               providers={purchase.kind === 'available' ? purchase.providers : null}
             />
+            {/* The tier rule while a subscription runs (D2); during the trial, that paying starts the period now. */}
+            {status.state === 'firm' || status.state === 'trial' ? <p className="text-micro text-muted">{status.state === 'firm' ? s.tierRule : s.trialStart}</p> : null}
             {purchase.kind === 'available' ? (
               <p className="text-micro text-muted">{s.payNote}</p>
             ) : (

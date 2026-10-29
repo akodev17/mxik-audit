@@ -11,8 +11,12 @@ import { planById } from './plans';
 
 export type CheckoutInput = { planId: string; catalogId: string | null; provider: Provider };
 
-/** Why nothing can be paid (a Purchase kind), or `failed` when the order or URL could not be made. */
-export type CheckoutRefusal = Exclude<Purchase['kind'], 'available'> | 'failed';
+/**
+ * Why nothing can be paid (a Purchase kind), `paid` (the catalogue is paid for already),
+ * `plan_change` (another tier while a subscription runs, not an upgrade: plan D2), or `failed`
+ * when the order or URL could not be made.
+ */
+export type CheckoutRefusal = Exclude<Purchase['kind'], 'available'> | 'paid' | 'plan_change' | 'failed';
 
 export type CheckoutResult = { ok: true; url: string } | { ok: false; reason: CheckoutRefusal };
 
@@ -23,7 +27,7 @@ export async function startCheckout(admin: Actor, input: CheckoutInput, demo: bo
   if (!purchase.providers.includes(input.provider)) return { ok: false, reason: 'no_provider' };
 
   const order = await createOrder(admin, { planId: input.planId, catalogId: input.catalogId }, input.provider);
-  if (!order) return { ok: false, reason: 'failed' };
+  if (!order.ok) return { ok: false, reason: order.reason === 'invalid' ? 'failed' : order.reason };
   const back = config.appUrl
     ? `${config.appUrl}${input.catalogId ? `/export?catalog=${input.catalogId}` : '/settings?tab=plan'}`
     : null;

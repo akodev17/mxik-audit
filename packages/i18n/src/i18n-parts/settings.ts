@@ -179,9 +179,13 @@ export const uz = {
       } as Record<'not_for_sale' | 'no_provider' | 'admin_only' | 'demo', string>,
       request: 'Obuna uchun soʻrov yuborish',
       payNote: 'Toʻlov Click yoki Payme sahifasida amalga oshiriladi. Tasdiqlangach, obuna shu yerda koʻrinadi.',
+      tierRule: 'Obuna davomida faqat qimmatroq tarifga oʻtish mumkin: u darhol boshlanadi, qolgan kunlar esa narxlar nisbatida yangi tarif kunlariga aylantiriladi; arzonroq tarifga obuna tugagach oʻtiladi.',
+      trialStart: 'Sinov muddatida toʻlasangiz, obuna toʻlov kunidan boshlanadi va sinovning qolgan kunlari qoʻshilmaydi.',
+      planChange: 'Obuna davom etayotganda faqat qimmatroq tarifga oʻtish mumkin. Arzonroq tarifni obuna tugagach tanlang yoki joriy tarifni uzaytiring.',
     },
     billing: {
-      locked: 'Tuzatilgan faylni yuklab olish uchun katalog uchun toʻlov yoki faol obuna kerak.',
+      locked: 'Tuzatilgan fayl, mijoz uchun PDF va CSV fayllarni yuklab olish uchun katalog uchun toʻlov yoki faol obuna kerak.',
+      alreadyPaid: 'Bu katalog uchun toʻlov allaqachon qilingan yoki obuna faol: qayta toʻlash shart emas.',
       subscribe: 'Obuna bilan har bir katalog uchun alohida toʻlash shart emas.',
       plans: 'Tariflarni koʻrish',
       why: {
@@ -536,9 +540,13 @@ export const ru: typeof uz = {
       },
       request: 'Запросить подключение',
       payNote: 'Оплата проходит на странице Click или Payme. После подтверждения подписка появится здесь.',
+      tierRule: 'Во время подписки можно перейти только на более дорогой тариф: он начинается сразу, а оставшиеся дни пересчитываются в дни нового тарифа по соотношению цен; на более дешёвый тариф переходят после окончания подписки.',
+      trialStart: 'Если оплатить во время пробного периода, подписка начнётся со дня оплаты, а оставшиеся дни пробного периода не добавляются.',
+      planChange: 'Пока подписка действует, перейти можно только на более дорогой тариф. Более дешёвый выберите после окончания подписки или продлите текущий.',
     },
     billing: {
-      locked: 'Для скачивания исправленного файла нужна оплата каталога или активная подписка.',
+      locked: 'Для скачивания исправленного файла, PDF для клиента и CSV нужна оплата каталога или активная подписка.',
+      alreadyPaid: 'Этот каталог уже оплачен или подписка активна: платить повторно не нужно.',
       subscribe: 'С подпиской не нужно платить за каждый каталог отдельно.',
       plans: 'Посмотреть тарифы',
       why: {

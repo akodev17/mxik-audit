@@ -1034,20 +1034,25 @@ model TelegramPending {
 }
 
 /// A purchase: one "Toʻgʻrilangan katalog" for a catalogue, or a month of the
-/// firm plan. Amount in soʻm, fixed when the order is created.
+/// firm plan. Amount in soʻm, fixed when the order is created. Kept when the org is purged (orgId
+/// becomes null, orgName says whose it was): the providers' CheckTransaction and GetStatement need it.
 model Order {
   id          String      @id @default(cuid())
-  orgId       String
+  orgId       String?
+  /// The org's name when the order was made.
+  orgName     String?
   catalogId   String?
   planId      String
   amount      Int
   status      OrderStatus @default(created)
   provider    String?
+  /// Paid through a provider's sandbox (PAYME_TEST_MODE): no real money moved.
+  testMode    Boolean     @default(false)
   createdAt   DateTime    @default(now())
   paidAt      DateTime?
   cancelledAt DateTime?
 
-  org          Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org          Organization?        @relation(fields: [orgId], references: [id], onDelete: SetNull)
   transactions PaymentTransaction[]
 
   @@index([orgId, createdAt])

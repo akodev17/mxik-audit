@@ -61,5 +61,7 @@ export async function makeCatalog(orgId: string, rows: TestRow[]): Promise<{ cat
 
 export async function dropOrgs(ids: readonly string[]): Promise<void> {
   await db.$executeRaw`DELETE FROM rerank_cache WHERE scope = ANY(${[...ids]})`;
+  // Orders outlive a purged org (orgId set null); test orders go with their org.
+  await db.order.deleteMany({ where: { orgId: { in: [...ids] } } });
   await db.organization.deleteMany({ where: { id: { in: [...ids] } } });
 }

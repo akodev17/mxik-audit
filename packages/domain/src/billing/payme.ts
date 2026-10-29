@@ -5,7 +5,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { db } from '@tasnivo/db';
 import type { PaymeConfig } from './config.js';
-import { cancelOrder, markPaid } from './orders.js';
+import { cancelOrder, markPaid, orderPayable } from './orders.js';
 
 const TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
@@ -59,6 +59,8 @@ async function payableOrder(account: unknown, amount: unknown) {
   const tiyin = Amount.safeParse(amount);
   if (!tiyin.success || tiyin.data !== order.amount * 100) throw new PaymeError(ERRORS.amount);
   if (order.status !== 'created') throw new PaymeError(ERRORS.orderState);
+  // A catalogue another order paid for, or a tier change the rule refuses: refused before money is held.
+  if (!(await orderPayable(order))) throw new PaymeError(ERRORS.orderState);
   return order;
 }
 
@@ -72,15 +74,20 @@ async function transactionById(id: unknown) {
 
 const num = (n: bigint | null): number => (n === null ? 0 : Number(n));
 
+/** An open transaction older than Payme's 12 hours: cancelled (reason 4, timeout) with its order. */
 async function cancelStale(txId: number, orderId: string): Promise<never> {
-  await db.paymentTransaction.update({ where: { id: txId }, data: { state: -1, cancelTime: BigInt(Date.now()), reason: 4 } });
-  await cancelOrder(orderId);
+  await db.$transaction(async (t) => {
+    const moved = await t.paymentTransaction.updateMany({ where: { id: txId, state: 1 }, data: { state: -1, cancelTime: BigInt(Date.now()), reason: 4 } });
+    if (moved.count === 1) await cancelOrder(orderId, t);
+  });
   throw new PaymeError(ERRORS.cannotPerform);
 }
 
 type Params = Record<string, unknown>;
+/** `test`: the call came through Payme's sandbox (PAYME_TEST_MODE). */
+type Context = { test: boolean };
 
-const METHODS: Record<string, (p: Params) => Promise<unknown>> = {
+const METHODS: Record<string, (p: Params, ctx: Context) => Promise<unknown>> = {
   async CheckPerformTransaction(p) {
     await payableOrder(p['account'], p['amount']);
     return { allow: true };
@@ -89,34 +96,52 @@ const METHODS: Record<string, (p: Params) => Promise<unknown>> = {
   async CreateTransaction(p) {
     const id = z.string().min(1).safeParse(p['id']);
     if (!id.success) throw new PaymeError(ERRORS.request);
-    const existing = await db.paymentTransaction.findUnique({ where: { provider_externalId: { provider: 'payme', externalId: id.data } } });
+    const key = { provider_externalId: { provider: 'payme', externalId: id.data } };
+    const existing = await db.paymentTransaction.findUnique({ where: key });
     if (existing) {
       if (existing.state !== 1) throw new PaymeError(ERRORS.cannotPerform);
       if (Date.now() - num(existing.createTime) > TIMEOUT_MS) return cancelStale(existing.id, existing.orderId);
       return { create_time: num(existing.createTime), transaction: String(existing.id), state: 1 };
     }
     const order = await payableOrder(p['account'], p['amount']);
-    // One open transaction per order: a second one would be a double charge.
-    const open = await db.paymentTransaction.count({ where: { orderId: order.id, provider: 'payme', state: 1 } });
-    if (open > 0) throw new PaymeError(ERRORS.orderState);
     const time = z.number().int().safeParse(p['time']);
-    const tx = await db.paymentTransaction.create({
-      data: {
-        orderId: order.id, provider: 'payme', externalId: id.data, amountTiyin: BigInt(order.amount) * 100n,
-        state: 1, providerTime: time.success ? BigInt(time.data) : null, createTime: BigInt(Date.now()),
-      },
+    const tx = await db.$transaction(async (t) => {
+      // One open transaction per order, counted and created under a per-order lock: a second one would be a double charge.
+      await t.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('payme_order'), hashtext(${order.id}))`;
+      const same = await t.paymentTransaction.findUnique({ where: key });
+      if (same) return same;
+      const open = await t.paymentTransaction.count({ where: { orderId: order.id, provider: 'payme', state: 1 } });
+      if (open > 0) throw new PaymeError(ERRORS.orderState);
+      return t.paymentTransaction.create({
+        data: {
+          orderId: order.id, provider: 'payme', externalId: id.data, amountTiyin: BigInt(order.amount) * 100n,
+          state: 1, providerTime: time.success ? BigInt(time.data) : null, createTime: BigInt(Date.now()),
+        },
+      });
     });
+    if (tx.state !== 1) throw new PaymeError(ERRORS.cannotPerform);
     return { create_time: num(tx.createTime), transaction: String(tx.id), state: 1 };
   },
 
-  async PerformTransaction(p) {
+  async PerformTransaction(p, ctx) {
     const tx = await transactionById(p['id']);
     if (tx.state === 2) return { transaction: String(tx.id), perform_time: num(tx.performTime), state: 2 };
     if (tx.state !== 1) throw new PaymeError(ERRORS.cannotPerform);
     if (Date.now() - num(tx.createTime) > TIMEOUT_MS) return cancelStale(tx.id, tx.orderId);
-    if (!(await markPaid(tx.orderId, 'payme'))) throw new PaymeError(ERRORS.cannotPerform);
-    const done = await db.paymentTransaction.update({ where: { id: tx.id }, data: { state: 2, performTime: BigInt(Date.now()) } });
-    return { transaction: String(done.id), perform_time: num(done.performTime), state: 2 };
+    const performTime = BigInt(Date.now());
+    const outcome = await markPaid(tx.orderId, 'payme', {
+      testMode: ctx.test,
+      // The transaction's own state moves with the order, or neither does (a concurrent Cancel won).
+      within: async (t) => {
+        const moved = await t.paymentTransaction.updateMany({ where: { id: tx.id, state: 1 }, data: { state: 2, performTime } });
+        if (moved.count !== 1) throw new PaymeError(ERRORS.cannotPerform);
+      },
+    });
+    if (outcome === 'paid') return { transaction: String(tx.id), perform_time: Number(performTime), state: 2 };
+    // A concurrent Perform of this transaction got there first: answer what it recorded.
+    const current = await db.paymentTransaction.findUnique({ where: { id: tx.id } });
+    if (current?.state === 2) return { transaction: String(current.id), perform_time: num(current.performTime), state: 2 };
+    throw new PaymeError(ERRORS.cannotPerform);
   },
 
   async CancelTransaction(p) {
@@ -125,12 +150,16 @@ const METHODS: Record<string, (p: Params) => Promise<unknown>> = {
     // The corrected file is delivered at payment, so a performed order is not reversed here.
     if (tx.state === 2) throw new PaymeError(ERRORS.cannotCancel);
     const reason = z.number().int().safeParse(p['reason']);
-    const done = await db.paymentTransaction.update({
-      where: { id: tx.id },
-      data: { state: -1, cancelTime: BigInt(Date.now()), reason: reason.success ? reason.data : null },
+    await db.$transaction(async (t) => {
+      const moved = await t.paymentTransaction.updateMany({
+        where: { id: tx.id, state: 1 },
+        data: { state: -1, cancelTime: BigInt(Date.now()), reason: reason.success ? reason.data : null },
+      });
+      if (moved.count === 1) await cancelOrder(tx.orderId, t);
     });
-    await cancelOrder(tx.orderId);
-    return { transaction: String(done.id), cancel_time: num(done.cancelTime), state: -1 };
+    const done = await db.paymentTransaction.findUniqueOrThrow({ where: { id: tx.id } });
+    if (done.state === 2) throw new PaymeError(ERRORS.cannotCancel);
+    return { transaction: String(done.id), cancel_time: num(done.cancelTime), state: done.state };
   },
 
   async CheckTransaction(p) {
@@ -162,14 +191,14 @@ const METHODS: Record<string, (p: Params) => Promise<unknown>> = {
 const Rpc = z.object({ id: z.union([z.number(), z.string()]).nullish(), method: z.string(), params: z.record(z.unknown()).default({}) });
 
 /** One JSON-RPC call; authorization is checked by the caller first. */
-export async function handlePayme(body: unknown): Promise<Record<string, unknown>> {
+export async function handlePayme(body: unknown, ctx: Context = { test: false }): Promise<Record<string, unknown>> {
   const rpc = Rpc.safeParse(body);
   if (!rpc.success) return { jsonrpc: '2.0', id: null, error: ERRORS.request };
   const id = rpc.data.id ?? null;
   const method = METHODS[rpc.data.method];
   if (!method) return { jsonrpc: '2.0', id, error: ERRORS.method };
   try {
-    return { jsonrpc: '2.0', id, result: await method(rpc.data.params) };
+    return { jsonrpc: '2.0', id, result: await method(rpc.data.params, ctx) };
   } catch (error) {
     if (error instanceof PaymeError) return { jsonrpc: '2.0', id, error: error.rpc };
     throw error;
@@ -187,5 +216,5 @@ export async function answerPayme(body: { json: unknown } | null, authorization:
   const json = body.json;
   const id = typeof json === 'object' && json !== null ? (json as { id?: unknown }).id ?? null : null;
   if (!paymeAuthorized(authorization, config)) return { jsonrpc: '2.0', id, error: ERRORS.auth };
-  return handlePayme(json);
+  return handlePayme(json, { test: config.test });
 }
