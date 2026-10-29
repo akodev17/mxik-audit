@@ -109,7 +109,7 @@ describe('didox (database)', { skip }, () => {
     await db.organization.update({ where: { id: expired.orgId }, data: { trialEndsAt: new Date(Date.now() - 86_400_000) } });
     const res = await send('post', '/api/didox/upload', await sessionCookie(expired)).attach('file', raw('invoice-vat0-pinfl.json'), 'x.json');
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    assert.deepEqual(res.body, { ok: false, error: i18nFor('uz').ta.didoxX.errors.expired });
+    assert.deepEqual(res.body, { ok: false, error: i18nFor('uz').ta.msg.gate.expired });
     assert.equal(await db.importBatch.count({ where: { orgId: expired.orgId } }), 0);
   });
 

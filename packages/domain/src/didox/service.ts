@@ -181,7 +181,7 @@ async function uploadGate(user: Writer, locale: Locale, file: UploadedFile | nul
   const e = i18nFor(locale).ta.didoxX.errors;
   if (!allowed(user)) return { ok: false, error: e.forbidden };
   if (await isDemoOrg(user.orgId)) return { ok: false, error: e.demo };
-  if (!(await uploadsOpen(user.orgId)).ok) return { ok: false, error: e.expired };
+  if (!(await uploadsOpen(user.orgId)).ok) return { ok: false, error: i18nFor(locale).ta.msg.gate.expired };
   if (!file || file.size === 0) return { ok: false, error: e.empty };
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: e.too_big };
   const target = await clientTarget(user, clientId);

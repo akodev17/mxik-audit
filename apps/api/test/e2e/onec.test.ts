@@ -166,7 +166,7 @@ describe('onec (database)', { skip }, () => {
     await db.organization.update({ where: { id: expired.orgId }, data: { trialEndsAt: new Date(Date.now() - 86_400_000) } });
     const expiredCookie = await sessionCookie(expired);
     const batch = await seedInvoiceBatch({ orgId: expired.orgId });
-    const closed = { ok: false, error: i18nFor('uz').ta.onecX.errors.expired, code: 'expired' };
+    const closed = { ok: false, error: i18nFor('uz').ta.msg.gate.expired, code: 'expired' };
     const exp = await send('post', `/api/onec/batches/${batch}/export`, expiredCookie).send({ format: 'receipt_xlsx' });
     assert.equal(exp.status, 200, JSON.stringify(exp.body));
     matches(o.exportBatch.response, exp.body, 'export refused');
