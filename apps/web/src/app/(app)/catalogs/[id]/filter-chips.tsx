@@ -86,6 +86,7 @@ export function FilterChips({ summary, chips, filter }: Props) {
           {typeChip(null, x.kpi.all, chips.all)}
           {FINDING_TYPES.filter((type) => (summary.byType[type] ?? 0) > 0).map((type) => typeChip(type, typeLabels(t)[type] ?? type, chips.byType[type] ?? 0))}
           {summary.markingTotal > 0 ? typeChip('MARKING', ta.ws.marking, chips.marking) : null}
+          {summary.failedRows > 0 ? typeChip('FAILED', x.failed.chip, summary.failedRows) : null}
         </nav>
         {extra.length > 0 ? (
           <div role="group" aria-label={u.label} className="flex shrink-0 items-center gap-2 md:shrink md:flex-wrap">

@@ -1,8 +1,10 @@
 // Runs the matching pipeline and the five checks across a stored catalogue,
 // then persists findings. Server-only.
+import type { Prisma } from '@prisma/client';
 import { Pool } from 'pg';
-import { startHeartbeat } from './audit-heartbeat.js';
+import { startHeartbeat, type Heartbeat } from './audit-heartbeat.js';
 import { db } from '@tasnivo/db';
+import { checkErrorText, withRowRetry } from './row-retry.js';
 import { runPool } from './work-pool.js';
 import { embeddingProviderFromEnv, sharedEmbeddingProvider } from '@tasnivo/core/embed/index';
 import { matchProduct, timed, type DisableableStage, type StageTimer } from '@tasnivo/core/match/pipeline';
@@ -12,7 +14,8 @@ import { PositionStore } from '@tasnivo/core/match/position-store';
 import type { DictionaryLookup } from '@tasnivo/core/match/dictionary';
 import { loadDictionary } from './dictionary.js';
 import {
-  buildPipelineMeta, countMatch, emptyCounters, type ClassifierProvenance, type PipelineMeta, type PipelineSetup,
+  addCounters, buildPipelineMeta, countMatch, emptyCounters, readPipelineMeta, resumeCounters,
+  type ClassifierProvenance, type PipelineCounters, type PipelineMeta, type PipelineSetup,
 } from './pipeline-meta.js';
 import { PostgresRerankCache } from '@tasnivo/core/match/rerank-cache-pg';
 import { rerankConfigFromEnv } from '@tasnivo/core/match/rerank-config';
@@ -33,7 +36,19 @@ const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@loca
 
 // One pool for the whole server process; the classifier queries are read-only.
 const globalForPool = globalThis as unknown as { mxikPool?: Pool };
-const pool = globalForPool.mxikPool ?? new Pool({ connectionString: DATABASE_URL, max: 8 });
+const pool = globalForPool.mxikPool ?? withConnectionErrorsLogged(new Pool({ connectionString: DATABASE_URL, max: 8 }));
+
+/**
+ * A connection the server drops (idle in the pool, or checked out between two queries) emits
+ * "error"; unheard, that kills the whole process. Logged instead: the next query on it fails and
+ * the row's retry takes a fresh connection.
+ */
+function withConnectionErrorsLogged(created: Pool): Pool {
+  const log = (error: Error): void => console.warn(`[audit] classifier connection lost: ${error.message}`);
+  created.on('error', log);
+  created.on('connect', (client) => { client.on('error', log); });
+  return created;
+}
 if (process.env.NODE_ENV !== 'production') globalForPool.mxikPool = pool;
 
 /** The process's classifier pool, for a long-lived process that reuses it (the worker). */
@@ -57,16 +72,20 @@ export type AuditProgress = {
 };
 
 export type AuditOptions = {
-  /** Resume point: rows below this index are already audited. */
+  /** Resume point: rows below this index are already audited (those that failed are checked again). */
   fromRow?: number;
   onProgress?: (p: AuditProgress) => void;
   /** Receives per-stage durations, for performance runs. */
   timer?: StageTimer;
+  /** The caller's heartbeat, kept beating after the rows (runAudit's post phase); started here when absent. */
+  heartbeat?: Heartbeat;
 };
 
 export type AuditOutcome = {
   itemsAudited: number;
   findingsCreated: number;
+  /** Rows of this run still failing after their retries (recorded on CatalogItem.checkError). */
+  rowsFailed: number;
   /** True when stage 4 or 6 ran degraded, so the UI can say so. */
   degraded: boolean;
   /** Operator-facing text, for logs and scripts. The stable codes are in pipelineMeta. */
@@ -82,18 +101,31 @@ export type AuditOutcome = {
  * throughout so no other process resumes it in parallel.
  */
 export async function auditCatalog(catalogId: string, options: AuditOptions = {}): Promise<AuditOutcome> {
-  const heartbeat = await startHeartbeat(catalogId, options.fromRow ?? 0);
+  const own = options.heartbeat ? null : await startHeartbeat(catalogId, options.fromRow ?? 0);
   try {
-    return await auditRows(catalogId, {
-      ...options,
-      onProgress: (p) => {
-        heartbeat.mark(p.watermark);
-        options.onProgress?.(p);
-      },
-    });
+    return await auditRows(catalogId, options, (options.heartbeat ?? own) as Heartbeat);
   } finally {
-    heartbeat.stop();
+    await own?.stop();
   }
+}
+
+/** Makes chosen rows throw before they are checked: tests, and a dev run through AUDIT_FAULT_ROWS. */
+export type RowFault = (item: AuditableItem & { rowIndex: number }) => void;
+
+/** AUDIT_FAULT_ROWS=<text>: every row whose name contains it fails; ignored in production. */
+function envRowFault(): RowFault | null {
+  const needle = process.env['AUDIT_FAULT_ROWS'];
+  if (!needle || process.env.NODE_ENV === 'production') return null;
+  return (item) => {
+    if (item.rawName.includes(needle)) throw new Error('injected row fault (AUDIT_FAULT_ROWS)');
+  };
+}
+
+let rowFault: RowFault | null = envRowFault();
+
+/** Installs a row fault for tests; null removes it. */
+export function injectRowFault(fault: RowFault | null): void {
+  rowFault = fault;
 }
 
 /**
@@ -121,10 +153,20 @@ export type AuditContext = {
   restricted?: ReadonlyMap<string, Date> | undefined;
 };
 
-/** The restricted list, small enough to hold per audit. An unmigrated database has none. */
+/** The restricted list, small enough to hold per audit. Throws when it cannot be read. */
 export async function loadRestricted(): Promise<Map<string, Date>> {
-  const rows = await db.restrictedCode.findMany({ select: { code: true, effectiveFrom: true } }).catch(() => []);
+  const rows = await db.restrictedCode.findMany({ select: { code: true, effectiveFrom: true } });
   return new Map(rows.map((r) => [r.code, r.effectiveFrom]));
+}
+
+/** The list for one run: empty when it cannot be read, which the run reports (restricted_unchecked) instead of hiding. */
+async function restrictedForRun(): Promise<Map<string, Date>> {
+  try {
+    return await loadRestricted();
+  } catch (error) {
+    console.error('[audit] the restricted list could not be read; RESTRICTED is not checked in this run', error);
+    return new Map();
+  }
 }
 
 /**
@@ -198,7 +240,9 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   const dictionary = await loadDictionary(orgId).catch(() => undefined);
   const disabledStages = readiness.usable ? undefined : new Set<DisableableStage>(['vector']);
   const vectorColumns = readiness.stored?.columns;
-  const restricted = await loadRestricted();
+  const restricted = await restrictedForRun();
+  setup.restrictedCodes = restricted.size;
+  if (restricted.size === 0) degradedReasons.push('cheklangan kodlar roʻyxati tekshirilmadi (npm run load:restricted)');
   return { store, embedder, reranker, gate, dictionary, timer, disabledStages, vectorColumns, setup, degradedReasons, restricted };
 }
 
@@ -351,60 +395,114 @@ async function recordSnapshot(catalogId: string, current: number | null, fromRow
   return { snapshotId: snapshot?.id ?? null, takenAt: snapshot?.takenAt.toISOString() ?? null };
 }
 
-async function auditRows(catalogId: string, options: AuditOptions): Promise<AuditOutcome> {
+type RunItem = AuditableItem & { id: string; rowIndex: number; markingRequired: boolean; checkError: string | null };
+
+const RUN_ITEM_SELECT = {
+  id: true, rowIndex: true, rawName: true, barcode: true, existingMxik: true, unit: true, markingRequired: true, checkError: true,
+} as const;
+
+/** A row's counters and findings once checked; null counters when it still failed and was recorded as not checked. */
+type RowResult = { counters: PipelineCounters; findings: number } | { counters: null; findings: 0 };
+
+/**
+ * Checks one row with its retries and writes its findings, flag and cleared failure in one go. A row
+ * that still fails gets CatalogItem.checkError and the run goes on; if even that write fails, this
+ * throws and the audit fails, so a row is never left looking checked.
+ */
+async function auditRow(item: RunItem, ctx: AuditContext): Promise<RowResult> {
+  const attempt = await withRowRetry(async () => {
+    rowFault?.(item);
+    const { findings, markingRequired, match } = await checkItem(item, ctx);
+    const writes: Prisma.PrismaPromise<unknown>[] = [];
+    if (findings.length > 0) writes.push(db.finding.createMany({ data: findingData(item.id, findings) }));
+    // Written both ways, so a re-audit clears a flag (or a failure) an earlier run set.
+    if (markingRequired !== item.markingRequired || item.checkError !== null) {
+      writes.push(db.catalogItem.update({ where: { id: item.id }, data: { markingRequired, checkError: null } }));
+    }
+    if (writes.length > 0) await timed(ctx.timer, 'persist', () => db.$transaction(writes));
+    return { match, findings: findings.length };
+  });
+  if (attempt.ok) {
+    const counters = emptyCounters();
+    countMatch(counters, attempt.value.match);
+    return { counters, findings: attempt.value.findings };
+  }
+  const checkError = checkErrorText(attempt.error);
+  console.warn(`[audit] row ${item.rowIndex} not checked after ${attempt.attempts} attempts: ${checkError}`);
+  await db.catalogItem.update({ where: { id: item.id }, data: { checkError } });
+  return { counters: null, findings: 0 };
+}
+
+const CONCURRENCY = 8;
+
+async function auditRows(catalogId: string, options: AuditOptions, heartbeat: Heartbeat): Promise<AuditOutcome> {
   const { fromRow = 0, onProgress, timer } = options;
-  const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, snapshotId: true } });
+  const catalogOrg = await db.catalog.findUnique({ where: { id: catalogId }, select: { orgId: true, snapshotId: true, pipelineMeta: true } });
   if (!catalogOrg) throw new Error(`no catalogue ${catalogId}`);
   const classifier = await recordSnapshot(catalogId, catalogOrg.snapshotId, fromRow);
   const ctx = await auditContext(catalogOrg.orgId, timer);
   ctx.setup.classifier = classifier;
   const { degradedReasons, reranker } = ctx;
-  const counters = emptyCounters();
   // Operator-facing only: never shown on customer screens (see /admin).
   if (degradedReasons.length > 0) console.warn(`[audit ${catalogId}] degraded: ${degradedReasons.join('; ')}`);
 
   const total = await db.catalogItem.count({ where: { catalogId } });
-  const items = await db.catalogItem.findMany({
-    where: { catalogId, rowIndex: { gte: fromRow } },
-    orderBy: { rowIndex: 'asc' },
-    select: {
-      id: true, rowIndex: true, rawName: true, barcode: true,
-      existingMxik: true, unit: true, markingRequired: true,
-    },
-  });
+  // Rows below the resume point that failed get another chance (a resume, or "re-check failed rows").
+  const [again, items] = await Promise.all([
+    fromRow > 0
+      ? db.catalogItem.findMany({ where: { catalogId, rowIndex: { lt: fromRow }, checkError: { not: null } }, orderBy: { rowIndex: 'asc' }, select: RUN_ITEM_SELECT })
+      : Promise.resolve([]),
+    db.catalogItem.findMany({ where: { catalogId, rowIndex: { gte: fromRow } }, orderBy: { rowIndex: 'asc' }, select: RUN_ITEM_SELECT }),
+  ]);
 
-  const CONCURRENCY = 8;
+  // A resumed run adds to the counters stored for the rows below its start (written with the watermark).
+  const base = resumeCounters(readPipelineMeta(catalogOrg.pipelineMeta), fromRow);
+  let counted = emptyCounters();
+  let failed = 0;
   let done = 0;
   let findingsCreated = 0;
-  // Rows finish out of order; the watermark only advances over a contiguous run.
-  const finished = new Array<boolean>(items.length).fill(false);
-  let contiguous = 0;
-  const watermark = (): number => items[contiguous]?.rowIndex ?? total;
-
-  // A failed row stops the run cleanly, so a resume never races leftover workers.
-  await runPool(items, CONCURRENCY, async (item, index) => {
-    const { findings, markingRequired, match } = await checkItem(item, ctx);
-    countMatch(counters, match);
-    // Written both ways, so a re-audit clears a flag an earlier run set.
-    if (markingRequired !== item.markingRequired) {
-      await db.catalogItem.update({ where: { id: item.id }, data: { markingRequired } });
-    }
-    if (findings.length > 0) {
-      await timed(timer, 'persist', () => db.finding.createMany({ data: findingData(item.id, findings) }));
-      findingsCreated += findings.length;
-    }
-
+  const report = (watermark: number): void => {
+    const meta = buildPipelineMeta(ctx.setup, addCounters(base, counted), fromRow, new Date(), { rowsFailed: failed, throughRow: watermark });
+    heartbeat.mark(watermark, meta);
+    onProgress?.({ done, total, watermark });
+  };
+  const settle = (result: RowResult): void => {
     done++;
-    finished[index] = true;
-    while (finished[contiguous]) contiguous++;
-    onProgress?.({ done, total, watermark: watermark() });
+    if (result.counters) findingsCreated += result.findings;
+    else failed++;
+  };
+
+  // Re-checked rows sit below the watermark, so they never move it back.
+  await runPool(again, CONCURRENCY, async (item) => {
+    const result = await auditRow(item, ctx);
+    settle(result);
+    if (result.counters) counted = addCounters(counted, result.counters);
+    report(fromRow);
   });
 
-  const pipelineMeta = buildPipelineMeta(ctx.setup, counters, fromRow, new Date());
+  // Rows finish out of order; the watermark (and the counters stored with it) only advance over a contiguous run.
+  const results = new Array<RowResult | undefined>(items.length);
+  let contiguous = 0;
+  await runPool(items, CONCURRENCY, async (item, index) => {
+    const result = await auditRow(item, ctx);
+    settle(result);
+    results[index] = result;
+    for (let next = results[contiguous]; next !== undefined; next = results[contiguous]) {
+      if (next.counters) counted = addCounters(counted, next.counters);
+      contiguous++;
+    }
+    report(items[contiguous]?.rowIndex ?? total);
+  });
+
+  const rowsFailed = await db.catalogItem.count({ where: { catalogId, checkError: { not: null } } });
+  const pipelineMeta = buildPipelineMeta(ctx.setup, addCounters(base, counted), fromRow, new Date(), { rowsFailed, throughRow: total });
+  // The heartbeat keeps beating through runAudit's post phase: it must carry the final metadata.
+  heartbeat.mark(total, pipelineMeta);
   await db.catalog.update({ where: { id: catalogId }, data: { pipelineMeta } });
   return {
-    itemsAudited: items.length,
+    itemsAudited: again.length + items.length,
     findingsCreated,
+    rowsFailed,
     degraded: degradedReasons.length > 0 || pipelineMeta.degradedReasons.length > 0,
     degradedReasons,
     llm: reranker.usage?.() ?? null,

@@ -49,7 +49,7 @@ describe('admin module (database)', { skip }, () => {
   it('traction, pipeline and accuracy in the contract\'s shape', async () => {
     fits(e.traction.response, (await asAdmin(() => http().get('/api/admin/traction').set('Cookie', cookie))).body);
     const pipeline = fits(e.pipeline.response, (await asAdmin(() => http().get('/api/admin/pipeline').set('Cookie', `${cookie}; mxik_locale=ru`))).body);
-    assert.equal(pipeline.length, 3);
+    assert.equal(pipeline.length, 4);
     const accuracy = fits(e.accuracy.response, (await asAdmin(() => http().get('/api/admin/accuracy?by=label').set('Cookie', cookie))).body);
     assert.equal(accuracy.overall.key, 'total');
     assert.equal((await asAdmin(() => http().get('/api/admin/accuracy?by=nope').set('Cookie', cookie))).status, 400);

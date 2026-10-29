@@ -6,6 +6,9 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { db } from '@tasnivo/db';
 import { resumeStaleAudits, startAudit } from '@tasnivo/domain/audit-jobs';
+import { injectRowFault } from '@tasnivo/domain/audit-runner';
+import { readPipelineMeta } from '@tasnivo/domain/pipeline-meta';
+import { setRowRetryDelays } from '@tasnivo/domain/row-retry';
 import { jobs } from '@tasnivo/domain/jobs/dispatcher';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from '@tasnivo/domain/test-fixtures';
 import { startWorker, stopWorker } from './worker.js';
@@ -96,6 +99,24 @@ describe('worker (Redis + database)', { skip, timeout: 600_000 }, () => {
     assert.ok(await db.finding.findUnique({ where: { id: kept.id } }), 'finished rows are not redone');
     const row1 = await db.finding.findMany({ where: { itemId: items[1]?.id ?? '' } });
     assert.deepEqual(row1.map((f) => f.type), ['MISSING']);
+  });
+
+  it('a row that keeps failing does not fail the job: the audit reaches "ready" with rows_failed and the row flagged', async () => {
+    setRowRetryDelays([10, 10, 10]);
+    injectRowFault((item) => { if (item.rawName === 'Buzilgan qator') throw new Error('provider exploded'); });
+    try {
+      const id = await rawCatalog(a.orgId, ['Kartoshka', 'Buzilgan qator']);
+      await startAudit(id, a);
+      await waitFor(id, 'ready');
+      const items = await db.catalogItem.findMany({ where: { catalogId: id }, orderBy: { rowIndex: 'asc' }, select: { checkError: true } });
+      assert.deepEqual(items.map((i) => i.checkError), [null, 'other: provider exploded']);
+      const meta = readPipelineMeta((await db.catalog.findUnique({ where: { id }, select: { pipelineMeta: true } }))?.pipelineMeta);
+      assert.equal(meta?.rowsFailed, 1);
+      assert.ok(meta?.degradedReasons.includes('rows_failed'));
+    } finally {
+      injectRowFault(null);
+      setRowRetryDelays(null);
+    }
   });
 
   it('on shutdown takes no new job but finishes the running audit', async () => {

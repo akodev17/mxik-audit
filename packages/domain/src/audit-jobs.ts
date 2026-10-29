@@ -5,7 +5,7 @@
 // next start (the web's instrumentation.ts, the worker's boot) or a stale
 // heartbeat resumes it from the last fully audited row.
 import type { Prisma } from '@prisma/client';
-import { HEARTBEAT_MS } from './audit-heartbeat.js';
+import { HEARTBEAT_MS, startHeartbeat, type Heartbeat } from './audit-heartbeat.js';
 import { auditCatalog } from './audit-runner.js';
 import { catalogScope } from './access.js';
 import { isOrgWriter } from './actor-role.js';
@@ -56,12 +56,15 @@ export async function startAudit(catalogId: string, actor: AuditActor, extra: Pr
  */
 export async function runAudit(catalogId: string, fromRow: number, actor: AuditActor, extra: Prisma.InputJsonObject): Promise<void> {
   const started = Date.now();
+  let heartbeat: Heartbeat | null = null;
   try {
-    // Rows at or past the resume point may have half-written findings.
-    if (fromRow > 0) await db.finding.deleteMany({ where: { item: { catalogId, rowIndex: { gte: fromRow } } } });
+    // Rows at or past the resume point may have findings from before a crash (rows finish out of
+    // order, so even below the first unfinished one at 0); nothing there has a decision yet.
+    await db.finding.deleteMany({ where: { item: { catalogId, rowIndex: { gte: fromRow } } } });
 
-    // auditCatalog keeps the heartbeat and watermark current while it runs.
-    const outcome = await auditCatalog(catalogId, { fromRow });
+    // Beats from here until "ready" is written: the post phase below can outlast STALE_MS on a big catalogue.
+    heartbeat = await startHeartbeat(catalogId, fromRow);
+    const outcome = await auditCatalog(catalogId, { fromRow, heartbeat });
     // Sales against the client's purchases, when it has any.
     await runPurchaseCheck(catalogId);
     // Privilege-linked codes, from the classifier's own privilege column.
@@ -76,6 +79,8 @@ export async function runAudit(catalogId: string, fromRow: number, actor: AuditA
       data: { status: 'ready', progressDone: await db.catalogItem.count({ where: { catalogId } }), auditHeartbeatAt: new Date() },
       select: { orgId: true, rowCount: true, clientId: true, filename: true, auditStartedAt: true, client: { select: { name: true } } },
     });
+    await heartbeat.stop();
+    heartbeat = null;
     // A catalogue audited for the client settles its open monthly checks.
     if (catalog.clientId) await completeFor(catalog.clientId);
     await db.auditEvent.create({
@@ -87,6 +92,7 @@ export async function runAudit(catalogId: string, fromRow: number, actor: AuditA
           degraded: outcome.degraded,
           degradedReasons: outcome.degradedReasons,
           degradedCodes: outcome.pipelineMeta.degradedReasons,
+          rowsFailed: outcome.rowsFailed,
           llm: outcome.llm,
           durationMs: Date.now() - started,
           resumedFromRow: fromRow,
@@ -96,6 +102,7 @@ export async function runAudit(catalogId: string, fromRow: number, actor: AuditA
     });
     await notifyReady(catalogId, catalog, actor);
   } catch (error) {
+    await heartbeat?.stop();
     // Deleted while it was being audited (its rows and findings went with it, so the next write fails
     // on a foreign key): nothing failed, the audit just has nothing left to work on.
     const exists = await db.catalog.findUnique({ where: { id: catalogId }, select: { id: true } }).then(Boolean, () => true);
@@ -173,15 +180,24 @@ export function isAuditRunning(catalogId: string): boolean {
   return dispatcher instanceof InlineDispatcher && dispatcher.auditRunning(catalogId);
 }
 
-/** Restarts a failed audit from scratch, for a writer (not a viewer) who may see the catalogue. */
+/**
+ * "Re-check failed rows", for a writer (not a viewer) who may see the catalogue: a failed audit
+ * resumes from its watermark, a ready one re-checks only the rows it could not check; either way the
+ * earlier rows keep their findings and decisions, and rows that failed before are checked again. The
+ * claim is one conditional update, so two clicks (or two people) start one run.
+ */
 export async function retryAudit(actor: { orgId: string; userId: string; clientIds?: string[] | null }, catalogId: string): Promise<boolean> {
   if (!(await isOrgWriter(actor.orgId, actor.userId))) return false;
-  const catalog = await db.catalog.findFirst({
-    where: { id: catalogId, ...catalogScope(actor), status: 'failed' },
-    select: { id: true },
+  const claimed = await db.catalog.updateMany({
+    where: {
+      id: catalogId,
+      AND: [catalogScope(actor), { OR: [{ status: 'failed' }, { status: 'ready', items: { some: { checkError: { not: null } } } }] }],
+    },
+    data: { status: 'analyzing', auditHeartbeatAt: new Date(), auditError: null },
   });
-  if (!catalog) return false;
-  await db.finding.deleteMany({ where: { item: { catalogId } } });
-  await startAudit(catalogId, actor, { retried: true });
+  if (claimed.count !== 1) return false;
+  // A ready catalogue's watermark is its row count, so only rows that failed are checked.
+  const { progressDone } = await db.catalog.findUniqueOrThrow({ where: { id: catalogId }, select: { progressDone: true } });
+  await jobs().enqueueAudit(catalogId, actor, { retried: true }, progressDone);
   return true;
 }

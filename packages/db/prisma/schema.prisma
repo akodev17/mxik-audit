@@ -812,6 +812,9 @@ model CatalogItem {
   /// The current code or a suggested code is flagged for digital marking
   /// (classifier `label` = 1). Set by the audit; drives the report filter.
   markingRequired Boolean @default(false)
+  /// Set when the row's check still failed after its retries ("<kind>: <message>"): the row was
+  /// not checked and is never shown or exported as "ok". Cleared when a re-check succeeds.
+  checkError     String?
 
   catalog  Catalog   @relation(fields: [catalogId], references: [id], onDelete: Cascade)
   findings Finding[]

@@ -8,6 +8,7 @@ import { normalizeName } from '@tasnivo/core/normalize/index';
 import { parseAmount } from './amount.js';
 import { mappingIssues, type ColumnField, type ColumnMap } from './column-map.js';
 import { db } from '@tasnivo/db';
+import { startHeartbeat } from './audit-heartbeat.js';
 import { importDiagnostics, type ImportMeta } from './import-diagnostics.js';
 import { suggestMapping, type FieldSource, type MemorySource } from './mapping-memory.js';
 import { planStatus } from './plan.js';
@@ -143,6 +144,8 @@ export async function applyMapping(orgId: string, catalogId: string, mapping: Co
     data: { status: 'analyzing', progressDone: 0, auditHeartbeatAt: new Date(), auditError: null },
   });
   if (claimed.count === 0) return { error: 'not_uploaded' };
+  // The rebuild can take up to TX_TIMEOUT, longer than STALE_MS: keep beating until it is done.
+  const heartbeat = await startHeartbeat(catalogId, 0);
 
   try {
     const catalog = await db.catalog.findUniqueOrThrow({ where: { id: catalogId }, select: { headers: true, importMeta: true } });
@@ -174,7 +177,10 @@ export async function applyMapping(orgId: string, catalogId: string, mapping: Co
     }, { timeout: TX_TIMEOUT });
     return { rows: rebuilt.length };
   } catch (error) {
+    await heartbeat.stop();
     await release(catalogId);
     return { error: error instanceof OverAllowance ? 'over_allowance' : 'failed' };
+  } finally {
+    await heartbeat.stop();
   }
 }

@@ -18,9 +18,9 @@ export type WsSort = 'risk' | 'row';
 export type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
 export type ViewParams = z.infer<typeof ViewParamsSchema>;
 
-/** A finding type, markirovka, or null for every risky finding. `source`: only decisions made this way. */
+/** A finding type, markirovka, rows whose check failed (FAILED), or null for every risky finding. `source`: only decisions made this way. */
 export type WsFilter = {
-  type: WsType | 'MARKING' | null;
+  type: WsType | 'MARKING' | 'FAILED' | null;
   q: string;
   decision: WsDecisionFilter;
   flag: WsFlagFilter;
@@ -60,7 +60,7 @@ const pick = <T extends string>(list: readonly T[], value: string | null | undef
  * A decision source without `dec` means every decision state: a pending row has no source.
  */
 export function readFilter(p: FilterParams): WsFilter {
-  const type = p.type === 'MARKING' ? 'MARKING' : pick(FINDING_TYPES, p.type);
+  const type = p.type === 'MARKING' || p.type === 'FAILED' ? p.type : pick(FINDING_TYPES, p.type);
   const source = readDecisionSource(p.source);
   const decision = pick(DECISION_FILTERS, p.dec) ?? (p.pending === '0' || source ? 'all' : 'pending');
   return {

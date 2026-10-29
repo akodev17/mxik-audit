@@ -5,6 +5,7 @@ import { fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
 import type { RowDetail } from './ws-types';
 import type { GridRow } from './ws-types';
+import { Alert } from '@/ui/alert';
 import { Badge, StatusChip, StatusIcon } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { CodeChip } from '@/ui/code-chip';
@@ -95,6 +96,7 @@ export function DrawerBody({ row, detail, readOnly, canSplit, searchRef, onChoos
             {detail.privileges.length > 0 && !PRIVILEGE_TYPES.has(detail.type) ? <Badge tone="info">{ta.drawer.privilege}</Badge> : null}
           </div>
         </div>
+        {detail.checkError ? <Alert tone="danger">{`${x.failed.drawer} ${x.failed.kind[detail.checkError]}`}</Alert> : null}
         <CodePair
           left={{ label: u.current, view: detail.current, empty: x.noCode }}
           right={{

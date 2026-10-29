@@ -15,6 +15,15 @@ describe('row detail parts', () => {
     assert.equal(reasonFacts({ ...base, type: 'PRIVILEGE_CODE', severity: 'info' }).privilegeMismatch, false);
   });
 
+  it('carry a restriction\'s code, date and source', () => {
+    const restricted = { ...base, type: 'RESTRICTED', restrictedMxik: '02523001001000000', restrictedFrom: new Date('2026-07-01T00:00:00Z') };
+    const today = new Date('2026-10-29T00:00:00Z');
+    assert.deepEqual(reasonFacts({ ...restricted, restrictedSource: 'https://tasnif.soliq.uz/news/5063' }, today).restriction, {
+      code: '02523001001000000', date: '01.07.2026', inForce: true, source: 'https://tasnif.soliq.uz/news/5063',
+    });
+    assert.equal(reasonFacts(restricted, today).restriction?.source, null);
+  });
+
   it('tell a purchase in another unit from a code never purchased', () => {
     const other = '00401001001099999 kodi xaridlarda boshqa oʻlchov birligida (“litr” emas). Savdo…';
     assert.equal(reasonFacts({ ...base, type: 'NOT_PURCHASED', reason: other }).purchasedOtherUnit, true);

@@ -10,6 +10,8 @@ export const ClassifierHealth = z.object({
   codeCount: z.number().int().nullable(),
   stale: z.boolean(),
   lastUpdate: z.object({ outcome: z.enum(['success', 'failed']), at: z.string(), message: z.string().nullable() }).nullable(),
+  /** The restricted-code list: codes loaded (0 = audits do not check RESTRICTED) and the newest import; null when unread. */
+  restricted: z.object({ codes: z.number().int(), importedAt: z.string().nullable() }).nullable(),
 });
 
 export const health = defineModule('health', {

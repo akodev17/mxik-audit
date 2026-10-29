@@ -148,7 +148,7 @@ describe('api-client: answers and errors', () => {
   });
 
   it('health answers its body on 503 too', async () => {
-    const body = { status: 'unavailable', database: false, classifier: { loaded: false, takenAt: null, ageDays: null, codeCount: null, stale: false, lastUpdate: null } };
+    const body = { status: 'unavailable', database: false, classifier: { loaded: false, takenAt: null, ageDays: null, codeCount: null, stale: false, lastUpdate: null, restricted: null } };
     const m = mockFetch(() => Response.json(body, { status: 503 }));
     assert.deepEqual(await createApiClient({ fetch: m.fetch, validate: true }).health.get(), body);
   });
