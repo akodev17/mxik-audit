@@ -51,6 +51,7 @@ describe('account (database)', { skip }, () => {
     assert.deepEqual(bodyOf(res), {
       name: org.name, brandName: null, logoUrl: null, dictAutoAccept: org.dictAutoAccept,
       rawRetentionDays: org.rawRetentionDays, rawRetentionSince: org.rawRetentionSince?.toISOString() ?? null, retentionChoices: [7, 30, 90], closeAfterDays: deleteAfterDays(),
+      minutesPerDecision: org.minutesPerDecision,
     });
     const viewer = await fx.member(u, 'viewer');
     const refused = await call(await sessionCookie(viewer)).get('/api/account');
