@@ -46,6 +46,8 @@ describe('Didox service (database)', { skip }, () => {
   before(async () => {
     a = await makeOrg();
     other = await makeOrg();
+    // Running trials: an ended plan refuses uploads.
+    await db.organization.updateMany({ where: { id: { in: [a.orgId, other.orgId] } }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
     demo = await makeOrg('demo', new Date(Date.now() + 86_400_000));
     admin = userOf(a);
     clientA = (await db.client.create({ data: { orgId: a.orgId, name: 'Alfa MChJ' } })).id;

@@ -51,7 +51,10 @@ export async function makeUser(options: { kind?: 'customer' | 'demo'; expiresAt?
 }
 
 export async function dropOrgs(ids: readonly string[]): Promise<void> {
-  if (ids.length > 0) await db.organization.deleteMany({ where: { id: { in: [...ids] } } });
+  if (ids.length === 0) return;
+  // Orders outlive a purged org (orgId set null); test orders go with their org.
+  await db.order.deleteMany({ where: { orgId: { in: [...ids] } } });
+  await db.organization.deleteMany({ where: { id: { in: [...ids] } } });
 }
 
 /** A unique client address per test, so the per-address sign-in limit never carries over between runs. */

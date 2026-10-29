@@ -1,7 +1,39 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { planLimits, TRIAL_DAYS } from './limits';
+import { addMonths, creditDays, nextPeriod } from './period';
 import { catalogPlan, firmPrice, planById, PLANS, subscriptionPlan, SUBSCRIPTION_IDS, tierOffers, TIERS, YEARLY_PAID_MONTHS } from './plans';
+
+const DAY = 86_400_000;
+const utc = (s: string): Date => new Date(`${s}T00:00:00Z`);
+
+describe('subscription periods (pure)', () => {
+  it('adds calendar months with the day clamped to the target month', () => {
+    assert.deepEqual(addMonths(utc('2026-01-31'), 1), utc('2026-02-28'), 'not 3 March');
+    assert.deepEqual(addMonths(utc('2028-01-31'), 1), utc('2028-02-29'), 'leap year');
+    assert.deepEqual(addMonths(utc('2026-03-31'), 1), utc('2026-04-30'));
+    assert.deepEqual(addMonths(utc('2026-12-31'), 2), utc('2027-02-28'), 'across the year end');
+    assert.deepEqual(addMonths(utc('2026-01-15'), 12), utc('2027-01-15'));
+    assert.deepEqual(addMonths(new Date('2026-05-10T13:45:00Z'), 1), new Date('2026-06-10T13:45:00Z'), 'the time of day is kept');
+  });
+
+  it('the tier rule: new, renew, upgrade with the price-ratio credit, refused downgrade, forced conversion', () => {
+    const now = utc('2026-06-01');
+    const company = subscriptionPlan('company', 'monthly');
+    const firmYear = subscriptionPlan('firm', 'yearly');
+    assert.deepEqual(nextPeriod(null, company, now), { ok: true, kind: 'new', until: utc('2026-07-01'), creditDays: 0 });
+    // An ended subscription is the same as none: the period starts now.
+    assert.deepEqual(nextPeriod({ tier: 'firm', until: utc('2026-05-01') }, company, now), { ok: true, kind: 'new', until: utc('2026-07-01'), creditDays: 0 });
+    assert.deepEqual(nextPeriod({ tier: 'company', until: utc('2026-06-20') }, subscriptionPlan('company', 'yearly'), now), { ok: true, kind: 'renew', until: utc('2027-06-20'), creditDays: 0 });
+    // 30 days of company (390 000) are 6 days of firm (1 800 000): floor(30 × 390 / 1800) = 6.
+    assert.equal(creditDays(30 * DAY, 'company', 'firm'), 6);
+    assert.deepEqual(nextPeriod({ tier: 'company', until: utc('2026-07-01') }, firmYear, now), { ok: true, kind: 'upgrade', until: new Date(utc('2027-06-01').getTime() + 6 * DAY), creditDays: 6 });
+    assert.deepEqual(nextPeriod({ tier: 'firm', until: utc('2026-07-01') }, company, now), { ok: false, reason: 'plan_change' });
+    assert.deepEqual(nextPeriod({ tier: 'accountant', until: utc('2026-07-01') }, company, now), { ok: false, reason: 'plan_change' });
+    // floor(30 × 1800 / 390) = 138 days of company for 30 days of firm.
+    assert.deepEqual(nextPeriod({ tier: 'firm', until: utc('2026-07-01') }, company, now, true), { ok: true, kind: 'forced', until: new Date(utc('2026-07-01').getTime() + 138 * DAY), creditDays: 138 });
+  });
+});
 
 describe('plans', () => {
   it('names every subscription <tier>_<period>, monthly and yearly', () => {

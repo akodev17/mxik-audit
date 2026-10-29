@@ -1,7 +1,7 @@
 // Plans in one place: the free trial, the three subscription tiers (monthly or yearly) with their
 // prices and limits, and the one-off corrected-catalogue tiers. The landing page repeats these
 // numbers as display text (PRICING in apps/web/src/components/landing/config.ts) and
-// tests/pricing-parity.test.ts fails when the two differ. Display names live in
+// tests/web-parity/pricing.test.ts fails when the two differ. Display names live in
 // packages/i18n/src/i18n-parts/pricing.ts; the ids below never change with a rename.
 // Proposal and reasons: docs/PRICING_PROPOSAL.md. Prices are in whole soʻm.
 import type { Limits } from './limits';

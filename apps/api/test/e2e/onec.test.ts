@@ -36,6 +36,8 @@ describe('onec (database)', { skip }, () => {
   before(async () => {
     app = await startApp();
     owner = await makeUser();
+    // A running trial: an ended plan refuses uploads (the counterparty import among them).
+    await db.organization.update({ where: { id: owner.orgId }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
     orgs.push(owner.orgId);
     cookie = await sessionCookie(owner);
     clientId = await makeClient(owner.orgId, 'Mijoz bank');

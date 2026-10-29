@@ -6,6 +6,7 @@ import type { Prisma } from '@prisma/client';
 import type { accounting } from '@tasnivo/contracts';
 import { db } from '@tasnivo/db';
 import type { z } from 'zod';
+import { uploadsOpen } from '../plan.js';
 import { parseUpload } from '../spreadsheet.js';
 import { digitsOnly, normalizeName } from './normalize.js';
 
@@ -223,15 +224,17 @@ export function counterpartyColumns(headers: readonly string[]): ColumnPick {
 
 export type CounterpartyImport =
   | { ok: true; rows: number; created: number; updated: number; skipped: number; errors: { row: number; reason: string }[] }
-  | { ok: false; error: 'unreadable' | 'no_name_column' | 'empty' };
+  | { ok: false; error: 'unreadable' | 'no_name_column' | 'empty' | 'expired' };
 
 /**
  * Loads a client's counterparties from a 1C «Контрагенты» export (.xlsx or CSV): columns
  * Наименование, ИНН, Расчетный счет, МФО / Банк. A row whose ИНН (or else account, or else name)
  * is already known updates what the known one lacked; any other becomes a new counterparty with
  * source `onec_export`. Rows with an ИНН that is not 9 or 14 digits are skipped and listed.
+ * Refused (`expired`) once the trial or subscription has ended; it does not use the monthly rows (D4).
  */
 export async function importCounterparties(orgId: string, clientId: string | null, bytes: Buffer, filename?: string): Promise<CounterpartyImport> {
+  if (!(await uploadsOpen(orgId)).ok) return { ok: false, error: 'expired' };
   let sheet;
   try {
     sheet = await parseUpload(bytes, filename);

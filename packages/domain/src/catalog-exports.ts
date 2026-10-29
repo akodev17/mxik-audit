@@ -21,7 +21,7 @@ import type { DocKind } from './docs.js';
 import { build1cCsv, build1cXlsx, type OneCRow } from './export-1c.js';
 import { baseName, contentDisposition } from './export-filename.js';
 import { codeRestrictions, codeUnits, exportItems, exportPackaging, exportUnit } from './export-rows.js';
-import { reportPdfData } from './pdf/report-data.js';
+import { reportPdfData, type ReportPdfData } from './pdf/report-data.js';
 import { buildReportPdf, type PdfAudience } from './pdf/report-pdf.js';
 import { reportCsv } from './report-csv.js';
 import { hit } from './security/rate-limit.js';
@@ -61,6 +61,19 @@ export async function demoExportRefused(orgId: string): Promise<boolean> {
 }
 
 const DEMO_LIMIT = refuse(429, 'demo_limit', 'demo download limit reached');
+const PAYMENT_REQUIRED = refuse(402, 'payment_required', 'payment required');
+
+/**
+ * Only when the operator turned payment on for exports (BILLING_REQUIRED_FOR_EXPORT): a catalogue
+ * with no paid order and no active subscription. Then the corrected and 1C files, the client PDF and
+ * the diff CSV are refused, and the internal PDF and report CSV leave out the chosen codes (D3).
+ */
+export async function paymentRequired(orgId: string, catalogId: string): Promise<boolean> {
+  return billingConfig().requiredForExport && !(await catalogPaid(orgId, catalogId));
+}
+
+/** The report without the codes the reviewers chose instead of the suggestion. */
+const withoutChosen = (data: ReportPdfData): ReportPdfData => ({ ...data, rows: data.rows.map((r) => ({ ...r, chosen: null })) });
 
 const StoredMap = z.object({ mxik: z.number(), unit: z.number() });
 export const EXPORT_FORMATS = ['xlsx', '1c', '1c-xlsx'] as const;
@@ -80,8 +93,7 @@ export async function catalogExport(user: Viewer, locale: Locale, catalogId: str
   if (!catalog) return NO_CATALOG;
   // An unaudited catalogue would export every row as clean.
   if (catalog.status !== 'ready') return NOT_FINISHED;
-  // Only when the operator turned payment on for exports.
-  if (billingConfig().requiredForExport && !(await catalogPaid(user.orgId, catalog.id))) return refuse(402, 'payment_required', 'payment required');
+  if (await paymentRequired(user.orgId, catalog.id)) return PAYMENT_REQUIRED;
   if (await demoExportRefused(user.orgId)) return DEMO_LIMIT;
   const mapping = StoredMap.safeParse(catalog.columnMap);
   if (!mapping.success) return refuse(500, 'bad_mapping', 'bad mapping');
@@ -150,6 +162,7 @@ export async function catalogDiffCsv(user: Viewer, locale: Locale, catalogId: st
   const catalog = catalogId ? await resolveCatalog(user.orgId, catalogId, null, user.clientIds) : null;
   if (!catalog) return NO_CATALOG;
   if (catalog.status !== 'ready') return NOT_FINISHED;
+  if (await paymentRequired(user.orgId, catalog.id)) return PAYMENT_REQUIRED;
   if (await demoExportRefused(user.orgId)) return DEMO_LIMIT;
   const diff = await versionDiff(user.orgId, catalog.id, against || undefined, { limit: Number.MAX_SAFE_INTEGER, offset: 0 });
   if (!diff) return refuse(404, 'nothing_to_compare', 'nothing to compare');
@@ -172,8 +185,9 @@ async function reportCatalog(user: Viewer, catalogId: string | null): Promise<{ 
 export async function catalogReportCsv(user: Viewer, locale: Locale, catalogId: string | null): Promise<Download> {
   const catalog = await reportCatalog(user, catalogId);
   if (!catalog.ok) return catalog.refusal;
-  const data = await reportPdfData(user.orgId, catalog.id);
-  if (!data) return NO_CATALOG;
+  const loaded = await reportPdfData(user.orgId, catalog.id);
+  if (!loaded) return NO_CATALOG;
+  const data = (await paymentRequired(user.orgId, catalog.id)) ? withoutChosen(loaded) : loaded;
   const { t, ta } = i18nFor(locale);
   const r = ta.importX.report;
   const csv = reportCsv(data.rows, {
@@ -194,8 +208,11 @@ export async function catalogReportPdf(
 ): Promise<Download> {
   const catalog = await reportCatalog(user, catalogId);
   if (!catalog.ok) return catalog.refusal;
-  const data = await reportPdfData(user.orgId, catalog.id);
-  if (!data) return NO_CATALOG;
+  const locked = await paymentRequired(user.orgId, catalog.id);
+  if (locked && options.audience === 'client') return PAYMENT_REQUIRED;
+  const loaded = await reportPdfData(user.orgId, catalog.id);
+  if (!loaded) return NO_CATALOG;
+  const data = locked ? withoutChosen(loaded) : loaded;
   const pdf = await buildReportPdf(data, locale, options.audience);
   await db.auditEvent.create({
     data: {

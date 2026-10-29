@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { db } from '@tasnivo/db';
 import { safeEqualText } from '../security/safe-equal.js';
 import type { ClickConfig } from './config.js';
-import { cancelOrder, markPaid } from './orders.js';
+import { cancelOrder, markPaid, orderPayable } from './orders.js';
 
 export const CLICK_ERRORS = {
   ok: { error: 0, error_note: 'Success' },
@@ -42,6 +42,13 @@ export function clickCheckoutUrl(config: ClickConfig, orderId: string, amount: n
 
 type Reply = Record<string, string | number>;
 
+/** merchant_prepare_id as the integer id we answered at Prepare; null when it is not one. */
+function prepareId(value: string | undefined): number | null {
+  if (!value || !/^\d{1,10}$/.test(value)) return null;
+  const id = Number(value);
+  return id >= 1 && id <= 2_147_483_647 ? id : null;
+}
+
 export async function handleClick(f: Fields, config: ClickConfig): Promise<Reply> {
   const base = { click_trans_id: f['click_trans_id'] ?? '', merchant_trans_id: f['merchant_trans_id'] ?? '' };
   const required = ['click_trans_id', 'service_id', 'merchant_trans_id', 'amount', 'action', 'sign_time', 'sign_string'];
@@ -59,31 +66,56 @@ export async function handleClick(f: Fields, config: ClickConfig): Promise<Reply
   if (f['action'] === '0') {
     if (order.status === 'paid') return { ...base, ...CLICK_ERRORS.paid };
     if (order.status === 'cancelled') return { ...base, ...CLICK_ERRORS.cancelled };
+    // Refused before Click takes the money: a catalogue already paid, or a tier change the rule forbids.
+    if (!(await orderPayable(order))) {
+      await cancelOrder(order.id);
+      return { ...base, ...CLICK_ERRORS.cancelled };
+    }
     const tx = await db.paymentTransaction.upsert({
       where: { provider_externalId: { provider: 'click', externalId } },
       create: { orderId: order.id, provider: 'click', externalId, amountTiyin: BigInt(order.amount) * 100n, state: 1, createTime: now },
       update: {},
     });
     if (tx.orderId !== order.id) return { ...base, ...CLICK_ERRORS.request };
+    // A retried Prepare for a transaction already cancelled or completed is not opened again.
+    if (tx.state === -1) return { ...base, ...CLICK_ERRORS.cancelled };
+    if (tx.state === 2) return { ...base, ...CLICK_ERRORS.paid };
     return { ...base, merchant_prepare_id: tx.id, ...CLICK_ERRORS.ok };
   }
 
-  const tx = await db.paymentTransaction.findFirst({
-    where: { id: Number(f['merchant_prepare_id']), provider: 'click', externalId, orderId: order.id },
-  });
+  // A missing or malformed merchant_prepare_id is Click's request error, never an exception.
+  const id = prepareId(f['merchant_prepare_id']);
+  if (id === null) return { ...base, ...CLICK_ERRORS.request };
+  const tx = await db.paymentTransaction.findFirst({ where: { id, provider: 'click', externalId, orderId: order.id } });
   if (!tx) return { ...base, ...CLICK_ERRORS.transaction };
   if (tx.state === 2) return { ...base, merchant_confirm_id: tx.id, ...CLICK_ERRORS.paid };
   if (tx.state === -1) return { ...base, ...CLICK_ERRORS.cancelled };
   // Click reports its own failure in "error"; the payment did not happen.
   if (Number(f['error'] ?? '0') < 0) {
-    await db.paymentTransaction.update({ where: { id: tx.id }, data: { state: -1, cancelTime: now } });
-    await cancelOrder(order.id);
+    await db.$transaction(async (t) => {
+      await t.paymentTransaction.updateMany({ where: { id: tx.id, state: 1 }, data: { state: -1, cancelTime: now } });
+      await cancelOrder(order.id, t);
+    });
     return { ...base, ...CLICK_ERRORS.cancelled };
   }
   if (order.status === 'cancelled') return { ...base, ...CLICK_ERRORS.cancelled };
   // Paid meanwhile through another transaction: never take the money twice.
   if (order.status === 'paid') return { ...base, ...CLICK_ERRORS.paid };
-  if (!(await markPaid(order.id, 'click'))) return { ...base, ...CLICK_ERRORS.update };
-  await db.paymentTransaction.update({ where: { id: tx.id }, data: { state: 2, performTime: now } });
-  return { ...base, merchant_confirm_id: tx.id, ...CLICK_ERRORS.ok };
+  const outcome = await markPaid(order.id, 'click', {
+    within: async (t) => {
+      await t.paymentTransaction.update({ where: { id: tx.id }, data: { state: 2, performTime: now } });
+    },
+  });
+  if (outcome === 'paid') return { ...base, merchant_confirm_id: tx.id, ...CLICK_ERRORS.ok };
+  if (outcome === 'not_payable') {
+    // Lost a race with another confirmation of this order: answer by what the order is now.
+    const current = await db.order.findUnique({ where: { id: order.id }, select: { status: true } });
+    return { ...base, ...(current?.status === 'paid' ? CLICK_ERRORS.paid : current?.status === 'cancelled' ? CLICK_ERRORS.cancelled : CLICK_ERRORS.update) };
+  }
+  // The tier rule or a catalogue paid by another order refuses it: Click reverses the payment.
+  await db.$transaction(async (t) => {
+    await t.paymentTransaction.updateMany({ where: { id: tx.id, state: 1 }, data: { state: -1, cancelTime: now } });
+    await cancelOrder(order.id, t);
+  });
+  return { ...base, ...CLICK_ERRORS.cancelled };
 }

@@ -270,11 +270,13 @@ pricing note mentions it.
 - **Payme** (Merchant API): set the endpoint to
   `https://tasnivo.uz/api/payments/payme`, account field `order_id`; put
   `PAYME_MERCHANT_ID` and `PAYME_KEY`. For the sandbox
-  (test.paycom.uz), set `PAYME_TEST_MODE=true` and `PAYME_TEST_KEY`.
+  (test.paycom.uz), set `PAYME_TEST_MODE=true` and `PAYME_TEST_KEY`; with `NODE_ENV=production`
+  test mode switches Payme off unless `PAYME_TEST_ALLOW_PROD=1` (orders it confirms are marked `testMode`).
 - `APP_URL` must be the public https origin (return links after payment).
-- `BILLING_REQUIRED_FOR_EXPORT=true` makes the corrected-file download
-  require a paid order for that catalogue or an active subscription. The landing promises the free
-  plan has no corrected file, so production needs it.
+- **Production sets `BILLING_REQUIRED_FOR_EXPORT=true`.** It makes the corrected-file and 1C downloads,
+  the client PDF and the diff CSV require a paid order for that catalogue or an active subscription
+  (the internal PDF and report CSV then leave out the chosen codes). The landing promises the free
+  plan has no corrected file.
 
 The callback URLs stayed the same through the backend split: Caddy sends `/api/payments/*` to the
 api service. A paid order writes `billing.paid` to the audit log;
