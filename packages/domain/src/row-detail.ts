@@ -12,6 +12,7 @@ import { findingRows } from './finding-view';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import type { AppDict } from '@tasnivo/i18n/i18n-app';
 import { cleanPrivilegeName, LEVEL_SPLITS, levelPrefixes, rankAlternatives, reasonFacts, type ReasonFacts } from './row-detail-parts';
+import { readCheckErrorKind, type RowFailureKind } from './row-retry';
 import { rowSignals, type Signal } from './row-signals';
 import { unitAdvice, type UnitAdvice } from './unit-advice';
 import { containerLabel, packagingLabel, unitLabel } from './unit-label';
@@ -57,6 +58,8 @@ export type RowDetail = {
   /** Email of the person who decided; null for the system or an account since removed. */
   decidedBy: string | null;
   decidedAt: string | null;
+  /** The row's own check failed after its retries (its kind): the code was not checked. */
+  checkError: RowFailureKind | null;
 };
 
 export type UnitLabels = { units: Record<string, string>; packaging: Record<string, string>; containers: Record<string, string> };
@@ -140,7 +143,7 @@ export async function rowDetail(
 ): Promise<RowDetail | null> {
   const f = await db.finding.findFirst({
     where: { id: findingId, item: { catalog: catalogScope(scope) } },
-    include: { item: { select: { id: true, rowIndex: true, rawName: true, existingMxik: true, unit: true, barcode: true } } },
+    include: { item: { select: { id: true, rowIndex: true, rawName: true, existingMxik: true, unit: true, barcode: true, checkError: true } } },
   });
   if (!f) return null;
   const { rows } = await findingRows([f], locale);
@@ -151,10 +154,12 @@ export async function rowDetail(
   const alts = rankAlternatives(best, row.alternatives.filter((a) => a.code !== f.suggestedMxik)).slice(0, 5);
   const opportunity = f.type === 'PRIVILEGE_OPPORTUNITY' ? await opportunityCode(f.item.id, f.reason) : null;
   const codes = [...new Set([f.item.existingMxik, f.suggestedMxik, f.chosenMxik, opportunity, ...alts.map((a) => a.code)].filter((c): c is string => Boolean(c)))];
-  const [levels, details, decider] = await Promise.all([
+  const [levels, details, decider, restricted] = await Promise.all([
     db.mxikCode.findMany({ where: { code: { in: codes } }, select: { code: true, unitBinding: true, unitCanonical: true, unitContainer: true, ...LEVEL_SELECT } }),
     codeDetails(codes, locale),
     f.decidedBy ? db.user.findFirst({ where: { id: f.decidedBy, orgId: scope.orgId }, select: { email: true } }) : null,
+    // Where the restriction was published, shown next to its date.
+    f.type === 'RESTRICTED' && f.restrictedMxik ? db.restrictedCode.findUnique({ where: { code: f.restrictedMxik }, select: { source: true } }) : null,
   ]);
   const names = new Map(levels.map((l) => [l.code.trim(), l]));
   // A code the classifier lacks still shows which of its levels exist.
@@ -174,7 +179,7 @@ export async function rowDetail(
   const facts = reasonFacts({
     type: f.type, severity: f.severity, reason: f.reason, wasRetired: f.wasRetired, snapshotId: f.snapshotId,
     existingMxik: f.item.existingMxik, unit: f.item.unit, codeUnits: own?.unitCanonical ?? [],
-    restrictedMxik: f.restrictedMxik, restrictedFrom: f.restrictedFrom,
+    restrictedMxik: f.restrictedMxik, restrictedFrom: f.restrictedFrom, restrictedSource: restricted?.source ?? null,
   });
   const advice = unitAdvice({ rawName: f.item.rawName, rowUnit: f.item.unit, code: own });
   return {
@@ -207,5 +212,6 @@ export async function rowDetail(
     decisionSource: readDecisionSource(f.decisionSource),
     decidedBy: decider?.email ?? null,
     decidedAt: f.decidedAt?.toISOString() ?? null,
+    checkError: f.item.checkError === null ? null : readCheckErrorKind(f.item.checkError),
   };
 }

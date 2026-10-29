@@ -38,6 +38,9 @@ export async function WorkspaceHeader({ catalog, user, canShare, showReview }: P
   const f = ta.importX.flow;
   const { usedTakenAt: used, newerTakenAt: newer } = catalog.snapshot;
   const notes = catalog.pipeline ? degradedNotes(catalog.pipeline, ta) : [];
+  const failedRows = catalog.pipeline?.degradedReasons.includes('rows_failed') ? catalog.pipeline.rowsFailed : 0;
+  // The list is loaded on the server (npm run load:restricted): admins get that line too.
+  const restrictedUnchecked = catalog.pipeline?.degradedReasons.includes('restricted_unchecked') === true;
   const tone = STATUS_TONE[catalog.status];
   const ready = catalog.status === 'ready';
   // A middle dot before every item but the first, drawn by CSS so the list stays a plain dl.
@@ -106,6 +109,10 @@ export async function WorkspaceHeader({ catalog, user, canShare, showReview }: P
           <div className="min-w-0">
             <p className="font-semibold">{ta.matchX.degraded.title}</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-5">{notes.map((n) => <li key={n}>{n}</li>)}</ul>
+            {failedRows > 0 && ready ? (
+              <Link href={`/catalogs/${catalog.id}?type=FAILED&v=0`} className="mt-1 inline-block font-medium underline">{ta.wsX.failed.title}</Link>
+            ) : null}
+            {restrictedUnchecked && user.role === 'admin' ? <p className="mt-1 text-micro">{ta.matchX.degraded.restrictedAdmin}</p> : null}
             <p className="mt-1 text-micro">{h.degradedMore}</p>
           </div>
         </section>

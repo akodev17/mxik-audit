@@ -20,6 +20,8 @@ export function reasonLines({ type, facts, noSuggestion }: Input, w: AppDict['ws
   if (type === 'PRIVILEGE_OPPORTUNITY') lines.push(r.opportunityCheck);
   if (type === 'RESTRICTED') {
     if (facts.restriction) lines.push(r.restricted(facts.restriction.code, facts.restriction.date, facts.restriction.inForce));
+    // Where the list was published and from when, so the reviewer can check it at the source.
+    if (facts.restriction?.source) lines.push(r.restrictedSource(facts.restriction.source.replace(/^https?:\/\//, ''), facts.restriction.date));
     if (noSuggestion) lines.push(r.restrictedNone);
   }
   if (facts.afterUpdate) lines.push(r.afterUpdate);

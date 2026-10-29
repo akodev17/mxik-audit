@@ -84,6 +84,7 @@ export const uz = {
         ? `${date} dan ${code} kodidan EHFda foydalanish cheklangan. Uni batafsil kodga almashtiring.`
         : `${date} dan ${code} kodidan EHFda foydalanish cheklanadi. Uni oldindan batafsil kodga almashtiring.`),
       restrictedNone: 'Tasniflagichda bu pozitsiyaning batafsil kodi topilmadi: mkinfo.uz shaxsiy kabineti orqali batafsil kod soʻrang.',
+      restrictedSource: (source: string, date: string) => `Manba: ${source}; kuchga kirish sanasi: ${date}.`,
       privileges: 'Bogʻlangan imtiyozlar',
     },
     act: {
@@ -306,6 +307,27 @@ export const uz = {
       newer: (date: string) => `Yangiroq tasniflagich bor (${date})`,
       newerHint: 'Bu tahlil tasniflagichning oldingi versiyasi boʻyicha bajarilgan. Yangi versiya boʻyicha toʻliq tekshirish uchun faylni qayta yuklang.',
       degradedMore: 'Bu takliflarga taʼsir qiladi; ularni diqqat bilan tekshiring.',
+    },
+    /** Rows whose check still failed after its retries (CatalogItem.checkError): the "Technical failure" filter. */
+    failed: {
+      chip: 'Texnik xato',
+      title: 'Texnik xato tufayli tekshirilmagan qatorlar',
+      intro: (n: number) => `${n} ta qator bir necha urinishdan keyin ham tekshirilmadi. Ular “toʻgʻri” hisoblanmaydi: qayta tekshiring yoki qoʻlda koʻrib chiqing.`,
+      none: 'Texnik xato bilan qolgan qator yoʻq.',
+      row: 'Qator',
+      name: 'Mahsulot',
+      code: 'Joriy kod',
+      reason: 'Sabab',
+      kind: {
+        timeout: 'Maʼlumotlar bazasi oʻz vaqtida javob bermadi.',
+        database: 'Maʼlumotlar bazasi bilan ishlashda xato yuz berdi.',
+        other: 'Tekshiruv kutilmagan xato bilan toʻxtadi.',
+      },
+      retry: 'Xato qatorlarni qayta tekshirish',
+      retryFailed: 'Qayta tekshirishni boshlab boʻlmadi. Sahifani yangilab, yana urinib koʻring.',
+      back: 'Barcha muammolarga qaytish',
+      more: (shown: number, total: number) => `Dastlabki ${shown} ta qator koʻrsatildi, jami ${total} ta.`,
+      drawer: 'Bu qatorning asosiy tekshiruvi texnik xato bilan tugadi: kodi tekshirilmagan.',
     },
     /** Shown in the workspace and the report when the classifier copy is old or its last update failed. */
     classifierBanner: {
@@ -565,6 +587,7 @@ export const ru: typeof uz = {
         ? `С ${date} применение кода ${code} в ЭСФ ограничено. Замените его детализированным кодом.`
         : `С ${date} применение кода ${code} в ЭСФ будет ограничено. Замените его детализированным кодом заранее.`),
       restrictedNone: 'В классификаторе нет детализированного кода этой позиции: запросите его через личный кабинет на mkinfo.uz.',
+      restrictedSource: (source, date) => `Источник: ${source}; дата вступления в силу: ${date}.`,
       privileges: 'Связанные льготы',
     },
     act: {
@@ -786,6 +809,26 @@ export const ru: typeof uz = {
       newer: (date) => `Есть более новый классификатор (${date})`,
       newerHint: 'Этот анализ выполнен по предыдущей версии классификатора. Для полной проверки по новой версии загрузите файл заново.',
       degradedMore: 'Это влияет на предложения; проверяйте их внимательнее.',
+    },
+    failed: {
+      chip: 'Техническая ошибка',
+      title: 'Строки, не проверенные из-за технической ошибки',
+      intro: (n) => `${n} ${pluralRu(n, 'строка не проверена', 'строки не проверены', 'строк не проверено')} даже после нескольких попыток. Они не считаются «в порядке»: проверьте их снова или просмотрите вручную.`,
+      none: 'Строк с технической ошибкой не осталось.',
+      row: 'Строка',
+      name: 'Товар',
+      code: 'Текущий код',
+      reason: 'Причина',
+      kind: {
+        timeout: 'База данных не ответила вовремя.',
+        database: 'Ошибка при работе с базой данных.',
+        other: 'Проверка остановилась из-за непредвиденной ошибки.',
+      },
+      retry: 'Проверить строки с ошибкой снова',
+      retryFailed: 'Не удалось запустить повторную проверку. Обновите страницу и попробуйте ещё раз.',
+      back: 'Вернуться ко всем проблемам',
+      more: (shown, total) => `Показаны первые ${shown} строк из ${total}.`,
+      drawer: 'Основная проверка этой строки завершилась технической ошибкой: код не проверен.',
     },
     classifierBanner: {
       title: 'Копия классификатора не обновлена',

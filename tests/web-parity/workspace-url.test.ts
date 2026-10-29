@@ -11,7 +11,7 @@ import {
 
 // URL values worth trying for each filter field: valid ones, junk, empty and missing.
 const VALUES: Record<keyof FilterParams, (string | null | undefined)[]> = {
-  type: [undefined, null, '', 'MARKING', 'MISMATCH', 'RESTRICTED', 'mismatch', 'x'],
+  type: [undefined, null, '', 'MARKING', 'FAILED', 'MISMATCH', 'RESTRICTED', 'mismatch', 'x'],
   q: [undefined, '', '  sut  ', 'a'.repeat(140), 'Молоко 1 л'],
   pending: [undefined, '0', '1'],
   dec: [undefined, '', 'pending', 'all', 'accepted', 'rejected', 'carried', 'auto', 'nope'],

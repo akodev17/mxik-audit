@@ -24,4 +24,5 @@ export type ClassifierHit = ResponseOf<W['lookupCodes']>[number];
 export type Counts = ResponseOf<W['counts']>;
 export type ChipCounts = Counts['chips'];
 export type WsSummary = ResponseOf<typeof endpoints.catalogs.summary>;
+export type FailedRowsData = ResponseOf<W['failedRows']>;
 export type Skipped = Extract<ManyOutcome, { ok: true }>['skipped'];

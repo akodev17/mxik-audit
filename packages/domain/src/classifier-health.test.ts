@@ -24,7 +24,7 @@ describe('classifierHealth', () => {
   it('reports takenAt, age, code count, staleness and the last update', () => {
     assert.deepEqual(classifierHealth(true, state()), {
       loaded: true, takenAt: '2026-09-20T05:00:00.000Z', ageDays: 32, codeCount: 442_719, stale: true,
-      lastUpdate: { outcome: 'success', at: '2026-09-20T05:00:00.000Z', message: null },
+      lastUpdate: { outcome: 'success', at: '2026-09-20T05:00:00.000Z', message: null }, restricted: null,
     });
   });
 
@@ -35,8 +35,14 @@ describe('classifierHealth', () => {
     assert.deepEqual(h.lastUpdate, { outcome: 'failed', at: '2026-10-21T04:00:10.000Z', message: 'download failed' });
   });
 
+  it('says how many restricted codes are loaded and when, and 0 when the list is empty', () => {
+    const importedAt = new Date('2026-10-01T06:00:00Z');
+    assert.deepEqual(classifierHealth(true, state(), { codes: 135, importedAt }).restricted, { codes: 135, importedAt: '2026-10-01T06:00:00.000Z' });
+    assert.deepEqual(classifierHealth(true, state(), { codes: 0, importedAt: null }).restricted, { codes: 0, importedAt: null });
+  });
+
   it('is all nulls when nothing is loaded', () => {
-    assert.deepEqual(classifierHealth(false, null), { loaded: false, takenAt: null, ageDays: null, codeCount: null, stale: false, lastUpdate: null });
+    assert.deepEqual(classifierHealth(false, null), { loaded: false, takenAt: null, ageDays: null, codeCount: null, stale: false, lastUpdate: null, restricted: null });
   });
 });
 

@@ -3,6 +3,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { classifierHealth } from '@tasnivo/domain/classifier-health';
 import { classifierState, type ClassifierState } from '@tasnivo/domain/classifier-state';
+import { restrictedState, type RestrictedState } from '@tasnivo/domain/restricted-state';
 import { PrismaService } from '../db/prisma.service';
 
 /**
@@ -23,16 +24,18 @@ export class HealthController {
     let database = false;
     let loaded = false;
     let state: ClassifierState | null = null;
+    let restricted: RestrictedState = null;
     try {
       const rows = await this.prisma.client.$queryRaw<{ ok: number }[]>`SELECT 1 AS ok FROM mxik_code WHERE "retiredAt" IS NULL LIMIT 1`;
       database = true;
       loaded = rows.length > 0;
       state = await classifierState();
+      restricted = await restrictedState();
     } catch {
       // Unreachable database, or migrations not applied yet.
     }
     const ok = database && loaded;
     res.status(ok ? 200 : 503);
-    return { status: ok ? 'ok' : 'unavailable', database, classifier: classifierHealth(loaded, state) };
+    return { status: ok ? 'ok' : 'unavailable', database, classifier: classifierHealth(loaded, state, restricted) };
   }
 }

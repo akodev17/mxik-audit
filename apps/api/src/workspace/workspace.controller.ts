@@ -15,6 +15,7 @@ import type { CurrentUser as User } from '@tasnivo/domain/session';
 import { recordWrongSuggestion } from '@tasnivo/domain/suggestion-feedback';
 import { applyBarcodeName } from '@tasnivo/domain/barcode-name';
 import { listViews } from '@tasnivo/domain/views';
+import { workspaceFailedRows } from '@tasnivo/domain/workspace';
 import { readFilter } from '@tasnivo/domain/workspace-filter';
 import {
   acceptSure, applyBulk, decideFinding, decideGroup, postCommentFor, previewBulk, previewSure, removeViewFor, rowsCounts, rowsPage,
@@ -54,6 +55,13 @@ export class WorkspaceController {
     const counts = await rowsCounts(user, p.catalogId, readFilter(q));
     if (!counts) throw notFound();
     return counts;
+  }
+
+  @Route(e.failedRows)
+  async failedRows(@CurrentUser() user: User, @Param(pipe(e.failedRows.params)) p: In<typeof e.failedRows.params>) {
+    const rows = await workspaceFailedRows(user, p.catalogId);
+    if (!rows) throw notFound();
+    return rows;
   }
 
   @Route(e.moneyAtRisk)

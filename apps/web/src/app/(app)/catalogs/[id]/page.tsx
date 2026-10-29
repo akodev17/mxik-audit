@@ -8,6 +8,7 @@ import { serverApi } from '@/lib/api/server';
 import { catalogHeader, orNotFound, orNull, signedInUser } from '@/lib/catalogs/server';
 import { apiFilter, filterKey, readFilter, readHidden, viewQuery } from '@/lib/workspace-url';
 import { CatalogStatus } from '@/ui/catalog-status';
+import { FailedRows } from './failed-rows';
 import { MoneyAtRisk } from './money-at-risk';
 import { Workspace } from './workspace';
 import { WorkspaceHeader } from './workspace-header';
@@ -59,6 +60,16 @@ export default async function CatalogWorkspacePage({ params, searchParams }: Par
   }
   const filter = readFilter(sp);
   const writer = canWrite(user);
+  // Rows the audit could not check have no findings to page through: their own list.
+  if (filter.type === 'FAILED') {
+    const failed = await api.workspace.failedRows({ catalogId: catalog.id });
+    return (
+      <div className="flex min-h-full flex-col">
+        <WorkspaceHeader catalog={catalog} user={user} canShare={writer} showReview />
+        <FailedRows catalogId={catalog.id} data={failed} canRetry={writer && !catalog.demo} />
+      </div>
+    );
+  }
   // A linked finding not on the first page leads the list; the API keeps it to this catalogue.
   const wanted = typeof sp.row === 'string' && sp.row.length > 0 && sp.row.length <= 64 ? sp.row : null;
   const query = { catalogId: catalog.id, ...apiFilter(filter) };
