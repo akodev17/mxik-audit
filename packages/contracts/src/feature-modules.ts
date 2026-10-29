@@ -84,9 +84,13 @@ export function modulesOfRoute(pathname: string): ModuleKey[] {
   return MODULE_KEYS.filter((key) => FEATURE_MODULES[key].routes.some((prefix) => underPrefix(pathname, prefix)));
 }
 
-/** Modules whose API prefixes contain `path` (`/api/catalogs/1/products` is both audit and products). */
+/**
+ * Modules whose API prefixes contain `path` (`/api/catalogs/1/products` is both audit and products).
+ * Case-insensitive, as Express routes: `/api/BANK/...` reaches the bank controller, so it is the bank module (F20).
+ */
 export function modulesOfApi(path: string): ModuleKey[] {
-  return MODULE_KEYS.filter((key) => FEATURE_MODULES[key].api.some((prefix) => underPrefix(path, prefix)));
+  const lower = path.toLowerCase();
+  return MODULE_KEYS.filter((key) => FEATURE_MODULES[key].api.some((prefix) => underPrefix(lower, prefix)));
 }
 
 /** The state that wins when several modules cover a path: HIDDEN over COMING_SOON over ENABLED. */

@@ -73,6 +73,15 @@ describe('prefix matching', () => {
     assert.deepEqual(modulesOfApi('/api/catalogs/c1/products'), ['mxik_audit', 'products']);
   });
 
+  it('finds the module of an API path in any letter case, as Express routes it (F20)', () => {
+    assert.deepEqual(modulesOfApi('/api/BANK/statements'), ['bank']);
+    assert.deepEqual(modulesOfApi('/API/Didox/invoices/i1'), ['didox']);
+    assert.deepEqual(modulesOfApi('/api/Catalogs/C1/PRODUCTS'), ['mxik_audit', 'products']);
+    for (const key of MODULE_KEYS) {
+      for (const prefix of FEATURE_MODULES[key].api) assert.equal(prefix, prefix.toLowerCase(), `${key}: ${prefix} is lower case`);
+    }
+  });
+
   it('the strictest state wins: HIDDEN over COMING_SOON over ENABLED', () => {
     const states = { ...allEnabled(), products: 'COMING_SOON' as const };
     assert.deepEqual(strictest(['mxik_audit', 'products'], states), { key: 'products', state: 'COMING_SOON' });
