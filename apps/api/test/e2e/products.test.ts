@@ -52,7 +52,7 @@ describe('products (database, fake Tasnif)', { skip }, () => {
     const res = await get(`/api/products/import/${batchId}`, who);
     const view = bodyOf<BatchView>(res);
     return res.status === 200 && view.batch.status !== 'parsed' ? view : undefined;
-  }, 120_000, 'the product check');
+  }, 600_000, 'the product check'); // as settleBatch: the check shares the DB with the whole suite
   const product = async (clientId: string, name: string) =>
     (await db.product.create({ data: { orgId: admin.orgId, clientId, name, normalizedName: name.toLowerCase(), source: 'manual', unit: 'kg' }, select: { id: true } })).id;
   const entryFor = (name: string) => db.firmMapping.findFirst({
