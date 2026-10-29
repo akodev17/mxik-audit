@@ -8,8 +8,9 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { endpoints, type ResponseOf } from '@tasnivo/contracts';
 import {
-  accountSettings, addApiKeyForm, apiKeysView, chooseLocale, exportAccount, saveBrandingForm, telegramLinkCode, telegramLinksView,
+  accountSettings, addApiKeyForm, apiKeysView, chooseLocale, exportAccount, saveBrandingForm, setMinutesPerDecision, telegramLinkCode, telegramLinksView,
 } from '@tasnivo/domain/account-settings';
+import { setChecklistHidden } from '@tasnivo/domain/onboarding';
 import { activityView, type ActivityQuery } from '@tasnivo/domain/activity-view';
 import { revokeApiKey } from '@tasnivo/domain/api/keys';
 import { apiConfig } from '@tasnivo/domain/api/limits';
@@ -93,6 +94,17 @@ export class AccountController {
   @Route(e.setRetention)
   setRetention(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.setRetention.body)) body: { days: number | null }): Promise<Answer<'setRetention'>> {
     return setRetention(user, body.days);
+  }
+
+  @Route(e.setMinutesPerDecision)
+  setMinutesPerDecision(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.setMinutesPerDecision.body)) body: { minutes: number }): Promise<Answer<'setMinutesPerDecision'>> {
+    return setMinutesPerDecision(user, body.minutes);
+  }
+
+  @Route(e.setOnboardingHidden)
+  async setOnboardingHidden(@CurrentUser() user: User, @Body(new ZodValidationPipe(e.setOnboardingHidden.body)) body: { hidden: boolean }): Promise<Answer<'setOnboardingHidden'>> {
+    await setChecklistHidden(user, body.hidden);
+    return { ok: true };
   }
 
   /** Closed: this browser is signed out too. */

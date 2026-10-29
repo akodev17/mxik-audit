@@ -514,7 +514,7 @@ export function Workspace(props: WorkspaceProps) {
       <SummaryStrip summary={summary} reviewedDelta={delta} />
       {showCompletion ? (
         <Completion
-          catalogId={catalogId} clientId={props.clientId} findings={summary.riskyFindings} exportLocked={props.exportLocked}
+          catalogId={catalogId} clientId={props.clientId} findings={summary.riskyFindings} exportLocked={props.exportLocked} canShare={!readOnly}
           onShowDecided={() => go((p) => p.set('dec', 'all'))}
         />
       ) : null}

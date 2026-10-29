@@ -5,12 +5,16 @@ import { api } from '@/lib/api/browser';
 import { useI18n } from '@/lib/locale-client';
 import { ButtonLink } from '@/ui/button';
 import { IconDownload, IconSuccess } from '@/ui/icons';
+import { ShareButton } from './share-button';
 import { count } from './ws-text';
 
-type Props = { catalogId: string; clientId: string; findings: number; exportLocked: boolean; onShowDecided: () => void };
+type Props = { catalogId: string; clientId: string; findings: number; exportLocked: boolean; canShare: boolean; onShowDecided: () => void };
 
-/** Shown when every risky finding has a decision: the next steps, not an empty table. */
-export function Completion({ catalogId, clientId, findings, exportLocked, onShowDecided }: Props) {
+/**
+ * Shown when every risky finding has a decision: the next steps, not an empty table. Downloading the file
+ * or the PDF, or sending the client a link, is the checklist's "deliver the result" step.
+ */
+export function Completion({ catalogId, clientId, findings, exportLocked, canShare, onShowDecided }: Props) {
   const { ta, locale } = useI18n();
   const d = ta.wsX.done;
   return (
@@ -24,6 +28,7 @@ export function Completion({ catalogId, clientId, findings, exportLocked, onShow
             <ButtonLink variant="primary" size="sm" href={api.catalogs.exportFile.url({ catalog: catalogId })} download><IconDownload />{d.export}</ButtonLink>
           )}
           <ButtonLink size="sm" href={api.catalogs.exportPdf.url({ catalog: catalogId })} target="_blank">{d.pdf}</ButtonLink>
+          {canShare ? <ShareButton catalogId={catalogId} size="sm" /> : null}
           <button type="button" onClick={onShowDecided} className="rounded-sm text-small font-medium text-brand-ink hover:underline">{d.decided}</button>
           <Link href={`/clients/${clientId}`} className="rounded-sm text-small font-medium text-brand-ink hover:underline">{d.client}</Link>
         </div>

@@ -9,6 +9,7 @@ import { Card, Fact } from '../_manage/card';
 import { ROLE_TONE } from '../_manage/roles';
 import { BrandForm } from './brand-form';
 import { DictionarySetting } from './dictionary-setting';
+import { MinutesSetting } from './minutes-setting';
 import { ThemeSetting } from './theme-setting';
 import { TourSetting } from './tour-setting';
 
@@ -25,7 +26,7 @@ function SettingRow({ label, hint, children, labelHidden = false }: { label: str
   );
 }
 
-/** Email, role and client access, language and theme, the guided tour; PDF branding and the dictionary setting for admins. */
+/** Email, role and client access, language and theme, the guided tour; PDF branding, the dictionary setting and the minutes per decision for admins. */
 export async function AccountTab({ user, demo }: { user: Me; demo: boolean }) {
   const { t, ta } = await getI18n();
   const s = ta.setX.account;
@@ -63,6 +64,7 @@ export async function AccountTab({ user, demo }: { user: Me; demo: boolean }) {
 
       {org ? <BrandForm initial={org} title={t.brandSection} hint={t.brandHint} /> : null}
       {org ? <DictionarySetting initial={org} /> : null}
+      {org ? <MinutesSetting initial={org} /> : null}
     </div>
   );
 }

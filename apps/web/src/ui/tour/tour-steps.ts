@@ -1,5 +1,6 @@
 // The guided tour's steps: order, spotlight targets and the section each one links to. Copy lives in
 // the i18n package (ta.tourX.steps[key]); delete a step here and the tour simply skips it.
+import { modulesOfRoute, strictest, type ModuleStates } from '@tasnivo/contracts/feature-modules';
 import { TOUR_STEP_KEYS, type TourStepKey } from '@tasnivo/i18n/i18n-parts/tour';
 
 // The copy's keys: a step without words in ta.tourX.steps does not typecheck.
@@ -40,9 +41,15 @@ export const TOUR_STEPS: readonly TourStep[] = [
   { key: 'done', targets: [] },
 ];
 
-/** The steps this user sees, in order. */
-export function visibleSteps(steps: readonly TourStep[], abilities: TourAbilities): TourStep[] {
-  return steps.filter((s) => (s.requires ?? []).every((a) => abilities[a]));
+/** The step's section belongs to a module that is switched off (HIDDEN or COMING_SOON on /admin/features). */
+function moduleOff(step: TourStep, modules: ModuleStates | undefined): boolean {
+  if (!modules || !step.href) return false;
+  return (strictest(modulesOfRoute(step.href), modules)?.state ?? 'ENABLED') !== 'ENABLED';
+}
+
+/** The steps this user sees, in order: their abilities allow the step and its module is switched on. */
+export function visibleSteps(steps: readonly TourStep[], abilities: TourAbilities, modules?: ModuleStates): TourStep[] {
+  return steps.filter((s) => (s.requires ?? []).every((a) => abilities[a]) && !moduleOff(s, modules));
 }
 
 /** A step index kept inside 0..count-1 (0 when there are no steps). */

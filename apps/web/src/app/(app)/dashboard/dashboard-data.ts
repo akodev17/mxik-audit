@@ -16,7 +16,8 @@ export function reviveDashboard(a: Answer) {
   const reviews = a.reviews.open.map((r) => ({ ...r, dueOn: maybe(r.dueOn) }));
   const activity = a.activity.map((r) => ({ ...r, at: day(r.at) }));
   const pending = new Map(Object.entries(a.pending));
-  return { ...a, clients, changes, workload, pending, reviews: { open: reviews, counts: a.reviews.counts }, activity };
+  const value = { ...a.value, clients: a.value.clients.map((c) => ({ ...c, lastAuditAt: maybe(c.lastAuditAt) })) };
+  return { ...a, clients, changes, workload, pending, reviews: { open: reviews, counts: a.reviews.counts }, activity, value };
 }
 
 /** The page's data after reviveDashboard, and the parts the components take. */
@@ -30,6 +31,9 @@ export type AccountantOption = Dashboard['accountants'][number];
 export type Step = Dashboard['onboarding'][number];
 export type OpenReview = Dashboard['reviews']['open'][number];
 export type ReviewCounts = Dashboard['reviews']['counts'];
+export type Value = Dashboard['value'];
+export type WeekCount = Value['weeks'][number];
+export type ClientResult = Value['clients'][number];
 
 /** One read for the page: an admin's accountant filter and the reviews tab ("mine") travel as the URL has them. */
 export async function dashboardData(sp: { accountant?: string; rv?: string }) {

@@ -19,7 +19,7 @@ import { Select } from '@/ui/select';
 import { Skeleton } from '@/ui/skeleton';
 
 /** Create, copy and revoke read-only report links for this catalogue, in one dialog. */
-export function ShareButton({ catalogId }: { catalogId: string }) {
+export function ShareButton({ catalogId, size }: { catalogId: string; size?: 'sm' }) {
   const { ta, locale } = useI18n();
   const s = ta.share;
   const w = ta.importX.flow.share;
@@ -60,7 +60,7 @@ export function ShareButton({ catalogId }: { catalogId: string }) {
 
   return (
     <div className="no-print">
-      <Button onClick={() => setOpen(true)} aria-haspopup="dialog"><IconUsers size={16} />{s.button}</Button>
+      <Button size={size} onClick={() => setOpen(true)} aria-haspopup="dialog"><IconUsers size={16} />{s.button}</Button>
       <Dialog
         open={open} onClose={close} title={s.title} description={s.hint} size="md"
         footer={<Button onClick={close}>{w.close}</Button>}

@@ -20,6 +20,20 @@ const Source = z.enum(DECISION_SOURCES).nullable();
 /** domain row-retry.ts ROW_FAILURE_KINDS: why a row's check failed after its retries. */
 export const ROW_FAILURE_KINDS = ['timeout', 'database', 'other'] as const;
 
+/** onboarding.ts StepKey, in the checklist's order. */
+export const ONBOARDING_STEPS = ['client', 'upload', 'review', 'export', 'invite', 'twoFactor', 'telegram'] as const;
+
+/** firm-results.ts counts: rows checked (failed rows left out), rows failed, high/medium issues and the decided ones, decisions (of them automatic). */
+const ResultCounts = z.object({
+  rowsChecked: z.number().int(), rowsFailed: z.number().int(), issues: z.number().int(), resolved: z.number().int(),
+  decisions: z.number().int(), autoDecisions: z.number().int(),
+});
+
+/** firm-results.ts ClientResult. */
+export const ClientResult = ResultCounts.extend({
+  clientId: z.string(), name: z.string(), isDefault: z.boolean(), catalogs: z.number().int(), lastAuditAt: IsoDateTime.nullable(),
+});
+
 /** workspace.ts FailedRow. */
 export const FailedRow = z.object({
   itemId: z.string(), rowIndex: z.number().int(), productName: z.string(), currentMxik: z.string().nullable(), kind: z.enum(ROW_FAILURE_KINDS),
@@ -430,12 +444,36 @@ export const workspace = defineModule('workspace', {
       })).nullable(),
       /** client-attention.ts pendingAudits(): clients with catalogues but none audited, by status. */
       pending: z.record(z.enum(['failed', 'analyzing', 'uploaded'])),
-      onboarding: z.array(z.object({ key: z.enum(['client', 'invite', 'review', 'telegram', 'upload', 'twoFactor']), done: z.boolean(), href: z.string() })),
+      /** onboarding.ts onboardingSteps(); optional steps (security, Telegram) never keep the checklist open. */
+      onboarding: z.array(z.object({ key: z.enum(ONBOARDING_STEPS), done: z.boolean(), href: z.string(), optional: z.boolean() })),
+      /** open: a required step is not done; hidden: this person closed the card (User.onboardingHiddenAt). */
+      checklist: z.object({ open: z.boolean(), hidden: z.boolean() }),
       tasks: z.array(ReminderTask),
       reviews: z.object({ open: z.array(OpenReview), counts: z.object({ open: z.number().int(), overdue: z.number().int(), mine: z.number().int() }) }),
       activity: z.array(ActivityRow),
       role: z.enum(ROLES),
+      /** dashboard.ts valueMetrics(): what the audits of the clients shown produced, every audited version counted. */
+      value: z.object({
+        ...ResultCounts.shape,
+        catalogs: z.number().int(),
+        minutesPerDecision: z.number().int(),
+        /** decisions × minutesPerDecision: an estimate from the org's setting, not a measurement. */
+        minutesSaved: z.number().int(),
+        /** The last 12 weeks, oldest first; weekStart is the Monday (Tashkent time). */
+        weeks: z.array(z.object({ weekStart: z.string(), catalogs: z.number().int(), rows: z.number().int() })),
+        /** Clients with an audited catalogue, latest audit first, at most 10 (the download has every client). */
+        clients: z.array(ClientResult),
+        clientsWithResults: z.number().int(),
+      }),
     }),
     replaces: ['page:(app)/dashboard'],
+  }),
+  dashboardResults: endpoint({
+    method: 'GET', path: '/api/dashboard/results', auth: 'session', role: 'any',
+    summary: 'The dashboard\'s per-client results (catalogues, rows checked, issues, resolved, decisions, last audit) as CSV or xlsx',
+    query: z.object({ format: z.enum(['csv', 'xlsx']).optional(), accountant: ShortId.optional() }),
+    responds: 'file', file: { contentTypes: ['text/csv; charset=utf-8', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], disposition: 'attachment' },
+    replaces: ['page:(app)/dashboard#results'],
+    notes: 'Every client the dashboard shows this user (not archived, within their client scope; an admin\'s accountant filter applies). xlsx unless format=csv.',
   }),
 });
