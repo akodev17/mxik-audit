@@ -201,7 +201,7 @@ export const workspace = defineModule('workspace', {
     summary: 'Rows the audit could not check after its retries (the "technical failure" filter), first 500 in file order',
     params: CatalogPath,
     responds: 'json', response: z.object({ total: z.number().int(), rows: z.array(FailedRow) }),
-    replaces: [],
+    replaces: ['page:(app)/catalogs/[id]#failedRows'],
     notes: 'Only the kind of failure is sent; the raw message stays in catalog_item.checkError and the server log. 404 for a catalogue that is not the user\'s.',
   }),
   moneyAtRisk: endpoint({
