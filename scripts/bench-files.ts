@@ -6,7 +6,12 @@
 // for rows without a code, the fix rate for wrong or unknown codes, and the import diagnostics.
 // Each run is appended to docs/bench-results.json.
 //
-//   npm run bench:files [-- --file test-dorixona.xlsx --dir tmp/found-catalogs --label "..." --rerank --no-append]
+//   npm run bench:files [-- --file test-dorixona.xlsx --dir tmp/found-catalogs --label "..." --rerank --no-append --out run.json]
+//
+// The learned lexicon (admin page, docs/MATCHING_V2_PLAN.md §11) is applied as in the audit: active
+// synonym entries and unit aliases merged with the file tables, approved aliases as a retrieval
+// list. Set LEXICON=off to measure the file tables alone. --out writes this run's record (the same
+// shape as a history entry) to a file; `npm run lexicon:check` reads it.
 //
 // --rerank uses the reranker the environment configures (a key is needed; verdicts cached in
 // memory only); without it stage 6 is off, as on a server without a key.
@@ -26,6 +31,7 @@ import {
 import { readCode } from '@tasnivo/core/audit/checks';
 import { guessMapping } from '@tasnivo/domain/catalog-import';
 import { importDiagnostics } from '@tasnivo/domain/import-diagnostics';
+import { applyLexicon } from '@tasnivo/domain/lexicon';
 import { parseUpload } from '@tasnivo/domain/spreadsheet';
 import { runPool } from '@tasnivo/domain/work-pool';
 import {
@@ -45,6 +51,8 @@ const ONLY = argValue('--file');
 const LABEL = argValue('--label') ?? 'bench:files';
 const RERANK = process.argv.includes('--rerank');
 const APPEND = !process.argv.includes('--no-append');
+const OUT = argValue('--out');
+const USE_LEXICON = process.env['LEXICON'] !== 'off';
 
 /** The five catalogues of MATCHING_V2_PLAN T3, in the order the doc lists them. */
 const DEFAULT_FILES = [
@@ -75,7 +83,7 @@ async function readKey(buffer: Buffer): Promise<string[][]> {
 }
 
 /** Everything the per-row check needs, set up as auditContext does but with nothing persisted. */
-async function benchContext(): Promise<AuditContext> {
+async function benchContext(): Promise<BenchContext> {
   const { reranker: envReranker, gate } = rerankFromEnv(process.env, new MemoryRerankCache());
   const reranker = RERANK ? envReranker : new NoopRerankProvider('bench:files');
   const readiness = await vectorReadiness();
@@ -90,11 +98,14 @@ async function benchContext(): Promise<AuditContext> {
   if (!embedder.semantic) degradedReasons.push(`vector stage not semantic (${embedder.name})`);
   if (!readiness.usable) degradedReasons.push(`vector stage off: ${readiness.reason ?? 'unusable'}`);
   const disabledStages = readiness.usable ? undefined : new Set<DisableableStage>(['vector']);
+  const lexicon = USE_LEXICON ? await applyLexicon({ fresh: true }) : null;
   return {
-    store, embedder, reranker, gate, disabledStages, vectorColumns: readiness.stored?.columns,
-    degradedReasons, restricted: await loadRestricted(),
+    store, embedder, reranker, gate, disabledStages, vectorColumns: readiness.stored?.columns, aliases: lexicon?.aliases,
+    degradedReasons, restricted: await loadRestricted(), lexicon: lexicon?.counts ?? null,
   };
 }
+
+type BenchContext = AuditContext & { lexicon: { synonyms: number; units: number; aliases: number } | null };
 
 type FileRun = { file: string; score: FileScore; seconds: number; misses: string[] };
 
@@ -188,6 +199,7 @@ console.log('='.repeat(78));
 console.log(`code        ${commit}`);
 console.log(`embeddings  ${ctx.embedder.name}${ctx.embedder.semantic ? '' : '  <-- NOT SEMANTIC'}`);
 console.log(`reranker    ${ctx.reranker.name}${ctx.reranker.available ? '' : '  <-- OFF'}`);
+console.log(`lexicon     ${ctx.lexicon ? `${ctx.lexicon.synonyms} synonyms, ${ctx.lexicon.units} unit aliases, ${ctx.lexicon.aliases} aliases from the database` : 'OFF (file tables only)'}`);
 for (const reason of ctx.degradedReasons) console.log(`  degraded: ${reason}`);
 
 const runs: FileRun[] = [];
@@ -217,19 +229,25 @@ if (runs.length > 1) {
   }
 }
 
+const record = {
+  label: LABEL,
+  ranAt: new Date().toISOString(),
+  code: commit,
+  providers: {
+    embedding: ctx.embedder.name, embeddingSemantic: ctx.embedder.semantic,
+    reranker: ctx.reranker.name, rerankerAvailable: ctx.reranker.available, degraded: ctx.degradedReasons,
+    lexicon: ctx.lexicon,
+  },
+  files: Object.fromEntries(runs.map((r) => [r.file, { ...r.score, seconds: r.seconds }])),
+  total,
+};
+if (OUT) {
+  writeFileSync(OUT, JSON.stringify(record, null, 2) + '\n');
+  console.log(`\nwrote the run to ${OUT}`);
+}
 if (APPEND) {
   const history = existsSync(RESULTS) ? (JSON.parse(readFileSync(RESULTS, 'utf8')) as { runs: unknown[] }) : { runs: [] };
-  history.runs.push({
-    label: LABEL,
-    ranAt: new Date().toISOString(),
-    code: commit,
-    providers: {
-      embedding: ctx.embedder.name, embeddingSemantic: ctx.embedder.semantic,
-      reranker: ctx.reranker.name, rerankerAvailable: ctx.reranker.available, degraded: ctx.degradedReasons,
-    },
-    files: Object.fromEntries(runs.map((r) => [r.file, { ...r.score, seconds: r.seconds }])),
-    total,
-  });
+  history.runs.push(record);
   writeFileSync(RESULTS, JSON.stringify(history, null, 2) + '\n');
   console.log(`\nappended run ${history.runs.length} to ${RESULTS}`);
 }

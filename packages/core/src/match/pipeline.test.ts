@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { HashingEmbeddingProvider } from '../embed/index.js';
+import { aliasKey, aliasLookup } from './alias.js';
 import type { DictionaryEntry, DictionaryLookup } from './dictionary.js';
 import { matchProduct, mergeHits, vectorColumnsFor } from './pipeline.js';
 import { NoopRerankProvider } from './rerank.js';
@@ -879,5 +880,47 @@ describe('pool codes a stage did not return (2026-10-29, procurement names)', ()
     assert.ok(!off.pool.includes(BASE.code));
     const cafe = await matchProduct({ rawName: 'Palov 1 porsiya' }, { store: new LeafStore(rows), embedder, reranker: noop });
     assert.ok(!cafe.pool.includes(BASE.code));
+  });
+});
+
+describe('global aliases (plan §11)', () => {
+  const aliases = aliasLookup([{ key: aliasKey('Palov 1 porsiya'), code: '01901001003002001', orgs: 3, confirmations: 7 }]);
+  const opts = { embedder, reranker: noop, disabledStages: new Set(['vector'] as const), aliases };
+
+  it('adds the alias code to the pool with its own evidence line, and says so', async () => {
+    // "palov" retrieves nothing in this store: the alias is the only way to the code.
+    const r = await matchProduct({ rawName: 'Palov 1 porsiya', unit: 'porsiya' }, { ...opts, store: new FakeStore(ROWS) });
+    assert.ok(r.pool.includes('01901001003002001'));
+    const hit = r.candidates.find((c) => c.candidate.code === '01901001003002001');
+    assert.equal(hit?.evidence.aliasOrgs, 3);
+    assert.equal(hit?.evidence.aliasConfirmations, 7);
+    assert.equal(hit?.ranks.fusion, 1);
+    assert.ok(r.notes.some((n) => n.startsWith('Global alias: 01901001003002001 (3 organisations)')));
+    assert.ok(r.candidates.every((c) => c.candidate.code === '01901001003002001' || c.evidence.aliasOrgs === undefined));
+  });
+
+  it('changes nothing for a name without an alias, and without a lookup', async () => {
+    const withLookup = await matchProduct({ rawName: 'guruch botqasi osiyo' }, { ...opts, store: new FakeStore(ROWS) });
+    const without = await matchProduct({ rawName: 'guruch botqasi osiyo' }, { ...opts, aliases: undefined, store: new FakeStore(ROWS) });
+    assert.deepEqual(withLookup.candidates, without.candidates);
+    assert.deepEqual(withLookup.notes, without.notes);
+  });
+
+  it('never overrides a barcode identity or the firm dictionary', async () => {
+    const byBarcode = await matchProduct({ rawName: 'Palov 1 porsiya', barcode: '04601501483581' }, { ...opts, store: new FakeStore(ROWS) });
+    assert.equal(byBarcode.decidedBy, 'barcode');
+    assert.equal(byBarcode.candidates[0]?.candidate.code, '02202004002001001');
+    const dictionary: DictionaryLookup = { find: () => ({ id: 'd1', code: '00701001001000000', uses: 2, kind: 'name', confirmations: 1 }) };
+    const byDictionary = await matchProduct({ rawName: 'Palov 1 porsiya' }, { ...opts, dictionary, store: new FakeStore(ROWS) });
+    assert.equal(byDictionary.decidedBy, 'dictionary');
+    assert.equal(byDictionary.candidates[0]?.candidate.code, '00701001001000000');
+    assert.ok(byDictionary.candidates.some((c) => c.candidate.code === '01901001003002001' && c.evidence.aliasOrgs === 3), 'the alias is offered as an alternative');
+  });
+
+  it('skips an alias whose code left the classifier', async () => {
+    const gone = aliasLookup([{ key: aliasKey('Palov 1 porsiya'), code: '99999999999999999', orgs: 2, confirmations: 2 }]);
+    const r = await matchProduct({ rawName: 'Palov 1 porsiya' }, { ...opts, aliases: gone, store: new FakeStore(ROWS) });
+    assert.equal(r.decidedBy, 'none');
+    assert.ok(!r.notes.some((n) => n.startsWith('Global alias')));
   });
 });

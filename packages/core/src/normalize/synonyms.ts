@@ -289,19 +289,47 @@ type Compiled = {
   group: SynonymGroup | null; kind: SynonymKind;
 };
 
-const COMPILED: readonly Compiled[] = SYNONYMS.map((s) => {
-  const term = matchKeyOf(s.term).split(' ').filter(Boolean);
-  const forms = s.forms.map((f) => matchKeyOf(f).split(' ').filter(Boolean)).filter((f) => f.length > 0);
-  return {
-    forms,
-    term,
-    replace: s.replace === true,
-    unless: (s.unless ?? []).map(matchKeyOf).filter(Boolean),
-    label: `${s.forms[0] ?? ''} → ${s.term}`,
-    group: s.group ?? null,
-    kind: s.kind ?? 'anchor',
-  };
-});
+export const SYNONYM_GROUPS: readonly SynonymGroup[] = ['catering'];
+export const SYNONYM_KINDS: readonly SynonymKind[] = ['anchor', 'contextual', 'qualifier'];
+
+function compile(entries: readonly Synonym[]): Compiled[] {
+  return entries.map((s) => {
+    const term = matchKeyOf(s.term).split(' ').filter(Boolean);
+    const forms = s.forms.map((f) => matchKeyOf(f).split(' ').filter(Boolean)).filter((f) => f.length > 0);
+    return {
+      forms,
+      term,
+      replace: s.replace === true,
+      unless: (s.unless ?? []).map(matchKeyOf).filter(Boolean),
+      label: `${s.forms[0] ?? ''} → ${s.term}`,
+      group: s.group ?? null,
+      kind: s.kind ?? 'anchor',
+    };
+  });
+}
+
+const COMPILED: readonly Compiled[] = compile(SYNONYMS);
+
+/**
+ * Entries learned outside this file (the admin lexicon, normalize/lexicon.ts),
+ * applied after the file's own so the hand-written table stays the baseline.
+ * Empty until a lexicon is installed, which keeps every existing caller as it was.
+ */
+let EXTENSION: readonly Compiled[] = [];
+
+/** Replaces the learned entries (none = the file's table alone). */
+export function setSynonymExtension(entries: readonly Synonym[]): void {
+  EXTENSION = compile(entries);
+}
+
+/** How many learned entries are installed, for status lines. */
+export function synonymExtensionSize(): number {
+  return EXTENSION.length;
+}
+
+function table(): readonly Compiled[] {
+  return EXTENSION.length === 0 ? COMPILED : [...COMPILED, ...EXTENSION];
+}
 
 const CONTEXT_WORDS: Record<SynonymGroup, readonly string[][]> = {
   catering: GROUP_CONTEXT.catering.words.map((w) => matchKeyOf(w).split(' ').filter(Boolean)),
@@ -371,8 +399,9 @@ export function applySynonyms(query: string, row?: SynonymRow): SynonymResult {
   // entries fire, and those together whether its qualifiers do.
   const firings: Firing[] = [];
   const active = new Set<SynonymGroup>();
+  const entries = table();
   for (const kind of ['anchor', 'contextual', 'qualifier'] as const) {
-    for (const entry of COMPILED) {
+    for (const entry of entries) {
       if (entry.kind !== kind) continue;
       if (kind === 'contextual' && (!entry.group || !(active.has(entry.group) || hasGroupContext(entry.group, row)))) continue;
       if (kind === 'qualifier' && (!entry.group || !active.has(entry.group))) continue;

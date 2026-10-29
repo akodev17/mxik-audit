@@ -8,6 +8,7 @@
 import { barcodeIdentity, normalizeName, tokenize, type BarcodeIdentity } from '../normalize/index.js';
 import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
+import { ALIAS_SLOTS, type AliasHit, type AliasLookup } from './alias.js';
 import { NoopRerankProvider } from './rerank.js';
 import { diversify, groupFusion, positionPool, reciprocalRankFusion, type FusedItem } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
@@ -34,6 +35,8 @@ export type PipelineOptions = {
   reranker: RerankProvider;
   /** What this org confirmed before; checked first and ranked above everything else. */
   dictionary?: DictionaryLookup | undefined;
+  /** Approved global aliases (alias.ts): one more retrieval list, never an override of stages 0-2. */
+  aliases?: AliasLookup | undefined;
   /** Only rows this gate calls uncertain go to the reranker. Absent = all fused rows. */
   rerankGate?: RerankGate | undefined;
   /** Stages to switch off: for ablation in the eval, and stage 4 when the stored vectors are unusable. */
@@ -402,7 +405,21 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     ? vectorRaw
     : diversify(vectorRaw, (h) => h.candidate.subPositionCode, opts.vectorPerPosition);
 
-  if (lexical.length === 0 && fullText.length === 0 && vector.length === 0 && identifyingHits.length === 0) {
+  // Approved global aliases for this name (alias.ts): their codes, live and
+  // inside the row's TN VED heading when it has one, form one more ranked list.
+  const aliasHits: readonly AliasHit[] = normalized.sortedKey ? opts.aliases?.find(normalized.sortedKey) ?? [] : [];
+  const aliasByCode = new Map(aliasHits.map((h) => [h.code, h]));
+  const aliasCandidates: MxikCandidate[] = aliasHits.length === 0 ? [] : await timed(opts.timer, 'alias', async () => {
+    const prefix = tnved.status === 'ok' && scoped ? headingPrefix(tnved.heading) : null;
+    const live = await store.liveCodes(aliasHits.map((h) => h.code));
+    const found = await Promise.all(aliasHits.filter((h) => live.has(h.code) && (prefix === null || h.code.startsWith(prefix))).map((h) => store.byCode(h.code)));
+    return found.filter((c): c is MxikCandidate => c !== null);
+  });
+  if (aliasCandidates.length > 0) {
+    notes.push(`Global alias: ${aliasCandidates.map((c) => `${c.code} (${aliasByCode.get(c.code)?.orgs ?? 0} organisations)`).join(', ')} confirmed for this name.`);
+  }
+
+  if (lexical.length === 0 && fullText.length === 0 && vector.length === 0 && identifyingHits.length === 0 && aliasCandidates.length === 0) {
     if (scoped) return unrestricted('no code of the heading was retrieved for this name');
     return {
       input, normalized, decidedBy: 'none', notes: [...notes, 'No candidate retrieved.'], candidates: [], pool: [],
@@ -537,11 +554,14 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const hierarchyWords = new Map(fullText.map((r) => [r.candidate.code, r.hierarchyWords ?? []]));
 
   // ------------------------------------------------------------- 5. fusion
+  // The alias list exists only when an alias matched, so an empty lexicon
+  // leaves the fusion (and its normalisation) exactly as before.
   const lists = [
     { name: 'lexical', items: lexical.map((r) => r.candidate) },
     { name: 'fullText', items: fullText.map((r) => r.candidate) },
     { name: 'vector', items: vector.map((r) => r.candidate), weight: vectorWeight },
     { name: 'brand', items: brandHits.map((r) => r.candidate) },
+    ...(aliasCandidates.length > 0 ? [{ name: 'alias', items: aliasCandidates }] : []),
   ];
   const fusedAll = reciprocalRankFusion(lists, (c) => c.code);
   // A size alone does not say which heading: "57х3,5" is also a 7305 "other
@@ -596,7 +616,14 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   const window = [...diverse, ...added];
   await fillVectorScores(window);
   const bases = await basesForLeaves(window);
-  const fused = [...window, ...bases];
+  // Alias codes the fused window left out still reach the pool, after it:
+  // several organisations stood behind them, so the reranker should see them.
+  const pooled = new Set([...window, ...bases].map((f) => f.item.code));
+  const aliasAdded = aliasCandidates
+    .filter((c) => !pooled.has(c.code))
+    .flatMap((c) => { const f = fusedByCode.get(c.code); return f ? [f] : []; })
+    .slice(0, ALIAS_SLOTS);
+  const fused = [...window, ...bases, ...aliasAdded];
   notes.push(poolNote(fused.map((f) => f.item), fusedAll.slice(0, limits.rerankLimit).map((f) => f.item.code)));
   if (bases.length > 0) notes.push(`Base code added for ${bases.map((b) => b.item.subPositionCode).join(', ')}: the pool held only identifying codes the name does not earn.`);
 
@@ -654,6 +681,7 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
         synonyms,
         hierarchyWords: hierarchyWords.get(p.fused.item.code),
         identifyingTokens: p.rules.identifyingTokens,
+        alias: aliasByCode.get(p.fused.item.code),
       }),
     };
   }).sort((a, b) => b.confidence - a.confidence);

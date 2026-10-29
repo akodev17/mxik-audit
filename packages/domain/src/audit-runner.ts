@@ -10,7 +10,9 @@ import { lexicalQuery } from '@tasnivo/core/match/query';
 import { NoopRerankProvider, rerankFromEnv } from '@tasnivo/core/match/rerank';
 import { PositionStore } from '@tasnivo/core/match/position-store';
 import type { DictionaryLookup } from '@tasnivo/core/match/dictionary';
+import type { AliasLookup } from '@tasnivo/core/match/alias';
 import { loadDictionary } from './dictionary.js';
+import { applyLexicon } from './lexicon.js';
 import {
   buildPipelineMeta, countMatch, emptyCounters, type ClassifierProvenance, type PipelineMeta, type PipelineSetup,
 } from './pipeline-meta.js';
@@ -109,6 +111,8 @@ export type AuditContext = {
   gate: RerankGate;
   /** The org's firm dictionary, checked before the cascade. */
   dictionary?: DictionaryLookup | undefined;
+  /** Approved global aliases (lexicon.ts applyLexicon), one more retrieval list. */
+  aliases?: AliasLookup | undefined;
   timer?: StageTimer | undefined;
   /** Stage 4 is switched off when the stored vectors are unusable, so no query is embedded. */
   disabledStages?: ReadonlySet<DisableableStage> | undefined;
@@ -196,10 +200,12 @@ export async function auditContext(orgId: string, timer?: StageTimer): Promise<A
   if (!embedder.semantic) degradedReasons.push('vektor qidiruv toʻliq semantik emas');
   if (!readiness.usable) degradedReasons.push('vektor bosqichi oʻchirilgan');
   const dictionary = await loadDictionary(orgId).catch(() => undefined);
+  // The learned lexicon is installed for the normaliser here; the aliases go to the pipeline.
+  const aliases = (await applyLexicon()).aliases;
   const disabledStages = readiness.usable ? undefined : new Set<DisableableStage>(['vector']);
   const vectorColumns = readiness.stored?.columns;
   const restricted = await loadRestricted();
-  return { store, embedder, reranker, gate, dictionary, timer, disabledStages, vectorColumns, setup, degradedReasons, restricted };
+  return { store, embedder, reranker, gate, dictionary, aliases, timer, disabledStages, vectorColumns, setup, degradedReasons, restricted };
 }
 
 export type AuditableItem = {
@@ -227,7 +233,7 @@ const SELF_MATCH_DEPTH = 20;
 
 /** Matches one row and runs every check on it. Writes nothing. */
 export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise<ItemCheck> {
-  const { store, embedder, reranker, gate, dictionary, timer, disabledStages, vectorColumns } = ctx;
+  const { store, embedder, reranker, gate, dictionary, aliases, timer, disabledStages, vectorColumns } = ctx;
   // Ranked deeper than the suggestions so the row's own code is usually
   // scorable from this one retrieval, without a second pass.
   const match = await matchProduct({
@@ -236,7 +242,7 @@ export async function checkItem(item: AuditableItem, ctx: AuditContext): Promise
     unit: item.unit,
     existingMxik: item.existingMxik,
     tnved: item.tnved ?? null,
-  }, { store, embedder, reranker, dictionary, rerankGate: gate, timer, disabledStages, vectorColumns, topK: SELF_MATCH_DEPTH });
+  }, { store, embedder, reranker, dictionary, aliases, rerankGate: gate, timer, disabledStages, vectorColumns, topK: SELF_MATCH_DEPTH });
 
   // Resolve the row's own code so NOT_FOUND and retirement can be judged.
   const code = readCode(item.existingMxik);
