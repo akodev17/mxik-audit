@@ -106,6 +106,15 @@ describe('Didox service (database)', { skip }, () => {
     const reissued = await uploadDidoxFile(admin, 'uz', { file: fileOf('re.json', Buffer.from(JSON.stringify(doc))), clientId: clientA }, S);
     assert.ok(reissued.ok && reissued.kind === 'documents');
     assert.equal((reissued.items[0] as { code: string }).code, 'duplicate_invoice');
+    // An accountant of client B is refused the same, but the earlier batch (client A's) is not named (F20).
+    const scopedB = userOf(a, { role: 'accountant', clientIds: [clientB] });
+    const hidden = await uploadDidoxFile(scopedB, 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: clientB }, S);
+    assert.ok(hidden.ok && hidden.kind === 'documents');
+    const hiddenItem = hidden.items[0];
+    assert.ok(hiddenItem && !hiddenItem.ok);
+    assert.equal(hiddenItem.code, 'duplicate_invoice');
+    assert.equal(hiddenItem.duplicateOf, undefined);
+    assert.equal(hiddenItem.error, item.error, 'the same words, without the link');
     // Another org may hold the same invoice.
     const elsewhere = await uploadDidoxFile(userOf(other), 'uz', { file: fileOf('doc.json', raw('invoice-standard-3.json')), clientId: null }, S);
     assert.ok(elsewhere.ok && elsewhere.kind === 'documents' && elsewhere.items[0]?.ok);

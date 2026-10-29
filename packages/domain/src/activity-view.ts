@@ -3,7 +3,7 @@
 // and the client and member pickers. The API's GET /api/activity answers this.
 import { db } from '@tasnivo/db';
 import { clientScope } from './access.js';
-import { activityPage, CATEGORIES, type ActivityRow, type Category } from './activity.js';
+import { activityActorIds, activityPage, CATEGORIES, type ActivityRow, type Category } from './activity.js';
 import { parseDayInput } from './activity-dates.js';
 import type { CurrentUser } from './session.js';
 
@@ -33,9 +33,12 @@ export async function activityView(user: Pick<CurrentUser, 'userId' | 'orgId' | 
   const swapped = Boolean(from && to && from > to);
   if (swapped) [from, to] = [to, from];
 
+  // The member picker: every member for an admin; for anyone else only people who acted on events
+  // they may see, so the team's addresses do not reach every role (F20).
+  const people = user.role === 'admin' ? null : await activityActorIds(user);
   const [clients, users] = await Promise.all([
     db.client.findMany({ where: { orgId: user.orgId, ...clientScope(user) }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    db.user.findMany({ where: { orgId: user.orgId }, orderBy: { email: 'asc' }, select: { id: true, email: true } }),
+    db.user.findMany({ where: { orgId: user.orgId, ...(people ? { id: { in: people } } : {}) }, orderBy: { email: 'asc' }, select: { id: true, email: true } }),
   ]);
   // A client id outside the user's scope is ignored, never trusted.
   const clientId = clients.find((c) => c.id === q.client)?.id ?? null;

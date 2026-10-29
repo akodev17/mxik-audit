@@ -12,6 +12,7 @@ import { catalogPaid } from './billing/orders.js';
 import { CATALOG_PAGE, catalogList, type CatalogListItem } from './catalogs.js';
 import { resolveClient } from './clients.js';
 import { isDemoOrg } from './demo.js';
+import { jobsMode, type JobsMode } from './jobs/dispatcher.js';
 import { reportPdfData, type ReportPdfData } from './pdf/report-data.js';
 import { uploadsOpen } from './plan.js';
 import { readPipelineMeta, type PipelineMeta } from './pipeline-meta.js';
@@ -76,12 +77,21 @@ export function catalogPreview(user: Viewer, catalogId: string): Promise<UploadP
 }
 
 /**
+ * Whether a read may restart a stalled audit: only where this process runs audits (JOBS_MODE
+ * inline; with BullMQ the worker's 2-minute sweep does it) and only for someone who may write,
+ * so a viewer's page load never starts work (Q15).
+ */
+export function resumesOnRead(user: Pick<Viewer, 'role'>, mode: JobsMode = jobsMode()): boolean {
+  return mode === 'inline' && canWrite(user);
+}
+
+/**
  * Audit progress, polled by the wizard. An audit whose worker died (server restart) is handed to
- * jobs() again, as the old /upload/progress route and the workspace page did.
+ * jobs() again for a writer in inline mode (resumesOnRead), as the old /upload/progress route did.
  */
 export async function catalogProgress(user: Viewer, catalogId: string): Promise<UploadProgress | null> {
   const progress = await uploadProgress(user, catalogId);
-  if (progress?.status === 'analyzing') await resumeStaleAudits(STALE_MS, catalogId);
+  if (progress?.status === 'analyzing' && resumesOnRead(user)) await resumeStaleAudits(STALE_MS, catalogId);
   return progress;
 }
 
@@ -100,11 +110,11 @@ export type CatalogHeader = {
   exportLocked: boolean;
 };
 
-/** The workspace header (catalogs/[id]/page.tsx + workspace-header.tsx). Resumes a stalled audit like the page. */
+/** The workspace header (catalogs/[id]/page.tsx + workspace-header.tsx). Resumes a stalled audit like the page (resumesOnRead). */
 export async function catalogHeader(user: Viewer, catalogId: string): Promise<CatalogHeader | null> {
   const catalog = await visibleCatalog(user, catalogId);
   if (!catalog) return null;
-  if (catalog.status === 'analyzing') await resumeStaleAudits(STALE_MS, catalog.id);
+  if (catalog.status === 'analyzing' && resumesOnRead(user)) await resumeStaleAudits(STALE_MS, catalog.id);
   const [client, demo, used, latest, locked] = await Promise.all([
     resolveClient(user.orgId, catalog.clientId),
     isDemoOrg(user.orgId),

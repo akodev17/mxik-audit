@@ -109,6 +109,14 @@ function conditions(user: ActivityViewer, f: ActivityFilter, committedOnly = fal
   return where;
 }
 
+/** Who acted on the events this user may see: the log's member picker for a non-admin (F20). */
+export async function activityActorIds(user: ActivityViewer): Promise<string[]> {
+  const where = Prisma.join(conditions(user, { clientId: null, userId: null, category: 'all', from: null, to: null, page: 0 }), ' AND ');
+  const rows = await db.$queryRaw<{ actorId: string }[]>(Prisma.sql`
+    SELECT DISTINCT e."actorId" FROM audit_event e WHERE ${where} AND e."actorId" IS NOT NULL`);
+  return rows.map((r) => r.actorId);
+}
+
 /** One page of the log, newest first, with the number of matching events. */
 export async function activityPage(
   user: ActivityViewer, f: ActivityFilter,
