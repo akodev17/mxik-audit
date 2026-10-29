@@ -45,6 +45,10 @@ export type MatchEvidence = {
   tnvedFallback?: true;
   /** Brand, size, dosage, volume, pack or model in the row that this identifying code repeats (rules.ts identifyingPreferred). */
   identifyingMatchedTokens?: string[];
+  /** Distinct organisations that confirmed this code for this name (an approved global alias, match/alias.ts). */
+  aliasOrgs?: number;
+  /** Their individual and group confirmations together. */
+  aliasConfirmations?: number;
 };
 
 /** The TN VED facts of a row: its heading, whether its own code is outside it, and whether retrieval fell back. */
@@ -112,6 +116,8 @@ export type EvidenceInput = {
   hierarchyWords?: readonly string[];
   /** Row tokens that earned the identifying preference (RuleOutcome.identifyingTokens). */
   identifyingTokens?: readonly string[];
+  /** The approved global alias that named this code for the row (match/alias.ts). */
+  alias?: { orgs: number; confirmations: number } | undefined;
 };
 
 export function evidenceFor(input: EvidenceInput): MatchEvidence {
@@ -132,6 +138,7 @@ export function evidenceFor(input: EvidenceInput): MatchEvidence {
     ...(synonymApplied.length > 0 ? { synonymApplied: [...synonymApplied] } : {}),
     ...(hierarchy.length > 0 ? { matchedHierarchyWords: hierarchy } : {}),
     ...(identifying.length > 0 ? { identifyingMatchedTokens: identifying } : {}),
+    ...(input.alias && input.alias.orgs > 0 ? { aliasOrgs: input.alias.orgs, aliasConfirmations: input.alias.confirmations } : {}),
   };
 }
 
@@ -182,5 +189,6 @@ export function readEvidence(value: unknown): MatchEvidence | null {
     ...(v['tnvedExistingOutside'] === true ? { tnvedExistingOutside: true as const } : {}),
     ...(v['tnvedFallback'] === true ? { tnvedFallback: true as const } : {}),
     ...(identifying.length > 0 ? { identifyingMatchedTokens: identifyingMatchedTokens(identifying) } : {}),
+    ...(isCount(v['aliasOrgs']) && v['aliasOrgs'] > 0 ? { aliasOrgs: v['aliasOrgs'], aliasConfirmations: isCount(v['aliasConfirmations']) ? v['aliasConfirmations'] : 0 } : {}),
   };
 }
