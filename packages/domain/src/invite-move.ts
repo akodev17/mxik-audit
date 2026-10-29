@@ -92,8 +92,7 @@ export async function moveWithInvite(actor: Actor, token: string, now = new Date
     await tx.userSession.updateMany({ where: { userId: actor.userId, revokedAt: null }, data: { revokedAt: now } });
     await tx.auditEvent.createMany({
       data: [
-        { orgId: actor.orgId, actorId: actor.userId, action: 'account.deletion_requested', payload: { purgeAfterDays: deleteAfterDays(), reason: 'joined_org' } },
-        { orgId: actor.orgId, actorId: actor.userId, action: 'team.left', targetId: actor.userId, payload: { email: actor.email, joinedOrg: invite.orgId } },
+        { orgId: actor.orgId, actorId: actor.userId, action: 'account.deletion_requested', payload: { purgeAfterDays: deleteAfterDays(), reason: 'joined_org', email: actor.email, joinedOrg: invite.orgId } },
         { orgId: invite.orgId, actorId: actor.userId, action: 'team.joined', payload: { role: invite.role, email: actor.email, existingAccount: true, fromOrg: actor.orgId } },
       ],
     });
