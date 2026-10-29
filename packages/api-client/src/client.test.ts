@@ -28,7 +28,7 @@ describe('api-client: URLs and headers', () => {
     const m = mockFetch(() => Response.json({ ok: true, catalogId: 'c 1' }));
     const api = createApiClient({ baseUrl: 'https://api.test/', fetch: m.fetch });
     const out = await api.catalogs.commit({ catalogId: 'c 1', mapping: { name: 0, barcode: -1, mxik: 2, unit: -1, price: -1 } });
-    assert.deepEqual(out, { ok: true, catalogId: 'c 1' });
+    assert.deepEqual(out, { ok: true, catalogId: 'c 1', skipped: 0 }, 'an answer without skipped (an older server) reads as none skipped');
     const seen = m.last();
     assert.equal(seen.url, 'https://api.test/api/catalogs/c%201/commit');
     assert.equal(seen.init.method, 'POST');
