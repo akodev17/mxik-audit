@@ -301,6 +301,30 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000400_order_ke
 What breaks: with the new code still running, creating or paying an order answers 500 (it writes
 `orgName` / `testMode`). Deploy the previous code first; it never reads the two columns.
 
+## Billing lifecycle (`20261108000600`, S7)
+
+### `20261108000600_billing_lifecycle`
+
+Adds the value `refunded` to the `order_status` enum (`npm run billing:refund` sets it). No column
+and no data change. PostgreSQL cannot drop an enum value, so the rollback rebuilds the type. Refunded
+orders cannot be stored without the value: they go back to `cancelled`, and the `billing.refunded`
+audit events still record each refund.
+
+```sql
+UPDATE "order" SET "status" = 'cancelled', "cancelledAt" = COALESCE("cancelledAt", now()) WHERE "status" = 'refunded';
+ALTER TYPE "order_status" RENAME TO "order_status_old";
+CREATE TYPE "order_status" AS ENUM ('created', 'paid', 'cancelled');
+ALTER TABLE "order" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "order" ALTER COLUMN "status" TYPE "order_status" USING "status"::text::"order_status";
+ALTER TABLE "order" ALTER COLUMN "status" SET DEFAULT 'created';
+DROP TYPE "order_status_old";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000600_billing_lifecycle';
+```
+
+What breaks: nothing reads the value until the S7 code runs. With the S7 code still running after
+the rollback, the refund script fails and the billing history and the admin billing page answer
+500 if any order were still `refunded` (none is after the `UPDATE`). Deploy the previous code first.
+
 ## SaaS hardening S4: dictionary safety (`202611080003*`)
 
 ### `20261108000300_firm_mapping_attrs` (S4, `feat/s4-dictionary`)

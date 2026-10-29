@@ -1134,6 +1134,8 @@ enum OrderStatus {
   created
   paid
   cancelled
+  /// Paid, then the money was returned by hand (npm run billing:refund).
+  refunded
 
   @@map("order_status")
 }
