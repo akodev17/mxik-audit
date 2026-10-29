@@ -26,6 +26,13 @@ export async function lockOrgUsage(tx: Pick<Prisma.TransactionClient, '$executeR
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('usage_ledger'), hashtext(${orgId}))`;
 }
 
+/**
+ * Options for a transaction that queues on lockOrgUsage. Under Prisma's 2 s default maxWait a
+ * request waiting for a pool connection behind the queue, or for a fresh one (about 2 s each on
+ * Windows when DATABASE_URL names localhost), fails instead of being counted; waiting is right here.
+ */
+export const LOCKED_TX = { maxWait: 10_000, timeout: 20_000 } as const;
+
 /** Refused inside the commit's transaction: the rows would pass the monthly cap. */
 export class OverAllowance extends Error {
   constructor() { super('over_allowance'); }

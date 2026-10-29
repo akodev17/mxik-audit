@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import type { UserRole } from '@prisma/client';
 import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
-import { lockOrgUsage } from './usage-ledger.js';
+import { LOCKED_TX, lockOrgUsage } from './usage-ledger.js';
 
 export type ClientRef = { id: string; name: string; isDefault: boolean };
 
@@ -82,7 +82,7 @@ export async function createClient(actor: Actor & { role: UserRole }, name: stri
       },
     });
     return created;
-  }).catch((error: unknown) => {
+  }, LOCKED_TX).catch((error: unknown) => {
     if (error instanceof ClientsFull) return null;
     throw error;
   });

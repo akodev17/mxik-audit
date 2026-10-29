@@ -267,9 +267,9 @@ export type InvoiceRow = {
 
 export async function listInvoices(user: CurrentUser, query: { clientId?: string; status?: string; page?: number }): Promise<{ rows: InvoiceRow[]; total: number; pageSize: number }> {
   const pageSize = 50;
+  // AND, not a spread: the requested client must narrow the user's scope, never replace it.
   const where: Prisma.ImportBatchWhereInput = {
-    ...batchScope(user),
-    ...(query.clientId ? { clientId: query.clientId } : {}),
+    AND: [batchScope(user), query.clientId ? { clientId: query.clientId } : {}],
     ...(query.status ? { status: query.status as Prisma.EnumImportStatusFilter['equals'] } : {}),
   };
   const [batches, total] = await Promise.all([

@@ -11,7 +11,7 @@ import { hashPassword } from './password';
 import { MIN_PASSWORD } from './security/password-check';
 import { emailAcceptable } from './security/reserved-email';
 import { sendVerification } from './security/verification';
-import { lockOrgUsage } from './usage-ledger';
+import { LOCKED_TX, lockOrgUsage } from './usage-ledger';
 import type { Role } from './session';
 
 export const INVITE_DAYS = 7;
@@ -68,7 +68,7 @@ export async function createInvite(
         createdBy: actor.userId, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000),
       },
     });
-  });
+  }, LOCKED_TX);
   await db.auditEvent.create({
     data: { orgId: actor.orgId, actorId: actor.userId, action: 'team.invited', payload: { role: input.role, email: input.email, clients: owned.length } },
   });

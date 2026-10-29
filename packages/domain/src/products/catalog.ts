@@ -289,7 +289,9 @@ export async function handOverBatch(user: CurrentUser, batchId: string, locale: 
 export async function exportProducts(user: CurrentUser, input: { clientId?: string | undefined; status?: string | undefined }, locale: Locale): Promise<Handover> {
   const unavailable = i18nFor(locale).ta.productsX.importWizard.exportUnavailable;
   if (!canWrite(user)) return { ok: false, unavailable: false, error: i18nFor(locale).t.errorGeneric };
-  const clientId = input.clientId && canSeeClient(user, input.clientId) ? input.clientId : null;
+  // A client outside the user's reach matches nothing, as for another org; it never widens to every visible client.
+  if (input.clientId && !canSeeClient(user, input.clientId)) return { ok: false, unavailable: false, error: i18nFor(locale).ta.productsX.empty.filtered };
+  const clientId = input.clientId ?? null;
   const status = input.status && STATUSES.includes(input.status as Status) ? { mxikStatus: input.status } : {};
   const rows = await db.product.findMany({
     where: { AND: [productScope(user), clientId ? { clientId } : {}, status] }, orderBy: { name: 'asc' },
