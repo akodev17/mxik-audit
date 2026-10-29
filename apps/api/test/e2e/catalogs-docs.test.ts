@@ -26,8 +26,8 @@ describe('catalogs / imports / share routes in Swagger', () => {
     await db.$disconnect();
   });
 
-  it('documents all 40 operations with the registry\'s method, path, operation id and role', () => {
-    assert.equal(mine.length, 40);
+  it('documents all 41 operations with the registry\'s method, path, operation id and role', () => {
+    assert.equal(mine.length, 41);
     for (const e of mine) {
       const op = doc.paths[e.path]?.[e.method.toLowerCase()];
       assert.ok(op, `${e.method} ${e.path} is missing`);

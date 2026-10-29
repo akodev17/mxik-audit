@@ -3,10 +3,14 @@ import { after, before, describe, it } from 'node:test';
 import ExcelJS from 'exceljs';
 import { db } from '@tasnivo/db';
 import { i18nFor } from '@tasnivo/i18n/locale';
-import { catalogDiffCsv, catalogExport, catalogReportCsv, catalogReportPdf, demoExportRefused, docTemplate, purchaseTemplate, sharePdf, XLSX_TYPE } from './catalog-exports.js';
+import {
+  catalogDiffCsv, catalogExport, catalogImportIssuesCsv, catalogReportCsv, catalogReportPdf, demoExportRefused, docTemplate, purchaseTemplate, sharePdf, XLSX_TYPE,
+} from './catalog-exports.js';
+import { applyMapping, storeCatalog } from './catalog-import.js';
 import { makeClient, makeClientCatalog, makePerson } from './firm-test-fixtures.js';
 import { fontDir } from './pdf/report-pdf.js';
 import type { CurrentUser } from './session.js';
+import { parseUpload } from './spreadsheet.js';
 import { dbSkipReason, dropOrgs, liveCodes, makeOrg } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
@@ -118,6 +122,71 @@ describe('downloads: refusals (database)', { skip }, () => {
       await db.order.deleteMany({ where: { orgId: admin.orgId } });
     }
     assert.match(csvText(await catalogReportCsv(admin, 'uz', ready)), new RegExp(chosen), 'without the flag nothing is held back');
+  });
+
+  it('every file row is exported in file order: no name and a failed check say "not checked", never clean (F7)', async () => {
+    const [code = ''] = await liveCodes(1);
+    const x = i18nFor('uz').ta.importX.exp;
+    const text = ['Nomi;MXIK;Birlik;Izoh', `Guruch;${code};kg;birinchi`, ';12345;dona;jami 1', `Shakar;${code};kg;ikkinchi`, ';;;faqat izoh', ''].join('\n');
+    const parsed = await parseUpload(Buffer.from(text, 'utf8'), 'f7.csv');
+    const clientId = await makeClient(admin.orgId, 'F7 mijoz');
+    const mapping = { name: 0, barcode: -1, mxik: 1, unit: 2, price: -1, sales: -1, tnved: -1 };
+    const { catalogId } = await storeCatalog({ orgId: admin.orgId, userId: admin.userId, clientId, filename: 'f7.csv', parsed, mapping });
+    assert.deepEqual(await applyMapping(admin.orgId, catalogId, mapping), { rows: 2, skipped: 2 });
+    await db.catalog.update({ where: { id: catalogId }, data: { status: 'ready' } });
+    await db.catalogItem.updateMany({ where: { catalogId, rowIndex: 2 }, data: { checkError: 'timeout: classifier' } });
+
+    const xlsx = await catalogExport(admin, 'uz', catalogId, 'xlsx');
+    assert.ok(xlsx.ok);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Buffer.from(xlsx.file.body as Uint8Array) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    const sheet = workbook.worksheets[0];
+    assert.ok(sheet);
+    const head = (sheet.getRow(1).values as unknown[]).slice(1).map(String);
+    const status = head.indexOf(x.columns.status);
+    const line = (r: number): string[] => Array.from({ length: head.length }, (_, i) => sheet.getRow(r).getCell(i + 1).text);
+    assert.equal(sheet.rowCount, 5, 'the header and all four file rows');
+    assert.deepEqual([2, 3, 4, 5].map((r) => line(r)[3]), ['birinchi', 'jami 1', 'ikkinchi', 'faqat izoh'], 'in file order');
+    assert.deepEqual(line(3).slice(0, 4), ['', '12345', 'dona', 'jami 1'], 'a row without a name goes out as it came');
+    assert.equal(line(3)[status], x.notChecked.noName);
+    assert.equal(line(5)[status], x.notChecked.noName);
+    assert.equal(line(4)[status], x.notChecked.failed, 'a failed check is not "no risk"');
+    assert.equal(line(4)[1], code, 'and keeps its code');
+    assert.equal(line(2)[status], x.status.ok);
+
+    const oneC = await catalogExport(admin, 'ru', catalogId, '1c');
+    assert.ok(oneC.ok);
+    const csvRows = Buffer.from(oneC.file.body as Uint8Array).toString('utf8').replace(/^\uFEFF/, '').trim().split(/\r?\n/);
+    const ru = i18nFor('ru').ta.importX.exp.notChecked;
+    assert.equal(csvRows.length, 5, 'the 1C file has every row too');
+    assert.match(csvRows[2] ?? '', new RegExp(ru.noName));
+    assert.match(csvRows[3] ?? '', new RegExp(ru.failed));
+    const logged = await db.auditEvent.findFirstOrThrow({ where: { targetId: catalogId, action: 'catalog.exported' }, orderBy: { createdAt: 'desc' } });
+    assert.deepEqual([(logged.payload as { skippedRows: number }).skippedRows, (logged.payload as { failedRows: number }).failedRows], [2, 1]);
+  });
+
+  it('the import issues CSV: every file row under the current mapping, scoped like the other downloads', async () => {
+    const text = 'Nomi;MXIK;Birlik\nGuruch;6301001001000000;kg\n;123;dona\nGuruch;6301001001000000;kg\n';
+    const parsed = await parseUpload(Buffer.from(text, 'utf8'), 'xatolar.csv');
+    const clientId = await makeClient(admin.orgId, 'CSV mijoz');
+    const mapping = { name: 0, barcode: -1, mxik: 1, unit: 2, price: -1, sales: -1, tnved: -1 };
+    const { catalogId } = await storeCatalog({ orgId: admin.orgId, userId: admin.userId, clientId, filename: 'xatolar.csv', parsed, mapping });
+    const labels = i18nFor('uz').ta.importX.issuesCsv;
+    const read = async (): Promise<string> => {
+      const d = await catalogImportIssuesCsv(admin, 'uz', catalogId);
+      assert.ok(d.ok);
+      assert.equal(d.file.headers['content-type'], 'text/csv; charset=utf-8');
+      assert.match(d.file.headers['content-disposition'] ?? '', new RegExp(`xatolar-${labels.file}\\.csv`));
+      return String(d.file.body);
+    };
+    const before = await read();
+    assert.match(before, new RegExp(labels.reasons.noName));
+    assert.match(before, new RegExp(labels.reasons.lostZero));
+    await applyMapping(admin.orgId, catalogId, mapping);
+    assert.equal(await read(), before, 'the same report once committed: the skipped row is still read');
+    for (const d of [await catalogImportIssuesCsv(stranger, 'uz', catalogId), await catalogImportIssuesCsv(admin, 'uz', null)]) {
+      assert.equal(d.ok ? 200 : d.status, 404);
+    }
   });
 
   it('a demo org runs out of downloads; a customer never does', async () => {

@@ -13,14 +13,18 @@ import { typeLabels } from '@tasnivo/i18n/type-labels';
 import { catalogScope } from './access.js';
 import { billingConfig } from './billing/config.js';
 import { catalogPaid } from './billing/orders.js';
+import { allFileRows } from './catalog-import.js';
 import { resolveCatalog } from './catalogs.js';
+import { ColumnMapSchema } from './column-map.js';
 import { isDemoOrg } from './demo.js';
 import { demoMaxExports } from './demo-config.js';
 import { diffCsv } from './diff-csv.js';
 import type { DocKind } from './docs.js';
 import { build1cCsv, build1cXlsx, type OneCRow } from './export-1c.js';
 import { baseName, contentDisposition } from './export-filename.js';
-import { codeRestrictions, codeUnits, exportItems, exportPackaging, exportUnit } from './export-rows.js';
+import { readImportMeta } from './import-diagnostics.js';
+import { importIssuesCsv } from './import-issues-csv.js';
+import { codeRestrictions, codeUnits, exportLines, exportPackaging, exportUnit } from './export-rows.js';
 import { reportPdfData, type ReportPdfData } from './pdf/report-data.js';
 import { buildReportPdf, type PdfAudience } from './pdf/report-pdf.js';
 import { reportCsv } from './report-csv.js';
@@ -75,7 +79,7 @@ export async function paymentRequired(orgId: string, catalogId: string): Promise
 /** The report without the codes the reviewers chose instead of the suggestion. */
 const withoutChosen = (data: ReportPdfData): ReportPdfData => ({ ...data, rows: data.rows.map((r) => ({ ...r, chosen: null })) });
 
-const StoredMap = z.object({ mxik: z.number(), unit: z.number() });
+const StoredMap = z.object({ mxik: z.number(), unit: z.number(), barcode: z.number().optional() });
 export const EXPORT_FORMATS = ['xlsx', '1c', '1c-xlsx'] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
@@ -83,7 +87,9 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number];
  * Rebuilds the uploaded file with accepted decisions applied (format=xlsx), or
  * the 1C file as CSV (format=1c) or .xlsx (format=1c-xlsx). Rows with a risky
  * finding still pending are marked partly reviewed or not reviewed, never clean;
- * rejected and undecided rows keep the code they came in with.
+ * rejected and undecided rows keep the code they came in with. Every file row is
+ * written in file order: rows without a name and rows whose check failed say
+ * "not checked" in the status column.
  */
 export async function catalogExport(user: Viewer, locale: Locale, catalogId: string | null, requestedFormat: string | null): Promise<Download> {
   const x = i18nFor(locale).ta.importX.exp;
@@ -98,7 +104,7 @@ export async function catalogExport(user: Viewer, locale: Locale, catalogId: str
   const mapping = StoredMap.safeParse(catalog.columnMap);
   if (!mapping.success) return refuse(500, 'bad_mapping', 'bad mapping');
 
-  const items = await exportItems(catalog.id);
+  const { items, lines } = await exportLines(catalog.id);
   const accepted = [...new Set(items.flatMap((i) => (i.effective.acceptedCode ? [i.effective.acceptedCode] : [])))];
   const [units, restrictions] = await Promise.all([
     codeUnits(accepted),
@@ -109,20 +115,33 @@ export async function catalogExport(user: Viewer, locale: Locale, catalogId: str
     const from = code ? restrictions.get(code) : undefined;
     return from ? x.restrictedFrom(restrictionDate(from)) : '';
   };
-  const rows: ExportRow[] = items.map((item) => ({
-    original: item.original,
-    mxik: item.effective.code ?? '',
-    unit: exportUnit(item, units),
-    packaging: exportPackaging(item, units),
-    auditStatus: x.status[item.effective.review],
-    restricted: restrictedText(item.effective.code),
-  }));
+  const fileCell = (original: readonly string[], index: number | undefined): string => (index !== undefined && index >= 0 ? original[index] ?? '' : '');
+  // Every file row in its place (F7): a row without a name goes out as it came, saying it was not checked;
+  // a row whose check failed (S3) keeps its code and says so, never "no risk" or "accepted".
+  const rows: ExportRow[] = lines.map((line) => {
+    if (line.kind === 'skipped') {
+      const o = line.row.original;
+      return { original: o, mxik: fileCell(o, mapping.data.mxik), unit: fileCell(o, mapping.data.unit), packaging: '', auditStatus: x.notChecked.noName, restricted: '' };
+    }
+    const { item } = line;
+    return {
+      original: item.original,
+      mxik: item.effective.code ?? '',
+      unit: exportUnit(item, units),
+      packaging: exportPackaging(item, units),
+      auditStatus: item.checkError ? x.notChecked.failed : x.status[item.effective.review],
+      restricted: restrictedText(item.effective.code),
+    };
+  });
 
   const base = baseName(catalog.filename);
   const build = async (): Promise<{ body: Uint8Array; type: string; filename: string }> => {
     if (format === '1c' || format === '1c-xlsx') {
-      const oneC: OneCRow[] = items.map((item, i) => ({
-        name: item.rawName, mxik: rows[i]?.mxik ?? '', unit: rows[i]?.unit ?? '', barcode: item.barcode ?? '', auditStatus: rows[i]?.auditStatus ?? '',
+      const oneC: OneCRow[] = lines.map((line, i) => ({
+        name: line.kind === 'item' ? line.item.rawName : '',
+        mxik: rows[i]?.mxik ?? '', unit: rows[i]?.unit ?? '',
+        barcode: line.kind === 'item' ? line.item.barcode ?? '' : fileCell(line.row.original, mapping.data.barcode),
+        auditStatus: rows[i]?.auditStatus ?? '',
         restricted: rows[i]?.restricted ?? '',
       }));
       if (format === '1c') return { body: new Uint8Array(build1cCsv(oneC, x.oneC)), type: CSV_TYPE, filename: `${base}-${x.suffix.oneC}.csv` };
@@ -148,6 +167,7 @@ export async function catalogExport(user: Viewer, locale: Locale, catalogId: str
       payload: {
         catalogId: catalog.id, clientId: catalog.clientId, format, rows: rows.length,
         acceptedCodes: accepted.length, partialRows: count('partial'), pendingRows: count('pending'),
+        skippedRows: lines.length - items.length, failedRows: items.filter((i) => i.checkError).length,
       },
     },
   });
@@ -169,6 +189,28 @@ export async function catalogDiffCsv(user: Viewer, locale: Locale, catalogId: st
   const d = i18nFor(locale).ta.importX.diff;
   const csv = diffCsv(diff, { ...d.csv, notes: d.notes });
   return file(csv, CSV_TYPE, contentDisposition('attachment', `${baseName(catalog.filename)}-farq.csv`), 'private, no-store');
+}
+
+/**
+ * The upload diagnostics row by row as CSV, under the catalogue's current mapping (the last one
+ * diagnosed while uncommitted, the confirmed one after): every file row, skipped ones included.
+ * Any catalogue the user may see; another org's or client's is the same 404 as a missing one.
+ */
+export async function catalogImportIssuesCsv(user: Viewer, locale: Locale, catalogId: string | null): Promise<Download> {
+  if (!catalogId) return NO_CATALOG;
+  const catalog = await db.catalog.findFirst({
+    where: { id: catalogId, ...catalogScope(user) },
+    select: { id: true, filename: true, headers: true, columnMap: true, importMeta: true },
+  });
+  if (!catalog) return NO_CATALOG;
+  const mapping = ColumnMapSchema.safeParse(catalog.columnMap);
+  if (!mapping.success) return refuse(500, 'bad_mapping', 'bad mapping');
+  const labels = i18nFor(locale).ta.importX.issuesCsv;
+  const csv = importIssuesCsv(
+    { headers: catalog.headers, rows: await allFileRows(catalog.id), mapping: mapping.data, parse: readImportMeta(catalog.importMeta)?.parse ?? null },
+    labels,
+  );
+  return file(csv, CSV_TYPE, contentDisposition('attachment', `${baseName(catalog.filename)}-${labels.file}.csv`), 'private, no-store');
 }
 
 /** The catalogue for the report downloads: in scope and audited. */

@@ -831,17 +831,39 @@ model Catalog {
   pipelineMeta     Json?
   /// What the import saw: rows seen, truncated, dropped rows, encoding, delimiter.
   importMeta       Json?
+  /// SHA-256 (hex) of the uploaded file's bytes: the wizard warns when an earlier catalogue had the same file.
+  fileHash         String?
 
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   client   Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items    CatalogItem[]
+  skippedRows CatalogSkippedRow[]
   shareLinks ShareLink[]
   reviewAssignment ReviewAssignment?
 
   @@index([orgId])
   @@index([clientId, createdAt])
   @@index([previousId])
+  @@index([orgId, fileHash])
   @@map("catalog")
+}
+
+/// A file row the commit did not turn into an item (no name), kept with its original cells so the
+/// corrected export still has every row in file order. Apart from catalog_item on purpose: nothing
+/// that reads items (audit, workspace, counts, diff, dictionary) may see these rows.
+model CatalogSkippedRow {
+  catalogId String
+  /// The row's position among the file's data rows (0-based), the same numbering as catalog_item.rowIndex.
+  rowIndex  Int
+  /// Why the row was not imported: "no_name".
+  reason    String
+  /// Every original cell, like catalog_item.attrs.original; blanked by the retention job like the items.
+  original  Json
+
+  catalog Catalog @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+
+  @@id([catalogId, rowIndex])
+  @@map("catalog_skipped_row")
 }
 
 model CatalogItem {

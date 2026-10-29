@@ -41,7 +41,8 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
   const [state, setState] = useState<State>(start);
   const [clientId, setClientId] = useState(initialClientId);
   const [mapping, setMapping] = useState<ColumnMap | null>(start.step === 'map' ? start.preview.mapping : null);
-  const [suggested, setSuggested] = useState(true);
+  // A mapping the user already changed (kept by diagnose) comes back as theirs, without the suggestion's labels.
+  const [suggested, setSuggested] = useState(!(start.step === 'map' && start.preview.edited));
   const [diagnostics, setDiagnostics] = useState<ImportDiagnostics | null>(start.step === 'map' ? start.preview.diagnostics : null);
   const [error, setError] = useState<string | null>(null);
   const [committedId, setCommittedId] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export function UploadWizard({ clients, initialClientId, start }: { clients: Cli
       setState(start);
       setClientId(initialClientId);
       setMapping(start.step === 'map' ? start.preview.mapping : null);
-      setSuggested(true);
+      setSuggested(!(start.step === 'map' && start.preview.edited));
       setDiagnostics(start.step === 'map' ? start.preview.diagnostics : null);
       setError(null);
       setCommittedId(null);

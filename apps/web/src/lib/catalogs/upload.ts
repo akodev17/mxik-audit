@@ -106,6 +106,9 @@ export function applyPreset(preset: ImportPreset, headers: readonly string[], fa
 
 // ── sheet-shape.ts ───────────────────────────────────────────────────────────────────────────
 
+/** Columns read from a sheet; cells to their right are counted (ParseMeta.cellsPastColumnLimit), not read. */
+export const MAX_COLUMNS = 500;
+
 /** The file line (sheet row) of a data row, 1-based as Excel shows it; null when the upload did not keep it. */
 export function fileLine(info: Pick<ParseMeta, 'headerRow' | 'lineJumps'>, dataRow: number): number | null {
   if (!info.lineJumps) return null;

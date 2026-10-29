@@ -151,7 +151,7 @@ export function MappingStep({ preview, mapping, onMapping, suggested, diagnostic
             onChange={(e) => {
               setPreset(e.target.value);
               const chosen = IMPORT_PRESETS.find((p) => p.id === e.target.value);
-              onMapping(chosen ? applyPreset(chosen, preview.headers, preview.mapping) : preview.mapping, Boolean(chosen));
+              onMapping(chosen ? applyPreset(chosen, preview.headers, preview.mapping) : preview.mapping, Boolean(chosen) || preview.edited);
             }}
           >
             <option value="">{m.presetSuggested}</option>
@@ -175,7 +175,7 @@ export function MappingStep({ preview, mapping, onMapping, suggested, diagnostic
 
         <div className="min-w-0 lg:border-l lg:border-line lg:pl-6">
           <div className="lg:sticky lg:top-4">
-            <DiagnosticsPanel diagnostics={issues.length > 0 ? null : diagnostics} parse={preview.parse} updating={updating} error={error} />
+            <DiagnosticsPanel catalogId={preview.catalogId} diagnostics={issues.length > 0 ? null : diagnostics} parse={preview.parse} updating={updating} error={error} />
           </div>
         </div>
       </div>

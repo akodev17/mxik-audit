@@ -11,6 +11,7 @@ import { db } from '@tasnivo/db';
 import { makeClient, makePerson } from '@tasnivo/domain/firm-test-fixtures';
 import { setJobs } from '@tasnivo/domain/jobs/dispatcher';
 import { InlineDispatcher } from '@tasnivo/domain/jobs/inline';
+import { parseUpload } from '@tasnivo/domain/spreadsheet';
 import { liveCodes } from '@tasnivo/domain/test-fixtures';
 import { fmtNumber } from '@tasnivo/i18n/format';
 import { i18nFor } from '@tasnivo/i18n/locale';
@@ -95,7 +96,7 @@ describe('catalogs + share (database)', { skip }, () => {
 
     const committed = await post(`/api/catalogs/${catalogId}/commit`).send({ mapping });
     assert.equal(committed.status, 200, JSON.stringify(committed.body));
-    assert.deepEqual(committed.body, { ok: true, catalogId });
+    assert.deepEqual(committed.body, { ok: true, catalogId, skipped: 0 });
     assert.ok(String(committed.headers['set-cookie'] ?? '').includes('mxik_audit_session='), 'the uploaded client becomes the active one');
     const twice = await post(`/api/catalogs/${catalogId}/commit`).send({ mapping });
     assert.deepEqual(twice.body, { ok: false, error: ta.importX.errors.alreadyCommitted, committed: true });
@@ -263,7 +264,7 @@ describe('catalogs + share (database)', { skip }, () => {
     const preview = bodyOf<Preview>(res);
     assert.ok(preview.ok, JSON.stringify(preview));
     const next = preview.preview.catalogId;
-    assert.deepEqual((await post(`/api/catalogs/${next}/commit`).send({ mapping: preview.preview.mapping })).body, { ok: true, catalogId: next });
+    assert.deepEqual((await post(`/api/catalogs/${next}/commit`).send({ mapping: preview.preview.mapping })).body, { ok: true, catalogId: next, skipped: 0 });
     await eventually(async () => {
       const p = bodyOf<{ status: string }>(await http().get(`/api/catalogs/${next}/progress`).set('Cookie', cookie));
       assert.notEqual(p.status, 'failed');
@@ -283,6 +284,57 @@ describe('catalogs + share (database)', { skip }, () => {
     assert.equal(csv.status, 200);
     assert.equal(csv.headers['content-type'], 'text/csv; charset=utf-8');
     assert.match(String(csv.headers['content-disposition']), /Narxlar-2-farq\.csv/);
+  });
+
+  it('S8: same file warned, mapping kept by diagnose, issues CSV, skipped rows counted and exported with a marker', async () => {
+    // The first catalogue's bytes again: the preview names it, and nothing is refused.
+    const same = bodyOf<Preview & { preview: { sameFile: { id: string } | null } }>(await upload(file, 'yana.xlsx'));
+    assert.ok(same.ok, JSON.stringify(same));
+    assert.equal(same.preview.sameFile?.id, catalogId);
+
+    const [code = ''] = await liveCodes(1);
+    const s8Client = await makeClient(owner.orgId, 'S8 mijoz');
+    const sheet = await xlsx([['Nomi', 'MXIK kodi', 'Birlik', 'Izoh'], ['Kartoshka', code, 'kg', 'a'], ['', '123', 'dona', 'jami'], ['Piyoz', code.slice(1), 'kg', 'b']]);
+    const res = await upload(sheet, 'nomsiz.xlsx', cookie, { clientId: s8Client });
+    matches(c.previewUpload.response, res.body, 'previewUpload');
+    const preview = bodyOf<Preview & { preview: { sameFile: unknown; edited: boolean } }>(res);
+    assert.ok(preview.ok, JSON.stringify(preview));
+    assert.deepEqual([preview.preview.sameFile, preview.preview.edited], [null, false]);
+    const id = preview.preview.catalogId;
+    const mapping = preview.preview.mapping;
+
+    // A changed mapping survives coming back to the preview.
+    const changed = { ...mapping, unit: -1 };
+    assert.equal(bodyOf<{ ok: boolean }>(await post(`/api/catalogs/${id}/diagnose`).send({ mapping: changed })).ok, true);
+    const back = await http().get(`/api/catalogs/${id}/preview`).set('Cookie', cookie);
+    matches(c.preview.response, back.body, 'preview');
+    assert.deepEqual([bodyOf<{ mapping: unknown }>(back).mapping, bodyOf<{ edited: boolean }>(back).edited], [changed, true]);
+
+    const issues = await http().get(`/api/catalogs/${id}/import-issues`).set('Cookie', cookie).buffer(true).parse(binary);
+    assert.equal(issues.status, 200);
+    assert.equal(issues.headers['content-type'], 'text/csv; charset=utf-8');
+    assert.match(String(issues.headers['content-disposition']), new RegExp(`^attachment; .*nomsiz-${ta.importX.issuesCsv.file}\\.csv`));
+    const text = (issues.body as Buffer).toString('utf8');
+    assert.match(text, new RegExp(ta.importX.issuesCsv.reasons.noName));
+    assert.match(text, new RegExp(ta.importX.issuesCsv.reasons.lostZero));
+
+    const committed = await post(`/api/catalogs/${id}/commit`).send({ mapping });
+    assert.deepEqual(committed.body, { ok: true, catalogId: id, skipped: 1 });
+    await eventually(async () => {
+      const p = bodyOf<{ status: string }>(await http().get(`/api/catalogs/${id}/progress`).set('Cookie', cookie));
+      assert.notEqual(p.status, 'failed');
+      return p.status === 'ready' ? true : undefined;
+    }, 180_000, 'the S8 audit');
+    const header = await http().get(`/api/catalogs/${id}`).set('Cookie', cookie);
+    matches(c.get.response, header.body, 'get');
+    assert.equal(bodyOf<{ skippedRows: number }>(header).skippedRows, 1);
+
+    const exported = await http().get(`/api/export?catalog=${id}`).set('Cookie', cookie).buffer(true).parse(binary);
+    assert.equal(exported.status, 200);
+    const grid = (await parseUpload(exported.body as Buffer, 'out.xlsx'));
+    assert.deepEqual(grid.rows.map((r) => r[3]), ['a', 'jami', 'b'], 'every file row, in file order');
+    assert.deepEqual(grid.rows[1]?.slice(0, 3), ['', '123', 'dona'], 'the nameless row as it came');
+    assert.ok(grid.rows[1]?.includes(ta.importX.exp.notChecked.noName));
   });
 
   it('upload refusals in the user\'s language: file type, empty file, too big, CSRF', async () => {
@@ -324,7 +376,7 @@ describe('catalogs + share (database)', { skip }, () => {
     const other = await sessionCookie(stranger);
     for (const path of [
       `/api/catalogs/${catalogId}`, `/api/catalogs/${catalogId}/progress`, `/api/catalogs/${catalogId}/summary`, `/api/catalogs/${catalogId}/report`,
-      `/api/catalogs/${catalogId}/diff`, `/api/catalogs/${catalogId}/versions`, `/api/catalogs/${catalogId}/review`,
+      `/api/catalogs/${catalogId}/diff`, `/api/catalogs/${catalogId}/versions`, `/api/catalogs/${catalogId}/review`, `/api/catalogs/${catalogId}/import-issues`,
       `/api/export?catalog=${catalogId}`, `/api/report-pdf?catalog=${catalogId}`, `/api/catalog-report-csv?catalog=${catalogId}`, `/api/catalog-diff?catalog=${catalogId}`,
     ]) {
       const res = await http().get(path).set('Cookie', other);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { applyMapping, deriveItem, storeCatalog } from './catalog-import.js';
+import { allFileRows, applyMapping, deriveItem, skippedRows, storeCatalog } from './catalog-import.js';
 import { defaultClient } from './clients.js';
 import type { ColumnMap } from './column-map.js';
 import { db } from '@tasnivo/db';
@@ -69,7 +69,7 @@ describe('catalogue import (database)', { skip }, () => {
 
   it('refuses a second commit of the same upload and keeps its decisions', async () => {
     const catalogId = await preview();
-    assert.deepEqual(await applyMapping(a.orgId, catalogId, MAP), { rows: 2 });
+    assert.deepEqual(await applyMapping(a.orgId, catalogId, MAP), { rows: 2, skipped: 1 });
     const item = await db.catalogItem.findFirstOrThrow({ where: { catalogId }, orderBy: { rowIndex: 'asc' } });
     const decided = await db.finding.create({
       data: { itemId: item.id, type: 'MISSING', severity: 'high', alternatives: [], reason: 'test', decision: 'accepted', chosenMxik: '06301001001000000', decidedBy: a.userId, decidedAt: new Date() },
@@ -79,6 +79,17 @@ describe('catalogue import (database)', { skip }, () => {
     const after = await db.catalog.findUniqueOrThrow({ where: { id: catalogId }, select: { status: true, columnMap: true } });
     assert.equal(after.status, 'analyzing');
     assert.deepEqual(after.columnMap, MAP);
+  });
+
+  it('keeps a row without a name apart from the items, with its cells, in its place (F7)', async () => {
+    const catalogId = await preview();
+    const before = await allFileRows(catalogId);
+    assert.deepEqual(await applyMapping(a.orgId, catalogId, MAP), { rows: 2, skipped: 1 });
+    const items = await db.catalogItem.findMany({ where: { catalogId }, orderBy: { rowIndex: 'asc' }, select: { rowIndex: true, rawName: true } });
+    assert.deepEqual(items.map((i) => i.rowIndex), [0, 1], 'nothing that reads items sees the nameless row');
+    const skipped = await skippedRows(catalogId);
+    assert.deepEqual(skipped.map((s) => [s.rowIndex, s.reason, s.original[1]]), [[2, 'no_name', 'dona']]);
+    assert.deepEqual(await allFileRows(catalogId), before, 'every file row is still there, in file order');
   });
 
   it('lets exactly one of two simultaneous commits through', async () => {

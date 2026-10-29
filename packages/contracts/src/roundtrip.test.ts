@@ -66,13 +66,20 @@ describe('round trips', () => {
   it('catalogs', () => {
     const preview = {
       catalogId: 'c1', filename: 'k.xlsx', client: { id: 'cl1', name: 'Mijoz' }, headers: ['Nomi', 'MXIK'], sample: [['Sut', '']], rows: 120,
-      parse: { format: 'xlsx', encoding: null, delimiter: null, headerRow: 2, skippedAbove: 1, emptyRowsSkipped: 0, totalSeen: 121, truncated: false, lineJumps: [[4, 9]] },
+      parse: { format: 'xlsx', encoding: null, delimiter: null, headerRow: 2, skippedAbove: 1, emptyRowsSkipped: 0, totalSeen: 121, truncated: false, lineJumps: [[4, 9]], cellsPastColumnLimit: 3 },
       mapping: { name: 0, barcode: -1, mxik: 1, unit: -1, price: -1, sales: -1, tnved: -1 }, remembered: 'client',
       fields: { name: 'remembered', barcode: 'none', mxik: 'guess', unit: 'none', price: 'none', sales: 'none', tnved: 'none' },
       diagnostics: null, previous: { id: 'c0', filename: 'k-old.xlsx', createdAt: AT, rowCount: 118 },
+      edited: true, sameFile: { id: 'c0', filename: 'k-old.xlsx', createdAt: AT },
     };
     roundTrip(E.catalogs.previewUpload.response, { ok: true, preview }, 'preview');
+    // An answer from before edited/sameFile existed reads as not edited, no same file.
+    const older: Partial<typeof preview> = { ...preview };
+    delete older.edited;
+    delete older.sameFile;
+    assert.deepEqual(E.catalogs.preview.response.parse(older), { ...older, edited: false, sameFile: null });
     roundTrip(E.catalogs.previewUpload.response, { ok: false, error: 'Fayl juda katta' }, 'preview refused');
+    roundTrip(E.catalogs.commit.response, { ok: true, catalogId: 'c1', skipped: 2 }, 'commit with skipped rows');
     roundTrip(E.catalogs.commit.response, { ok: false, error: 'Allaqachon', committed: true }, 'commit already');
     roundTrip(E.catalogs.diagnose.response, {
       ok: true, issues: [{ kind: 'duplicate', fields: ['name', 'unit'], column: 0 }],

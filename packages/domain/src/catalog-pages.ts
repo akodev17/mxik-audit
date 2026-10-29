@@ -12,6 +12,7 @@ import { catalogPaid } from './billing/orders.js';
 import { CATALOG_PAGE, catalogList, type CatalogListItem } from './catalogs.js';
 import { resolveClient } from './clients.js';
 import { isDemoOrg } from './demo.js';
+import { readImportMeta } from './import-diagnostics.js';
 import { jobsMode, type JobsMode } from './jobs/dispatcher.js';
 import { reportPdfData, type ReportPdfData } from './pdf/report-data.js';
 import { uploadsOpen } from './plan.js';
@@ -108,6 +109,8 @@ export type CatalogHeader = {
   pipeline: PipelineMeta | null;
   snapshot: { usedTakenAt: Date | null; newerTakenAt: Date | null };
   exportLocked: boolean;
+  /** File rows without a name under the committed mapping: not audited, marked in the corrected export. */
+  skippedRows: number;
 };
 
 /** The workspace header (catalogs/[id]/page.tsx + workspace-header.tsx). Resumes a stalled audit like the page (resumesOnRead). */
@@ -129,6 +132,7 @@ export async function catalogHeader(user: Viewer, catalogId: string): Promise<Ca
     pipeline: readPipelineMeta(catalog.pipelineMeta),
     snapshot: { usedTakenAt: used?.takenAt ?? null, newerTakenAt: newer?.takenAt ?? null },
     exportLocked: locked,
+    skippedRows: catalog.status === 'uploaded' ? 0 : readImportMeta(catalog.importMeta)?.diagnostics.noName.count ?? 0,
   };
 }
 

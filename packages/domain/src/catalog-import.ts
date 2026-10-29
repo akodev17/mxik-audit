@@ -63,6 +63,8 @@ export type StoreInput = {
   parsed: ParseResult;
   mapping: ColumnMap;
   telegramChatId?: string | null;
+  /** SHA-256 (hex) of the file's bytes, when the caller wants the "same file again" warning. */
+  fileHash?: string | null;
   /** How the suggested mapping was made, kept for the mapping screen. */
   suggestion?: { remembered: MemorySource | null; fields: Record<ColumnField, FieldSource> };
 };
@@ -93,6 +95,7 @@ export async function storeCatalog(input: StoreInput): Promise<{ catalogId: stri
         columnMap: mapping,
         importMeta,
         telegramChatId: input.telegramChatId ?? null,
+        fileHash: input.fileHash ?? null,
       },
     });
     for (let i = 0; i < parsed.rows.length; i += CHUNK) {
@@ -120,6 +123,27 @@ export async function storedRows(catalogId: string): Promise<string[][]> {
   return stored.map((item) => StoredAttrs.safeParse(item.attrs).data?.original ?? []);
 }
 
+const Original = z.array(z.string());
+
+/** Rows the commit kept out of the items (no name), with their original cells, in file order. */
+export async function skippedRows(catalogId: string): Promise<{ rowIndex: number; reason: string; original: string[] }[]> {
+  const rows = await db.catalogSkippedRow.findMany({ where: { catalogId }, orderBy: { rowIndex: 'asc' } });
+  return rows.map((r) => ({ rowIndex: r.rowIndex, reason: r.reason, original: Original.safeParse(r.original).data ?? [] }));
+}
+
+/** Every file row of a catalogue, committed or not: the items and the skipped rows merged by rowIndex. */
+export async function allFileRows(catalogId: string): Promise<string[][]> {
+  const [items, skipped] = await Promise.all([
+    db.catalogItem.findMany({ where: { catalogId }, orderBy: { rowIndex: 'asc' }, select: { rowIndex: true, attrs: true } }),
+    skippedRows(catalogId),
+  ]);
+  const rows = [
+    ...items.map((item) => ({ rowIndex: item.rowIndex, original: StoredAttrs.safeParse(item.attrs).data?.original ?? [] })),
+    ...skipped,
+  ];
+  return rows.sort((a, b) => a.rowIndex - b.rowIndex).map((r) => r.original);
+}
+
 /** over_allowance: the rows would pass the plan's monthly cap, checked again inside the commit. */
 export type ApplyError = 'not_uploaded' | 'bad_mapping' | 'no_names' | 'over_allowance' | 'failed';
 
@@ -139,7 +163,7 @@ async function release(catalogId: string): Promise<void> {
  * transaction, re-checked against the cap there (callers gate first, for the message), so
  * concurrent commits cannot pass it together and deleting the catalogue later gives nothing back.
  */
-export async function applyMapping(orgId: string, catalogId: string, mapping: ColumnMap): Promise<{ rows: number } | { error: ApplyError }> {
+export async function applyMapping(orgId: string, catalogId: string, mapping: ColumnMap): Promise<{ rows: number; skipped: number } | { error: ApplyError }> {
   const claimed = await db.catalog.updateMany({
     where: { id: catalogId, orgId, status: 'uploaded' },
     // The heartbeat keeps resumeStaleAudits from launching an audit while rows are rebuilt.
@@ -156,9 +180,13 @@ export async function applyMapping(orgId: string, catalogId: string, mapping: Co
       return { error: 'bad_mapping' };
     }
     const rows = await storedRows(catalogId);
-    const rebuilt = rows.flatMap((original, rowIndex) => {
+    const rebuilt: ReturnType<typeof deriveItem>[] = [];
+    // Not audited, but kept with their cells: the corrected export still has every file row (F7).
+    const skipped: { catalogId: string; rowIndex: number; reason: string; original: string[] }[] = [];
+    rows.forEach((original, rowIndex) => {
       const derived = deriveItem(catalogId, original, rowIndex, mapping);
-      return derived.rawName === '' ? [] : [derived];
+      if (derived.rawName === '') skipped.push({ catalogId, rowIndex, reason: 'no_name', original: [...original] });
+      else rebuilt.push(derived);
     });
     if (rebuilt.length === 0) {
       await release(catalogId);
@@ -173,11 +201,15 @@ export async function applyMapping(orgId: string, catalogId: string, mapping: Co
       for (let i = 0; i < rebuilt.length; i += CHUNK) {
         await tx.catalogItem.createMany({ data: rebuilt.slice(i, i + CHUNK) });
       }
+      await tx.catalogSkippedRow.deleteMany({ where: { catalogId } });
+      for (let i = 0; i < skipped.length; i += CHUNK) {
+        await tx.catalogSkippedRow.createMany({ data: skipped.slice(i, i + CHUNK) });
+      }
       await tx.catalog.update({ where: { id: catalogId }, data: { rowCount: rebuilt.length, columnMap: mapping, importMeta } });
       // Last, so the per-org lock is held only for the moment of the commit.
       await consumeRows(tx, { orgId, catalogId, amount: rebuilt.length, cap });
     }, { timeout: TX_TIMEOUT });
-    return { rows: rebuilt.length };
+    return { rows: rebuilt.length, skipped: skipped.length };
   } catch (error) {
     await heartbeat.stop();
     await release(catalogId);

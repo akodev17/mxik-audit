@@ -1,9 +1,10 @@
 'use client';
 
 import type { UploadPreview } from '@/lib/catalogs/types';
-import { fmtNumber } from '@tasnivo/i18n/format';
+import { MAX_COLUMNS } from '@/lib/catalogs/upload';
+import { fmtDate, fmtNumber } from '@tasnivo/i18n/format';
 import { useI18n } from '@/lib/locale-client';
-import { Button } from '@/ui/button';
+import { Button, ButtonLink } from '@/ui/button';
 import { IconSuccess, IconTable } from '@/ui/icons';
 import { PreviewTable } from '@/ui/preview-table';
 import { Notice } from './notice';
@@ -17,6 +18,8 @@ export function FileCheck({ preview, onNext, onStartOver }: { preview: UploadPre
   const n = (v: number): string => fmtNumber(locale, v);
   const parse = preview.parse;
   const repeatedHeaders = parse?.repeatedHeadersSkipped ?? 0;
+  const pastColumns = parse?.cellsPastColumnLimit ?? 0;
+  const { sameFile } = preview;
   const facts: [string, string][] = [
     ...(parse ? [
       [c.format, c.formats[parse.format]] as [string, string],
@@ -49,9 +52,18 @@ export function FileCheck({ preview, onNext, onStartOver }: { preview: UploadPre
         </dl>
       </div>
 
+      {sameFile ? (
+        <Notice
+          tone="warn" title={c.sameFileTitle}
+          action={<ButtonLink href={`/catalogs/${sameFile.id}`} variant="secondary" size="sm">{c.sameFileOpen}</ButtonLink>}
+        >
+          {c.sameFile(sameFile.filename, fmtDate(locale, sameFile.createdAt))}
+        </Notice>
+      ) : null}
       {parse?.truncated ? (
         <Notice tone="danger" title={c.truncatedTitle(preview.rows, parse.totalSeen)}>{c.truncatedHint}</Notice>
       ) : null}
+      {pastColumns > 0 ? <Notice tone="warn">{c.pastColumns(pastColumns, MAX_COLUMNS)}</Notice> : null}
       {parse && (parse.skippedAbove > 0 || parse.emptyRowsSkipped > 0 || repeatedHeaders > 0) ? (
         <Notice tone="info">
           {parse.skippedAbove > 0 ? <p>{c.skippedAbove(parse.skippedAbove)}</p> : null}

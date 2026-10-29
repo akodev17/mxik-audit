@@ -81,6 +81,16 @@ async function blank(table: Table, id: string, keep: number[]): Promise<void> {
      WHERE "${fk}" = $1 AND jsonb_typeof(attrs->'original') = 'array'`,
     id, keep,
   );
+  if (table === 'catalog') {
+    // The rows the commit skipped (no name) keep their cells for the export: the same rule applies to them.
+    await db.$executeRawUnsafe(
+      `UPDATE "catalog_skipped_row" SET original = COALESCE((
+         SELECT jsonb_agg(CASE WHEN (t.ord - 1)::int = ANY($2::int[]) THEN t.v ELSE '""'::jsonb END ORDER BY t.ord)
+         FROM jsonb_array_elements(original) WITH ORDINALITY AS t(v, ord)), '[]'::jsonb)
+       WHERE "catalogId" = $1 AND jsonb_typeof(original) = 'array'`,
+      id, keep,
+    );
+  }
   await db.$executeRawUnsafe(`UPDATE "${table}" SET "rawPurgedAt" = now() WHERE id = $1`, id);
 }
 

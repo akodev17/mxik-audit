@@ -12,11 +12,11 @@ import { degradedNotes as domainNotes, type PipelineMeta } from '@tasnivo/domain
 import { withQuery as domainWithQuery } from '@tasnivo/domain/query-string';
 import { localDate } from '@tasnivo/domain/reminder-dates';
 import { typeLines as domainTypeLines } from '@tasnivo/domain/report-summary';
-import { fileLine as domainFileLine } from '@tasnivo/domain/sheet-shape';
+import { fileLine as domainFileLine, MAX_COLUMNS as DOMAIN_MAX_COLUMNS } from '@tasnivo/domain/sheet-shape';
 import * as fileTypes from '@tasnivo/domain/upload-file-types';
 import { appDict } from '@tasnivo/i18n/i18n-app';
 import { bannerReasons, canWrite, degradedNotes, isAdminRole, localToday, typeLines, withQuery } from '@/lib/catalogs/report';
-import { applyPreset, COLUMN_FIELDS, fileLine, hasUploadExtension, IMPORT_PRESETS, mappingIssues, UPLOAD_ACCEPT, UPLOAD_EXTENSIONS } from '@/lib/catalogs/upload';
+import { applyPreset, COLUMN_FIELDS, fileLine, hasUploadExtension, IMPORT_PRESETS, mappingIssues, MAX_COLUMNS, UPLOAD_ACCEPT, UPLOAD_EXTENSIONS } from '@/lib/catalogs/upload';
 import { groupDecisions, type ActivityRow } from '@/lib/pure/activity-groups';
 
 describe('catalogue screens: web copies equal the domain', () => {
@@ -52,6 +52,7 @@ describe('catalogue screens: web copies equal the domain', () => {
       { headerRow: 2, lineJumps: [[0, 3], [5, 12], [9, 20]] as [number, number][] },
     ];
     for (const info of infos) for (const row of [0, 1, 4, 5, 8, 9, 30]) assert.equal(fileLine(info, row), domainFileLine(info, row));
+    assert.equal(MAX_COLUMNS, DOMAIN_MAX_COLUMNS);
   });
 
   it('accepted upload types', () => {
