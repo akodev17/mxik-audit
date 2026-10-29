@@ -22,7 +22,7 @@ export function Capabilities() {
     <section aria-labelledby="cap-title" className="py-20 sm:py-28">
       <div className={CONTAINER}>
         <div className="mx-auto max-w-[40rem] text-center">
-          <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">Imkoniyatlar</p>
+          <p className="text-[13px] font-medium uppercase tracking-wide text-lp-brand-ink">MXIK auditi</p>
           <h2 id="cap-title" className="lp-display mt-4 text-[clamp(1.875rem,3.8vw,2.75rem)]">Katalogni tekshirish uchun kerak boʻlgan hamma narsa</h2>
         </div>
 

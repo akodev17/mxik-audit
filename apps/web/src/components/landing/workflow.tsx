@@ -45,6 +45,10 @@ export function Workflow() {
           Natija roʻyxat emas, katalogingizning oʻzi: tasdiqlangan kodlar joyiga qoʻyilgan, har bir
           qatorda holati yozilgan.
         </p>
+        <p className="mt-3 max-w-[40rem] text-[15px] text-lp-muted">
+          Bank koʻchirmalari va hisob-fakturalar ham shu yoʻldan oʻtadi: yuklash, tekshiruv, sizning
+          tasdiqingiz, keyin 1C uchun fayl.
+        </p>
 
         <ol className="relative mt-14 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-4">
           <span aria-hidden="true" className="absolute left-[11px] top-3 hidden h-px w-[calc(100%-1.5rem)] bg-lp-line-strong lg:block" />

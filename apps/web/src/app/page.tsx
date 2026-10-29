@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { DEMO_URL, SITE_URL } from '@/components/landing/config';
 import { Consequences } from '@/components/landing/consequences';
 import { DemoBand } from '@/components/landing/demo-band';
+import { Accounting } from '@/components/landing/accounting';
 import { Capabilities } from '@/components/landing/capabilities';
 import { Faq } from '@/components/landing/faq';
 import { FinalCta } from '@/components/landing/final-cta';
@@ -44,6 +45,7 @@ export default function LandingPage() {
       <Problem />
       <Consequences />
       <Capabilities />
+      <Accounting />
       <DemoBand />
       <Workflow />
       <Outcomes />
