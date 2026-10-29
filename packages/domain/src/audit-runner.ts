@@ -36,7 +36,19 @@ const DATABASE_URL = process.env['DATABASE_URL'] ?? 'postgresql://mxik:mxik@loca
 
 // One pool for the whole server process; the classifier queries are read-only.
 const globalForPool = globalThis as unknown as { mxikPool?: Pool };
-const pool = globalForPool.mxikPool ?? new Pool({ connectionString: DATABASE_URL, max: 8 });
+const pool = globalForPool.mxikPool ?? withConnectionErrorsLogged(new Pool({ connectionString: DATABASE_URL, max: 8 }));
+
+/**
+ * A connection the server drops (idle in the pool, or checked out between two queries) emits
+ * "error"; unheard, that kills the whole process. Logged instead: the next query on it fails and
+ * the row's retry takes a fresh connection.
+ */
+function withConnectionErrorsLogged(created: Pool): Pool {
+  const log = (error: Error): void => console.warn(`[audit] classifier connection lost: ${error.message}`);
+  created.on('error', log);
+  created.on('connect', (client) => { client.on('error', log); });
+  return created;
+}
 if (process.env.NODE_ENV !== 'production') globalForPool.mxikPool = pool;
 
 /** The process's classifier pool, for a long-lived process that reuses it (the worker). */
