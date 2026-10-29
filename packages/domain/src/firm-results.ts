@@ -127,6 +127,9 @@ export async function resultClients(user: Pick<CurrentUser, 'orgId' | 'role' | '
 
 export type ResultsFormat = 'csv' | 'xlsx';
 
+const BOM = String.fromCharCode(0xfeff);
+const EOL = String.fromCharCode(13, 10);
+
 function table(rows: readonly ClientResult[], locale: Locale): { head: string[]; body: (string | number)[][] } {
   const cols = i18nFor(locale).ta.firmX.value.cols;
   return {
@@ -138,7 +141,7 @@ function table(rows: readonly ClientResult[], locale: Locale): { head: string[];
 /** UTF-8 with a byte-order mark (Excel reads it), comma-separated, formula-safe cells. Pure. */
 export function resultsCsv(rows: readonly ClientResult[], locale: Locale): string {
   const { head, body } = table(rows, locale);
-  return `﻿${[head, ...body].map((cells) => cells.map(csvCell).join(',')).join('\r\n')}\r\n`;
+  return BOM + [head, ...body].map((cells) => cells.map(csvCell).join(',')).join(EOL) + EOL;
 }
 
 export async function resultsXlsx(rows: readonly ClientResult[], locale: Locale): Promise<Buffer> {

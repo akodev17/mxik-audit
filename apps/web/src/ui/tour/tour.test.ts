@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { allEnabled } from '@tasnivo/contracts/feature-modules';
 import { placeCard } from './tour-place';
 import { RETRY_MS, saveWithRetry } from './tour-save';
 import { clampIndex, STEP_KEYS, TOUR_STEPS, visibleSteps } from './tour-steps';
@@ -28,6 +29,21 @@ describe('tour steps', () => {
     assert.equal(viewer.length, 13);
     const writer = visibleSteps(TOUR_STEPS, { write: true, team: false }).map((s) => s.key);
     assert.deepEqual(writer, [...STEP_KEYS]);
+  });
+
+  it('drops the steps of switched-off modules (hidden or coming soon) and keeps the rest in order', () => {
+    const writer = { write: true, team: false };
+    const states = { ...allEnabled(), bank: 'HIDDEN', didox: 'COMING_SOON' } as const;
+    const keys = visibleSteps(TOUR_STEPS, writer, states).map((s) => s.key);
+    assert.deepEqual(keys, STEP_KEYS.filter((k) => k !== 'bank' && k !== 'didox'));
+    assert.deepEqual(visibleSteps(TOUR_STEPS, writer, allEnabled()).map((s) => s.key), [...STEP_KEYS], 'all on: every step');
+    assert.deepEqual(visibleSteps(TOUR_STEPS, writer).map((s) => s.key), [...STEP_KEYS], 'states unknown: every step');
+  });
+
+  it('the audit module off takes upload, catalogues, queue and dictionary with it, never the steps without a section', () => {
+    const keys = visibleSteps(TOUR_STEPS, { write: true, team: true }, { ...allEnabled(), mxik_audit: 'HIDDEN' }).map((s) => s.key);
+    for (const gone of ['upload', 'catalogs', 'queue', 'dictionary'] as const) assert.equal(keys.includes(gone), false, gone);
+    for (const kept of ['welcome', 'dashboard', 'clients', 'activity', 'settings', 'done'] as const) assert.ok(keys.includes(kept), kept);
   });
 
   it('requires every listed ability', () => {
