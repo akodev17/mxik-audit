@@ -2,9 +2,11 @@
 // cross-catalogue queue and dashboard. Thin: parse with the registry's schemas, call the domain
 // function the web's server action calls, answer its result. Access is the domain's (catalogScope,
 // findingScope, mayWrite); ContractGuard adds the registry's role and demo refusals in front.
-import { Body, Controller, Inject, Param, Query } from '@nestjs/common';
+import { Body, Controller, Inject, Param, Query, Res, type StreamableFile } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { endpoints } from '@tasnivo/contracts';
+import { firmResultsFile } from '@tasnivo/domain/firm-results';
 import { lookupCodes } from '@tasnivo/domain/code-lookup';
 import { codeRequestText } from '@tasnivo/domain/code-request';
 import { listComments, setFlag } from '@tasnivo/domain/comments';
@@ -24,6 +26,7 @@ import {
 import { i18nFor } from '@tasnivo/i18n/locale';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import type { z, ZodTypeAny } from 'zod';
+import { sendFile } from '../http/download';
 import { Route } from '../http/route';
 import { CurrentUser, Locale } from '../http/decorators';
 import { ApiError } from '../http/errors';
@@ -208,5 +211,14 @@ export class WorkspaceController {
   @Route(e.dashboard)
   dashboard(@CurrentUser() user: User, @Query(pipe(e.dashboard.query)) q: In<typeof e.dashboard.query>) {
     return dashboardView(user, { accountant: q.accountant, mine: q.rv === 'mine' });
+  }
+
+  /** The accountant filter is an admin's only, as on the dashboard (resultClients ignores it for anyone else). */
+  @Route(e.dashboardResults)
+  async dashboardResults(
+    @CurrentUser() user: User, @Locale() locale: LocaleCode, @Query(pipe(e.dashboardResults.query)) q: In<typeof e.dashboardResults.query>,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    return sendFile(res, await firmResultsFile(user, { format: q.format ?? 'xlsx', accountantId: q.accountant ?? null }, locale));
   }
 }

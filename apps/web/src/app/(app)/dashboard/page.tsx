@@ -14,6 +14,7 @@ import { Page } from '@/ui/page';
 import { TabPanels, type TabPanel } from '@/ui/tab-panels';
 import { ActivityFeed } from '../activity/activity-feed';
 import { AccountantFilter } from './accountant-filter';
+import { AuditsChart } from './audits-chart';
 import { Card, FOOT_LINK } from './card';
 import { Changes } from './changes';
 import { ComingSoonModules } from './coming-soon';
@@ -23,9 +24,11 @@ import { Onboarding } from './onboarding';
 import { ONBOARDING_COOKIE, onboardingHidden } from './onboarding-pref';
 import { RestoreOnboarding } from './onboarding-toggle';
 import { Summary } from './summary';
+import { ResultsTable } from './results-table';
 import { ReviewTasks } from './review-tasks';
 import { Tasks } from './tasks';
 import { UsagePanel } from './usage-panel';
+import { ValueSummary } from './value-summary';
 import { WorkQueue } from './work-queue';
 import { Workload } from './workload';
 
@@ -75,9 +78,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return text ? `/dashboard?${text}` : '/dashboard';
   };
   const audited = data.clients.some((c) => c.catalogId !== null);
-  const openSteps = steps.some((s) => !s.done);
+  // Open while a required step is left (the API decides; security and Telegram are optional).
+  const openSteps = data.checklist.open;
   const firstRun = openSteps && !steps.find((s) => s.key === 'upload')?.done;
-  const checklistHidden = onboardingHidden(jar.get(ONBOARDING_COOKIE)?.value);
+  const checklistHidden = data.checklist.hidden || onboardingHidden(jar.get(ONBOARDING_COOKIE)?.value);
   const canAct = user.role !== 'viewer' && !user.demo;
   const workload = data.workload && data.workload.length > 0 ? data.workload : null;
   const hasClients = data.clients.length > 0;
@@ -85,7 +89,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // A brand-new firm sees the checklist alone: an empty queue and an empty log would only repeat "nothing yet".
   const showQueue = !firstRun || workQueue(data.clients, new Set(data.pending.keys())).length > 0;
   const showRecent = !firstRun || data.activity.length > 0;
-  const stepsDone = ta.firmX.onboarding.progress(steps.filter((s) => s.done).length, steps.length);
+  const required = steps.filter((s) => !s.optional);
+  const stepsDone = ta.firmX.onboarding.progress(required.filter((s) => s.done).length, required.length);
+  const showValue = data.value.catalogs > 0;
 
   // Secondary content shares one card in tabs, so it never competes with the work: activity, changes, team.
   const tabs: TabPanel[] = [
@@ -152,6 +158,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 {openSteps && !firstRun && checklistHidden ? <RestoreOnboarding>{ta.firmX.onboarding.restore(stepsDone)}<IconChevron size={12} /></RestoreOnboarding> : null}
               </div>
             </div>
+
+            {/* What the work produced (F10), under the open work: totals, then per client beside the weekly audits. */}
+            {showValue ? (
+              <>
+                <ValueSummary value={data.value} canEditMinutes={admin && !user.demo} />
+                <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+                  <ResultsTable value={data.value} accountant={data.selected?.id ?? null} />
+                  <AuditsChart weeks={data.value.weeks} />
+                </div>
+              </>
+            ) : null}
           </>
         ) : null}
 

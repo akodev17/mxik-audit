@@ -1,6 +1,6 @@
 // Settings of the org and the user that are not security: PDF branding, the Telegram link code,
-// API keys, the account export and the saved interface language, plus what the settings pages
-// read. Shared by the web app's server actions and the API. The caller has checked who may call
+// API keys, the account export, the saved interface language and the minutes per decision behind
+// the dashboard's "time saved", plus what the settings pages read. Shared by the web app's server actions and the API. The caller has checked who may call
 // (an admin of a real org for the writes).
 import { z } from 'zod';
 import { db } from '@tasnivo/db';
@@ -101,11 +101,24 @@ export async function chooseLocale(value: unknown, user: Pick<CurrentUser, 'user
   return locale;
 }
 
+/** Bounds of Organization.minutesPerDecision (D8): whole minutes one decision would take by hand. */
+export const MINUTES_PER_DECISION = { min: 1, max: 60 } as const;
+
+/** Saves the minutes per decision; false (nothing written) unless a whole number from 1 to 60. The caller checks the admin. */
+export async function setMinutesPerDecision(user: Pick<Actor, 'orgId'>, minutes: unknown): Promise<boolean> {
+  const parsed = z.number().int().min(MINUTES_PER_DECISION.min).max(MINUTES_PER_DECISION.max).safeParse(minutes);
+  if (!parsed.success) return false;
+  await db.organization.update({ where: { id: user.orgId }, data: { minutesPerDecision: parsed.data } });
+  return true;
+}
+
 /** The org's profile, PDF branding (the logo as a data: URL) and data settings, for Settings. */
 export async function accountSettings(orgId: string) {
   const org = await db.organization.findUniqueOrThrow({
     where: { id: orgId },
-    select: { name: true, brandName: true, logoData: true, logoMime: true, dictAutoAccept: true, rawRetentionDays: true, rawRetentionSince: true },
+    select: {
+      name: true, brandName: true, logoData: true, logoMime: true, dictAutoAccept: true, rawRetentionDays: true, rawRetentionSince: true, minutesPerDecision: true,
+    },
   });
   return {
     name: org.name,
@@ -116,6 +129,7 @@ export async function accountSettings(orgId: string) {
     rawRetentionSince: org.rawRetentionSince,
     retentionChoices: [...RETENTION_CHOICES],
     closeAfterDays: deleteAfterDays(),
+    minutesPerDecision: org.minutesPerDecision,
   };
 }
 

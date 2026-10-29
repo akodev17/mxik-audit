@@ -4,6 +4,7 @@
 // route changes; it knows nothing about the API (the frame persists the outcome through onDone).
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useModuleStates } from '../shell/module-states';
 import { isActive } from '../shell/nav';
 import { clampIndex, TOUR_STEPS, visibleSteps, type TourStep } from './tour-steps';
 
@@ -43,7 +44,9 @@ type Props = {
 export function TourProvider({ canWrite, canManageTeam, onDone, children }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const steps = useMemo(() => visibleSteps(TOUR_STEPS, { write: canWrite, team: canManageTeam }), [canWrite, canManageTeam]);
+  // Sections of switched-off modules are left out, as the navigation leaves them out or marks them "soon".
+  const modules = useModuleStates();
+  const steps = useMemo(() => visibleSteps(TOUR_STEPS, { write: canWrite, team: canManageTeam }, modules), [canWrite, canManageTeam, modules]);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [rawIndex, setIndex] = useState(0);

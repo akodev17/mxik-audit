@@ -391,3 +391,21 @@ What breaks: with the new code still running, every commit, preview and correcte
 500. Deploy the previous code first; it never reads either. The skipped rows' cells are gone with the
 table: exports of catalogues committed meanwhile lose those rows again (as before S8), and nothing
 else changes.
+
+### `20261108000500_value_metrics`
+
+Adds `organization."minutesPerDecision"` (integer, default 3; S9, plan D8: the minutes one review
+decision would take by hand, which the dashboard multiplies by the decisions made for its "time
+saved" estimate; an admin sets 1 to 60 in Settings → Account) and the nullable
+`user."onboardingHiddenAt"` (S9, F19: this person hid the dashboard's checklist; it used to be only
+the per-browser cookie `mxik_onboarding`, which is still read but no longer written).
+
+```sql
+ALTER TABLE "organization" DROP COLUMN IF EXISTS "minutesPerDecision";
+ALTER TABLE "user" DROP COLUMN IF EXISTS "onboardingHiddenAt";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000500_value_metrics';
+```
+
+What breaks: with the new code still running, the dashboard, Settings → Account and the checklist's
+hide button answer 500. Deploy the previous code first; it never reads the columns. The chosen
+minutes and every "hidden" choice are lost (the checklist shows again unless an old cookie hides it).

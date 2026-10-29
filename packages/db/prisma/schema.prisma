@@ -256,6 +256,8 @@ model Organization {
   rawRetentionDays Int? @default(30)
   /// Retention applies only to uploads created after this moment (no retroactive purge).
   rawRetentionSince DateTime? @default(now())
+  /// Minutes one review decision would take by hand: the dashboard's "time saved" estimate (D8), 1 to 60.
+  minutesPerDecision Int @default(3)
   /// Codes this org confirmed per normalised product name (the global alias candidates' evidence).
   learnedAliases LearnedAlias[]
 
@@ -393,6 +395,8 @@ model User {
   googleSub String? @unique
   /// Guided tour finished or skipped; null = show it on the next visit.
   tourCompletedAt DateTime?
+  /// This person hid the dashboard's "getting started" checklist; null = shown.
+  onboardingHiddenAt DateTime?
   emailCodes EmailCode[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)

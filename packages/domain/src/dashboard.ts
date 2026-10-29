@@ -1,12 +1,14 @@
 // The firm dashboard: what needs attention across the clients a user may see,
 // from each client's latest audited catalogue. Open risky rows (rows with a
 // pending high or medium finding) are the unit of work; findings are shown
-// alongside, never mixed with them.
+// alongside, never mixed with them. Beside the open work, what the audits of
+// those clients produced over every version (value measures, F10).
 import { Prisma } from '@prisma/client';
 import { pendingAudits, type PendingAudit } from './client-attention';
 import { attentionReasons, clientStats, type ClientStats } from './client-stats';
 import { db } from '@tasnivo/db';
 import { readFindingType } from '@tasnivo/db/finding-type';
+import { byClient, catalogResults, resultTotals, sortResults, type CatalogResult, type ClientResult } from './firm-results';
 
 export type Totals = {
   clients: number;
@@ -123,6 +125,68 @@ export async function workload(orgId: string, people: readonly (AccountantOption
   });
 }
 
+export type WeekCount = { /** Monday of the week, Tashkent time, YYYY-MM-DD. */ weekStart: string; catalogs: number; rows: number };
+
+const TASHKENT_MS = 5 * 3_600_000;
+
+/** Monday (Tashkent time, no daylight saving) of the week `at` falls in, as YYYY-MM-DD. Pure. */
+export function weekStart(at: Date): string {
+  const local = new Date(at.getTime() + TASHKENT_MS);
+  const back = (local.getUTCDay() + 6) % 7;
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - back)).toISOString().slice(0, 10);
+}
+
+/** Audited catalogues and their checked rows per week, the last `weeks` weeks up to the one `now` is in, oldest first. Pure. */
+export function weekSeries(catalogs: readonly Pick<CatalogResult, 'createdAt' | 'rowsChecked'>[], now: Date, weeks = 12): WeekCount[] {
+  const last = new Date(`${weekStart(now)}T00:00:00Z`).getTime();
+  const out = new Map<string, WeekCount>();
+  for (let i = weeks - 1; i >= 0; i--) {
+    const start = new Date(last - i * 7 * 86_400_000).toISOString().slice(0, 10);
+    out.set(start, { weekStart: start, catalogs: 0, rows: 0 });
+  }
+  for (const k of catalogs) {
+    const week = out.get(weekStart(k.createdAt));
+    if (!week) continue;
+    week.catalogs++;
+    week.rows += k.rowsChecked;
+  }
+  return [...out.values()];
+}
+
+/** Clients listed in the dashboard's results table; the download has them all. */
+export const RESULT_ROWS = 10;
+
+export type ValueMetrics = ReturnType<typeof resultTotals> & {
+  minutesPerDecision: number;
+  /** decisions × minutesPerDecision: an estimate from the org's setting (D8), never a measurement. */
+  minutesSaved: number;
+  weeks: WeekCount[];
+  /** Clients with an audited catalogue, latest audit first, at most RESULT_ROWS. */
+  clients: ClientResult[];
+  /** How many of the clients shown have an audited catalogue. */
+  clientsWithResults: number;
+};
+
+/** What the audits of these clients produced, over every audited version of their catalogues. */
+export async function valueMetrics(orgId: string, clients: readonly Pick<ClientStats, 'id' | 'name' | 'isDefault'>[], now = new Date()): Promise<ValueMetrics> {
+  const [catalogs, org] = await Promise.all([
+    catalogResults(orgId, clients.map((c) => c.id)),
+    db.organization.findUnique({ where: { id: orgId }, select: { minutesPerDecision: true } }),
+  ]);
+  const rows = byClient(clients, catalogs);
+  const totals = resultTotals(rows);
+  const minutesPerDecision = org?.minutesPerDecision ?? 3;
+  const audited = sortResults(rows).filter((r) => r.catalogs > 0);
+  return {
+    ...totals,
+    minutesPerDecision,
+    minutesSaved: totals.decisions * minutesPerDecision,
+    weeks: weekSeries(catalogs, now),
+    clients: audited.slice(0, RESULT_ROWS),
+    clientsWithResults: audited.length,
+  };
+}
+
 export type DashboardViewer = { orgId: string; role: string; clientIds?: string[] | null };
 
 export type Dashboard = {
@@ -136,6 +200,8 @@ export type Dashboard = {
   workload: WorkloadRow[] | null;
   /** Clients shown (default client left out) whose newest upload is still being audited or failed. */
   pending: Map<string, PendingAudit>;
+  /** What the audits of the clients shown produced (F10). */
+  value: ValueMetrics;
 };
 
 const MAX_CLIENTS = 2000;
@@ -151,15 +217,16 @@ export async function dashboard(user: DashboardViewer, accountantId: string | nu
   // An accountant with no assignments works on every client, so the filter shows them all.
   const clients = chosen && chosen.clientIds.length > 0 ? all.filter((c) => chosen.clientIds.includes(c.id)) : all;
   const catalogIds = clients.flatMap((c) => (c.catalogId ? [c.catalogId] : []));
-  const [byType, changes, load, pending] = await Promise.all([
+  const [byType, changes, load, pending, value] = await Promise.all([
     pendingByType(catalogIds),
     changesSincePrevious(user.orgId, clients),
     admin ? workload(user.orgId, people, all) : Promise.resolve(null),
     pendingAudits(user.orgId, clients.filter((c) => !c.isDefault)),
+    valueMetrics(user.orgId, clients),
   ]);
   const strip = ({ id, email, assigned }: AccountantOption): AccountantOption => ({ id, email, assigned });
   return {
     clients, totals: dashboardTotals(clients), byType, changes,
-    accountants: people.map(strip), selected: chosen ? strip(chosen) : null, workload: load, pending,
+    accountants: people.map(strip), selected: chosen ? strip(chosen) : null, workload: load, pending, value,
   };
 }

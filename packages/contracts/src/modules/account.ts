@@ -9,6 +9,9 @@ import { ErrorState } from './auth';
 
 const Flag = z.union([Ok, ShellFail]);
 
+/** account-settings.ts MINUTES_PER_DECISION. */
+export const MINUTES_PER_DECISION = { min: 1, max: 60 } as const;
+
 export const ApiKeyRow = z.object({
   id: z.string(),
   name: z.string(),
@@ -59,6 +62,8 @@ export const account = defineModule('account', {
       retentionChoices: z.array(z.number().int()),
       /** Days a closed account is kept before it is erased (ACCOUNT_DELETE_AFTER_DAYS). */
       closeAfterDays: z.number().int(),
+      /** Minutes one decision would take by hand: the dashboard's "time saved" estimate (D8). */
+      minutesPerDecision: z.number().int(),
     }),
     replaces: ['page:(app)/settings#account', 'page:(app)/settings#data'],
     notes: 'Shape confirmed in W2; until W3 account-tab.tsx and data-tab.tsx select these columns from db.organization.',
@@ -110,6 +115,22 @@ export const account = defineModule('account', {
     responds: 'json', response: z.boolean(),
     replaces: ['action:security.ts#changeRetention'],
     notes: `setRetention accepts ${RETENTION_CHOICES.join(', ')} or null.`,
+  }),
+  setMinutesPerDecision: endpoint({
+    method: 'PUT', path: '/api/account/minutes-per-decision', auth: 'session', role: 'admin', noDemo: true,
+    summary: 'Minutes one review decision would take by hand, behind the dashboard\'s "time saved" estimate',
+    body: z.object({ minutes: z.number().int().min(MINUTES_PER_DECISION.min).max(MINUTES_PER_DECISION.max) }),
+    responds: 'json', response: z.boolean(),
+    replaces: ['page:(app)/settings#account'],
+    notes: `A whole number from ${MINUTES_PER_DECISION.min} to ${MINUTES_PER_DECISION.max} (400 otherwise); the domain checks the same bounds again.`,
+  }),
+  setOnboardingHidden: endpoint({
+    method: 'PUT', path: '/api/account/onboarding', auth: 'session', role: 'any',
+    summary: 'Hide the dashboard\'s getting-started checklist for this person on every device, or show it again',
+    body: z.object({ hidden: z.boolean() }),
+    responds: 'json', response: Ok,
+    replaces: ['page:(app)/dashboard#onboarding'],
+    notes: 'Writes User.onboardingHiddenAt, which GET /api/dashboard answers as checklist.hidden. A demo is accepted and nothing is written. Replaces the per-browser cookie mxik_onboarding (still read by the web, no longer written).',
   }),
   close: endpoint({
     method: 'POST', path: '/api/account/close', auth: 'session', role: 'admin', noDemo: true,
