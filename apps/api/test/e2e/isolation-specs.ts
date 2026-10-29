@@ -170,7 +170,7 @@ export const FILL: Record<string, Fill> = {
   'products.confirm': { body: ({ code }) => ({ code }) },
   'products.check': { body: ({ c }) => ({ ids: [c.productId], clientId: c.clientId }) },
   'products.importPreview': { fields: ({ c }) => ({ clientId: c.clientId }), file: sheet },
-  'products.importCommit': { fields: ({ c }) => ({ clientId: c.clientId, mapping: JSON.stringify({ name: 0, mxik: 1, unit: 2, barcode: 3 }) }), file: sheet },
+  'products.importCommit': { fields: ({ c }) => ({ clientId: c.clientId, mapping: JSON.stringify({ name: 0, onecRef: -1, article: -1, mxik: 1, packageCode: -1, unit: 2, barcode: 3 }) }), file: sheet },
   'products.exportAll': { body: ({ c }) => ({ clientId: c.clientId }) },
 };
 
