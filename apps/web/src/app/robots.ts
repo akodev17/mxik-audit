@@ -5,7 +5,7 @@ import { appOrigin } from '@/lib/pure/app-url';
 export const PRIVATE_PATHS = [
   '/dashboard', '/catalogs', '/clients', '/queue', '/activity', '/notifications', '/dictionary', '/team',
   '/upload', '/settings', '/admin', '/review', '/report', '/export', '/account-deleted', '/styleguide',
-  '/bank', '/didox', '/products', '/onec',
+  '/bank', '/didox', '/products', '/onec', '/coming-soon',
   '/r/', '/invite/', '/reset/', '/demo/verify/', '/api/',
 ] as const;
 
