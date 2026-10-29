@@ -216,3 +216,21 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261107000100_feature_
 What breaks: with the new code still running, every request under a module's prefix (API and web)
 answers 500 once the cached states expire, and `/admin/features` cannot save. Deploy the previous
 code first; it never reads the table.
+
+## SaaS hardening (`20261108*`)
+
+### `20261108000200_item_check_error`
+
+Adds the nullable `catalog_item."checkError"` (S3, plan D7): the kind and text of a row's check that
+still failed after its retries. The audit continues, the catalogue becomes `ready` with the
+`rows_failed` count in `pipelineMeta`, and "Re-check failed rows" re-runs only those rows.
+
+```sql
+ALTER TABLE "catalog_item" DROP COLUMN IF EXISTS "checkError";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000200_item_check_error';
+```
+
+What breaks: with the new code still running, every audit fails on its first row write and the
+workspace summary answers 500. Deploy the previous code first; it never reads the column. Rows that
+were marked failed lose the mark and then look checked with no findings: re-audit those catalogues
+after a rollback.
