@@ -5,7 +5,9 @@
 // 12-hour timeout; the tier rule at checkout; and uploads refused once the plan has ended.
 import '../setup-env';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -14,12 +16,15 @@ import { db } from '@tasnivo/db';
 import { CLICK_ERRORS, clickSign } from '@tasnivo/domain/billing/click';
 import { billingConfig } from '@tasnivo/domain/billing/config';
 import { recordTransfer } from '@tasnivo/domain/billing/orders';
-import { addMonths } from '@tasnivo/domain/billing/period';
+import { addMonths, creditDays } from '@tasnivo/domain/billing/period';
+import { createApiKey, monthKey } from '@tasnivo/domain/api/keys';
+import { monthStart } from '@tasnivo/domain/usage-ledger';
 import { PAYME_ERRORS } from '@tasnivo/domain/billing/payme';
 import { makeCatalog } from '@tasnivo/domain/test-fixtures';
 import { i18nFor } from '@tasnivo/i18n/locale';
-import { bodyOf, dbSkipReason, dropOrgs, makeUser, serverOf, startApp, type TestUser } from '../helpers';
-import { addMember, CSRF, fits, sessionCookie, withEnv } from '../w2d-support';
+import { bodyOf, dbSkipReason, dropOrgs, makeUser, serverOf, startApp, testIp, type TestUser } from '../helpers';
+import { catchMail, quietEnv } from '../session-helpers';
+import { addClient, addMember, CSRF, fits, sessionCookie, withEnv } from '../w2d-support';
 
 const skip = await dbSkipReason();
 const e = endpoints.billing;
@@ -378,5 +383,191 @@ describe('billing module (database)', { skip }, () => {
     assert.equal(bodyOf<{ ok: boolean }>(counterparties).ok, true, JSON.stringify(counterparties.body));
     const plan = fits(e.plan.response, (await http().get('/api/billing/plan').set('Cookie', cookie)).body);
     assert.equal(plan.status.usage.rowsPerMonth, 0, 'not counted in the monthly rows (D4)');
+  });
+});
+
+// S10: the plan as the API shows it across trial → ended → paid, the bank-transfer script itself,
+// and the caps where two requests arrive at once (seats on invite accept, monthly rows on commit)
+// or the cap changes with the tier (API checks).
+describe('plan transitions, the transfer script and caps at the edge (database)', { skip }, () => {
+  let app: INestApplication;
+  const orgs: string[] = [];
+  let jobs: { restore(): void };
+  let restoreEnv: () => void;
+  const ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
+  const http = () => request(serverOf(app));
+  const post = (path: string, cookie: string) => http().post(path).set(CSRF).set('Cookie', cookie).set('X-Real-IP', testIp());
+  const plan = async (cookie: string) => fits(e.plan.response, (await http().get('/api/billing/plan').set('Cookie', cookie)).body).status;
+  const trialOrg = async () => {
+    const u = await makeUser();
+    orgs.push(u.orgId);
+    await db.organization.update({ where: { id: u.orgId }, data: { trialEndsAt: new Date(Date.now() + 7 * 86_400_000) } });
+    return { ...u, cookie: await sessionCookie(u) };
+  };
+  /** scripts/billing-activate.ts as the owner runs it: exit code and output. */
+  const activate = (args: string[]) => new Promise<{ code: number; out: string; err: string }>((resolve) => {
+    execFile(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'scripts/billing-activate.ts', ...args], { cwd: ROOT, env: process.env }, (error, out, err) => {
+      resolve({ code: error ? Number(error.code ?? 1) : 0, out: String(out), err: String(err) });
+    });
+  });
+  const untilOf = async (orgId: string) => (await db.organization.findUniqueOrThrow({ where: { id: orgId }, select: { subscriptionUntil: true } })).subscriptionUntil;
+  const v1check = (token: string, names: string[]) =>
+    http().post('/api/v1/check').set('Authorization', `Bearer ${token}`).send({ items: names.map((name) => ({ name })) });
+  const csv = (rows: number, prefix: string): Buffer => Buffer.from(['Nomi;Birlik', ...Array.from({ length: rows }, (_, i) => `${prefix} ${i + 1};dona`)].join('\n'), 'utf8');
+  const invite = async (cookie: string) => fits(endpoints.team.invite.response, (await post('/api/team/invites', cookie).send({ role: 'accountant', kind: 'link', access: 'all' })).body);
+  // Public, limited per client address: each join comes from its own.
+  const join = (url: string, email: string) =>
+    http().post(`/api/invites/${url.split('/invite/')[1] ?? ''}/join`).set(CSRF).set('X-Real-IP', testIp()).send({ email, password: 'join-password-123' });
+
+  before(async () => {
+    restoreEnv = quietEnv();
+    // Audits a commit starts are queued nowhere: only the accounting is under test.
+    jobs = catchMail();
+    app = await startApp();
+  });
+  after(async () => {
+    jobs.restore();
+    restoreEnv();
+    await app.close();
+    await dropOrgs(orgs);
+    await db.$disconnect();
+  });
+
+  it('trial → ended → paid by bank transfer: GET /api/billing/plan and the gates follow each step; reading is never blocked', async () => {
+    const owner = await trialOrg();
+    const token = (await createApiKey({ orgId: owner.orgId, userId: owner.userId, role: 'admin' }, 'plan'))?.token ?? '';
+    let status = await plan(owner.cookie);
+    assert.deepEqual([status.state, status.tier, status.daysLeft, status.limits], ['trial', null, 7, { clients: 3, rowsPerMonth: 5_000, seats: 2 }]);
+    const created = await post('/api/clients', owner.cookie).send({ name: 'Bosqich mijoz' });
+    const clientId = bodyOf<{ ok: true; clientId: string }>(created).clientId;
+    assert.ok(clientId, JSON.stringify(created.body));
+    assert.equal((await v1check(token, ['Shakar 1 kg'])).status, 200);
+
+    await db.organization.update({ where: { id: owner.orgId }, data: { trialEndsAt: new Date(Date.now() - 60_000) } });
+    status = await plan(owner.cookie);
+    assert.deepEqual([status.state, status.daysLeft, [...status.full].sort()], ['expired', null, ['clients', 'rowsPerMonth', 'seats']]);
+    assert.deepEqual((await post('/api/clients', owner.cookie).send({ name: 'Yana mijoz' })).body, { ok: false, error: ta.msg.gate.expired });
+    assert.deepEqual((await post('/api/team/invites', owner.cookie).send({ role: 'viewer', kind: 'link', access: 'all' })).body, { error: ta.msg.gate.expired });
+    const preview = await post('/api/catalogs/preview', owner.cookie).field('clientId', clientId).attach('file', csv(3, 'Tugagan'), 'tugagan.csv');
+    assert.deepEqual(preview.body, { ok: false, error: ta.msg.gate.expired });
+    const ended = await v1check(token, ['Shakar 1 kg']);
+    assert.deepEqual([ended.status, bodyOf(ended).error.code], [402, 'plan_expired']);
+    const clients = await http().get('/api/clients').set('Cookie', owner.cookie);
+    assert.equal(clients.status, 200);
+    assert.ok(JSON.stringify(clients.body).includes('Bosqich mijoz'), 'reading is never blocked');
+
+    const paid = await activate(['--org', owner.email, '--plan', 'company_monthly']);
+    assert.equal(paid.code, 0, paid.err);
+    assert.equal((JSON.parse(paid.out.trim().split('\n').at(-1) ?? '{}') as { planId?: string }).planId, 'company_monthly');
+    status = await plan(owner.cookie);
+    assert.deepEqual([status.state, status.tier, status.limits], ['firm', 'company', { clients: 1, rowsPerMonth: 20_000, seats: 3 }]);
+    // The company tier holds one client: the trial's client fills it.
+    assert.ok(status.full.includes('clients'));
+    assert.deepEqual((await post('/api/clients', owner.cookie).send({ name: 'Ikkinchi mijoz' })).body, { ok: false, error: ta.msg.gate.clients });
+    assert.ok((await invite(owner.cookie)).url, 'an invite fits the tier\'s seats');
+    const open = await post('/api/catalogs/preview', owner.cookie).field('clientId', clientId).attach('file', csv(3, 'Ochiq'), 'ochiq.csv');
+    assert.equal(bodyOf<{ ok: boolean }>(open).ok, true, JSON.stringify(open.body));
+    assert.equal((await v1check(token, ['Shakar 1 kg'])).status, 200);
+    const days = ((await untilOf(owner.orgId))?.getTime() ?? 0) - Date.now();
+    assert.ok(days > 27 * 86_400_000 && days < 32 * 86_400_000, `one calendar month, got ${days / 86_400_000} days`);
+  });
+
+  it('the transfer script: the tier rule as online, --force converts a downgrade, refusals exit 1 and change nothing', async () => {
+    const owner = await makeUser();
+    orgs.push(owner.orgId);
+    const cookie = await sessionCookie(owner);
+    assert.equal((await activate(['--org', owner.orgId, '--plan', 'accountant_monthly'])).code, 0);
+    const accountantEnd = await untilOf(owner.orgId);
+    assert.ok(accountantEnd);
+
+    const refused = await activate(['--org', owner.orgId, '--plan', 'company_monthly']);
+    assert.equal(refused.code, 1);
+    assert.match(refused.err, /dearer tier is running/);
+    assert.equal((await untilOf(owner.orgId))?.getTime(), accountantEnd.getTime());
+    assert.equal((await plan(cookie)).tier, 'accountant');
+    assert.equal(await db.order.count({ where: { orgId: owner.orgId, planId: 'company_monthly', status: 'paid' } }), 0);
+
+    const before = Date.now();
+    const forced = await activate(['--org', owner.orgId, '--plan', 'company_monthly', '--force']);
+    assert.equal(forced.code, 0, forced.err);
+    assert.equal((await plan(cookie)).tier, 'company');
+    // The unused accountant days become company days at the price ratio (900 000 / 390 000), plus the month paid for.
+    const credit = creditDays(accountantEnd.getTime() - before, 'accountant', 'company');
+    assert.ok(credit >= 60, `credit ${credit}`);
+    const end = (await untilOf(owner.orgId))?.getTime() ?? 0;
+    const expected = addMonths(new Date(before + credit * 86_400_000), 1).getTime();
+    assert.ok(Math.abs(end - expected) < 2 * 86_400_000, `end ${new Date(end).toISOString()} vs ${new Date(expected).toISOString()}`);
+
+    for (const args of [['--org', owner.orgId, '--plan', 'no_such_plan'], ['--org', 'nobody@example.com', '--plan', 'company_monthly'], ['--plan', 'company_monthly']]) {
+      const r = await activate(args);
+      assert.equal(r.code, 1, args.join(' '));
+    }
+    assert.equal(await untilOf(owner.orgId).then((d) => d?.getTime()), end);
+  });
+
+  it('seats: one invite accepted twice at once makes one account; invites holding the last seats accepted at once both fit, and the cap holds', async () => {
+    const trial = await trialOrg();
+    const only = await invite(trial.cookie);
+    assert.ok(only.url);
+    assert.deepEqual(await invite(trial.cookie), { error: ta.setX.team.invite.seatsFull });
+    const tag = randomBytes(4).toString('hex');
+    const both = await Promise.all([join(only.url, `a-${tag}@example.com`), join(only.url, `b-${tag}@example.com`)]);
+    const joined = both.filter((r) => 'redirect' in (r.body as object));
+    assert.equal(joined.length, 1, JSON.stringify(both.map((r) => r.body as unknown)));
+    assert.equal(await db.user.count({ where: { orgId: trial.orgId } }), 2);
+    assert.deepEqual([(await plan(trial.cookie)).usage.seats, (await plan(trial.cookie)).full.includes('seats')], [2, true]);
+
+    const company = await makeUser();
+    orgs.push(company.orgId);
+    assert.ok((await recordTransfer({ orgId: company.orgId, planId: 'company_monthly', catalogId: null })).ok);
+    const cookie = await sessionCookie(company);
+    const first = await invite(cookie);
+    const second = await invite(cookie);
+    assert.ok(first.url && second.url);
+    assert.deepEqual(await invite(cookie), { error: ta.setX.team.invite.seatsFull });
+    const accepted = await Promise.all([join(first.url, `c-${tag}@example.com`), join(second.url, `d-${tag}@example.com`)]);
+    assert.ok(accepted.every((r) => 'redirect' in (r.body as object)), JSON.stringify(accepted.map((r) => r.body as unknown)));
+    assert.equal(await db.user.count({ where: { orgId: company.orgId } }), 3);
+    const status = await plan(cookie);
+    assert.deepEqual([status.usage.seats, status.limits.seats], [3, 3]);
+    assert.deepEqual(await invite(cookie), { error: ta.setX.team.invite.seatsFull });
+  });
+
+  it('rowsPerMonth: two uploads committed at once at the edge of the allowance, one passes and the other is refused', async () => {
+    const owner = await trialOrg();
+    const client = await addClient(owner.orgId, 'Qator mijoz');
+    const other = await addMember(owner.orgId, 'accountant');
+    const otherCookie = await sessionCookie(other);
+    // 4 990 of the trial's 5 000 rows are used: six rows fit once, twice they do not.
+    await db.usageLedger.create({ data: { orgId: owner.orgId, key: 'rowsPerMonth', amount: 4_990, period: monthStart(new Date()), reason: 'backfill' } });
+    type Preview = { ok: true; preview: { catalogId: string; mapping: Record<string, number> } };
+    // One open preview per person, so each upload is by a different member.
+    const previews = await Promise.all([[owner.cookie, 'Birinchi'], [otherCookie, 'Ikkinchi']].map(async ([who = '', prefix = '']) => {
+      const res = await post('/api/catalogs/preview', who).field('clientId', client.id).attach('file', csv(6, prefix), `${prefix}.csv`);
+      assert.ok(bodyOf<{ ok: boolean }>(res).ok, JSON.stringify(res.body));
+      return { who, preview: bodyOf<Preview>(res).preview };
+    }));
+    const commits = await Promise.all(previews.map(({ who, preview }) => post(`/api/catalogs/${preview.catalogId}/commit`, who).send({ mapping: preview.mapping })));
+    const answers = commits.map((r) => r.body as { ok: boolean; error?: string });
+    assert.equal(answers.filter((a) => a.ok).length, 1, JSON.stringify(answers));
+    assert.deepEqual(answers.find((a) => !a.ok), { ok: false, error: ta.msg.gate.rowsPerMonth });
+    assert.equal((await plan(owner.cookie)).usage.rowsPerMonth, 4_996);
+    assert.equal(await db.usageLedger.count({ where: { orgId: owner.orgId } }), 2);
+  });
+
+  it('apiChecks: the allowance follows the plan — the trial\'s 500, then the paid tier\'s', async () => {
+    const owner = await trialOrg();
+    const token = (await createApiKey({ orgId: owner.orgId, userId: owner.userId, role: 'admin' }, 'cap'))?.token ?? '';
+    const keyId = (await db.apiKey.findFirstOrThrow({ where: { orgId: owner.orgId }, select: { id: true } })).id;
+    await db.apiUsage.create({ data: { keyId, orgId: owner.orgId, month: monthKey(), checks: 499, requests: 1 } });
+    const over = await v1check(token, ['Shakar 1 kg', 'Guruch 1 kg']);
+    assert.deepEqual([over.status, bodyOf(over).error.code], [402, 'plan_limit']);
+    assert.equal((await v1check(token, ['Shakar 1 kg'])).status, 200);
+    assert.deepEqual([(await v1check(token, ['Guruch 1 kg'])).status], [402], 'the 500 are used');
+
+    assert.ok((await recordTransfer({ orgId: owner.orgId, planId: 'company_monthly', catalogId: null })).ok);
+    assert.equal((await v1check(token, ['Shakar 1 kg', 'Guruch 1 kg'])).status, 200, 'the company tier allows 1 000');
+    const used = await db.apiUsage.aggregate({ where: { orgId: owner.orgId, month: monthKey() }, _sum: { checks: true } });
+    assert.equal(used._sum.checks, 502);
   });
 });
