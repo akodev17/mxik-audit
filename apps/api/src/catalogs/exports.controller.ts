@@ -4,16 +4,17 @@
 // download=1 or inline), so every link that worked keeps working; the files and refusals come
 // from @tasnivo/domain/catalog-exports, shared with the web routes. Exports of big catalogues take
 // minutes: nothing here sets a timeout.
-import { Controller, Query, Res, type StreamableFile } from '@nestjs/common';
+import { Controller, Param, Query, Res, type StreamableFile } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { endpoints } from '@tasnivo/contracts';
-import { catalogDiffCsv, catalogExport, catalogReportCsv, catalogReportPdf } from '@tasnivo/domain/catalog-exports';
+import { catalogDiffCsv, catalogExport, catalogImportIssuesCsv, catalogReportCsv, catalogReportPdf } from '@tasnivo/domain/catalog-exports';
 import type { CurrentUser as User } from '@tasnivo/domain/session';
 import type { Locale as LocaleCode } from '@tasnivo/i18n/i18n';
 import { CurrentUser, Locale } from '../http/decorators';
 import { queryValue, sendDownload } from '../http/download';
 import { Route } from '../http/route';
+import { ZodValidationPipe } from '../http/zod-validation.pipe';
 
 const e = endpoints.catalogs;
 type RawQuery = Record<string, unknown>;
@@ -42,5 +43,14 @@ export class ExportsController {
       audience: queryValue(q['audience']) === 'client' ? 'client' : 'internal',
       download: queryValue(q['download']) === '1',
     }));
+  }
+
+  /** The upload diagnostics row by row (file line, column, reason, cell) as CSV. */
+  @Route(e.importIssues)
+  async importIssues(
+    @CurrentUser() user: User, @Locale() locale: LocaleCode,
+    @Param(new ZodValidationPipe(e.importIssues.params)) { catalogId }: { catalogId: string }, @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    return sendDownload(res, await catalogImportIssuesCsv(user, locale, catalogId));
   }
 }

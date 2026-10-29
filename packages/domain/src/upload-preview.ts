@@ -33,7 +33,24 @@ export type UploadPreview = {
   diagnostics: ImportDiagnostics | null;
   /** The client's latest audited catalogue: the version this one will be compared with. */
   previous: PreviousVersion | null;
+  /** The user changed the suggested mapping (kept by diagnose): the shown mapping is theirs, not the suggestion. */
+  edited: boolean;
+  /** An earlier catalogue of the same client made from a byte-identical file: a warning, never a refusal. */
+  sameFile: SameFile | null;
 };
+
+export type SameFile = { id: string; filename: string; createdAt: string };
+
+/** The newest committed catalogue of the client (the org when there is no client) whose file had this hash. */
+export async function sameFileAs(actor: ScopedActor, clientId: string | null, fileHash: string | null, excludeId: string): Promise<SameFile | null> {
+  if (!fileHash) return null;
+  const earlier = await db.catalog.findFirst({
+    where: { ...catalogScope(actor), ...(clientId ? { clientId } : {}), fileHash, id: { not: excludeId }, status: { not: 'uploaded' } },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, filename: true, createdAt: true },
+  });
+  return earlier ? { ...earlier, createdAt: earlier.createdAt.toISOString() } : null;
+}
 
 const guessedFields = (mapping: ColumnMap): Record<ColumnField, FieldSource> =>
   Object.fromEntries(COLUMN_FIELDS.map((f) => [f, mapping[f] >= 0 ? 'guess' : 'none'])) as Record<ColumnField, FieldSource>;
@@ -52,14 +69,15 @@ export async function previousVersion(orgId: string, clientId: string | null, ex
 export async function uploadPreview(actor: ScopedActor, catalogId: string): Promise<UploadPreview | null> {
   const catalog = await db.catalog.findFirst({
     where: { id: catalogId, ...catalogScope(actor), status: 'uploaded' },
-    select: { id: true, filename: true, headers: true, columnMap: true, importMeta: true, rowCount: true, client: { select: { id: true, name: true } } },
+    select: { id: true, filename: true, headers: true, columnMap: true, importMeta: true, rowCount: true, fileHash: true, client: { select: { id: true, name: true } } },
   });
   if (!catalog?.client) return null;
   const mapping = ColumnMapSchema.safeParse(catalog.columnMap);
   if (!mapping.success) return null;
-  const [items, previous] = await Promise.all([
+  const [items, previous, sameFile] = await Promise.all([
     db.catalogItem.findMany({ where: { catalogId }, orderBy: { rowIndex: 'asc' }, take: SAMPLE_ROWS, select: { attrs: true } }),
     previousVersion(actor.orgId, catalog.client.id, catalogId),
+    sameFileAs(actor, catalog.client.id, catalog.fileHash, catalogId),
   ]);
   const meta = readImportMeta(catalog.importMeta);
   return {
@@ -75,6 +93,8 @@ export async function uploadPreview(actor: ScopedActor, catalogId: string): Prom
     fields: meta?.fields ?? guessedFields(mapping.data),
     diagnostics: meta?.diagnostics ?? null,
     previous,
+    edited: meta?.edited === true,
+    sameFile,
   };
 }
 

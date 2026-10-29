@@ -35,6 +35,8 @@ export const ParseMeta = z.object({
   totalSeen: z.number().int(),
   truncated: z.boolean(),
   lineJumps: z.array(z.tuple([z.number().int(), z.number().int()])).nullable().optional(),
+  /** Cells holding a value right of the 500th column, not read (.xlsx only); absent when there were none. */
+  cellsPastColumnLimit: z.number().int().optional(),
 });
 
 /** column-map.ts MappingIssue. */
@@ -59,6 +61,10 @@ export const UploadPreview = z.object({
   fields: z.object(Object.fromEntries(COLUMN_FIELDS.map((f) => [f, FieldSource])) as Record<(typeof COLUMN_FIELDS)[number], typeof FieldSource>),
   diagnostics: ImportDiagnostics.nullable(),
   previous: z.object({ id: z.string(), filename: z.string(), createdAt: IsoDateTime, rowCount: z.number().int() }).nullable(),
+  /** The user changed the suggested mapping; the mapping shown is the one they left (kept by diagnose). */
+  edited: z.boolean().default(false),
+  /** An earlier catalogue of the same client from a byte-identical file: a warning, never a refusal. */
+  sameFile: z.object({ id: z.string(), filename: z.string(), createdAt: IsoDateTime }).nullable().default(null),
 });
 
 /** upload-progress.ts UploadProgress. */
@@ -269,20 +275,29 @@ export const catalogs = defineModule('catalogs', {
   }),
   diagnose: endpoint({
     method: 'POST', path: '/api/catalogs/{catalogId}/diagnose', auth: 'session', role: 'writer',
-    summary: 'Check a mapping and recompute the import diagnostics',
+    summary: 'Check a mapping, recompute the import diagnostics and keep the mapping on the upload',
     params: CatalogPath,
     body: z.object({ mapping: ColumnMap }),
     responds: 'json', response: z.union([z.object({ ok: z.literal(true), diagnostics: ImportDiagnostics, issues: z.array(MappingIssue) }), Fail]),
     replaces: ['action:catalog.ts#diagnoseUpload'],
+    notes: 'A valid mapping is stored with its diagnostics, so the preview (coming back to /upload?catalog=) shows it.',
+  }),
+  importIssues: endpoint({
+    method: 'GET', path: '/api/catalogs/{catalogId}/import-issues', auth: 'session', role: 'any',
+    summary: 'The import diagnostics row by row as CSV: file line, data row, column, reason, cell',
+    params: CatalogPath,
+    responds: 'file', file: { contentTypes: ['text/csv; charset=utf-8'], disposition: 'attachment' },
+    replaces: ['page:(app)/upload#importIssues'],
+    notes: 'Under the upload\'s current mapping (the last one diagnosed, or the committed one). Rows past the row limit and cells past the column limit are one line each. 404 for a catalogue the user may not see.',
   }),
   commit: endpoint({
     method: 'POST', path: '/api/catalogs/{catalogId}/commit', auth: 'session', role: 'writer', noDemo: true,
     summary: 'Confirm the mapping and start the audit',
     params: CatalogPath,
     body: z.object({ mapping: ColumnMap }),
-    responds: 'json', response: z.union([z.object({ ok: z.literal(true), catalogId: z.string() }), Fail.extend({ committed: z.boolean().optional() })]),
+    responds: 'json', response: z.union([z.object({ ok: z.literal(true), catalogId: z.string(), skipped: z.number().int().default(0) }), Fail.extend({ committed: z.boolean().optional() })]),
     replaces: ['action:catalog.ts#commitUpload'],
-    notes: 'Claims the catalogue atomically; enqueues the audit (W1b); makes its client the active one.',
+    notes: 'Claims the catalogue atomically; enqueues the audit (W1b); makes its client the active one. skipped: rows without a name, not audited, kept for the export with a marker.',
   }),
   discard: endpoint({
     method: 'DELETE', path: '/api/catalogs/{catalogId}/preview', auth: 'session', role: 'writer',
@@ -333,6 +348,8 @@ export const catalogs = defineModule('catalogs', {
       snapshot: z.object({ usedTakenAt: IsoDateTime.nullable(), newerTakenAt: IsoDateTime.nullable() }),
       /** Exports wait for payment (billing turned on for exports and not paid). */
       exportLocked: z.boolean(),
+      /** File rows without a name: not audited, written to the corrected export with a marker. */
+      skippedRows: z.number().int().default(0),
     }),
     replaces: ['page:(app)/catalogs/[id]'],
     provisional: 'catalogs/[id]/page.tsx and workspace-header.tsx read db.catalog and db.catalogSnapshot directly',

@@ -3,6 +3,8 @@
 // both call these, so the rules and the messages cannot drift apart. `user` is the caller once the
 // writer guard passed, or null when it did not (the action's writer() result): every function
 // answers that, a viewer and a demo org the way the actions always did.
+import { createHash } from 'node:crypto';
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
@@ -13,7 +15,7 @@ import { retryAudit, startAudit } from './audit-jobs.js';
 import { defaultClient } from './clients.js';
 import { applyMapping, MAX_UPLOAD_BYTES, storedRows, storeCatalog } from './catalog-import.js';
 import { deleteCatalog } from './catalogs.js';
-import { ColumnMapSchema, mappingIssues, type MappingIssue } from './column-map.js';
+import { COLUMN_FIELDS, ColumnMapSchema, mappingIssues, type ColumnMap, type MappingIssue } from './column-map.js';
 import { isDemoOrg } from './demo.js';
 import { importDiagnostics, type ImportDiagnostics } from './import-diagnostics.js';
 import { suggestMapping } from './mapping-memory.js';
@@ -85,8 +87,11 @@ export async function previewCatalogUpload(
   if (!target.ok) return { ok: false, error: e[target.reason] };
 
   let parsed;
+  let fileHash: string;
   try {
-    parsed = await parseUpload(await file.read(), file.name);
+    const bytes = await file.read();
+    fileHash = createHash('sha256').update(bytes).digest('hex');
+    parsed = await parseUpload(bytes, file.name);
   } catch (error) {
     return { ok: false, error: e[parseErrorCode(error)] };
   }
@@ -107,7 +112,7 @@ export async function previewCatalogUpload(
   try {
     const suggestion = await suggestMapping(user.orgId, target.id, parsed.headers);
     const { catalogId } = await storeCatalog({
-      orgId: user.orgId, userId: user.userId, clientId: target.id, filename: file.name, parsed,
+      orgId: user.orgId, userId: user.userId, clientId: target.id, filename: file.name, parsed, fileHash,
       mapping: suggestion.mapping, suggestion: { remembered: suggestion.remembered, fields: suggestion.fields },
     });
     const preview = await uploadPreview(user, catalogId);
@@ -121,7 +126,16 @@ const MappingInput = z.object({ catalogId: z.string().min(1), mapping: ColumnMap
 
 export type DiagnoseResult = { ok: true; diagnostics: ImportDiagnostics; issues: MappingIssue[] } | { ok: false; error: string };
 
-/** Validates a mapping for an uncommitted upload and recomputes its import diagnostics on the server. */
+const sameMapping = (a: unknown, b: ColumnMap): boolean => {
+  const stored = ColumnMapSchema.safeParse(a);
+  return stored.success && COLUMN_FIELDS.every((f) => stored.data[f] === b[f]);
+};
+
+/**
+ * Validates a mapping for an uncommitted upload, recomputes its import diagnostics on the server and
+ * keeps both on the upload, so a refresh or coming back to /upload?catalog= shows the mapping as the
+ * user left it, not the first suggestion.
+ */
 export async function diagnoseCatalogUpload(user: Writer, locale: Locale, payload: unknown): Promise<DiagnoseResult> {
   const { ta } = i18nFor(locale);
   const e = ta.importX.errors;
@@ -130,19 +144,27 @@ export async function diagnoseCatalogUpload(user: Writer, locale: Locale, payloa
   if (!input.success) return { ok: false, error: e.badMapping };
   const catalog = await db.catalog.findFirst({
     where: { id: input.data.catalogId, ...catalogScope(user), status: 'uploaded' },
-    select: { id: true, headers: true },
+    select: { id: true, headers: true, columnMap: true, importMeta: true },
   });
   if (!catalog) return { ok: false, error: e.notFound };
-  const issues = mappingIssues(input.data.mapping, catalog.headers.length);
+  const { mapping } = input.data;
+  const issues = mappingIssues(mapping, catalog.headers.length);
   if (issues.length > 0) return { ok: false, error: e.badMapping };
+  let diagnostics: ImportDiagnostics;
   try {
-    return { ok: true, issues, diagnostics: importDiagnostics(await storedRows(catalog.id), input.data.mapping) };
+    diagnostics = importDiagnostics(await storedRows(catalog.id), mapping);
   } catch {
     return { ok: false, error: ta.importX.diag.failed };
   }
+  const previous = (catalog.importMeta ?? {}) as Record<string, unknown>;
+  const edited = previous['edited'] === true || !sameMapping(catalog.columnMap, mapping);
+  const importMeta = { ...previous, diagnostics, ...(edited ? { edited: true } : {}) } as Prisma.InputJsonValue;
+  // Only while still uncommitted: a commit in another tab already wrote its own mapping.
+  await db.catalog.updateMany({ where: { id: catalog.id, status: 'uploaded' }, data: { columnMap: mapping, importMeta } }).catch(() => undefined);
+  return { ok: true, issues, diagnostics };
 }
 
-export type CommitResult = { ok: true; catalogId: string } | { ok: false; error: string; committed?: boolean };
+export type CommitResult = { ok: true; catalogId: string; skipped: number } | { ok: false; error: string; committed?: boolean };
 
 /**
  * The commit's answer and, on success, the catalogue's client: the client just uploaded to is the
@@ -198,7 +220,7 @@ export async function commitCatalogUpload(user: Writer, locale: Locale, payload:
     await db.catalog.update({ where: { id: catalogId }, data: { status: 'failed', auditError: null } }).catch(() => undefined);
     return fail(e.startFailed, true);
   }
-  return { result: { ok: true, catalogId }, clientId: catalog.clientId };
+  return { result: { ok: true, catalogId, skipped: applied.skipped }, clientId: catalog.clientId };
 }
 
 /** "Start over": deletes an upload that was never committed. */
