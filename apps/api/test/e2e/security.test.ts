@@ -220,10 +220,10 @@ describe('auth: security settings and Telegram sign-in (database)', { skip }, ()
       assert.equal(noCookie.headers['location'], '/sign-in?error=telegram_state');
       assert.equal(await db.userSession.count({ where: { userId: u.userId } }), 0, 'nobody was signed in');
       // A browser with its own state but someone else's path: refused, and its state is spent.
-      const wrong = await call(sessionPair(started)!).get(`/api/auth/telegram/login/not-the-state?${query(telegramData(id))}`);
+      const wrong = await call(sessionPair(started)).get(`/api/auth/telegram/login/not-the-state?${query(telegramData(id))}`);
       assert.equal(wrong.headers['location'], '/sign-in?error=telegram_state');
       assert.equal((await unsealPair(sessionPair(wrong)!)).tgLogin, undefined);
-      assert.equal((await call(sessionPair(wrong)!).get(`/api/auth/telegram/login/${state}?${query(telegramData(id))}`)).headers['location'], '/sign-in?error=telegram_state');
+      assert.equal((await call(sessionPair(wrong)).get(`/api/auth/telegram/login/${state}?${query(telegramData(id))}`)).headers['location'], '/sign-in?error=telegram_state');
     });
   });
 

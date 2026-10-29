@@ -132,7 +132,7 @@ describe('team (database)', { skip }, () => {
     const after = await db.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.ok(after.emailVerifiedAt);
     assert.equal(after.verifiedVia, 'code');
-    assert.equal((await call(sessionPair(confirmed)!).get('/api/team')).status, 200);
+    assert.equal((await call(sessionPair(confirmed)).get('/api/team')).status, 200);
   });
 
   it('joining with an invite link is limited per client address (F20)', async () => {
