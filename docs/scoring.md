@@ -112,6 +112,19 @@ If a stage returns nothing, its weight is removed from the denominator rather
 than contributing zero. Otherwise a candidate found only by trigram would be
 capped at 0.45 for a reason that says nothing about its quality.
 
+Since 2026-10-29 a pool code the vector stage did not return gets its cosine
+looked up by key (`cosinesFor`), so renormalisation no longer lets a long
+identifying leaf that shares one word with a generic name (a drug's
+description for "Антисептический раствор", a first-aid kit for "Бинт")
+outrank the code the model put first. Two kinds of code keep the old treatment:
+one the row earns by brand or size (`identifyingPreferred`) and the row's own
+code, because a long leaf is far from a short query whether or not it is
+right. The same lookup for trigram lost procurement rows and is not done,
+except for a base code that `basesForLeaves` (pipeline.ts) adds to the pool:
+a subposition retrieved only through identifying codes the row does not earn,
+for a name without a digit, gets its base code, scored on its own name and
+ranked in fusion like its best leaf. Measured in MATCHING_V2_PLAN §10.
+
 ### Why the reranker cannot decide alone
 
 The brief's requirement, and the right call: an LLM asked "how confident are
@@ -290,6 +303,7 @@ filters so a strong retrieval signal can outvote a heuristic.
 | **Recommended** binding: row unit is a recommended unit | **+0.03** | Added 2026-10-21 (plan §3.5). |
 | **Recommended** binding: row sold by a measure (mass, length, area, volume) and every recommended unit is of another kind | **−0.05** | Added 2026-10-21. kg against tonnes converts and is left alone; a row sold in pieces is never judged (a piece can hold metres). |
 | Metal semi-product (groups 072, 074–076, tubes 7304–7306) whose name declares a metal the row never names (stainless, aluminium, copper, brass, bronze, titanium) | **−0.05** | Added 2026-10-22 (`unrequestedMaterial`). Unnamed means carbon steel in metal trade; finished articles are never judged. Run 45 vs 44: 40 rows better, none worse. |
+| Russian row whose head noun ("Принтер", "Реле защитное", number ignored) is not among the nouns the code's Russian name offers as what it is (`headNounMismatch`) | **−0.05** | Added 2026-10-29 (MATCHING_V2_PLAN §10). "Тонер для принтера" and "Защитное стекло" name other products; "Принтеры всех видов" and "Щит (шкаф)" name the row's. Heads come from `normalize/russian.ts` (first non-adjective word before a preposition, every listed item of the code's name). Uzbek and Latin rows are never judged; neither is a code whose name offers no noun. −0.03 was worse and −0.08 no better on top-1. |
 
 Recommended-only bindings (4,223 codes) **never** produce a conflict, and an
 unresolvable unit on either side is never a conflict — `UNIT_CONFLICT` must not

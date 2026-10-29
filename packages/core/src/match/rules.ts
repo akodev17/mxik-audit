@@ -2,6 +2,7 @@
 // than hard filters, so a strong retrieval signal can still outvote a heuristic.
 // Pure: no I/O, fully unit-testable.
 import { matchKeyOf, tokenize } from '../normalize/index.js';
+import { headNouns, headStem } from '../normalize/russian.js';
 import { kindOfUnit, resolveUnit, unitsCompatible } from '../normalize/units.js';
 import { earnsIdentifying, identifyingMatch, type RowIdentity } from './identifying.js';
 import type { MxikCandidate } from './types.js';
@@ -34,6 +35,8 @@ export type RuleContext = {
    * (identifying.ts brandWords): the row names that brand (pipeline). Absent or empty = otherBrand never fires.
    */
   brandNamed?: readonly string[];
+  /** The Russian row's head noun as normalize/russian.ts headStem folds it; absent = headNounMismatch never fires. */
+  head?: string | undefined;
 };
 
 /**
@@ -66,7 +69,7 @@ function materialsIn(tokens: readonly string[]): Set<string> {
 export const RULE_KEYS = [
   'baseCodePreferred', 'identifyingUnmarked', 'identifyingUnknownMarking', 'identifyingMarked',
   'identifyingPreferred', 'otherBrand', 'cateringPreferred', 'cateringOutside', 'strictUnitConflict',
-  'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial',
+  'recommendedUnitMatch', 'unitKindMismatch', 'unrequestedMaterial', 'headNounMismatch',
 ] as const;
 
 export type RuleKey = (typeof RULE_KEYS)[number];
@@ -130,6 +133,15 @@ const ADJUSTMENTS: Record<RuleKey, number> = {
   unitKindMismatch: -0.05,
   /** A metal semi-product whose name declares a metal the row never mentions. */
   unrequestedMaterial: -0.05,
+  /**
+   * A Russian row names its product by a head noun ("Принтер", "Реле
+   * защитное"); this code's Russian name offers only other nouns as what it is
+   * ("Тонер для принтера", "Защитное стекло"), the row's noun at most in a
+   * dependent phrase (normalize/russian.ts). Number-blind: "Принтеры всех
+   * видов" names a printer. Same size as the other soft rules; -0.03 and -0.08
+   * measured worse or no better on the procurement set (2026-10-29).
+   */
+  headNounMismatch: -0.05,
 };
 
 /** identifyingPreferred's extra per attribute beyond the first that the code repeats. */
@@ -200,6 +212,14 @@ export function applyRules(ctx: RuleContext): RuleOutcome {
     const declared = materialsIn(tokenize(`${matchKeyOf(candidate.nameUz)} ${matchKeyOf(candidate.nameRu)}`));
     const extra = [...declared].filter((m) => !asked.has(m));
     if (extra.length > 0) fire('unrequestedMaterial', `The code is ${extra.join('/')}; the row names no such metal (unnamed means carbon steel).`);
+  }
+
+  // A code whose Russian name offers no noun at all (codes and brands only) is not judged.
+  if (ctx.head) {
+    const heads = [...headNouns(candidate.nameRu)];
+    if (heads.length > 0 && !heads.some((h) => headStem(h) === ctx.head)) {
+      fire('headNounMismatch', `The code names ${heads.slice(0, 3).join(', ')}; the row's product noun is not among them.`);
+    }
   }
 
   // A recommended binding never conflicts (no UNIT_CONFLICT finding), but it

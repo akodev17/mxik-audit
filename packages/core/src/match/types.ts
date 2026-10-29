@@ -133,6 +133,13 @@ export type CandidateStore = {
   byFullText(query: string, limit: number, opts?: { anchored?: boolean }): Promise<{ candidate: MxikCandidate; score: number; hierarchyWords?: string[] }[]>;
   /** `column`: 'uz' (embeddingUz) or 'ru' (embeddingRu); the store's default when absent. `cosine`: raw similarity. */
   byVector(embedding: readonly number[], limit: number, column?: 'uz' | 'ru'): Promise<{ candidate: MxikCandidate; score: number; cosine?: number }[]>;
+  /**
+   * Raw cosine of `embedding` against each of `codes` that has a vector in `column`,
+   * for codes another stage retrieved. Absent = the store cannot look vectors up by code.
+   */
+  cosinesFor?(embedding: readonly number[], codes: readonly string[], column?: 'uz' | 'ru'): Promise<Map<string, number>>;
+  /** byLexical's trigram score of `query` for each of `codes`, without the similarity threshold. Absent = cannot score by code. */
+  lexicalFor?(query: string, codes: readonly string[]): Promise<Map<string, number>>;
   byCode(code: string): Promise<MxikCandidate | null>;
   baseCodeFor(subPositionCode: string): Promise<MxikCandidate | null>;
   /** The subset of `codes` that exist in the classifier and are not retired. */

@@ -527,6 +527,27 @@ export class PostgresCandidateStore implements CandidateStore {
     });
   }
 
+  /** Cosine per code, by primary key: no index walk, so the store's code prefix does not apply. */
+  async cosinesFor(embedding: readonly number[], codes: readonly string[], column?: VectorColumn): Promise<Map<string, number>> {
+    if (!this.vectorEnabled || embedding.length === 0 || codes.length === 0) return new Map();
+    const col = `"${column === undefined ? this.embeddingColumn : column === 'ru' ? 'embeddingRu' : 'embeddingUz'}"`;
+    const res = await this.read(() => this.pool.query<{ code: string; distance: number }>(
+      `SELECT code, (${col} <=> $1::vector) AS distance FROM mxik_code WHERE code = ANY($2::char(17)[]) AND ${col} IS NOT NULL`,
+      [toVectorLiteral(embedding), codes],
+    ));
+    return new Map(res.rows.map((r) => [r.code.trim(), 1 - Number(r.distance)]));
+  }
+
+  /** byLexical's score for given codes, by primary key and without the similarity threshold. */
+  async lexicalFor(query: string, codes: readonly string[]): Promise<Map<string, number>> {
+    if (!query || codes.length === 0) return new Map();
+    const res = await this.read(() => this.pool.query<{ code: string; score: number }>(
+      'SELECT code, word_similarity($1, "searchText") AS score FROM mxik_code WHERE code = ANY($2::char(17)[])',
+      [query, codes],
+    ));
+    return new Map(res.rows.map((r) => [r.code.trim(), Number(r.score)]));
+  }
+
   /** The query's terms rare enough to select candidates; all of them when none are. */
   private async selectingTerms(
     words: readonly string[], column: 'searchVector' | 'searchVectorWeighted', weights: string,

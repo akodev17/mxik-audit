@@ -9,16 +9,17 @@ import { barcodeIdentity, normalizeName, tokenize, type BarcodeIdentity } from '
 import { applySynonyms } from '../normalize/synonyms.js';
 import { dictionaryKeys, type DictionaryEntry, type DictionaryLookup } from './dictionary.js';
 import { NoopRerankProvider } from './rerank.js';
-import { diversify, groupFusion, positionPool, reciprocalRankFusion } from './fusion.js';
+import { diversify, groupFusion, positionPool, reciprocalRankFusion, type FusedItem } from './fusion.js';
 import type { RerankGate } from './rerank-config.js';
 import { rerankStep } from './rerank-step.js';
 import { evidenceFor, withTnved } from './evidence.js';
 import { headingPrefix, outsideHeading, readTnved } from './tnved.js';
 import { lexicalQuery } from './query.js';
+import { headStem, rowHead } from '../normalize/russian.js';
 import { isUnrelated } from './relevance.js';
 import { applyRules, hierarchyPath, type RuleOutcome } from './rules.js';
 import { identifyingMatch, identifyingQuery, namesBrandOf, rowIdentity } from './identifying.js';
-import { adjustedScore, bandOf, calibratePool, fullTextToUnit, vectorToUnit, type SignalWeights, type VectorCalibration } from './score.js';
+import { adjustedScore, bandOf, calibratePool, cosineToUnit, fullTextToUnit, vectorToUnit, type SignalWeights, type VectorCalibration } from './score.js';
 import type { VectorColumn } from './vector-readiness.js';
 import { embeddingText } from '../embed/text.js';
 import type { ScriptKind } from '../normalize/index.js';
@@ -54,6 +55,8 @@ export type PipelineOptions = {
   identifyingRule?: boolean;
   /** False skips the identifying full-text query (identifying.ts identifyingQuery); on when absent. */
   identifyingRetrieval?: boolean;
+  /** False switches off rules.ts headNounMismatch, for ablation in the eval; on when absent. */
+  headNounRule?: boolean;
   /** How many results to return. */
   topK?: number;
   /**
@@ -81,6 +84,16 @@ export type PipelineOptions = {
   vectorPerPosition?: number;
   /** Cosine band of a semantic provider; score.ts SEMANTIC_COSINE when absent, null = the pre-2026-10-22 (1 + cos) / 2. */
   vectorCalibration?: VectorCalibration | null;
+  /**
+   * False leaves pool codes the vector stage did not return without a vector
+   * signal, as before 2026-10-29 (for ablation in the eval); on when absent.
+   */
+  vectorFill?: boolean;
+  /**
+   * False keeps a subposition's base code out of the pool when only its
+   * identifying codes were retrieved (basesForLeaves), as before 2026-10-29; on when absent.
+   */
+  baseForLeaves?: boolean;
 };
 
 /**
@@ -129,6 +142,11 @@ export async function timed<T>(timer: StageTimer | undefined, stage: string, fn:
     timer.add(stage, performance.now() - t0);
   }
 }
+
+type FusedCandidate = FusedItem<MxikCandidate>;
+
+/** A base code is its subposition followed by six zeros (every live base code is). */
+const BASE_SUFFIX = '000000';
 
 /** Most codes the identifying full-text query adds to the reranker pool. */
 const IDENTIFYING_SLOTS = 3;
@@ -349,8 +367,12 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // The row as the model reads it: the same text shape its stored vectors were made from (embed/text.ts).
   const vectorText = embeddingText(input.rawName, 'query', embedder.textShape ?? 'folded');
   const columns = vectorColumnsFor(normalized.script, opts.vectorColumns ?? ['uz']);
+  let queryVector: number[] | undefined;
   const vectorStage: Promise<Hit[]> = skipVector ? Promise.resolve([]) : timed(opts.timer, 'embed', () => embedder.embed([vectorText], 'query'))
-    .then(([vec]) => (vec ? timed(opts.timer, 'vector', () => searchColumns(retrieval, vec, limits.retrievalLimit, columns)) : []))
+    .then(([vec]) => {
+      queryVector = vec;
+      return vec ? timed(opts.timer, 'vector', () => searchColumns(retrieval, vec, limits.retrievalLimit, columns)) : [];
+    })
     .catch((error: unknown) => {
       vectorOutcome = 'failed';
       notes.push(`Vector stage unavailable (${error instanceof Error ? error.message : String(error)}); using lexical retrieval only.`);
@@ -407,23 +429,108 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
   // The anchored hits of the row's own brand are a retrieval list of their own:
   // found only there, a brand code would have no fusion rank against codes every list repeats.
   const brandHits = anchoredHits.filter((h) => brandEarned(h.candidate));
+  const head = opts.headNounRule === false || normalized.script !== 'cyrillic' ? null : rowHead(input.rawName);
+  const headKey = head === null ? undefined : headStem(head);
   const ruleCache = new Map<string, RuleOutcome>();
   const rulesOf = (f: { item: MxikCandidate }): RuleOutcome => {
     const cached = ruleCache.get(f.item.code);
     if (cached) return cached;
-    const outcome = applyRules({ candidate: f.item, rowUnit, catering, productTokens, identity, brandNamed });
+    const outcome = applyRules({ candidate: f.item, rowUnit, catering, productTokens, identity, brandNamed, head: headKey });
     ruleCache.set(f.item.code, outcome);
     return outcome;
   };
 
   const lexicalScore = new Map(lexical.map((r) => [r.candidate.code, r.score]));
-  // A semantic model's cosine is calibrated to the band it uses; the stand-in keeps (1 + cos) / 2.
+  // A semantic model's cosine is calibrated to the band it uses; the stand-in keeps (1 + cos) / 2,
+  // the store's own score for a hit and the same fold of a cosine looked up by code.
+  const vectorUnit = (cosine: number): number => (opts.vectorCalibration === null ? cosineToUnit(cosine) : vectorToUnit(cosine, opts.vectorCalibration));
   const vectorScore = new Map(standIn ? [] : vector.map((r) => [
     r.candidate.code,
     embedder.semantic && r.cosine !== undefined && opts.vectorCalibration !== null ? vectorToUnit(r.cosine, opts.vectorCalibration) : r.score,
   ]));
   // ts_rank_cd is unbounded; map it absolutely so a weak query's best hit is not 1.0.
   const fullTextScore = new Map(fullText.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
+  // A pool code the vector stage did not return still has a cosine, looked up
+  // by key. Without it the score renormalised over the lexical signals alone,
+  // so an identifying code whose long leaf text shares one word with a generic
+  // name (a drug's description, a first-aid kit for "Бинт") outranked the code
+  // the model put first (2026-10-29, procurement names). Two kinds of code keep
+  // the old treatment, because a long leaf is far from a short query whether or
+  // not it is right: one the row earns by brand or size (rules.ts
+  // identifyingPreferred), and the row's own code, which MISMATCH weighs
+  // against the suggestions. Filling the trigram score the same way, for every
+  // pool code or for its base codes, lost procurement rows and was left out;
+  // only a base code basesForLeaves adds is scored on its own name. A failed
+  // lookup leaves the signal absent.
+  const ownCode = (input.existingMxik ?? '').replace(/\D/g, '');
+  const fillVectorScores = async (pool: readonly { item: MxikCandidate }[]): Promise<void> => {
+    const vec = queryVector;
+    const lookup = retrieval.cosinesFor?.bind(retrieval);
+    if (opts.vectorFill === false || !vec || !lookup || !embedder.semantic || standIn) return;
+    const missing = pool
+      .filter((f) => !vectorScore.has(f.item.code) && f.item.code !== ownCode && !rulesOf(f).keys.includes('identifyingPreferred'))
+      .map((f) => f.item.code);
+    if (missing.length === 0) return;
+    try {
+      const found = await timed(opts.timer, 'vector', () => Promise.all(columns.map((col) => lookup(vec, missing, col))));
+      for (const code of missing) {
+        const cosines = found.map((m) => m.get(code)).filter((c) => c !== undefined);
+        if (cosines.length > 0) vectorScore.set(code, vectorUnit(Math.max(...cosines)));
+      }
+    } catch (error) {
+      notes.push(`Vector scores for the pool unavailable (${error instanceof Error ? error.message : String(error)}).`);
+    }
+  };
+  // A generic name ("Реле защитное", "Водяной насос") reaches the right
+  // subposition through its identifying codes ("Реле всех видов, Реле времени
+  // PO-415, ...") while the subposition's base code, the sanctioned answer when
+  // the name gives no brand or size, never makes a list: its short name loses
+  // the trigram and vector slots to the many leaves. When the pool holds leaves
+  // of a subposition and the row earns none of them (rules.ts
+  // identifyingPreferred), the base code joins the pool, scored on its own name
+  // and ranked in fusion like its best leaf; the shape rules then weigh it
+  // against them (2026-10-29, procurement names). Only for a name without a
+  // digit: a size, grade, dose or pack makes an identifying code the likely
+  // answer (the metal list lost top-5 cases when sized rows got the base too).
+  // Not for a food-service row: its answers are the catering family codes, and
+  // the group's base codes are other families.
+  const basesForLeaves = async (pool: readonly FusedCandidate[]): Promise<FusedCandidate[]> => {
+    if (opts.baseForLeaves === false || catering || /\d/.test(input.rawName)) return [];
+    const inPool = new Set(pool.map((f) => f.item.code));
+    const leavesOf = new Map<string, FusedCandidate[]>();
+    for (const f of pool) {
+      if (f.item.isBase) continue;
+      const leaves = leavesOf.get(f.item.subPositionCode) ?? [];
+      leaves.push(f);
+      leavesOf.set(f.item.subPositionCode, leaves);
+    }
+    const wanted = [...leavesOf]
+      .filter(([sub, leaves]) => !inPool.has(`${sub}${BASE_SUFFIX}`) && !leaves.some((f) => rulesOf(f).keys.includes('identifyingPreferred')))
+      .map(([sub]) => `${sub}${BASE_SUFFIX}`);
+    if (wanted.length === 0) return [];
+    try {
+      const [found, live, trigram] = await Promise.all([
+        Promise.all(wanted.map((code) => store.byCode(code))),
+        store.liveCodes(wanted),
+        store.lexicalFor ? store.lexicalFor(lexicalText, wanted) : new Map<string, number>(),
+      ]);
+      // The base's own name is scored, not its leaves': a leaf's brand or
+      // attribute words ("..., Фотометры медицинского назначения (ИФА)" under
+      // "прочие" medical apparatus) are no evidence for the catch-all base.
+      // Only the fusion rank is the subposition's, its best leaf's.
+      const bases = found.filter((c): c is MxikCandidate => c !== null && c.isBase && live.has(c.code)).map((base) => {
+        const lexical = trigram.get(base.code);
+        if (lexical !== undefined) lexicalScore.set(base.code, lexical);
+        const leaves = leavesOf.get(base.subPositionCode) ?? [];
+        return { item: base, score: 0, normalized: Math.max(...leaves.map((f) => f.normalized)), ranks: {} };
+      });
+      await fillVectorScores(bases);
+      return bases;
+    } catch (error) {
+      notes.push(`Base codes for the pool unavailable (${error instanceof Error ? error.message : String(error)}).`);
+      return [];
+    }
+  };
   // Counts only for codes the row earns (rules.ts identifyingPreferred): the
   // query's numbers are evidence for those, noise for every other code.
   const identifyingScore = new Map(identifyingHits.map((r) => [r.candidate.code, fullTextToUnit(r.score)]));
@@ -486,8 +593,12 @@ async function matchCore(input: MatchInput, opts: PipelineOptions): Promise<Matc
     .map((h, i) => fusedByCode.get(h.candidate.code) ?? { item: h.candidate, score: 0, normalized: 0, ranks: { identifying: i + 1 } })
     .filter(earnsIdentifying)
     .slice(0, IDENTIFYING_SLOTS);
-  const fused = [...diverse, ...added];
+  const window = [...diverse, ...added];
+  await fillVectorScores(window);
+  const bases = await basesForLeaves(window);
+  const fused = [...window, ...bases];
   notes.push(poolNote(fused.map((f) => f.item), fusedAll.slice(0, limits.rerankLimit).map((f) => f.item.code)));
+  if (bases.length > 0) notes.push(`Base code added for ${bases.map((b) => b.item.subPositionCode).join(', ')}: the pool held only identifying codes the name does not earn.`);
 
   // ------------------------------------------------------------- 6. rerank
   const step = await rerankStep({

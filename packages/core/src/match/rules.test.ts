@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { normalizeName } from '../normalize/index.js';
 import { rowIdentity } from './identifying.js';
+import { headStem } from '../normalize/russian.js';
 import { applyRules, hierarchyPath, isCateringCode } from './rules.js';
 import type { MxikCandidate } from './types.js';
 
@@ -317,5 +318,25 @@ describe('otherBrand', () => {
     const withDose = rules(enam);
     assert.deepEqual(withDose.identifyingTokens, ['ЭНАМ®', '5мг', '№100']);
     assert.ok(Math.abs(withDose.adjustment - (0.03 + 0.08 + 0.01)) < 1e-9);
+  });
+});
+
+describe('headNounMismatch', () => {
+  const head = headStem('принтер');
+  const named = (nameRu: string): MxikCandidate => candidate({ nameRu });
+
+  it('fires when the code names another product, the row noun only in a dependent phrase', () => {
+    for (const nameRu of ['Тонер для принтера', 'Ракель для лазерного принтера', 'Защитное стекло для сотовых телефонов']) {
+      const r = applyRules({ candidate: named(nameRu), rowUnit: null, catering: false, head });
+      assert.ok(r.keys.includes('headNounMismatch'), nameRu);
+      assert.ok(Math.abs(r.adjustment - (0.05 - 0.05)) < 1e-9, `${nameRu}: base bonus and the penalty cancel`);
+    }
+  });
+
+  it('stays silent when the code names the row noun in any number, or offers no noun', () => {
+    for (const nameRu of ['Принтеры всех видов (кроме промышленных)', 'Чековый принтер (термотрансферный)', '3D-принтер', 'HP LaserJet']) {
+      assert.ok(!applyRules({ candidate: named(nameRu), rowUnit: null, catering: false, head }).keys.includes('headNounMismatch'), nameRu);
+    }
+    assert.ok(!applyRules({ candidate: named('Тонер для принтера'), rowUnit: null, catering: false }).keys.includes('headNounMismatch'), 'no head given');
   });
 });

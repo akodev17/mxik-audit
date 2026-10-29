@@ -5,7 +5,8 @@
 // stage, reports real and synthetic separately, and appends the run to
 // docs/eval-results.json without overwriting earlier runs.
 // Run: npm run eval [-- --label "after key" --no-ablate --no-tnved --set competitor-22 --fulltext-common-docs N
-//                       --fulltext-column plain|weighted --fulltext-select A|AB]
+//                       --fulltext-column plain|weighted --fulltext-select A|AB --no-vector-fill --no-head-rule
+//                       --no-base-for-leaves]
 import '@tasnivo/domain/load-env'; // must precede anything reading process.env
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -56,10 +57,20 @@ const vectorWeightArg = argValue('--nonsemantic-vector-weight');
 // --vector-calibration legacy | floor,ceil: how a semantic cosine becomes a signal (score.ts).
 const calibrationArg = argValue('--vector-calibration');
 const perPositionArg = argValue('--vector-per-position');
+// --no-vector-fill: pool codes the vector stage did not return get no vector signal (before 2026-10-29).
+const VECTOR_FILL = !process.argv.includes('--no-vector-fill');
+// --no-head-rule: switches off rules.ts headNounMismatch (Russian names, 2026-10-29).
+const HEAD_RULE = !process.argv.includes('--no-head-rule');
+// --no-base-for-leaves: no base code joins the pool for a subposition retrieved only through its identifying codes.
+const BASE_FOR_LEAVES = !process.argv.includes('--no-base-for-leaves');
 const calibrationBand = calibrationArg?.split(',').map(Number);
 const ranking: {
   positionFusion?: PositionFusion; nonSemanticVectorWeight?: number; vectorCalibration?: VectorCalibration | null; vectorPerPosition?: number;
+  vectorFill?: boolean; headNounRule?: boolean; baseForLeaves?: boolean;
 } = {
+  ...(VECTOR_FILL ? {} : { vectorFill: false }),
+  ...(HEAD_RULE ? {} : { headNounRule: false }),
+  ...(BASE_FOR_LEAVES ? {} : { baseForLeaves: false }),
   ...(positionFusionArg === 'off' || positionFusionArg === 'subposition' || positionFusionArg === 'position' ? { positionFusion: positionFusionArg } : {}),
   ...(vectorWeightArg === undefined ? {} : { nonSemanticVectorWeight: Number(vectorWeightArg) }),
   ...(perPositionArg === undefined ? {} : { vectorPerPosition: Number(perPositionArg) }),

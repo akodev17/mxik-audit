@@ -29,6 +29,7 @@ const RULE_TONE: Record<RuleKey, SignalTone> = {
   recommendedUnitMatch: 'good',
   unitKindMismatch: 'warn',
   unrequestedMaterial: 'warn',
+  headNounMismatch: 'warn',
 };
 
 function dictionarySignal(evidence: MatchEvidence, ta: AppDict): Signal {
