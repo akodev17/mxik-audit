@@ -325,3 +325,173 @@ on this key with `RERANK_PROVIDER=off` unless the reranker is the point; the key
 likely spent until 07:00 UTC.
 
 Still open from §7: the paid Gemini key and the scratch databases.
+
+## 10. Real data: procurement names (session S2 of `docs/REAL_DATA_TEST_PLAN_2026-10-29.md`, 29 Oct 2026)
+
+Branch `claude/peaceful-albattani-b7150e`, from main `0ddcc4d`. Not pushed, not merged. §9 is S1's
+(pharmacy); both sections append to this file and to the two results histories, so a merge keeps both.
+
+### Source and key
+
+100 of the 183 unique goods names listed on the government e-shop (`tmp/real-catalogs/xarid/eshop-names.txt`,
+main checkout, gitignored): Russian, generic, no codes, no units. Picked to cover electrics (22), medical and
+lab (15), office and IT (11), household chemicals (11), food and farm (6), construction and plumbing (18),
+vehicle parts (8), services (5) and broad names (4). Each name was keyed against the classifier in the shared
+DB (subposition names and leaf names, `psql`), with the reasoning in the key's `Izoh` column:
+
+- a generic name gets its subposition: the base code and the subposition prefix (`…000000|…*`), as
+  `real-construction.csv` does; equally right subpositions are `|` alternatives (mineral, synthetic or
+  semi-synthetic motor oil; a pump or the engine coolant pump; road, rail, water or air freight);
+- a name that only a position can hold gets the position prefix (`Сумка` → `04202001*`, `Мясо индейки`
+  → `00207004*`, `Канцелярская книга` → `04820001*`);
+- 2 names are `NOT_FOUND` (too broad for any position): "Химические реактивы", "Средства реабилитации".
+  Services that have a code are keyed like goods (the classifier has service positions).
+
+Files: `tmp/real-catalogs/xarid/xarid-100.xlsx` (sheet "Xarid": Nomi, Birlik; sheet "Javob kaliti" in the
+five-file layout), its sources `xarid-100-key.tsv` and `build-xarid.cjs` beside it, and the 98 keyed rows as
+the new real eval set `eval/real-xarid.csv` (a NOT_FOUND row has no code to score). The listing has no units;
+`Birlik` is шт unless the product is sold otherwise (кг, л, м, м2, т, пар, мл, услуга).
+
+Key corrections after the first baseline, all from evidence in the classifier: "Фотометры медицинского
+назначения (ИФА)" is an exact leaf of 9018 "прочие" medical apparatus (`09018001229000031`, added); metal
+blinds have a 7314 leaf "Жалюзы из горячеоцинкованный…" (added); aluminium radiators are HS 7616 and the
+classifier has "Радиатор алюминиевый секционный" leaves in 7616 (added). Four invented units contradicted the
+keyed code's strict unit (antiseptic in л, rubber gloves in шт, glass cleaner in шт, eau de toilette in шт)
+and were set to the code's unit. Five rows whose every keyed base code is EHF-restricted (asphalt, linoleum,
+plastic pipes, aluminium doors, power-line poles) expect `MISSING,RESTRICTED`: the right suggestion is flagged.
+All before/after numbers below use the final key.
+
+### Step 3: metal and construction refreshed
+
+`RERANK_PROVIDER=off npm run eval -- --no-ablate` on this main (run 73, with `--no-vector-fill --no-head-rule
+--no-base-for-leaves`, which is main's ranking): real-construction 85/102 top-1, 94 top-5; real-metal 90/168,
+166 top-5. Identical to §8 (run 72). An earlier run on the untouched main code gave the same.
+
+### Diagnosis (per stage, `tmp/diag-xarid.ts` in the worktree, gitignored)
+
+Baseline 62/98 top-1, 76/98 top-5. Three mechanisms explained most misses:
+
+1. **Renormalised lexical-only leaves.** A code that only trigram found is scored over lexical and RRF
+   alone (score.ts renormalises over present signals), so an identifying leaf whose long text shares one
+   word with a generic name scored ~0.6-0.8 and beat the code the vector stage ranked first: a first-aid kit
+   for "Бинт гипсовый", vaccines "для взрослых" for "Подгузники для взрослых", liver drugs for "Средства
+   моющие", "Разбавитель антиграффити" for "Разбавитель", connector leaves named "Коммутатор 32 порта".
+2. **Head noun ignored.** Russian procurement names put the product noun first or after adjectives; trigram
+   rewards any shared word, so "Люцерна кормовая" beat "Морковь" for "Морковь кормовая", "Подшлемник рабочий"
+   beat clutch parts for "Рабочий цилиндр …", "Контроллер электрический" beat "Сетевой фильтр (удлинитель)",
+   "Тонер для принтера" beat "Принтеры всех видов".
+3. **Base code never retrieved.** For "Кабель UTP", "Реле защитное", "Водяной насос" the right subposition
+   arrived only as identifying leaves (each penalised as an unearned identifying code); its base code never
+   made a list.
+
+### Fixes (commit `ce6558c`; each can be switched off, eval flag in brackets)
+
+1. **Vector score for pool codes** (pipeline `fillVectorScores`, store `cosinesFor`; `--no-vector-fill`): a
+   pool code the vector stage did not return gets its cosine by primary key. Exempt: a code the row earns
+   by brand or size (`identifyingPreferred`), whose long leaf is far from a short query whether or not it
+   is right (without the exemption "МЕЛЬДОНИЙ 10% р-р N5" lost its fix in the dorixona file), and the row's
+   own code (without it a correct cafe code got a false MISMATCH).
+2. **`headNounMismatch` −0.05** (rules.ts, `normalize/russian.ts`; `--no-head-rule`): a Russian row's head
+   noun, number-blind ("Принтер" = "Принтеры"), must be among the nouns the code's Russian name offers as
+   what it is (each listed item's first non-adjective word before a preposition). Uzbek and Latin rows are
+   never judged. −0.03 lost 2 xarid rows against −0.05; −0.08 gained no top-1.
+3. **Base code for unearned leaves** (pipeline `basesForLeaves`, store `lexicalFor`; `--no-base-for-leaves`):
+   when the pool holds identifying codes of a subposition and the row earns none, the subposition's base
+   code joins the pool, scored on its own name (trigram and cosine by key) and ranked in fusion like its best
+   leaf. Only for names without a digit and not for catering rows.
+
+Tried and dropped (each measured with the full eval): Russian singular/plural variants in the full-text
+query (real-metal top-5 166 → 164, and 115 without the head rule: "трубы" lifts 7304 "Трубы из черных
+металлов" over 7306 "Стальная труба"); a trigram score by key for every pool code (xarid −1 top-1, −2
+top-5) or for base codes only (same); a base code inheriting its leaves' signals (metal top-1 +33 but top-5
+166 → 143, construction −5, synthetic −11), and the same for sized rows.
+
+### Before / after (no reranker)
+
+xarid-100 (`npm run bench:files`, bench runs 5 → 7; eval set real-xarid, eval runs 73 → 74):
+
+| | before | after |
+|---|---|---|
+| top-1 (98 keyed rows) | 62 (63.3%) | **72 (73.5%)** |
+| top-5 (eval) | 76 (77.6%) | **83 (84.7%)** |
+| right position at top-1 | 66 | 76 |
+| rows with exactly the expected findings | 93/100 | **96/100** |
+| MISSING precision/recall | 100/100 | 100/100 |
+| RESTRICTED (5 expected): true / raised | 1 / 4 | 2 / 3 |
+
+No xarid row lost its top-1. Gained: Бинт гипсовый марлевый, Жалюзи оконные, Кабель UTP, Коммутатор,
+Морковь кормовая, Подгузники для взрослых, Подшипники качения роликовые…, Рабочий цилиндр усилителя…,
+Разбавитель, Удлинитель электрический.
+
+Five test catalogues (bench runs 6 → 8): identical row for row except one gain.
+
+| file | top-1 (no code) | fix (wrong/unknown code) | rows exactly right |
+|---|---|---|---|
+| test-oziq-ovqat-2 | 14/15 → 14/15 | 13/13 → 13/13 | 75/75 → 75/75 |
+| test-stroymarket-2 | 12/12 → 12/12 | 10/11 → 10/11 | 72/72 → 72/72 |
+| test-dorixona | 12/16 → 12/16 | 7/10 → 7/10 | 72/72 → 72/72 |
+| test-elektronika | 13/17 → 13/17 | 6/10 → **7/10** | 71/71 → 71/71 |
+| test-umumiy-ovqatlanish | 15/16 → 15/16 | 10/10 → 10/10 | 66/68 → 66/68 |
+| **total** | **66/76 → 66/76** | **46/54 → 47/54** | **356/358 → 356/358** |
+
+The baseline equals §8's run 4. Every finding type keeps its precision/recall.
+
+Eval (`RERANK_PROVIDER=off npm run eval -- --no-ablate`, runs 73 → 74):
+
+| set (n) | top-1 before → after | top-5 before → after |
+|---|---|---|
+| golden (12) | 10 → 10 | 10 → 10 |
+| real-construction (102) | 85 → **86** | 94 → **96** |
+| real-metal (168) | 90 → **93** | 166 → 166 |
+| real-tnved (49) | 49 → 49 | 49 → 49 |
+| real-xarid (98) | 62 → **72** | 76 → **83** |
+| competitor-22 (22) | 17 → 17 | 22 → 22 |
+| synthetic (191) | 178 → **179** | 187 → 187 |
+| all real (429) | 296 (69.0%) → **310 (72.3%)** | 395 → **404** |
+
+No set dropped. One case did: "Truba PPR 20 mm" (real-construction) went from top-1 to rank 2 (vector fill),
+against three construction cases gained ("Лак для дерева ПФ-283 0.8л" and "Кирпич силикатный белый
+одинарный" to top-1, "Проволока вязальная 1.2мм" into the top 5) and three metal sheet/profile rows gained.
+
+App flow (API on 4011 from this worktree, local e5, reranker off, the 2026-10-28 test org): sign-in,
+preview, commit, ready after 12 s; the report scored against the key gives the same 72/98 top-1, 96/100
+rows with the expected findings, MISSING 100/100, RESTRICTED 2 of 5 (3 raised). Saved as
+`tmp/real-catalogs/xarid/app-xarid-100.json`.
+
+### Miss classes (98 keyed rows; before → after)
+
+| class | before | after | rows left |
+|---|---|---|---|
+| vocabulary: the classifier names the product differently, right code not in the pool | 11 | 11 | Кардиомонитор, Клемма промежуточная, Рубильник, Сетевой кабель, Сетевой шкаф, Труба полиуретановая, Черенок для лопат, Наконечник стоматологический, Нити хирургические…, Готовая дверная конструкция из алюминия, Канцелярская книга |
+| singular/plural, exact position name not ranked first | 7 | 6 | Принтер, Термостат автомобильный, Шкаф электрический, Водяной насос, Ручка канцелярская, Уличный светильник… |
+| base vs identifying: unearned identifying leaves win | 6 | 1 | Антисептический раствор… (marked pharma leaves, +0.03) |
+| adjective shared with another product (adjective order) | 5 | 1 | Реле защитное ("Защитное стекло") |
+| "прочие" catch-all positions | 3 | 3 | Набор хирургических инструментов, Пистолет топливораздаточной колонки, Ремкомплект системы охлаждения… |
+| service-like names | 2 | 2 | Услуга по ремонту жалюзи, Услуга монтажа и демонтажа турникетов |
+| material named by the row contradicts the code | 1 | 1 | Потолок подвесной металлический (gypsum ceiling wins) |
+| needs world knowledge | 1 | 1 | Рассада тыквы (vegetable vs flower seedlings) |
+| **total** | **36** | **26** | |
+
+The two NOT_FOUND names still get a suggestion: "Химические реактивы" → radioactive elements at 0.62
+(medium band), "Средства реабилитации" → nasal hygiene at 0.57 (low). Nothing tells a too-broad name apart.
+
+### Pass criteria (plan §3) and what is deferred
+
+X1 top-1 73.5% against ≥ 75%, top-5 84.7% against ≥ 90%: **not met** without the reranker. No eval set or
+five-file number dropped. Deferred, one line each:
+
+- **Vocabulary (11) and "прочие" (3):** the right code shares no word or stem with the name; only a synonym
+  table per product family or the reranker can bridge it, and a per-name synonym is the hack this task rules
+  out. Measure the reranker on xarid-100 once a paid Gemini key exists (the free key is S1's today).
+- **Singular/plural (6):** plural variants in full-text cost real-metal top-5 and a trigram score by key
+  cost xarid rows (above); the right code is in the top 5 for 5 of the 6, which is what a reranker fixes.
+- **Base vs identifying (1):** the antiseptic loses to marked pharma leaves (`identifyingMarked` +0.03);
+  changing the marked-category rule touches every pharmacy row, which is S1's ground.
+- **Adjective (1), services (2), material (1), world knowledge (1):** each is one or two rows; a services
+  object-noun rule or a general material-conflict rule (extending `unrequestedMaterial`) would be fitted to
+  one row each here. Left for a larger real set (S3).
+- **NOT_FOUND for broad names (2):** needs a "too generic" signal; the head-noun stem could feed it later.
+
+Tests: `npm test` 2,150 tests, 2,148 pass, 0 fail, 2 skipped (Redis-only suites, as before); new tests for
+`normalize/russian.ts`, the rule, both pipeline behaviours and the two store lookups against the DB.
+Typecheck clean; lint 0 errors, 1 pre-existing warning (`scripts/lib/xlsx.ts`).
