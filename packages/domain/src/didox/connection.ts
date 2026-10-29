@@ -199,7 +199,7 @@ export async function syncIncoming(
   const e = i18nFor(locale).ta.didoxX.errors;
   if (user === null || !canWrite(user)) return { ok: false, error: e.forbidden };
   if (await isDemoOrg(user.orgId)) return { ok: false, error: e.demo };
-  if (!(await uploadsOpen(user.orgId)).ok) return { ok: false, error: e.expired };
+  if (!(await uploadsOpen(user.orgId)).ok) return { ok: false, error: i18nFor(locale).ta.msg.gate.expired };
   const input = z.object({ dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).safeParse(body ?? {});
   if (!input.success) return { ok: false, error: e.generic };
   const found = await clientForOrg(user.orgId, process.env, options.client);

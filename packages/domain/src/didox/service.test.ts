@@ -139,7 +139,7 @@ describe('Didox service (database)', { skip }, () => {
   });
 
   it('an ended trial closes the upload, the sheet commit and the sync, like the bank path (Phase C F1)', async () => {
-    const closed = { ok: false, error: 'Срок подписки истёк.' };
+    const closed = { ok: false, error: 'Пробный период закончился. Чтобы продолжить, активируйте тариф на странице «Настройки».' };
     const u = userOf(expired);
     const f = fileOf('doc.json', raw('invoice-vat0-pinfl.json'));
     assert.deepEqual(await uploadDidoxFile(u, 'ru', { file: f, clientId: null }, S), closed);
