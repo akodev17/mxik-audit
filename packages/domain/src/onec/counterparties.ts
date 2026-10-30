@@ -66,7 +66,11 @@ export function decide(ref: CounterpartyInput, rows: readonly Row[]): NonNullabl
     // 1C UZ (3.0.62) tells counterparties apart by ИНН + код филиала: another branch of a known ИНН is a new one,
     // even under the same name (onec §8.14).
     const branch = rows.filter((r) => r.inn === ref.inn && r.branchCode === ref.branchCode);
-    return one(branch, 'inn') ?? { status: 'new', chosen: null, candidates: [] };
+    // The one row of that ИНН with no branch known (made from a statement or an invoice), when no branch of it is known
+    // either, is this branch, not a second counterparty that would make the ИНН ambiguous later (review 30 Oct, R-O9).
+    const sameInn = rows.filter((r) => r.inn === ref.inn);
+    const sole = branch.length === 0 && sameInn.length === 1 && !sameInn[0]?.branchCode ? sameInn : [];
+    return one(branch, 'inn') ?? one(sole, 'inn') ?? { status: 'new', chosen: null, candidates: [] };
   }
   if (ref.inn) {
     const byInn = rows.filter((r) => r.inn === ref.inn);
@@ -280,8 +284,21 @@ export type CounterpartyImport =
   | { ok: true; rows: number; created: number; updated: number; skipped: number; errors: { row: number; reason: string }[] }
   | { ok: false; error: 'unreadable' | 'no_name_column' | 'empty' | 'expired' };
 
-/** What a «Вывести список» cell says about the kind: a yes in a «Нерезидент» column, or the words of «Вид контрагента». */
 const yes = (v: string): boolean => /^(да|yes|ha|true|1|\+|✓)$/i.test(v.trim());
+const no = (v: string): boolean => /^(нет|no|yo['ʻ‘’]?q|false|0|-)$/i.test(v.trim());
+
+/**
+ * What a «Вывести список» cell says about the kind: the words of «Вид контрагента», a yes in a «Нерезидент» column, or a
+ * no in a «Резидент» / «Резидентство» column (review 30 Oct, R-O9: a "Да" there was read as non-resident, which also
+ * lifted the ИНН requirement).
+ */
+export function kindFromCell(text: string, header: string): CounterpartyKind | null {
+  const said = kindOf(text);
+  if (said) return said;
+  const nonResidentColumn = /нерезидент|non.?resident|norezident/i.test(header);
+  const residentColumn = !nonResidentColumn && /резидент|resident|rezident/i.test(header);
+  return (nonResidentColumn && yes(text)) || (residentColumn && no(text)) ? 'nonresident' : null;
+}
 
 /**
  * Loads a client's counterparties from a 1C «Контрагенты» list saved to Excel («Ещё → Вывести
@@ -314,7 +331,7 @@ export async function importCounterparties(orgId: string, clientId: string | nul
     const name = cell(row, cols.name) || cell(row, cols.fullName);
     if (!name) return;
     const kindText = cell(row, cols.kind);
-    const kind = kindOf(kindText) ?? (cols.kind >= 0 && yes(kindText) && /резидент/i.test(grid[headerAt]?.[cols.kind] ?? '') ? 'nonresident' : null);
+    const kind = cols.kind >= 0 ? kindFromCell(kindText, grid[headerAt]?.[cols.kind] ?? '') : kindOf(kindText);
     const checked = checkRequisites({
       inn: cell(row, cols.inn), pinfl: cell(row, cols.pinfl), kind, vatCode: cell(row, cols.vatCode), account: cell(row, cols.account),
       mfo: cell(row, cols.mfo), branchCode: cell(row, cols.branch), budget: true,

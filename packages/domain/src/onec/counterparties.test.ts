@@ -8,7 +8,7 @@ import ExcelJS from 'exceljs';
 import { db } from '@tasnivo/db';
 import { makeClient } from '../firm-test-fixtures.js';
 import { dropOrgs, makeOrg } from '../test-fixtures.js';
-import { counterpartyColumns, decide, findHeaderRow, importCounterparties } from './counterparties.js';
+import { counterpartyColumns, decide, findHeaderRow, importCounterparties, kindFromCell } from './counterparties.js';
 import { checkRequisites, kindOf, mfoOf, validAccount, validInn, validPinfl, validVatCode } from './requisites.js';
 
 /** A sheet as «Вывести список» → «Сохранить как» xlsx leaves it: rows as given, numbers as number cells. */
@@ -60,6 +60,21 @@ describe('counterparty requisites (onec §8.13)', () => {
     assert.equal(decide(ref('00002'), rows).chosen?.id, 'b');
     assert.equal(decide(ref('00003'), rows).status, 'new', 'another branch, not the same name of a known one');
     assert.equal(decide(ref(null), rows).status, 'ambiguous', 'without the branch code the ИНН alone cannot choose');
+  });
+
+  it('a branch of an ИНН known only without its branch is that row; «Резидентство: Да» is a resident (review 30 Oct)', () => {
+    // R-O9: an import row with ИНН + код филиала created a second counterparty next to the one a statement had made,
+    // and every later statement's ИНН became ambiguous; a «Да» under «Резидентство» was read as non-resident.
+    const row = (id: string, branchCode: string | null) => ({
+      id, name: 'АО «Узпромстройбанк»', normalizedName: 'узпромстройбанк', inn: '200833707', account: null, mfo: null, aliases: [], clientId: null,
+      kind: 'legal', branchCode, vatCode: null, onecRef: null,
+    });
+    const ref = { name: 'АО «Узпромстройбанк»', inn: '200833707', account: null, mfo: null, counterpartyId: null, branchCode: '00001' };
+    assert.equal(decide(ref, [row('s', null)]).chosen?.id, 's', 'the only row of that ИНН, its branch not known');
+    assert.equal(decide(ref, [row('s', null), row('b', '00002')]).status, 'new', 'branches are known for that ИНН: another one is new');
+    assert.deepEqual(['Да', 'Нет', 'да'].map((v) => kindFromCell(v, 'Резидентство')), [null, 'nonresident', null]);
+    assert.deepEqual(['Да', 'Нет'].map((v) => kindFromCell(v, 'Нерезидент')), ['nonresident', null]);
+    assert.equal(kindFromCell('Юридическое лицо', 'Вид контрагента'), 'legal');
   });
 });
 
