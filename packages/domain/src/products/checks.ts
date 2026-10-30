@@ -180,7 +180,9 @@ export function readPrice(raw: string | null | undefined): PriceRead {
   if (plain === null || tiyin === null) return { price: null, issues: [{ code: 'price_unreadable', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40) } }] };
   const issues: ValidationIssue[] = [];
   // A formula cell's float noise (11200.000000000002 = 10000 × 1.12) is not "more than 2 decimals" (review 30 Oct, R-P6).
-  const decimals = Number(plain).toFixed(10).replace(/\.?0+$/, '').split('.')[1]?.length ?? 0;
+  const fraction = plain.split('.')[1] ?? '';
+  const noise = fraction.length > 2 && Math.abs(Number(plain) - Number(fromTiyin(tiyin))) < 1e-6;
+  const decimals = noise ? 2 : fraction.length;
   if (decimals > 2) issues.push({ code: 'price_precision', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40), rounded: fromTiyin(tiyin) } });
   if (tiyin < 0n) issues.push({ code: 'price_negative', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40) } });
   // Read as thousands, but it may have meant a fraction: the reviewer confirms (review 30 Oct).
