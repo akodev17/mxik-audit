@@ -4,6 +4,7 @@
 // there is none, the fixed-width layout ASBT writes when the delimiter is empty or a space ("длина
 // каждого поля в строке в точности будет равна значению" — the same page). Pure.
 import { decodeCyrillic, parseDelimited, sniffDelimiter, STATEMENT_DELIMITERS, type CyrillicEncoding, type StatementDelimiter } from '../spreadsheet-text.js';
+import { MAX_STATEMENT_ROWS } from './sheet.js';
 
 export type StatementText = {
   grid: string[][];
@@ -11,7 +12,40 @@ export type StatementText = {
   /** The delimiter used; null for a fixed-width file. */
   delimiter: StatementDelimiter | null;
   fixedWidth: boolean;
+  /** Non-empty rows past GRID_ROWS, counted and not kept. */
+  extra: number;
 };
+
+/**
+ * Rows a text statement's grid keeps: the statement's own limit plus room for title, header and footer rows. The rest
+ * are counted, not built: a 20 MB file built whole took about 1.9 GB of memory (review 30 Oct, R-B2b).
+ */
+export const GRID_ROWS = MAX_STATEMENT_ROWS + 1_000;
+
+/** Non-empty lines of `text` from `from` on, counted without splitting it. */
+function linesFrom(text: string, from: number): number {
+  let n = 0;
+  let filled = false;
+  for (let i = from; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    if (ch === 10) {
+      if (filled) n++;
+      filled = false;
+    } else if (ch !== 13 && ch !== 32 && ch !== 9) filled = true;
+  }
+  return filled ? n + 1 : n;
+}
+
+/** The offset just past the `count`-th line break, or -1 when the text has fewer lines. */
+function afterLines(text: string, count: number): number {
+  let at = 0;
+  for (let n = 0; n < count; n++) {
+    const next = text.indexOf('\n', at);
+    if (next < 0) return -1;
+    at = next + 1;
+  }
+  return at;
+}
 
 const DATE = /\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b/;
 /** Fewest lines of one length that make a fixed-width table. */
@@ -93,7 +127,12 @@ const PAYMENT = (line: string): boolean => DATE.test(line) && /\d[.,]\d{2}/.test
 /** The cell grid of a text statement. Title lines of a fixed-width file become one-cell rows. */
 export function readStatementText(buffer: Uint8Array): StatementText {
   const { text, encoding } = decodeCyrillic(buffer);
-  const lines = text.split(/\r?\n/);
+  // Only the first GRID_ROWS lines are split and read; the rest are counted (a quoted cell may span lines, so the
+  // count is the lines', close enough to report the statement as cut).
+  const end = afterLines(text, GRID_ROWS);
+  const head = end < 0 ? text : text.slice(0, end);
+  const extra = end < 0 ? 0 : linesFrom(text, end);
+  const lines = head.split(/\r?\n/);
   const fixed = fixedWidthLines(lines);
   if (fixed) {
     const rows = new Set(fixed.rows);
@@ -104,8 +143,8 @@ export function readStatementText(buffer: Uint8Array): StatementText {
     const table = splitFixedWidth(fixed.rows.map((i) => lines[i] ?? ''), stray.map((i) => lines[i] ?? ''));
     const cells = new Map([...fixed.rows, ...stray].map((i, k) => [i, table[k] ?? []]));
     const grid = lines.map((l, i) => cells.get(i) ?? (l.trim() === '' ? [] : [l.trim()]));
-    return { grid, encoding, delimiter: null, fixedWidth: true };
+    return { grid, encoding, delimiter: null, fixedWidth: true, extra };
   }
-  const delimiter = sniffDelimiter(text, 40, STATEMENT_DELIMITERS);
-  return { grid: parseDelimited(text, delimiter), encoding, delimiter, fixedWidth: false };
+  const delimiter = sniffDelimiter(head, 40, STATEMENT_DELIMITERS);
+  return { grid: parseDelimited(head, delimiter), encoding, delimiter, fixedWidth: false, extra };
 }

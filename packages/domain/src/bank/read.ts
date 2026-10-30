@@ -18,7 +18,7 @@ import { detectFormat, guessMapping, headerSignature, layoutFor, type BankFormat
 import { htmlGrid, markupKind, spreadsheetMlGrid } from './markup.js';
 import { parseStatement, type ParsedStatement } from './parse.js';
 import { locateTable, readTitle, type StatementSheet } from './sheet.js';
-import { readStatementText } from './text.js';
+import { GRID_ROWS, readStatementText } from './text.js';
 import { readXls, XlsError } from './xls.js';
 
 /** SHA-256 of the file's bytes: the same file uploaded twice is refused as a duplicate statement. */
@@ -136,9 +136,14 @@ async function rawStatement(bytes: Buffer, archived: string | null = null): Prom
   const { text, encoding } = decodeCyrillic(bytes);
   if (isBankExchange(text)) return { kind: 'exchange', bytes, source: { ...base, kind: 'exchange', encoding } };
   const markup = markupKind(text);
-  if (markup) return { kind: 'grid', grid: markup === 'html' ? htmlGrid(text) : spreadsheetMlGrid(text), extra: 0, source: { ...base, kind: markup, encoding } };
+  if (markup) {
+    // As for text: the rows past GRID_ROWS are counted, not kept (R-B2b).
+    const limit = { maxRows: GRID_ROWS, extra: 0 };
+    const grid = markup === 'html' ? htmlGrid(text, limit) : spreadsheetMlGrid(text, limit);
+    return { kind: 'grid', grid, extra: limit.extra, source: { ...base, kind: markup, encoding } };
+  }
   const read = readStatementText(bytes);
-  return { kind: 'grid', grid: read.grid, extra: 0, source: { ...base, encoding: read.encoding, delimiter: read.delimiter, fixedWidth: read.fixedWidth } };
+  return { kind: 'grid', grid: read.grid, extra: read.extra, source: { ...base, encoding: read.encoding, delimiter: read.delimiter, fixedWidth: read.fixedWidth } };
 }
 
 export async function readStatementFile(bytes: Buffer): Promise<StatementFile> {

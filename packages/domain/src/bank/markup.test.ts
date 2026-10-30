@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { htmlGrid, spreadsheetMlGrid } from './markup.js';
+import { GRID_ROWS, readStatementText } from './text.js';
 
 const KB400 = 400 * 1024;
 const fast = (label: string, run: () => unknown): void => {
@@ -34,5 +35,18 @@ describe('markup statement reader', () => {
       + '<Row/><Row ss:Index="4"><Cell ss:MergeAcross="1"><Data>01.10.2026</Data></Cell><Cell><Data>1000</Data></Cell></Row>'
       + '</Table></Worksheet></Workbook>';
     assert.deepEqual(spreadsheetMlGrid(xml), [['Дата', '', 'Сумма'], [], [], ['01.10.2026', '', '1000']]);
+  });
+});
+
+describe('grid row cap (review 30 Oct, R-B2b)', () => {
+  it('text and HTML statements keep GRID_ROWS rows and count the rest, instead of building them all', () => {
+    const header = 'Дата;№;Сумма;Назначение';
+    const body = Array.from({ length: GRID_ROWS + 499 }, (_, i) => `01.10.2026;${i};1000,00;Оплата`);
+    const text = readStatementText(Buffer.from([header, ...body].join('\r\n'), 'utf8'));
+    assert.equal(text.grid.length, GRID_ROWS);
+    assert.equal(text.extra, 500);
+    const limit = { maxRows: GRID_ROWS, extra: 0 };
+    const rows = htmlGrid(`<table>${Array.from({ length: GRID_ROWS + 10 }, (_, i) => `<tr><td>${i}</td></tr>`).join('')}</table>`, limit);
+    assert.deepEqual([rows.length, limit.extra], [GRID_ROWS, 10]);
   });
 });

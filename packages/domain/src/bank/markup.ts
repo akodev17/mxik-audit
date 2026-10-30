@@ -75,7 +75,10 @@ function* elements(text: string, name: string): Generator<{ attrs: string; inner
 }
 
 /** Rows of every HTML table in document order. */
-export function htmlGrid(text: string): string[][] {
+/** Rows kept by the grids below; the ones past it are only counted in `limit.extra`. */
+export type RowLimit = { maxRows: number; extra: number };
+
+export function htmlGrid(text: string, limit: RowLimit = { maxRows: Infinity, extra: 0 }): string[][] {
   const clean = withoutBlocks(text);
   const rows: string[][] = [];
   for (const tr of clean.matchAll(/<tr\b[^<>]*>([\s\S]*?)(?=<tr\b|<\/table>|$)/gi)) {
@@ -84,13 +87,14 @@ export function htmlGrid(text: string): string[][] {
       cells.push(cellText((td[3] ?? '').replace(/<\/t[dh]>\s*$/i, '')));
       for (let k = 1; k < span(td[2] ?? '', /colspan\s*=\s*["']?(\d+)/i); k++) cells.push('');
     }
-    rows.push(cells);
+    if (rows.length < limit.maxRows) rows.push(cells);
+    else if (cells.some(Boolean)) limit.extra++;
   }
   return rows;
 }
 
 /** Rows of the first worksheet of an Excel 2003 XML document, at their ss:Index. */
-export function spreadsheetMlGrid(text: string): string[][] {
+export function spreadsheetMlGrid(text: string, limit: RowLimit = { maxRows: Infinity, extra: 0 }): string[][] {
   const sheet = /<(?:ss:)?Worksheet\b[\s\S]*?<\/(?:ss:)?Worksheet>/i.exec(text)?.[0] ?? text;
   const rows: string[][] = [];
   for (const row of elements(sheet, 'Row')) {
@@ -105,7 +109,8 @@ export function spreadsheetMlGrid(text: string): string[][] {
       const merge = Math.min(Number(/ss:MergeAcross\s*=\s*"(\d+)"/i.exec(cell.attrs)?.[1] ?? 0), 50);
       for (let k = 0; k < merge; k++) cells.push('');
     }
-    rows.push(cells);
+    if (rows.length < limit.maxRows) rows.push(cells);
+    else if (cells.some(Boolean)) limit.extra++;
   }
   return rows;
 }
