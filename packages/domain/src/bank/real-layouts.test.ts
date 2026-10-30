@@ -80,7 +80,7 @@ describe('CBU п.121 statement, two-row merged header (p121-two-row-header.xlsx)
     assert.equal(fifth?.contract, null, '"по договору поставки" names no contract number');
     assert.equal(first?.contract, '4/28 от 01.01.2026');
     // The two spellings of document 12 are one key (§7.42): leading zeros do not make a new payment.
-    assert.equal(lineFingerprint({ ...first!, docNumber: '12' }), lineFingerprint(first!));
+    assert.equal(lineFingerprint({ ...first, docNumber: '12' }), lineFingerprint(first));
   });
 });
 
@@ -137,7 +137,7 @@ describe('ASBT «Экспорт документов»: payer and payee, zipped 
     assert.equal(fixed.parsed.lines[0]?.payload.purpose, 'Оплата по договору 4/28 от 01.01.2026 за услуги', 'one purpose, word gaps kept');
     assert.deepEqual(fixed.parsed.lines.map((l) => lineFingerprint(l.payload)), piped.parsed.lines.map((l) => lineFingerprint(l.payload)), 'the two exports are the same payments');
     // Two documents share number 1 the same day (different payers): never one payment (§7.24).
-    assert.notEqual(lineFingerprint(fixed.parsed.lines[0]!.payload), lineFingerprint(fixed.parsed.lines[1]!.payload));
+    assert.notEqual(lineFingerprint(fixed.parsed.lines[0].payload), lineFingerprint(fixed.parsed.lines[1]!.payload));
   });
 });
 

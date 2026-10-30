@@ -56,7 +56,7 @@ export function duplicatesInFile(fingerprints: readonly (string | null)[], lines
     if (f === null) return -1;
     const earlier = seen.get(f) ?? [];
     const line = lines?.[i];
-    const twin = earlier.find((j) => !line || !lines?.[j] || sameLine(line, lines[j] as DuplicateLine));
+    const twin = earlier.find((j) => !line || !lines?.[j] || sameLine(line, lines[j]));
     earlier.push(i);
     seen.set(f, earlier);
     return twin ?? -1;

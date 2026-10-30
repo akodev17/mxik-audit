@@ -27,7 +27,7 @@ function decodeEntities(text: string): string {
 /** A cell's inner markup as one line of text. */
 function cellText(inner: string): string {
   return decodeEntities(inner.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, ''))
-    .replace(/[\s ]+/g, ' ')
+    .replace(/[\s\u00a0]+/g, ' ')
     .trim();
 }
 

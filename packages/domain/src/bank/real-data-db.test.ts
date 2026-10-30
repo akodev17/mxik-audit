@@ -105,7 +105,7 @@ describe('bank statements from real material (database)', { skip }, () => {
     assert.deepEqual(prep.checks.filter((c) => !c.ok).map((c) => c.code), ['balance_reconciles', 'bank_totals_match']);
     const out = await exportStatement(admin, 'uz', batchId);
     assert.ok(out.ok, JSON.stringify(out));
-    const file = parseBankExchange(out.file.body as Buffer);
+    const file = parseBankExchange(out.file.body);
     assert.equal(file.documents.length, 4);
     assert.deepEqual(file.documents.map((d) => d['Номер']), ['1', '176', '1', '1/2'], 'the bank\'s repeated number 1 of 10.01.2014 made unique per file');
   });

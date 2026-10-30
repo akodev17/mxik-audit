@@ -115,6 +115,7 @@ function biff8(sheetName: string, cells: (string | number | null)[][]): Buffer {
   startCount.writeUInt32LE(strings.length, 4);
   part.push(...startCount);
   for (const s of strings) {
+    // eslint-disable-next-line no-control-regex
     const wide = /[^\u0000-ÿ]/.test(s);
     if (part.length + 3 > MAX) { sstParts.push(Buffer.from(part)); part = []; }
     part.push(s.length & 0xff, s.length >> 8, wide ? 1 : 0);
