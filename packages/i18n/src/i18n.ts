@@ -275,7 +275,7 @@ export type Dict = {
 
 export const uz: Dict = {
   appName: 'Tasnivo',
-  tagline: 'Katalogingizdagi xavfli pozitsiyalarni aniqlang',
+  tagline: 'MXIK auditi va hujjatlardan 1C uchun fayl',
   signIn: 'Kirish',
   signOut: 'Chiqish',
   email: 'Elektron pochta',

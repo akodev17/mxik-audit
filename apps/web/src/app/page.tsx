@@ -18,10 +18,11 @@ import { LandingShell } from '@/components/landing/shell';
 import { StickyCta } from '@/components/landing/sticky-cta';
 
 
-const TITLE = 'Tasnivo | MXIK katalogingizni tekshiring, xatolarni aniqlang';
+// ≤ 60 and ≤ 160 characters, so search results show them whole.
+const TITLE = 'Tasnivo | MXIK auditi, bank va Didox hujjatlaridan 1C fayli';
 const DESCRIPTION =
-  'Mahsulot katalogingizdagi MXIK kodlari, oʻlchov birliklari va boshqa nomuvofiqliklarni aniqlang. '
-  + 'Har bir tekshiruv natijasini tushunarli izoh va audit tarixi bilan koʻring. Risk auditi bepul.';
+  'Katalogdagi MXIK kodlari va oʻlchov birliklarini tekshiring, bank koʻchirmalari va Didox '
+  + 'hisob-fakturalaridan 1C uchun fayl tayyorlang. Risk auditi bepul.';
 
 export const metadata: Metadata = {
   ...(SITE_URL ? { alternates: { canonical: '/' } } : {}),

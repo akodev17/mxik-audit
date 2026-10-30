@@ -46,6 +46,7 @@ export const uz = {
       branding: 'Oʻz logotipingiz bilan PDF',
       clientLinks: 'Mijozga havola orqali hisobot',
     } as Record<Feature, string>,
+    modules: '1C, bank va Didox modullari hozircha barcha tariflarga kiradi.',
     details: 'Imkoniyatlar haqida batafsil',
     notInPlan: (feature: string) => `«${feature}» joriy tarifingizga kirmaydi. Tarifni Sozlamalar → Tarif boʻlimida oʻzgartirish mumkin.`,
     limits: {
@@ -108,6 +109,7 @@ export const ru: typeof uz = {
       branding: 'PDF с вашим логотипом',
       clientLinks: 'Отчёт клиенту по ссылке',
     },
+    modules: 'Модули 1С, банка и Didox пока входят во все тарифы.',
     details: 'Подробнее о возможностях',
     notInPlan: (feature: string) => `«${feature}» не входит в ваш тариф. Сменить тариф можно в разделе Настройки → Тариф.`,
     limits: {

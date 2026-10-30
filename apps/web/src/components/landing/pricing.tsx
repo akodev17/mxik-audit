@@ -69,7 +69,9 @@ export function Pricing() {
           copy={{ period: c.period, forWhom: c.forWhom, badge: c.startBadge, included: c.included, excluded: c.excluded, limitsTitle: c.limitsTitle }}
         />
 
-        <p className="mt-4 text-center text-[15px]">
+        {/* The accounting modules have no plan gate in code (feature-inventory.md P12, plan §2 Q2). */}
+        <p className="mt-6 text-center text-[15px] text-lp-muted">{c.modules}</p>
+        <p className="mt-2 text-center text-[15px]">
           <Link href={helpPath('uz', 'tariflar-va-limitlar')} className="font-medium text-lp-brand-ink underline decoration-2 underline-offset-4">{c.details}</Link>
         </p>
 

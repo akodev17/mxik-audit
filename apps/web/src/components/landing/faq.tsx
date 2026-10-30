@@ -1,8 +1,22 @@
 import Link from 'next/link';
+import { uz as accountingUz } from '@tasnivo/i18n/i18n-parts/accounting';
 import { CONTAINER } from './container';
 import { DATA_FLOW } from './data';
 
-// Answers limited to what the code does today; sources noted in data.ts.
+const LINK = 'rounded-lp font-medium text-lp-brand-ink underline decoration-2 underline-offset-4';
+const NAV = accountingUz.accountingX.nav;
+
+/** Where the answer lives in the app; a signed-out reader is sent to sign-in first. */
+function InApp({ href, label }: { href: string; label: string }) {
+  return (
+    <>
+      {' '}Ilovada: <Link href={href} className={LINK}>«{label}»</Link> boʻlimi.
+    </>
+  );
+}
+
+// Answers limited to what the code does today; sources noted in data.ts. The four document
+// answers follow docs/landing-2026-10-23/feature-inventory.md §3.8 and its beta lines (O1).
 const FAQ = [
   {
     q: 'Bu soliq.uz oʻrnini bosadimi?',
@@ -18,9 +32,9 @@ const FAQ = [
     q: 'Maʼlumotlarim qayerga ketadi?',
     a: (
       <>
-        {DATA_FLOW.stored} {DATA_FLOW.external} {DATA_FLOW.deletion} {DATA_FLOW.appDeletion}{' '}
-        Batafsil:{' '}
-        <Link href="/maxfiylik" className="rounded-lp font-medium text-lp-brand-ink underline decoration-2 underline-offset-4">
+        Katalog auditida: {DATA_FLOW.stored} {DATA_FLOW.external} {DATA_FLOW.deletion}{' '}
+        {DATA_FLOW.appDeletion} Batafsil:{' '}
+        <Link href="/maxfiylik" className={LINK}>
           maxfiylik siyosati
         </Link>
         .
@@ -53,6 +67,54 @@ const FAQ = [
         Yoʻq. Bitta tovar uchun yagona toʻgʻri MXIKni belgilaydigan hujjat yoʻq. Tizim kodni
         taklif qiladi, ishonch darajasi va tasniflagichdagi oʻrnini koʻrsatadi. Qarorni siz qabul
         qilasiz, va u qarorlar tarixiga yoziladi.
+      </>
+    ),
+  },
+  {
+    q: '1C ga qanday yuklanadi?',
+    a: (
+      <>
+        Tasdiqlangan yozuvlardan fayl olasiz: bank koʻchirmasi uchun kl_to_1c.txt, mahsulotlar va
+        hisob-fakturalar uchun Excel fayllari. Ularni 1C ning oʻz yuklash oynasi orqali kiritasiz.
+        Fayllar haqiqiy 1C bazasida hali sinab koʻrilmagan: birinchi faylni sinov bazasida
+        tekshiring. 1C ga toʻgʻridan-toʻgʻri ulanish (OData) sinov rejimida.
+        <InApp href="/onec" label={NAV.onec} />
+      </>
+    ),
+  },
+  {
+    q: 'Didox bilan qanday ishlaydi?',
+    a: (
+      <>
+        Didox dan yuklab olingan arxiv (.zip), JSON yoki ESF Excel faylini yuklaysiz yoki Didox
+        tokeningiz bilan yangi kiruvchi hisob-fakturalarni olasiz. Ikkala yoʻl ham sinov rejimida:
+        haqiqiy Didox bilan hali tekshirilmagan, shuning uchun har bir hisob-fakturani koʻrib
+        chiqasiz.
+        <InApp href="/didox" label={NAV.didox} />
+      </>
+    ),
+  },
+  {
+    q: 'Bank koʻchirmasi qaysi formatda boʻlishi kerak?',
+    a: (
+      <>
+        Bankdan yuklab olingan Excel (.xlsx) yoki CSV. Eski .xls faylni Excelda .xlsx qilib
+        saqlang. Shakl tanilmasa, ustunlarni bir marta tanlaysiz va shu sarlavhali keyingi fayl
+        avtomatik oʻqiladi. Bu yoʻl sinov rejimida: haqiqiy bank fayllari bilan hali
+        tasdiqlanmagan, natijani koʻrib chiqing.
+        <InApp href="/bank" label={NAV.bank} />
+      </>
+    ),
+  },
+  {
+    q: 'Hujjatlardagi maʼlumotlar qayerga ketadi?',
+    a: (
+      <>
+        {DATA_FLOW.documents} {DATA_FLOW.didoxToken} Batafsil:{' '}
+        <Link href="/maxfiylik" className={LINK}>
+          maxfiylik siyosati
+        </Link>
+        .
       </>
     ),
   },

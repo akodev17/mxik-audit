@@ -44,7 +44,9 @@ export function Trust() {
         </ol>
 
         <h3 className="lp-display mt-20 text-[clamp(1.75rem,3.4vw,2.5rem)]">Maʼlumotlaringiz qayerda</h3>
-        <dl className="mt-8 grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2">
+        {/* The four cards describe the catalogue audit; documents differ and get their own line below. */}
+        <p className="mt-6 text-[13px] font-medium uppercase tracking-wide text-lp-muted">Katalog auditida</p>
+        <dl className="mt-4 grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2">
           {DATA.map((d) => (
             <div key={d.label} className="border-t border-lp-line pt-4">
               <dt className="flex items-center gap-2 font-medium"><span aria-hidden="true" className={`size-2.5 ${d.tone}`} />{d.label}</dt>
@@ -52,6 +54,10 @@ export function Trust() {
             </div>
           ))}
         </dl>
+        <div className="mt-10 border-t border-lp-line pt-4">
+          <p className="text-[13px] font-medium uppercase tracking-wide text-lp-muted">Hujjatlarda</p>
+          <p className="mt-2 max-w-[68ch] text-[16px] text-lp-muted">{DATA_FLOW.documents}</p>
+        </div>
         <p className="mt-8 text-[16px]">
           Batafsil: <Link href="/maxfiylik" className="rounded-lp font-medium text-lp-brand-ink underline decoration-2 underline-offset-4">maxfiylik siyosati</Link>
         </p>
