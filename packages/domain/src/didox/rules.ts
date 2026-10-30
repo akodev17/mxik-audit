@@ -213,6 +213,8 @@ export function invoiceRules(inv: ParsedInvoice, ctx: RuleContext): RuleResult {
     }
     if (!p.present) continue;
     if (p.vatRegCode && !/^\d{12}$/.test(p.vatRegCode)) doc.push({ code: 'vat_reg_code_invalid', severity: 'info', field: `${role}.vatRegCode`, params: { value: p.vatRegCode } });
+    // A VAT payer (status 20/21/22) carries its 12-digit code (§7.26; review 30 Oct, R-D10: only a malformed one was flagged).
+    if (!p.vatRegCode && ['20', '21', '22'].includes(p.vatRegStatus ?? '')) doc.push({ code: 'vat_reg_code_missing', severity: 'info', field: `${role}.vatRegCode`, params: { status: p.vatRegStatus ?? '', role } });
     if (p.vatRegStatus === '21' || p.vatRegStatus === '22') doc.push({ code: 'vat_status_inactive', severity: 'warning', field: `${role}.vatRegStatus`, params: { status: p.vatRegStatus, role } });
     if (p.bankId && !/^\d{5}$/.test(p.bankId.replace(/\s/g, ''))) {
       const padded = /^\d{1,4}$/.test(p.bankId) ? p.bankId.padStart(5, '0') : null;

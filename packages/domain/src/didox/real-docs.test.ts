@@ -337,6 +337,11 @@ describe('Didox rules against the tasnif mirror and the parties (synthetic facts
     assert.deepEqual(ruled.document.map((i) => [i.code, i.suggestion]), [
       ['vat_reg_code_invalid', undefined], ['vat_status_inactive', undefined], ['mfo_invalid', '00401'], ['account_invalid', undefined], ['buyer_tin_invalid', undefined],
     ]);
+    // Review 30 Oct (R-D10): a VAT payer (status 20) without its registration code; a non-payer without one is fine.
+    const payer = inv([line()], { seller: { name: 'X', vatregstatus: '20', director: 'D' } });
+    assert.deepEqual(invoiceRules(payer, { today: TODAY }).document.map((i) => [i.code, i.field]), [['vat_reg_code_missing', 'seller.vatRegCode']]);
+    const nonPayer = inv([line()], { seller: { name: 'X', director: 'D' } });
+    assert.deepEqual(invoiceRules(nonPayer, { today: TODAY }).document.map((i) => i.code), []);
   });
 
   // didox §7.31, §7.32, §7.13: a future date; a cancelled document named with Didox's comment; restricted lists (§7.25).

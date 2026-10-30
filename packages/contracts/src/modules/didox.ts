@@ -26,7 +26,7 @@ export const DIDOX_ISSUES = [
   'mxik_not_found', 'mxik_leading_zero', 'mxik_retired_later', 'mxik_restricted_later', 'package_not_of_code', 'unit_not_of_code',
   'measure_id_in_invoice', 'decimals_exceeded', 'number_format', 'vat_rate_unexpected', 'withoutvat_without_hasvat',
   'lgota_incomplete', 'lgota_sum_mismatch', 'lgota_not_of_code', 'vat_free_without_lgota', 'vat_not_creditable', 'compensation_code_expected',
-  'origin_invalid', 'origin_mismatch', 'marks_missing', 'flag_mismatch', 'buyer_missing', 'buyer_tin_invalid', 'vat_reg_code_invalid',
+  'origin_invalid', 'origin_mismatch', 'marks_missing', 'flag_mismatch', 'buyer_missing', 'buyer_tin_invalid', 'vat_reg_code_invalid', 'vat_reg_code_missing',
   'vat_status_inactive', 'mfo_invalid', 'account_invalid', 'director_missing', 'one_sided', 'factura_type_unknown',
   'correction_without_original', 'correction_original_unknown', 'correction_number_changed', 'old_factura_on_standard',
   'date_in_future', 'date_before_contract', 'lot_id_format', 'didox_status_void', 'didox_not_signed', 'header_totals_mismatch',
