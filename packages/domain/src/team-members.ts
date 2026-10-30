@@ -6,6 +6,7 @@
 // Every function re-checks that the actor is an admin; the server action guard is the first layer.
 import type { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
+import { noticeDropped, noticeHandedOver, type MovedReview } from './review-handover-notices';
 import type { Role } from './session';
 
 type Actor = { userId: string; orgId: string; role: Role };
@@ -94,6 +95,9 @@ export type RemoveResult =
 
 type Member = { id: string; email: string; role: Role; assignments: { clientId: string }[] };
 
+/** The removed member's open reviews after the removal: handed to `takerId`, or dropped when it is null. */
+type Moved = { takerId: string | null; reviews: MovedReview[] };
+
 /** Admins and members with no assignments see every client (session.ts); others their assigned ones. */
 const seesAll = (m: Member, clientIds: readonly string[]): boolean =>
   m.role === 'admin' || m.assignments.length === 0 || clientIds.every((id) => m.assignments.some((a) => a.clientId === id));
@@ -131,13 +135,18 @@ export async function removeTeamMember(actor: Actor, userId: string, handling: R
   const target = await db.user.findFirst({ where: { id: userId, orgId: actor.orgId }, select: { id: true, email: true, role: true } });
   if (!target) return { ok: false, reason: 'not_found' };
 
+  // Filled inside the transaction, read only once it committed: what the review notices tell.
+  let moved: Moved | null = null;
   // One transaction: the last-admin check runs under lock before anything is cut off, so a
   // refused removal signs nobody out, and a failure halfway leaves the member as they were.
-  return db.$transaction(async (tx): Promise<RemoveResult> => {
+  const result = await db.$transaction(async (tx): Promise<RemoveResult> => {
     if (target.role === 'admin' && (await lockedAdminCount(tx, actor.orgId)) <= 1) return { ok: false, reason: 'last_admin' };
     // The member's row is locked first, so no review can be handed to them while they are removed.
     await tx.$queryRaw`SELECT id FROM "user" WHERE id = ${target.id} FOR UPDATE`;
-    const open = await tx.reviewAssignment.findMany({ where: { orgId: actor.orgId, assigneeId: target.id, status: 'open' }, select: { id: true, clientId: true } });
+    const open = await tx.reviewAssignment.findMany({
+      where: { orgId: actor.orgId, assigneeId: target.id, status: 'open' },
+      select: { id: true, clientId: true, catalogId: true, createdBy: true, dueOn: true, note: true, revision: true, catalog: { select: { filename: true } }, client: { select: { name: true } } },
+    });
     const now = new Date();
     let reassigned: { id: string; email: string } | null = null;
     if (open.length > 0) {
@@ -149,6 +158,9 @@ export async function removeTeamMember(actor: Actor, userId: string, handling: R
           data: { assigneeId: taker.id, revision: { increment: 1 }, updatedAt: now },
         });
         reassigned = { id: taker.id, email: taker.email };
+        // Read back under the rows' locks: the bumped revision keys each new assignee's notice.
+        const revisions = new Map((await tx.reviewAssignment.findMany({ where: { id: { in: open.map((r) => r.id) } }, select: { id: true, revision: true } })).map((r) => [r.id, r.revision]));
+        for (const r of open) r.revision = revisions.get(r.id) ?? r.revision + 1;
       } else if (handling.dropReviews !== true) {
         return { ok: false, reason: 'open_reviews', openReviews: open.length };
       }
@@ -168,8 +180,24 @@ export async function removeTeamMember(actor: Actor, userId: string, handling: R
         payload: { email: target.email, role: target.role, ...counts, openReviews: open.length, apiKeyIds: keyIds, ...(reassigned ? { reviewsReassignedTo: reassigned.email } : {}) },
       },
     });
+    moved = {
+      takerId: reassigned?.id ?? null,
+      reviews: open.map((r) => ({
+        id: r.id, clientId: r.clientId, catalogId: r.catalogId, createdBy: r.createdBy, dueOn: r.dueOn, note: r.note, revision: r.revision,
+        filename: r.catalog.filename, clientName: r.client.name,
+      })),
+    };
     return { ok: true, email: target.email, ...counts };
   });
+  // Assigned inside the callback, which narrowing cannot see.
+  const handed = moved as Moved | null;
+  if (result.ok && handed) {
+    const { takerId, reviews } = handed;
+    const removal = { orgId: actor.orgId, actorId: actor.userId, removedId: target.id, removedEmail: target.email };
+    if (takerId) await noticeHandedOver(removal, takerId, reviews);
+    else await noticeDropped(removal, reviews);
+  }
+  return result;
 }
 
 export type RevokeResult = { ok: true } | { ok: false; reason: 'forbidden' | 'not_found' };

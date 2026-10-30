@@ -5,6 +5,7 @@ import { db } from '@tasnivo/db';
 import { createRecord, isLive } from './security/session-store.js';
 import { makeClient, makeClientCatalog, makePerson } from './firm-test-fixtures.js';
 import { memberEmails } from './member-emails.js';
+import { listNotifications } from './notifications.js';
 import { changeMember, memberRemovalCheck, removeTeamMember, revokeTeamInvite } from './team-members.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
 
@@ -178,6 +179,64 @@ describe('team members (database)', { skip }, () => {
     assert.equal((dropEvent.payload as { reviewsDropped: number }).reviewsDropped, 1);
     // Their address stays readable for what they decided and closed.
     assert.equal((await memberEmails(a.orgId, [second.userId])).get(second.userId), second.email);
+  });
+
+  it('a hand-over tells the new assignee, a drop tells whoever handed the review out; nobody else sees either (S15)', async () => {
+    const c1 = await makeClient(a.orgId, `N1-${tag()}`);
+    const c2 = await makeClient(a.orgId, `N2-${tag()}`);
+    const giver = await makePerson(a.orgId, 'accountant');
+    const taker = await makePerson(a.orgId, 'accountant');
+    const bystander = await makePerson(a.orgId, 'accountant');
+    const admin = { userId: a.userId, orgId: a.orgId, clientIds: null };
+    const outsider = { userId: other.userId, orgId: other.orgId, clientIds: null };
+    const review = async (clientId: string, assigneeId: string, createdBy: string | null, extra: { dueOn?: Date; note?: string } = {}) => {
+      const { catalogId } = await makeClientCatalog(a.orgId, clientId, [{ name: 'x', findings: [{}] }]);
+      const row = await db.reviewAssignment.create({ data: { orgId: a.orgId, clientId, catalogId, assigneeId, createdBy, ...extra } });
+      return { id: row.id, href: `/catalogs/${catalogId}` };
+    };
+    /** The notices among `hrefs` this person's bell lists. */
+    const seen = async (who: { userId: string; orgId: string; clientIds: string[] | null }, hrefs: string[]) =>
+      (await listNotifications(who, { pageSize: 50 })).items.filter((n) => n.href && hrefs.includes(n.href));
+
+    // Hand-over: one review.assigned per review to the taker, keyed by the bumped revision, as an ordinary assignment.
+    const leaving = await makePerson(a.orgId, 'accountant', [c1, c2]);
+    const handed = [
+      await review(c1, leaving.userId, giver.userId, { dueOn: new Date('2031-01-20T00:00:00Z'), note: 'tez koʻring' }),
+      await review(c2, leaving.userId, a.userId),
+    ];
+    const done = await removeTeamMember(a, leaving.userId, { reassignTo: taker.userId });
+    assert.ok(done.ok && done.reviewsReassigned === 2);
+    const hrefs = handed.map((r) => r.href);
+    const told = await seen(taker, hrefs);
+    assert.equal(told.length, 2);
+    assert.ok(told.every((n) => n.kind === 'review.assigned' && n.unread));
+    const rows = await db.notification.findMany({ where: { orgId: a.orgId, href: { in: hrefs } } });
+    assert.deepEqual(rows.map((n) => n.dedupeKey).sort(), handed.map((r) => `review.assigned:${r.id}:2`).sort());
+    assert.ok(rows.every((n) => n.userId === taker.userId && n.telegramSentAt === null));
+    const first = rows.find((n) => n.href === handed[0]!.href)!;
+    assert.match(first.body, /tez koʻring/);
+    const adminEmail = (await db.user.findUniqueOrThrow({ where: { id: a.userId }, select: { email: true } })).email;
+    assert.ok(first.body.includes(adminEmail), 'names the admin who handed it over');
+    for (const who of [giver, bystander, admin, outsider, { ...taker, orgId: other.orgId }]) assert.deepEqual(await seen(who, hrefs), [], who.userId);
+
+    // Drop: only a giver who is still a member and did not drop it themselves is told.
+    const leaving2 = await makePerson(a.orgId, 'accountant', [c1]);
+    const fromGiver = await review(c1, leaving2.userId, giver.userId);
+    const dropped = [fromGiver, await review(c1, leaving2.userId, a.userId), await review(c1, leaving2.userId, leaving2.userId), await review(c1, leaving2.userId, null)];
+    const res = await removeTeamMember(a, leaving2.userId, { dropReviews: true });
+    assert.ok(res.ok && res.reviewsDropped === 4);
+    const dropHrefs = dropped.map((r) => r.href);
+    const gone = await seen(giver, dropHrefs);
+    assert.equal(gone.length, 1);
+    assert.equal(gone[0]!.kind, 'review.dropped');
+    assert.equal(gone[0]!.href, fromGiver.href);
+    assert.ok(gone[0]!.body.includes(leaving2.email), 'names the member who left');
+    const stored = await db.notification.findMany({ where: { orgId: a.orgId, href: { in: dropHrefs } } });
+    assert.deepEqual(stored.map((n) => [n.kind, n.userId, n.dedupeKey]), [['review.dropped', giver.userId, `review.dropped:${fromGiver.id}:1`]]);
+    const ru = (stored[0]!.text as Record<string, { title: string }>)['ru']!.title;
+    assert.match(ru, /^Проверка отменена: /);
+    for (const who of [taker, bystander, admin, outsider]) assert.deepEqual(await seen(who, dropHrefs), [], who.userId);
+    assert.equal((await listNotifications(giver, { group: 'review', pageSize: 50 })).items.filter((n) => n.href === fromGiver.href).length, 1, 'filed under reviews');
   });
 
   it('a non-admin actor is refused and nothing changes', async () => {
