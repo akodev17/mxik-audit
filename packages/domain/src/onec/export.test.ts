@@ -100,7 +100,8 @@ describe('1C exports (database)', { skip }, () => {
   });
 
   it('refreshCounts recounts by status, computes approved and keeps a workstream\'s progress', async () => {
-    const batchId = await seedBankBatch({ orgId: a.orgId }, { transactions: BANK_TRANSACTIONS.map((t) => ({ ...t, docNumber: `c${t.docNumber ?? ''}` })) });
+    // Undecided, as a workstream writes them: only the two approved below count as approved.
+    const batchId = await seedBankBatch({ orgId: a.orgId, approved: false }, { transactions: BANK_TRANSACTIONS.map((t) => ({ ...t, docNumber: `c${t.docNumber ?? ''}` })) });
     await db.importBatch.update({ where: { id: batchId }, data: { counts: { total: 0, progress: { done: 3, total: 6 } } } });
     const recs = await recordsOf(batchId);
     await decideMany({ orgId: a.orgId, clientIds: null, userId: a.userId }, batchId, { recordIds: [recs[0]!.id, recs[1]!.id], decision: { action: 'approve' } });

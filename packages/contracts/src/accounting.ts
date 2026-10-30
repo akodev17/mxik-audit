@@ -294,6 +294,12 @@ export const IncomingInvoiceMeta = z.object({
   signed: z.boolean().nullable(),
   /** Problems of the document itself, not of a line (seller_unknown, seller_tin_invalid, ...). */
   issues: z.array(ValidationIssue).max(50).optional(),
+  /** ЭСФ `FacturaType` (0 standard, 1 additional, 4 corrected, …); absent = 0. */
+  facturaType: z.number().int().min(0).max(20).nullable().optional(),
+  /** `OldFacturaDoc`: the invoice a corrected or additional one replaces (required when facturaType ≠ 0). */
+  oldFactura: z.object({ id: z.string().max(80).nullable(), number: z.string().max(60), date: IsoDate }).nullable().optional(),
+  /** The operator's risk scoring of an incoming ЭСФ (Didox `scoring`); 1C UZ 3.0.60.12 books a high one on 4410.11. */
+  riskLevel: z.enum(['low', 'medium', 'high']).nullable().optional(),
 });
 export type IncomingInvoiceMeta = z.infer<typeof IncomingInvoiceMeta>;
 

@@ -9,10 +9,12 @@ import request from 'supertest';
 import { endpoints } from '@tasnivo/contracts';
 import { db } from '@tasnivo/db';
 import { makeClient, makePerson } from '@tasnivo/domain/firm-test-fixtures';
+import { BANK_TRANSACTIONS } from '@tasnivo/domain/onec/fixtures/demo-data';
 import { seedBankBatch, seedInvoiceBatch } from '@tasnivo/domain/onec/fixtures/seed';
 import { buildCounterpartiesXlsx } from '@tasnivo/domain/onec/sheets';
 import { decodeBankExchange } from '@tasnivo/domain/onec/bank-exchange';
 import { i18nFor } from '@tasnivo/i18n/locale';
+import { getModuleStates, setModuleStates } from '../../src/features/module-states';
 import { bodyOf, dbSkipReason, dropOrgs, makeUser, serverOf, startApp, type TestUser } from '../helpers';
 import { matches, sessionCookie } from '../upload-fixtures';
 
@@ -29,6 +31,7 @@ describe('onec (database)', { skip }, () => {
   let clientId = '';
   let otherClient = '';
   let bankId = '';
+  let gateExport = '';
 
   const http = () => request(serverOf(app));
   const get = (path: string, who = cookie) => http().get(path).set('Cookie', who);
@@ -125,6 +128,55 @@ describe('onec (database)', { skip }, () => {
     assert.equal(bodyOf<{ code: string; error: string }>(wrongFormat).code, 'format_unsupported');
     assert.ok(bodyOf<{ error: string }>(wrongFormat).error.length > 3, 'worded in the user\'s language');
     assert.equal((await send('post', `/api/onec/batches/${bankId}/export`).send({ format: 'nope' })).status, 400);
+  });
+
+  it('B5: a valid record nobody approved never leaves, with or without record ids; the approved ones do', async () => {
+    // B5 (onec/plan.ts:145,216 before): `valid` was taken for approved, so an export from /onec sent lines nobody looked at.
+    const transactions = BANK_TRANSACTIONS.map((t) => ({ ...t, docNumber: `g${t.docNumber ?? ''}` }));
+    const gate = await seedBankBatch({ orgId: owner.orgId, clientId, createdBy: owner.userId, approved: false }, { transactions });
+    const recs = bodyOf<Detail>(await get(`/api/onec/batches/${gate}`)).records;
+    assert.ok(recs.every((r) => r.status === 'valid'), 'every check passed: valid, but undecided');
+    const prep = await send('post', `/api/onec/batches/${gate}/prepare`).send({ format: 'bank_exchange_1_02' });
+    assert.equal(bodyOf<{ records: number }>(prep).records, 0);
+    const none = await send('post', `/api/onec/batches/${gate}/export`).send({ format: 'bank_exchange_1_02' });
+    assert.equal(bodyOf<{ code: string }>(none).code, 'nothing_to_export');
+    const chosen = await send('post', `/api/onec/batches/${gate}/export`).send({ format: 'bank_exchange_1_02', recordIds: recs.map((r) => r.id) });
+    assert.equal(bodyOf<{ code: string }>(chosen).code, 'nothing_to_export', 'naming the records does not approve them');
+    assert.equal(await db.oneCExport.count({ where: { batchId: gate } }), 0);
+
+    const approve = await send('post', `/api/onec/batches/${gate}/decisions`).send({ recordIds: [recs[0]!.id, recs[2]!.id, recs[4]!.id], decision: { action: 'approve' } });
+    assert.equal(bodyOf<{ batchStatus: string }>(approve).batchStatus, 'review', 'three still wait for the reviewer');
+    const reopened = await send('put', `/api/onec/records/${recs[4]!.id}/decision`).send({ action: 'reopen' });
+    assert.equal(bodyOf<{ record: { decision: unknown } }>(reopened).record.decision, null, 'reopened = undecided again');
+    const exp = await send('post', `/api/onec/batches/${gate}/export`).send({ format: 'bank_exchange_1_02' });
+    assert.equal(exp.status, 200, JSON.stringify(exp.body));
+    const built = bodyOf<{ exportId: string }>(exp);
+    const file = await get(`/api/onec/exports/${built.exportId}/file`).buffer(true).parse((res, done) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => done(null, Buffer.concat(chunks)));
+    });
+    const text = decodeBankExchange(file.body as Buffer);
+    assert.deepEqual([...text.matchAll(/^Номер=(.*)$/gm)].map((m) => m[1]?.trim()), ['g101', 'g102']);
+    const after = await db.importRecord.findMany({ where: { batchId: gate }, orderBy: { rowIndex: 'asc' } });
+    assert.deepEqual(after.map((r) => [r.status, (r.outcome as { reason: string | null } | null)?.reason ?? null]), [
+      ['exported', null], ['valid', 'not_approved'], ['exported', null], ['valid', 'not_approved'], ['valid', 'not_approved'], ['valid', 'not_approved'],
+    ]);
+    gateExport = built.exportId;
+  });
+
+  it('B8: with the 1C module switched off, the stored file still downloads for the bank and products pages', async () => {
+    // B8: bank/[batchId]/export-panel.tsx and the products import link to /api/onec/exports/{id}/file.
+    const before = (await getModuleStates()).onec;
+    await setModuleStates({ onec: 'HIDDEN' });
+    try {
+      assert.equal((await get('/api/onec/batches')).status, 404, 'the module itself is off');
+      const file = await get(`/api/onec/exports/${gateExport}/file`);
+      assert.equal(file.status, 200);
+      assert.equal(file.headers['content-type'], 'text/plain; charset=windows-1251');
+    } finally {
+      await setModuleStates({ onec: before });
+    }
   });
 
   it('refusals: CSRF, viewer, demo, a scoped accountant, another org', async () => {

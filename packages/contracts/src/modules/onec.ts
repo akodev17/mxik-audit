@@ -61,14 +61,52 @@ export const Check = z.object({ code: z.string(), ok: z.boolean(), detail: z.str
 
 const ExportRequest = z.object({ format: Format, recordIds: z.array(ShortId).min(1).max(5000).optional() });
 
+/**
+ * A reference a 1C document needs (Контрагент, ДоговорКонтрагента, a ДДС item, a product): found in
+ * `entitySet` by `key` = our value. `attribute` is the 1C name without `_Key`: a plain reference is
+ * written as `<attribute>_Key`, a composite one (the $metadata has `<attribute>_Type`) as the guid
+ * plus its type. `owner`: the ref of ours whose found key must be the catalogue's `Owner_Key` (a
+ * contract belongs to its counterparty).
+ */
+export const RefTarget = z.object({
+  attribute: z.string().min(1).max(200),
+  entitySet: z.string().min(1).max(200),
+  /** Other names the same catalogue has in other editions; the first the $metadata lists wins. */
+  alternatives: z.array(z.string().max(200)).max(5).optional(),
+  key: z.string().min(1).max(200),
+  owner: z.string().max(60).optional(),
+});
+
 export const ObjectTarget = z.object({
   entitySet: z.string().min(1).max(200),
+  /** Other names of the entity set in other editions (discovered from $metadata, never assumed). */
+  alternatives: z.array(z.string().max(200)).max(5).optional(),
   fields: z.record(z.string().max(60), z.string().max(200)),
   constants: z.record(z.string().max(200), z.union([z.string().max(500), z.number(), z.boolean()])).optional(),
+  /** Our value → the 1C enumeration value, per field of ours (ВидОперации, СтавкаНДС). */
+  values: z.record(z.string().max(60), z.record(z.string().max(120), z.string().max(200))).optional(),
+  /** References found in the base before the document is written. */
+  refs: z.record(z.string().max(60), RefTarget).optional(),
   linesPart: z.string().max(200).optional(),
   lineFields: z.record(z.string().max(60), z.string().max(200)).optional(),
+  lineRefs: z.record(z.string().max(60), RefTarget).optional(),
+  /** Marking codes, one row per code with the goods line's number (only when the base publishes the part). */
+  marksPart: z.string().max(200).optional(),
+  marksFields: z.object({ line: z.string().max(200), code: z.string().max(200) }).optional(),
+  /** Call Post() after the document is created (OData creates documents unposted). */
+  post: z.boolean().optional(),
 });
 export const ObjectMap = z.object({ bankCredit: ObjectTarget, bankDebit: ObjectTarget, invoice: ObjectTarget, product: ObjectTarget });
+
+/** One thing the base's OData composition lacks for the object map (onec §8.25). */
+export const CompositionProblem = z.object({
+  kind: z.enum(['set_missing', 'attribute_missing', 'part_missing', 'ref_missing']),
+  target: z.string(),
+  entitySet: z.string(),
+  attribute: z.string().optional(),
+  /** Required: the transfer refuses until it is published. Otherwise a reference is left empty. */
+  required: z.boolean(),
+});
 
 export const Connection = z.object({
   kind: z.enum(ONEC_CONNECTION_KINDS),
@@ -88,6 +126,8 @@ export type Connection = z.infer<typeof Connection>;
 export const CounterpartyRow = z.object({
   id: z.string(), clientId: z.string().nullable(), name: z.string(), inn: z.string().nullable(), account: z.string().nullable(), mfo: z.string().nullable(),
   aliases: z.array(z.string()), onecRef: z.string().nullable(), source: z.string(), createdAt: IsoDateTime,
+  /** legal / individual / nonresident; the branch code (ИНН + код филиала tell branches apart, 1C UZ 3.0.62); the 12-digit VAT code. */
+  kind: z.string().nullable().optional(), branchCode: z.string().nullable().optional(), vatCode: z.string().nullable().optional(),
 });
 
 /** A refusal with the domain's machine code (`not_found`, `nothing_to_export`, `has_errors`, …) and its words. */
@@ -154,7 +194,11 @@ export const onec = defineModule('onec', {
     params: BatchPath,
     body: z.object({ format: z.literal('odata').default('odata'), recordIds: z.array(ShortId).min(1).max(5000).optional() }),
     responds: 'json',
-    response: z.union([z.object({ ok: z.literal(true), exportId: z.string(), outcome: ImportOutcome }), Refused]),
+    response: z.union([
+      z.object({ ok: z.literal(true), exportId: z.string(), outcome: ImportOutcome }),
+      // composition_incomplete names what the base does not publish (onec §8.25).
+      Refused.extend({ problems: z.array(CompositionProblem).optional() }),
+    ]),
     replaces: ['page:(app)/onec/[batchId]#transfer'],
   }),
   exportFile: endpoint({
@@ -219,6 +263,12 @@ export const onec = defineModule('onec', {
     responds: 'json',
     response: z.object({
       ok: z.boolean(), status: z.number().int().nullable(), code: z.string(), entitySets: z.number().int().nullable(), missing: z.array(z.string()), testedAt: IsoDateTime,
+      /** What the OData composition lacks, each with the 1C object to add (`set_missing`, `attribute_missing`, `part_missing`, `ref_missing`). */
+      problems: z.array(CompositionProblem).optional(),
+      /** Entity sets as this base names them (ours → theirs), when an alternative name was found. */
+      resolved: z.record(z.string(), z.string()).optional(),
+      /** Plain http: Basic auth goes over the network in clear text. */
+      insecure: z.boolean().optional(),
     }),
     replaces: ['page:(app)/onec/settings#test'],
   }),
@@ -231,7 +281,7 @@ export const onec = defineModule('onec', {
   }),
   importCounterparties: endpoint({
     method: 'POST', path: '/api/onec/counterparties/import', auth: 'session', role: 'writer', noDemo: true,
-    summary: 'Load counterparties from a 1C «Контрагенты» export (Наименование, ИНН, Расчетный счет, МФО)',
+    summary: 'Load counterparties from a 1C «Контрагенты» list (Вывести список: Наименование, ИНН, ПИНФЛ, Код, Код филиала, …) or a counterparties_xlsx',
     multipart: {
       fields: z.object({ clientId: ShortId.optional() }),
       files: { file: { required: true, maxBytes: LIMITS.uploadBytes, extensions: LIMITS.uploadExtensions, description: 'Excel (.xlsx) or CSV.' } },

@@ -1,0 +1,18 @@
+{
+ "odata.metadata": "https://1cfresh.com:443/a/sbm_demo/1962515/odata/standard.odata/$metadata#Catalog_ФизическиеЛица",
+ "odata.count": "28",
+ "value": [
+ {
+ "Description": "Физлицо Второе",
+ "ДатаРождения": "1987-06-04T00:00:00"
+ },
+ {
+ "Description": "Физлицо Третье",
+ "ДатаРождения": "1980-11-15T00:00:00"
+ },
+ {
+ "Description": "Физлицо Четвёртое",
+ "ДатаРождения": "1977-08-04T00:00:00"
+ }
+ ]
+}

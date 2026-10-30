@@ -2,7 +2,7 @@
 // reviewer's decisions (approve, correct, skip, reopen) on one record or many. Every read is scoped
 // like the catalogue pages: another org's batch, or a client the accountant may not open, is the
 // same "not found" as a missing one.
-import type { Prisma, RecordStatus } from '@prisma/client';
+import { Prisma, type RecordStatus } from '@prisma/client';
 import { accounting } from '@tasnivo/contracts';
 import { db } from '@tasnivo/db';
 import type { z } from 'zod';
@@ -157,6 +157,8 @@ const answered = (issue: ValidationIssue, paths: readonly string[]): boolean =>
 export function batchStatusFor(counts: BatchCounts, current: ImportStatus): ImportStatus {
   if (current === 'uploaded' || current === 'failed') return current;
   if (counts.unresolved + counts.suspicious > 0) return 'review';
+  // A valid record nobody approved yet still waits for the reviewer (B5).
+  if (counts.valid + counts.corrected > (counts.approved ?? 0)) return 'review';
   if (counts.valid + counts.corrected > 0) return 'approved';
   if (counts.exported > 0) return 'exported';
   return 'approved';
@@ -199,6 +201,11 @@ async function settleBatch(batchId: string, current: ImportStatus): Promise<{ co
   return { counts, batchStatus };
 }
 
+/** The stored decision columns; `reopen` clears them. */
+const decisionData = (d: ReviewDecision, userId: string, at: Date) => (d.action === 'reopen'
+  ? { decision: Prisma.DbNull, decidedBy: null, decidedAt: null }
+  : { decision: d, decidedBy: userId, decidedAt: at });
+
 const recordSelect = { id: true, batchId: true, status: true, payload: true, issues: true, batch: { select: { kind: true, status: true } } } as const;
 
 /** `PUT /api/onec/records/{recordId}/decision`. */
@@ -212,7 +219,8 @@ export async function decideRecord(actor: Actor, recordId: string, body: unknown
   const row = await db.importRecord.update({
     where: { id: rec.id },
     data: {
-      status: applied.status, decision: decision.data, decidedBy: actor.userId, decidedAt: new Date(),
+      // A reopened record has no decision again: it waits for the reviewer like a fresh one (B5).
+      status: applied.status, ...decisionData(decision.data, actor.userId, new Date()),
       ...(applied.payload ? { payload: applied.payload as Prisma.InputJsonValue } : {}),
       ...(applied.issues ? { issues: applied.issues } : {}),
     },
@@ -247,7 +255,7 @@ export async function decideMany(actor: Actor, batchId: string, body: unknown): 
   }
   const now = new Date();
   await db.$transaction([...byStatus].map(([status, idsFor]) => db.importRecord.updateMany({
-    where: { id: { in: idsFor } }, data: { status, decision: parsed.data, decidedBy: actor.userId, decidedAt: now },
+    where: { id: { in: idsFor } }, data: { status, ...decisionData(parsed.data, actor.userId, now) },
   })));
   const settled = await settleBatch(batchId, batch.status);
   const count = [...byStatus.values()].reduce((n, l) => n + l.length, 0);

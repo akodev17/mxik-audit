@@ -1479,6 +1479,12 @@ model Counterparty {
   /// 20-digit settlement account and 5-digit МФО of its bank, when known.
   account   String?
   mfo       String?
+  /// 'legal' (9-digit ИНН) | 'individual' (14-digit ПИНФЛ) | 'nonresident' (no ИНН); null = not stated.
+  kind      String?
+  /// Код филиала: 1C UZ 3.0.62 tells counterparties apart by ИНН + код филиала, so two branches are two rows.
+  branchCode String?
+  /// 12-digit Регистрационный код плательщика НДС.
+  vatCode   String?
   /// Other spellings seen in statements and invoices.
   aliases   String[]
   /// The 1C catalogue reference (code or GUID) once the counterparty is known to exist there.

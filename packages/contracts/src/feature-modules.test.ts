@@ -55,6 +55,19 @@ describe('module registry', () => {
   });
 });
 
+describe('shared paths', () => {
+  it('the stored 1C file belongs to no module: bank and product downloads work with the 1C module off (B8)', () => {
+    // B8: bank/[batchId]/export-panel.tsx and products import link to /api/onec/exports/{id}/file.
+    assert.deepEqual(modulesOfApi('/api/onec/exports/exp123/file'), []);
+    assert.deepEqual(modulesOfApi('/API/ONEC/exports/exp123/FILE'), []);
+    assert.deepEqual(modulesOfApi('/api/onec/batches/b1/export'), ['onec'], 'the rest of the 1C module stays under its flag');
+    assert.deepEqual(modulesOfApi('/api/onec/exports/exp123'), ['onec']);
+    const hidden = { ...allEnabled(), onec: 'HIDDEN' as const };
+    assert.equal(strictest(modulesOfApi('/api/onec/exports/exp123/file'), hidden), null);
+    assert.ok(allEndpoints().some((e) => e.path === '/api/onec/exports/{exportId}/file'), 'the shared path is a real endpoint');
+  });
+});
+
 describe('prefix matching', () => {
   it('matches the prefix itself and paths below it, segment by segment', () => {
     assert.equal(underPrefix('/didox', '/didox'), true);

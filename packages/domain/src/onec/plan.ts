@@ -27,6 +27,8 @@ export type PlanRecord = {
   issues: ValidationIssue[];
   fingerprint: string | null;
   decision: { action?: string } | null;
+  /** The last export's outcome for this record (a transfer that timed out looks before writing again). */
+  outcome?: { result?: string; reason?: string | null } | null;
 };
 
 export type PlanBatch = { id: string; kind: ImportKind; meta: unknown };
@@ -141,8 +143,15 @@ function recordIssues(batch: PlanBatch, rec: PlanRecord, format: OneCFormat): { 
   return { issues: out, parsed: { record: rec, kind: 'product_catalog', payload: p } };
 }
 
-/** Approved = valid or corrected (an approved suspicious record becomes one of the two). */
-const approved = (r: PlanRecord): boolean => r.status === 'valid' || r.status === 'corrected';
+/** The reviewer's actions that let a record leave Tasnivo: approved, or corrected (the reviewer wrote the values). */
+export const APPROVING_ACTIONS: readonly string[] = ['approve', 'correct'];
+
+/**
+ * Approved = valid or corrected AND a reviewer decided so (B5). `valid` alone only says no check
+ * found a problem: a record nobody looked at never leaves, with or without record ids.
+ */
+export const approved = (r: Pick<PlanRecord, 'status' | 'decision'>): boolean =>
+  (r.status === 'valid' || r.status === 'corrected') && APPROVING_ACTIONS.includes(r.decision?.action ?? '');
 
 /** opening + credits − debits = closing, and the statement's own totals, over every record of the statement. */
 function bankChecks(batch: PlanBatch, all: readonly PlanRecord[], issues: ValidationIssue[]): ImportOutcome['checks'] {
@@ -196,9 +205,10 @@ function invoiceChecks(batch: PlanBatch, all: readonly PlanRecord[], issues: Val
 }
 
 /**
- * The plan for `format`. Without `recordIds` the batch's approved records go; with them, those
- * records (an explicit choice may re-send an exported one: the same set exported earlier is then a
- * warning, not a refusal). Records with an error after the format checks, duplicates within the
+ * The plan for `format`. Without `recordIds` the batch's approved records go; with them, the
+ * approved ones among those (an explicit choice may re-send an exported one: the same set exported
+ * earlier is then a warning, not a refusal). A `valid` record without the reviewer's decision is
+ * left out as `not_approved` either way (B5). Records with an error after the format checks, duplicates within the
  * set and records already exported from another batch of the org are left out with the reason.
  */
 export function planExport(batch: PlanBatch, records: readonly PlanRecord[], format: OneCFormat, recordIds: readonly string[] | undefined, prior: Prior): Plan {
@@ -212,8 +222,8 @@ export function planExport(batch: PlanBatch, records: readonly PlanRecord[], for
     if (!wanted && r.status === 'exported') continue;
     if (r.status === 'skipped') left.push({ record: r, reason: 'skipped' });
     else if (r.status === 'unresolved') left.push({ record: r, reason: 'unresolved' });
-    else if (r.status === 'suspicious') left.push({ record: r, reason: 'not_approved' });
     else if (approved(r) || r.status === 'exported') candidates.push(r);
+    else left.push({ record: r, reason: 'not_approved' });
   }
   const awaiting = left.filter((l) => l.reason !== 'skipped').length;
   if (awaiting > 0) issues.push(issue('unresolved', 'warning', null, undefined, { count: awaiting }));

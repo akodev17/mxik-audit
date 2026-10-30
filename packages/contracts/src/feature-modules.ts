@@ -11,6 +11,8 @@ export type FeatureModule = {
   routes: readonly string[];
   /** API path prefixes; a `*` segment stands for any one path segment. */
   api: readonly string[];
+  /** Paths under `api` other modules' pages call too: they belong to no module and stay open when this one is off. */
+  shared?: readonly string[];
   /** For the code and the docs; the screens show featuresX.modules in the viewer's language. */
   label: string;
   description: string;
@@ -45,6 +47,8 @@ export const FEATURE_MODULES = {
   onec: {
     routes: ['/onec'],
     api: ['/api/onec'],
+    // The stored 1C file of an export: the bank, Didox and products pages download theirs here (B8).
+    shared: ['/api/onec/exports/*/file'],
     label: '1C',
     description: '1C connection, import batches, counterparties and export history',
   },
@@ -90,7 +94,10 @@ export function modulesOfRoute(pathname: string): ModuleKey[] {
  */
 export function modulesOfApi(path: string): ModuleKey[] {
   const lower = path.toLowerCase();
-  return MODULE_KEYS.filter((key) => FEATURE_MODULES[key].api.some((prefix) => underPrefix(lower, prefix)));
+  return MODULE_KEYS.filter((key) => {
+    const m: FeatureModule = FEATURE_MODULES[key];
+    return m.api.some((prefix) => underPrefix(lower, prefix)) && !(m.shared ?? []).some((prefix) => underPrefix(lower, prefix.toLowerCase()));
+  });
 }
 
 /** The state that wins when several modules cover a path: HIDDEN over COMING_SOON over ENABLED. */

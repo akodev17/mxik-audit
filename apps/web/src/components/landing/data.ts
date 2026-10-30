@@ -353,4 +353,5 @@ export const ACCOUNTING_FORMATS =
 
 export const ACCOUNTING_UNVERIFIED =
   'Fayllar 1C almashuv standarti boʻyicha tuzilgan, lekin haqiqiy 1C bazasiga hali yuklab sinab '
-  + 'koʻrilmagan: birinchi faylni sinov bazasida tekshiring.';
+  + 'koʻrilmagan: Oʻzbekiston nashri bank kodini qaysi kalitdan oʻqishi va mijoz bazasining OData '
+  + 'nomlari ($metadata) hali tasdiqlanmagan. Birinchi faylni sinov bazasida tekshiring.';

@@ -8,12 +8,14 @@
 // names of «Бухгалтерия для Узбекистана 3.0» (research note §2, third-party list) and are editable
 // per org. No COM. The password is sealed like the 2FA secrets and never logged or answered.
 import { accounting } from '@tasnivo/contracts';
-import { ObjectMap, ObjectTarget } from '@tasnivo/contracts/modules/onec';
+import { CompositionProblem as CompositionProblemSchema, ObjectMap, ObjectTarget, RefTarget as RefTargetSchema } from '@tasnivo/contracts/modules/onec';
 import { db } from '@tasnivo/db';
 import { z } from 'zod';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { derivedKey } from '../security/secret.js';
+import { fromMicros, money2, toMicros } from './decimal.js';
 import { hostFetcher } from './host-guard.js';
+import { bodyDate, networkFailure, ODataClient, rememberMetadata, REQUEST_TIMEOUT_MS, type Metadata, type ODataCredentials } from './odata.js';
 import type { ReadyTransaction } from './plan.js';
 
 export type ConnectionKind = (typeof accounting.ONEC_CONNECTION_KINDS)[number];
@@ -24,25 +26,76 @@ export { ObjectMap, ObjectTarget };
 export type ObjectTarget = z.infer<typeof ObjectTarget>;
 export type ObjectMap = z.infer<typeof ObjectMap>;
 
-/** Typical names of the Uzbek edition (unverified; research note §2). Every org can edit them. */
+/** The references every bank document carries: the counterparty by ИНН, its contract, the ДДС item, our account. */
+const BANK_REFS: NonNullable<ObjectTarget['refs']> = {
+  counterparty: { attribute: 'Контрагент', entitySet: 'Catalog_Контрагенты', key: 'ИНН' },
+  contract: { attribute: 'ДоговорКонтрагента', entitySet: 'Catalog_ДоговорыКонтрагентов', key: 'Description', owner: 'counterparty' },
+  cashFlowItem: { attribute: 'СтатьяДвиженияДенежныхСредств', entitySet: 'Catalog_СтатьиДвиженияДенежныхСредств', key: 'Description' },
+  ourAccount: { attribute: 'СчетОрганизации', entitySet: 'Catalog_БанковскиеСчета', key: 'НомерСчета' },
+};
+const BANK_FIELDS = {
+  date: 'Date', number: 'НомерВходящегоДокумента', docDate: 'ДатаВходящегоДокумента', amount: 'СуммаДокумента', purpose: 'НазначениеПлатежа',
+  operation: 'ВидОперации', comment: 'Комментарий',
+};
+
+/**
+ * Typical names of the Uzbek edition (BP 3.0 family; unverified against a real UZ base, research
+ * note onec §5.2). Every org can edit them; the entity sets are looked up in the base's $metadata,
+ * alternatives included, before anything is written. B4: the operation chosen in review goes to
+ * ВидОперации (an enumeration, written by value name), the ДДС item, the contract and the
+ * counterparty are found in the base and written as references.
+ */
 export const DEFAULT_OBJECT_MAP: ObjectMap = {
   bankCredit: {
     entitySet: 'Document_ПоступлениеНаРасчетныйСчет',
-    fields: { date: 'Date', number: 'НомерВходящегоДокумента', docDate: 'ДатаВходящегоДокумента', amount: 'СуммаДокумента', purpose: 'НазначениеПлатежа' },
+    fields: BANK_FIELDS,
+    values: {
+      operation: {
+        payment_in: 'ОплатаПокупателя', acquiring: 'ПоступленияОтПродажПоПлатежнымКартамИБанковскимКредитам', transfer: 'ПереводСДругогоСчета',
+        loan: 'ПолучениеКредита', other_in: 'ПрочееПоступление',
+      },
+    },
+    refs: BANK_REFS,
   },
   bankDebit: {
     entitySet: 'Document_СписаниеСРасчетногоСчета',
-    fields: { date: 'Date', number: 'НомерВходящегоДокумента', docDate: 'ДатаВходящегоДокумента', amount: 'СуммаДокумента', purpose: 'НазначениеПлатежа' },
+    fields: BANK_FIELDS,
+    values: {
+      operation: {
+        payment_out: 'ОплатаПоставщику', tax: 'ПеречислениеНалога', salary: 'ПеречислениеЗаработнойПлаты', bank_fee: 'ПрочееСписание',
+        transfer: 'ПереводНаДругойСчет', loan: 'ВозвратКредита', other_out: 'ПрочееСписание',
+      },
+    },
+    refs: BANK_REFS,
   },
   invoice: {
     entitySet: 'Document_ПоступлениеТоваровУслуг',
-    fields: { date: 'Date', number: 'НомерВходящегоДокумента', docDate: 'ДатаВходящегоДокумента', total: 'СуммаДокумента' },
+    fields: { date: 'Date', number: 'НомерВходящегоДокумента', docDate: 'ДатаВходящегоДокумента', total: 'СуммаДокумента', comment: 'Комментарий' },
+    refs: {
+      counterparty: { attribute: 'Контрагент', entitySet: 'Catalog_Контрагенты', key: 'ИНН' },
+      contract: { attribute: 'ДоговорКонтрагента', entitySet: 'Catalog_ДоговорыКонтрагентов', key: 'Description', owner: 'counterparty' },
+    },
     linesPart: 'Товары',
-    lineFields: { quantity: 'Количество', price: 'Цена', amount: 'Сумма', vatAmount: 'СуммаНДС' },
+    lineFields: { quantity: 'Количество', price: 'Цена', amount: 'Сумма', vatRate: 'СтавкаНДС', vatAmount: 'СуммаНДС' },
+    values: {
+      vatRate: { '0': 'НДС0', '12': 'НДС12', '15': 'НДС15', none: 'БезНДС' },
+      // 1C UZ 3.0.60.12: VAT of a high-risk ЭСФ is booked on 4410.11.
+      vatAccount: { high: '4410.11' },
+    },
+    lineRefs: {
+      product: { attribute: 'Номенклатура', entitySet: 'Catalog_Номенклатура', key: 'Description' },
+      vatAccount: { attribute: 'СчетУчетаНДС', entitySet: 'ChartOfAccounts_Хозрасчетный', key: 'Code' },
+    },
+    marksPart: 'КодыМаркировки',
+    marksFields: { line: 'НомерСтрокиТовары', code: 'КодМаркировки' },
   },
   product: {
     entitySet: 'Catalog_Номенклатура',
-    fields: { name: 'Description', fullName: 'НаименованиеПолное' },
+    fields: { name: 'Description', fullName: 'НаименованиеПолное', article: 'Артикул' },
+    refs: {
+      // RU BP 3.0 names it КлассификаторЕдиницИзмерения, other editions ЕдиницыИзмерения: discovered, never assumed (§8.34).
+      unit: { attribute: 'ЕдиницаИзмерения', entitySet: 'Catalog_КлассификаторЕдиницИзмерения', alternatives: ['Catalog_ЕдиницыИзмерения'], key: 'Description' },
+    },
   },
 };
 
@@ -162,38 +215,33 @@ export async function saveConnection(orgId: string, actorId: string, body: unkno
 
 // ── Talking to 1C ──────────────────────────────────────────────────────────────────────────
 
-export const REQUEST_TIMEOUT_MS = 10_000;
+// The OData client itself (what a real base expects, §8.25–34): odata.ts.
+export { odataRoot, REQUEST_TIMEOUT_MS } from './odata.js';
 
 // Which hosts may be called, and the fetch pinned to the checked address: host-guard.ts (F20).
 export { hostAllowed, hostFetcher, privateAddress } from './host-guard.js';
 
-type Credentials = { baseUrl: string; username: string | null; password: string | null };
-
-const authHeader = (c: Credentials): Record<string, string> =>
-  c.username ? { authorization: `Basic ${Buffer.from(`${c.username}:${c.password ?? ''}`, 'utf8').toString('base64')}` } : {};
-
-export const odataRoot = (baseUrl: string): string => `${baseUrl}/odata/standard.odata`;
-
-/** A failure in words safe to store and show: the status or the network error's kind, never a header or a password. */
-function failure(error: unknown): string {
-  if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) return 'timeout';
-  const code = (error as { cause?: { code?: string } })?.cause?.code;
-  return code ? `unreachable:${code}` : 'unreachable';
-}
+export type CompositionProblem = z.infer<typeof CompositionProblemSchema>;
 
 export type TestResult = {
   ok: boolean;
   /** HTTP status when the server answered. */
   status: number | null;
-  /** `ok`, `auth_failed`, `not_found`, `http_<status>`, `timeout`, `unreachable[:code]`, `no_url`, `host_refused`, `not_odata`. */
+  /** `ok`, `auth_failed`, `not_found`, `redirected`, `http_<status>`, `timeout`, `unreachable[:code]`, `no_url`, `host_refused`, `not_odata`. */
   code: string;
   /** Entity sets the $metadata lists, and the configured ones it lacks (OData only). */
   entitySets: number | null;
   missing: string[];
+  /** Everything the composition lacks for the object map, each named (onec §8.25). */
+  problems: CompositionProblem[];
+  /** Our entity set name → the one this base uses, where an alternative was found (§8.34). */
+  resolved: Record<string, string>;
+  /** Plain http: the Basic credentials cross the network unencrypted (§8.26). */
+  insecure: boolean;
   testedAt: string;
 };
 
-async function credentialsOf(orgId: string): Promise<(Credentials & { kind: ConnectionKind; objectMap: ObjectMap }) | null> {
+async function credentialsOf(orgId: string): Promise<(ODataCredentials & { kind: ConnectionKind; objectMap: ObjectMap }) | null> {
   const row = await db.oneCConnection.findUnique({ where: { orgId } });
   if (!row?.baseUrl) return null;
   const map = ObjectMap.safeParse(row.objectMap);
@@ -203,38 +251,116 @@ async function credentialsOf(orgId: string): Promise<(Credentials & { kind: Conn
   };
 }
 
+/** The test's word for a refused $metadata read. */
+function metadataCode(status: number | null, reason: string): string {
+  if (status === null) return reason;
+  if (status === 401 || status === 403) return 'auth_failed';
+  if (status === 404) return 'not_found';
+  if (status >= 300 && status < 400) return 'redirected';
+  return `http_${status}`;
+}
+
 /**
  * `POST /api/onec/connection/test`: GET `<base>/odata/standard.odata/$metadata` (odata) or the base
- * URL (http) with Basic auth and a 10 s timeout; stores the verdict on the connection.
+ * URL (http) with Basic auth and a 10 s timeout, no redirects followed; the object map is resolved
+ * against the $metadata (kept for the next transfer) and every gap is listed. Stores the verdict.
  */
 export async function testConnection(orgId: string, fetcher?: typeof fetch): Promise<TestResult> {
   const testedAt = new Date();
   const c = await credentialsOf(orgId);
-  const done = async (result: Omit<TestResult, 'testedAt'>): Promise<TestResult> => {
+  const insecure = Boolean(c?.baseUrl.startsWith('http:'));
+  const done = async (result: Omit<TestResult, 'testedAt' | 'problems' | 'resolved' | 'insecure'> & Partial<Pick<TestResult, 'problems' | 'resolved'>>): Promise<TestResult> => {
     if (c) await db.oneCConnection.update({ where: { orgId }, data: { lastTestedAt: testedAt, lastOk: result.ok, lastError: result.ok ? null : result.code } });
-    return { ...result, testedAt: testedAt.toISOString() };
+    return { problems: [], resolved: {}, ...result, insecure, testedAt: testedAt.toISOString() };
   };
   if (!c || c.kind === 'none') return done({ ok: false, status: null, code: 'no_url', entitySets: null, missing: [] });
   // The checked address is the one connected to (no second DNS answer between the check and the call).
   const pinned = await hostFetcher(c.baseUrl);
   if (!pinned) return done({ ok: false, status: null, code: 'host_refused', entitySets: null, missing: [] });
-  const url = c.kind === 'odata' ? `${odataRoot(c.baseUrl)}/$metadata` : c.baseUrl;
-  let res: Response;
-  try {
-    res = await (fetcher ?? pinned)(url, { method: 'GET', headers: { ...authHeader(c), accept: 'application/xml, application/json' }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), redirect: 'manual' });
-  } catch (error) {
-    return done({ ok: false, status: null, code: failure(error), entitySets: null, missing: [] });
+  if (c.kind !== 'odata') {
+    let res: Response;
+    try {
+      const auth: Record<string, string> = c.username ? { authorization: `Basic ${Buffer.from(`${c.username}:${c.password ?? ''}`, 'utf8').toString('base64')}` } : {};
+      res = await (fetcher ?? pinned)(c.baseUrl, { method: 'GET', headers: { ...auth, accept: 'application/xml, application/json' }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), redirect: 'manual' });
+    } catch (error) {
+      return done({ ok: false, status: null, code: networkFailure(error), entitySets: null, missing: [] });
+    }
+    await res.body?.cancel().catch(() => undefined);
+    if (res.status < 200 || res.status >= 300) return done({ ok: false, status: res.status, code: metadataCode(res.status, ''), entitySets: null, missing: [] });
+    return done({ ok: true, status: res.status, code: 'ok', entitySets: null, missing: [] });
   }
-  if (res.status === 401 || res.status === 403) return done({ ok: false, status: res.status, code: 'auth_failed', entitySets: null, missing: [] });
-  if (res.status === 404) return done({ ok: false, status: res.status, code: 'not_found', entitySets: null, missing: [] });
-  if (res.status < 200 || res.status >= 300) return done({ ok: false, status: res.status, code: `http_${res.status}`, entitySets: null, missing: [] });
-  if (c.kind !== 'odata') return done({ ok: true, status: res.status, code: 'ok', entitySets: null, missing: [] });
-  const text = (await res.text()).slice(0, 5_000_000);
-  const sets = new Set([...text.matchAll(/<EntitySet\s+Name="([^"]+)"/g)].map((m) => m[1] ?? ''));
-  if (sets.size === 0) return done({ ok: false, status: res.status, code: 'not_odata', entitySets: 0, missing: [] });
-  const wanted = Object.values(c.objectMap).map((t) => t.entitySet);
-  const missing = [...new Set(wanted.filter((s) => !sets.has(s)))];
-  return done({ ok: true, status: res.status, code: 'ok', entitySets: sets.size, missing });
+  const client = new ODataClient(c, fetcher ?? pinned);
+  const answer = await client.metadata();
+  if (!answer.ok) return done({ ok: false, status: answer.status, code: metadataCode(answer.status, answer.reason), entitySets: null, missing: [] });
+  const md = rememberMetadata(client, answer.xml);
+  if (md.sets.size === 0) return done({ ok: false, status: 200, code: 'not_odata', entitySets: 0, missing: [] });
+  const r = resolveMap(c.objectMap, md);
+  const missing = [...new Set(r.problems.filter((p) => p.kind === 'set_missing').map((p) => p.entitySet))];
+  return done({ ok: true, status: 200, code: 'ok', entitySets: md.sets.size, missing, problems: r.problems, resolved: r.renamed });
+}
+
+// ── The object map against the base's $metadata (§8.25, §8.34) ──────────────────────────────
+
+export type TargetKey = keyof ObjectMap;
+const TARGETS: readonly TargetKey[] = ['bankCredit', 'bankDebit', 'invoice', 'product'];
+
+const pickSet = (md: Metadata, name: string, alternatives: readonly string[] = []): string | null =>
+  [name, ...alternatives].find((n) => md.sets.has(n)) ?? null;
+
+export type Resolution = { map: ObjectMap; problems: CompositionProblem[]; renamed: Record<string, string> };
+
+/**
+ * The object map as this base names it: each entity set (or its first listed alternative) found in
+ * the $metadata, and every set, attribute and tabular part it lacks named. A missing document set,
+ * attribute or tabular part is `required` (1C ignores unknown properties, so writing anyway would
+ * lose data silently); a missing reference catalogue only leaves that reference empty.
+ */
+export function resolveMap(map: ObjectMap, md: Metadata): Resolution {
+  const problems: CompositionProblem[] = [];
+  const renamed: Record<string, string> = {};
+  const out = structuredClone(map);
+  const add = (p: CompositionProblem): void => {
+    if (!problems.some((q) => q.kind === p.kind && q.entitySet === p.entitySet && q.attribute === p.attribute)) problems.push(p);
+  };
+  for (const key of TARGETS) {
+    const t = out[key];
+    const set = pickSet(md, t.entitySet, t.alternatives);
+    if (!set) {
+      add({ kind: 'set_missing', target: key, entitySet: t.entitySet, required: true });
+      continue;
+    }
+    if (set !== t.entitySet) renamed[t.entitySet] = set;
+    t.entitySet = set;
+    const shape = md.sets.get(set);
+    const typed = Boolean(shape?.typed);
+    if (shape && typed) {
+      for (const attr of [...Object.values(t.fields), ...Object.keys(t.constants ?? {})]) {
+        if (!shape.properties.has(attr)) add({ kind: 'attribute_missing', target: key, entitySet: set, attribute: attr, required: true });
+      }
+      if (t.linesPart) {
+        const row = shape.parts.get(t.linesPart);
+        if (!row) add({ kind: 'part_missing', target: key, entitySet: set, attribute: t.linesPart, required: true });
+        else for (const attr of Object.values(t.lineFields ?? {})) if (!row.has(attr)) add({ kind: 'attribute_missing', target: key, entitySet: set, attribute: `${t.linesPart}.${attr}`, required: true });
+      }
+      if (t.marksPart && !shape.parts.has(t.marksPart)) add({ kind: 'part_missing', target: key, entitySet: set, attribute: t.marksPart, required: false });
+    }
+    const groups: [Record<string, RefTarget> | undefined, string | null][] = [[t.refs, null], [t.lineRefs, t.linesPart ?? null]];
+    for (const [refs, part] of groups) {
+      for (const r of Object.values(refs ?? {})) {
+        const found = pickSet(md, r.entitySet, r.alternatives);
+        if (!found) add({ kind: 'ref_missing', target: key, entitySet: r.entitySet, attribute: r.attribute, required: false });
+        else {
+          if (found !== r.entitySet) renamed[r.entitySet] = found;
+          r.entitySet = found;
+        }
+        const props = shape && typed ? (part ? shape.parts.get(part) : shape.properties) : undefined;
+        if (props && !props.has(`${r.attribute}_Key`) && !props.has(r.attribute)) {
+          add({ kind: 'attribute_missing', target: key, entitySet: set, attribute: part ? `${part}.${r.attribute}` : r.attribute, required: false });
+        }
+      }
+    }
+  }
+  return { map: out, problems, renamed };
 }
 
 // ── Documents for the OData transfer (pure) ───────────────────────────────────────────────
@@ -242,82 +368,130 @@ export async function testConnection(orgId: string, fetcher?: typeof fetch): Pro
 type InvoiceLine = z.infer<typeof accounting.InvoiceLine>;
 type IncomingInvoiceMeta = z.infer<typeof accounting.IncomingInvoiceMeta>;
 type ProductRecord = z.infer<typeof accounting.ProductRecord>;
+export type RefTarget = z.infer<typeof RefTargetSchema>;
 
-const odataDate = (iso: string): string => `${iso}T00:00:00`;
-const number = (text: string | null): number | null => (text === null ? null : Number(text));
+/** A reference to find before writing: in the document's header (`line` null) or on one goods line. */
+export type RefNeed = { name: string; ref: RefTarget; value: string; line: number | null };
+export type DocumentJob = { entitySet: string; body: Record<string, unknown>; needs: RefNeed[]; notes: string[] };
 
-function mapped(target: ObjectTarget, values: Record<string, string | number | null>): Record<string, unknown> {
-  const body: Record<string, unknown> = { ...(target.constants ?? {}) };
-  for (const [ours, theirs] of Object.entries(target.fields)) {
-    const v = values[ours];
-    if (v !== undefined && v !== null && theirs) body[theirs] = v;
+/** Count with 6 decimals, money with 2 (the ЭСФ's own precision, onec §8.37), as JSON numbers. */
+const qty6 = (text: string | null): number | null => {
+  const m = text === null ? null : toMicros(text);
+  return m === null || m === undefined ? null : Number(fromMicros(m));
+};
+const sum2 = (text: string | null): number | null => (text === null || toMicros(text) === null ? null : Number(money2(text)));
+
+/** Our value through the target's value map: unmapped values of a mapped field are not sent. */
+function through(t: ObjectTarget, field: string, value: string | number | null): string | number | null {
+  const table = t.values?.[field];
+  if (value === null || !table) return value;
+  return table[String(value)] ?? null;
+}
+
+function mapped(t: ObjectTarget, fields: Record<string, string>, values: Record<string, string | number | null>, notes: string[]): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  for (const [ours, theirs] of Object.entries(fields)) {
+    const raw = values[ours];
+    if (raw === undefined || raw === null || !theirs) continue;
+    const v = through(t, ours, raw);
+    if (v === null) notes.push(`${ours}_unmapped:${raw}`);
+    else body[theirs] = v;
   }
   return body;
 }
 
-export function bankDocument(map: ObjectMap, t: ReadyTransaction): { entitySet: string; body: Record<string, unknown> } {
+const need = (t: ObjectTarget, name: string, value: string | null | undefined, line: number | null = null, refs = line === null ? t.refs : t.lineRefs): RefNeed[] => {
+  const ref = refs?.[name];
+  return ref && value ? [{ name, ref, value, line }] : [];
+};
+
+export function bankDocument(map: ObjectMap, t: ReadyTransaction): DocumentJob {
   const target = t.direction === 'credit' ? map.bankCredit : map.bankDebit;
-  return {
-    entitySet: target.entitySet,
-    body: mapped(target, {
-      date: odataDate(t.valueDate ?? t.date), docDate: odataDate(t.date), number: t.docNumber, amount: number(t.amount), purpose: t.purpose,
-      counterpartyName: t.counterparty.name, counterpartyInn: t.counterparty.inn, counterpartyAccount: t.counterparty.account, operation: t.operation,
-    }),
+  const notes: string[] = [];
+  const body = {
+    ...(target.constants ?? {}),
+    ...mapped(target, target.fields, {
+      date: bodyDate(t.valueDate ?? t.date), docDate: bodyDate(t.date), number: t.docNumber, amount: sum2(t.amount), purpose: t.purpose,
+      operation: t.operation, comment: `Tasnivo${t.docNumber ? `: ${t.docNumber}` : ''}`,
+      counterpartyName: t.counterparty.name, counterpartyInn: t.counterparty.inn, counterpartyAccount: t.counterparty.account,
+    }, notes),
   };
+  if (t.operation === null && target.fields['operation']) notes.push('operation_missing');
+  const needs = [
+    ...need(target, 'counterparty', t.counterparty.inn), ...need(target, 'contract', t.contract),
+    ...need(target, 'cashFlowItem', t.cashFlowItem), ...need(target, 'ourAccount', t.ourAccount),
+  ];
+  return { entitySet: target.entitySet, body, needs, notes };
 }
 
-export function productDocument(map: ObjectMap, p: ProductRecord): { entitySet: string; body: Record<string, unknown> } {
-  return {
-    entitySet: map.product.entitySet,
-    body: mapped(map.product, { name: p.name, fullName: p.name, mxik: p.mxik, packageCode: p.packageCode, unit: p.unit, barcode: p.barcode }),
+export function productDocument(map: ObjectMap, p: ProductRecord): DocumentJob {
+  const notes: string[] = [];
+  const body = {
+    ...(map.product.constants ?? {}),
+    ...mapped(map.product, map.product.fields, { name: p.name, fullName: p.name, article: p.article ?? null, mxik: p.mxik, packageCode: p.packageCode, barcode: p.barcode }, notes),
   };
+  return { entitySet: map.product.entitySet, body, needs: need(map.product, 'unit', p.unit), notes };
 }
 
-export function invoiceDocument(map: ObjectMap, meta: IncomingInvoiceMeta, lines: readonly InvoiceLine[]): { entitySet: string; body: Record<string, unknown> } {
+/** A VAT rate as the value map's key: `12`, `0`, `none` (without VAT). */
+const rateKey = (rate: string | null): string => (rate === null || rate.trim() === '' ? 'none' : String(Number(rate)));
+
+/**
+ * The receipt of an incoming ЭСФ with its goods in ONE document (onec §8.27): count with 6
+ * decimals, money with 2, the header total from the document itself when every line goes (not
+ * re-added from the lines, §8.37), marking codes kept per line (§8.38), and a high-risk ЭСФ's VAT on
+ * the account 1C UZ uses for it (§8.36).
+ */
+export function invoiceDocument(map: ObjectMap, meta: IncomingInvoiceMeta, lines: readonly InvoiceLine[], whole = true): DocumentJob {
   const target = map.invoice;
-  const body = mapped(target, {
-    date: odataDate(meta.date), docDate: odataDate(meta.date), number: meta.number, total: number(meta.totalWithVat), amount: number(meta.totalAmount),
-    vat: number(meta.totalVat), sellerName: meta.seller.name, sellerInn: meta.seller.inn, contractNumber: meta.contractNumber,
-  });
+  const notes: string[] = [];
+  const high = meta.riskLevel === 'high';
+  const lineTotal = (l: InvoiceLine): bigint => (l.total !== null ? toMicros(l.total) ?? 0n : (toMicros(l.amount) ?? 0n) + (toMicros(l.vatAmount) ?? 0n));
+  const total = whole ? meta.totalWithVat : fromMicros(lines.reduce((s, l) => s + lineTotal(l), 0n));
+  if (!whole) notes.push('partial_document');
+  const comment = [`ЭСФ ${meta.number} от ${meta.date}`, meta.facturaType ? `тип ${meta.facturaType}` : null, high ? 'высокий уровень риска' : null].filter(Boolean).join('; ');
+  const body: Record<string, unknown> = {
+    ...(target.constants ?? {}),
+    ...mapped(target, target.fields, {
+      date: bodyDate(meta.date), docDate: bodyDate(meta.date), number: meta.number, total: sum2(total), amount: sum2(meta.totalAmount),
+      vat: sum2(meta.totalVat), comment, sellerName: meta.seller.name, sellerInn: meta.seller.inn, contractNumber: meta.contractNumber,
+    }, notes),
+  };
+  const needs: RefNeed[] = [...need(target, 'counterparty', meta.seller.inn), ...need(target, 'contract', meta.contractNumber)];
   if (target.linesPart && target.lineFields) {
     const fields = target.lineFields;
     body[target.linesPart] = lines.map((l, i) => {
+      // LineNumber as a string, as 1C writes it (§8.33).
       const row: Record<string, unknown> = { LineNumber: String(i + 1) };
-      const values: Record<string, string | number | null> = {
-        name: l.resolved?.name ?? l.name, mxik: l.resolved?.mxik ?? l.mxik, quantity: number(l.quantity), price: number(l.price), amount: number(l.amount),
-        vatRate: l.vatRate, vatAmount: number(l.vatAmount), total: number(l.total),
-      };
-      for (const [ours, theirs] of Object.entries(fields)) if (values[ours] !== null && values[ours] !== undefined) row[theirs] = values[ours];
+      Object.assign(row, mapped(target, fields, {
+        name: l.resolved?.name ?? l.name, mxik: l.resolved?.mxik ?? l.mxik, quantity: qty6(l.quantity), price: sum2(l.price), amount: sum2(l.amount),
+        vatRate: rateKey(l.vatRate), vatAmount: sum2(l.vatAmount), total: sum2(l.total),
+      }, notes));
+      needs.push(...need(target, 'product', l.resolved?.name || l.name, i), ...(high ? need(target, 'vatAccount', String(through(target, 'vatAccount', 'high') ?? ''), i) : []));
       return row;
     });
   }
-  return { entitySet: target.entitySet, body };
+  const marks = lines.flatMap((l, i) => (l.markingCodes ?? []).map((code) => ({ line: i + 1, code })));
+  if (marks.length > 0 && target.marksPart && target.marksFields) {
+    const f = target.marksFields;
+    body[target.marksPart] = marks.map((m, i) => ({ LineNumber: String(i + 1), [f.line]: String(m.line), [f.code]: m.code }));
+  } else if (marks.length > 0) notes.push('marks_not_mapped');
+  return { entitySet: target.entitySet, body, needs, notes };
 }
 
-export type PostResult = { ok: true; ref: string | null } | { ok: false; reason: string; message: string | null };
-
-/** POST one document to `<base>/odata/standard.odata/<entitySet>?$format=json`. */
-export async function postDocument(c: Credentials, entitySet: string, body: Record<string, unknown>, fetcher: typeof fetch = fetch): Promise<PostResult> {
-  let res: Response;
-  try {
-    res = await fetcher(`${odataRoot(c.baseUrl)}/${encodeURIComponent(entitySet)}?$format=json`, {
-      method: 'POST',
-      headers: { ...authHeader(c), 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      redirect: 'manual',
-    });
-  } catch (error) {
-    return { ok: false, reason: failure(error), message: null };
-  }
-  const text = await res.text().catch(() => '');
-  if (res.status >= 200 && res.status < 300) {
-    const ref = /"Ref_Key"\s*:\s*"([^"]+)"/.exec(text)?.[1] ?? null;
-    return { ok: true, ref };
-  }
-  // 1C's OData error body: {"odata.error":{"code":"…","message":{"lang":"ru","value":"…"}}}.
-  const message = /"value"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(text)?.[1] ?? null;
-  return { ok: false, reason: res.status === 401 || res.status === 403 ? 'auth_failed' : 'onec_refused', message: message ? message.replace(/\\"/g, '"').slice(0, 1000) : `HTTP ${res.status}` };
+/** Where a found reference is written: `X_Key` for a plain one, `X` + `X_Type` for a composite one (§8.32). */
+export function writeRef(md: Metadata | null, job: DocumentJob, linesPart: string | undefined, n: RefNeed, key: string): boolean {
+  const shape = md?.sets.get(job.entitySet);
+  const props = shape?.typed ? (n.line === null ? shape.properties : linesPart ? shape.parts.get(linesPart) : undefined) : undefined;
+  const into = n.line === null ? job.body : ((job.body[linesPart ?? ''] as Record<string, unknown>[] | undefined)?.[n.line]);
+  if (!into) return false;
+  const a = n.ref.attribute;
+  if (!props || props.has(`${a}_Key`)) into[`${a}_Key`] = key;
+  else if (props.has(a) && props.has(`${a}_Type`)) {
+    into[a] = key;
+    into[`${a}_Type`] = `StandardODATA.${n.ref.entitySet}`;
+  } else return false;
+  return true;
 }
 
 export { credentialsOf };
