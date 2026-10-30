@@ -26,13 +26,13 @@ import { clientArchived } from '../purchases.js';
 import type { CurrentUser } from '../session.js';
 import type { OperationSuggester } from './ai.js';
 import { readDate } from './dates.js';
-import { isNegativeDecimal, isZeroDecimal, readDecimal } from './decimal.js';
+import { addDecimals, isNegativeDecimal, isZeroDecimal, readDecimal } from './decimal.js';
 import { lineFingerprint } from './duplicates.js';
 import { BUILT_IN_FORMATS, builtInFormat, mappingProblem } from './formats/index.js';
 import { readAccount, readInn } from './identifiers.js';
 import { issue, statusFromIssues, hasError } from './issues.js';
 import { readLines, readStatementFile, statementReadCode, type Layout, type StatementFile } from './read.js';
-import { reconcile, reconcileCsv, type ReconcileRecord } from './reconcile.js';
+import { reconcile, reconcileAccounts, reconcileCsv, type ReconcileRecord } from './reconcile.js';
 import { orgRuleMatches, ruleValueFor } from './rules.js';
 import {
   approvedWhere, batchCounts, batchMeta, formatBySignature, formatUsed, isRunning, listFormats, readPayload, recount,
@@ -665,6 +665,22 @@ export async function prepareStatement(user: CurrentUser, locale: Locale, batchI
     { code: 'no_unresolved', ok: unresolved === 0, detail: String(unresolved) },
     { code: 'no_exported_duplicates', ok: exportedDuplicates === 0, detail: String(exportedDuplicates) },
   ];
+  // Several own accounts: each against what the bank printed for it, over the lines as reviewed now.
+  const printed = (batchMeta(batch.meta)?.bank.accounts ?? []);
+  if (printed.length > 1) {
+    const sums = new Map<string, { lineDebit: string; lineCredit: string }>();
+    for (const r of records) {
+      const p = r.payload;
+      const key = p.ourAccount ?? '';
+      const s = sums.get(key) ?? { lineDebit: '0', lineCredit: '0' };
+      if (p.amount && p.direction === 'debit') s.lineDebit = addDecimals(s.lineDebit, p.amount);
+      if (p.amount && p.direction === 'credit') s.lineCredit = addDecimals(s.lineCredit, p.amount);
+      sums.set(key, s);
+    }
+    const failed = reconcileAccounts(printed.map((a) => ({ ...a, ...(sums.get(a.account) ?? { lineDebit: '0', lineCredit: '0' }) })))
+      .filter((c) => c.balanced === false || c.debitMatches === false || c.creditMatches === false);
+    checks.push({ code: 'accounts_reconcile', ok: failed.length === 0, ...(failed.length > 0 ? { detail: failed.map((c) => `${c.account}: ${c.difference ?? '≠'}`).join('; ').slice(0, 200) } : {}) });
+  }
   const onec = ready.length > 0
     ? await prepareExport({ orgId: user.orgId, batchId, format: FORMAT, recordIds: ready.map((r) => r.id) }).catch(() => ({ ok: false as const, error: 'failed' }))
     : { ok: false as const, error: 'nothing_to_export' };

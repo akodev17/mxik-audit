@@ -84,6 +84,28 @@ export function reconcile(header: ReconcileHeader, records: readonly ReconcileRe
   };
 }
 
+/** One own account checked against what the bank printed for it: the balance chain and both turnovers. */
+export type AccountCheck = { account: string; balanced: boolean | null; debitMatches: boolean | null; creditMatches: boolean | null; difference: string | null };
+
+/**
+ * A statement of several accounts (kl_to_1c with several СекцияРасчСчет, an iBank2 file of all
+ * accounts): each account's printed balances and turnovers against its own lines (bank research
+ * §7.15). A mismatch is reported, never a reason to stop the export.
+ */
+export function reconcileAccounts(accounts: readonly { account: string; opening: string | null; closing: string | null; debit: string | null; credit: string | null; lineDebit: string; lineCredit: string }[]): AccountCheck[] {
+  return accounts.map((a) => {
+    const computed = a.opening !== null ? subDecimals(addDecimals(a.opening, a.lineCredit), a.lineDebit) : null;
+    const difference = computed !== null && a.closing !== null ? subDecimals(computed, a.closing) : null;
+    return {
+      account: a.account,
+      balanced: difference === null ? null : sameDecimal(difference, '0'),
+      debitMatches: a.debit === null ? null : sameDecimal(a.debit, a.lineDebit),
+      creditMatches: a.credit === null ? null : sameDecimal(a.credit, a.lineCredit),
+      difference,
+    };
+  });
+}
+
 export type CsvLabels = {
   summary: string; opening: string; credits: string; debits: string; computed: string; closing: string; difference: string;
   columns: readonly string[];

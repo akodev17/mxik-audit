@@ -10,7 +10,7 @@ import { db } from '@tasnivo/db';
 import type { z } from 'zod';
 import { matchCounterparties, type CounterpartyRef } from '../onec/index.js';
 import { AI_BATCH, AI_CAP, operationSuggester, type OperationSuggester } from './ai.js';
-import { duplicatesInFile, lineFingerprint } from './duplicates.js';
+import { duplicatesInFile, lineFingerprint, sameLine } from './duplicates.js';
 import { issue, statusFromIssues } from './issues.js';
 import type { ParsedStatement, StatementExtra, StatementLine } from './parse.js';
 import { BANK_SIDE_OPERATIONS, decideOperation, type OrgRule, type Owner } from './rules.js';
@@ -132,23 +132,31 @@ async function countHits(hits: ReadonlyMap<string, number>): Promise<void> {
 
 // ── Lines ──────────────────────────────────────────────────────────────────────────────────
 
-/** Fingerprints this org already has in other bank statements: exported ones and ones still in review. */
-async function knownFingerprints(orgId: string, batchId: string, fingerprints: readonly string[]): Promise<Map<string, { batchId: string; exported: boolean }>> {
-  const out = new Map<string, { batchId: string; exported: boolean }>();
+type Known = { batchId: string; exported: boolean; payload: BankRecordPayload | null };
+
+/** The lines this org already has in other bank statements under these keys: exported ones and ones still in review. */
+async function knownFingerprints(orgId: string, batchId: string, fingerprints: readonly string[]): Promise<Map<string, Known[]>> {
+  const out = new Map<string, Known[]>();
   const unique = [...new Set(fingerprints)];
   for (let i = 0; i < unique.length; i += 1000) {
     const rows = await db.importRecord.findMany({
       where: { fingerprint: { in: unique.slice(i, i + 1000) }, batchId: { not: batchId }, batch: { orgId, kind: 'bank_statement' }, status: { not: 'skipped' } },
-      select: { fingerprint: true, batchId: true, status: true },
+      select: { fingerprint: true, batchId: true, status: true, payload: true },
     });
-    for (const r of rows) {
-      if (!r.fingerprint) continue;
-      const exported = r.status === 'exported';
-      // An exported copy outranks one in review.
-      if (!out.has(r.fingerprint) || exported) out.set(r.fingerprint, { batchId: r.batchId, exported });
+    for (const row of rows) {
+      if (!row.fingerprint) continue;
+      const list = out.get(row.fingerprint) ?? [];
+      list.push({ batchId: row.batchId, exported: row.status === 'exported', payload: readPayload(row.payload) });
+      out.set(row.fingerprint, list);
     }
   }
   return out;
+}
+
+/** The earlier copy of a line, if any is the same payment: an exported copy outranks one in review. */
+function earlierCopy(line: BankRecordPayload, candidates: readonly Known[] | undefined): Known | undefined {
+  const same = (candidates ?? []).filter((k) => !k.payload || sameLine(line, k.payload));
+  return same.find((k) => k.exported) ?? same[0];
 }
 
 /** The counterparty's match turned into an issue; the line keeps the matched id. */
@@ -270,7 +278,7 @@ export async function runStatement(input: RunInput): Promise<void> {
     const meta = batchMeta(batch?.meta);
     if (!batch || !meta || batch.status !== 'uploaded') return;
     const { orgId, clientId } = batch;
-    const all = await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, select: { rowIndex: true, fingerprint: true } });
+    const all = await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, select: { rowIndex: true, fingerprint: true, payload: true } });
     const total = all.length;
     let done = Math.min(meta.bank.progress?.done ?? 0, total);
     const owner: Owner = { inn: meta.ownerInn ?? meta.bank.ownInn, account: meta.account, name: meta.bank.ownName };
@@ -280,7 +288,7 @@ export async function runStatement(input: RunInput): Promise<void> {
 
     const rules = await time(timings, 'rules_load', () => loadRules(orgId, clientId));
     const fingerprints = all.map((r) => r.fingerprint);
-    const inFile = duplicatesInFile(fingerprints);
+    const inFile = duplicatesInFile(fingerprints, all.map((r) => readPayload(r.payload) ?? r.payload as BankRecordPayload));
     const known = await time(timings, 'duplicates', () => knownFingerprints(orgId, batchId, fingerprints.filter((f): f is string => f !== null)));
     const hits = new Map<string, number>();
 
@@ -310,7 +318,7 @@ export async function runStatement(input: RunInput): Promise<void> {
         if (ruleId) hits.set(ruleId, (hits.get(ruleId) ?? 0) + 1);
         const i = index.get(line.rowIndex) ?? -1;
         const fp = fingerprints[i];
-        const earlier = fp ? known.get(fp) : undefined;
+        const earlier = fp ? earlierCopy(line.payload, known.get(fp)) : undefined;
         if (earlier?.exported) line.issues.push(issue('duplicate_row', 'fingerprint', { source: 'exported', batchId: earlier.batchId }));
         else if (earlier) line.issues.push(issue('duplicate_pending', 'fingerprint', { batchId: earlier.batchId }));
         const twin = inFile[i] ?? -1;

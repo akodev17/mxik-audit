@@ -148,7 +148,8 @@ describe('bank statements (database)', { skip }, () => {
     assert.equal(second.preview.recognised, true);
     assert.equal(second.preview.format?.name, 'Hamkor bank');
     assert.equal(second.preview.format?.builtIn, false);
-    assert.deepEqual(second.preview.columnMap, { ...columnMap, docNumber: -1, debit: -1, credit: -1, account: -1, mfo: -1, reference: -1, currency: -1 });
+    // Every role is in a saved map, the three of 30 Oct (ownAccount, valueDate, purposeCode) too.
+    assert.deepEqual(second.preview.columnMap, { ...columnMap, docNumber: -1, debit: -1, credit: -1, account: -1, mfo: -1, reference: -1, currency: -1, ownAccount: -1, valueDate: -1, purposeCode: -1 });
     const read2 = await createStatement(admin, 'uz', { clientId, file: csv('kun2.csv', text('2')), columnMap: JSON.stringify(second.preview.columnMap), conventions: JSON.stringify(second.preview.conventions) });
     assert.ok(read2.ok);
     await processing(read2.batchId);

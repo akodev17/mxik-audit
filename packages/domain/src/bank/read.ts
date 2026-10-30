@@ -120,8 +120,10 @@ async function rawStatement(bytes: Buffer, archived: string | null = null): Prom
       const { grid, extra } = readXls(bytes);
       return { kind: 'grid', grid, extra, source: { ...base, kind: 'xls' } };
     } catch (error) {
-      if (error instanceof XlsError) throw new StatementReadError(error.code === 'encrypted' ? 'xls_encrypted' : error.code === 'old_format' ? 'xls_old' : 'unreadable');
-      throw new StatementReadError('unreadable');
+      if (error instanceof XlsError && error.code === 'encrypted') throw new StatementReadError('xls_encrypted');
+      if (error instanceof XlsError && error.code === 'old_format') throw new StatementReadError('xls_old');
+      // A damaged .xls: saving it again as .xlsx is still the way out.
+      throw new StatementReadError('legacy_xls');
     }
   }
   if (looksBinary(bytes)) throw new StatementReadError('binary');

@@ -77,7 +77,9 @@ const textOf = (cells: readonly string[]): string => cut(cells.filter(Boolean).j
  * 02.03.2026"), as written; null when the purpose names none.
  */
 export function contractIn(purpose: string): string | null {
-  const m = /(?:договор[уа]?|дог\.|shartnoma|шартнома|contract)\s*(?:№|n|no\.?|#)?\s*([\p{L}\p{N}][\p{L}\p{N}\-/.]*)(?:\s*(?:от|dan|sana)\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4}))?/iu.exec(purpose);
+  // The word ends where its letters end ("по договору" alone names no contract: the real odin_palace
+  // samples read "у" as the number before), and a contract number carries a digit.
+  const m = /(?:договор[уа]?|дог\.|shartnoma|шартнома|contract)(?!\p{L})\s*(?:№|n|no\.?|#)?\s*([\p{L}\p{N}\-/.]*\d[\p{L}\p{N}\-/.]*)(?:\s*(?:от|dan|sana)\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4}))?/iu.exec(purpose);
   if (!m?.[1]) return null;
   return cut(m[2] ? `${m[1]} от ${m[2]}` : m[1], 120);
 }

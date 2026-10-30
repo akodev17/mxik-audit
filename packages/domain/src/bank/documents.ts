@@ -28,20 +28,37 @@ type Doc = {
   code: string;
 };
 
+type Side = 'debit' | 'credit' | null;
+
 /**
- * The own accounts' rows of the table: the document seen from the own account's side. Neither side
- * own: the dates decide (a document with only ДатаСписано left the account); else the amount goes
- * to the direction-less column and the parser reports the direction missing.
+ * The side a document is on for the statement: left an own account (debit) or reached one (credit).
+ * Neither side own: the dates decide (a document with only ДатаСписано left the account); else null,
+ * and the parser reports the direction missing.
  */
-function rowOf(doc: Doc, own: ReadonlySet<string>): string[] {
+function sideOf(doc: Doc, own: ReadonlySet<string>): Side {
   const payerOwn = own.has(doc.payer.account);
   const payeeOwn = own.has(doc.payee.account);
-  let side: 'debit' | 'credit' | null = null;
-  if (payerOwn && !payeeOwn) side = 'debit';
-  else if (payeeOwn && !payerOwn) side = 'credit';
-  else if (doc.debited && !doc.credited) side = 'debit';
-  else if (doc.credited && !doc.debited) side = 'credit';
-  else if (payerOwn) side = 'debit';
+  if (payerOwn && !payeeOwn) return 'debit';
+  if (payeeOwn && !payerOwn) return 'credit';
+  if (doc.debited && !doc.credited) return 'debit';
+  if (doc.credited && !doc.debited) return 'credit';
+  return payerOwn ? 'debit' : null;
+}
+
+/**
+ * The table rows of a document. A transfer between two own accounts is a debit of the one and a
+ * credit of the other (the Unact sample's two-account file): two rows, the second at the document's
+ * next line (kl_to_1c only: a document spans several lines there, a table row only one).
+ */
+function rowsOf(doc: Doc, own: ReadonlySet<string>, split: boolean): BodyRow[] {
+  if (split && own.has(doc.payer.account) && own.has(doc.payee.account) && doc.payer.account !== doc.payee.account) {
+    return [{ line: doc.line, cells: rowOf(doc, 'debit') }, { line: doc.line + 1, cells: rowOf(doc, 'credit') }];
+  }
+  return [{ line: doc.line, cells: rowOf(doc, sideOf(doc, own)) }];
+}
+
+/** The document seen from the own account's side. */
+function rowOf(doc: Doc, side: Side): string[] {
   const ownSide = side === 'credit' ? doc.payee : side === 'debit' ? doc.payer : null;
   const other = side === 'credit' ? doc.payer : doc.payee;
   const posted = side === 'debit' ? doc.debited : side === 'credit' ? doc.credited : '';
@@ -53,9 +70,9 @@ function rowOf(doc: Doc, own: ReadonlySet<string>): string[] {
 }
 
 /** The statement sheet of a list of documents. */
-export function sheetOf(titleRows: string[][], docs: readonly Doc[], own: ReadonlySet<string>, accounts: PrintedAccount[]): StatementSheet {
+function sheetOf(titleRows: string[][], docs: readonly Doc[], own: ReadonlySet<string>, accounts: PrintedAccount[], split: boolean): StatementSheet {
   const headers = [...DOCUMENT_HEADERS];
-  const body: BodyRow[] = docs.map((d) => ({ line: d.line, cells: rowOf(d, own) }));
+  const body: BodyRow[] = docs.flatMap((d) => rowsOf(d, own, split));
   return {
     headers, headerCells: headers, subHeaderCells: [], headerRow: 0, twoRowHeader: false,
     titleRows, titleLines: titleRows.map((r) => r.filter(Boolean).join(' · ')).slice(0, 20), body, extra: 0, accounts,
@@ -165,7 +182,7 @@ export function exchangeStatement(parsed: ParsedExchange): ExchangeStatement {
     ...(h['ДатаНачала'] || h['ДатаКонца'] ? [[`Период: с ${h['ДатаНачала'] ?? ''} по ${h['ДатаКонца'] ?? ''}`]] : []),
     ...[...own].map((a) => [`Счет: ${a}`]),
   ];
-  return { sheet: sheetOf(titleRows, docs, own, accounts), warnings: [...parsed.warnings, ...warnings] };
+  return { sheet: sheetOf(titleRows, docs, own, accounts, true), warnings: [...parsed.warnings, ...warnings] };
 }
 
 // ── Payer/payee tables (ASBT «Экспорт документов») ──────────────────────────────────────────
@@ -234,11 +251,9 @@ export function payerPayeeStatement(sheet: StatementSheet, cols: Record<string, 
   });
   const docs: Doc[] = sheet.body.map(({ line, cells }) => ({
     line, kind: at(cells, 'kind'), number: at(cells, 'number'), date: at(cells, 'date'), amount: at(cells, 'amount'),
-    payer: party(cells, 'payer'), payee: party(cells, 'payee'), debited: '', credited: '',
+    payer: party(cells, 'payer'), payee: party(cells, 'payee'), debited: at(cells, 'valueDate'), credited: at(cells, 'valueDate'),
     purpose: at(cells, 'purpose'), code: at(cells, 'code'),
   }));
-  const out = sheetOf(sheet.titleRows, docs, own, []);
-  // The posting date is the document's own when the export has one; otherwise rowOf used the document date.
-  if (cols['valueDate'] !== undefined) out.body.forEach((b, i) => { b.cells[3] = at(sheet.body[i]?.cells ?? [], 'valueDate') || (b.cells[1] ?? ''); });
+  const out = sheetOf(sheet.titleRows, docs, own, [], false);
   return { ...out, headerRow: sheet.headerRow, titleLines: sheet.titleLines, extra: sheet.extra };
 }

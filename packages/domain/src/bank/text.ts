@@ -46,40 +46,44 @@ function fixedWidthLines(lines: readonly string[]): { width: number; rows: numbe
 }
 
 /**
- * Splits fixed-width lines into columns: a column boundary is where every data line has a space
- * before a character (a fully blank column of the text), plus where a header word starts after two
- * spaces (fields can touch when a value fills its width: a 20-digit account next to an МФО). A
- * column empty in every data line is joined to the next one (a left-aligned header over a
- * right-aligned amount).
+ * Splits fixed-width lines into columns. The data decides where values are: a run of text columns
+ * ends where every data line is blank for two characters or more (one blank column inside a
+ * purpose is a word gap, not a field end), or for one when the header starts a word right there.
+ * The header decides where in that gap the cut falls (before its next word, so "Номер документа"
+ * stays one name and a left-aligned "Сумма" over a right-aligned amount names the amount), and
+ * splits fields that touch — a value filling its width, a 20-digit account next to an ИНН — where
+ * one of its words starts after two spaces. Without a header only the data's gaps cut.
  */
 export function splitFixedWidth(lines: readonly string[]): string[][] {
   const width = lines.reduce((w, l) => Math.max(w, l.length), 0);
   const header = lines.find((l) => l.trim() !== '' && !DATE.test(l) && !/\d[.,]\d{2}\b/.test(l)) ?? null;
   const data = lines.filter((l) => l !== header && l.trim() !== '');
   const blank = Array.from({ length: width }, (_, p) => data.every((l) => (l[p] ?? ' ') === ' '));
+  const h = (p: number): string => header?.[p] ?? ' ';
+  const wordStart = (p: number): boolean => h(p) !== ' ' && h(p - 1) === ' ';
   const cuts = new Set<number>([0]);
-  for (let p = 1; p < width; p++) if (blank[p - 1] && !blank[p]) cuts.add(p);
+  let end = -1;
+  for (let p = 0; p < width; p++) {
+    if (blank[p] || (p > 0 && !blank[p - 1])) continue;
+    // p starts a run of data; end is where the previous run stopped.
+    if (end >= 0 && (p - end >= 2 || (header !== null && wordStart(p)))) {
+      let cut = p;
+      if (header) for (let q = p; q > end; q--) if (wordStart(q)) { cut = q; break; }
+      cuts.add(cut);
+    }
+    let e = p;
+    while (e < width && !blank[e]) e++;
+    end = e;
+  }
   if (header) {
-    for (const m of header.matchAll(/(?:^|\s{2,})(\S)/g)) {
+    for (const m of header.matchAll(/ {2,}(\S)/g)) {
       const at = (m.index ?? 0) + m[0].length - 1;
-      if (at > 0 && !blank[at]) cuts.add(at);
+      if (!blank[at] && !blank[at - 1]) cuts.add(at);
     }
   }
-  const starts = [...cuts].sort((a, b) => a - b);
-  let spans = starts.map((s, i) => [s, starts[i + 1] ?? width] as [number, number]);
-  const cell = (l: string, [a, b]: [number, number]): string => l.slice(a, b).trim();
-  // A span blank in every data line: its header belongs to the next span.
-  const merged: [number, number][] = [];
-  for (let i = 0; i < spans.length; i++) {
-    const span = spans[i] as [number, number];
-    const empty = data.every((l) => cell(l, span) === '');
-    const next = spans[i + 1];
-    if (empty && next && header && cell(header, span) !== '') { spans[i + 1] = [span[0], next[1]]; continue; }
-    if (empty && !(header && cell(header, span) !== '')) continue;
-    merged.push(span);
-  }
-  spans = merged;
-  return lines.map((l) => (l.trim() === '' ? [] : spans.map((s) => cell(l, s))));
+  const starts = [...cuts].sort((x, y) => x - y);
+  const spans = starts.map((x, i) => [x, starts[i + 1] ?? width] as const);
+  return lines.map((l) => (l.trim() === '' ? [] : spans.map(([x, y]) => l.slice(x, y).trim())));
 }
 
 /** The cell grid of a text statement. Title lines of a fixed-width file become one-cell rows. */
