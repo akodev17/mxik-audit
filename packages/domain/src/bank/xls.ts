@@ -49,6 +49,10 @@ export function cfbStream(file: Buffer, names: readonly string[]): Buffer | null
   const miniFatStart = u32(file, 0x3c);
   let difatNext = u32(file, 0x44);
   const sectorAt = (n: number): number => (n + 1) * sectorSize;
+  // The FAT cannot have more sectors than the file holds: a header claiming a million of them in a 1 KB
+  // file would otherwise grow the FAT array until the process dies (an uncatchable V8 abort).
+  const sectorCount = Math.floor(file.length / sectorSize) - 1;
+  if (fatCount > sectorCount) fail();
 
   // The FAT's own sectors: 109 in the header, the rest in the DIFAT chain.
   const fatSectors: number[] = [];
@@ -61,7 +65,10 @@ export function cfbStream(file: Buffer, names: readonly string[]): Buffer | null
     difatNext = u32(file, base + per * 4);
   }
   const fat: number[] = [];
-  for (const s of fatSectors) for (let i = 0; i < sectorSize / 4; i++) fat.push(u32(file, sectorAt(s) + i * 4));
+  for (const s of fatSectors) {
+    if (s >= sectorCount) fail();
+    for (let i = 0; i < sectorSize / 4; i++) fat.push(u32(file, sectorAt(s) + i * 4));
+  }
 
   const chain = (start: number, table: readonly number[]): number[] => {
     const out: number[] = [];
@@ -146,12 +153,13 @@ function records(stream: Buffer, from: number): Rec[] {
 }
 
 /** An RK number: a 30-bit integer or the top 30 bits of a double, optionally divided by 100. */
-function rkValue(rk: number): number {
+export function rkValue(rk: number): number {
   let value: number;
   if (rk & 0x02) value = rk >> 2;
   else {
     const b = Buffer.alloc(8);
-    b.writeUInt32LE(rk & 0xfffffffc, 4);
+    // Unsigned: a negative double has the sign bit set, which `&` leaves as a negative int32.
+    b.writeUInt32LE((rk & 0xfffffffc) >>> 0, 4);
     value = b.readDoubleLE(0);
   }
   return rk & 0x01 ? value / 100 : value;
