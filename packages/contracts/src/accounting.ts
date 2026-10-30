@@ -154,6 +154,8 @@ export const BankTransaction = z.object({
   reference: z.string().max(80).nullable(),
   /** Value date / posting date when both exist and differ. */
   valueDate: IsoDate.nullable(),
+  /** The 5-digit CBU payment-purpose code, from its own column or the start of the purpose (bank research §7.38); absent on older lines. */
+  purposeCode: z.string().regex(/^\d{5}$/).nullable().optional(),
   /** The 1C bank operation the reviewer or a rule chose (`payment_in`, `payment_out`, `tax`, `salary`, `bank_fee`, `transfer`, ...). */
   operation: z.string().max(40).nullable(),
   /** The expense/income article or ДДС item, when a rule or the reviewer set one. */

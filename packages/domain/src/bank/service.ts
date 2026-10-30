@@ -24,7 +24,6 @@ import { buildExport, matchCounterparties, prepareExport, recordCounterparties }
 import { uploadsOpen } from '../plan.js';
 import { clientArchived } from '../purchases.js';
 import type { CurrentUser } from '../session.js';
-import { parseErrorCode } from '../spreadsheet.js';
 import type { OperationSuggester } from './ai.js';
 import { readDate } from './dates.js';
 import { isNegativeDecimal, isZeroDecimal, readDecimal } from './decimal.js';
@@ -32,12 +31,12 @@ import { lineFingerprint } from './duplicates.js';
 import { BUILT_IN_FORMATS, builtInFormat, mappingProblem } from './formats/index.js';
 import { readAccount, readInn } from './identifiers.js';
 import { issue, statusFromIssues, hasError } from './issues.js';
-import { readLines, readStatementFile, type Layout, type StatementFile } from './read.js';
+import { readLines, readStatementFile, statementReadCode, type Layout, type StatementFile } from './read.js';
 import { reconcile, reconcileCsv, type ReconcileRecord } from './reconcile.js';
 import { orgRuleMatches, ruleValueFor } from './rules.js';
 import {
-  approvedWhere, batchCounts, batchMeta, formatBySignature, formatUsed, listFormats, processStatement, readPayload, recount,
-  removeFormat, removeRule, saveFormat, upsertRule, type BankBatchMeta,
+  approvedWhere, batchCounts, batchMeta, formatBySignature, formatUsed, isRunning, listFormats, readPayload, recount,
+  removeFormat, removeRule, runStatement, saveFormat, storeLines, upsertRule, type BankBatchMeta,
 } from './store.js';
 
 type ValidationIssue = z.infer<typeof accounting.ValidationIssue>;
@@ -78,7 +77,7 @@ async function readUpload(user: CurrentUser, locale: Locale, clientId: unknown, 
   try {
     return { ok: true, file: await readStatementFile(await file.read()), clientId: client, filename: file.name.slice(0, 255) };
   } catch (error) {
-    return { ok: false, error: e[parseErrorCode(error)] };
+    return { ok: false, error: e[statementReadCode(error)] };
   }
 }
 
@@ -178,6 +177,21 @@ const fullMap = (m: BankColumnMap): BankColumnMap => BankColumnMap.parse({ ...Ob
 const inflight = new Map<string, Promise<void>>();
 export const processing = (batchId: string): Promise<void> => inflight.get(batchId) ?? Promise.resolve();
 
+/** A statement whose progress has not moved for this long is resumed by the next read of it (a restarted API, B3). */
+export const STALL_MS = 90_000;
+
+function startRun(batchId: string, suggester?: OperationSuggester | null): void {
+  if (inflight.has(batchId) || isRunning(batchId)) return;
+  const run = runStatement({ batchId, ...(suggester !== undefined ? { suggester } : {}) }).finally(() => inflight.delete(batchId));
+  inflight.set(batchId, run);
+}
+
+/** Resumes the statements left `uploaded` by a stopped process (the products import does the same, products/import.ts). */
+function resumeStalled(rows: readonly { id: string; status: string; updatedAt: Date }[]): void {
+  const now = Date.now();
+  for (const b of rows) if (b.status === 'uploaded' && now - b.updatedAt.getTime() > STALL_MS) startRun(b.id);
+}
+
 export type CreateInput = { clientId: unknown; file: UploadedFile | null; columnMap: unknown; conventions: unknown; formatName?: unknown };
 
 /**
@@ -232,9 +246,14 @@ export async function createStatement(user: CurrentUser, locale: Locale, input: 
     const twin = await earlierBatch(user.orgId, file.fingerprint);
     return twin ? refusedDuplicate(user, e.duplicate, twin) : { ok: false, error: e.saveFailed };
   }
-  const run = processStatement({ batchId, orgId: user.orgId, clientId: read.clientId, parsed, ...(options.suggester !== undefined ? { suggester: options.suggester } : {}) })
-    .finally(() => inflight.delete(batchId));
-  inflight.set(batchId, run);
+  // The lines are stored before the answer (B3): processing then runs in the background and resumes after a restart.
+  try {
+    await storeLines(batchId, parsed);
+  } catch {
+    await db.importBatch.delete({ where: { id: batchId } }).catch(() => undefined);
+    return { ok: false, error: e.saveFailed };
+  }
+  startRun(batchId, options.suggester);
   return { ok: true, batchId };
 }
 
@@ -283,6 +302,7 @@ export async function listStatements(user: CurrentUser, client?: string | null):
   if (client) where.clientId = client;
   if (user.clientIds !== null) where.clientId = client ? (user.clientIds.includes(client) ? client : '__none__') : { in: user.clientIds };
   const rows = await db.importBatch.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200, select: batchSelect });
+  resumeStalled(rows);
   return rows.map(statementRow);
 }
 
@@ -297,6 +317,7 @@ export async function clientOptions(user: CurrentUser): Promise<{ id: string; na
 export async function statementDetail(user: CurrentUser, batchId: string): Promise<{ statement: BankStatementRow; dropped: { rowIndex: number; reason: string }[] } | null> {
   const b = await visibleBatch(user, batchId);
   if (!b) return null;
+  resumeStalled([b]);
   // Counted live: the 1C layer's refreshCounts rewrites import_batch.counts without the bank's `approved` key.
   const approved = await db.importRecord.count({ where: approvedWhere(batchId) });
   return { statement: { ...statementRow(b), approved }, dropped: batchMeta(b.meta)?.dropped ?? [] };

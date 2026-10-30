@@ -44,7 +44,10 @@ export function formatDecimal(value: string, group = ' ', mark = '.'): string {
 export const money = (value: string | null | undefined): string => (value ? formatDecimal(value, ' ', ',') : '—');
 
 /** The roles in the order the mapping step lists them. */
-export const ROLE_ORDER: readonly BankRole[] = ['date', 'docNumber', 'debit', 'credit', 'amount', 'direction', 'counterpartyName', 'inn', 'account', 'mfo', 'purpose', 'reference', 'currency'];
+export const ROLE_ORDER: readonly BankRole[] = [
+  'date', 'valueDate', 'docNumber', 'debit', 'credit', 'amount', 'direction', 'counterpartyName', 'inn', 'account', 'mfo', 'purpose', 'purposeCode',
+  'reference', 'currency', 'ownAccount',
+];
 
 /** "rule:builtin:tax" / "rule:<id>" / "manual" / "ai" → what decided the operation, for the badge. */
 export function decidedKind(decidedBy: string | null): { kind: 'builtin' | 'rule' | 'manual' | 'ai'; name: string | null } | null {

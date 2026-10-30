@@ -11,7 +11,8 @@ describe('built-in layouts', () => {
     for (const f of BUILT_IN_FORMATS) {
       assert.equal(f.verified, false, f.id);
       assert.ok(f.required.includes('date'), f.id);
-      assert.match(f.source, /integration-research\.md/);
+      // The 30 Oct layouts cite the bank research, summarised with its URLs in fixtures/SOURCES.md.
+      assert.match(f.source, /integration-research\.md|fixtures\/SOURCES\.md/);
     }
   });
 

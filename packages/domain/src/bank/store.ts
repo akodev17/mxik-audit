@@ -227,30 +227,70 @@ const time = async <T>(timings: Record<string, number> | undefined, stage: strin
 };
 
 /**
- * Matches, decides and writes every line of a parsed statement, CHUNK lines at a time, keeping
- * `counts.progress` current; the batch ends in `review` (or `failed` with the error). Lines are
- * written once: a retry after a failure starts by removing what a previous attempt wrote.
+ * Writes the parsed lines as the batch's records, as the parser left them, before any matching:
+ * the batch is `uploaded` with progress 0 of n. From here a restart loses nothing (B3): runStatement
+ * picks the batch up at its progress. A retry starts by removing what a previous attempt wrote.
  */
-export async function processStatement(input: ProcessInput): Promise<void> {
-  const { batchId, orgId, clientId, parsed, timings } = input;
+export async function storeLines(batchId: string, parsed: ParsedStatement, timings?: Record<string, number>): Promise<void> {
   const lines = parsed.lines;
-  const owner: Owner = { inn: parsed.extra.ownInn, account: parsed.meta.account, name: parsed.extra.ownName };
-  const suggester = input.suggester === undefined ? operationSuggester() : input.suggester;
   const meta: BankBatchMeta = { ...parsed.meta, bank: { ...parsed.extra, progress: { done: 0, total: lines.length }, ai: null } };
-  try {
+  await time(timings, 'store', async () => {
     await db.importRecord.deleteMany({ where: { batchId } });
-    await db.importBatch.update({ where: { id: batchId }, data: { meta: json(meta), counts: json(emptyCounts(lines.length)), status: 'uploaded', error: null } });
+    for (let start = 0; start < lines.length; start += CHUNK) {
+      await db.importRecord.createMany({
+        data: lines.slice(start, start + CHUNK).map((line) => ({
+          batchId, rowIndex: line.rowIndex, status: statusFromIssues(line.issues), payload: json(line.payload), issues: json(line.issues),
+          fingerprint: lineFingerprint(line.payload),
+        })),
+      });
+    }
+    await db.importBatch.update({ where: { id: batchId }, data: { meta: json(meta), counts: json({ ...emptyCounts(lines.length), progress: { done: 0, total: lines.length } }), status: 'uploaded', error: null } });
+  });
+}
+
+export type RunInput = Pick<ProcessInput, 'batchId' | 'suggester' | 'timings'>;
+
+/** Batches this process is working on: one run per batch. */
+const running = new Set<string>();
+export const isRunning = (batchId: string): boolean => running.has(batchId);
+
+/**
+ * Matches, decides and checks the batch's stored lines from its progress on, CHUNK lines at a
+ * time: counterparties through the 1C interface, operation rules, duplicates (in the file and
+ * against the org's other statements), optional AI suggestions. Each chunk's records and the
+ * progress are written in one transaction, so a run stopped by a restart resumes where it was; the
+ * batch ends in `review` (or `failed` with the error).
+ */
+export async function runStatement(input: RunInput): Promise<void> {
+  const { batchId, timings } = input;
+  if (running.has(batchId)) return;
+  running.add(batchId);
+  try {
+    const batch = await db.importBatch.findUnique({ where: { id: batchId }, select: { orgId: true, clientId: true, meta: true, status: true } });
+    const meta = batchMeta(batch?.meta);
+    if (!batch || !meta || batch.status !== 'uploaded') return;
+    const { orgId, clientId } = batch;
+    const all = await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, select: { rowIndex: true, fingerprint: true } });
+    const total = all.length;
+    let done = Math.min(meta.bank.progress?.done ?? 0, total);
+    const owner: Owner = { inn: meta.ownerInn ?? meta.bank.ownInn, account: meta.account, name: meta.bank.ownName };
+    const suggester = input.suggester === undefined ? operationSuggester() : input.suggester;
+    const ai: NonNullable<BankBatchMeta['bank']['ai']> = meta.bank.ai ?? { asked: 0, answered: 0, skipped: suggester ? null : 'no_key' };
+    let aiBudget = suggester && ai.skipped !== 'failed' ? Math.max(0, AI_CAP - ai.asked) : 0;
 
     const rules = await time(timings, 'rules_load', () => loadRules(orgId, clientId));
-    const fingerprints = lines.map((l) => lineFingerprint(l.payload));
+    const fingerprints = all.map((r) => r.fingerprint);
     const inFile = duplicatesInFile(fingerprints);
     const known = await time(timings, 'duplicates', () => knownFingerprints(orgId, batchId, fingerprints.filter((f): f is string => f !== null)));
     const hits = new Map<string, number>();
-    let aiBudget = suggester ? AI_CAP : 0;
-    const ai: NonNullable<BankBatchMeta['bank']['ai']> = { asked: 0, answered: 0, skipped: suggester ? null : 'no_key' };
 
-    for (let start = 0; start < lines.length; start += CHUNK) {
-      const chunk = lines.slice(start, start + CHUNK);
+    while (done < total) {
+      const rows = await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, skip: done, take: CHUNK, select: { id: true, rowIndex: true, payload: true, issues: true } });
+      if (rows.length === 0) break;
+      const chunk: (StatementLine & { id: string })[] = rows.flatMap((r) => {
+        const payload = readPayload(r.payload);
+        return payload ? [{ id: r.id, rowIndex: r.rowIndex, payload, issues: (Array.isArray(r.issues) ? r.issues : []) as ValidationIssue[] }] : [];
+      });
       const refs = chunk.map((l) => ({ ...l.payload.counterparty }));
       const matched = await time(timings, 'match', async () => {
         try {
@@ -261,19 +301,20 @@ export async function processStatement(input: ProcessInput): Promise<void> {
         }
       });
       const started = performance.now();
+      const index = new Map(all.map((r, i) => [r.rowIndex, i]));
       chunk.forEach((line, k) => {
         const ref = matched[k] ?? line.payload.counterparty;
         line.payload.counterparty = { name: ref.name, inn: ref.inn, account: ref.account, mfo: ref.mfo, counterpartyId: ref.counterpartyId, ...(ref.match ? { match: ref.match } : {}) };
         line.issues.push(...matchIssues(ref));
         const ruleId = applyRules(line, rules, owner, clientId);
         if (ruleId) hits.set(ruleId, (hits.get(ruleId) ?? 0) + 1);
-        const i = start + k;
+        const i = index.get(line.rowIndex) ?? -1;
         const fp = fingerprints[i];
         const earlier = fp ? known.get(fp) : undefined;
         if (earlier?.exported) line.issues.push(issue('duplicate_row', 'fingerprint', { source: 'exported', batchId: earlier.batchId }));
         else if (earlier) line.issues.push(issue('duplicate_pending', 'fingerprint', { batchId: earlier.batchId }));
         const twin = inFile[i] ?? -1;
-        if (twin >= 0) line.issues.push(issue('duplicate_row', 'fingerprint', { source: 'file', row: lines[twin]?.rowIndex ?? 0 }));
+        if (twin >= 0) line.issues.push(issue('duplicate_row', 'fingerprint', { source: 'file', row: all[twin]?.rowIndex ?? 0 }));
       });
       if (timings) timings['rules_validate'] = (timings['rules_validate'] ?? 0) + (performance.now() - started);
 
@@ -289,16 +330,18 @@ export async function processStatement(input: ProcessInput): Promise<void> {
         }
       }
 
-      await time(timings, 'write', async () => {
-        await db.importRecord.createMany({
-          data: chunk.map((line, k) => ({
-            batchId, rowIndex: line.rowIndex, status: statusFromIssues(line.issues), payload: json(line.payload), issues: json(line.issues), fingerprint: fingerprints[start + k] ?? null,
-          })),
-        });
-        const done = Math.min(lines.length, start + CHUNK);
-        meta.bank.progress = { done, total: lines.length };
-        await db.importBatch.update({ where: { id: batchId }, data: { counts: json({ ...emptyCounts(lines.length), progress: { done, total: lines.length } }) } });
-      });
+      done += rows.length;
+      meta.bank.progress = { done, total };
+      meta.bank.ai = ai;
+      await time(timings, 'write', () => db.$transaction([
+        db.$executeRaw`
+          UPDATE import_record AS r SET payload = v.payload, issues = v.issues, status = v.status::"RecordStatus"
+          FROM unnest(${chunk.map((l) => l.id)}::text[], ${chunk.map((l) => JSON.stringify(l.payload))}::jsonb[],
+                      ${chunk.map((l) => JSON.stringify(l.issues))}::jsonb[], ${chunk.map((l) => statusFromIssues(l.issues))}::text[])
+            AS v(id, payload, issues, status)
+          WHERE r.id = v.id`,
+        db.importBatch.update({ where: { id: batchId }, data: { meta: json(meta), counts: json({ ...emptyCounts(total), progress: { done, total } }) } }),
+      ]));
     }
 
     await countHits(hits);
@@ -309,7 +352,21 @@ export async function processStatement(input: ProcessInput): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : 'processing failed';
     await db.importBatch.update({ where: { id: batchId }, data: { status: 'failed', error: message } }).catch(() => undefined);
+  } finally {
+    running.delete(batchId);
   }
+}
+
+/** Stores the parsed lines and processes them (the benchmark, tests and the upload's first run). */
+export async function processStatement(input: ProcessInput): Promise<void> {
+  try {
+    await storeLines(input.batchId, input.parsed, input.timings);
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : 'processing failed';
+    await db.importBatch.update({ where: { id: input.batchId }, data: { status: 'failed', error: message } }).catch(() => undefined);
+    return;
+  }
+  await runStatement(input);
 }
 
 function emptyCounts(total: number): BankCounts {

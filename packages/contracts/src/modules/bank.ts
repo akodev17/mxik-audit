@@ -12,8 +12,17 @@ import { defineModule, endpoint } from '../endpoint';
 
 // ── Columns, conventions, operations ───────────────────────────────────────────────────────
 
-/** What a statement column can hold. `account` / `mfo` / `inn` are the counterparty's; the org's own account comes from the title rows. */
-export const BANK_ROLES = ['date', 'docNumber', 'debit', 'credit', 'amount', 'direction', 'counterpartyName', 'inn', 'account', 'mfo', 'purpose', 'reference', 'currency'] as const;
+/**
+ * What a statement column can hold. `account` / `mfo` / `inn` are the counterparty's; the org's own
+ * account comes from the title rows, or from an `ownAccount` column when one file holds every account
+ * (iBank2 «Экспортировать в один файл», bank research §7.40). `date` is the document date and
+ * `valueDate` the posting (processing) date when the file prints both (§7.34); `purposeCode` is the
+ * 5-digit CBU payment-purpose code column (§7.38).
+ */
+export const BANK_ROLES = [
+  'date', 'docNumber', 'debit', 'credit', 'amount', 'direction', 'counterpartyName', 'inn', 'account', 'mfo', 'purpose', 'reference', 'currency',
+  'ownAccount', 'valueDate', 'purposeCode',
+] as const;
 export type BankRole = (typeof BANK_ROLES)[number];
 
 const col = z.number().int().min(-1).max(500);
@@ -21,7 +30,7 @@ const col = z.number().int().min(-1).max(500);
 export const BankColumnMap = z.object({
   date: col, docNumber: col.optional(), debit: col.optional(), credit: col.optional(), amount: col.optional(), direction: col.optional(),
   counterpartyName: col.optional(), inn: col.optional(), account: col.optional(), mfo: col.optional(), purpose: col.optional(),
-  reference: col.optional(), currency: col.optional(),
+  reference: col.optional(), currency: col.optional(), ownAccount: col.optional(), valueDate: col.optional(), purposeCode: col.optional(),
 });
 export type BankColumnMap = z.infer<typeof BankColumnMap>;
 

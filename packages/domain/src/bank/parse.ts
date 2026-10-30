@@ -11,14 +11,14 @@ import { absDecimal, addDecimals, isNegativeDecimal, isZeroDecimal, readDecimal,
 import { columnOf } from './formats/index.js';
 import { readAccount, readDirectionFlag, readInn, readMfo } from './identifiers.js';
 import { issue } from './issues.js';
-import { isColumnNumbers, readTitle, rowNoise, type StatementSheet, type TitleInfo } from './sheet.js';
+import { balancesUnderLabels, isColumnNumbers, readTitle, rowNoise, type PrintedAccount, type StatementSheet, type TitleInfo } from './sheet.js';
 import { CURRENCY_WORDS, type NoiseKind } from './vocabulary.js';
 
 type ValidationIssue = z.infer<typeof accounting.ValidationIssue>;
 type BankStatementMeta = z.infer<typeof accounting.BankStatementMeta>;
 
 export type DropReason = NoiseKind | 'repeated_header' | 'column_numbers' | 'continuation' | 'no_amount' | 'layout_row';
-export const DROP_REASONS: readonly DropReason[] = ['opening_balance', 'closing_balance', 'balance', 'totals', 'footer', 'repeated_header', 'column_numbers', 'continuation', 'no_amount', 'layout_row'];
+export const DROP_REASONS: readonly DropReason[] = ['opening_balance', 'closing_balance', 'balance', 'subtotals', 'totals', 'footer', 'repeated_header', 'column_numbers', 'continuation', 'no_amount', 'layout_row'];
 
 export type DroppedLine = { rowIndex: number; reason: DropReason; text: string };
 export type StatementLine = { rowIndex: number; payload: BankRecordPayload; issues: ValidationIssue[] };
@@ -34,6 +34,13 @@ export type StatementExtra = {
   ownName: string | null;
   /** The bank's own totals row, when the file has one. */
   bankTotals: { debit: string | null; credit: string | null };
+  /** The lines' own sums (meta.totalDebit / totalCredit are the bank's printed ones, B6). */
+  lineTotals: { debit: string; credit: string };
+  /**
+   * Per own account: what the bank printed (kl_to_1c СекцияРасчСчет) beside what the lines add up to.
+   * Absent on statements read before 30 Oct 2026.
+   */
+  accounts?: AccountSummary[];
   currencySource: TitleInfo['currencySource'] | 'column' | 'default';
   totalRows: number;
   truncated: boolean;
@@ -44,6 +51,8 @@ export type StatementExtra = {
  * the 1C layer added to the shared meta on its branch (side-session note agent1-onec-interface.md).
  */
 export type StatementMeta = BankStatementMeta & { ownerName: string | null; ownerInn: string | null; mfo: string | null };
+
+export type AccountSummary = PrintedAccount & { lines: number; lineDebit: string; lineCredit: string };
 
 export type ParsedStatement = { meta: StatementMeta; extra: StatementExtra; lines: StatementLine[]; dropped: DroppedLine[] };
 
@@ -71,6 +80,18 @@ export function contractIn(purpose: string): string | null {
   const m = /(?:договор[уа]?|дог\.|shartnoma|шартнома|contract)\s*(?:№|n|no\.?|#)?\s*([\p{L}\p{N}][\p{L}\p{N}\-/.]*)(?:\s*(?:от|dan|sana)\s*(\d{1,2}[./]\d{1,2}[./]\d{2,4}))?/iu.exec(purpose);
   if (!m?.[1]) return null;
   return cut(m[2] ? `${m[1]} от ${m[2]}` : m[1], 120);
+}
+
+/**
+ * The 5-digit CBU payment-purpose code (bank research §7.38): its own column (an Excel number cell
+ * loses the leading zeros, so 1–5 digits are padded back), else five digits opening the purpose
+ * ("00664 Оплата за консалтинг"). Not checked against the CBU table: it is not public in a usable form.
+ */
+export function purposeCodeOf(column: string, purpose: string): string | null {
+  const raw = column.replace(/\s/g, '');
+  if (/^\d{1,5}$/.test(raw) && !/^0+$/.test(raw)) return raw.padStart(5, '0');
+  const lead = /^\s*(\d{5})(?:\s*[-–:;.)]\s*|\s+)(?=\S)/.exec(purpose);
+  return lead?.[1] && !/^0+$/.test(lead[1]) ? lead[1] : null;
 }
 
 function currencyCode(raw: string): string | null {
@@ -119,7 +140,12 @@ function readAmounts(cells: readonly string[], map: BankColumnMap, conventions: 
     const dSet = d.value !== null && !isZeroDecimal(d.value);
     const cSet = c.value !== null && !isZeroDecimal(c.value);
     if (dSet && cSet) return { amount: null, direction: null, issues: [...issues, issue('amount_both_columns', 'amount', { debit: d.value ?? '', credit: c.value ?? '' })] };
-    if (!dSet && !cSet) return { amount: null, direction: null, issues: [...issues, issue('amount_missing', 'amount')] };
+    if (!dSet && !cSet) {
+      // A file that names the amount but not its side (a kl_to_1c document of neither own account).
+      const loose = readDecimal(cell('amount'), conventions.decimal);
+      if (loose.value && !isZeroDecimal(loose.value)) return { amount: absDecimal(loose.value), direction: null, issues: [...issues, issue('direction_missing', 'direction', { value: '' })] };
+      return { amount: null, direction: null, issues: [...issues, ...amountIssue(loose, cell('amount'), 'amount'), issue('amount_missing', 'amount')] };
+    }
     const value = (dSet ? d.value : c.value) ?? '0';
     if (isNegativeDecimal(value)) return { amount: null, direction: null, issues: [...issues, issue('amount_negative', 'amount', { value })] };
     return { amount: value, direction: dSet ? 'debit' : 'credit', issues };
@@ -149,9 +175,12 @@ function buildLine(row: { line: number; cells: string[] }, options: ParseOptions
   };
   const issues: ValidationIssue[] = [];
 
-  const dateRaw = cell('date');
+  // The document date; a posting date alone stands in for it (bank research §7.34).
+  const posted = readDate(cell('valueDate'), conventions.dateOrder).value;
+  const dateRaw = cell('date') || cell('valueDate');
   const date = readDate(dateRaw, conventions.dateOrder);
   if (!date.value) issues.push(date.invalid ? issue('date_invalid', 'date', { value: cut(dateRaw, 40) }) : issue('date_missing', 'date'));
+  const own = readAccount(cell('ownAccount'));
 
   const amounts = readAmounts(row.cells, map, conventions);
   issues.push(...amounts.issues);
@@ -181,11 +210,12 @@ function buildLine(row: { line: number; cells: string[] }, options: ParseOptions
     direction: amounts.direction,
     amount: amounts.amount,
     currency: lineCurrency ?? currency,
-    ourAccount: title.account,
+    ourAccount: own.value ?? title.account,
     counterparty: { name, inn: inn.value, account: account.value, mfo: mfo.value, counterpartyId: null },
     purpose,
     reference: cut(cell('reference'), 80) || null,
-    valueDate: null,
+    valueDate: posted && posted !== date.value ? posted : null,
+    purposeCode: purposeCodeOf(cell('purposeCode'), purpose),
     operation: null,
     cashFlowItem: null,
     contract: contractIn(purpose),
@@ -219,6 +249,9 @@ export function parseStatement(sheet: StatementSheet, options: ParseOptions): Pa
     if (kind === 'opening_balance' && opening === null) opening = rowAmount(cells, { date: -1 }, conventions);
     if (kind === 'closing_balance' && closing === null) closing = rowAmount(cells, { date: -1 }, conventions);
   }
+  const underLabels = balancesUnderLabels(sheet.titleRows, conventions.dateOrder);
+  opening ??= underLabels.opening;
+  closing ??= underLabels.closing;
   const amountColumns = (['debit', 'credit', 'amount'] as const).map((r) => columnOf(map, r)).filter((c) => c >= 0);
   const textColumns = (['purpose', 'counterpartyName'] as const).map((r) => columnOf(map, r)).filter((c) => c >= 0);
 
@@ -233,14 +266,7 @@ export function parseStatement(sheet: StatementSheet, options: ParseOptions): Pa
       if (kind) {
         if (kind === 'opening_balance' && opening === null) opening = rowAmount(row.cells, map, conventions);
         if (kind === 'closing_balance') closing = rowAmount(row.cells, map, conventions) ?? closing;
-        if (kind === 'totals' && bankTotals.debit === null && bankTotals.credit === null) {
-          const at = (role: 'debit' | 'credit'): string | null => {
-            const c = columnOf(map, role);
-            return c >= 0 ? readDecimal(row.cells[c], conventions.decimal).value : null;
-          };
-          bankTotals.debit = at('debit');
-          bankTotals.credit = at('credit');
-        }
+        if (kind === 'totals') readTotals(row.cells, map, conventions, bankTotals);
         drop(kind);
         continue;
       }
@@ -249,9 +275,11 @@ export function parseStatement(sheet: StatementSheet, options: ParseOptions): Pa
       const hasAmount = amountColumns.some((c) => (row.cells[c] ?? '').trim() !== '');
       if (!hasAmount) {
         const previous = lines[lines.length - 1];
-        const onlyText = row.cells.every((c, i) => c.trim() === '' || textColumns.includes(i));
+        const filledCells = row.cells.filter((c) => c.trim() !== '');
+        const onlyText = row.cells.every((c, i) => c.trim() === '' || textColumns.includes(i))
+          || (filledCells.length === 1 && readDecimal(filledCells[0]).value === null);
         if (previous && onlyText && textColumns.length > 0) {
-          const more = textColumns.map((c) => row.cells[c]?.trim() ?? '').filter(Boolean).join(' ');
+          const more = filledCells.map((c) => c.trim()).join(' ');
           previous.payload.purpose = cut(`${previous.payload.purpose} ${more}`.trim(), 2000);
           if (previous.payload.purpose) previous.issues = previous.issues.filter((i) => i.code !== 'purpose_missing');
           previous.payload.contract ??= contractIn(previous.payload.purpose);
@@ -276,20 +304,32 @@ export function parseStatement(sheet: StatementSheet, options: ParseOptions): Pa
   }
   dates.sort();
 
+  const accounts = accountSummaries(lines, sheet.accounts ?? [], title.account);
+  const single = accounts.length === 1 ? accounts[0] : undefined;
+  if (single && sheet.accounts?.length) {
+    opening ??= single.opening;
+    closing ??= single.closing;
+    if (bankTotals.debit === null && bankTotals.credit === null) { bankTotals.debit = single.debit; bankTotals.credit = single.credit; }
+  }
+  const printedFrom = (sheet.accounts ?? []).map((a) => a.periodFrom).filter((d): d is string => d !== null).sort()[0] ?? null;
+  const printedTo = (sheet.accounts ?? []).map((a) => a.periodTo).filter((d): d is string => d !== null).sort().at(-1) ?? null;
+
   const meta: StatementMeta = {
     formatId: options.formatId,
     bankName: title.bankName,
     ownerName: title.ownName,
     ownerInn: title.ownInn,
     mfo: title.mfo,
-    account: title.account,
+    account: title.account ?? accounts[0]?.account ?? null,
     currency,
-    periodFrom: title.periodFrom ?? dates[0] ?? null,
-    periodTo: title.periodTo ?? dates[dates.length - 1] ?? null,
+    periodFrom: title.periodFrom ?? printedFrom ?? dates[0] ?? null,
+    periodTo: title.periodTo ?? printedTo ?? dates[dates.length - 1] ?? null,
     openingBalance: opening,
     closingBalance: closing,
-    totalDebit,
-    totalCredit,
+    // B6: the totals the bank printed (its totals row, or the kl_to_1c turnovers); null when it printed none.
+    // The lines' own sums are extra.lineTotals; the reconcile compares the two.
+    totalDebit: bankTotals.debit,
+    totalCredit: bankTotals.credit,
     headers: sheet.headers,
     columnMap: Object.fromEntries(Object.entries(map).map(([k, v]) => [k, v ?? -1])),
     dropped: dropped.slice(0, MAX_DROPPED_IN_META).map(({ rowIndex, reason }) => ({ rowIndex, reason })),
@@ -297,7 +337,54 @@ export function parseStatement(sheet: StatementSheet, options: ParseOptions): Pa
   const extra: StatementExtra = {
     formatName: options.formatName, formatVerified: options.verified, signature: options.signature,
     headerRow: sheet.headerRow, titleLines: sheet.titleLines.slice(0, 12), ownInn: title.ownInn, ownName: title.ownName,
-    bankTotals, currencySource, totalRows: sheet.body.length + sheet.extra, truncated: sheet.extra > 0,
+    bankTotals, lineTotals: { debit: totalDebit, credit: totalCredit }, ...(accounts.length > 1 || sheet.accounts?.length ? { accounts } : {}),
+    currencySource, totalRows: sheet.body.length + sheet.extra, truncated: sheet.extra > 0,
   };
   return { meta, extra, lines, dropped };
+}
+
+/** The side a totals row names alone ("Обороты по расходу:"), or null for a row with both turnovers. */
+function totalsSide(text: string): 'debit' | 'credit' | null {
+  const lower = text.toLowerCase();
+  const debit = /расход|дебет|списан|debet|chiqim|чиқим/u.test(lower);
+  const credit = /приход|кредит|поступ|kredit|kirim|кирим/u.test(lower);
+  return debit === credit ? null : debit ? 'debit' : 'credit';
+}
+
+/**
+ * A totals row into the bank's totals (B6): "Итого обороты" with both turnovers in the debit and
+ * credit columns, or one row per side ("Обороты по расходу: 1 734.00", Colvir). A later totals row
+ * replaces an earlier one (page totals not marked as such end with the statement's own).
+ */
+function readTotals(cells: readonly string[], map: BankColumnMap, conventions: BankConventions, totals: StatementExtra['bankTotals']): void {
+  const side = totalsSide(cells.filter(Boolean).join(' '));
+  if (side) {
+    const value = rowAmount(cells, map, conventions) ?? (cells.some((c) => /^0([.,]0+)?$/.test(c.trim())) ? '0' : null);
+    if (value !== null) totals[side] = value;
+    return;
+  }
+  const at = (role: 'debit' | 'credit'): string | null => {
+    const c = columnOf(map, role);
+    return c >= 0 ? readDecimal(cells[c], conventions.decimal).value : null;
+  };
+  const debit = at('debit');
+  const credit = at('credit');
+  if (debit !== null || credit !== null) { totals.debit = debit; totals.credit = credit; }
+}
+
+/** One summary per own account: the printed balances (when the file states them) and the lines' sums. */
+function accountSummaries(lines: readonly StatementLine[], printed: readonly PrintedAccount[], titleAccount: string | null): AccountSummary[] {
+  const out = new Map<string, AccountSummary>();
+  const empty = (account: string): AccountSummary => ({ account, periodFrom: null, periodTo: null, opening: null, closing: null, debit: null, credit: null, lines: 0, lineDebit: '0', lineCredit: '0' });
+  for (const p of printed) out.set(p.account, { ...empty(p.account), ...p });
+  for (const { payload } of lines) {
+    const account = payload.ourAccount ?? titleAccount ?? '';
+    if (!account) continue;
+    const s = out.get(account) ?? empty(account);
+    s.lines++;
+    if (payload.amount && payload.direction === 'debit') s.lineDebit = addDecimals(s.lineDebit, payload.amount);
+    if (payload.amount && payload.direction === 'credit') s.lineCredit = addDecimals(s.lineCredit, payload.amount);
+    out.set(account, s);
+  }
+  return [...out.values()];
 }

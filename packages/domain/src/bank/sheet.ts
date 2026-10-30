@@ -15,6 +15,17 @@ export const MAX_STATEMENT_ROWS = 60_000;
 
 export type BodyRow = { line: number; cells: string[] };
 
+/** What a statement printed for one of its accounts (a kl_to_1c СекцияРасчСчет); null = not printed. */
+export type PrintedAccount = {
+  account: string;
+  periodFrom: string | null;
+  periodTo: string | null;
+  opening: string | null;
+  closing: string | null;
+  debit: string | null;
+  credit: string | null;
+};
+
 export type StatementSheet = {
   /** Column names, one per column of the widest row; empty headers get a placeholder. */
   headers: string[];
@@ -32,6 +43,8 @@ export type StatementSheet = {
   body: BodyRow[];
   /** Non-empty rows the reader did not keep, plus body rows past MAX_STATEMENT_ROWS. */
   extra: number;
+  /** Balances and turnovers per account when the file states them apart from its rows (kl_to_1c). */
+  accounts?: PrintedAccount[];
 };
 
 const filled = (row: readonly string[]): number => row.reduce((n, c) => n + (c.trim() === '' ? 0 : 1), 0);
@@ -152,7 +165,8 @@ export function readTitle(titleRows: readonly (readonly string[])[], order: Date
       }
     }
     if (!info.mfo) {
-      const mfo = /(?:мфо|mfo)[^d]{0,10}(d{5})(?!d)/iu.exec(text);
+      // B1: "МФО: 00440", "Код банка (МФО) 00440", "Bank kodi (MFO): 00440" (bank research §2.4, п.121 item 4).
+      const mfo = /(?:мфо|mfo|код банка|bank kodi|банк коди)[^\d]{0,12}(\d{5})(?!\d)/iu.exec(text);
       if (mfo?.[1]) info.mfo = mfo[1];
     }
     if (!info.ownName && TITLE.owner.test(text)) info.ownName = valueOf(text).slice(0, 300) || null;
@@ -183,6 +197,31 @@ export function readTitle(titleRows: readonly (readonly string[])[], order: Date
 
 /** The kind of a non-transaction row from its text, if it names one. */
 export const rowNoise = (cells: readonly string[]): ReturnType<typeof noiseKind> => noiseKind(cells.filter(Boolean).join(' '));
+
+/**
+ * Balances printed as a label row over a value row ("Входящий остаток" above "6 423.00 UZS", the
+ * Colvir statement header, samples/aloqabank_colvir_internet_bank_yurlits_RP.pdf Рис. 26): the
+ * value under each balance label. Labels that carry their own number are read elsewhere.
+ */
+export function balancesUnderLabels(titleRows: readonly (readonly string[])[], order: DateOrder = 'dmy'): { opening: string | null; closing: string | null } {
+  const out = { opening: null as string | null, closing: null as string | null };
+  titleRows.forEach((row, i) => {
+    const below = titleRows[i + 1];
+    if (!below) return;
+    row.forEach((label, j) => {
+      if (/\d/.test(label)) return;
+      const kind = noiseKind(label);
+      if (kind !== 'opening_balance' && kind !== 'closing_balance') return;
+      const cell = below[j] ?? '';
+      if (readDate(cell, order).value) return;
+      const value = readDecimal(cell).value;
+      if (value === null) return;
+      if (kind === 'opening_balance') out.opening ??= value;
+      else out.closing ??= value;
+    });
+  });
+  return out;
+}
 
 /** "1 2 3 4 5 6" under the header: the column numbers many bank exports print. */
 export function isColumnNumbers(cells: readonly string[]): boolean {
