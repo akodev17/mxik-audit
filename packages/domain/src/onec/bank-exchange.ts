@@ -41,6 +41,8 @@ export type ExchangeFile = {
   sender: string;
   receiver: string;
   createdAt: Date;
+  /** `Кодировка`: Windows (cp1251, the default) or DOS (cp866); the bytes follow it (onec §8.18). */
+  encoding?: 'Windows' | 'DOS';
 };
 
 export const EXCHANGE_FILENAME = 'kl_to_1c.txt';
@@ -127,7 +129,7 @@ export function bankExchangeText(file: ExchangeFile): string {
   const lines = [
     '1CClientBankExchange',
     'ВерсияФормата=1.02',
-    'Кодировка=Windows',
+    `Кодировка=${file.encoding ?? 'Windows'}`,
     `Отправитель=${oneLine(file.sender)}`,
     `Получатель=${oneLine(file.receiver)}`,
     `ДатаСоздания=${ruDate(created.date)}`,
@@ -145,15 +147,33 @@ export function bankExchangeText(file: ExchangeFile): string {
     `ВсегоСписано=${centsText(totalOut)}`,
     ...(closing !== null ? [`КонечныйОстаток=${money2(closing)}`] : []),
     'КонецРасчСчет',
-    ...file.documents.flatMap((d) => documentLines(d, file.bankKeys)),
+    ...uniqueNumbers(file.documents).flatMap((d) => documentLines(d, file.bankKeys)),
     'КонецФайла',
   ];
   return lines.join(EOL) + EOL;
 }
 
-/** The file as windows-1251 bytes. Characters outside the code page (Uzbek ʻ, ғ, қ, ў, ҳ) become their nearest Russian letter. */
+/**
+ * 1C knows a document by (РасчСчет, вид, Дата, Номер) and loads a repeat as the same one
+ * («Документ уже загружен»): a number used twice on one day gets a suffix, so no payment is lost (onec §8.20).
+ */
+function uniqueNumbers(documents: readonly ExchangeDocument[]): ExchangeDocument[] {
+  const seen = new Set<string>();
+  return documents.map((d) => {
+    let number = d.number;
+    for (let n = 2; seen.has(`${d.date}|${number}`); n++) number = `${d.number}-${n}`;
+    seen.add(`${d.date}|${number}`);
+    return number === d.number ? d : { ...d, number };
+  });
+}
+
+/**
+ * The file as bytes in its `Кодировка`: windows-1251, or cp866 for DOS; no BOM. Characters outside the
+ * code page (Uzbek ʻ, ғ, қ, ў, ҳ; for DOS also «» and dashes) become their nearest Russian letter or sign.
+ */
 export function buildBankExchange(file: ExchangeFile): Buffer {
-  return iconv.encode(foldForCp1251(bankExchangeText(file)), 'win1251');
+  const text = foldForCp1251(bankExchangeText(file));
+  return file.encoding === 'DOS' ? iconv.encode(text.replace(/[«»]/g, '"'), 'cp866') : iconv.encode(text, 'win1251');
 }
 
 // Uzbek Cyrillic letters and Latin apostrophes windows-1251 cannot hold; iconv would write '?'.
