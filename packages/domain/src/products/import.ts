@@ -489,6 +489,26 @@ const COLUMN_OF: Record<ClearableField, ProductField> = {
   onecRef: 'onecRef', article: 'article', mxik: 'mxik', packageCode: 'packageCode', unit: 'unit', barcode: 'barcode', price: 'price', vatRate: 'vat',
 };
 
+/** Codes of a code cell that held something unusable: the record's mxik is null, but the cell was not empty. */
+const DAMAGED_CODE: ReadonlySet<string> = new Set(['mxik_scientific', 'mxik_leading_zero', 'mxik_malformed']);
+
+/**
+ * The fields an opted-in "empty cells clear" may clear on one record: only cells that were empty. A damaged
+ * code, an unreadable price or VAT cell or an invalid barcode also leaves the record's value empty, and must
+ * keep the saved value (products §7.30; review 30 Oct: an Excel column of codes that lost its leading zeros
+ * wiped every saved code).
+ */
+export function clearableFor(clear: ReadonlySet<ClearableField>, issues: readonly ValidationIssue[]): ReadonlySet<ClearableField> {
+  const filled = new Set<ClearableField>();
+  for (const i of issues) {
+    if (DAMAGED_CODE.has(i.code)) filled.add('mxik');
+    else if (i.field === 'price') filled.add('price');
+    else if (i.field === 'vat') filled.add('vatRate');
+    else if (i.field === 'barcode') filled.add('barcode');
+  }
+  return filled.size === 0 ? clear : new Set([...clear].filter((f) => !filled.has(f)));
+}
+
 /** Saves every record but the skipped ones into the catalogue; codes a person chose count as confirmed. */
 export async function applyProductBatch(user: CurrentUser, batchId: string, locale: Locale) {
   const generic = i18nFor(locale).t.errorGeneric;
@@ -502,7 +522,8 @@ export async function applyProductBatch(user: CurrentUser, batchId: string, loca
   // products §7.30: an empty cell keeps the saved value unless the importer opted in; then only mapped columns clear.
   const meta = readMeta(b.meta);
   const clear = new Set<ClearableField>(meta.clearEmpty ? CLEARABLE.filter((f) => (meta.columnMap[COLUMN_OF[f]] ?? -1) >= 0) : []);
-  const result = await upsertRecords(b.orgId, b.clientId, records, user.userId, { source: 'catalog_import', confirmed, clear });
+  const clearFor = (i: number) => clearableFor(clear, (rows[i]?.issues ?? []) as unknown as ValidationIssue[]);
+  const result = await upsertRecords(b.orgId, b.clientId, records, user.userId, { source: 'catalog_import', confirmed, clear: clearFor });
   // What the check found travels to the product: its issues and runner-up codes, for the drawer.
   await db.$transaction(rows.flatMap((r, i) => {
     const id = result.ids[i];

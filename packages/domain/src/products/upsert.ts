@@ -23,8 +23,11 @@ export type UpsertOptions = {
    * codes are learned into FirmMapping as individual confirmations and stamped on the product.
    */
   confirmed?: ReadonlySet<number> | 'all';
-  /** Fields an empty record value clears on an existing product (default none: empty keeps the old value). */
-  clear?: ReadonlySet<ClearableField>;
+  /**
+   * Fields an empty record value clears on an existing product (default none: empty keeps the old value);
+   * per record index when some records' cells were damaged rather than empty.
+   */
+  clear?: ReadonlySet<ClearableField> | ((index: number) => ReadonlySet<ClearableField>);
 };
 
 /** The product fields an import may clear. */
@@ -129,7 +132,7 @@ export async function upsertRecords(
       let id: string;
       if (target) {
         const data = {
-          ...mergedFields({ ...target, price: target.price?.toFixed(2) ?? null }, { ...r, mxik, barcode }, options.clear),
+          ...mergedFields({ ...target, price: target.price?.toFixed(2) ?? null }, { ...r, mxik, barcode }, typeof options.clear === 'function' ? options.clear(index) : options.clear),
           ...(r.mxikStatus !== 'unchecked' ? { mxikStatus: r.mxikStatus, mxikSuggestion: r.mxikSuggestion ?? Prisma.DbNull, mxikCheckedAt: now } : {}),
           markingRequired: r.markingRequired ?? target.markingRequired,
           ...(isConfirmed && mxik ? { mxikConfirmedAt: now, mxikConfirmedBy: actorId } : {}),

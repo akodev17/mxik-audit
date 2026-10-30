@@ -43,10 +43,10 @@ describe('catalogue import on documented layouts (database, recorded Tasnif answ
     if (user) await dropOrgs([user.orgId]);
   });
 
-  async function importFile(file: ReturnType<typeof fixture>, clearEmpty = false) {
+  async function importFile(file: ReturnType<typeof fixture>, clearEmpty = false, mapping?: Record<string, number>) {
     const preview = await previewProductImport(user, 'ru', { file, clientId: null });
     assert.ok(preview.ok, JSON.stringify(preview));
-    const commit = await commitProductImport(user, 'ru', { file, clientId: null, mapping: JSON.stringify(preview.mapping), clearEmpty });
+    const commit = await commitProductImport(user, 'ru', { file, clientId: null, mapping: JSON.stringify(mapping ?? preview.mapping), clearEmpty });
     assert.ok(commit.ok, JSON.stringify(commit));
     await settleBatch(commit.batchId);
     const view = await productBatchView(user, commit.batchId, {});
@@ -121,5 +121,25 @@ describe('catalogue import on documented layouts (database, recorded Tasnif answ
     wb.getWorksheet('Номенклатура')?.eachRow((r, n) => { if (n > 1) goods.push(r.getCell(6).value); });
     assert.ok(goods.includes('LAC-200'), JSON.stringify(goods));
     assert.equal(wb.getWorksheet('Услуги')?.getCell('A2').value, 'Перевозка международная');
+  });
+
+  it('opted-in clearing empties only empty cells: a damaged code, price or VAT cell keeps the saved value', async () => {
+    // products §7.30 with §7.1 / §7.19 / §7.20 (review 30 Oct): a code that lost its leading zero, "договорная"
+    // in the price and "12% НДС" are unusable, not empty; with "empty cells clear" on they wiped the saved values.
+    const header = ['Наименование', 'Артикул', 'Код из классификатора', 'Единица измерения', 'Цена', 'Ставка НДС'];
+    const mapping = { name: 0, onecRef: -1, article: 1, mxik: 2, packageCode: -1, unit: 3, barcode: -1, price: 4, vat: 5 };
+    const saved = await importFile(csv('damage-first.csv', [header, ['Сыр проверочный 100 г', 'SYR-1', '00405001001106002', 'шт', '1000', '12']]), false, mapping);
+    assert.ok((await applyProductBatch(user, saved.batchId, 'ru')).ok);
+    const product = () => db.product.findFirstOrThrow({ where: { orgId: user.orgId, name: 'Сыр проверочный 100 г' } });
+    const before = await product();
+    assert.deepEqual([before.mxik?.trim(), before.price?.toFixed(2), before.vatRate, before.article], ['00405001001106002', '1000.00', '12', 'SYR-1']);
+
+    const damaged = await importFile(csv('damage-update.csv', [header, ['Сыр проверочный 100 г', '', '405001001106002', 'шт', 'договорная', '12% НДС']]), true, mapping);
+    const issues = damaged.view.records[0]?.issues.map((i) => i.code) ?? [];
+    assert.ok(['mxik_leading_zero', 'price_unreadable', 'vat_unreadable'].every((c) => issues.includes(c)), JSON.stringify(issues));
+    assert.ok((await applyProductBatch(user, damaged.batchId, 'ru')).ok);
+    const after = await product();
+    assert.deepEqual([after.mxik?.trim(), after.price?.toFixed(2), after.vatRate], ['00405001001106002', '1000.00', '12'], 'the damaged cells kept the saved values');
+    assert.equal(after.article, null, 'the empty mapped cell cleared, as opted in');
   });
 });
