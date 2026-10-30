@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
-import { hostAllowed, hostFetcher, privateAddress } from './connection.js';
+import { DEFAULT_OBJECT_MAP, hostAllowed, hostFetcher, privateAddress, productDocument } from './connection.js';
+import { PRODUCTS } from './fixtures/demo-data.js';
 import { pinnedFetch, RESPONSE_CAP, type Resolve } from './host-guard.js';
 
 const PROD = { NODE_ENV: 'production' };
@@ -186,5 +187,19 @@ describe('1C host guard: hostAllowed', () => {
     assert.equal(await hostAllowed('http://[::ffff:7f00:1]/', { NODE_ENV: 'production', ONEC_ALLOW_PRIVATE_HOSTS: '1' }), true);
     assert.equal(await hostAllowed('http://127.0.0.1/', {}), true);
     assert.equal(await hostAllowed('http://[::ffff:7f00:1]/', { NODE_ENV: 'development' }), true);
+  });
+});
+
+describe('product document for OData', () => {
+  it('a code the object map sends nowhere is noted on the record, not dropped silently (onec §8.2)', () => {
+    // Review 30 Oct: the default map has no ИКПУ, package or barcode attribute, and the product went without them unsaid.
+    const [withCodes, , withoutCodes] = PRODUCTS;
+    assert.deepEqual(productDocument(DEFAULT_OBJECT_MAP, withCodes!).notes, ['mxik_not_sent', 'packageCode_not_sent', 'barcode_not_sent']);
+    assert.deepEqual(productDocument(DEFAULT_OBJECT_MAP, withoutCodes!).notes, []);
+    const map = structuredClone(DEFAULT_OBJECT_MAP);
+    map.product.fields = { ...map.product.fields, mxik: 'КодИКПУ' };
+    const mapped = productDocument(map, withCodes!);
+    assert.equal(mapped.body['КодИКПУ'], '01701001001000000');
+    assert.deepEqual(mapped.notes, ['packageCode_not_sent', 'barcode_not_sent']);
   });
 });

@@ -426,10 +426,14 @@ export function bankDocument(map: ObjectMap, t: ReadyTransaction): DocumentJob {
 
 export function productDocument(map: ObjectMap, p: ProductRecord): DocumentJob {
   const notes: string[] = [];
+  const values = { name: p.name, fullName: p.name, article: p.article ?? null, mxik: p.mxik, packageCode: p.packageCode, barcode: p.barcode };
   const body = {
     ...(map.product.constants ?? {}),
-    ...mapped(map.product, map.product.fields, { name: p.name, fullName: p.name, article: p.article ?? null, mxik: p.mxik, packageCode: p.packageCode, barcode: p.barcode }, notes),
+    ...mapped(map.product, map.product.fields, values, notes),
   };
+  // A code the product has but the map sends nowhere (the default map has no ИКПУ attribute: its name in a UZ base is
+  // not known yet) is said on the record, not dropped silently (onec §8.2, review 30 Oct).
+  for (const k of ['mxik', 'packageCode', 'barcode'] as const) if (values[k] && !map.product.fields[k]) notes.push(`${k}_not_sent`);
   return { entitySet: map.product.entitySet, body, needs: need(map.product, 'unit', p.unit), notes };
 }
 
