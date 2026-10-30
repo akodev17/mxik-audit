@@ -197,6 +197,8 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
   if (blocking.length > 0) return { ok: false, error: 'composition_incomplete', problems: blocking };
   const map = resolution.map;
 
+  // A batch whose header cannot be read is refused before its export row exists (no empty row left behind, R-O10).
+  if (batch.kind === 'didox_invoice' && !accounting.IncomingInvoiceMeta.safeParse(batch.meta).success) return { ok: false, error: 'meta_invalid' };
   const row = await db.oneCExport.create({
     data: { batchId: batch.id, format: 'odata', filename: null, recordCount: plan.included.length, recordSetHash: plan.recordSetHash, createdBy: input.actorId },
     select: { id: true },

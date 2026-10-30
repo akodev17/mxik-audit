@@ -86,7 +86,8 @@ export function pinnedFetch(address: string, family: 4 | 6): typeof fetch {
     const client = url.protocol === 'https:' ? https : http;
     const req = client.request(url, {
       method: init.method ?? 'GET',
-      headers: Object.fromEntries(new Headers(init.headers).entries()),
+      // A string body goes with its length, not chunked: what a 1C web server is known to take (review 30 Oct, R-O10).
+      headers: { ...Object.fromEntries(new Headers(init.headers).entries()), ...(typeof init.body === 'string' ? { 'content-length': String(Buffer.byteLength(init.body)) } : {}) },
       lookup: pinned,
       ...(init.signal ? { signal: init.signal } : {}),
     }, (res) => {

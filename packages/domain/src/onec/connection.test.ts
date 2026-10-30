@@ -112,6 +112,8 @@ describe('the pinned fetch', () => {
     assert.equal(seen[0]?.headers.host, `onec.rebind.test:${port}`, 'the Host header stays the configured name');
     assert.equal(seen[0]?.headers.authorization, 'Basic eDp5');
     assert.deepEqual([seen[1]?.method, seen[1]?.body], ['POST', '{"Description":"Guruch"}']);
+    // Review 30 Oct (R-O10): the body goes with its length, not chunked.
+    assert.deepEqual([seen[1]?.headers['content-length'], seen[1]?.headers['transfer-encoding']], [String(Buffer.byteLength('{"Description":"Guruch"}')), undefined]);
   });
 
   it('fails like fetch: a refused connection carries its code, a timeout stays a timeout', async () => {

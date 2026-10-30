@@ -601,6 +601,21 @@ describe('OData transfer against the fake 1C (database)', { skip }, () => {
     assert.equal(named(name).length, 1, 'found by its name, not written twice');
   });
 
+  it('an invoice whose header cannot be read is refused before an export row is written', async () => {
+    // Review 30 Oct (R-O10): the export row was created first, and meta_invalid left it behind, empty.
+    await fake?.close();
+    const f = await startFakeOData();
+    fake = f;
+    const org = await makeOrg();
+    orgs.push(org.orgId);
+    await connect(org, f.base);
+    const batchId = await seedInvoiceBatch({ orgId: org.orgId }, { ...INVOICE_META, externalId: 'r-bad-meta', number: 'BAD-1' });
+    await db.importBatch.update({ where: { id: batchId }, data: { meta: { number: 'BAD-1' } } });
+    const r = await transferExport({ orgId: org.orgId, batchId, format: 'odata', actorId: org.userId });
+    assert.deepEqual(r, { ok: false, error: 'meta_invalid' });
+    assert.equal(await db.oneCExport.count({ where: { batchId } }), 0);
+  });
+
   it('a goods line whose product the base lacks refuses the receipt and names the line (onec §8.11)', async () => {
     // onec §8.11: with «Не создавать номенклатуру» 1C would not invent the item; the tool reports the unmatched lines.
     const lonely = await startFakeOData();
