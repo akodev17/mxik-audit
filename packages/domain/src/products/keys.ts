@@ -34,8 +34,12 @@ export function barcodeKey(barcode: string | null | undefined): { stored: string
   return { stored: identity ?? raw, identity };
 }
 
-/** A stored GTIN-14 as people write it: a leading 0 dropped (EAN-13), anything else as stored. */
+/**
+ * A stored GTIN-14 as people write it: six leading zeros dropped for an EAN-8 (`00000047801271` → `47801271`, the
+ * label a scan in 1C reads; review 30 Oct), one for an EAN-13 (a UPC-A keeps its 13-digit EAN form), else as stored.
+ */
 export function displayBarcode(stored: string | null): string | null {
+  if (stored && /^0{6}\d{8}$/.test(stored)) return stored.slice(6);
   return stored && /^0\d{13}$/.test(stored) ? stored.slice(1) : stored;
 }
 

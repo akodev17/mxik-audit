@@ -2,7 +2,7 @@
 // timeouts, the cache, the rate limiter and the kill switch. Never touches the network.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { productNameKey, unitKeyOf, barcodeKey, mxikOf, numbersOf } from './keys.js';
+import { productNameKey, unitKeyOf, barcodeKey, displayBarcode, mxikOf, numbersOf } from './keys.js';
 import { gtin13, RECORDED_CODE, recordedBody } from './test-fixtures.js';
 import { DisabledTasnifClient, HttpTasnifClient, readCard, readHistory, tasnifLive } from './tasnif-client.js';
 
@@ -51,6 +51,15 @@ describe('product keys', () => {
     const bad = `${good.slice(0, 12)}${(Number(good.slice(12)) + 1) % 10}`;
     assert.deepEqual(barcodeKey(bad), { stored: bad, identity: null });
     assert.deepEqual(barcodeKey('  '), { stored: null, identity: null });
+  });
+
+  it('shows a stored barcode as written: an EAN-8 as its 8 digits, an EAN-13 as 13', () => {
+    // Review 30 Oct (R-P11): the EAN-8 47801271 (a real tasnif GTIN) went to the 1C catalogue file as 0000047801271.
+    assert.equal(displayBarcode(barcodeKey('47801271').stored), '47801271');
+    const ean13 = gtin13('478000000100');
+    assert.equal(displayBarcode(barcodeKey(ean13).stored), ean13);
+    assert.equal(displayBarcode(barcodeKey('012345678905').stored), '0012345678905', 'a UPC-A in its EAN-13 form');
+    assert.equal(displayBarcode(null), null);
   });
 
   it('reads an MXIK and flags anything that is not 17 digits', () => {
