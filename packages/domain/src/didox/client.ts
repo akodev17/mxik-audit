@@ -25,6 +25,8 @@
 // interval between calls, and a log line with method, path (no query), status and time. Tokens
 // travel only in headers and never reach a log line or an error message.
 
+import { parseDidoxJson } from './document.js';
+
 export const DIDOX_PARTNER_URL = 'https://api-partners.didox.uz';
 export const DIDOX_SANDBOX_URL = 'https://testapi3.didox.uz';
 export const DIDOX_COMPANY_URL = 'https://api.didox.uz';
@@ -258,7 +260,8 @@ export class DidoxClient {
     const res = await this.send(method, path, query, body, 'json');
     const text = await res.text();
     try {
-      return JSON.parse(text);
+      // The same reader as an upload: a numeric 17-digit code or 20-digit account keeps its digits (§7.5).
+      return parseDidoxJson(text);
     } catch {
       throw new DidoxApiError('bad_response', res.status, path);
     }

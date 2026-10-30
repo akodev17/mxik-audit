@@ -2,6 +2,8 @@
 // against the local fake server that answers in the documented shapes. No database.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { DidoxApiError, DidoxClient, didoxBaseUrl, errorDetail, RateLimiter, DIDOX_COMPANY_URL, DIDOX_PARTNER_URL, DIDOX_SANDBOX_URL } from './client.js';
@@ -126,5 +128,22 @@ describe('Didox client per the official docs (fake server)', () => {
     const lists = await client.restrictedLists();
     assert.deepEqual([[...lists.notIncluded], [...lists.compensation]], [['02523001001000000'], ['10713007001000000']]);
     assert.deepEqual(f.requests.map((r) => r.path).sort(), ['/v1/utils/compensation-works/ru', '/v1/utils/not-included-products/ru']);
+  });
+
+  // didox §7.5 (review 30 Oct): the API path reads JSON like an upload. Didox mixes numbers and strings per field; a
+  // numeric 17-digit ИКПУ above 2^53 or a 20-digit account must reach the parser as the digits written, not a rounded float.
+  it('a GET document with numeric long codes keeps every digit', async () => {
+    const body = '{"data":{"json":{"facturaid":"F1","seller":{"account": 22510000500000083006},"productlist":{"products":[{"catalogcode":10403003014000001,"summa":12.5}]}}}}';
+    const server = createServer((_req, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(body); });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const client = new DidoxClient({ baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, auth: { kind: 'token', token: TOKEN }, ...fast });
+      const doc = await client.getDocument('F1', 0) as { data: { json: { seller: { account: unknown }; productlist: { products: Array<{ catalogcode: unknown; summa: unknown }> } } } };
+      assert.equal(doc.data.json.productlist.products[0]?.catalogcode, '10403003014000001');
+      assert.equal(doc.data.json.seller.account, '22510000500000083006');
+      assert.equal(doc.data.json.productlist.products[0]?.summa, 12.5, 'amounts stay numbers');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
