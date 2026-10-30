@@ -446,3 +446,21 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261109000300_product_
 What breaks: with the new code still running, the product list, import apply and the 1C export
 answer 500. Deploy the previous code first; it never reads the columns. Stored articles, prices and
 VAT rates are lost; the 1C nomenclature file goes back to an empty «Артикул», «Цена» and «Ставка НДС».
+
+### `20261109000400_counterparty_requisites`
+
+Adds three nullable columns to `counterparty` (S4, docs/DOCUMENTS_REAL_DATA_PLAN_2026-10-30.md): `kind`
+(legal entity by 9-digit ИНН, individual by 14-digit ПИНФЛ, non-resident without ИНН), `branchCode`
+(1C UZ tells a branch apart by ИНН + код филиала) and `vatCode` (the 12-digit VAT registration code),
+filled by the «Вывести список» counterparty import. No backfill: existing rows keep matching by ИНН.
+
+```sql
+ALTER TABLE "counterparty" DROP COLUMN IF EXISTS "kind", DROP COLUMN IF EXISTS "branchCode",
+  DROP COLUMN IF EXISTS "vatCode";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261109000400_counterparty_requisites';
+```
+
+What breaks: with the new code still running, the counterparty import and list, the 1C plan and the
+OData transfer answer 500. Deploy the previous code first; it never reads the columns. Stored kinds,
+branch codes and VAT codes are lost; branches of one ИНН are told apart again only after the next
+import with the new code.

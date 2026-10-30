@@ -357,8 +357,9 @@ describe('1C nomenclature file from a real-layout import (onec §8.1, §8.7, §8
 
   it('writes the 1C captions, Артикул, codes as text, and services on their own sheet', async () => {
     const onec = await imported('onec-nomenclature.xlsx');
+    // Reviewed and approved, as applyProductBatch leaves clean rows (an undecided valid record never leaves, B5).
     const records: PlanRecord[] = onec.kept.map((k, i) => ({
-      id: `r${i}`, rowIndex: i, status: 'valid', payload: accounting.ProductRecord.parse(k.record), issues: [], fingerprint: `f${i}`, decision: null,
+      id: `r${i}`, rowIndex: i, status: 'valid', payload: accounting.ProductRecord.parse(k.record), issues: [], fingerprint: `f${i}`, decision: { action: 'approve' },
     }));
     const plan = planExport(batch, records, 'nomenclature_xlsx', undefined, { exportedElsewhere: new Map() });
     const file = await buildFile(batch, plan, 'nomenclature_xlsx', settings);
