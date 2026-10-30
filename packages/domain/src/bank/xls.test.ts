@@ -2,6 +2,8 @@
 // our own BIFF writer made; these build the bytes by hand for what that writer never emits.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { MAX_ROWS } from '../sheet-shape.js';
+import { biff8 } from './fixtures/biff8.js';
 import { readXls, rkValue, XlsError } from './xls.js';
 
 /** A 1 KB OLE header whose FAT count is huge and whose DIFAT chain points at itself. */
@@ -37,5 +39,16 @@ describe('legacy .xls reader', () => {
     assert.equal(rkValue(floatRk(0xbfe00000)), -0.5);
     assert.equal(rkValue(floatRk(0xc0040000)), -2.5);
     assert.equal(rkValue(floatRk(0xc0040000, true)), -0.025);
+  });
+});
+
+describe('legacy .xls reader: rows past the limit', () => {
+  it('counts each dropped row once, not each of its cells', () => {
+    // Review 30 Oct (R-B13): `extra` grew by one per cell, so the "rows not read" note was overstated by the width.
+    const keep = MAX_ROWS + 20;
+    const rows = Array.from({ length: keep + 5 }, (_, i) => [`01.10.2026`, i, 'Оплата']);
+    const { grid, extra } = readXls(biff8('Выписка', rows));
+    assert.equal(grid.filter(Boolean).length, keep);
+    assert.equal(extra, 5);
   });
 });

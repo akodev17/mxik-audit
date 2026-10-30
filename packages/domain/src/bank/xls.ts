@@ -263,12 +263,13 @@ export function readXls(file: Buffer): { grid: (string[] | undefined)[]; extra: 
     if (offset >= book.length) continue;
     const grid: (string[] | undefined)[] = [];
     let kept = 0;
-    let extra = 0;
+    // Rows past the limit, each counted once however many cells it has (review 30 Oct, R-B13: it counted cells).
+    const dropped = new Set<number>();
     const put = (row: number, col: number, text: string): void => {
       if (col >= MAX_COLUMNS || text === '') return;
       let cells = grid[row];
       if (!cells) {
-        if (kept >= keep) { extra++; return; }
+        if (kept >= keep) { dropped.add(row); return; }
         cells = [];
         grid[row] = cells;
         kept++;
@@ -306,7 +307,7 @@ export function readXls(file: Buffer): { grid: (string[] | undefined)[]; extra: 
         default: break;
       }
     }
-    if (kept > 0) return { grid, extra };
+    if (kept > 0) return { grid, extra: dropped.size };
   }
   return { grid: [], extra: 0 };
 }
