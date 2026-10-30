@@ -81,6 +81,8 @@ export const ProductBatch = z.object({
   createdAt: z.string(),
   /** Rows the import left out (blank name), with the reason. */
   dropped: z.number().int(),
+  /** Rows above the header the reader found by its words (title or hint rows), not read as products. */
+  headerSkipped: z.number().int().optional(),
 });
 
 export const ProductImportRecord = z.object({

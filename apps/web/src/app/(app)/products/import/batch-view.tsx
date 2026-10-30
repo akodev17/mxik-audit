@@ -81,7 +81,7 @@ export function BatchView({ batchId, stages }: { batchId: string; stages: readon
     <Stepper stages={stages} current={checking ? 2 : batch.status === 'approved' ? 4 : 3} />
     <div className="mt-5 space-y-4">
       {duplicate ? <Alert tone="info">{w.duplicate}</Alert> : null}
-      <p className="text-small text-muted">{batch.filename}{batch.dropped > 0 ? ` · ${fill(w.skipNote, { n: batch.dropped })}` : ''}</p>
+      <p className="text-small text-muted">{batch.filename}{batch.dropped > 0 ? ` · ${fill(w.skipNote, { n: batch.dropped })}` : ''}{(batch.headerSkipped ?? 0) > 0 ? ` · ${fill(w.headerNote, { n: batch.headerSkipped ?? 0 })}` : ''}</p>
       {checking ? (
         <Progress label={x.drawer.checking} value={batch.progress.done} max={Math.max(1, batch.progress.total)} valueText={fill(w.progress, { done: fmtNumber(locale, batch.progress.done), total: fmtNumber(locale, batch.progress.total) })} />
       ) : null}

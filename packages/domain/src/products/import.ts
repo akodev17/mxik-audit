@@ -436,6 +436,8 @@ export async function productBatchView(user: Viewer, batchId: string, params: { 
     batch: {
       id: b.id, status: b.status, filename: b.filename, clientId: b.clientId, source: b.source, counts: accounting.BatchCounts.safeParse(b.counts).data ?? null,
       progress: meta.progress ?? { done: 0, total: 0 }, error: b.error, createdAt: b.createdAt.toISOString(), dropped: meta.dropped ?? 0,
+      // Shown beside the skip note: rows above the found header were not read (review 30 Oct, R-P9).
+      headerSkipped: meta.headerSkipped ?? 0,
     },
     records: records.map(recordOut), total, pageSize: RECORD_PAGE, onec,
   };

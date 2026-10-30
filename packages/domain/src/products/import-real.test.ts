@@ -190,4 +190,12 @@ describe('catalogue import on documented layouts (database, recorded Tasnif answ
     const meta = (await db.importBatch.findUniqueOrThrow({ where: { id: clear.batchId }, select: { meta: true } })).meta as { clearEmpty?: boolean };
     assert.equal(meta.clearEmpty, true);
   });
+
+  it('the batch view says how many rows above the found header were not read', async () => {
+    // Review 30 Oct (R-P9): headerSkipped was stored but never shown, so a title or hint row's data went unseen.
+    // A template's hint row filling every column above the real header (the reader takes it for the header first).
+    const file = csv('titled.csv', [['Обязательное поле', 'Необязательное'], ['Наименование', 'Ед. изм.'], ['Ластик', 'шт']]);
+    const { view } = await importFile(file, false, { name: 0, onecRef: -1, article: -1, mxik: -1, packageCode: -1, unit: 1, barcode: -1, price: -1, vat: -1 });
+    assert.equal(view.batch.headerSkipped, 1);
+  });
 });
