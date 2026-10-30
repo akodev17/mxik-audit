@@ -77,6 +77,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-D7 | minor | d503a20 | Didox sync start/resume claimed by one conditional UPDATE: two starts run once. Test: didox/real-docs-db.test.ts 'two starts at once run once'. | (follow-up, 30 Oct evening) |
 | R-B9 | minor | f858bf0 | A stalled bank statement is claimed by one conditional UPDATE before it resumes (two processes resume it once). Test: bank/real-data-db.test.ts 'of two processes resuming'. | (follow-up, 30 Oct evening) |
 | R-P8 | minor | 9c5ac36 | The same product file with another client, mapping or clear-empty choice is a new import, not the earlier batch. Test: products/import-real.test.ts. | (follow-up, 30 Oct evening) |
+| R-P9 | minor | fe04ca9 | The product batch view returns and shows headerSkipped (rows above the found header). Test: products/import-real.test.ts. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
