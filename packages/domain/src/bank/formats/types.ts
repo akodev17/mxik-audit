@@ -17,4 +17,6 @@ export type BankFormatDef = {
   conventions: BankConventions;
   /** Rows this layout prints that are not transactions, besides the common balances, totals and footers. */
   dropRows: readonly RegExp[];
+  /** False for a layout the reader sets itself (a converted file), never recognised from a header row. */
+  detect?: boolean;
 };

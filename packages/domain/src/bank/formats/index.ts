@@ -17,7 +17,8 @@ export function toColumnMap(resolved: Partial<Record<BankRole, number>>): BankCo
     date: resolved.date ?? -1, docNumber: resolved.docNumber ?? -1, debit: resolved.debit ?? -1, credit: resolved.credit ?? -1,
     amount: resolved.amount ?? -1, direction: resolved.direction ?? -1, counterpartyName: resolved.counterpartyName ?? -1,
     inn: resolved.inn ?? -1, account: resolved.account ?? -1, mfo: resolved.mfo ?? -1, purpose: resolved.purpose ?? -1,
-    reference: resolved.reference ?? -1, currency: resolved.currency ?? -1,
+    reference: resolved.reference ?? -1, currency: resolved.currency ?? -1, ownAccount: resolved.ownAccount ?? -1,
+    valueDate: resolved.valueDate ?? -1, purposeCode: resolved.purposeCode ?? -1,
   };
 }
 
@@ -63,14 +64,24 @@ export type Detected = { format: BankFormatDef; columnMap: BankColumnMap; conven
 export function detectFormat(headers: readonly string[], formats: readonly BankFormatDef[] = BUILT_IN_FORMATS): Detected | null {
   let best: { def: BankFormatDef; resolved: Partial<Record<BankRole, number>>; own: number } | null = null;
   for (const def of formats) {
+    if (def.detect === false) continue;
     const { resolved, own } = mapWith(def, headers);
     const ownOnly = resolveColumns(headers, def.columns);
     if (!def.required.every((role) => ownOnly[role] !== undefined)) continue;
     if (!best || own > best.own) best = { def, resolved, own };
   }
-  if (!best) return null;
-  const columnMap = toColumnMap(best.resolved);
-  return { format: best.def, columnMap, conventions: { ...best.def.conventions, direction: directionFor(columnMap, best.def.conventions.direction) } };
+  return best ? detected(best.def, best.resolved) : null;
+}
+
+function detected(format: BankFormatDef, resolved: Partial<Record<BankRole, number>>): Detected {
+  const columnMap = toColumnMap(resolved);
+  return { format, columnMap, conventions: { ...format.conventions, direction: directionFor(columnMap, format.conventions.direction) } };
+}
+
+/** A built-in layout the reader chose itself (a converted kl_to_1c or payer/payee file), mapped onto these headers. */
+export function layoutFor(formatId: string, headers: readonly string[]): Detected | null {
+  const format = builtInFormat(formatId);
+  return format ? detected(format, mapWith(format, headers).resolved) : null;
 }
 
 /** The mapping guess for an unrecognised file: the common vocabulary, the direction the columns allow. */

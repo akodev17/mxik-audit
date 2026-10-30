@@ -298,7 +298,7 @@ export const ACCOUNTING_CARDS: readonly AccountingCard[] = [
       { label: 'Muammo', text: 'Har oy yuzlab toʻlovni qoʻlda kiritish, kontragentni adashtirish, bir toʻlovni ikki marta yozish.' },
       {
         label: 'Qanday ulanadi',
-        text: 'Bankdan yuklab olingan Excel yoki CSV koʻchirmani yuklaysiz; shakl tanilmasa, ustunlarni bir marta tanlaysiz va keyingi safar eslab qolinadi. Tasdiqlangandan keyin kl_to_1c.txt va solishtirma hisobotni olasiz.',
+        text: 'Bankdan yuklab olingan Excel (.xlsx, .xls), CSV/TXT koʻchirmani yoki bankning kl_to_1c.txt faylini (ZIP ichida ham) yuklaysiz; shakl tanilmasa, ustunlarni bir marta tanlaysiz va keyingi safar eslab qolinadi. Tasdiqlangandan keyin kl_to_1c.txt va solishtirma hisobotni olasiz.',
         beta: bankUz.bankX.upload.unverified,
       },
     ],

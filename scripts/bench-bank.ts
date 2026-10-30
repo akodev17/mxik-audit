@@ -4,8 +4,14 @@
 // writing the records in chunks of 500 — against the development database, in a throwaway org.
 //
 //   npx tsx scripts/bench-bank.ts [lines=1000] [runs=3]
+//   npx tsx scripts/bench-bank.ts --fixtures [runs=3]
+//
+// --fixtures reads every real-material fixture of the 30 Oct research instead (bank/fixtures:
+// the documented layouts; onec/fixtures/bank-input: the ten real kl_to_1c files) through the same
+// stages and prints, per file, the lines read and the median times.
 //
 // The AI suggester is off (no network in a benchmark); with a key it adds at most four calls.
+import { readFileSync, readdirSync } from 'node:fs';
 import ExcelJS from 'exceljs';
 import { db } from '@tasnivo/db';
 import { setOperationSuggester } from '@tasnivo/domain/bank/ai';
@@ -13,7 +19,8 @@ import { readLines, readStatementFile } from '@tasnivo/domain/bank/read';
 import { processStatement } from '@tasnivo/domain/bank/store';
 import { dropOrgs, makeOrg } from '@tasnivo/domain/test-fixtures';
 
-const LINES = Number(process.argv[2] ?? 1000);
+const FIXTURES = process.argv[2] === '--fixtures';
+const LINES = FIXTURES ? 0 : Number(process.argv[2] ?? 1000);
 const RUNS = Number(process.argv[3] ?? 3);
 
 const PURPOSES = [
@@ -81,11 +88,42 @@ async function run(seed: number, orgId: string): Promise<Record<string, number>>
   return t;
 }
 
-setOperationSuggester(null);
-const org = await makeOrg();
-try {
+/** One fixture through read, parse and processing; the batch is dropped with the org. */
+async function runFile(name: string, bytes: Buffer, orgId: string, seed: number): Promise<Record<string, number>> {
+  const t: Record<string, number> = {};
+  let start = performance.now();
+  const file = await readStatementFile(bytes);
+  t['read'] = ms(start);
+  if (!file.builtIn) throw new Error(`${name}: layout not recognised`);
+  start = performance.now();
+  const parsed = readLines(file, file.builtIn.layout);
+  t['parse'] = ms(start);
+  const batch = await db.importBatch.create({ data: { orgId, kind: 'bank_statement', source: 'upload', filename: name, fingerprint: `bench-${seed}-${name}` }, select: { id: true } });
+  start = performance.now();
+  await processStatement({ batchId: batch.id, orgId, clientId: null, parsed, suggester: null });
+  t['process'] = ms(start);
+  const after = await db.importBatch.findUnique({ where: { id: batch.id }, select: { status: true } });
+  if (after?.status !== 'review') throw new Error(`${name}: batch ended ${after?.status}`);
+  t['lines'] = parsed.lines.length;
+  return t;
+}
+
+async function fixtures(orgId: string): Promise<void> {
+  const dirs = [new URL('../packages/domain/src/bank/fixtures/', import.meta.url), new URL('../packages/domain/src/onec/fixtures/bank-input/', import.meta.url)];
+  const files = dirs.flatMap((dir) => readdirSync(dir).filter((n) => /\.(xlsx|xls|zip|csv|txt)$/.test(n) && !/^(ru|uz)-debit|^amount-direction|^signed-1251/.test(n)).map((n) => ({ name: n, bytes: readFileSync(new URL(n, dir)) })));
+  console.log(`bank benchmark on the real-material fixtures, ${RUNS} runs (ms, median)`);
+  console.log(`${'file'.padEnd(46)} ${'lines'.padStart(5)} ${'read'.padStart(7)} ${'parse'.padStart(7)} ${'process'.padStart(8)}`);
+  for (const f of files) {
+    const runs: Record<string, number>[] = [];
+    for (let r = 0; r < RUNS; r++) runs.push(await runFile(f.name, f.bytes, orgId, r));
+    const median = (k: string): number => runs.map((x) => x[k] ?? 0).sort((a, b) => a - b)[Math.floor(runs.length / 2)] ?? 0;
+    console.log(`${f.name.padEnd(46)} ${String(median('lines')).padStart(5)} ${String(median('read')).padStart(7)} ${String(median('parse')).padStart(7)} ${String(median('process')).padStart(8)}`);
+  }
+}
+
+async function generated(orgId: string): Promise<void> {
   const results: Record<string, number>[] = [];
-  for (let r = 0; r < RUNS; r++) results.push(await run(r + 1, org.orgId));
+  for (let r = 0; r < RUNS; r++) results.push(await run(r + 1, orgId));
   const keys = Object.keys(results[0] ?? {});
   const median = (k: string): number => {
     const v = results.map((x) => x[k] ?? 0).sort((a, b) => a - b);
@@ -93,6 +131,12 @@ try {
   };
   console.log(`bank benchmark: ${LINES} lines, ${RUNS} runs (ms; median, then each run)`);
   for (const k of keys) console.log(`${k.padEnd(16)} ${String(median(k)).padStart(9)}   ${results.map((x) => x[k]).join(' / ')}`);
+}
+
+setOperationSuggester(null);
+const org = await makeOrg();
+try {
+  await (FIXTURES ? fixtures(org.orgId) : generated(org.orgId));
 } finally {
   await dropOrgs([org.orgId]);
   await db.$disconnect();

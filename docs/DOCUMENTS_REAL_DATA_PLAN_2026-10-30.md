@@ -199,6 +199,99 @@ my3.soliq.uz), and one real «1С:Бухгалтерия для Узбекист
 `nomenclature_xlsx` and an OData receipt once. Each session's results section lists the exact
 one-step check for its module.
 
+## S1 results — bank statements (branch `claude/docs-s1-bank-7e7406`, 30 Oct 2026)
+
+Three commits on the branch, not pushed. Typecheck: every workspace clean (`contracts`, `domain`, `i18n`,
+`core`, `db`, `api-client`, `web`, `worker`); `apps/api` reports 4 `cookie` type errors because the main
+checkout's `apps/api/node_modules` (which worktrees link to) was emptied at 14:04 by an npm run outside
+this session — it typechecked clean before that, nothing in `apps/api` was changed. Scratch DB `mxik_s1`
+(59 migrations + a 2 000-row slice of `mxik_code`, so the DB suites run instead of skipping).
+
+### Bugs fixed
+
+| # | Fix | Where |
+|---|---|---|
+| B1 | The title МФО regex has its backslashes back and also reads "Код банка" / "Bank kodi": the owner's МФО reaches meta and the 1C file's `…БИК` | `packages/domain/src/bank/sheet.ts:169` |
+| B2 | Read by content: legacy **.xls** (own BIFF8 + OLE reader, shared strings across CONTINUE, RK/MULRK/formula results; encrypted and Excel-95 files refused with their own message) | `bank/xls.ts:41,228` |
+| B2 | HTML tables and Excel-2003 XML saved as .xls | `bank/markup.ts:9` |
+| B2 | Text: UTF-8 (BOM or not), windows-1251 or **DOS cp866 by content**; `;` tab `,` **`|` `~`** delimiters; **fixed width** (data gaps + header words, touching fields split) | `spreadsheet-text.ts:41,62`, `bank/text.ts:57,90` |
+| B2 | **Zip-wrapped** downloads (one statement inside; two or none refused); **PDF refused** with a clear message | `bank/read.ts:81,105-107` |
+| B2 | A bank's own **kl_to_1c.txt** read as a statement through the hardened reader: encoding by content (UTF-8 wins over `Кодировка=Windows`), first value kept on a duplicate key + warning, missing `КонецДокумента`/`КонецРасчСчет`/`КонецФайла` recovered + warning, repeated `РасчСчет=`/`Документ=` header lines as lists, unknown version warned; then documents → statement table with direction by the own accounts (dates as fallback), composite `ИНН …\КПП Name` names, `НазначениеПлатежа1..6`, repeated/overlapping `СекцияРасчСчет` merged per account | `onec/bank-exchange.ts:239,275`, `bank/documents.ts:54,123,164` |
+| B2 | ASBT's payer/payee **document export** turned into debit/credit by the own account | `bank/documents.ts:247` |
+| B3 | Lines are **stored before processing** (the upload answers after that); processing runs in chunks whose records (one bulk `UPDATE … FROM unnest`) and progress commit together; a statement `uploaded` with no progress for 90 s is **resumed by the next read** (list or detail), from its progress | `bank/store.ts:242,272,346`, `bank/service.ts:181,190,251` |
+| B6 | `meta.totalDebit/totalCredit` are the bank's **printed** totals (last "Итого/Обороты" row, one row per side as Colvir prints, page/day subtotals ignored; kl_to_1c `ВсегоСписано/ВсегоПоступило`), `null` when none; the lines' sums are `extra.lineTotals`; the reconcile and the 1C plan compare the two and only warn | `bank/parse.ts:333,361`, `bank/vocabulary.ts:133` |
+| new | Real-data findings: a transfer between two own accounts becomes a debit **and** a credit (Unact sample); "Оплата по договору" no longer yields contract "у" (odin_palace samples) | `bank/documents.ts:54`, `bank/parse.ts:79` |
+| new | Multi-account statements: one summary per own account (`extra.accounts`), a dry-run check `accounts_reconcile` | `bank/parse.ts` (accountSummaries), `bank/reconcile.ts:95`, `bank/service.ts:682` |
+| §7.44 | kl_to_1c output: one `СекцияРасчСчет` + header `РасчСчет=` per own account, `(account, date, Номер)` unique per file (`1`, `1/2`), purpose code prefixed in `НазначениеПлатежа`; cp1251 without BOM, CRLF (unchanged single-account output, goldens identical) | `onec/bank-exchange.ts:111,151`, `onec/files.ts:32,66` |
+| §7.42 | Duplicate key: own account, date, direction, amount, document number (leading zeros ignored) or, without a number, counterparty account + normalised purpose; plus a `sameLine` check (written counterparty accounts must agree, else purposes) so reused numbers do not merge different payments while a re-export without the counterparty account still matches | `bank/duplicates.ts:30,42`, `bank/store.ts:157` |
+
+New column roles `ownAccount` / `valueDate` / `purposeCode` (contract, vocabulary, mapping UI, uz+ru labels);
+`BankTransaction.purposeCode` optional. New layouts (all `verified: false`): `cbu_p121` (base profile),
+`colvir_ib`, `ibank2_csv`, `onec_client_bank_exchange`, `payer_payee_documents` (`bank/formats/builtin.ts:102-183`).
+
+### Tests added: 35 (all pass), plus 3 existing assertions updated
+
+- `packages/domain/src/bank/exchange-input.test.ts` — **19**: the 10 real kl_to_1c samples with asserted
+  encoding, document count, account, printed balances and turnovers vs the lines (§7.1, 7.2, 7.15, 7.25);
+  Unact two accounts (§7.7, 7.13, 7.18, 7.22, 7.40); Habr duplicate key / spaces / composite names
+  (§7.5, 7.8, 7.12, 7.16, 7.17); composite form fallback (§7.16); odoo-ru 1.01 (§7.6, 7.11, 7.19–21, 7.34);
+  duplicate interval (§7.14); truncated files (§7.9); comma `Сумма`, Uzbek МФО in `…БИК`, 5-digit
+  `КодНазПлатежа`, unknown version (§7.11, 7.18, 7.22, 7.25); `НазначениеПлатежа1..6` (§7.23); **write → read
+  round trip** and the output rules (§7.44).
+- `packages/domain/src/bank/real-layouts.test.ts` — **13**: п.121 two-row header, title and B1 МФО, page break,
+  subtotals, totals, posting vs document date, numeric doc number and МФО, purpose code column or prefix
+  (§7.26–28, 7.31–36, 7.38, B6); Colvir .xls (B2, §7.27–30, 7.32–33); ASBT zip `|` and fixed width
+  (§7.39, 7.13, 7.24, 7.42); iBank2 one file of two accounts (§7.40, 7.30, 7.34); PDF / archives (§7.41);
+  cp866, BOM, `~` (§7.2); HTML and XML "xls" (B2); purpose codes and contract numbers (§7.38).
+- `packages/domain/src/bank/real-data-db.test.ts` — **3** (DB): B3 resume from progress after a "restart";
+  overlapping re-import gives exactly one new line (§7.42); kl_to_1c with mismatching printed totals is
+  reported in reconcile and dry run and still exports, with the bank's repeated number made `1/2` (B6, §7.15, §7.44).
+- Updated, not weakened: `formats.test.ts` (layout sources may cite `fixtures/SOURCES.md`),
+  `parse.test.ts` ("Kunlik aylanma" is now `subtotals`, so it can no longer pass for the statement's
+  totals), `service.test.ts` (a saved column map lists the three new roles too).
+- Bank/onec/spreadsheet/e2e bank+onec/web-parity: **187 pass, 0 fail, 0 skipped** (before: 99 + the DB
+  suites, which had been skipping on the empty scratch DB). Full `npm test`: 2 450 pass, 21 fail, 6
+  cancelled — all in files this branch does not touch (API e2e billing/demo/health/imports/notifications/
+  public-api/value-metrics/workspace-docs, products import); re-run alone, onec and billing e2e pass, health
+  fails on the scratch DB's missing classifier version row, products on the 2 000-row classifier slice.
+
+Fixtures: `bank/fixtures/` (+ `make-real-layouts.ts`, `SOURCES.md`) and `onec/fixtures/bank-input/`
+(10 real files, `SOURCES.md`; private persons' names and 12-digit ИНН replaced, company data kept).
+
+### Bench (`npx tsx scripts/bench-bank.ts --fixtures 3`, ms, median of 3, `mxik_s1`)
+
+| File | Lines | Read | Parse | Process (store + match + rules + write) |
+|---|---:|---:|---:|---:|
+| asbt-documents-fixed.txt | 4 | 4.1 | 0.5 | 63.8 |
+| asbt-documents-pipe.zip | 4 | 6.4 | 0.4 | 56.7 |
+| colvir-statement.xls | 72 | 8.7 | 4.1 | 90.9 |
+| ibank2-all-accounts.csv | 5 | 7.2 | 0.2 | 36.3 |
+| p121-two-row-header.xlsx | 6 | 18.3 | 0.7 | 37.2 |
+| habr-245397 (kl_to_1c) | 4 | 2.2 | 0.3 | 33.3 |
+| ibank2-format-guide (kl_to_1c) | 2 | 1.5 | 0.2 | 34.4 |
+| kilylabs-one-day cp1251 / utf8 | 13 | 1.7 / 1.3 | 0.4 / 0.3 | 43.7 / 48.3 |
+| odin-palace-bench (kl_to_1c) | 129 | 13.9 | 3.8 | 167.3 |
+| odin-palace bom / duplicate-interval / readme cp866 | 1 / 0 / 1 | 1.1 / 0.8 / 0.9 | ≤ 0.1 | 46.7 / 19.9 / 33.9 |
+| odoo-ru-1.01 | 1 | 1.1 | 0.2 | 37.5 |
+| unact-1.03-two-accounts | 12 | 1.4 | 0.4 | 44.6 |
+
+Generated statement (`bench-bank.ts 1000 5` / `10000 2`): 1 000 lines end to end 1 211 ms median
+(store 233, write 799, match 49; 389 ms recorded on 23 Oct with the stub matcher and one write per line);
+10 000 lines 4.6–5.7 s (store 2.1 s, write 0.7–1.2 s). The price of B3: the lines are written twice, and
+the store step (≈ 0.2 s per 1 000 lines) now happens inside the upload request.
+
+### Still unverified, and the one step that settles each
+
+| What | Why it is open | The owner's one step |
+|---|---|---|
+| A real Uzbek bank's Excel/CSV/TXT statement reads with the right layout and reconciles | no bank publishes one; the п.121, Colvir, ASBT and iBank2 layouts are built from documents, `verified: false` | Upload one statement from each client bank (Kapitalbank, Ipoteka/ASBT, Aloqabank/Colvir, Hamkor, NBU…) on `/bank/upload`; the check step must recognise the layout and the reconcile page must show "balanced" and both totals matching. Send any file that does not, it becomes a fixture |
+| A bank's own kl_to_1c.txt from an Uzbek bank | the ten samples are Russian banks' and vendors'; no Uzbek one is public | Download "1C" / kl_to_1c.txt from any client bank's internet bank and upload it: the account sections must reconcile and every line have a direction |
+| Which key 1C UZ reads the bank code from (`…БИК` holding the МФО, or Tasnivo's `…МФО` variant) | the Uzbek edition's loader is not documented (research §3.2) | Load one Tasnivo `kl_to_1c.txt` in «1С:Бухгалтерия для Узбекистана» → «Банк и касса → Банковские выписки → Загрузить»: counterparties' banks must be found (black rows, not red); if red, switch the connection's bank keys to `uz_mfo` and load again |
+| 1C UZ accepts `Номер=1/2` and two `СекцияРасчСчет` in one file | standard allows both; UZ edition untested | Same load, with a statement that had a repeated number or two accounts |
+| A legacy .xls written by Excel itself (and the mini-stream path of the OLE reader) | the .xls fixture is written by our minimal BIFF8 writer, above 4 KB | Save any small statement as "Excel 97-2003 (.xls)" in Excel and upload it |
+| Purpose codes validated against the CBU table by date | the table (new since 26.05.2026) is not public in a usable form | None until the table is obtained; the code is only read and passed on |
+| ПИНФЛ (14 digits) in a kl_to_1c `…ИНН` (12 by the spec) | written as is; no source shows what 1C UZ does with it | Part of the 1C load above, with a payment to a physical person |
+
 ## S4 results — 1C import, history and OData (branch `claude/docs-s4-onec-605e8f`, 30 Oct 2026)
 
 Worktree `.claude/worktrees/docs-s4-onec-605e8f`, 9 commits on top of 1afccd1, not pushed. Scratch DB

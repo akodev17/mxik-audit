@@ -28,6 +28,17 @@ export type BuiltFile = { bytes: Buffer; filename: string; contentType: string }
 /** A file-name part: letters (any script), digits, dots and dashes; the download header carries UTF-8 with an ASCII fallback. */
 const safe = (text: string): string => text.normalize('NFC').replace(/[^\p{L}\p{N}.-]+/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 60);
 
+/** The per-account balances a bank statement batch keeps in meta.bank.accounts (bank/parse.ts AccountSummary). */
+function printedAccounts(meta: unknown): { account: string; opening: string | null; closing: string | null }[] {
+  const bank = (meta as { bank?: { accounts?: unknown } } | null)?.bank;
+  if (!Array.isArray(bank?.accounts)) return [];
+  return bank.accounts.flatMap((a: unknown) => {
+    const x = a as { account?: unknown; opening?: unknown; closing?: unknown };
+    const money = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+    return typeof x.account === 'string' ? [{ account: x.account, opening: money(x.opening), closing: money(x.closing) }] : [];
+  });
+}
+
 function bankFile(batch: PlanBatch, rows: Included[], s: FileSettings): BuiltFile {
   const meta = accounting.BankStatementMeta.partial().safeParse(batch.meta);
   const m = meta.success ? meta.data : {};
@@ -47,7 +58,19 @@ function bankFile(batch: PlanBatch, rows: Included[], s: FileSettings): BuiltFil
     counterparty: { name: t.counterparty.name, inn: t.counterparty.inn, account: t.counterparty.account, bankName: null, mfo: t.counterparty.mfo },
     purpose: t.purpose,
     valueDate: t.valueDate,
+    purposeCode: t.purposeCode ?? null,
   }));
+  // A statement of several own accounts (a kl_to_1c or an iBank2 file of all accounts): one section
+  // each, with the balances the bank printed for it (bank research §7.44).
+  const ownAccounts = [...new Set(txs.map((x) => x.t.ourAccount ?? account))];
+  const printed = new Map(printedAccounts(batch.meta).map((p) => [p.account, p]));
+  const sections = ownAccounts.length > 1
+    ? ownAccounts.map((a) => ({
+      account: a,
+      openingBalance: s.wholeStatement ? printed.get(a)?.opening ?? null : null,
+      closingBalance: s.wholeStatement ? printed.get(a)?.closing ?? null : null,
+    }))
+    : undefined;
   const bytes = buildBankExchange({
     account,
     periodFrom: m.periodFrom ?? dates[0] ?? s.now.toISOString().slice(0, 10),
@@ -55,6 +78,7 @@ function bankFile(batch: PlanBatch, rows: Included[], s: FileSettings): BuiltFil
     openingBalance: s.wholeStatement ? m.openingBalance ?? null : null,
     closingBalance: s.wholeStatement ? m.closingBalance ?? null : null,
     documents,
+    ...(sections ? { sections } : {}),
     bankKeys: s.bankKeys,
     sender: 'Tasnivo',
     receiver: '1С:Бухгалтерия для Узбекистана',

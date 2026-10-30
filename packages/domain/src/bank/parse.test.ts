@@ -89,7 +89,8 @@ describe('UZ Latin statement, serial dates and number cells, with broken rows (u
   it('reads 10 lines; balances, totals, the layout row and the page footer are left out', async () => {
     const { parsed } = await read('uz-debit-credit.xlsx');
     assert.equal(parsed.lines.length, 10);
-    assert.deepEqual(reasons(parsed), ['7:opening_balance', '18:totals', '19:totals', '20:closing_balance', '21:footer']);
+    // "Kunlik aylanma" (the day's turnover) is a subtotal since 30 Oct: it can no longer pass for the statement's totals.
+    assert.deepEqual(reasons(parsed), ['7:opening_balance', '18:subtotals', '19:totals', '20:closing_balance', '21:footer']);
   });
 
   it('raises an issue for every broken row and never guesses a value', async () => {

@@ -20,7 +20,8 @@ export function bankHeaderKey(header: string): string {
 
 /** Header words per role, most specific first. Keys are already bankHeaderKey()-normalised. */
 export const ROLE_ALIASES: Record<BankRole, readonly string[]> = {
-  date: ['дата операции', 'дата документа', 'дата проводки', 'дата платежа', 'дата', 'operatsiya sanasi', 'hujjat sanasi', 'sana', 'сана', 'date'],
+  // The document date. A posting date column ("Дата проводки") is valueDate; alone it is the date (resolveColumns).
+  date: ['дата документа', 'дата платежа', 'дата создания', 'дата', 'hujjat sanasi', 'ҳужжат санаси', 'sana', 'сана', 'date'],
   docNumber: ['номер документа', '№ документа', '№ док', '№док', 'номер док', 'н/д', 'hujjat raqami', 'hujjat №', '№ hujjat', 'ҳужжат рақами', 'ҳужжат №', 'doc no', 'document no'],
   counterpartyName: [
     'наименование плательщика/получателя', 'наименование получателя/плательщика', 'плательщик/получатель', 'получатель/плательщик',
@@ -29,20 +30,31 @@ export const ROLE_ALIASES: Record<BankRole, readonly string[]> = {
   ],
   inn: ['инн/пинфл', 'инн корреспондента', 'инн контрагента', 'инн', 'stir/jshshir', 'kontragent stiri', 'stir', 'стир', 'inn', 'tin'],
   account: [
-    'счет корреспондента', 'счет контрагента', 'расчетный счет', 'корреспондент счет', 'счет', 'р/с',
+    'счет корреспондента', 'счет контрагента', 'корреспондирующий счет', 'расчетный счет', 'корреспондент счет', 'счет', 'р/с',
     'kontragent hisob raqami', 'hisob raqami', 'ҳисоб рақами', 'hisob', 'account',
   ],
-  mfo: ['мфо корреспондента', 'мфо банка', 'мфо', 'код банка', 'bank kodi', 'mfo', 'банк коди'],
+  mfo: [
+    'мфо корреспондента', 'мфо банка корреспондента', 'мфо банка', 'мфо', 'код банка корреспондента', 'код банка', 'бик банка', 'бик',
+    'bank kodi', 'mfo', 'банк коди', 'вакил банк коди',
+  ],
   debit: ['обороты по дебету', 'оборот по дебету', 'сумма по дебету', 'дебет оборот', 'дебет', 'debet aylanma', 'debet', 'расход', 'списание', 'chiqim', 'чиқим', 'debit'],
   credit: ['обороты по кредиту', 'оборот по кредиту', 'сумма по кредиту', 'кредит оборот', 'кредит', 'kredit aylanma', 'kredit', 'приход', 'поступление', 'kirim', 'кирим', 'credit'],
   amount: ['сумма операции', 'сумма платежа', 'сумма документа', 'сумма', 'tolov summasi', 'summa', 'amount'],
   direction: ['дебет/кредит', 'debet/kredit', 'д/к', 'дт/кт', 'приход/расход', 'kirim/chiqim', 'тип операции', 'направление', 'yonalish', 'operatsiya turi', 'direction'],
   purpose: [
-    'назначение платежа', 'назначение', 'детали платежа', 'содержание операции', 'описание',
+    'назначение платежа', 'назначение', 'детали платежа', 'содержание операции', 'описание', 'примечание', 'тўловнинг мақсади',
     'tolov maqsadi', 'тўлов мақсади', 'тулов максади', 'maqsad', 'mazmuni', 'izoh', 'purpose', 'description',
   ],
   reference: ['id транзакции', 'id операции', 'референс', 'уникальный номер', 'идентификатор', 'tranzaksiya id', 'reference', 'ref'],
   currency: ['валюта', 'valyuta', 'валюта операции', 'currency'],
+  ownAccount: ['счет клиента', 'счет организации', 'наш счет', 'лицевой счет', 'mijoz hisob raqami', 'мижоз ҳисоб рақами'],
+  valueDate: [
+    'дата проводки', 'дата обработки', 'дата валютирования', 'дата исполнения', 'дата операции',
+    'operatsiya sanasi', 'otkazilgan sana', 'ишлов бериш санаси', 'value date', 'posting date',
+  ],
+  purposeCode: [
+    'код назначения платежа', 'код назначения', 'код назн', 'кнп', 'код платежа', 'tolov maqsadi kodi', 'maqsad kodi', 'тўлов мақсади коди', 'kod', 'код',
+  ],
 };
 
 /** An amount column is never one whose header names a direction ("Сумма по дебету"). */
@@ -94,6 +106,11 @@ export function resolveColumns(headers: readonly string[], aliases: Partial<Reco
     out[c.role] = c.column;
     usedColumns.add(c.column);
   }
+  // One date column is the date, whatever it is called (an "Дата проводки" alone, bank research §7.34).
+  if (out.date === undefined && out.valueDate !== undefined) {
+    out.date = out.valueDate;
+    delete out.valueDate;
+  }
   return out;
 }
 
@@ -106,12 +123,14 @@ export function headerScore(row: readonly string[]): number {
 
 // ── Rows that are not transactions ─────────────────────────────────────────────────────────
 
-export type NoiseKind = 'opening_balance' | 'closing_balance' | 'balance' | 'totals' | 'footer';
+export type NoiseKind = 'opening_balance' | 'closing_balance' | 'balance' | 'subtotals' | 'totals' | 'footer';
 
 /** Checked in this order: a closing balance row also says "остаток", a totals row may say "обороты". */
 export const NOISE: readonly { kind: NoiseKind; pattern: RegExp }[] = [
   { kind: 'opening_balance', pattern: /входящ\S* (остаток|сальдо)|остаток на начало|сальдо на начало|начальн\S* (остаток|сальдо)|остаток входящий|kirish qoldig|boshlang\S* qoldi|davr boshi\S* qoldi|кириш қолдиғ|бошланғич қолдиқ/u },
   { kind: 'closing_balance', pattern: /исходящ\S* (остаток|сальдо)|остаток на конец|сальдо на конец|конечн\S* (остаток|сальдо)|остаток исходящий|chiqish qoldig|yakuniy qoldi|davr oxiri\S* qoldi|oxirgi qoldi|чиқиш қолдиғ|якуний қолдиқ/u },
+  // Page and day subtotals (Colvir prints «Обороты по расходу на странице», research p.29): left out, never the statement's totals.
+  { kind: 'subtotals', pattern: /на странице|по странице|за день|итого по дню|kunlik|sahifa bo.yicha|sahifadagi|page total/u },
   { kind: 'totals', pattern: /(^|\s)(итого|всего|обороты|оборот за|итог|jami|жами|yakun|aylanma|total)/u },
   { kind: 'balance', pattern: /остаток|сальдо|qoldiq|қолдиқ|balance/u },
   { kind: 'footer', pattern: /страница|стр\. ?\d|sahifa|page \d|подпись|главный бухгалтер|руководитель|исполнитель|м\.п\.|bosh hisobchi|imzo|распечатан|сформирован|chop etil|бош ҳисобчи/u },
@@ -129,7 +148,7 @@ export const TITLE = {
   account: /сч[её]т|hisob|ҳисоб|р\/с|account/iu,
   inn: /инн|stir|стир|пинфл|jshshir/iu,
   owner: /клиент|владелец|наименование (организации|клиента)|организация|mijoz|korxona|tashkilot|мижоз|корхона/iu,
-  period: /период|с \d|davr|давр|выписк|ko.chirma|кўчирма|за \d/iu,
+  period: /период|с \d|davr|давр|выписк|ko.chirma|кўчирма|за \d|валютировани/iu,
   currency: /валют|valyuta|currency/iu,
   bank: /банк|bank/iu,
 } as const;
