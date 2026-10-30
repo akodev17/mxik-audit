@@ -25,8 +25,10 @@ export function readDecimal(value: unknown): Micros | null {
     if (/e/i.test(text)) text = Math.abs(value) < 1 ? value.toFixed(DIGITS + 2) : BigInt(Math.round(value)).toString();
   } else if (typeof value === 'string') {
     text = value.trim().replace(/[\s\u00a0\u202f]/g, '');
-    // "1234,56" → "1234.56"; "1,234.56" keeps the dot as the mark and drops the comma.
+    // "1234,56" → "1234.56"; with both marks the last one is the decimal mark: "1,234.56" and "1.234,56" are both
+    // 1234.56 (the second was read as 1.23456; review 30 Oct, R-D9).
     if (text.includes(',') && !text.includes('.')) text = text.replace(',', '.');
+    else if (text.includes(',') && text.lastIndexOf(',') > text.lastIndexOf('.')) text = text.replace(/\./g, '').replace(',', '.');
     else text = text.replace(/,/g, '');
   } else {
     return null;

@@ -23,6 +23,9 @@ describe('decimal', () => {
     assert.equal(normalizeDecimal('21428,64'), '21428.64');
     assert.equal(normalizeDecimal('485 000'), '485000');
     assert.equal(normalizeDecimal('1,234,567.5'), '1234567.5');
+    // Review 30 Oct (R-D9): with both marks the last one is the decimal mark ("1.234,56" was 1.23456).
+    assert.equal(normalizeDecimal('1.234,56'), '1234.56');
+    assert.equal(normalizeDecimal('1.234.567,5'), '1234567.5');
     assert.equal(normalizeDecimal(1e-7), '0');
     assert.equal(normalizeDecimal('-12.0000005'), '-12.000001');
     assert.equal(normalizeDecimal(12345678901234), '12345678901234');
