@@ -5,31 +5,34 @@ import { useI18n } from '@/lib/locale-client';
 import { StatusIcon } from '../badge';
 import { cx } from '../cx';
 import { IconChevron } from '../icons';
+import { bannerLines, joinSentences, type BannerLine } from './plan-banner-lines';
 import type { ShellData } from './shell-queries';
-
-const ENDING_SOON_DAYS = 7;
 
 /**
  * One quiet line under the header when the plan needs a look: expired or a full limit (danger), a limit
- * near 80% or a trial or subscription ending within a week (warn). A status icon and the words carry the meaning; the strip itself
- * stays on the page surface, so it informs without competing with the page.
+ * near 80% (warn), and a trial or subscription ending within a week added to either (bannerLines).
+ * A status icon and the words carry the meaning; the strip itself stays on the page surface, so it
+ * informs without competing with the page.
  */
 export function PlanBanner({ plan }: { plan: ShellData['plan'] }) {
   const { ta } = useI18n();
+  const banner = bannerLines(plan);
+  if (!banner) return null;
   const names = (keys: ShellData['plan']['full']): string => keys.map((k) => ta.plan.keys[k]).join(', ');
-  let text: string | null = null;
-  let tone: 'warn' | 'danger' = 'warn';
-  if (plan.state === 'expired') { text = ta.plan.expired; tone = 'danger'; }
-  else if (plan.full.length > 0) { text = ta.plan.full(names(plan.full)); tone = 'danger'; }
-  else if (plan.warnings.length > 0) text = ta.plan.warn(names(plan.warnings));
-  // The trial or the paid subscription ends within a week (the expiry reminders start at 7 days too).
-  else if (plan.state === 'trial' && plan.daysLeft !== null && plan.daysLeft <= ENDING_SOON_DAYS) text = ta.plan.trial(plan.daysLeft);
-  else if (plan.state === 'firm' && plan.daysLeft !== null && plan.daysLeft <= ENDING_SOON_DAYS) text = ta.setX.plan.endingSoon(plan.daysLeft);
-  if (!text) return null;
+  const phrase = (line: BannerLine): string => {
+    switch (line.kind) {
+      case 'expired': return ta.plan.expired;
+      case 'full': return ta.plan.full(names(line.keys));
+      case 'warn': return ta.plan.warn(names(line.keys));
+      case 'trialEnds': return ta.plan.trial(line.days);
+      case 'subscriptionEnds': return ta.setX.plan.endingSoon(line.days);
+    }
+  };
+  const { tone } = banner;
   return (
     <div role="status" className="no-print flex items-center gap-2.5 border-b border-line bg-surface px-4 py-2 text-small sm:px-6">
       <span aria-hidden className={cx('inline-flex shrink-0', tone === 'danger' ? 'text-danger-ink' : 'text-warn-ink')}><StatusIcon tone={tone} size={16} /></span>
-      <span className="min-w-0 flex-1 text-fg">{text}</span>
+      <span className="min-w-0 flex-1 text-fg">{joinSentences(banner.lines.map(phrase))}</span>
       <Link href="/settings?tab=plan" className="inline-flex shrink-0 items-center gap-0.5 font-medium text-brand-ink hover:underline">
         {ta.plan.upgrade}<IconChevron size={12} />
       </Link>

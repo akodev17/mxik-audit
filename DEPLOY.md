@@ -114,6 +114,13 @@ that reads it. At minimum:
 | `RERANK_PROVIDER` | leave empty (Gemini when its key is set, else Anthropic); `off` disables stage 6 |
 | `EMBEDDING_PROVIDER` | `local` (already set in `.env.example`) |
 | `ADMIN_EMAILS` | sign-in emails allowed to open `/admin`, comma-separated |
+| `BILLING_REQUIRED_FOR_EXPORT` | `true` (7b); `.env.example` keeps `false` for local development |
+
+Two flags stay unset in production unless you need them (both off by default):
+`PAYME_TEST_ALLOW_PROD=1` keeps Payme's sandbox mode on with `NODE_ENV=production` (a staging server, 7b),
+and `ONEC_ALLOW_PRIVATE_HOSTS=1` lets a 1C base URL resolve to a private or loopback address (a
+self-hosted install on the same network as the client's 1C); without it only public addresses are
+accepted, so the server cannot be used as a proxy into its own network.
 
 `DATABASE_URL`, `REDIS_URL`, `JOBS_MODE` and `DATA_DIR` in `.env` are ignored inside Docker:
 compose points the services at the `db` and `redis` containers and at `/app/data`. The
@@ -150,9 +157,14 @@ mx npx prisma migrate deploy        # tables and indexes
 mx npm run fetch:catalog            # 3 official Excel exports, ~93 MB, ~1 min
 mx npm run ingest -- --enrich       # normalize + marking flags, ~10 min
 mx npm run load:db                  # ~443k codes into Postgres, ~3 min
+mx npm run load:restricted -- data/perechen.xlsx   # codes restricted in EHF (section 8); copy the file into ./data first
 mx npm run embed:catalog            # local e5 vectors, both columns, + HNSW indexes, ~3 h on 4 vCPU
 mx npm run seed:demo                # the demo catalogue behind /demo, ~1 min
 ```
+
+Without `load:restricted` every audit reports that the restricted list was not checked. A fresh
+database has no dictionary entries, so the `dictionary:rekey` step of "Updating to a new version"
+(section 8) is only needed on a server that already has data.
 
 Put the alias in `~/.bashrc` (with `cd /opt/mxik-audit` first in your session) to keep it.
 
@@ -455,6 +467,8 @@ docker exec -it mxik-audit-db psql -U mxik mxik -c "UPDATE \"user\" SET \"platfo
 cd /opt/mxik-audit
 git pull
 docker compose --profile app build          # or `pull`, if the images come from a registry
+mx npx prisma migrate deploy                # new schema first (the api would also do it on start)
+mx npm run dictionary:rekey                 # before the first audit on the new code; idempotent
 docker compose --profile app up -d --remove-orphans
 docker compose --profile app ps
 ```
@@ -464,6 +478,19 @@ docker compose --profile app ps
 healthy, so the order build → migrate → restart is kept without extra steps. Watch it with
 `docker compose logs -f api`. Never run `prisma migrate dev` against this database; see README
 "Migrations".
+
+**Order for this release** (migrations `20261108*`, the SaaS hardening programme), outside Docker the
+same commands without `mx`:
+
+1. `prisma migrate deploy` (`mx npx prisma migrate deploy`, or the api on start).
+2. `npm run dictionary:rekey` (`mx npm run dictionary:rekey`; `-- --dry-run` first lists what changes),
+   before the first audit runs on the new code. The new code looks a firm's dictionary names up by a key
+   that keeps sizes and percentages, so entries still under the old key give no suggestions until it
+   runs; it also pauses auto-accept for every entry whose name has a size until a person confirms it
+   on `/dictionary` → "Qayta tasdiqlash kerak". It only reads entries not rekeyed yet, so run it once
+   more if anyone taught the dictionary between the rekey and `up -d`.
+3. `npm run load:restricted -- data/perechen.xlsx` (`mx npm run load:restricted -- data/perechen.xlsx`,
+   "Codes restricted in EHF" below), if the list was never loaded on this server.
 
 The Prisma client is generated into each image at build time and has to match the schema, so
 every service must run an image built from the same commit (`build` then `up -d` does this). A
