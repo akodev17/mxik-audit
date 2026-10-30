@@ -525,11 +525,14 @@ export async function applyProductBatch(user: CurrentUser, batchId: string, loca
   const clearFor = (i: number) => clearableFor(clear, (rows[i]?.issues ?? []) as unknown as ValidationIssue[]);
   const result = await upsertRecords(b.orgId, b.clientId, records, user.userId, { source: 'catalog_import', confirmed, clear: clearFor });
   // What the check found travels to the product: its issues and runner-up codes, for the drawer.
+  // A row without a code that kept the product's saved code leaves that code's issues as they were (§7.30, as upsert.ts does the status).
+  const coded = new Set((await db.product.findMany({ where: { id: { in: result.ids.filter(Boolean) }, mxik: { not: null } }, select: { id: true } })).map((p) => p.id));
   await db.$transaction(rows.flatMap((r, i) => {
     const id = result.ids[i];
     if (!id) return [];
+    const keptCode = !records[i]?.mxik && coded.has(id);
     return [
-      db.product.update({ where: { id }, data: { mxikIssues: r.issues as Prisma.InputJsonValue, mxikAlternatives: payloads[i]?.alternatives ?? [] } }),
+      ...(keptCode ? [] : [db.product.update({ where: { id }, data: { mxikIssues: r.issues as Prisma.InputJsonValue, mxikAlternatives: payloads[i]?.alternatives ?? [] } })]),
       db.importRecord.update({ where: { id: r.id }, data: { payload: { ...(payloads[i] as StoredPayload), productId: id } } }),
     ];
   }));

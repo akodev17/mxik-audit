@@ -131,9 +131,13 @@ export async function upsertRecords(
       const isConfirmed = options.confirmed === 'all' || (options.confirmed?.has(index) ?? false);
       let id: string;
       if (target) {
+        const merged = mergedFields({ ...target, price: target.price?.toFixed(2) ?? null }, { ...r, mxik, barcode }, typeof options.clear === 'function' ? options.clear(index) : options.clear);
+        // The record's verdict is about the code it carried; a row without one that kept the saved code says nothing
+        // about that code (products §7.30: it is not "missing" and must not leave the 1C export).
+        const verdict = r.mxikStatus !== 'unchecked' && (mxik !== null || merged.mxik === null);
         const data = {
-          ...mergedFields({ ...target, price: target.price?.toFixed(2) ?? null }, { ...r, mxik, barcode }, typeof options.clear === 'function' ? options.clear(index) : options.clear),
-          ...(r.mxikStatus !== 'unchecked' ? { mxikStatus: r.mxikStatus, mxikSuggestion: r.mxikSuggestion ?? Prisma.DbNull, mxikCheckedAt: now } : {}),
+          ...merged,
+          ...(verdict ? { mxikStatus: r.mxikStatus, mxikSuggestion: r.mxikSuggestion ?? Prisma.DbNull, mxikCheckedAt: now } : {}),
           markingRequired: r.markingRequired ?? target.markingRequired,
           ...(isConfirmed && mxik ? { mxikConfirmedAt: now, mxikConfirmedBy: actorId } : {}),
         };

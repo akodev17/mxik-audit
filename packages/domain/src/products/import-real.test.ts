@@ -141,5 +141,12 @@ describe('catalogue import on documented layouts (database, recorded Tasnif answ
     const after = await product();
     assert.deepEqual([after.mxik?.trim(), after.price?.toFixed(2), after.vatRate], ['00405001001106002', '1000.00', '12'], 'the damaged cells kept the saved values');
     assert.equal(after.article, null, 'the empty mapped cell cleared, as opted in');
+    // The kept code keeps its verdict too: the row's "missing / damaged" is about its own cell, not the saved code,
+    // which would otherwise read as missing and drop out of the 1C catalogue export.
+    assert.deepEqual([after.mxikStatus, after.mxikIssues], [before.mxikStatus, before.mxikIssues]);
+    const blank = await importFile(csv('blank-code.csv', [header, ['Сыр проверочный 100 г', 'SYR-2', '', 'шт', '1000', '12']]), false, mapping);
+    assert.ok((await applyProductBatch(user, blank.batchId, 'ru')).ok);
+    const kept = await product();
+    assert.deepEqual([kept.mxik?.trim(), kept.mxikStatus, kept.mxikIssues, kept.article], ['00405001001106002', before.mxikStatus, before.mxikIssues, 'SYR-2']);
   });
 });
