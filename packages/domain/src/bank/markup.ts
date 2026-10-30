@@ -4,6 +4,10 @@
 // every table row in document order (title tables included, so the title block still gives the
 // account and the balances), a colspan/MergeAcross widening the row with empty cells. Text only:
 // tags are dropped, entities decoded, scripts and styles ignored. Pure.
+//
+// Linear in the input: no pattern rescans to the end of the text from each place an unclosed construct
+// starts (`<!--`, `<script`, `<Row>`, a run of `<`); repeated, such a scan froze the API for minutes on a
+// 400 KB upload (review 30 Oct).
 
 /** The kind of markup the text is, if it is one. */
 export function markupKind(text: string): 'html' | 'spreadsheetml' | null {
@@ -26,7 +30,7 @@ function decodeEntities(text: string): string {
 
 /** A cell's inner markup as one line of text. */
 function cellText(inner: string): string {
-  return decodeEntities(inner.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, ''))
+  return decodeEntities(inner.replace(/<br\s*\/?>/gi, ' ').replace(/<[^<>]*>/g, ''))
     .replace(/[\s\u00a0]+/g, ' ')
     .trim();
 }
@@ -37,13 +41,46 @@ const span = (attrs: string, name: RegExp): number => {
   return Number.isFinite(n) && n >= 1 ? Math.min(n, 50) : 1;
 };
 
+/** The text without comments, scripts and styles; an unclosed one runs to the end, as in a browser. */
+function withoutBlocks(text: string): string {
+  const open = /<!--|<(script|style)\b/gi;
+  let out = '';
+  let at = 0;
+  for (let m = open.exec(text); m; m = open.exec(text)) {
+    out += text.slice(at, m.index);
+    const close = m[1] ? new RegExp(`</${m[1]}\\s*>`, 'gi') : /-->/g;
+    close.lastIndex = open.lastIndex;
+    const end = close.exec(text);
+    if (!end) return out;
+    at = open.lastIndex = end.index + end[0].length;
+  }
+  return out + text.slice(at);
+}
+
+/** Each `<name …>…</name>` (or `<name …/>`) in order, `ss:` prefix optional; stops at an unclosed one. */
+function* elements(text: string, name: string): Generator<{ attrs: string; inner: string }> {
+  const open = new RegExp(`<(?:ss:)?${name}\\b([^<>]*?)(/?)>`, 'gi');
+  const close = new RegExp(`</(?:ss:)?${name}>`, 'gi');
+  for (let m = open.exec(text); m; m = open.exec(text)) {
+    if (m[2]) {
+      yield { attrs: m[1] ?? '', inner: '' };
+      continue;
+    }
+    close.lastIndex = open.lastIndex;
+    const end = close.exec(text);
+    if (!end) return;
+    yield { attrs: m[1] ?? '', inner: text.slice(open.lastIndex, end.index) };
+    open.lastIndex = end.index + end[0].length;
+  }
+}
+
 /** Rows of every HTML table in document order. */
 export function htmlGrid(text: string): string[][] {
-  const clean = text.replace(/<!--[\s\S]*?-->/g, '').replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '');
+  const clean = withoutBlocks(text);
   const rows: string[][] = [];
-  for (const tr of clean.matchAll(/<tr\b[^>]*>([\s\S]*?)(?=<tr\b|<\/table>|$)/gi)) {
+  for (const tr of clean.matchAll(/<tr\b[^<>]*>([\s\S]*?)(?=<tr\b|<\/table>|$)/gi)) {
     const cells: string[] = [];
-    for (const td of (tr[1] ?? '').matchAll(/<t([dh])\b([^>]*)>([\s\S]*?)(?=<t[dh]\b|<\/tr>|$)/gi)) {
+    for (const td of (tr[1] ?? '').matchAll(/<t([dh])\b([^<>]*)>([\s\S]*?)(?=<t[dh]\b|<\/tr>|$)/gi)) {
       cells.push(cellText((td[3] ?? '').replace(/<\/t[dh]>\s*$/i, '')));
       for (let k = 1; k < span(td[2] ?? '', /colspan\s*=\s*["']?(\d+)/i); k++) cells.push('');
     }
@@ -56,16 +93,16 @@ export function htmlGrid(text: string): string[][] {
 export function spreadsheetMlGrid(text: string): string[][] {
   const sheet = /<(?:ss:)?Worksheet\b[\s\S]*?<\/(?:ss:)?Worksheet>/i.exec(text)?.[0] ?? text;
   const rows: string[][] = [];
-  for (const row of sheet.matchAll(/<(?:ss:)?Row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:ss:)?Row>)/gi)) {
-    const index = /ss:Index\s*=\s*"(\d+)"/i.exec(row[1] ?? '');
+  for (const row of elements(sheet, 'Row')) {
+    const index = /ss:Index\s*=\s*"(\d+)"/i.exec(row.attrs);
     if (index) while (rows.length < Number(index[1]) - 1 && rows.length < 1_000_000) rows.push([]);
     const cells: string[] = [];
-    for (const cell of (row[2] ?? '').matchAll(/<(?:ss:)?Cell\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:ss:)?Cell>)/gi)) {
-      const at = /ss:Index\s*=\s*"(\d+)"/i.exec(cell[1] ?? '');
+    for (const cell of elements(row.inner, 'Cell')) {
+      const at = /ss:Index\s*=\s*"(\d+)"/i.exec(cell.attrs);
       if (at) while (cells.length < Number(at[1]) - 1 && cells.length < 500) cells.push('');
-      const data = /<(?:ss:)?Data\b[^>]*>([\s\S]*?)<\/(?:ss:)?Data>/i.exec(cell[2] ?? '');
+      const data = /<(?:ss:)?Data\b[^<>]*>([\s\S]*?)<\/(?:ss:)?Data>/i.exec(cell.inner);
       cells.push(data ? cellText(data[1] ?? '') : '');
-      const merge = Math.min(Number(/ss:MergeAcross\s*=\s*"(\d+)"/i.exec(cell[1] ?? '')?.[1] ?? 0), 50);
+      const merge = Math.min(Number(/ss:MergeAcross\s*=\s*"(\d+)"/i.exec(cell.attrs)?.[1] ?? 0), 50);
       for (let k = 0; k < merge; k++) cells.push('');
     }
     rows.push(cells);
