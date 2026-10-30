@@ -1,7 +1,8 @@
 // Trial and subscription expiry reminders (plan D9), run by the daily job: 7, 3 and 1 days before
 // the end and on the day itself, in Tashkent days. One in-app notice per org and threshold (the
 // Notification dedupeKey decides, so a re-run or a second worker sends nothing twice) and an e-mail
-// to each of the org's admins. No grace period: the gates close at the end as before.
+// to each of the org's admins. A threshold missed because the job did not run goes out on the next
+// run before the following one. No grace period: the gates close at the end as before.
 import { db } from '@tasnivo/db';
 import { fmtDate } from '@tasnivo/i18n/format';
 import { parseLocale, type Locale } from '@tasnivo/i18n/i18n';
@@ -36,6 +37,16 @@ export function daysUntil(end: Date, now: Date): number {
 
 const localDay = (d: Date): string => localDate(d).date.toISOString().slice(0, 10);
 
+/**
+ * The threshold a run owes with `days` left: today's own, or on a day between thresholds the last
+ * one passed (a day the job did not run), so "3 days" missed goes out on day 2. Only that one, never
+ * an earlier one; null outside the window. Whether it was already sent is the dedupe key's call.
+ */
+export function owedThreshold(days: number): number | null {
+  if (days < 0 || days > Math.max(...REMINDER_DAYS)) return null;
+  return Math.min(...REMINDER_DAYS.filter((t) => t >= days));
+}
+
 export type ExpiryRun = { notified: number; mailed: number; failed: number };
 
 /** Sends the reminders due today. Safe to run any number of times a day. */
@@ -55,9 +66,10 @@ export async function sendExpiryReminders(now = new Date()): Promise<ExpiryRun> 
     const due = accessEnd(org);
     if (!due || due.end < from || due.end >= to) continue;
     const days = daysUntil(due.end, now);
-    if (!(REMINDER_DAYS as readonly number[]).includes(days)) continue;
+    const threshold = owedThreshold(days);
+    if (threshold === null) continue;
     try {
-      const mailed = await remind(org, due.kind, due.end, days);
+      const mailed = await remind(org, due.kind, due.end, days, threshold);
       if (mailed === null) continue;
       run.notified += 1;
       run.mailed += mailed;
@@ -75,14 +87,17 @@ function text(locale: Locale, kind: ExpiryKind, end: Date, days: number): { titl
   return { title: x.title(kind, days), body: x.body(fmtDate(locale, end)) };
 }
 
-/** The notice (once per org, end date and threshold), then one e-mail per admin: how many were handed over, null when already sent. */
-async function remind(org: { id: string; name: string }, kind: ExpiryKind, end: Date, days: number): Promise<number | null> {
+/**
+ * The notice (once per org, end date and threshold), then one e-mail per admin: how many were handed
+ * over, null when already sent. The words count the days actually left, also on a caught-up day.
+ */
+async function remind(org: { id: string; name: string }, kind: ExpiryKind, end: Date, days: number, threshold: number): Promise<number | null> {
   const texts = inEveryLocale((l) => text(l, kind, end, days));
   const { title, body } = texts[await orgLocale(org.id)];
   const id = await notify({
     orgId: org.id, kind: 'billing.expiring', title, body, text: texts, href: PLAN_HREF,
     // Kind, org (the unique index is per org) and day: a renewal moves the end date, so its reminders start afresh.
-    dedupeKey: `billing.expiring:${kind}:${localDay(end)}:${days}`,
+    dedupeKey: `billing.expiring:${kind}:${localDay(end)}:${threshold}`,
     external: false,
   });
   if (id === null) return null;
