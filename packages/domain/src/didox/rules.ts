@@ -244,11 +244,17 @@ export function invoiceRules(inv: ParsedInvoice, ctx: RuleContext): RuleResult {
   if (inv.lotId && !/^(SHAFFOF|CPR|XT)-/i.test(inv.lotId)) doc.push({ code: 'lot_id_format', severity: 'info', field: 'lotId', params: { value: inv.lotId } });
 
   // §7.32 R:352, §7.13 R:333: a cancelled, deleted, annulled or rejected document is not booked; Didox's comment is shown as sent.
-  if (meta.didoxStatus) {
-    const { state } = statusInfo(inv.docType, meta.didoxStatus);
-    const comment = inv.statusComment ?? '';
-    if (['deleted', 'cancelled', 'invalid', 'annulled', 'rejected'].includes(state)) doc.push({ code: 'didox_status_void', severity: 'error', field: 'didoxStatus', params: { status: meta.didoxStatus, state, comment } });
-    else if (state === 'draft' || state === 'pending' || state === 'agent') doc.push({ code: 'didox_not_signed', severity: 'info', field: 'didoxStatus', params: { status: meta.didoxStatus, state, comment } });
-  }
+  if (meta.didoxStatus) doc.push(...statusIssues(inv.docType, meta.didoxStatus, inv.statusComment ?? ''));
   return { document: doc, lines };
+}
+
+/** The issue codes statusIssues writes: a later status replaces them (connection.ts follows Didox's status changes). */
+export const STATUS_ISSUES: ReadonlySet<string> = new Set(['didox_status_void', 'didox_not_signed']);
+
+/** The document issue a Didox status gives: void (an error, the invoice is not booked) or not signed yet (info). */
+export function statusIssues(docType: string | null, status: string, comment: string): ValidationIssue[] {
+  const { state } = statusInfo(docType, status);
+  if (['deleted', 'cancelled', 'invalid', 'annulled', 'rejected'].includes(state)) return [{ code: 'didox_status_void', severity: 'error', field: 'didoxStatus', params: { status, state, comment } }];
+  if (state === 'draft' || state === 'pending' || state === 'agent') return [{ code: 'didox_not_signed', severity: 'info', field: 'didoxStatus', params: { status, state, comment } }];
+  return [];
 }

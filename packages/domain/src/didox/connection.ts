@@ -24,6 +24,7 @@ import { DidoxApiError, DidoxClient, didoxBaseUrl, TOKEN_TTL_MS, type DidoxAuth,
 import type { StatedTotals } from './document.js';
 import { openToken, sealToken } from './seal.js';
 import { bytes, importDocument } from './service.js';
+import { STATUS_ISSUES, statusIssues } from './rules.js';
 import { readDidoxUpload } from './sources.js';
 
 type Fail = { ok: false; error: string };
@@ -292,6 +293,19 @@ async function saveState(orgId: string, state: SyncState, extra: Prisma.DidoxCon
   await db.didoxConnection.update({ where: { orgId }, data: { syncState: json({ ...state, heartbeatAt: nowIso() }), ...extra } });
 }
 
+/**
+ * An invoice imported earlier whose status Didox now gives otherwise (rejected, cancelled, annulled after a
+ * correction): its stored status and status issue follow, so a void one can no longer be exported (planExport
+ * refuses a batch with a document error). Review 30 Oct: the sync skipped every id it had seen, status and all.
+ */
+async function followStatus(batch: { id: string; meta: Prisma.JsonValue }, entry: DocumentEntry): Promise<void> {
+  const meta = (batch.meta ?? {}) as { didoxStatus?: string | null; didox?: { issues?: unknown; docType?: string | null; statusComment?: string | null } };
+  if (!entry.status || meta.didoxStatus === entry.status) return;
+  const kept = (Array.isArray(meta.didox?.issues) ? meta.didox.issues as { code?: string }[] : []).filter((i) => !STATUS_ISSUES.has(i.code ?? ''));
+  const issues = [...kept, ...statusIssues(meta.didox?.docType ?? entry.doctype ?? null, entry.status, meta.didox?.statusComment ?? '')];
+  await db.importBatch.update({ where: { id: batch.id }, data: { meta: json({ ...meta, didoxStatus: entry.status, didox: { ...meta.didox, issues } }) } });
+}
+
 /** The print form: from the document's archive ZIP (§1.3 row 17), else from /file/true. */
 async function printForm(client: DidoxClient, id: string): Promise<Buffer | null> {
   try {
@@ -325,12 +339,18 @@ async function runSync(orgId: string, actorId: string, client: DidoxClient, clie
       state.page = page.page ?? state.page + 1;
       const ids = page.map((p) => p.id);
       const [batches, cached] = await Promise.all([
-        db.importBatch.findMany({ where: { orgId, kind: 'didox_invoice', externalRef: { in: ids } }, select: { externalRef: true } }),
+        db.importBatch.findMany({ where: { orgId, kind: 'didox_invoice', externalRef: { in: ids } }, select: { id: true, externalRef: true, meta: true } }),
         db.didoxDocument.findMany({ where: { orgId, didoxId: { in: ids } }, select: { didoxId: true } }),
       ]);
       const seen = new Set([...batches.map((b) => b.externalRef), ...cached.map((c) => c.didoxId)]);
+      const imported = new Map(batches.map((b) => [b.externalRef, b]));
       for (const entry of page) {
-        if (seen.has(entry.id)) { state.skipped++; continue; }
+        if (seen.has(entry.id)) {
+          state.skipped++;
+          const batch = imported.get(entry.id);
+          if (batch) await followStatus(batch, entry);
+          continue;
+        }
         try {
           const doc = await client.getDocument(entry.id, 0);
           const imported = await importDocument(orgId, actorId, {

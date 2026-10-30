@@ -13,7 +13,8 @@ import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from '../test-fixtures.js';
 import { applyRules, defaultDeps, type CheckDeps } from './check.js';
 import { RateLimiter } from './client.js';
-import { saveConnection, startSync, syncStatus, SYNC_STALL_MS, type SyncState } from './connection.js';
+import { documentErrors } from '../onec/plan.js';
+import { saveConnection, startSync, syncIncoming, syncStatus, SYNC_STALL_MS, type SyncState } from './connection.js';
 import { parseDidoxDocument } from './document.js';
 import { FIXTURE_DIR, fixtureDocuments, startFakeDidox, type FakeDidox, type FakeDocument } from './fake-server.js';
 import { mirrorFacts } from './mirror.js';
@@ -188,6 +189,38 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
     assert.equal(end?.status, 'done');
     assert.equal((end?.skipped ?? 0) >= 3, true, JSON.stringify(end));
     assert.equal(end?.imported, 3, 'the counters carry on from the interrupted run');
+  });
+
+  // didox §7.32, §7.13 (review 30 Oct): the sync skipped every id it had imported, status and all, so an invoice the
+  // seller cancelled (or annulled by a correction) after the first sync stayed "signed" and exportable.
+  it('sync: an imported invoice whose Didox status turns void is marked so, and no export takes it', async () => {
+    const b = await makeOrg();
+    try {
+      await db.organization.update({ where: { id: b.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+      const owner = userOf(b);
+      const docs: FakeDocument[] = fixtureDocuments().filter((d) => d.doctype === '002').slice(0, 1);
+      const status = await startFakeDidox({ documents: docs, auth: { kind: 'token', token: 'status-token' } });
+      try {
+        process.env['DIDOX_API_URL'] = status.url;
+        assert.deepEqual(await saveConnection(owner, 'ru', { kind: 'token', companyTin: '305123456', token: 'status-token' }), { ok: true });
+        const options = { client: { limiter: new RateLimiter(0), sleep: () => Promise.resolve(), log: () => undefined, retries: 0 }, deps: baseStubDeps };
+        const first = await syncIncoming(owner, 'ru', {}, options);
+        assert.ok(first.ok && first.imported === 1, JSON.stringify(first));
+        const batch = () => db.importBatch.findFirstOrThrow({ where: { orgId: b.orgId, externalRef: docs[0]!.id }, select: { id: true, kind: true, meta: true } });
+        assert.deepEqual(documentErrors(await batch()), [], 'signed: nothing stops it');
+
+        docs[0]!.status = '5555';
+        const second = await syncIncoming(owner, 'ru', {}, options);
+        assert.ok(second.ok && second.imported === 0 && second.skipped === 1, JSON.stringify(second));
+        const after = await batch();
+        assert.equal((after.meta as { didoxStatus: string }).didoxStatus, '5555');
+        assert.deepEqual(documentErrors(after).map((i) => [i.code, i.params?.['state']]), [['didox_status_void', 'cancelled']]);
+      } finally {
+        await status.close();
+      }
+    } finally {
+      await dropOrgs([b.orgId]);
+    }
   });
 });
 
