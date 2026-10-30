@@ -69,6 +69,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-O10 | minor | 68d14d8 | Pinned fetch sends Content-Length; a transfer with an unreadable invoice header leaves no export row. Tests: onec/connection.test.ts, onec/odata.test.ts. | (follow-up, 30 Oct evening) |
 | R-B17 | minor | 1601adb | Bank file picker and contract offer .xls/.txt/.zip/.html/.xml too. Test: tests/web-parity/bank.test.ts 'statement picker'. | (follow-up, 30 Oct evening) |
 | R-O8 | minor | 5acbd0c | A cached side file is reused only for the same record set, so a reopened record never rides along. Test: onec/export.test.ts 'a side file asked again after a record was reopened'. | (follow-up, 30 Oct evening) |
+| R-P10 | minor | 9146e27 | Saving a product batch no longer auto-approves rows with package_unchecked. Test: products/import-real.test.ts. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
