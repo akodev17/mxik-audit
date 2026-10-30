@@ -348,7 +348,7 @@ export const catalogs = defineModule('catalogs', {
       snapshot: z.object({ usedTakenAt: IsoDateTime.nullable(), newerTakenAt: IsoDateTime.nullable() }),
       /** Exports wait for payment (billing turned on for exports and not paid). */
       exportLocked: z.boolean(),
-      /** File rows without a name: not audited, written to the corrected export with a marker. */
+      /** File rows without a name the commit kept: not audited, written to the corrected export with a marker. 0 for a catalogue committed before they were kept. */
       skippedRows: z.number().int().default(0),
     }),
     replaces: ['page:(app)/catalogs/[id]'],

@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import { dictionaryKeys } from '@tasnivo/core/match/dictionary';
 import { db } from '@tasnivo/db';
+import { bulkApply } from './bulk.js';
 import { recordDecision, recordGroupDecision, undoDecision } from './decisions.js';
 import { confirmMapping, editMapping, learn, loadDictionary, removeMapping } from './dictionary.js';
 import { acceptDictionaryMatches } from './dictionary-accept.js';
@@ -182,6 +183,49 @@ describe('dictionary safety (database)', { skip }, () => {
     assert.equal(disputed.disputedBy, accountant.userId);
     const logged = await db.auditEvent.findFirstOrThrow({ where: { orgId, action: 'dictionary.disputed', targetId: disputed.id } });
     assert.equal((logged.payload as { via: string }).via, 'wrong_suggestion');
+  });
+
+  it('a reject from the bulk bar disputes only the own org\'s entries behind dictionary suggestions; undo lifts it', async () => {
+    const [x = ''] = codes;
+    const name = `Ommaviy rad ${tag()}`;
+    const plain = `Oddiy ${tag()}`;
+    await learn(orgId, admin.userId, [{ rawName: name, unit: 'kg', barcode: null, code: x }, { rawName: plain, unit: 'kg', barcode: null, code: x }], 'manual');
+    const entry = (await entryOf(orgId, name))!;
+    const plainEntry = (await entryOf(orgId, plain))!;
+    const foreignOrg = (await makeOrg()).orgId;
+    try {
+      const foreignName = `Begona ${tag()}`;
+      await learn(foreignOrg, (await makePerson(foreignOrg, 'admin')).userId, [{ rawName: foreignName, unit: 'kg', barcode: null, code: x }], 'manual');
+      const foreign = (await entryOf(foreignOrg, foreignName))!;
+      const c = await catalogOf(orgId, null, [
+        { rawName: name, suggestedMxik: x, entryId: entry.id },
+        { rawName: name, suggestedMxik: x, entryId: entry.id },
+        // Same name as an entry, but the suggestion did not come from the dictionary.
+        { rawName: plain, suggestedMxik: x },
+        // Evidence naming another org's entry is never followed.
+        { rawName: foreignName, suggestedMxik: x, entryId: foreign.id },
+      ]);
+
+      const done = await bulkApply(accountant, c.catalogId, { ids: c.findingIds }, { kind: 'reject' });
+      assert.ok(done.ok && done.count === 4 && done.eventId);
+      const now = await db.firmMapping.findUniqueOrThrow({ where: { id: entry.id } });
+      assert.ok(now.disputedAt, 'disputed');
+      assert.equal(now.disputedBy, accountant.userId);
+      assert.equal((await db.firmMapping.findUniqueOrThrow({ where: { id: plainEntry.id } })).disputedAt, null, 'not a dictionary suggestion');
+      assert.equal((await db.firmMapping.findUniqueOrThrow({ where: { id: foreign.id } })).disputedAt, null, 'another org\'s entry');
+      assert.equal(await db.auditEvent.count({ where: { orgId, action: 'dictionary.disputed', targetId: entry.id } }), 1);
+      const event = await db.auditEvent.findUniqueOrThrow({ where: { id: done.eventId } });
+      assert.equal(event.action, 'finding.bulk_rejected');
+      assert.deepEqual((event.payload as { dictionaryDisputed?: string[] }).dictionaryDisputed, [entry.id]);
+
+      const later = await catalogOf(orgId, null, [{ rawName: name, suggestedMxik: x, entryId: entry.id }]);
+      assert.equal((await acceptDictionaryMatches({ orgId, userId: admin.userId }, later.catalogId, 'auto')).count, 0, 'auto-accept skips a disputed entry');
+      assert.ok((await undoDecision(accountant, done.eventId)).ok);
+      assert.equal((await db.firmMapping.findUniqueOrThrow({ where: { id: entry.id } })).disputedAt, null, 'undo takes the dispute back');
+      assert.equal((await acceptDictionaryMatches({ orgId, userId: admin.userId }, later.catalogId, 'auto')).count, 1);
+    } finally {
+      await dropOrgs([foreignOrg]);
+    }
   });
 
   it('confirming: any unscoped writer lifts needsReconfirm; a dispute only an admin; edits and deletes are admin-only', async () => {

@@ -104,6 +104,15 @@ describe('catalogue screens (database)', { skip }, () => {
     assert.equal(report.report.totalRows, 1);
   });
 
+  it('the header counts the nameless rows the export carries, none for a catalogue committed before they were kept', async () => {
+    // Before S8 the commit dropped nameless rows; only the diagnostics' count is left.
+    const legacy = (await makeClientCatalog(admin.orgId, clientId, [{ name: 'Sut', findings: [] }])).catalogId;
+    await db.catalog.update({ where: { id: legacy }, data: { importMeta: { diagnostics: { noName: { count: 2, rows: [1, 3] } } } } });
+    assert.equal((await catalogHeader(admin, legacy))?.skippedRows, 0, 'no claim that the export marks rows it lacks');
+    await db.catalogSkippedRow.createMany({ data: [1, 3].map((rowIndex) => ({ catalogId: legacy, rowIndex, reason: 'no_name', original: ['', 'kg'] })) });
+    assert.equal((await catalogHeader(admin, legacy))?.skippedRows, 2);
+  });
+
   it('shareView counts a view and hides who decided; an unknown token is null', async () => {
     const link = await createShareLink(admin, catalogId, { days: 7, includePdf: false });
     const token = link?.url.split('/r/')[1] ?? '';
