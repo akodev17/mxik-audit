@@ -5,7 +5,7 @@ import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 import { hostAllowed, hostFetcher, privateAddress } from './connection.js';
-import { pinnedFetch, type Resolve } from './host-guard.js';
+import { pinnedFetch, RESPONSE_CAP, type Resolve } from './host-guard.js';
 
 const PROD = { NODE_ENV: 'production' };
 
@@ -75,6 +75,12 @@ describe('the pinned fetch', () => {
       req.on('end', () => {
         seen.push({ method: req.method ?? '', url: req.url ?? '', headers: req.headers, body });
         if (req.url?.startsWith('/slow')) return;
+        if (req.url?.startsWith('/big/')) {
+          // A $metadata of the given size whose EntityContainer comes last, as 1C writes it.
+          const size = Number(req.url.slice(5));
+          res.writeHead(200, { 'content-type': 'application/xml' }).end(`${' '.repeat(size - 32)}<EntitySet Name="Document_X"/>`.padEnd(size, ' '));
+          return;
+        }
         if (req.method === 'POST') {
           res.writeHead(201, { 'content-type': 'application/json' }).end('{"Ref_Key":"guid-1"}');
           return;
@@ -112,6 +118,16 @@ describe('the pinned fetch', () => {
     await assert.rejects(closed('http://onec.rebind.test:1/'), (e: unknown) => e instanceof TypeError && (e.cause as { code?: string }).code === 'ECONNREFUSED');
     await assert.rejects(pinnedFetch('127.0.0.1', 4)(`http://onec.rebind.test:${port}/slow`, { signal: AbortSignal.timeout(100) }),
       (e: unknown) => e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError'));
+  });
+
+  it('a body past the cap is refused, never cut: a 12 MB $metadata arrives whole', async () => {
+    // Review 30 Oct: the 8 MB cap cut real $metadata (10+ MB) before its EntityContainer and answered 200, so discovery
+    // found no entity sets at all. The cap is above the 20 MB odata.ts reads, and a body past it is an error.
+    const pinned = pinnedFetch('127.0.0.1', 4);
+    const whole = await (await pinned(`http://onec.rebind.test:${port}/big/${12 * 1024 * 1024}`)).text();
+    assert.equal(whole.length, 12 * 1024 * 1024);
+    assert.ok(whole.includes('<EntitySet Name="Document_X"/>'));
+    await assert.rejects(pinned(`http://onec.rebind.test:${port}/big/${RESPONSE_CAP + 1024}`), (e: unknown) => e instanceof TypeError && /larger than/.test(String((e.cause as Error).message)));
   });
 });
 

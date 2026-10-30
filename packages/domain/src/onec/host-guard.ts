@@ -35,8 +35,11 @@ const systemResolve: Resolve = (host) => lookup(host, { all: true });
 
 type Env = Record<string, string | undefined>;
 
-/** A refused body is not kept past this (the $metadata check reads 5 MB at most). */
-const RESPONSE_CAP = 8 * 1024 * 1024;
+/**
+ * A body past this is refused, never cut: a real base's $metadata runs past 10 MB (odata.ts reads up to 20 MB),
+ * and its EntityContainer comes last, so a cut document parsed to no entity sets at all (review 30 Oct).
+ */
+export const RESPONSE_CAP = 32 * 1024 * 1024;
 
 /**
  * The fetch to use for a 1C base URL, or null when the host is refused. A SaaS must not become a
@@ -100,7 +103,11 @@ export function pinnedFetch(address: string, family: 4 | 6): typeof fetch {
       res.on('data', (chunk: Buffer) => {
         size += chunk.length;
         if (size <= RESPONSE_CAP) chunks.push(chunk);
-        else { res.destroy(); finish(); }
+        else {
+          res.removeAllListeners('end');
+          res.destroy();
+          reject(fetchFailed(new Error(`response larger than ${RESPONSE_CAP} bytes`)));
+        }
       });
       res.on('end', finish);
       res.on('error', (error) => reject(fetchFailed(error)));
