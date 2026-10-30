@@ -72,7 +72,9 @@ const REVIEW_WORDS = {
     assigned: (c: string) => `Sizga tekshiruv topshirildi: ${c}`,
     completed: (c: string) => `Tekshiruv yakunlandi: ${c}`,
     ready: (c: string) => `Tekshiruv tugadi: ${c}`,
-    file: 'Fayl', due: 'Muddat', note: 'Izoh', by: 'Topshirdi', doneBy: 'Yakunladi',
+    dropped: (c: string) => `Tekshiruv bekor qilindi: ${c}`,
+    droppedWhy: (email: string) => `Ijrochi ${email} jamoadan chiqarildi, tekshiruv hech kimga oʻtkazilmadi. Katalogni qaytadan topshirishingiz mumkin.`,
+    file: 'Fayl', due: 'Muddat', note: 'Izoh', by: 'Topshirdi', doneBy: 'Yakunladi', droppedBy: 'Bekor qildi',
     readyBody: 'Katalog tekshirildi, natijalarni koʻrib chiqishingiz mumkin.',
     open: (n: number) => `Qaror kutayotgan topilmalar: ${n}.`,
   },
@@ -80,7 +82,9 @@ const REVIEW_WORDS = {
     assigned: (c: string) => `Вам передана проверка: ${c}`,
     completed: (c: string) => `Проверка завершена: ${c}`,
     ready: (c: string) => `Проверка готова: ${c}`,
-    file: 'Файл', due: 'Срок', note: 'Комментарий', by: 'Передал(а)', doneBy: 'Завершил(а)',
+    dropped: (c: string) => `Проверка отменена: ${c}`,
+    droppedWhy: (email: string) => `Исполнитель ${email} удалён(а) из команды, проверка никому не передана. Каталог можно передать снова.`,
+    file: 'Файл', due: 'Срок', note: 'Комментарий', by: 'Передал(а)', doneBy: 'Завершил(а)', droppedBy: 'Отменил(а)',
     readyBody: 'Каталог проверен, можно просматривать результаты.',
     open: (n: number) => `Требуют решения: ${n}.`,
   },
@@ -102,6 +106,14 @@ export const reviewAssignedText = (i: ReviewTextInput, locale: Locale = 'uz'): {
 export const reviewCompletedText = (i: ReviewTextInput, locale: Locale = 'uz'): { title: string; body: string } => ({
   title: REVIEW_WORDS[locale].completed(i.clientName), body: reviewBody('completed', i, locale),
 });
+
+/** A review was dropped because its assignee left the team; told to whoever handed it out. */
+export function reviewDroppedText(i: { clientName: string; filename: string; assignee: string; by?: string | null }, locale: Locale = 'uz'): { title: string; body: string } {
+  const w = REVIEW_WORDS[locale];
+  const parts = [`${w.file}: ${i.filename}.`, w.droppedWhy(i.assignee)];
+  if (i.by) parts.push(`${w.droppedBy}: ${i.by}.`);
+  return { title: w.dropped(i.clientName), body: parts.join(' ') };
+}
 
 /** A catalogue's audit finished; the count comes from the stored findings, never from a guess. */
 export function auditReadyText(i: { clientName: string; filename: string; open: number }, locale: Locale = 'uz'): { title: string; body: string } {
