@@ -10,6 +10,7 @@ import { catalogScope } from './access.js';
 import { decideMany, liveCodeSet, type ManyDone, type ManyTarget, type Skipped } from './decide-many.js';
 import { db } from '@tasnivo/db';
 import type { Actor, Result } from './decisions.js';
+import { dictionaryEntriesOf } from './dictionary-dispute.js';
 import { acceptCode, CONFIRMING_TYPES } from './finding-kinds.js';
 import { workspaceAllIds, workspaceCount, workspaceTypeCount } from './workspace.js';
 import { pendingSubset, type WsFilter } from './workspace-filter.js';
@@ -110,10 +111,13 @@ export async function bulkApply(actor: Actor, catalogId: string, target: BulkTar
     code: codeFor(action, r),
     confirmOnly: action.kind === 'accept' && isConfirmOnly(r.type),
   }));
+  // A rejected dictionary suggestion disputes its entry, as a single or group reject does.
+  const disputes = action.kind === 'reject' ? await dictionaryEntriesOf(actor.orgId, rows) : undefined;
   const done = await decideMany({
     orgId: actor.orgId, userId: actor.userId, catalogId: id,
     decision: action.kind === 'reject' ? 'rejected' : 'accepted', source: 'bulk',
     payload: { mode: action.kind, scope: 'ids' in target ? 'selection' : 'filter', ...(action.kind === 'assign' ? { chosenMxik: action.code } : {}) },
+    ...(disputes ? { disputes } : {}),
   }, targets);
   return { ok: true, ...done };
 }
