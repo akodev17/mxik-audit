@@ -67,6 +67,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-D14 | minor | b6e0716 | A password echoed in a Didox login error is masked. Test: didox/client-docs.test.ts. | (follow-up, 30 Oct evening) |
 | R-D15 | minor | b7babc2 | The background-sync test waits up to 30 s (was 5 s); assertions unchanged. | (follow-up, 30 Oct evening) |
 | R-O10 | minor | 68d14d8 | Pinned fetch sends Content-Length; a transfer with an unreadable invoice header leaves no export row. Tests: onec/connection.test.ts, onec/odata.test.ts. | (follow-up, 30 Oct evening) |
+| R-B17 | minor | 1601adb | Bank file picker and contract offer .xls/.txt/.zip/.html/.xml too. Test: tests/web-parity/bank.test.ts 'statement picker'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
