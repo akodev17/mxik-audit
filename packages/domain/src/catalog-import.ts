@@ -125,9 +125,11 @@ export async function storedRows(catalogId: string): Promise<string[][]> {
 
 const Original = z.array(z.string());
 
-/** Rows the commit kept out of the items (no name), with their original cells, in file order. */
-export async function skippedRows(catalogId: string): Promise<{ rowIndex: number; reason: string; original: string[] }[]> {
-  const rows = await db.catalogSkippedRow.findMany({ where: { catalogId }, orderBy: { rowIndex: 'asc' } });
+/** Rows the commit kept out of the items (no name), with their original cells, in file order; `page`: the next `take` after rowIndex `after`. */
+export async function skippedRows(catalogId: string, page?: { after: number; take: number }): Promise<{ rowIndex: number; reason: string; original: string[] }[]> {
+  const rows = await db.catalogSkippedRow.findMany({
+    where: { catalogId, ...(page ? { rowIndex: { gt: page.after } } : {}) }, orderBy: { rowIndex: 'asc' }, ...(page ? { take: page.take } : {}),
+  });
   return rows.map((r) => ({ rowIndex: r.rowIndex, reason: r.reason, original: Original.safeParse(r.original).data ?? [] }));
 }
 

@@ -12,6 +12,7 @@
 // Server-only (exceljs).
 import ExcelJS from 'exceljs';
 import { formulaSafe } from '../csv-safe.js';
+import { streamedXlsx } from '../xlsx-writer.js';
 import { ruDate } from './bank-exchange.js';
 
 // ── The catalogue audit's 1C file (moved from export-1c.ts) ───────────────────────────────
@@ -47,17 +48,30 @@ export function build1cCsv(rows: readonly OneCRow[], headers: OneCHeaders = ONE_
   return Buffer.from(BOM + lines.join(EOL) + EOL, 'utf8');
 }
 
-/** The same rows as an .xlsx; code and barcode columns are text so leading zeros and all 17 digits survive. */
-export async function build1cXlsx(rows: readonly OneCRow[], headers: OneCHeaders = ONE_C_HEADERS_RU): Promise<Buffer> {
-  const workbook = newWorkbook();
-  const sheet = workbook.addWorksheet('1C');
-  sheet.columns = [
-    { width: 48 }, { width: 22, style: { numFmt: '@' } }, { width: 18 }, { width: 18, style: { numFmt: '@' } }, { width: 26 }, { width: 26 },
-  ];
-  sheet.addRow([...headers].map(formulaSafe)).font = { bold: true };
-  for (const row of rows) sheet.addRow(cellsOf(row).map(formulaSafe));
-  sheet.views = [{ state: 'frozen', ySplit: 1 }];
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+/** build1cCsv's bytes from rows fed batch by batch: only the text is held, never the rows. */
+export async function stream1cCsv(rows: AsyncIterable<OneCRow>, headers: OneCHeaders = ONE_C_HEADERS_RU): Promise<Buffer> {
+  const parts = [BOM + [...headers].map(field).join(';') + EOL];
+  for await (const row of rows) parts.push(cellsOf(row).map(field).join(';') + EOL);
+  return Buffer.from(parts.join(''), 'utf8');
+}
+
+/**
+ * The same rows as an .xlsx; code and barcode columns are text so leading zeros and all 17 digits
+ * survive. Streamed: rows (a list or fed batch by batch) are written and dropped one by one.
+ */
+export async function build1cXlsx(rows: Iterable<OneCRow> | AsyncIterable<OneCRow>, headers: OneCHeaders = ONE_C_HEADERS_RU): Promise<Buffer> {
+  return streamedXlsx(async (workbook) => {
+    const sheet = workbook.addWorksheet('1C', { views: [{ state: 'frozen', ySplit: 1 }] });
+    // Columns before the first row: the streaming writer puts <cols> first.
+    sheet.columns = [
+      { width: 48 }, { width: 22, style: { numFmt: '@' } }, { width: 18 }, { width: 18, style: { numFmt: '@' } }, { width: 26 }, { width: 26 },
+    ];
+    const header = sheet.addRow([...headers].map(formulaSafe));
+    header.font = { bold: true };
+    header.commit();
+    for await (const row of rows) sheet.addRow(cellsOf(row).map(formulaSafe)).commit();
+    sheet.commit();
+  });
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────────────────

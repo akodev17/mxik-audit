@@ -2,13 +2,13 @@
 // and writing the corrected file back out. Server-only (exceljs). Deliberately
 // separate from scripts/lib/xlsx.ts, which is a stripped-down streaming reader
 // for the one 205 MB classifier layout.
-import { PassThrough } from 'node:stream';
-import ExcelJS from 'exceljs';
+import type ExcelJS from 'exceljs';
 import { formulaSafe } from './csv-safe.js';
 import { XLSX_HELD_BYTES, zipWithinLimits } from './security/zip-guard.js';
 import { MAX_COLUMNS, MAX_ROWS, shapeGrid } from './sheet-shape.js';
 import { decodeText, looksBinary, parseDelimited, sniffDelimiter, type Delimiter, type TextEncodingName } from './spreadsheet-text.js';
 import { eachSheetRow, XlsxReadError } from './xlsx-stream.js';
+import { streamedXlsx } from './xlsx-writer.js';
 
 export { MAX_COLUMNS, MAX_ROWS } from './sheet-shape.js';
 
@@ -195,6 +195,9 @@ export type ExportOptions = {
   sheetName?: string;
 };
 
+/** A list, or rows fed batch by batch (the catalogue export) so they are never all in memory. */
+export type ExportRows = Iterable<ExportRow> | AsyncIterable<ExportRow>;
+
 /**
  * Rebuilds the uploaded file with accepted decisions applied.
  *
@@ -210,7 +213,7 @@ export type ExportOptions = {
  * frozen header and sheet name are those the in-memory builder wrote (spreadsheet
  * export test compares the two).
  */
-export async function buildExport(options: ExportOptions): Promise<Buffer> {
+export async function buildExport(options: Omit<ExportOptions, 'rows'> & { rows: ExportRows }): Promise<Buffer> {
   const { headers, rows, mxikColumn, unitColumn, labels } = options;
 
   const outHeaders = [...headers];
@@ -220,45 +223,34 @@ export async function buildExport(options: ExportOptions): Promise<Buffer> {
   const statusIndex = outHeaders.push(labels.auditStatus) - 1;
   const restrictedIndex = outHeaders.push(labels.restricted) - 1;
 
-  const sink = new PassThrough();
-  const chunks: Buffer[] = [];
-  sink.on('data', (chunk: Buffer) => chunks.push(chunk));
-  const finished = new Promise<void>((resolve, reject) => {
-    sink.on('end', resolve);
-    sink.on('error', reject);
+  return streamedXlsx(async (workbook) => {
+    const sheet = workbook.addWorksheet(options.sheetName ?? 'Katalog', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+    // Columns first: the streaming writer puts <cols> ahead of the first row, and new cells take the column's style.
+    // MXIK codes are 17 digits: force text so Excel does not render 1.7E+16.
+    sheet.getColumn(mxikIndex + 1).numFmt = '@';
+    sheet.getColumn(mxikIndex + 1).width = 20;
+    sheet.getColumn(statusIndex + 1).width = 24;
+    sheet.getColumn(restrictedIndex + 1).width = 26;
+
+    const header = sheet.addRow(outHeaders.map(formulaSafe));
+    header.font = { bold: true };
+    header.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+    });
+    header.commit();
+
+    for await (const row of rows) {
+      const cells = [...row.original];
+      while (cells.length < outHeaders.length) cells.push('');
+      cells[mxikIndex] = row.mxik;
+      cells[unitIndex] = row.unit;
+      cells[packagingIndex] = row.packaging;
+      cells[statusIndex] = row.auditStatus;
+      cells[restrictedIndex] = row.restricted ?? '';
+      sheet.addRow(cells.map(formulaSafe)).commit();
+    }
+
+    sheet.commit();
   });
-
-  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useStyles: true, useSharedStrings: true });
-  workbook.creator = 'Tasnivo';
-  const sheet = workbook.addWorksheet(options.sheetName ?? 'Katalog', { views: [{ state: 'frozen', ySplit: 1 }] });
-
-  // Columns first: the streaming writer puts <cols> ahead of the first row, and new cells take the column's style.
-  // MXIK codes are 17 digits: force text so Excel does not render 1.7E+16.
-  sheet.getColumn(mxikIndex + 1).numFmt = '@';
-  sheet.getColumn(mxikIndex + 1).width = 20;
-  sheet.getColumn(statusIndex + 1).width = 24;
-  sheet.getColumn(restrictedIndex + 1).width = 26;
-
-  const header = sheet.addRow(outHeaders.map(formulaSafe));
-  header.font = { bold: true };
-  header.eachCell((cell) => {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
-  });
-  header.commit();
-
-  for (const row of rows) {
-    const cells = [...row.original];
-    while (cells.length < outHeaders.length) cells.push('');
-    cells[mxikIndex] = row.mxik;
-    cells[unitIndex] = row.unit;
-    cells[packagingIndex] = row.packaging;
-    cells[statusIndex] = row.auditStatus;
-    cells[restrictedIndex] = row.restricted ?? '';
-    sheet.addRow(cells.map(formulaSafe)).commit();
-  }
-
-  sheet.commit();
-  await workbook.commit();
-  await finished;
-  return Buffer.concat(chunks);
 }
