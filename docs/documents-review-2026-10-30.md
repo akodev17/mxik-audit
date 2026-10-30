@@ -54,6 +54,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-D6 | major | 15a097f | Didox sync reads up to 1 000 pages per run (was 50) and a run cut by the limit says list_truncated. Test: didox/real-docs-db.test.ts 'a run that stops at its page limit'. | (follow-up, 30 Oct evening) |
 | R-B2b | major | 79b6ef9 | Text and HTML/XML statement grids keep GRID_ROWS rows and count the rest (was: every row built, ~1.9 GB for 20 MB). Test: bank/markup.test.ts 'grid row cap'. | (follow-up, 30 Oct evening) |
 | R-O6 | major | ec8069b | Number cells of 18+ digits keep Excel's exponent form, so a damaged 20-digit account is refused (bank, counterparties) instead of stored. Test: spreadsheet.test.ts 'a 20-digit account in a number cell reads as invalid'. | (follow-up, 30 Oct evening) |
+| R-D4 | major | 25ce0b5 | A re-issue of an invoice Didox voided is imported (same seller, number, date); live duplicates still refused; the sync no longer caches duplicate refusals. Test: didox/real-docs-db.test.ts 'a re-issue of a voided invoice'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
