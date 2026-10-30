@@ -126,6 +126,8 @@ export type Connection = z.infer<typeof Connection>;
 export const CounterpartyRow = z.object({
   id: z.string(), clientId: z.string().nullable(), name: z.string(), inn: z.string().nullable(), account: z.string().nullable(), mfo: z.string().nullable(),
   aliases: z.array(z.string()), onecRef: z.string().nullable(), source: z.string(), createdAt: IsoDateTime,
+  /** legal / individual / nonresident; the branch code (ИНН + код филиала tell branches apart, 1C UZ 3.0.62); the 12-digit VAT code. */
+  kind: z.string().nullable().optional(), branchCode: z.string().nullable().optional(), vatCode: z.string().nullable().optional(),
 });
 
 /** A refusal with the domain's machine code (`not_found`, `nothing_to_export`, `has_errors`, …) and its words. */
@@ -275,7 +277,7 @@ export const onec = defineModule('onec', {
   }),
   importCounterparties: endpoint({
     method: 'POST', path: '/api/onec/counterparties/import', auth: 'session', role: 'writer', noDemo: true,
-    summary: 'Load counterparties from a 1C «Контрагенты» export (Наименование, ИНН, Расчетный счет, МФО)',
+    summary: 'Load counterparties from a 1C «Контрагенты» list (Вывести список: Наименование, ИНН, ПИНФЛ, Код, Код филиала, …) or a counterparties_xlsx',
     multipart: {
       fields: z.object({ clientId: ShortId.optional() }),
       files: { file: { required: true, maxBytes: LIMITS.uploadBytes, extensions: LIMITS.uploadExtensions, description: 'Excel (.xlsx) or CSV.' } },
