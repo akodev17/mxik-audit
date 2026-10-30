@@ -1,0 +1,19 @@
+{
+ "odata.metadata": "https://host/base/zone/odata/standard.odata/$metadata#Catalog_Магазины/@Element",
+ "Description": "Новое описание магазина",
+ "ТорговыеЗалы@odata.type": "Collection(StandardODATA.Catalog_Магазины_ТорговыеЗалы_RowType)",
+ "ТорговыеЗалы": [
+ {
+ "LineNumber": "1",
+ "Название": "Синий зал",
+ "Площадь": 56,
+ "ДатаОткрытия": "2015-01-01T00:00:00"
+ },
+ {
+ "LineNumber": "2",
+ "Название": "Красный зал",
+ "Площадь": 56,
+ "ДатаОткрытия": "2015-06-13T11:45:41"
+ }
+ ]
+}

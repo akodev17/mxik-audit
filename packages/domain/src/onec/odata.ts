@@ -179,7 +179,9 @@ export class ODataClient {
       return { ok: true, status: res.status, json };
     }
     const e = parseODataError(text);
-    const location = res.headers.get('location');
+    const header = res.headers.get('location');
+    let location = header;
+    try { location = header ? decodeURI(header) : null; } catch { /* kept as sent */ }
     return {
       ok: false, status: res.status, reason: reasonOf(res.status, e.code), code: e.code,
       message: (e.message ?? (text && !text.trimStart().startsWith('<') ? text.slice(0, 500) : null) ?? `HTTP ${res.status}`).slice(0, 1000),

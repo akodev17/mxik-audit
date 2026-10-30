@@ -1,0 +1,49 @@
+{
+ "odata.metadata": "https://1cfresh.com:443/a/sbm_demo/1962515/odata/standard.odata/$metadata#Catalog_Сотрудники",
+ "value": [
+ {
+ "Ref_Key": "baebacef-b80e-11e4-826f-001e101fe696",
+ "DataVersion": "AAAAAAAAAAA=",
+ "DeletionMark": false,
+ "Parent_Key": "00000000-0000-0000-0000-000000000000",
+ "IsFolder": false,
+ "Code": "В-02",
+ "Description": "Физлицо Первое",
+ "Физлицо_Key": "baebacee-b80e-11e4-826f-001e101fe696",
+ "ТипЗанятости": "ОсновноеМестоРаботы",
+ "СчетРасчетовСПерсоналом_Key": "60f112fb-b5b8-11e4-8355-74d02b7dfd8c",
+ "СчетРасчетовСПодотчетниками_Key": "60f112fd-b5b8-11e4-8355-74d02b7dfd8c",
+ "СчетРасчетовПоПерерасходу_Key": "60f112fe-b5b8-11e4-8355-74d02b7dfd8c",
+ "Недействителен": false,
+ "ШтрихКод": "",
+ "МагнитныйКод": "",
+ "ДополнительныеРеквизиты": [],
+ "Predefined": false,
+ "PredefinedDataName": "",
+ "Физлицо@navigationLinkUrl": "Catalog_Сотрудники(guid'baebacef-b80e-11e4-826f-001e101fe696')/Физлицо",
+ "Физлицо": {
+ "Parent_Key": "00000000-0000-0000-0000-000000000000",
+ "Гражданство_Key": "00000000-0000-0000-0000-000000000000",
+ "БанковскийСчетПоУмолчанию_Key": "00000000-0000-0000-0000-000000000000",
+ "DeletionMark": false,
+ "IsFolder": false,
+ "DataVersion": "AAAAAAAAAAA=",
+ "ИНН": "",
+ "ДатаРождения": "1947-08-05T00:00:00",
+ "Недействителен": false,
+ "Predefined": false,
+ "Ref_Key": "baebacee-b80e-11e4-826f-001e101fe696",
+ "Code": "ФР-0000002",
+ "Description": "Физлицо Первое",
+ "СтраховойНомерПФР": "",
+ "Пол": "Женский",
+ "КонтактнаяИнформация": [],
+ "PredefinedDataName": "",
+ "ДополнительныеРеквизиты": []
+ },
+ "СчетРасчетовСПерсоналом@navigationLinkUrl": "Catalog_Сотрудники(guid'baebacef-b80e-11e4-826f-001e101fe696')/СчетРасчетовСПерсоналом",
+ "СчетРасчетовСПодотчетниками@navigationLinkUrl": "Catalog_Сотрудники(guid'baebacef-b80e-11e4-826f-001e101fe696')/СчетРасчетовСПодотчетниками",
+ "СчетРасчетовПоПерерасходу@navigationLinkUrl": "Catalog_Сотрудники(guid'baebacef-b80e-11e4-826f-001e101fe696')/СчетРасчетовПоПерерасходу"
+ }
+ ]
+}
