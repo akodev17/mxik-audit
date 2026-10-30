@@ -66,6 +66,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-O9 | minor | 9330011 | Резидентство Да/Нет read the right way round; an ИНН+branch row matches the ИНН's sole unbranched counterparty. Test: onec/counterparties.test.ts. | (follow-up, 30 Oct evening) |
 | R-D14 | minor | b6e0716 | A password echoed in a Didox login error is masked. Test: didox/client-docs.test.ts. | (follow-up, 30 Oct evening) |
 | R-D15 | minor | b7babc2 | The background-sync test waits up to 30 s (was 5 s); assertions unchanged. | (follow-up, 30 Oct evening) |
+| R-O10 | minor | 68d14d8 | Pinned fetch sends Content-Length; a transfer with an unreadable invoice header leaves no export row. Tests: onec/connection.test.ts, onec/odata.test.ts. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
