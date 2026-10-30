@@ -370,9 +370,10 @@ async function runSync(orgId: string, actorId: string, client: DidoxClient, clie
             const pdf = await printForm(client, entry.id);
             if (pdf) await db.didoxDocument.update({ where: { orgId_didoxId: { orgId, didoxId: entry.id } }, data: { pdf: bytes(pdf) } });
           } else {
-            // Refused (not an invoice, a duplicate under another id, unreadable): cached so the next sync skips it.
+            // Refused (not an invoice, unreadable): cached so the next sync skips it. A duplicate is not cached: once
+            // the earlier one is voided, the same document is a re-issue to import (R-D4).
             state.refused++;
-            await db.didoxDocument.upsert({
+            if (imported.code !== 'duplicate_invoice') await db.didoxDocument.upsert({
               where: { orgId_didoxId: { orgId, didoxId: entry.id } },
               create: { orgId, didoxId: entry.id, source: 'didox_api', docType: entry.doctype, status: entry.status, json: json(doc ?? {}) },
               update: { status: entry.status },

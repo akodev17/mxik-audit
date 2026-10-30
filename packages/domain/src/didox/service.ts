@@ -110,19 +110,34 @@ async function findDuplicate(orgId: string, invoice: Pick<ParsedInvoice, 'meta' 
   const or: Prisma.ImportBatchWhereInput[] = [{ fingerprint }];
   if (meta.externalId) or.push({ externalRef: meta.externalId });
   if (invoice.facturaId) or.push({ externalRef: invoice.facturaId }, { meta: { path: ['didox', 'facturaId'], equals: invoice.facturaId } });
+  const same = await db.importBatch.findFirst({ where: { orgId, kind: KIND, OR: or }, select: { id: true, meta: true }, orderBy: { createdAt: 'asc' } });
+  if (same) return duplicateOf(same);
   const correction = Boolean(invoice.oldFactura) && (invoice.facturaType ?? '0') !== '0';
-  if (meta.seller.inn && !correction) {
-    or.push({ AND: [
+  if (!meta.seller.inn || correction) return null;
+  // Seller + number + date: an earlier batch Didox voided (rejected, cancelled, annulled) is not the invoice any more,
+  // so the seller's re-issue under the same number and date is imported (review 30 Oct, R-D4).
+  const named = await db.importBatch.findMany({
+    where: { orgId, kind: KIND, AND: [
       { meta: { path: ['number'], equals: meta.number } },
       { meta: { path: ['date'], equals: meta.date } },
       { meta: { path: ['seller', 'inn'], equals: meta.seller.inn } },
-    ] });
-  }
-  const found = await db.importBatch.findFirst({ where: { orgId, kind: KIND, OR: or }, select: { id: true, meta: true }, orderBy: { createdAt: 'asc' } });
-  if (!found) return null;
-  const m = found.meta as Partial<IncomingInvoiceMeta> | null;
-  return { batchId: found.id, number: m?.number ?? '', date: m?.date ?? '' };
+    ] },
+    select: { id: true, meta: true }, orderBy: { createdAt: 'asc' }, take: 20,
+  });
+  const live = named.find((b) => !voided(b.meta));
+  return live ? duplicateOf(live) : null;
 }
+
+const duplicateOf = (b: { id: string; meta: Prisma.JsonValue }): DuplicateOf => {
+  const m = b.meta as Partial<IncomingInvoiceMeta> | null;
+  return { batchId: b.id, number: m?.number ?? '', date: m?.date ?? '' };
+};
+
+/** The batch's document carries `didox_status_void` (its status issue, rules.ts statusIssues). */
+const voided = (meta: Prisma.JsonValue): boolean => {
+  const issues = (meta as { didox?: { issues?: unknown } } | null)?.didox?.issues;
+  return Array.isArray(issues) && issues.some((i) => (i as { code?: string } | null)?.code === 'didox_status_void');
+};
 
 /**
  * Parses, checks and stores one document. A non-invoice is refused with its kind; a document seen

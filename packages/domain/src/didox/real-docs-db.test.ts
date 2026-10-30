@@ -247,5 +247,31 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
       await dropOrgs([c.orgId]);
     }
   });
+
+  // Review 30 Oct (R-D4): seller + number + date refused a re-issue even when Didox had voided the first invoice, so the
+  // valid one was never imported. A live earlier invoice still makes it a duplicate (service.test.ts asserts that).
+  it('a re-issue of a voided invoice under the same number and date is imported; of a live one it is refused', async () => {
+    const d = await makeOrg();
+    try {
+      await db.organization.update({ where: { id: d.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+      const owner = userOf(d);
+      const json = JSON.parse(readFileSync(join(FIXTURE_DIR, 'invoice-standard-3.json'), 'utf8')) as Record<string, unknown>;
+      const upload = (name: string, doc: unknown) => uploadDidoxFile(owner, 'ru', { file: fileOf(name, Buffer.from(JSON.stringify(doc))), clientId: '' }, baseStubDeps);
+      const first = await upload('first.json', json);
+      assert.ok(first.ok && first.kind === 'documents' && first.items[0]?.ok, JSON.stringify(first));
+      const reissue = { ...json, facturaid: 'reissued-0000000000000001' };
+      const live = await upload('reissue.json', reissue);
+      assert.ok(live.ok && live.kind === 'documents');
+      assert.equal((live.items[0] as { code?: string }).code, 'duplicate_invoice', 'the first one is live: a duplicate');
+      // Didox voids the first one (the sync writes its status issue, R-D2): the re-issue is the invoice now.
+      const batch = await db.importBatch.findFirstOrThrow({ where: { orgId: d.orgId }, select: { id: true, meta: true } });
+      const meta = batch.meta as { didox: { issues: unknown[] } };
+      await db.importBatch.update({ where: { id: batch.id }, data: { meta: { ...meta, didoxStatus: '4', didox: { ...meta.didox, issues: [...meta.didox.issues, { code: 'didox_status_void', severity: 'error', field: 'didoxStatus', params: { status: '4', state: 'rejected', comment: '' } }] } } } });
+      const after = await upload('reissue-again.json', reissue);
+      assert.ok(after.ok && after.kind === 'documents' && after.items[0]?.ok, JSON.stringify(after));
+    } finally {
+      await dropOrgs([d.orgId]);
+    }
+  });
 });
 
