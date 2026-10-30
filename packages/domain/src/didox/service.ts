@@ -16,7 +16,7 @@ import type { FileOut } from '../catalog-exports.js';
 import { isDemoOrg } from '../demo.js';
 import { uploadsOpen } from '../plan.js';
 import { looksLikeZip } from '../security/zip-guard.js';
-import { buildExport, invoiceLineFingerprint, prepareExport, refreshCounts } from '../onec/index.js';
+import { buildExport, documentErrors, invoiceLineFingerprint, prepareExport, refreshCounts } from '../onec/index.js';
 import { classifyProducts, upsertProducts } from '../products/index.js';
 import type { CurrentUser } from '../session.js';
 import { checkInvoice, defaultDeps, statusFor, type CheckDeps, type CheckedInvoice, type ProductRecord, type RecordStatus } from './check.js';
@@ -683,8 +683,11 @@ export type ExportAnswer = { ok: true; file: FileOut; exportId: string } | (Fail
 export async function exportInvoice(user: Writer, locale: Locale, batchId: string, format: 'receipt_xlsx' | 'nomenclature_xlsx'): Promise<ExportAnswer> {
   const e = i18nFor(locale).ta.didoxX.errors;
   if (!allowed(user)) return { ok: false, code: 'forbidden', error: e.forbidden };
-  const batch = await db.importBatch.findFirst({ where: { ...batchScope(user), id: batchId }, select: { id: true, clientId: true } });
+  const batch = await db.importBatch.findFirst({ where: { ...batchScope(user), id: batchId }, select: { id: true, clientId: true, meta: true } });
   if (!batch) return { ok: false, code: 'not_found', error: e.not_found };
+  // A voided ЭСФ goes nowhere (the plan refuses it too); stop before its products are written.
+  const voided = documentErrors({ id: batch.id, kind: KIND, meta: batch.meta })[0];
+  if (voided) return { ok: false, code: voided.code, error: i18nFor(locale).ta.didoxX.issues[voided.code] ?? e.nothing_to_export };
   const records = await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, select: { id: true, status: true, payload: true, issues: true, decision: true, outcome: true } });
   const going = forecast(records).lines.filter((l) => l.result === 'imported' && (format === 'receipt_xlsx' || l.newProduct));
   if (going.length === 0) return { ok: false, code: 'nothing_to_export', error: e.nothing_to_export };

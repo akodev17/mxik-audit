@@ -153,6 +153,17 @@ export const APPROVING_ACTIONS: readonly string[] = ['approve', 'correct'];
 export const approved = (r: Pick<PlanRecord, 'status' | 'decision'>): boolean =>
   (r.status === 'valid' || r.status === 'corrected') && APPROVING_ACTIONS.includes(r.decision?.action ?? '');
 
+/** The errors a Didox batch carries on the document itself (meta.didox.issues, e.g. `didox_status_void`). */
+export function documentErrors(batch: PlanBatch): ValidationIssue[] {
+  if (batch.kind !== 'didox_invoice') return [];
+  const stored = (batch.meta as { didox?: { issues?: unknown } } | null)?.didox?.issues;
+  if (!Array.isArray(stored)) return [];
+  return stored.flatMap((raw) => {
+    const parsed = accounting.ValidationIssue.safeParse(raw);
+    return parsed.success && parsed.data.severity === 'error' ? [parsed.data] : [];
+  });
+}
+
 /** opening + credits − debits = closing, and the statement's own totals, over every record of the statement. */
 function bankChecks(batch: PlanBatch, all: readonly PlanRecord[], issues: ValidationIssue[]): ImportOutcome['checks'] {
   const meta = accounting.BankStatementMeta.partial().safeParse(batch.meta);
@@ -227,6 +238,13 @@ export function planExport(batch: PlanBatch, records: readonly PlanRecord[], for
   }
   const awaiting = left.filter((l) => l.reason !== 'skipped').length;
   if (awaiting > 0) issues.push(issue('unresolved', 'warning', null, undefined, { count: awaiting }));
+  // A document the whole of which is refused (a cancelled, rejected or annulled ЭСФ) lets none of its lines go,
+  // approved or not: the error sits on the batch, not on a line, so a line's approval never saw it.
+  const blocked = documentErrors(batch);
+  if (blocked.length > 0) {
+    issues.push(...blocked);
+    for (const r of candidates.splice(0)) left.push({ record: r, reason: 'invalid' });
+  }
 
   const included: Included[] = [];
   const seen = new Map<string, PlanRecord>();

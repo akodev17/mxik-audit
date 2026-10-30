@@ -22,6 +22,7 @@ export {
   importCounterparties, listCounterparties, matchCounterparties, recordCounterparties, type CounterpartyScope, type RecordOptions,
 } from './counterparties.js';
 export { normalizeName } from './normalize.js';
+export { documentErrors } from './plan.js';
 export { bankFingerprint, invoiceLineFingerprint, productFingerprint } from './fingerprint.js';
 export { refreshCounts, statusFromIssues } from './batch-state.js';
 export { batchDetail, decideMany, decideRecord, listBatches, type Actor, type Reader } from './review.js';

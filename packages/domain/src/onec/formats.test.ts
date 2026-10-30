@@ -193,6 +193,22 @@ describe('xlsx formats against golden cell grids', () => {
     assert.deepEqual([total[1], total[7], total[9], total[10]], ['Итого', '1950000', '234000', '2184000']);
   });
 
+  // didox §7.32, §7.13 (review 30 Oct): a cancelled, rejected or annulled ЭСФ is not booked. Its `didox_status_void`
+  // error sits on the batch, so approving the lines (one by one or "approve clean") never saw it; no format lets them go.
+  it('a voided ЭСФ: approved lines stay home in every format', () => {
+    const voidIssue = { code: 'didox_status_void', severity: 'error', field: 'didoxStatus', params: { status: '4', state: 'rejected', comment: '' } };
+    const voided: PlanBatch = { ...invoiceBatch, meta: { ...INVOICE_META, didox: { issues: [voidIssue] } } };
+    for (const format of ['receipt_xlsx', 'nomenclature_xlsx', 'odata'] as const) {
+      const plan = planExport(voided, records(INVOICE_LINES), format, undefined, none);
+      assert.equal(plan.included.length, 0, format);
+      assert.ok(plan.left.every((l) => l.reason === 'invalid'), format);
+      assert.ok(plan.issues.some((i) => i.code === 'didox_status_void' && i.severity === 'error'), format);
+    }
+    // A warning on the document (not signed yet, header totals off) does not stop the approved lines.
+    const warned: PlanBatch = { ...invoiceBatch, meta: { ...INVOICE_META, didox: { issues: [{ ...voidIssue, code: 'didox_not_signed', severity: 'info' }] } } };
+    assert.equal(planExport(warned, records(INVOICE_LINES), 'receipt_xlsx', undefined, none).included.length, INVOICE_LINES.length);
+  });
+
   it('counterparties_xlsx: one row per distinct counterparty of the statement', async () => {
     const plan = planExport(bankBatch, records(BANK_TRANSACTIONS), 'counterparties_xlsx', undefined, none);
     assert.equal(plan.primary, false);
