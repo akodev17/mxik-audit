@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import ExcelJS from 'exceljs';
+import type { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
 import type { UploadedFile } from '../catalog-upload.js';
 import type { CurrentUser } from '../session.js';
@@ -265,7 +266,7 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
       assert.equal((live.items[0] as { code?: string }).code, 'duplicate_invoice', 'the first one is live: a duplicate');
       // Didox voids the first one (the sync writes its status issue, R-D2): the re-issue is the invoice now.
       const batch = await db.importBatch.findFirstOrThrow({ where: { orgId: d.orgId }, select: { id: true, meta: true } });
-      const meta = batch.meta as { didox: { issues: unknown[] } };
+      const meta = batch.meta as { didox: { issues: Prisma.InputJsonValue[] } };
       await db.importBatch.update({ where: { id: batch.id }, data: { meta: { ...meta, didoxStatus: '4', didox: { ...meta.didox, issues: [...meta.didox.issues, { code: 'didox_status_void', severity: 'error', field: 'didoxStatus', params: { status: '4', state: 'rejected', comment: '' } }] } } } });
       const after = await upload('reissue-again.json', reissue);
       assert.ok(after.ok && after.kind === 'documents' && after.items[0]?.ok, JSON.stringify(after));
