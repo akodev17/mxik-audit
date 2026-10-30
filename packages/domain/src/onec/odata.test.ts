@@ -548,7 +548,8 @@ describe('OData transfer against the fake 1C (database)', { skip }, () => {
     let lose = true;
     const lossy: typeof fetch = async (input, init) => {
       const res = await fetch(input, init);
-      if (lose && init?.method === 'POST' && !String(input).includes('Post()')) {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (lose && init?.method === 'POST' && !url.includes('Post()')) {
         lose = false;
         const e = new Error('The operation was aborted due to timeout');
         e.name = 'TimeoutError';
