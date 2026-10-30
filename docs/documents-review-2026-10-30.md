@@ -14,7 +14,7 @@ plus the classifier tables copied read-only from `mxik` without embeddings). **D
 | Severity | Found | Fixed here | Left open |
 |---|---:|---:|---:|
 | Critical | 7 | 7 | 0 |
-| Major | 22 | 15 | 7 |
+| Major | 22 | 21 | 1 (R-D4, a product decision) |
 | Minor | 29 | 1 (with a major's fix) | 28 |
 
 The B5 approval gate itself holds: every export path (the `/api/onec` prepare, export and transfer endpoints, the bank,
@@ -61,6 +61,9 @@ there (R-B1's without-fix run aborts the test process exactly as the API would).
 ## Open findings
 
 ### Major, left open (a fix is more than a small change, or is a design decision)
+
+**Update, 30 Oct evening:** every row below except R-D4 was fixed afterwards on the same branch and pushed to `main`
+(the rows R-B7, R-P11, R-O4b, R-D6, R-B2b, R-O6 at the end of "Fixes made" above). The table keeps the findings as found.
 
 | ID | Where | What is wrong, and a failing input | Suggested fix |
 |---|---|---|---|
@@ -159,6 +162,13 @@ there (R-B1's without-fix run aborts the test process exactly as the API would).
   (`bank/xls.ts` non-null assertion) predates the branch.
 
 ### Final run
+
+After the evening fixes (`main` 1fcbbcc): **2 599 tests, 2 593 pass, 2 fail, 4 skipped**. The demo suite as before; and
+`audit-jobs.test.ts` "returns at once and finishes the audit in the background", which passed 10/10 twice when run
+alone (a timing race under full parallel load; nothing in the documents work or in `numberText` is on its path).
+`npm run typecheck` exit 0; eslint 0 errors on every file the branch changed.
+
+First run, after the daytime fixes:
 
 `npm test` on the branch tip (full parallelism, `mxik_rev`): **2 593 tests, 2 588 pass, 1 fail, 4 skipped**. The one
 failure is the same demo suite as the baseline (no seeded demo template on a scratch DB). The skips are the usual four
