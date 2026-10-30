@@ -16,6 +16,7 @@ import {
 } from './connection.js';
 import { outcomeOf, planFor, recordOutcomes, type PrepareInput } from './export.js';
 import { castRef, datetime, discover, forgetMetadata, guid, ODataClient, str, type Metadata } from './odata.js';
+import type { PlanRecord } from './plan.js';
 
 type ImportOutcome = z.infer<typeof accounting.ImportOutcome>;
 type IncomingInvoiceMeta = z.infer<typeof accounting.IncomingInvoiceMeta>;
@@ -198,6 +199,8 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
     whole: boolean; sellerInn: string | null;
   };
   let jobs: Job[];
+  // The last attempt timed out or lost the connection: 1C may have written the document after all.
+  const timedOut = (r: { outcome?: PlanRecord['outcome'] }): boolean => r.outcome?.result === 'rejected' && /^(timeout|unreachable)/.test(r.outcome.reason ?? '');
   if (batch.kind === 'didox_invoice') {
     const meta = accounting.IncomingInvoiceMeta.safeParse(batch.meta);
     if (!meta.success) return { ok: false, error: 'meta_invalid' };
@@ -205,12 +208,14 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
     const whole = plan.included.length === records.length;
     const correction = meta.data.facturaType && CORRECTING_TYPES.has(meta.data.facturaType) && meta.data.oldFactura ? meta.data.oldFactura : null;
     jobs = [{
-      ids: plan.included.map((i) => i.record.id), ...invoiceDocument(map, meta.data, lines, whole), target: map.invoice, retry: false, correction,
+      ids: plan.included.map((i) => i.record.id), ...invoiceDocument(map, meta.data, lines, whole), target: map.invoice,
+      // A receipt POST can outlast the client's timeout: look for it by number and date before writing another.
+      retry: plan.included.some((i) => timedOut(i.record)), correction,
       date: meta.data.date, number: meta.data.number, whole, sellerInn: meta.data.seller.inn,
     }];
   } else {
     jobs = plan.included.map((i) => {
-      const retry = i.record.outcome?.result === 'rejected' && /^(timeout|unreachable)/.test(i.record.outcome.reason ?? '');
+      const retry = timedOut(i.record);
       if (i.kind === 'bank_statement') {
         return { ids: [i.record.id], ...bankDocument(map, i.payload), target: i.payload.direction === 'credit' ? map.bankCredit : map.bankDebit, retry, correction: null, date: i.payload.date, number: i.payload.docNumber, whole: true, sellerInn: null };
       }

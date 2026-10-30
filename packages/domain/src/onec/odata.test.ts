@@ -532,6 +532,40 @@ describe('OData transfer against the fake 1C (database)', { skip }, () => {
     assert.equal((original['Товары'] as unknown[]).length, 4);
   });
 
+  // Review 30 Oct: a receipt POST that 1C processed but whose answer timed out was written again on "Retry"; only bank
+  // lines looked first. The receipt is looked up by its number, date and counterparty before a second POST.
+  it('a receipt whose POST timed out is found in the base on retry, not written twice', async () => {
+    await fake?.close();
+    const f = await startFakeOData();
+    fake = f;
+    const org = await makeOrg();
+    orgs.push(org.orgId);
+    f.seed('Catalog_Контрагенты', [{ Description: 'ООО "Ромашка Савдо"', ИНН: '301234567', IsFolder: false }]);
+    products(f);
+    await connect(org, f.base);
+    const receipts = () => (f.store.get('Document_ПоступлениеТоваровУслуг') ?? []).filter((o) => o['НомерВходящегоДокумента'] === 'T-30');
+    const batchId = await seedInvoiceBatch({ orgId: org.orgId }, { ...INVOICE_META, externalId: 'r-t-30', number: 'T-30' });
+    let lose = true;
+    const lossy: typeof fetch = async (input, init) => {
+      const res = await fetch(input, init);
+      if (lose && init?.method === 'POST' && !String(input).includes('Post()')) {
+        lose = false;
+        const e = new Error('The operation was aborted due to timeout');
+        e.name = 'TimeoutError';
+        throw e;
+      }
+      return res;
+    };
+    const first = await transferExport({ orgId: org.orgId, batchId, format: 'odata', actorId: org.userId }, lossy);
+    assert.ok(first.ok && first.outcome.rejected === 4, JSON.stringify(first));
+    assert.equal(receipts().length, 1, '1C wrote it; the answer was lost');
+    const again = await transferExport({ orgId: org.orgId, batchId, format: 'odata', actorId: org.userId });
+    assert.ok(again.ok && again.outcome.imported === 4, JSON.stringify(again));
+    assert.equal(receipts().length, 1, 'found, not written twice');
+    const rec = await db.importRecord.findFirstOrThrow({ where: { batchId, rowIndex: 0 } });
+    assert.match((rec.outcome as { message: string }).message, /found_after_timeout/);
+  });
+
   it('a goods line whose product the base lacks refuses the receipt and names the line (onec §8.11)', async () => {
     // onec §8.11: with «Не создавать номенклатуру» 1C would not invent the item; the tool reports the unmatched lines.
     const lonely = await startFakeOData();
