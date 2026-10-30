@@ -543,9 +543,10 @@ export async function applyProductBatch(user: CurrentUser, batchId: string, loca
       db.importRecord.update({ where: { id: r.id }, data: { payload: { ...(payloads[i] as StoredPayload), productId: id } } }),
     ];
   }));
-  // Saving the batch is the reviewer's approval of its clean rows: only approved records go to 1C (onec B5).
+  // Saving the batch is the reviewer's approval of its clean rows: only approved records go to 1C (onec B5). A row whose
+  // package code tasnif could not check is not clean: it waits for a reviewer (review 30 Oct, R-P10).
   await db.importRecord.updateMany({
-    where: { batchId: b.id, status: 'valid', decision: { equals: Prisma.AnyNull } },
+    where: { batchId: b.id, status: 'valid', decision: { equals: Prisma.AnyNull }, NOT: { issues: { array_contains: [{ code: 'package_unchecked' }] } } },
     data: { decision: { action: 'approve', note: 'applied' }, decidedBy: user.userId, decidedAt: new Date() },
   });
   await db.importBatch.update({ where: { id: b.id }, data: { status: 'approved' } });

@@ -11,6 +11,7 @@ import type { CurrentUser } from '../session.js';
 import { dbSkipReason, dropOrgs, makeOrg } from '../test-fixtures.js';
 import { readCard, useTasnifClient } from './tasnif-client.js';
 import { applyProductBatch, commitProductImport, decideProductRecord, exportProductBatch, previewProductImport, productBatchView, settleBatch } from './import.js';
+import { seedProductBatch } from '../onec/fixtures/seed.js';
 import { FakeTasnifClient, RECORDED_CARDS, tasnifSample } from './test-fixtures.js';
 
 const skip = await dbSkipReason();
@@ -162,5 +163,16 @@ describe('catalogue import on documented layouts (database, recorded Tasnif answ
     assert.ok(preview.ok, JSON.stringify(preview));
     assert.equal(preview.mappingSource, 'remembered');
     assert.deepEqual([preview.mapping.name, preview.mapping.unit, preview.mapping.article, preview.mapping.price], [0, 2, -1, 3]);
+  });
+
+  it('saving approves the clean rows, not one whose package code tasnif could not check', async () => {
+    // Review 30 Oct (R-P10): package_unchecked is info, so the row stayed valid and was approved for 1C unchecked.
+    const batchId = await seedProductBatch({ orgId: user.orgId, approved: false });
+    const [unchecked, clean] = await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, select: { id: true } });
+    await db.importRecord.update({ where: { id: unchecked!.id }, data: { issues: [{ code: 'package_unchecked', severity: 'info', field: 'packageCode', params: { reason: 'unavailable' } }] } });
+    assert.ok((await applyProductBatch(user, batchId, 'ru')).ok);
+    const decided = await db.importRecord.findMany({ where: { id: { in: [unchecked!.id, clean!.id] } }, select: { id: true, decision: true } });
+    assert.equal(decided.find((r) => r.id === unchecked!.id)?.decision, null, 'waits for a reviewer');
+    assert.deepEqual(decided.find((r) => r.id === clean!.id)?.decision, { action: 'approve', note: 'applied' });
   });
 });
