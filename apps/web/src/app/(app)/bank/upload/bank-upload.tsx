@@ -13,6 +13,7 @@ import { Stepper } from '@/ui/stepper';
 import { Card } from '../../_manage/card';
 import { FileDrop } from '../../_manage/file-drop';
 import { Notice } from '../../_manage/notice';
+import { STATEMENT_ACCEPT } from '../bank-pure';
 import { CheckStep } from './check-step';
 import { MappingStep } from './mapping-step';
 
@@ -113,7 +114,7 @@ export function BankUpload({ clients, defaultClient, ownBooks }: { clients: { id
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             ) : null}
-            <FileDrop onFile={(f) => void choose(f)} busy={busy} />
+            <FileDrop onFile={(f) => void choose(f)} busy={busy} accept={STATEMENT_ACCEPT} />
           </div>
         </Card>
       ) : null}

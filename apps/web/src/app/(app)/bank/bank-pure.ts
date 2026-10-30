@@ -43,6 +43,13 @@ export function formatDecimal(value: string, group = ' ', mark = '.'): string {
 /** Money as the screens show it: "1 234 567,89" in both locales (how Uzbek and Russian banks print it). */
 export const money = (value: string | null | undefined): string => (value ? formatDecimal(value, ' ', ',') : '—');
 
+/**
+ * What the statement picker offers: Excel (.xlsx, legacy .xls and HTML/XML saved as .xls), CSV and text, a bank's own
+ * kl_to_1c.txt, and a zip around one of them (bank/read.ts). Only .xlsx/.xls/.csv could be chosen; the rest had to be
+ * dragged in (review 30 Oct, R-B17).
+ */
+export const STATEMENT_ACCEPT = '.xlsx,.xls,.csv,.txt,.zip,.html,.htm,.xml';
+
 /** The roles in the order the mapping step lists them. */
 export const ROLE_ORDER: readonly BankRole[] = [
   'date', 'valueDate', 'docNumber', 'debit', 'credit', 'amount', 'direction', 'counterpartyName', 'inn', 'account', 'mfo', 'purpose', 'purposeCode',

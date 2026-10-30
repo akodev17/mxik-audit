@@ -11,7 +11,7 @@ import { IconUpload } from '@/ui/icons';
  * Drop a list file or press the visible button (the keyboard and touch path). A compact cousin of
  * the catalogue wizard's drop zone, with the same words, for purchase, cheque and sales lists.
  */
-export function FileDrop({ onFile, busy }: { onFile: (file: File) => void; busy: boolean }) {
+export function FileDrop({ onFile, busy, accept = UPLOAD_ACCEPT }: { onFile: (file: File) => void; busy: boolean; accept?: string }) {
   const { ta } = useI18n();
   const s = ta.importX.select;
   const input = useRef<HTMLInputElement>(null);
@@ -45,7 +45,7 @@ export function FileDrop({ onFile, busy }: { onFile: (file: File) => void; busy:
       </div>
       <Button variant="secondary" loading={busy} onClick={() => input.current?.click()} className="shrink-0">{s.choose}</Button>
       <input
-        ref={input} type="file" accept={UPLOAD_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden
+        ref={input} type="file" accept={accept} className="sr-only" tabIndex={-1} aria-hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
           // Cleared so choosing the same file again still fires a change.

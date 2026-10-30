@@ -225,7 +225,10 @@ export const PrepareAnswer = z.object({
 
 const StatementPath = z.object({ batchId: Id });
 const RecordPath = z.object({ recordId: Id });
-const UploadFile = { required: true, maxBytes: LIMITS.uploadBytes, extensions: ['.xlsx', '.csv'], description: 'Bank statement: Excel (.xlsx) or CSV.' } as const;
+const UploadFile = {
+  required: true, maxBytes: LIMITS.uploadBytes, extensions: ['.xlsx', '.xls', '.csv', '.txt', '.zip', '.html', '.htm', '.xml'],
+  description: 'Bank statement: Excel (.xlsx, .xls, or HTML/XML saved as .xls), CSV or text, the bank kl_to_1c.txt, or a zip with one of them.',
+} as const;
 /** JSON text in a multipart field. */
 const JsonText = z.string().max(20_000);
 
