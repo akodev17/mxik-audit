@@ -73,6 +73,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-D8 | minor | d51c5ae | Didox §7.21 tolerance follows the research formula (count 1 × 100.00 = 100.01 is now a mismatch). Test: didox/real-docs.test.ts 'tiyin tolerances at count 1 and below'. | (follow-up, 30 Oct evening) |
 | R-D12 | minor | 980940b | ЭСФ template: a new invoice only where column A or the number changes. Test: didox/real-docs.test.ts 'column A repeated'. | (follow-up, 30 Oct evening) |
 | R-D10 | minor | 0c742ae | A VAT payer (status 20/21/22) without its VAT registration code gets vat_reg_code_missing; districtid still unchecked. Test: didox/real-docs.test.ts 'parties'. | (follow-up, 30 Oct evening) |
+| R-B10 | minor | c6d0dc1 | HTML statement rowspan respected: a two-row header keeps its columns and the layout is recognised. Test: bank/markup.test.ts 'HTML two-row headers'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
