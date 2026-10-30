@@ -31,14 +31,16 @@ export function CounterpartiesPanel({ clients, initialClient, canImport }: { cli
   const [q, setQ] = useState('');
   const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<{ row: number; reason: string }[]>([]);
   const input = { page, ...(client ? { client } : {}), ...(q.trim() ? { q: q.trim() } : {}) };
   const list = useQuery({ queryKey: queryKey(api.onec.counterparties, input), queryFn: ({ signal }) => api.onec.counterparties(input, { signal }), placeholderData: keepPreviousData });
 
   const upload = useMutation({
     mutationFn: (picked: File) => api.onec.importCounterparties({ file: picked, ...(client ? { clientId: client } : {}) }),
-    onMutate: () => setError(null),
+    onMutate: () => { setError(null); setRowErrors([]); },
     onSuccess: async (res) => {
       if (!res.ok) { setError(res.error); return; }
+      setRowErrors(res.errors);
       toast(s.imported(res.created, res.updated, res.skipped));
       await queryClient.invalidateQueries({ queryKey: queryKey(api.onec.counterparties) });
     },
@@ -71,6 +73,15 @@ export function CounterpartiesPanel({ clients, initialClient, canImport }: { cli
         ) : null}
       </div>
       {error ? <div className="px-4 pb-3"><Alert tone="danger">{error}</Alert></div> : null}
+      {rowErrors.length > 0 ? (
+        <div className="px-4 pb-3">
+          <Alert tone="warn" title={s.importErrors}>
+            <ul className="mt-1 space-y-0.5">
+              {rowErrors.map((e) => <li key={`${e.row}-${e.reason}`}>{s.importRow(e.row)}: {s.importReasons[e.reason] ?? e.reason}</li>)}
+            </ul>
+          </Alert>
+        </div>
+      ) : null}
       {!data ? <div className="flex items-center gap-2 px-4 pb-4 text-muted"><Spinner size={16} /></div>
         : data.rows.length === 0 ? <div className="px-4 pb-4"><EmptyState size="compact" title={s.emptyCounterparties} /></div>
           : (

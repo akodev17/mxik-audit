@@ -73,7 +73,7 @@ export class OnecService {
     await this.ensureVisible(user, batchId);
     if (!(await this.planOpen(user))) return refused(locale, 'expired');
     const result = await transferExport({ orgId: user.orgId, batchId, format: body.format, recordIds: body.recordIds, actorId: user.userId });
-    return result.ok ? result : refused(locale, result.error);
+    return result.ok ? result : refused(locale, result.error, result.problems ? { problems: result.problems } : {});
   }
 
   async exportFile(user: CurrentUser, exportId: string): Promise<FileOut> {

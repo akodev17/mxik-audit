@@ -194,7 +194,11 @@ export const onec = defineModule('onec', {
     params: BatchPath,
     body: z.object({ format: z.literal('odata').default('odata'), recordIds: z.array(ShortId).min(1).max(5000).optional() }),
     responds: 'json',
-    response: z.union([z.object({ ok: z.literal(true), exportId: z.string(), outcome: ImportOutcome }), Refused]),
+    response: z.union([
+      z.object({ ok: z.literal(true), exportId: z.string(), outcome: ImportOutcome }),
+      // composition_incomplete names what the base does not publish (onec §8.25).
+      Refused.extend({ problems: z.array(CompositionProblem).optional() }),
+    ]),
     replaces: ['page:(app)/onec/[batchId]#transfer'],
   }),
   exportFile: endpoint({

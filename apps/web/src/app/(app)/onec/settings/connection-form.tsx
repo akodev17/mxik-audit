@@ -26,6 +26,27 @@ type Test = OutputOf<typeof endpoints.onec.testConnection>;
 type Kind = Connection['kind'];
 type BankKeys = Connection['bankKeys'];
 
+type Problem = NonNullable<Test['problems']>[number];
+
+/** What the base's OData composition lacks, each with the object to publish (onec §8.25); also shown by a refused transfer. */
+export function CompositionProblems({ problems }: { problems: readonly Problem[] }) {
+  const { ta } = useI18n();
+  const s = ta.onecX.settings;
+  return (
+    <Alert tone={problems.some((p) => p.required) ? 'danger' : 'warn'} className="mt-3" title={s.problemsTitle}>
+      <ul className="mt-1 list-disc space-y-0.5 pl-5">
+        {problems.map((p) => (
+          <li key={`${p.kind}:${p.entitySet}:${p.attribute ?? ''}`}>
+            <span className="font-mono text-mono">{s.problem[p.kind]?.(p.entitySet, p.attribute ?? '') ?? `${p.entitySet} ${p.attribute ?? ''}`}</span>
+            {p.required ? <span className="ml-2 text-danger-ink">({s.required})</span> : null}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2">{s.problemsHint}</p>
+    </Alert>
+  );
+}
+
 export function ConnectionForm({ initial, demo }: { initial: Connection; demo: boolean }) {
   const { locale, ta } = useI18n();
   const s = ta.onecX.settings;
@@ -109,6 +130,13 @@ export function ConnectionForm({ initial, demo }: { initial: Connection; demo: b
             <span className="text-muted">{s.lastTest}: {fmtDateTime(locale, verdict.testedAt)}</span>
           </p>
         ) : <p className="mt-3 text-small text-muted">{s.lastTest}: {s.never}</p>}
+        {kind !== 'none' && (test?.insecure || baseUrl.trim().toLowerCase().startsWith('http:')) ? <Alert tone="warn" className="mt-3">{s.insecure}</Alert> : null}
+        {test?.problems && test.problems.length > 0 ? <CompositionProblems problems={test.problems} /> : null}
+        {test?.resolved && Object.keys(test.resolved).length > 0 ? (
+          <ul className="mt-3 space-y-1 text-small text-muted">
+            {Object.entries(test.resolved).map(([from, to]) => <li key={from}>{s.renamed(from, to)}</li>)}
+          </ul>
+        ) : null}
       </Card>
 
       {error ? <Alert tone="danger">{error}</Alert> : null}

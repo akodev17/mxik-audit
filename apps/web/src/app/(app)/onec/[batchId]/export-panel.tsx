@@ -21,6 +21,7 @@ import { Table, Td, Th } from '@/ui/table';
 import { useToast } from '@/ui/toast';
 import { Card, FLUSH_TABLE } from '../../_manage/card';
 import { issueDetail, issueLabel } from '../review/columns';
+import { CompositionProblems } from '../settings/connection-form';
 
 type Detail = OutputOf<typeof endpoints.onec.batch>;
 type Format = Detail['primary'];
@@ -53,6 +54,7 @@ export function ExportPanel({ initial, canWrite }: { initial: Detail; canWrite: 
   const [format, setFormat] = useState<Format>(initial.primary);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gaps, setGaps] = useState<Parameters<typeof CompositionProblems>[0]['problems']>([]);
   const batchId = data.batch.id;
   const fail = (e: unknown) => setError(refusalText(e, ta.onecX.errors['generic'] ?? ''));
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKey(api.onec.batch) });
@@ -78,9 +80,9 @@ export function ExportPanel({ initial, canWrite }: { initial: Detail; canWrite: 
   });
   const transfer = useMutation({
     mutationFn: () => api.onec.transfer({ batchId, format: 'odata' }),
-    onMutate: () => setError(null),
+    onMutate: () => { setError(null); setGaps([]); },
     onSuccess: async (res) => {
-      if (!res.ok) { setError(res.error); return; }
+      if (!res.ok) { setError(res.error); setGaps(res.problems ?? []); return; }
       toast(d.transferred(res.outcome.imported, res.outcome.rejected), res.outcome.rejected > 0 ? { tone: 'error' } : undefined);
       await refresh();
     },
@@ -149,6 +151,7 @@ export function ExportPanel({ initial, canWrite }: { initial: Detail; canWrite: 
             <Button size="sm" loading={transfer.isPending} onClick={() => transfer.mutate()}>{transfer.isPending ? d.transferring : d.transfer}</Button>
             {lastRejected > 0 ? <Button size="sm" variant="ghost" loading={transfer.isPending} onClick={() => transfer.mutate()}>{d.retry}</Button> : null}
           </div>
+          {gaps.length > 0 ? <CompositionProblems problems={gaps} /> : null}
         </Card>
       ) : null}
 
