@@ -63,8 +63,13 @@ export function sniffKind(buffer: Uint8Array): FileKind {
   return 'text';
 }
 
-/** Whole numbers without an exponent; a 1–3 digit number with exactly three decimals gets a fourth, so it never reads as thousands. */
+/**
+ * Whole numbers without an exponent; a 1–3 digit number with exactly three decimals gets a fourth, so it never reads as
+ * thousands. Past 17 digits a number cell no longer holds the digits written (Excel keeps 15): a 20-digit account
+ * stays in Excel's exponent form, so it reads as invalid instead of as a valid-looking wrong account (review 30 Oct, R-O6).
+ */
 export function numberText(value: number): string {
+  if (Number.isInteger(value) && Math.abs(value) >= 1e17) return value.toExponential().toUpperCase();
   if (Number.isInteger(value)) return Math.abs(value) >= 1e15 ? value.toFixed(0) : String(value);
   const text = String(value);
   return /^-?[1-9]\d{0,2}\.\d{3}$/.test(text) ? `${text}0` : text;

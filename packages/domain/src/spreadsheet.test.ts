@@ -4,6 +4,8 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { build1cCsv, ONE_C_HEADERS_RU } from './export-1c.js';
 import { fileLine } from './sheet-shape.js';
+import { readAccount } from './bank/identifiers.js';
+import { validAccount } from './onec/requisites.js';
 import { MAX_ROWS, numberText, parseUpload, ParseError, sniffKind } from './spreadsheet.js';
 
 const MB = 1024 * 1024;
@@ -189,5 +191,14 @@ describe('parseUpload: spreadsheets', () => {
     assert.equal(numberText(1234.567), '1234.567');
     assert.equal(numberText(12.5), '12.5');
     assert.equal(numberText(12345678901234568), '12345678901234568');
+  });
+
+  it('a 20-digit account in a number cell reads as invalid, not as a valid-looking wrong account', () => {
+    // Review 30 Oct (R-O6): Excel keeps 15 digits; 20208000900123456001 came back as "20208000900123455488" and passed.
+    const cell = numberText(20208000900123456001);
+    assert.match(cell, /^2\.0208\d+E\+19$/);
+    assert.equal(readAccount(cell).invalid, true);
+    assert.equal(validAccount(cell), false);
+    assert.equal(numberText(10403003014000001), '10403003014000000', 'a 17-digit code keeps the old form (products flag it as mxik_number_cell)');
   });
 });
