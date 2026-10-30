@@ -68,6 +68,8 @@ export type ParseOptions = {
 };
 
 const MAX_DROPPED_IN_META = 200;
+/** Columns only a payment fills: a totals, balance or footer row has none of them. */
+const IDENTIFYING = ['docNumber', 'account', 'inn'] as const;
 
 const cut = (s: string, n: number): string => (s.length > n ? s.slice(0, n) : s);
 const textOf = (cells: readonly string[]): string => cut(cells.filter(Boolean).join(' · '), 300);
@@ -264,7 +266,11 @@ export function parseStatement(sheet: StatementSheet, options: ParseOptions): Pa
     const dateCell = row.cells[columnOf(map, 'date')] ?? '';
     const dated = readDate(dateCell, conventions.dateOrder).value !== null;
     if (!dated) {
-      const kind = rowNoise(row.cells);
+      // A row naming a document or a counterparty's account or ИНН is a payment whose date is missing (a statement that
+      // prints the date once per day), even when its purpose says "aylanma", "итого" or "сальдо": it stays a visible
+      // line, never a totals row whose amount would pass for the bank's printed totals (review 30 Oct).
+      const names = IDENTIFYING.some((r) => /\d/.test(row.cells[columnOf(map, r)] ?? ''));
+      const kind = names ? null : rowNoise(row.cells);
       if (kind) {
         if (kind === 'opening_balance' && opening === null) opening = rowAmount(row.cells, map, conventions);
         if (kind === 'closing_balance') closing = rowAmount(row.cells, map, conventions) ?? closing;

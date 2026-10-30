@@ -153,6 +153,28 @@ describe('ASBT «Экспорт документов»: payer and payee, zipped 
   });
 });
 
+describe('a statement that prints the date once per day', () => {
+  it('an undated payment whose purpose says "aylanma" stays a line; only the real totals row gives the printed totals', async () => {
+    // bank §7.31 §7.33, review 30 Oct: the noise words (aylanma, итого, сальдо…) dropped such a payment as "totals",
+    // and the last totals row read became the bank's printed totals.
+    const csv = [
+      'Выписка по счету 20208000900123456001',
+      'Входящий остаток: 1 000 000,00',
+      'Дата;№ документа;Корреспондент;Счет корреспондента;Дебет;Кредит;Назначение платежа',
+      '01.10.2026;5;OOO Alfa;20208000400987654001;100 000,00;;Оплата за товар',
+      ';6;OOO Beta;20208000100555444001;;250 000,00;Aylanma mablagʻlarini toʻldirish uchun',
+      'Итого обороты;;;;100 000,00;250 000,00;',
+      'Исходящий остаток: 1 150 000,00',
+    ].join('\r\n');
+    const { parsed } = await read(Buffer.from(csv, 'utf8'));
+    assert.deepEqual(parsed.lines.map((l) => [l.payload.docNumber, l.payload.direction, l.payload.amount, l.issues.map((i) => i.code)]), [
+      ['5', 'debit', '100000', []], ['6', 'credit', '250000', ['date_missing']],
+    ]);
+    assert.deepEqual([parsed.meta.totalDebit, parsed.meta.totalCredit], ['100000', '250000']);
+    assert.deepEqual(parsed.dropped.map((d) => d.reason), ['totals', 'closing_balance']);
+  });
+});
+
 describe('iBank2 statement CSV, one file for all accounts (ibank2-all-accounts.csv)', () => {
   it('rows grouped by the own account column, the guide\'s example rows read as printed', async () => {
     // bank §7.40 §7.30 §7.34
