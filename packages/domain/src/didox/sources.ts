@@ -315,7 +315,10 @@ export function templateToDocuments(sheet: Pick<ParseResult, 'headers' | 'rows'>
     });
   };
   for (const row of lines) {
-    const startsInvoice = head === null || at(row, 'invoice') !== '' || (at(row, 'facturaNo') !== '' && at(row, 'facturaNo') !== at(head, 'facturaNo'));
+    // A new invoice where column A (or the number) changes: the instruction only says A on the first line is "enough",
+    // so A repeated with the same value on every line is one invoice, not one per line (review 30 Oct, R-D12).
+    const differs = (f: TemplateField): boolean => head !== null && at(row, f) !== '' && at(row, f) !== at(head, f);
+    const startsInvoice = head === null || differs('invoice') || differs('facturaNo');
     if (startsInvoice) { flush(); head = row; products = []; }
     const cell = (f: TemplateField): string | undefined => at(row, f) || undefined;
     const rate = cell('vatRate');

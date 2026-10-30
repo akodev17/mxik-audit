@@ -352,7 +352,7 @@ describe('Didox rules against the tasnif mirror and the parties (synthetic facts
 
 describe('Didox ЭСФ Excel template (official filling instruction, 73 columns)', () => {
   /** A template as the instruction describes it: captions in row 1, two invoices, header cells on each invoice's first line. */
-  async function template(): Promise<Buffer> {
+  async function template(repeatA = false): Promise<Buffer> {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('ЭСФ');
     const captions: Record<number, string> = {
@@ -364,7 +364,7 @@ describe('Didox ЭСФ Excel template (official filling instruction, 73 columns)
     ws.addRow(Array.from({ length: 73 }, (_, i) => captions[i + 1] ?? `Поле ${i + 1}`));
     const row = (cells: Record<number, string | number>): void => { ws.addRow(Array.from({ length: 73 }, (_, i) => cells[i + 1] ?? null)); };
     row({ 1: 1, 2: 0, 4: 'EXL-1', 5: '15.10.2026', 6: 'D-7', 7: '01.01.2026', 13: '"ALFA" MCHJ', 14: '310529901', 27: '"BETA" MCHJ', 28: '302936161', 41: 1, 45: 'Ноутбук', 46: '08471001001000000', 49: '1501886', 52: 2, 53: 1000, 56: 2000, 57: 12, 58: 240, 59: 2240, 65: 2 });
-    row({ 41: 2, 45: 'Мышь', 46: '08471001001000000', 49: '1501886', 52: 1, 53: 100, 56: 100, 57: 12, 58: 12, 59: 112, 65: 2 });
+    row({ ...(repeatA ? { 1: 1, 4: 'EXL-1' } : {}), 41: 2, 45: 'Мышь', 46: '08471001001000000', 49: '1501886', 52: 1, 53: 100, 56: 100, 57: 12, 58: 12, 59: 112, 65: 2 });
     row({ 1: 2, 2: 0, 4: 'EXL-2', 5: '16.10.2026', 13: '"ALFA" MCHJ', 14: '310529901', 28: '302936161', 41: 1, 45: 'Консультация', 46: '10306002005000000', 52: 1, 53: 500, 56: 500, 57: 'Без НДС', 58: 0, 59: 500, 65: 3 });
     return Buffer.from(await wb.xlsx.writeBuffer());
   }
@@ -384,5 +384,13 @@ describe('Didox ЭСФ Excel template (official filling instruction, 73 columns)
     assert.ok(first && second && [...first.lines, ...second.lines].every((l) => l.issues.length === 0));
     // The header signature a remembered mapping is keyed on ignores case and punctuation.
     assert.equal(sheetSignature(['Наименование', 'Кол-во', 'A']), sheetSignature(['НАИМЕНОВАНИЕ ', 'Колво', 'B']));
+  });
+
+  // Review 30 Oct (R-D12): the instruction says column A on an invoice's first line is enough; repeated on every line it
+  // made each line an invoice, and the second was refused as a duplicate.
+  it('column A (and the number) repeated on every line of an invoice keeps it one invoice', async () => {
+    const read = await readDidoxUpload(await template(true), 'shablon-esf.xlsx');
+    assert.ok(read.kind === 'xlsx');
+    assert.deepEqual(templateToDocuments(read.sheet).map((d) => d.lines), [2, 1]);
   });
 });
