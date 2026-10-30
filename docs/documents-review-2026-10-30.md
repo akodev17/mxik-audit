@@ -53,6 +53,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-O4b | major | 84dd30d | A product whose OData POST timed out is looked up by name before being created again. Test: onec/odata.test.ts 'a product whose POST timed out is found by its name on retry'. | (follow-up, 30 Oct evening) |
 | R-D6 | major | 15a097f | Didox sync reads up to 1 000 pages per run (was 50) and a run cut by the limit says list_truncated. Test: didox/real-docs-db.test.ts 'a run that stops at its page limit'. | (follow-up, 30 Oct evening) |
 | R-B2b | major | 79b6ef9 | Text and HTML/XML statement grids keep GRID_ROWS rows and count the rest (was: every row built, ~1.9 GB for 20 MB). Test: bank/markup.test.ts 'grid row cap'. | (follow-up, 30 Oct evening) |
+| R-O6 | major | ec8069b | Number cells of 18+ digits keep Excel's exponent form, so a damaged 20-digit account is refused (bank, counterparties) instead of stored. Test: spreadsheet.test.ts 'a 20-digit account in a number cell reads as invalid'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
