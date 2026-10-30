@@ -108,6 +108,10 @@ describe('identifiers', () => {
     assert.equal(readAccount('2020800010').invalid, true);
     assert.equal(readMfo('440').value, '00440', 'Excel dropped the leading zeros of a number cell');
     assert.equal(readMfo('00014').value, '00014');
+    // Review 30 Oct (R-B18): a number cell written with its decimal part; the dot was dropped and '444.0' became 04440.
+    assert.equal(readMfo('444.0').value, '00444');
+    assert.equal(readInn('302345678.0').value, '302345678');
+    assert.equal(readMfo('4.440').invalid, false, 'a dot inside the digits is still a separator');
     assert.equal(readMfo('1234567').invalid, true);
     assert.equal(accountCurrency('20208000900123456001'), 'UZS');
     assert.equal(accountCurrency('20208840900123456001'), 'USD');
