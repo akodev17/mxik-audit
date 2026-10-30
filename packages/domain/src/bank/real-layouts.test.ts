@@ -139,6 +139,18 @@ describe('ASBT «Экспорт документов»: payer and payee, zipped 
     // Two documents share number 1 the same day (different payers): never one payment (§7.24).
     assert.notEqual(lineFingerprint(fixed.parsed.lines[0].payload), lineFingerprint(fixed.parsed.lines[1]!.payload));
   });
+
+  it('fixed width: a payment line of another length (last field trimmed) is still a payment, not the previous purpose', async () => {
+    // bank §7.39, review 30 Oct: as a one-cell row it was appended to line 2's purpose and the 2 340 000 tax payment was lost.
+    const text = iconv.decode(fixture('asbt-documents-fixed.txt'), 'win1251').split('\r\n');
+    text[3] = (text[3] ?? '').trimEnd();
+    const { parsed } = await read(iconv.encode(text.join('\r\n'), 'win1251'));
+    assert.deepEqual(parsed.lines.map((l) => [l.payload.docNumber, l.payload.direction, l.payload.amount]), [
+      ['1', 'debit', '7800000'], ['1', 'credit', '15000000'], ['2', 'debit', '2340000'], ['17', 'credit', '980500.5'],
+    ]);
+    assert.equal(parsed.lines[1]?.payload.purpose, 'Оплата за товар по счету-фактуре № 91');
+    assert.deepEqual(parsed.dropped, []);
+  });
 });
 
 describe('iBank2 statement CSV, one file for all accounts (ibank2-all-accounts.csv)', () => {

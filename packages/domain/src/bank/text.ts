@@ -52,9 +52,10 @@ function fixedWidthLines(lines: readonly string[]): { width: number; rows: numbe
  * The header decides where in that gap the cut falls (before its next word, so "Номер документа"
  * stays one name and a left-aligned "Сумма" over a right-aligned amount names the amount), and
  * splits fields that touch — a value filling its width, a 20-digit account next to an ИНН — where
- * one of its words starts after two spaces. Without a header only the data's gaps cut.
+ * one of its words starts after two spaces. Without a header only the data's gaps cut. `others` are cut at
+ * the same places without deciding them (lines of another length).
  */
-export function splitFixedWidth(lines: readonly string[]): string[][] {
+export function splitFixedWidth(lines: readonly string[], others: readonly string[] = []): string[][] {
   const width = lines.reduce((w, l) => Math.max(w, l.length), 0);
   const header = lines.find((l) => l.trim() !== '' && !DATE.test(l) && !/\d[.,]\d{2}\b/.test(l)) ?? null;
   const data = lines.filter((l) => l !== header && l.trim() !== '');
@@ -83,8 +84,11 @@ export function splitFixedWidth(lines: readonly string[]): string[][] {
   }
   const starts = [...cuts].sort((x, y) => x - y);
   const spans = starts.map((x, i) => [x, starts[i + 1] ?? width] as const);
-  return lines.map((l) => (l.trim() === '' ? [] : spans.map(([x, y]) => l.slice(x, y).trim())));
+  return [...lines, ...others].map((l) => (l.trim() === '' ? [] : spans.map(([x, y]) => l.slice(x, y).trim())));
 }
+
+/** A payment line by its look: a date and an amount with two decimals. */
+const PAYMENT = (line: string): boolean => DATE.test(line) && /\d[.,]\d{2}/.test(line);
 
 /** The cell grid of a text statement. Title lines of a fixed-width file become one-cell rows. */
 export function readStatementText(buffer: Uint8Array): StatementText {
@@ -93,9 +97,13 @@ export function readStatementText(buffer: Uint8Array): StatementText {
   const fixed = fixedWidthLines(lines);
   if (fixed) {
     const rows = new Set(fixed.rows);
-    const table = splitFixedWidth(fixed.rows.map((i) => lines[i] ?? ''));
-    let k = 0;
-    const grid = lines.map((l, i) => (rows.has(i) ? table[k++] ?? [] : l.trim() === '' ? [] : [l.trim()]));
+    // A payment line of another length inside the table (a writer that trims the last field) is a row of the same
+    // table, cut at the same places; as a one-cell row it read as the previous line's purpose and its payment was lost.
+    const first = Math.min(...fixed.rows);
+    const stray = lines.flatMap((l, i) => (i > first && !rows.has(i) && l.trimEnd().length <= fixed.width && PAYMENT(l) ? [i] : []));
+    const table = splitFixedWidth(fixed.rows.map((i) => lines[i] ?? ''), stray.map((i) => lines[i] ?? ''));
+    const cells = new Map([...fixed.rows, ...stray].map((i, k) => [i, table[k] ?? []]));
+    const grid = lines.map((l, i) => cells.get(i) ?? (l.trim() === '' ? [] : [l.trim()]));
     return { grid, encoding, delimiter: null, fixedWidth: true };
   }
   const delimiter = sniffDelimiter(text, 40, STATEMENT_DELIMITERS);
