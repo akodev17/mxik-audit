@@ -15,7 +15,7 @@ import { parseBankExchange } from '../onec/bank-exchange.js';
 import { setOperationSuggester } from './ai.js';
 import { readLines, readStatementFile } from './read.js';
 import {
-  approveMany, createStatement, exportStatement, prepareStatement, previewStatement, processing, reconcileStatement, STALL_MS, statementDetail,
+  approveMany, claimStalled, createStatement, exportStatement, prepareStatement, previewStatement, processing, reconcileStatement, STALL_MS, statementDetail,
 } from './service.js';
 import { batchMeta, isRunning, storeLines } from './store.js';
 
@@ -94,6 +94,14 @@ describe('bank statements from real material (database)', { skip }, () => {
     const after = await db.importBatch.findUniqueOrThrow({ where: { id: batch.id }, select: { status: true, error: true } });
     assert.equal(after.status, 'failed');
     assert.match(after.error ?? '', /stored 2 of 4 lines/);
+  });
+
+  it('B3: of two processes resuming one stalled statement, one takes it over', async () => {
+    // Review 30 Oct (R-B9): the in-process guard does not see another API process; the claim is one conditional UPDATE.
+    const batch = await db.importBatch.create({ data: { orgId: admin.orgId, kind: 'bank_statement', source: 'upload', filename: 'claim.txt', fingerprint: `claim-${Date.now()}`, status: 'uploaded', createdBy: admin.userId }, select: { id: true } });
+    await db.$executeRaw`UPDATE import_batch SET "updatedAt" = now() - (${STALL_MS + 5_000} * interval '1 millisecond') WHERE id = ${batch.id}`;
+    assert.deepEqual((await Promise.all([claimStalled(batch.id), claimStalled(batch.id)])).sort(), [false, true]);
+    assert.equal(await claimStalled(batch.id), false, 'taken over: no longer stalled');
   });
 
   it('a re-import of an overlapping period adds no new payment: only the one outside the first file is new', async () => {

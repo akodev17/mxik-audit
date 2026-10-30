@@ -186,10 +186,26 @@ function startRun(batchId: string, suggester?: OperationSuggester | null): void 
   inflight.set(batchId, run);
 }
 
+/**
+ * Takes a stalled statement over for this process: one conditional UPDATE, so of two API processes reading it at once
+ * only one resumes it and writes its issues (review 30 Oct, R-B9; within one process `startRun` already runs it once).
+ */
+export async function claimStalled(batchId: string): Promise<boolean> {
+  const { count } = await db.importBatch.updateMany({
+    where: { id: batchId, status: 'uploaded', updatedAt: { lt: new Date(Date.now() - STALL_MS) } }, data: { updatedAt: new Date() },
+  });
+  return count === 1;
+}
+
 /** Resumes the statements left `uploaded` by a stopped process (the products import does the same, products/import.ts). */
 function resumeStalled(rows: readonly { id: string; status: string; updatedAt: Date }[]): void {
   const now = Date.now();
-  for (const b of rows) if (b.status === 'uploaded' && now - b.updatedAt.getTime() > STALL_MS) startRun(b.id);
+  for (const b of rows) {
+    if (b.status !== 'uploaded' || now - b.updatedAt.getTime() <= STALL_MS || inflight.has(b.id) || isRunning(b.id)) continue;
+    // Registered at once, so a caller awaiting processing() waits for the claim and the run it wins.
+    const run = claimStalled(b.id).then((won) => (won ? runStatement({ batchId: b.id }) : undefined)).catch(() => undefined).finally(() => inflight.delete(b.id));
+    inflight.set(b.id, run);
+  }
 }
 
 export type CreateInput = { clientId: unknown; file: UploadedFile | null; columnMap: unknown; conventions: unknown; formatName?: unknown };
