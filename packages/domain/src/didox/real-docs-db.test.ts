@@ -163,7 +163,7 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
     assert.ok(started.ok, JSON.stringify(started));
     assert.equal(started.state.status, 'running');
     let state: SyncState | null = started.state;
-    for (let i = 0; i < 100 && state?.status === 'running'; i++) {
+    for (let i = 0; i < 600 && state?.status === 'running'; i++) { // 30 s at most: a loaded full run is slow (R-D15)
       await new Promise((r) => setTimeout(r, 50));
       state = await syncStatus(admin, options);
     }
@@ -182,7 +182,7 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
     const resumed = await syncStatus(admin, options);
     assert.equal(resumed?.status, 'running');
     let end: SyncState | null = resumed;
-    for (let i = 0; i < 100 && end?.status === 'running'; i++) {
+    for (let i = 0; i < 600 && end?.status === 'running'; i++) {
       await new Promise((r) => setTimeout(r, 50));
       end = await syncStatus(admin, options);
     }
