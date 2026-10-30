@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import ExcelJS from 'exceljs';
 import { formulaSafe } from './csv-safe.js';
+import { build1cCsv, build1cXlsx, ONE_C_HEADERS_RU, stream1cCsv, type OneCHeaders, type OneCRow } from './export-1c.js';
 import { buildExport, parseUpload, type ExportOptions, type ExportRow } from './spreadsheet.js';
 
 /** spreadsheet.ts buildExport before S8, unchanged. */
@@ -140,5 +141,56 @@ describe('streaming corrected Excel', () => {
     ], i));
     const snap = await sameAsInMemory('5,000 rows', { headers, rows, mxikColumn: 2, unitColumn: 3, labels: LABELS });
     assert.equal(snap.sheets[0]?.rows.length, 5001);
+  });
+
+  it('equals it when the rows are fed one by one (the catalogue export\'s batches)', async () => {
+    const rows = Array.from({ length: 2_500 }, (_, i) => rowFor([`Tovar ${i}`, '', i % 3 ? 'dona' : 'kg'], i));
+    const options = { headers: ['Nomi', 'MXIK', 'Birlik'], rows, mxikColumn: 1, unitColumn: 2, labels: LABELS };
+    assert.deepEqual(await snapshot(await buildExport({ ...options, rows: fed(rows) })), await snapshot(await buildExportInMemory(options)));
+  });
+});
+
+/** onec/sheets.ts build1cXlsx before S13 (in memory), unchanged. */
+async function build1cXlsxInMemory(rows: readonly OneCRow[], headers: OneCHeaders = ONE_C_HEADERS_RU): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Tasnivo';
+  const sheet = workbook.addWorksheet('1C');
+  sheet.columns = [
+    { width: 48 }, { width: 22, style: { numFmt: '@' } }, { width: 18 }, { width: 18, style: { numFmt: '@' } }, { width: 26 }, { width: 26 },
+  ];
+  sheet.addRow([...headers].map(formulaSafe)).font = { bold: true };
+  for (const r of rows) sheet.addRow([r.name, r.mxik, r.unit, r.barcode, r.auditStatus, r.restricted ?? ''].map(formulaSafe));
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+/** Rows as an async source, a tick apart, like the export's batches. */
+async function* fed<T>(rows: readonly T[]): AsyncGenerator<T> {
+  for (const row of rows) yield await Promise.resolve(row);
+}
+
+describe('streaming 1C file of the catalogue export (S13)', () => {
+  const oneC = (i: number): OneCRow => ({
+    name: i % 41 === 0 ? '' : i % 9 === 0 ? `=Tovar ${i}` : `Товар ${i}; "${i % 3}"`,
+    mxik: i % 5 === 0 ? '' : `0630100100${String(1000000 + i).slice(-7)}`,
+    unit: i % 3 === 0 ? 'кг' : 'dona', barcode: i % 4 === 0 ? '' : `0478${String(i).padStart(9, '0')}`,
+    auditStatus: STATUSES[i % STATUSES.length] ?? '', ...(i % 11 === 0 ? { restricted: '01.07.2026 dan EHFda cheklangan' } : {}),
+  });
+  const headers: OneCHeaders = ['Nomi', 'MXIK', 'Birlik', 'Shtrix-kod', 'Holat', 'EHF'];
+
+  it('the .xlsx equals the in-memory builder, from a list or fed row by row', async () => {
+    for (const rows of [[], Array.from({ length: 3 }, (_, i) => oneC(i + 8)), Array.from({ length: 3_000 }, (_, i) => oneC(i))]) {
+      const reference = await snapshot(await build1cXlsxInMemory(rows, headers));
+      assert.deepEqual(await snapshot(await build1cXlsx(rows, headers)), reference, `${rows.length} rows from a list`);
+      assert.deepEqual(await snapshot(await build1cXlsx(fed(rows), headers)), reference, `${rows.length} rows fed`);
+    }
+    assert.deepEqual(await snapshot(await build1cXlsx([oneC(1)])), await snapshot(await build1cXlsxInMemory([oneC(1)])), 'default headers');
+  });
+
+  it('the CSV fed row by row is build1cCsv byte for byte', async () => {
+    for (const rows of [[], Array.from({ length: 3_000 }, (_, i) => oneC(i))]) {
+      assert.deepEqual(await stream1cCsv(fed(rows), headers), build1cCsv(rows, headers));
+      assert.deepEqual(await stream1cCsv(fed(rows)), build1cCsv(rows));
+    }
   });
 });

@@ -273,6 +273,10 @@ export const uz = {
       lastPaid: 'Oxirgi toʻlov',
       closed: 'yopilgan',
       none: '—',
+      pages: 'Sahifalar',
+      range: (from: string, to: string, total: string) => `${from}–${to} / ${total}`,
+      prev: 'Oldingi sahifa',
+      next: 'Keyingi sahifa',
     },
     integrations: {
       telegram: 'Telegram xabarnomalari',
@@ -710,6 +714,10 @@ export const ru: typeof uz = {
       lastPaid: 'Последний платёж',
       closed: 'закрыта',
       none: '—',
+      pages: 'Страницы',
+      range: (from: string, to: string, total: string) => `${from}–${to} из ${total}`,
+      prev: 'Предыдущая страница',
+      next: 'Следующая страница',
     },
     integrations: {
       telegram: 'Уведомления в Telegram',

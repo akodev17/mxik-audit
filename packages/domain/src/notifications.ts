@@ -114,7 +114,7 @@ export type NoticePage = { items: NoticeView[]; total: number; page: number; pag
 export const NOTICE_GROUPS = ['review', 'audit', 'other'] as const;
 export type NoticeGroup = (typeof NOTICE_GROUPS)[number];
 
-const GROUP_KINDS = { review: ['review.assigned', 'review.completed'], audit: ['catalog.ready'] } as const;
+const GROUP_KINDS = { review: ['review.assigned', 'review.completed', 'review.dropped'], audit: ['catalog.ready'] } as const;
 
 export function groupWhere(group: NoticeGroup | undefined): Prisma.NotificationWhereInput {
   if (!group) return {};

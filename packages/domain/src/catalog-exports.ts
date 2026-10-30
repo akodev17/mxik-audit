@@ -20,11 +20,11 @@ import { isDemoOrg } from './demo.js';
 import { demoMaxExports } from './demo-config.js';
 import { diffCsv } from './diff-csv.js';
 import type { DocKind } from './docs.js';
-import { build1cCsv, build1cXlsx, type OneCRow } from './export-1c.js';
+import { build1cXlsx, stream1cCsv, type OneCRow } from './export-1c.js';
 import { baseName, contentDisposition } from './export-filename.js';
 import { readImportMeta } from './import-diagnostics.js';
 import { importIssuesCsv } from './import-issues-csv.js';
-import { codeRestrictions, codeUnits, exportLines, exportPackaging, exportUnit } from './export-rows.js';
+import { codeRestrictions, codeUnits, exportLineBatches, exportPackaging, exportUnit, type ExportLine } from './export-rows.js';
 import { reportPdfData, type ReportPdfData } from './pdf/report-data.js';
 import { buildReportPdf, type PdfAudience } from './pdf/report-pdf.js';
 import { reportCsv } from './report-csv.js';
@@ -80,8 +80,68 @@ export async function paymentRequired(orgId: string, catalogId: string): Promise
 const withoutChosen = (data: ReportPdfData): ReportPdfData => ({ ...data, rows: data.rows.map((r) => ({ ...r, chosen: null })) });
 
 const StoredMap = z.object({ mxik: z.number(), unit: z.number(), barcode: z.number().optional() });
+export type StoredMapping = z.infer<typeof StoredMap>;
 export const EXPORT_FORMATS = ['xlsx', '1c', '1c-xlsx'] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+/** What an export wrote, counted while its batches go by (the catalog.exported event). */
+export type ExportTally = { rows: number; acceptedCodes: Set<string>; partial: number; pending: number; skipped: number; failed: number };
+export const newTally = (): ExportTally => ({ rows: 0, acceptedCodes: new Set(), partial: 0, pending: 0, skipped: 0, failed: 0 });
+
+const fileCell = (original: readonly string[], index: number | undefined): string => (index !== undefined && index >= 0 ? original[index] ?? '' : '');
+
+async function* mapRows<T, U>(source: AsyncIterable<T>, f: (value: T) => U): AsyncGenerator<U> {
+  for await (const value of source) yield f(value);
+}
+
+/**
+ * The corrected file's rows in file order, read batch by batch (exportLineBatches): each batch
+ * looks up its own codes' units and restrictions, and only `tally` outlives it.
+ */
+export async function* exportFileRows(
+  catalogId: string, mapping: StoredMapping, locale: Locale, tally: ExportTally, options: { batchSize?: number } = {},
+): AsyncGenerator<{ line: ExportLine; row: ExportRow }> {
+  const x = i18nFor(locale).ta.importX.exp;
+  for await (const lines of exportLineBatches(catalogId, options)) {
+    const items = lines.flatMap((line) => (line.kind === 'item' ? [line.item] : []));
+    const [units, restrictions] = await Promise.all([
+      codeUnits(items.flatMap((i) => (i.effective.acceptedCode ? [i.effective.acceptedCode] : []))),
+      codeRestrictions(items.flatMap((i) => (i.effective.code ? [i.effective.code] : []))),
+    ]);
+    // Judged on the code the file leaves with: an accepted detailed code clears it.
+    const restrictedText = (code: string | null): string => {
+      const from = code ? restrictions.get(code) : undefined;
+      return from ? x.restrictedFrom(restrictionDate(from)) : '';
+    };
+    // Every file row in its place (F7): a row without a name goes out as it came, saying it was not checked;
+    // a row whose check failed (S3) keeps its code and says so, never "no risk" or "accepted".
+    for (const line of lines) {
+      tally.rows++;
+      if (line.kind === 'skipped') {
+        tally.skipped++;
+        const o = line.row.original;
+        yield { line, row: { original: o, mxik: fileCell(o, mapping.mxik), unit: fileCell(o, mapping.unit), packaging: '', auditStatus: x.notChecked.noName, restricted: '' } };
+        continue;
+      }
+      const { item } = line;
+      if (item.effective.acceptedCode) tally.acceptedCodes.add(item.effective.acceptedCode);
+      if (item.effective.review === 'partial') tally.partial++;
+      if (item.effective.review === 'pending') tally.pending++;
+      if (item.checkError) tally.failed++;
+      yield {
+        line,
+        row: {
+          original: item.original,
+          mxik: item.effective.code ?? '',
+          unit: exportUnit(item, units),
+          packaging: exportPackaging(item, units),
+          auditStatus: item.checkError ? x.notChecked.failed : x.status[item.effective.review],
+          restricted: restrictedText(item.effective.code),
+        },
+      };
+    }
+  }
+}
 
 /**
  * Rebuilds the uploaded file with accepted decisions applied (format=xlsx), or
@@ -104,52 +164,24 @@ export async function catalogExport(user: Viewer, locale: Locale, catalogId: str
   const mapping = StoredMap.safeParse(catalog.columnMap);
   if (!mapping.success) return refuse(500, 'bad_mapping', 'bad mapping');
 
-  const { items, lines } = await exportLines(catalog.id);
-  const accepted = [...new Set(items.flatMap((i) => (i.effective.acceptedCode ? [i.effective.acceptedCode] : [])))];
-  const [units, restrictions] = await Promise.all([
-    codeUnits(accepted),
-    codeRestrictions(items.flatMap((i) => (i.effective.code ? [i.effective.code] : []))),
-  ]);
-  // Judged on the code the file leaves with: an accepted detailed code clears it.
-  const restrictedText = (code: string | null): string => {
-    const from = code ? restrictions.get(code) : undefined;
-    return from ? x.restrictedFrom(restrictionDate(from)) : '';
-  };
-  const fileCell = (original: readonly string[], index: number | undefined): string => (index !== undefined && index >= 0 ? original[index] ?? '' : '');
-  // Every file row in its place (F7): a row without a name goes out as it came, saying it was not checked;
-  // a row whose check failed (S3) keeps its code and says so, never "no risk" or "accepted".
-  const rows: ExportRow[] = lines.map((line) => {
-    if (line.kind === 'skipped') {
-      const o = line.row.original;
-      return { original: o, mxik: fileCell(o, mapping.data.mxik), unit: fileCell(o, mapping.data.unit), packaging: '', auditStatus: x.notChecked.noName, restricted: '' };
-    }
-    const { item } = line;
-    return {
-      original: item.original,
-      mxik: item.effective.code ?? '',
-      unit: exportUnit(item, units),
-      packaging: exportPackaging(item, units),
-      auditStatus: item.checkError ? x.notChecked.failed : x.status[item.effective.review],
-      restricted: restrictedText(item.effective.code),
-    };
-  });
-
+  const tally = newTally();
+  const rows = exportFileRows(catalog.id, mapping.data, locale, tally);
   const base = baseName(catalog.filename);
   const build = async (): Promise<{ body: Uint8Array; type: string; filename: string }> => {
     if (format === '1c' || format === '1c-xlsx') {
-      const oneC: OneCRow[] = lines.map((line, i) => ({
+      const oneC = mapRows(rows, ({ line, row }): OneCRow => ({
         name: line.kind === 'item' ? line.item.rawName : '',
-        mxik: rows[i]?.mxik ?? '', unit: rows[i]?.unit ?? '',
+        mxik: row.mxik, unit: row.unit,
         barcode: line.kind === 'item' ? line.item.barcode ?? '' : fileCell(line.row.original, mapping.data.barcode),
-        auditStatus: rows[i]?.auditStatus ?? '',
-        restricted: rows[i]?.restricted ?? '',
+        auditStatus: row.auditStatus,
+        restricted: row.restricted ?? '',
       }));
-      if (format === '1c') return { body: new Uint8Array(build1cCsv(oneC, x.oneC)), type: CSV_TYPE, filename: `${base}-${x.suffix.oneC}.csv` };
+      if (format === '1c') return { body: new Uint8Array(await stream1cCsv(oneC, x.oneC)), type: CSV_TYPE, filename: `${base}-${x.suffix.oneC}.csv` };
       return { body: new Uint8Array(await build1cXlsx(oneC, x.oneC)), type: XLSX_TYPE, filename: `${base}-${x.suffix.oneC}.xlsx` };
     }
     const buffer = await buildExport({
       headers: catalog.headers,
-      rows,
+      rows: mapRows(rows, ({ row }) => row),
       mxikColumn: mapping.data.mxik >= 0 ? mapping.data.mxik : null,
       unitColumn: mapping.data.unit >= 0 ? mapping.data.unit : null,
       labels: { mxik: x.columns.mxik, unit: x.columns.unit, packaging: x.columns.packaging, auditStatus: x.columns.status, restricted: x.columns.restricted },
@@ -160,14 +192,13 @@ export async function catalogExport(user: Viewer, locale: Locale, catalogId: str
   const built = await build();
 
   // Logged only once the file exists: a failed build is not an export.
-  const count = (review: string): number => items.filter((i) => i.effective.review === review).length;
   await db.auditEvent.create({
     data: {
       orgId: user.orgId, actorId: user.userId, action: 'catalog.exported', targetId: catalog.id,
       payload: {
-        catalogId: catalog.id, clientId: catalog.clientId, format, rows: rows.length,
-        acceptedCodes: accepted.length, partialRows: count('partial'), pendingRows: count('pending'),
-        skippedRows: lines.length - items.length, failedRows: items.filter((i) => i.checkError).length,
+        catalogId: catalog.id, clientId: catalog.clientId, format, rows: tally.rows,
+        acceptedCodes: tally.acceptedCodes.size, partialRows: tally.partial, pendingRows: tally.pending,
+        skippedRows: tally.skipped, failedRows: tally.failed,
       },
     },
   });

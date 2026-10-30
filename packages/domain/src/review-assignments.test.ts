@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { db } from '@tasnivo/db';
 import { makeClient, makeClientCatalog, makePerson, type Person } from './firm-test-fixtures.js';
-import { auditReadyText, reviewAssignedText, reviewCompletedText } from './notification-text.js';
+import { auditReadyText, reviewAssignedText, reviewCompletedText, reviewDroppedText } from './notification-text.js';
 import { latestPerClient, listNotifications, markAllRead, notify, unreadCount } from './notifications.js';
 import { assignableMembers, assignReview, completeReview, parseDueDate, reviewCounts, reviewsFor } from './review-assignments.js';
 import { dbSkipReason, dropOrgs, makeOrg, type TestActor } from './test-fixtures.js';
@@ -24,6 +24,10 @@ describe('review assignment inputs (pure)', () => {
     assert.match(assigned.body, /a\.xlsx/);
     assert.match(assigned.body, /tez/);
     assert.match(reviewCompletedText({ clientName: 'Acme', filename: 'a.xlsx' }, 'uz').title, /Acme/);
+    const dropped = reviewDroppedText({ clientName: 'Acme', filename: 'a.xlsx', assignee: 'left@y.z', by: 'boss@y.z' }, 'uz');
+    assert.equal(dropped.title, 'Tekshiruv bekor qilindi: Acme');
+    assert.ok(dropped.body.includes('left@y.z') && dropped.body.includes('boss@y.z') && dropped.body.includes('a.xlsx'), dropped.body);
+    assert.equal(reviewDroppedText({ clientName: 'Acme', filename: 'a.xlsx', assignee: 'left@y.z' }, 'ru').title, 'Проверка отменена: Acme');
     assert.match(auditReadyText({ clientName: 'Acme', filename: 'a.xlsx', open: 7 }, 'uz').body, /7/);
     assert.notEqual(auditReadyText({ clientName: 'Acme', filename: 'a.xlsx', open: 7 }, 'uz').title, auditReadyText({ clientName: 'Acme', filename: 'a.xlsx', open: 7 }, 'ru').title);
   });
@@ -119,6 +123,21 @@ describe('review assignments (database)', { skip }, () => {
     assert.equal(moved.ok && moved.changed, true);
     assert.equal(await db.notification.count({ where: { orgId: a.orgId, kind: 'review.assigned' } }), 2);
     assert.equal((await db.reviewAssignment.findUnique({ where: { catalogId: ready } }))?.revision, 2);
+  });
+
+  it('reassigning to another member tells the new assignee alone, with the same kind and words', async () => {
+    await db.reviewAssignment.deleteMany({ where: { orgId: a.orgId } });
+    await db.notification.deleteMany({ where: { orgId: a.orgId } });
+    await assignReview(admin, input(worker.userId), NOW);
+    const moved = await assignReview(admin, input(boss.userId), NOW);
+    assert.equal(moved.ok && moved.changed, true);
+    const rows = await db.notification.findMany({ where: { orgId: a.orgId }, orderBy: { createdAt: 'asc' } });
+    assert.deepEqual(rows.map((n) => [n.kind, n.userId]), [['review.assigned', worker.userId], ['review.assigned', boss.userId]]);
+    assert.equal(rows[1]!.title, reviewAssignedText({ clientName: 'Birinchi', filename: '' }, 'uz').title);
+    assert.equal(await unreadCount(worker), 1, 'the previous assignee gets nothing new');
+    assert.equal(await unreadCount(otherScope), 0);
+    assert.equal(await unreadCount(viewer), 0);
+    assert.equal(await unreadCount({ ...boss, orgId: b.orgId }), 0);
   });
 
   it('handing a review to oneself raises no notice', async () => {
