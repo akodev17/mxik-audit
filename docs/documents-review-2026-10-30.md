@@ -14,8 +14,8 @@ plus the classifier tables copied read-only from `mxik` without embeddings). **D
 | Severity | Found | Fixed here | Left open |
 |---|---:|---:|---:|
 | Critical | 7 | 7 | 0 |
-| Major | 22 | 21 | 1 (R-D4, a product decision) |
-| Minor | 29 | 1 (with a major's fix) | 28 |
+| Major | 22 | 22 | 0 |
+| Minor | 29 | 24 | 5 (R-B11, R-B14, R-B15, R-B16; R-D10 districtid part) |
 
 The B5 approval gate itself holds: every export path (the `/api/onec` prepare, export and transfer endpoints, the bank,
 Didox and products callers, `buildFile`, the OData transfer) goes through `planFor` → `planExport` → `approved()`. Two
