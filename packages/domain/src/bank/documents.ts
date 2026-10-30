@@ -11,8 +11,9 @@ import { DOCUMENT_HEADERS } from './formats/builtin.js';
 import { bankHeaderKey } from './vocabulary.js';
 import type { BodyRow, PrintedAccount, StatementSheet } from './sheet.js';
 
-/** One payment document, from either side. */
+/** One side of a payment document. */
 type Party = { account: string; name: string; inn: string; bankCode: string; bankName: string };
+/** One payment document, both sides. */
 type Doc = {
   line: number;
   kind: string;
@@ -21,7 +22,7 @@ type Doc = {
   amount: string;
   payer: Party;
   payee: Party;
-  /** ДатаСписано / ДатаПоступило of a kl_to_1c document; '' elsewhere. */
+  /** ДатаСписано / ДатаПоступило of a kl_to_1c document; a payer/payee row's posting date in both. */
   debited: string;
   credited: string;
   purpose: string;
