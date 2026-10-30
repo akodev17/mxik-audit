@@ -334,6 +334,12 @@ describe('row rules (products §7.17, §7.19, §7.20, §7.23, §7.30, §7.31)', 
     assert.deepEqual(readPrice('15000,555').issues.map((i) => i.code), ['price_precision'], 'a real third decimal still is');
   });
 
+  it('a price too long for the stored Decimal(18,2) is unreadable, not a failed save', () => {
+    // Review 30 Oct (R-P7): an ИКПУ column mapped as the price overflowed the column and failed the whole batch's save.
+    assert.deepEqual(readPrice('10403003014000001'), { price: null, issues: [{ code: 'price_unreadable', severity: 'warning', field: 'price', params: { value: '10403003014000001' } }] });
+    assert.equal(readPrice('9999999999999999.99').price, '9999999999999999.99', '16 whole digits still fit');
+  });
+
   it('flags service rows counted in goods units and goods counted as a service', async () => {
     // §7.23, onec §8.10: service codes start with 1; a service is counted in «хизмат (сўм)».
     assert.equal(isServiceCode('10112008001000001'), true);

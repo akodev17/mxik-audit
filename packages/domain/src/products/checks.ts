@@ -177,7 +177,10 @@ export function readPrice(raw: string | null | undefined): PriceRead {
   if (!cell) return { price: null, issues: [] };
   const plain = plainDecimal(cell);
   const tiyin = plain === null ? null : toTiyin(plain);
-  if (plain === null || tiyin === null) return { price: null, issues: [{ code: 'price_unreadable', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40) } }] };
+  // More than 16 whole digits does not fit the stored Decimal(18,2) (an ИКПУ column mapped as the price): unreadable, not
+  // a failed save of the whole batch (review 30 Oct, R-P7).
+  const tooBig = plain !== null && (plain.replace(/^-/, '').split('.')[0] ?? '').replace(/^0+/, '').length > 16;
+  if (plain === null || tiyin === null || tooBig) return { price: null, issues: [{ code: 'price_unreadable', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40) } }] };
   const issues: ValidationIssue[] = [];
   // A formula cell's float noise (11200.000000000002 = 10000 × 1.12) is not "more than 2 decimals" (review 30 Oct, R-P6).
   const fraction = plain.split('.')[1] ?? '';
