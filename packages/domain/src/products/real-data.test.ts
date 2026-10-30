@@ -411,6 +411,12 @@ describe('1C nomenclature file from a real-layout import (onec §8.1, §8.7, §8
     assert.equal(grossPrice({ price: '28500.00', priceIncludesVat: null, vatRate: '12' }), '28500.00');
     assert.equal(grossPrice({ price: '9990.00', priceIncludesVat: false, vatRate: 'without' }), '9990.00');
     assert.equal(grossPrice({ price: '0.05', priceIncludesVat: false, vatRate: '12' }), '0.06');
+    // Review 30 Oct: a net price with no rate stated has no known gross (1C would book it 12 % low); a third decimal rounds half up.
+    assert.equal(grossPrice({ price: '1000.00', priceIncludesVat: false, vatRate: null }), '');
+    assert.equal(grossPrice({ price: '1000.00', priceIncludesVat: false, vatRate: '0' }), '1000.00');
+    assert.equal(grossPrice({ price: '1.005', priceIncludesVat: null, vatRate: null }), '1.01');
+    assert.equal(grossPrice({ price: '10.005', priceIncludesVat: false, vatRate: '12' }), '11.21');
+    assert.equal(grossPrice({ price: '-1000.50', priceIncludesVat: false, vatRate: '12' }), '-1120.56');
     assert.deepEqual(['12', '0', 'without', '15', null].map((r) => vatCaption(r)), ['12%', '0%', 'Без НДС', '15%', '']);
     assert.equal(nomenclatureKind(null, 'хизмат'), 'service');
     assert.equal(nomenclatureKind('00405001001000000', 'услуга'), 'goods', 'the code decides first (BP UZ 3.0.63)');

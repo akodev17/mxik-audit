@@ -169,17 +169,20 @@ export function vatCaption(rate: string | null | undefined): string {
 
 /**
  * «Цена» including VAT (the sale price): a price the source gave without VAT gets its rate added
- * (12/112 rule backwards: net × (100 + rate) / 100, rounded to tiyin); otherwise as given.
+ * (12/112 rule backwards: net × (100 + rate) / 100); otherwise as given. Rounded half up to tiyin.
+ * A net price whose rate the source did not state has no known gross: «Цена» stays empty rather than
+ * understate the sale price by the VAT (review 30 Oct).
  */
 export function grossPrice(row: Pick<NomenclatureRow, 'price' | 'priceIncludesVat' | 'vatRate'>): string {
   const price = row.price;
   if (!price || !/^-?\d+(\.\d+)?$/.test(price)) return '';
+  if (row.priceIncludesVat === false && !row.vatRate) return '';
   const rate = row.vatRate && /^\d+(\.\d+)?$/.test(row.vatRate) ? Number(row.vatRate) : null;
-  if (row.priceIncludesVat !== false || rate === null || rate === 0) return Number(price).toFixed(2);
+  const r = row.priceIncludesVat === false && rate !== null ? BigInt(Math.round(rate * 100)) : 0n;
   const [whole = '0', frac = ''] = price.replace('-', '').split('.');
-  const tiyin = BigInt(whole) * 100n + BigInt((frac + '00').slice(0, 2));
-  const r = BigInt(Math.round(rate * 100));
-  const gross = (tiyin * (10_000n + r) * 2n + 10_000n) / 20_000n;
+  // Thousandths of a sum, so the third decimal rounds ("1.005" → 1.01), times (100 % + rate) in hundredths of a percent.
+  const milli = BigInt(whole) * 1000n + BigInt((frac + '000').slice(0, 3));
+  const gross = (milli * (10_000n + r) * 2n + 100_000n) / 200_000n;
   return `${price.startsWith('-') ? '-' : ''}${gross / 100n}.${(gross % 100n).toString().padStart(2, '0')}`;
 }
 
