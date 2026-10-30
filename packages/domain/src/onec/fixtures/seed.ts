@@ -16,7 +16,11 @@ type ValidationIssue = z.infer<typeof accounting.ValidationIssue>;
 
 type SeedRecord = { payload: unknown; issues?: ValidationIssue[]; fingerprint: string | null; status?: RecordStatus };
 
-export type SeedOptions = { orgId: string; clientId?: string | null; createdBy?: string | null; filename?: string; source?: string };
+/**
+ * `approved` (default true): the clean (`valid`) records carry a reviewer's approval, as after a
+ * review; false leaves them undecided, as a workstream writes them (and then nothing exports, B5).
+ */
+export type SeedOptions = { orgId: string; clientId?: string | null; createdBy?: string | null; filename?: string; source?: string; approved?: boolean };
 
 async function createBatch(
   kind: 'bank_statement' | 'didox_invoice' | 'product_catalog', meta: unknown, records: SeedRecord[], o: SeedOptions & { externalRef?: string | null },
@@ -28,13 +32,18 @@ async function createBatch(
     },
     select: { id: true },
   });
-  const rows = records.map((r, rowIndex) => ({
-    batchId: batch.id, rowIndex, payload: r.payload as Prisma.InputJsonValue, issues: r.issues ?? [], fingerprint: r.fingerprint,
-    status: r.status ?? statusFromIssues(r.issues ?? []),
-  }));
+  const approve = o.approved ?? true;
+  const rows = records.map((r, rowIndex) => {
+    const status = r.status ?? statusFromIssues(r.issues ?? []);
+    return {
+      batchId: batch.id, rowIndex, payload: r.payload as Prisma.InputJsonValue, issues: r.issues ?? [], fingerprint: r.fingerprint, status,
+      ...(approve && status === 'valid' ? { decision: { action: 'approve' }, decidedBy: o.createdBy ?? null, decidedAt: new Date() } : {}),
+    };
+  });
   for (let i = 0; i < rows.length; i += 1000) await db.importRecord.createMany({ data: rows.slice(i, i + 1000) });
   const counts = await refreshCounts(batch.id);
-  await db.importBatch.update({ where: { id: batch.id }, data: { status: counts.unresolved + counts.suspicious > 0 ? 'review' : 'approved' } });
+  const waiting = counts.unresolved + counts.suspicious + counts.valid + counts.corrected - (counts.approved ?? 0);
+  await db.importBatch.update({ where: { id: batch.id }, data: { status: waiting > 0 ? 'review' : 'approved' } });
   return batch.id;
 }
 

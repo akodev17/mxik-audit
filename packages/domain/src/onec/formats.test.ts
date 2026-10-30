@@ -30,8 +30,9 @@ function golden(name: string, actual: Buffer | string): void {
   assert.deepEqual(bytes, readFileSync(path), `${name} differs from the golden file (UPDATE_GOLDEN=1 regenerates it)`);
 }
 
+// Reviewed records: clean and approved by the reviewer (an undecided valid record never leaves, B5).
 const records = (payloads: readonly unknown[]): PlanRecord[] =>
-  payloads.map((payload, i) => ({ id: `r${i}`, rowIndex: i, status: 'valid', payload, issues: [], fingerprint: `f${i}`, decision: null }));
+  payloads.map((payload, i) => ({ id: `r${i}`, rowIndex: i, status: 'valid', payload, issues: [], fingerprint: `f${i}`, decision: { action: 'approve' } }));
 const settings = (o: Partial<FileSettings> = {}): FileSettings => ({ bankKeys: 'standard', ownerName: 'ООО «Тасниво Тест»', filename: 'vypiska.xlsx', wholeStatement: true, now: NOW, ...o });
 const none = { exportedElsewhere: new Map<string, { batchId: string }>() };
 

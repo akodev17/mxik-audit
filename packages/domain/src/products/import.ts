@@ -386,6 +386,11 @@ export async function applyProductBatch(user: CurrentUser, batchId: string, loca
       db.importRecord.update({ where: { id: r.id }, data: { payload: { ...(payloads[i] as StoredPayload), productId: id } } }),
     ];
   }));
+  // Saving the batch is the reviewer's approval of its clean rows: only approved records go to 1C (onec B5).
+  await db.importRecord.updateMany({
+    where: { batchId: b.id, status: 'valid', decision: { equals: Prisma.AnyNull } },
+    data: { decision: { action: 'approve', note: 'applied' }, decidedBy: user.userId, decidedAt: new Date() },
+  });
   await db.importBatch.update({ where: { id: b.id }, data: { status: 'approved' } });
   await refreshCounts(b.id);
   await db.auditEvent.create({ data: { orgId: b.orgId, actorId: user.userId, action: 'product.import_applied', targetId: b.id, payload: { created: result.created, updated: result.updated } } });

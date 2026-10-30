@@ -38,11 +38,12 @@ export async function loadBatch(orgId: string, batchId: string): Promise<Loaded 
   if (!batch) return null;
   const rows = await db.importRecord.findMany({
     where: { batchId }, orderBy: { rowIndex: 'asc' },
-    select: { id: true, rowIndex: true, status: true, payload: true, issues: true, fingerprint: true, decision: true },
+    select: { id: true, rowIndex: true, status: true, payload: true, issues: true, fingerprint: true, decision: true, outcome: true },
   });
   const records: PlanRecord[] = rows.map((r) => ({
     id: r.id, rowIndex: r.rowIndex, status: r.status, payload: r.payload, issues: issuesOf(r.issues), fingerprint: r.fingerprint,
     decision: r.decision && typeof r.decision === 'object' && !Array.isArray(r.decision) ? r.decision as { action?: string } : null,
+    outcome: r.outcome && typeof r.outcome === 'object' && !Array.isArray(r.outcome) ? r.outcome as { result?: string; reason?: string | null } : null,
   }));
   return { batch, records };
 }
@@ -110,17 +111,18 @@ export function outcomeOf(format: OneCFormat, plan: Plan, imported: number, reje
  * updated in groups that share one outcome, so a 1 000-row batch is a handful of statements.
  */
 export async function recordOutcomes(
-  tx: Prisma.TransactionClient, exportId: string, plan: Plan, imported: readonly { id: string; onecRef?: string | null }[],
+  tx: Prisma.TransactionClient, exportId: string, plan: Plan, imported: readonly { id: string; onecRef?: string | null; message?: string | null }[],
   rejected: readonly { id: string; reason: string; message: string | null }[] = [],
 ): Promise<void> {
   const base = { exportId, message: null, onecRef: null };
-  const plain = imported.filter((r) => !r.onecRef).map((r) => r.id);
+  const plain = imported.filter((r) => !r.onecRef && !r.message).map((r) => r.id);
   if (plain.length > 0) {
     const outcome: RecordOutcome = { ...base, result: 'imported', reason: null };
     await tx.importRecord.updateMany({ where: { id: { in: plain } }, data: { status: 'exported', outcome } });
   }
-  for (const r of imported.filter((x) => x.onecRef)) {
-    const outcome: RecordOutcome = { ...base, result: 'imported', reason: null, onecRef: r.onecRef ?? null };
+  // A transfer's record carries 1C's reference and what was left out of it (a reference not found, a refused posting).
+  for (const r of imported.filter((x) => x.onecRef || x.message)) {
+    const outcome: RecordOutcome = { ...base, result: 'imported', reason: null, onecRef: r.onecRef ?? null, message: r.message?.slice(0, 1000) ?? null };
     await tx.importRecord.update({ where: { id: r.id }, data: { status: 'exported', outcome } });
   }
   const byReason = new Map<string, string[]>();
