@@ -48,7 +48,6 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-O4 | major | e546e44 | 1C OData: only bank lines checked the base after a timeout. A receipt POST that 1C wrote but whose answer was lost became a second receipt on "Retry". Invoices now look for the receipt by number, date and counterparty first. | `onec/odata.test.ts` "a receipt whose POST timed out is found in the base on retry" |
 | R-O5 | major | 53dc669 | The production (pinned) fetch kept the first 8 MB of a response and answered 200. A real `$metadata` is 10+ MB with its EntityContainer last, so discovery found no entity sets and every transfer was refused as `composition_incomplete`. The cap is now 32 MB (above the 20 MB `odata.ts` reads), and a body past it is an error. | `onec/connection.test.ts` "a body past the cap is refused, never cut" |
 | R-O7 | major | 57c59ef | OData product: the default map sends name, full name and article; a product's ИКПУ, package code and barcode were dropped without a word. Each one present but unmapped now adds `<field>_not_sent` to the record's outcome notes. | `onec/connection.test.ts` "a code the object map sends nowhere is noted" |
-
 | R-B7 | major | 0433c00 | kl_to_1c numbers made unique over the whole statement (all batch records), so a payment keeps its 1/2 in every partial export. Test: onec/formats.test.ts 'a repeated number keeps its suffix across partial exports'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
