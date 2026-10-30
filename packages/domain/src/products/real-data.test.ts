@@ -314,6 +314,19 @@ describe('row rules (products §7.17, §7.19, §7.20, §7.23, §7.30, §7.31)', 
     assert.equal(readVat('двенадцать').issues[0]?.code, 'vat_unreadable');
   });
 
+  it('one mark with three digits after it is thousands whichever mark, and says so; VAT float noise is rounded', () => {
+    // §7.19 (review 30 Oct): "12.500" was 12.50 while "12,500" was 12500, and "0,125" became 125 without a word.
+    for (const cell of ['12.500', '12,500', '12.500 сум']) {
+      const read = readPrice(cell);
+      assert.equal(read.price, '12500.00', cell);
+      assert.deepEqual(read.issues.map((i) => i.code), ['price_ambiguous'], cell);
+    }
+    assert.deepEqual([readPrice('0,125').price, readPrice('0,125').issues.map((i) => i.code)], ['0.13', ['price_precision']]);
+    assert.deepEqual([readPrice('1234,5').price, readPrice('12,50').price, readPrice('1.234.567,89').price], ['1234.50', '12.50', '1234567.89']);
+    // §7.20: a formula cell's 12.000000000000014 is 12 (it broke the record's 10-character rate and the whole batch).
+    assert.deepEqual([readVat('12.000000000000014'), readVat('0.12000000000000001')].map((r) => [r.vatRate, r.issues.length]), [['12', 0], ['12', 0]]);
+  });
+
   it('flags service rows counted in goods units and goods counted as a service', async () => {
     // §7.23, onec §8.10: service codes start with 1; a service is counted in «хизмат (сўм)».
     assert.equal(isServiceCode('10112008001000001'), true);

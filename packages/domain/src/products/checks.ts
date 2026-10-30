@@ -155,14 +155,19 @@ export function plainDecimal(raw: string): string | null {
   const lastDot = s.lastIndexOf('.');
   if (lastComma >= 0 && lastDot >= 0) {
     s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
-  } else if (lastComma >= 0) {
-    // "1,234,567" (thousands) vs "1234,5" (decimal): several commas or exactly three digits after one is thousands.
-    s = (s.match(/,/g) ?? []).length > 1 || /^\d{1,3},\d{3}$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
-  } else if ((s.match(/\./g) ?? []).length > 1) {
-    s = s.replace(/\./g, '');
+  } else if (lastComma >= 0 || lastDot >= 0) {
+    // One kind of mark: several of it is grouping ("1,234,567", "1.234.567"); one with exactly three digits after a
+    // 1–3 digit whole part not starting with 0 is thousands too, whichever mark ("12,500", "12.500" → 12500; amount.ts
+    // reads it the same and calls it ambiguous); otherwise it is the decimal mark ("1234,5", "0,125").
+    const mark = lastComma >= 0 ? ',' : '.';
+    const grouped = s.split(mark).length > 2 || THOUSANDS.test(s);
+    s = grouped ? s.split(mark).join('') : s.replace(mark, '.');
   }
   return /^-?\d+(\.\d+)?$/.test(s) ? s : null;
 }
+
+/** "12,500" / "12.500": one mark with exactly three digits after a short whole part, read as thousands. */
+const THOUSANDS = /^-?[1-9]\d{0,2}[.,]\d{3}$/;
 
 export type PriceRead = { price: string | null; issues: ValidationIssue[] };
 
@@ -177,6 +182,8 @@ export function readPrice(raw: string | null | undefined): PriceRead {
   const decimals = plain.split('.')[1]?.length ?? 0;
   if (decimals > 2) issues.push({ code: 'price_precision', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40), rounded: fromTiyin(tiyin) } });
   if (tiyin < 0n) issues.push({ code: 'price_negative', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40) } });
+  // Read as thousands, but it may have meant a fraction: the reviewer confirms (review 30 Oct).
+  if (THOUSANDS.test(cell.replace(/\s|[^\d.,-]+$/gu, ''))) issues.push({ code: 'price_ambiguous', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40), read: fromTiyin(tiyin) } });
   return { price: fromTiyin(tiyin), issues };
 }
 
@@ -206,7 +213,9 @@ export function readVat(raw: string | null | undefined): VatRead {
   if (!m) return { vatRate: null, issues: [{ code: 'vat_unreadable', severity: 'warning', field: 'vat', params: { value: cell.slice(0, 40) } }] };
   let rate = Number((m[1] ?? '').replace(',', '.'));
   // A percent-formatted cell is read as its value: 12 % is 0.12.
-  if (rate > 0 && rate < 1 && !v.includes('%')) rate = Math.round(rate * 10_000) / 100;
+  if (rate > 0 && rate < 1 && !v.includes('%')) rate = rate * 100;
+  // Two decimals at most: a formula cell's float noise (12.000000000000014) would not fit the record (10 chars).
+  rate = Math.round(rate * 100) / 100;
   const text = String(rate);
   if (rate === 12 || rate === 0) return { vatRate: text, issues: [] };
   return { vatRate: text, issues: [{ code: 'vat_rate_unusual', severity: 'warning', field: 'vat', params: { rate: text } }] };
