@@ -1,0 +1,126 @@
+{
+  "HasMedicalEquipment": false,
+  "HybridInvoiceType": 4,
+  "HybridInvoiceDoc": {
+    "No": "тест",
+    "Date": "2025-10-20"
+  },
+  "ContractDoc": {
+    "No": "тест",
+    "Date": "2025-10-20"
+  },
+  "OldHybridInvoiceDoc": null,
+  "Seller": {
+    "TinOrPinfl": "302936161",
+    "TaxpayerType": 20,
+    "BranchCode": "",
+    "Name": "\"VENKON GROUP\" MCHJ",
+    "VatRegCode": "326040002521",
+    "AccountNumber": "20208000400308125001",
+    "BankMfo": "00974",
+    "Address": "ГОРОД ТАШКЕНТ ЯШНАБАДСКИЙ РАЙОН Фидойилар МФЙ, Махтумкули кучаси, 114а-уй",
+    "Director": "DIREKTOR F.I.O.",
+    "Accountant": "BUXGALTER F.I.O.",
+    "BranchName": "",
+    "VatRegStatus": 20
+  },
+  "ItemReleased": null,
+  "Buyer": {
+    "TinOrPinfl": "310529901",
+    "TaxpayerType": 20,
+    "BranchCode": "",
+    "Name": "\"DIDOX TECH\" MCHJ",
+    "VatRegCode": "326080220838",
+    "AccountNumber": "20208000905656222001",
+    "BankMfo": "00401",
+    "Address": "г. Ташкент, ЯШНАБАДСКИЙ РАЙОН, Фидойилар МФЙ, Махтумкули кучаси, 114а-уй  ",
+    "Director": "DIREKTOR F.I.O.",
+    "Accountant": "BUXGALTER F.I.O.",
+    "BranchName": "",
+    "VatRegStatus": 20
+  },
+  "HasBarcode": false,
+  "HasCommittent": false,
+  "HasTaxRelief": false,
+  "HasExcise": false,
+  "HasMarking": false,
+  "Roadway": {
+    "ProductGroups": [
+      {
+        "ProductInfo": {
+          "Products": [
+            {
+              "OrdNo": 1,
+              "Committent": null,
+              "TaxRelief": null,
+              "Marks": null,
+              "Excise": null,
+              "Name": "ноутбук",
+              "CatalogCode": "08471001001000000",
+              "CatalogName": "Ноутбук",
+              "PackageCode": "1501886",
+              "PackageName": "шт.",
+              "Barcode": "",
+              "Amount": 1,
+              "Price": 1,
+              "DeliverySum": 1,
+              "Vat": {
+                "Rate": 12,
+                "Sum": 0.12
+              },
+              "DeliverySumWithVat": 1.12,
+              "Origin": 4
+            }
+          ],
+          "TotalDeliverySum": "1.00",
+          "TotalVatSum": "0.12",
+          "TotalDeliverySumWithVat": "1.12"
+        },
+        "LoadingPoint": {
+          "RegionName": "Ферганская область",
+          "RegionId": 30,
+          "DistrictName": "Алтыарыкский район",
+          "DistrictCode": 12,
+          "Address": "ГОРОД ТАШКЕНТ ЯШНАБАДСКИЙ РАЙОН Фидойилар МФЙ, Махтумкули кучаси, 114а-уй"
+        },
+        "UnloadingPoint": {
+          "RegionName": "Ферганская область",
+          "RegionId": 30,
+          "DistrictName": "Алтыарыкский район",
+          "DistrictCode": 12,
+          "Address": "ГОРОД ТАШКЕНТ ЯШНАБАДСКИЙ РАЙОН Фидойилар МФЙ, Махтумкули кучаси, 114а-уй"
+        }
+      }
+    ],
+    "OtherCarOwners": null,
+    "Truck": {
+      "RegNo": "01 386 EJA",
+      "Model": "NEXIA 3"
+    },
+    "Trailer": null,
+    "Carriages": [],
+    "Driver": {
+      "Pinfl": "30000000000001",
+      "FullName": "DIREKTOR F.I.O."
+    }
+  },
+  "FreightForwarder": null,
+  "Carrier": {
+    "TinOrPinfl": "302936161",
+    "Name": "\"VENKON GROUP\" MCHJ",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "Client": null,
+  "Payer": null,
+  "TransportType": 1,
+  "ResponsibleToGoods": {
+    "TinOrPinfl": "30000000000002",
+    "Name": "F.I.O."
+  },
+  "TotalDistance": 1,
+  "TotalDeliveryCost": "1",
+  "TotalWeightBrutto": 0.12121,
+  "TotalWeightNetto": 0.00123,
+  "Empowerment": null
+}

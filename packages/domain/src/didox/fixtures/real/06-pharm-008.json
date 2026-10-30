@@ -1,0 +1,93 @@
+{
+  "Version": 1,
+  "WaybillLocalIds": [],
+  "HasMarking": false,
+  "HasRent": false,
+  "FacturaRentDoc": null,
+  "FacturaType": 0,
+  "ProductList": {
+    "HasMedical": true,
+    "HasCommittent": false,
+    "HasLgota": false,
+    "Tin": "310529901",
+    "HideReportCommittent": false,
+    "HasExcise": false,
+    "HasVat": true,
+    "Products": [
+      {
+        "OrdNo": 1,
+        "LgotaId": null,
+        "CommittentName": "",
+        "CommittentTin": "",
+        "CommittentVatRegCode": "",
+        "CommittentVatRegStatus": null,
+        "Serial": "SER-000123",
+        "BaseSumma": "80000.00",
+        "ProfitRate": "25.00",
+        "DispenseType": 2,
+        "Name": "Препарат «Пример» 500 мг, таблетки №20",
+        "CatalogCode": "02100000000000001",
+        "CatalogName": "Лекарственное средство (пример)",
+        "Marks": null,
+        "Barcode": "",
+        "PackageCode": "1500001",
+        "PackageName": "упаковка",
+        "Count": 1,
+        "Summa": "100000.00",
+        "DeliverySum": "100000.00",
+        "VatRate": "12",
+        "VatSum": "12000.00",
+        "ExciseRate": 0,
+        "ExciseSum": 0,
+        "DeliverySumWithVat": "112000.00",
+        "WithoutVat": false,
+        "LgotaType": null,
+        "LgotaName": null,
+        "LgotaVatSum": null,
+        "WarehouseId": null,
+        "Origin": 2
+      }
+    ]
+  },
+  "FacturaDoc": {
+    "FacturaNo": "SF-FARM-0000001",
+    "FacturaDate": "2026-08-04"
+  },
+  "ContractDoc": {
+    "ContractNo": "D-000456",
+    "ContractDate": "2026-08-04"
+  },
+  "ContractId": null,
+  "LotId": "",
+  "OldFacturaDoc": null,
+  "SellerTin": "310529901",
+  "Seller": {
+    "Name": "\"DIDOX TECH\" MCHJ",
+    "BranchCode": "",
+    "BranchName": "",
+    "VatRegCode": "326080220838",
+    "Account": "20208000905656222001",
+    "BankId": "00401",
+    "Address": "ГОРОД ТАШКЕНТ ЯШНАБАДСКИЙ РАЙОН Фидойилар МФЙ, Махтумкули кучаси, 114а-уй",
+    "Director": "DIREKTOR F.I.O.",
+    "Accountant": "BUXGALTER F.I.O.",
+    "VatRegStatus": 20
+  },
+  "ItemReleasedDoc": null,
+  "BuyerTin": "302936161",
+  "Buyer": {
+    "Name": "\"VENKON GROUP\" MCHJ",
+    "BranchCode": "",
+    "BranchName": "",
+    "VatRegCode": "326040002521",
+    "Account": "20208000400308125001",
+    "BankId": "00974",
+    "Address": "Фидойилар МФЙ, Махтумкули кучаси",
+    "Director": "DIREKTOR F.I.O.",
+    "Accountant": "BUXGALTER F.I.O.",
+    "VatRegStatus": 20
+  },
+  "FacturaInvestmentObjectDoc": null,
+  "FacturaEmpowermentDoc": null,
+  "ForeignCompany": null
+}

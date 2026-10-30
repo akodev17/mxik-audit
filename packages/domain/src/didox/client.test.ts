@@ -32,10 +32,12 @@ describe('DidoxClient (fake server)', () => {
     assert.ok(lines.every((l) => !l.includes(TOKEN) && !l.includes('?')), lines.join('\n'));
   });
 
-  it('partner model: Bearer partner token plus user-key', async () => {
+  // The official docs (RESEARCH.md §1.2) send the partner token as `Partner-Authorization`; the
+  // npm SDK's `Authorization: Bearer` this test first asserted is refused by the partner API.
+  it('partner model: Partner-Authorization partner token plus user-key', async () => {
     const f = await fake({ auth: { kind: 'partner', partnerToken: PARTNER, userToken: TOKEN } });
     const client = new DidoxClient({ baseUrl: f.url, auth: { kind: 'partner', partnerToken: PARTNER, userToken: TOKEN }, ...fast });
-    assert.deepEqual(client.authHeaders(), { Authorization: `Bearer ${PARTNER}`, 'user-key': TOKEN });
+    assert.deepEqual(client.authHeaders(), { 'Partner-Authorization': PARTNER, 'user-key': TOKEN });
     const doc = await client.getDocument('6a1f0c0e2b9d4c0012ab34cd');
     assert.ok(doc && typeof doc === 'object');
     // The other model is refused by this server: 401 → unauthorized, no retry.
@@ -114,11 +116,12 @@ describe('DidoxClient (fake server)', () => {
     assert.equal(pdf?.subarray(0, 5).toString('latin1'), '%PDF-');
   });
 
-  it('password login answers the token; a wrong password is unauthorized', async () => {
+  // A wrong password is 422 "Incorrect login" per the official docs (RESEARCH.md §1.2), not the 401 first assumed.
+  it('password login answers the token; a wrong password is refused with Didox\'s words', async () => {
     const f = await fake({ passwords: { '302345678': { password: 'pw', token: 'issued-token' } } });
     const client = new DidoxClient({ baseUrl: f.url, auth: { kind: 'none' }, ...fast });
     assert.deepEqual(await client.loginWithPassword('302345678', 'pw'), { token: 'issued-token' });
-    await assert.rejects(client.loginWithPassword('302345678', 'bad'), (e: unknown) => e instanceof DidoxApiError && e.code === 'unauthorized');
+    await assert.rejects(client.loginWithPassword('302345678', 'bad'), (e: unknown) => e instanceof DidoxApiError && e.code === 'unprocessable' && e.detail === 'Incorrect login');
   });
 
   it('the rate limiter spaces calls of one org and not of another', async () => {

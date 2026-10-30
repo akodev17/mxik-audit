@@ -1,0 +1,77 @@
+{
+  "actdoc": {
+    "actno": "test",
+    "actdate": "2026-04-24",
+    "acttext": "..."
+  },
+  "contractdoc": {
+    "contractno": "test",
+    "contractdate": "2026-04-24"
+  },
+  "sellertin": "sellertin",
+  "sellerbranchcode": "",
+  "sellerbranchname": "",
+  "sellername": "sellername",
+  "buyertin": "buyertin",
+  "buyername": "buyername",
+  "buyerbranchcode": "",
+  "buyerbranchname": "",
+  "productlist": {
+    "products": [
+      {
+        "ordno": 1,
+        "catalogcode": null,
+        "name": "test",
+        "packagecode": null,
+        "count": "16",
+        "summa": "12",
+        "totalsum": "215.04",
+        "measureid": "46",
+        "packagename": null,
+        "catalogname": null
+      }
+    ],
+    "tin": "tin"
+  },
+  "extended_json": {
+    "actdoc": {
+      "actno": "test",
+      "actdate": "2026-04-24",
+      "acttext": "..."
+    },
+    "contractdoc": {
+      "contractno": "test",
+      "contractdate": "2026-04-24"
+    },
+    "sellertin": "sellertin",
+    "sellerbranchcode": "",
+    "sellerbranchname": "",
+    "sellername": "sellername",
+    "buyertin": "buyertin",
+    "buyername": "buyername",
+    "buyerbranchcode": "",
+    "buyerbranchname": "",
+    "productlist": {
+      "products": [
+        {
+          "ordno": 1,
+          "catalogcode": null,
+          "name": "test",
+          "packagecode": null,
+          "count": "16",
+          "summa": "12",
+          "totalsumwithoutvat": "192.00",
+          "vatrate": "12",
+          "vatsum": "23.04",
+          "totalsum": "215.04",
+          "measureid": "46",
+          "packagename": null,
+          "withoutvat": false,
+          "catalogname": null
+        }
+      ],
+      "hasvat": true,
+      "tin": "tin"
+    }
+  }
+}

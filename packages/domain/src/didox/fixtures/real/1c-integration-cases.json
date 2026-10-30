@@ -1,0 +1,40 @@
+{
+  "base": {
+    "facturatype": 0,
+    "facturadoc": { "facturano": "24", "facturadate": "2026-01-01" },
+    "contractdoc": { "contractno": "120", "contractdate": "2025-08-08" },
+    "sellertin": "312318957",
+    "seller": { "name": "\"TEST SELLER\" MCHJ" },
+    "buyertin": "311012912",
+    "buyer": { "name": "\"TEST BUYER\" MCHJ" },
+    "productlist": { "hasvat": true, "products": [] }
+  },
+  "cases": {
+    "bank_service": [
+      { "ordno": 1, "name": "Услуга\t", "catalogcode": "10403003014000001", "catalogname": "Банковская услуга", "packagename": "услуга (сум)", "count": "1", "summa": "892.86", "deliverysum": "892.86", "vatrate": 12, "vatsum": 107.14, "deliverysumwithvat": "1000.00" }
+    ],
+    "float_noise": [
+      { "ordno": 1, "name": "x", "count": "1", "summa": 892.8600000000000136424205265939235687255859375, "deliverysum": "892.8600000000000136424205265939235687255859375", "vatrate": "12", "vatsum": "107.14", "deliverysumwithvat": 1000.0000000000000136 }
+    ],
+    "bad_lines": [
+      { "ordno": 1, "name": "ok", "count": "2", "summa": "100", "deliverysum": "200", "vatrate": 12, "vatsum": 24, "deliverysumwithvat": "224" },
+      { "ordno": 2, "name": "bad amount", "count": "3", "summa": "100", "deliverysum": "350", "vatrate": 12, "vatsum": 42, "deliverysumwithvat": "392" },
+      { "ordno": 3, "name": "bad vat", "count": "1", "summa": "100", "deliverysum": "100", "vatrate": 12, "vatsum": 15, "deliverysumwithvat": "115" },
+      { "ordno": 4, "name": "bad total", "count": "1", "summa": "100", "deliverysum": "100", "vatrate": 0, "vatsum": 0, "deliverysumwithvat": "101" }
+    ],
+    "half_tiyin_per_unit": [
+      { "ordno": 1, "name": "x", "count": "1000000", "summa": "0.01", "deliverysum": "10000.40", "vatrate": 0, "vatsum": 0, "deliverysumwithvat": "10000.40" }
+    ],
+    "rate_15": [
+      { "ordno": 1, "name": "x", "count": "1", "summa": "100", "deliverysum": "100", "vatrate": 15, "vatsum": 15, "deliverysumwithvat": "115" }
+    ],
+    "without_vat": [
+      { "ordno": 1, "name": "flagged", "count": "1", "summa": "100", "deliverysum": "100", "vatrate": 12, "withoutvat": true, "deliverysumwithvat": "100" },
+      { "ordno": 2, "name": "none charged", "count": "1", "summa": "100", "deliverysum": "100", "vatrate": 12, "vatsum": 0, "deliverysumwithvat": "100" }
+    ]
+  },
+  "overrides": {
+    "pinfl_seller": { "sellertin": "30000000000099" },
+    "corrective_type_8": { "facturatype": "8", "oldfacturadoc": { "oldfacturano": "20", "oldfacturadate": "2025-12-01" } }
+  }
+}

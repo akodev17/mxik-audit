@@ -1,0 +1,75 @@
+{
+  "Factura": {
+    "FacturaId": "5e3fcecdc63974b49f7f9dc9",
+    "FacturaDoc": {
+      "FacturaNo": "IER-BS09/4S",
+      "FacturaDate": "2020-02-09"
+    },
+    "ContractDoc": {
+      "ContractNo": "754",
+      "ContractDate": "2020-02-09"
+    },
+    "FacturaEmpowermentDoc": {
+      "AgentFacturaId": "",
+      "EmpowermentNo": "",
+      "EmpowermentDateOfIssue": "",
+      "AgentFio": "",
+      "AgentTin": ""
+    },
+    "ItemReleasedDoc": {
+      "ItemReleasedFio": ""
+    },
+    "SellerTin": "305707705",
+    "BuyerTin": 302654054,
+    "Seller": {
+      "Name": "ALLRUSTPACK INDUSTRIAL SYSTEMS",
+      "Account": "20214000400911148001",
+      "BankId": "00974",
+      "Address": "ГОРОД ТАШКЕНТ ЧИЛАНЗАРСКИЙ РАЙОН DIYDOR 6-TOR KO`CHASI, 71-UY",
+      "Mobile": "",
+      "WorkPhone": "",
+      "Oked": "18120",
+      "DistrictId": "2606",
+      "Director": "DIREKTOR F.I.O.",
+      "Accountant": "BUXGALTER F.I.O.",
+      "VatRegCode": ""
+    },
+    "Buyer": {
+      "Name": "ASPECT OILAVIY KORXONASI",
+      "Account": "20208000000243323001",
+      "BankId": "01041",
+      "Address": "ГОРОД ТАШКЕНТ ЯККАСАРАЙСКИЙ РАЙОН NUKUS KO`CHASI,28 UY",
+      "Mobile": "",
+      "WorkPhone": "",
+      "Oked": "18120",
+      "DistrictId": "2604",
+      "Director": "DIREKTOR F.I.O.",
+      "Accountant": "BUXGALTER F.I.O.",
+      "VatRegCode": ""
+    },
+    "ProductList": {
+      "FacturaProductId": "5e3fcecd382df90b7e439447",
+      "Tin": "305707705",
+      "HasFuel": false,
+      "HasVat": false,
+      "Products": [
+        {
+          "OrdNo": 1,
+          "Name": "Товар",
+          "MeasureId": 1,
+          "Count": 0,
+          "Summa": "25000",
+          "DeliverySum": 25000,
+          "VatRate": "0",
+          "VatSum": 0,
+          "DeliverySumWithVat": "0",
+          "FuelRate": "0",
+          "FuelSum": "0",
+          "DeliverySumWithFuel": "0",
+          "WithoutVat": true
+        }
+      ]
+    },
+    "Notes": "Test notes contract date incorrect test notes "
+  }
+}

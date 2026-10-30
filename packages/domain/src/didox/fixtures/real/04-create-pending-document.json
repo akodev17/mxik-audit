@@ -1,0 +1,94 @@
+{
+  "pending_document": {
+    "document_json": {
+      "version": 1,
+      "waybilllocalids": [],
+      "hasmarking": false,
+      "hasrent": false,
+      "facturarentdoc": null,
+      "facturatype": 0,
+      "productlist": {
+        "hascommittent": true,
+        "haslgota": true,
+        "tin": "310529901",
+        "hidereportcommittent": true,
+        "hasexcise": false,
+        "hasvat": true,
+        "products": [
+          {
+            "ordno": 1,
+            "lgotaid": "100001",
+            "committentname": "\"GAMMA TRADE\" LTD",
+            "committenttin": "300555666",
+            "committentvatregcode": "",
+            "committentvatregstatus": null,
+            "name": "Транспортно-экспедиционные услуги по маршруту Город-1 (UZ) - Город-2 (DE)",
+            "catalogcode": "10112008001000001",
+            "catalogname": "Транспортно-логистические услуги Оказание международных транспортных перевозок",
+            "marks": null,
+            "barcode": "",
+            "packagecode": "1209782",
+            "packagename": "услуга (сум)",
+            "count": 1,
+            "summa": "10000000.00",
+            "deliverysum": "10000000.00",
+            "vatrate": "0",
+            "vatsum": "0.00",
+            "exciserate": 0,
+            "excisesum": 0,
+            "deliverysumwithvat": "10000000.00",
+            "withoutvat": false,
+            "lgotatype": 1,
+            "lgotaname": "(ст.263 НК) пункт 1. услуг по международной перевозке товаров...",
+            "lgotavatsum": 1200000,
+            "warehouseid": null,
+            "origin": 3
+          }
+        ]
+      },
+      "facturadoc": {
+        "facturano": "SF-0000001",
+        "facturadate": "2026-08-04"
+      },
+      "contractdoc": {
+        "contractno": "D-000123",
+        "contractdate": "2026-03-26"
+      },
+      "contractid": null,
+      "lotid": "",
+      "oldfacturadoc": null,
+      "sellertin": "310529901",
+      "seller": {
+        "name": "\"DIDOX TECH\" MCHJ",
+        "branchcode": "",
+        "branchname": "",
+        "vatregcode": "326080220838",
+        "account": "20208000905656222001",
+        "bankid": "00401",
+        "address": "ГОРОД ТАШКЕНТ ЯШНАБАДСКИЙ РАЙОН Фидойилар МФЙ, Махтумкули кучаси, 114а-уй",
+        "director": "DIREKTOR F.I.O.",
+        "accountant": "BUXGALTER F.I.O.",
+        "vatregstatus": 20
+      },
+      "itemreleaseddoc": null,
+      "buyertin": "302936161",
+      "buyer": {
+        "name": "\"VENKON GROUP\" MCHJ",
+        "branchcode": "",
+        "branchname": "",
+        "vatregcode": "326040002521",
+        "account": "20208000400308125001",
+        "bankid": "00974",
+        "address": "Фидойилар МФЙ, Махтумкули кучаси",
+        "director": "DIREKTOR F.I.O.",
+        "accountant": "BUXGALTER F.I.O.",
+        "vatregstatus": 20
+      },
+      "facturainvestmentobjectdoc": null,
+      "facturaempowermentdoc": null,
+      "foreigncompany": null
+    }
+  },
+  "_id": "11ef000000000000000000000000aaa1",
+  "created_date": "2026-08-04 16:30:07"
+}
