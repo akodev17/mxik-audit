@@ -131,6 +131,16 @@ async function existing(client: ODataClient, md: Metadata, target: ObjectTarget,
   return keys.length === 1 ? { key: keys[0] ?? null, ambiguous: false } : { key: null, ambiguous: keys.length > 1 };
 }
 
+/** The one live catalogue item whose name is the one in `body` (a product written before its answer was lost); null otherwise. */
+async function namedItem(client: ODataClient, target: ObjectTarget, body: Record<string, unknown>): Promise<string | null> {
+  const attr = target.fields['name'];
+  const name = attr ? body[attr] : undefined;
+  if (!attr || typeof name !== 'string' || !name) return null;
+  const page = await client.page(target.entitySet, { filter: `${attr} eq ${str(name)} and DeletionMark eq false`, select: ['Ref_Key'], top: 2 });
+  const keys = page.ok ? page.rows.map((r) => r['Ref_Key']).filter((k): k is string => typeof k === 'string') : [];
+  return keys.length === 1 ? keys[0] ?? null : null;
+}
+
 /**
  * FacturaType values that correct the invoice they name (4, 5, 8): the receipt is replaced. The additional
  * types (1, 6, 9) add to the original and the others name none, so each of those is a receipt of its own
@@ -220,7 +230,7 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
         return { ids: [i.record.id], ...bankDocument(map, i.payload), target: i.payload.direction === 'credit' ? map.bankCredit : map.bankDebit, retry, correction: null, date: i.payload.date, number: i.payload.docNumber, whole: true, sellerInn: null };
       }
       const p = i.kind === 'product_catalog' ? productDocument(map, i.payload) : { entitySet: '', body: {}, needs: [] as RefNeed[], notes: [] };
-      return { ids: [i.record.id], ...p, target: map.product, retry: false, correction: null, date: '', number: null, whole: true, sellerInn: null };
+      return { ids: [i.record.id], ...p, target: map.product, retry, correction: null, date: '', number: null, whole: true, sellerInn: null };
     });
   }
 
@@ -251,6 +261,10 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
       // The last attempt timed out: 1C may have written it anyway. Look before writing a second one.
       const there = await existing(client, md, job.target, job.number, job.date, counterparty);
       if (there.key) { ref = there.key; notes.push('found_after_timeout'); }
+    } else if (job.retry && job.target === map.product) {
+      // A catalogue item has no number: it is looked up by the name it was sent with (review 30 Oct, R-O4b).
+      const there = await namedItem(client, job.target, job.body);
+      if (there) { ref = there; notes.push('found_after_timeout'); }
     }
     if (!ref) {
       const created = await client.create(md, job.entitySet, job.body);

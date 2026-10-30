@@ -8,7 +8,7 @@ import { dropOrgs, makeOrg, type TestActor } from '../test-fixtures.js';
 import { DEFAULT_OBJECT_MAP, invoiceDocument, resolveMap, saveConnection, writeRef, type DocumentJob } from './connection.js';
 import { BANK_TRANSACTIONS, INVOICE_LINES, INVOICE_META, OUR_ACCOUNT } from './fixtures/demo-data.js';
 import { BP_UZ_SPEC, FakeOData, metadataXml, sample, sampleJson, startFakeOData, type MetadataSpec } from './fixtures/odata/fake-server.js';
-import { seedBankBatch, seedInvoiceBatch } from './fixtures/seed.js';
+import { seedBankBatch, seedInvoiceBatch, seedProductBatch } from './fixtures/seed.js';
 import { transferExport } from './index.js';
 import {
   bodyDate, castRef, datetime, discover, ODATA_ERROR_CODES, ODataClient, parseMetadata, parseODataError, reasonOf, withoutKeys, type Metadata,
@@ -565,6 +565,40 @@ describe('OData transfer against the fake 1C (database)', { skip }, () => {
     assert.equal(receipts().length, 1, 'found, not written twice');
     const rec = await db.importRecord.findFirstOrThrow({ where: { batchId, rowIndex: 0 } });
     assert.match((rec.outcome as { message: string }).message, /found_after_timeout/);
+  });
+
+  // Review 30 Oct (R-O4b): a catalogue item has no number to look it up by, so a product whose POST answer was lost
+  // was created again on retry. It is now looked up by the name it was sent with.
+  it('a product whose POST timed out is found by its name on retry, not created twice', async () => {
+    await fake?.close();
+    const f = await startFakeOData();
+    fake = f;
+    const org = await makeOrg();
+    orgs.push(org.orgId);
+    await connect(org, f.base);
+    const batchId = await seedProductBatch({ orgId: org.orgId });
+    const named = (name: string) => (f.store.get('Catalog_Номенклатура') ?? []).filter((o) => o['Description'] === name);
+    let lose = true;
+    const lossy: typeof fetch = async (input, init) => {
+      const res = await fetch(input, init);
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (lose && init?.method === 'POST' && url.includes('Catalog_')) {
+        lose = false;
+        const e = new Error('The operation was aborted due to timeout');
+        e.name = 'TimeoutError';
+        throw e;
+      }
+      return res;
+    };
+    const first = await transferExport({ orgId: org.orgId, batchId, format: 'odata', actorId: org.userId }, lossy);
+    assert.ok(first.ok && first.outcome.rejected === 1, JSON.stringify(first));
+    const lost = (await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, select: { payload: true, outcome: true } }))
+      .find((r) => (r.outcome as { result?: string } | null)?.result === 'rejected');
+    const name = (lost?.payload as { name: string }).name;
+    assert.equal(named(name).length, 1, '1C wrote it; the answer was lost');
+    const again = await transferExport({ orgId: org.orgId, batchId, format: 'odata', actorId: org.userId });
+    assert.ok(again.ok && again.outcome.imported === 1, JSON.stringify(again));
+    assert.equal(named(name).length, 1, 'found by its name, not written twice');
   });
 
   it('a goods line whose product the base lacks refuses the receipt and names the line (onec §8.11)', async () => {
