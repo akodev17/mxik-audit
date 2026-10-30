@@ -58,6 +58,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-D13 | minor | d25c2d0 | Removing an invoice deletes its cached Didox document, so the next sync fetches it again. Test: didox/real-docs-db.test.ts 'a removed invoice is fetched again'. | (follow-up, 30 Oct evening) |
 | R-D9 | minor | c2e0ff0 | readDecimal: with both marks the last is the decimal mark ("1.234,56" → 1234.56). Test: didox/parse.test.ts. | (follow-up, 30 Oct evening) |
 | R-P12 | minor | cf93ac5 | A remembered product mapping takes the guess for columns the earlier file did not have (a new Цена column is mapped). Test: products/import-real.test.ts 'a remembered mapping takes the guess'. | (follow-up, 30 Oct evening) |
+| R-P6 | minor | 58c33ea | Price float noise (11200.000000000002) no longer raises price_precision. Test: products/real-data.test.ts. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
