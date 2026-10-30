@@ -81,12 +81,28 @@ export type RowLimit = { maxRows: number; extra: number };
 export function htmlGrid(text: string, limit: RowLimit = { maxRows: Infinity, extra: 0 }): string[][] {
   const clean = withoutBlocks(text);
   const rows: string[][] = [];
+  // Columns a rowspan above still covers, with the rows it still covers: those columns are empty in the rows below, as
+  // a merged cell reads in Excel, so a two-row header's lower row stays in its columns (review 30 Oct, R-B10).
+  const covered = new Map<number, number>();
   for (const tr of clean.matchAll(/<tr\b[^<>]*>([\s\S]*?)(?=<tr\b|<\/table>|$)/gi)) {
     const cells: string[] = [];
+    const skipCovered = (): void => {
+      for (let left = covered.get(cells.length); left !== undefined; left = covered.get(cells.length)) {
+        if (left <= 1) covered.delete(cells.length); else covered.set(cells.length, left - 1);
+        cells.push('');
+      }
+    };
     for (const td of (tr[1] ?? '').matchAll(/<t([dh])\b([^<>]*)>([\s\S]*?)(?=<t[dh]\b|<\/tr>|$)/gi)) {
-      cells.push(cellText((td[3] ?? '').replace(/<\/t[dh]>\s*$/i, '')));
-      for (let k = 1; k < span(td[2] ?? '', /colspan\s*=\s*["']?(\d+)/i); k++) cells.push('');
+      skipCovered();
+      const attrs = td[2] ?? '';
+      const down = span(attrs, /rowspan\s*=\s*["']?(\d+)/i);
+      const across = span(attrs, /colspan\s*=\s*["']?(\d+)/i);
+      for (let k = 0; k < across; k++) {
+        if (down > 1) covered.set(cells.length, down - 1);
+        cells.push(k === 0 ? cellText((td[3] ?? '').replace(/<\/t[dh]>\s*$/i, '')) : '');
+      }
     }
+    skipCovered();
     if (rows.length < limit.maxRows) rows.push(cells);
     else if (cells.some(Boolean)) limit.extra++;
   }

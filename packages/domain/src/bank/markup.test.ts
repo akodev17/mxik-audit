@@ -50,3 +50,17 @@ describe('grid row cap (review 30 Oct, R-B2b)', () => {
     assert.deepEqual([rows.length, limit.extra], [GRID_ROWS, 10]);
   });
 });
+
+describe('HTML two-row headers', () => {
+  it('a rowspan keeps the lower header row in its columns (review 30 Oct, R-B10)', () => {
+    // Дата … span both header rows, «Обороты» splits into Дебет / Кредит below; without rowspan the lower row shifted
+    // left, the headers read "Дата Дебет", "№ документа Кредит", and every line had amount_missing.
+    const html = '<table><tr><th rowspan=2>Дата</th><th rowspan="2">№</th><th colspan=2>Обороты</th><th rowspan=2>Назначение</th></tr>'
+      + '<tr><th>Дебет</th><th>Кредит</th></tr><tr><td>01.10.2026</td><td>5</td><td>1 000,00</td><td></td><td>Оплата</td></tr></table>';
+    assert.deepEqual(htmlGrid(html), [
+      ['Дата', '№', 'Обороты', '', 'Назначение'],
+      ['', '', 'Дебет', 'Кредит', ''],
+      ['01.10.2026', '5', '1 000,00', '', 'Оплата'],
+    ]);
+  });
+});
