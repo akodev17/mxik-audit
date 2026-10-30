@@ -589,3 +589,169 @@ without `mxik_code` rows its correction step fails, so 50 rows were copied in fr
 Not done (follow-ups): pulling counterparties from 1C over OData (the paged `listAll` exists, no
 endpoint/UI yet); a settings switch for Кодировка DOS; the new UI states were typechecked but not
 looked at in a browser.
+
+## Integration results (30 Oct)
+
+Branch `claude/integration-docs-2026-10-30-2b2c71`, cut from `main` at 1afccd1. Not pushed; `main` untouched.
+Scratch DB `mxik_int` (drop it when done: `DROP DATABASE mxik_int`).
+
+### Merge order (all `git merge --no-ff`)
+
+| Commit | What |
+|---|---|
+| 6cdff19 | This plan, as it stood in the main checkout (untracked there), with the S4 results |
+| 37553c7 | S1 `claude/docs-s1-bank-7e7406` |
+| 7dd6095 | S2 `claude/docs-s2-didox-2ee41e` |
+| 9611d08 | S3 `claude/docs-s3-products-9e2eb6` |
+| 14f6181 | S4 `claude/docs-s4-onec-605e8f` |
+| daf2511 | eslint fixes in S1's bank files (no behaviour change) |
+| 0dadcea | the rollback section for S4's migration; S3's 1C-file test records carry the B5 approval |
+
+### Conflicts and how each was resolved
+
+| File | Conflict | Kept |
+|---|---|---|
+| `docs/DOCUMENTS_REAL_DATA_PLAN_2026-10-30.md` (S1, S2, S3; add/add) | Each branch committed its own copy of the plan with its section appended; S2's copy also carried the S4 section | The plan once, then the sections S1, S2, S3, S4 once each. S2's copy of the S4 section was dropped; it matched the main checkout's copy apart from a trailing blank line. |
+| `docs/accounting-2026-10-23/migrations.md` (S2, S3) | Both appended a rollback section in the same place | Both sections (S2's `20261110000200_didox_sync_sheet_formats`, then S3's `20261109000300_product_article_price`). S4 had added `20261109000400_counterparty_requisites` with no section, and `packages/db/src/migrations-doc.test.ts` failed on it, so a section was written for it (columns, rollback SQL, the `_prisma_migrations` row, what breaks). |
+| `packages/domain/src/onec/bank-exchange.ts` (S1, S4) | The writer's body. Both sessions made (account, date, Номер) unique per file: S1 with `uniqueNumbers(documents, fallbackAccount)` keyed by the document's own account and the suffix `1/2`; S4 with a second `uniqueNumbers(documents)` keyed by date and number only and the suffix `-2` | S1's writer (one `СекцияРасчСчет` per own account) and S1's `uniqueNumbers`, because the multi-account sections need the account in the key. Also S4's `encoding?: 'Windows' \| 'DOS'` (written into `Кодировка=`, with cp866 bytes for DOS). S4's duplicate function was dropped, so **a repeated number is now written `58/2`, not `58-2`**. S4's `kl-to-1c-conformance.test.ts` expects `58/2`; it still asserts that the 1C key is unique in the file, that the same number on another day is kept, and that no payment is lost. |
+
+Auto-merged files where several sessions changed the same file: `onec/files.ts` (S1 + S3),
+`products/import.ts` (S3 + S4), `packages/contracts/src/accounting.ts`, `packages/db/prisma/schema.prisma`
+and `apps/web/src/components/landing/data.ts` (three sessions each), and `onec/formats.test.ts` (S3 + S4).
+Every line any of the four branches added is present in the merge. The only exceptions are the S4 lines
+dropped deliberately in `bank-exchange.ts`, the S1 doc-comment line that was extended there, and S4's
+`58-2` assertion. This includes each session's sharper "unverified" wording on the landing page and the
+module pages. No generated file conflicted. The README endpoint checklist, goldens and api-client
+parity are tested and pass.
+
+Interaction found by the tests: S3's new test (`products/real-data.test.ts`, "writes the 1C captions…")
+built `valid` records with `decision: null`. S4's approval gate (B5) now leaves undecided records out of
+every export, so no sheet was written. The test's records now carry `{ action: 'approve' }`, as
+`applyProductBatch` writes it and as S4 did in `onec/formats.test.ts`. Every assertion is unchanged.
+
+### Migrations
+
+The three new folders sort after main's last (`20261108000700_skipped_rows_file_hash`):
+`20261109000300_product_article_price` (S3, `product`), `20261109000400_counterparty_requisites`
+(S4, `counterparty`), `20261110000200_didox_sync_sheet_formats` (S2, `didox_connection` + the new
+`didox_sheet_format`). No two sessions changed the same model. `prisma migrate deploy` applied all 68
+on a fresh `mxik_int`. `prisma migrate status` reports "Database schema is up to date".
+`prisma migrate diff --from-url <mxik_int> --to-schema-datamodel` lists only indexes that main's raw-SQL
+migrations create outside the Prisma schema (trigram/GIN/HNSW on `mxik_code`, `catalog_item`,
+`product.normalizedName`, and the generated `searchVector`). Nothing touches the new columns or table.
+**After the fast-forward:** `npx prisma migrate deploy --schema packages/db/prisma/schema.prisma` and
+`npx prisma generate --schema packages/db/prisma/schema.prisma` on the dev DB and in production.
+
+### Checks
+
+- `npx prisma generate` from the worktree root, into the worktree's own `node_modules/.prisma` (main's
+  generated client untouched). `npm run typecheck`: clean in all nine workspaces and the root.
+- `eslint` on the 98 source files the four branches changed: 0 errors, 1 warning (a non-null assertion
+  in `bank/xls.ts:238`, behind a `never`-returning arrow that TypeScript does not narrow on). Fixed
+  before that: a control-character regex in `bank/fixtures/make-real-layouts.ts` (now carries the
+  repo's disable comment), a literal no-break space in `bank/markup.ts` (now ` `), and four
+  type assertions that changed nothing (`bank/duplicates.ts`, `real-data-db.test.ts`,
+  `real-layouts.test.ts`).
+- The scratch DB holds the full classifier from `mxik` without embeddings: `mxik_code` (442,964 rows),
+  `packaging_code`, `mxik_code_state`, `restricted_code`, `tax_privilege`, `catalog_snapshot`,
+  `classifier_change`. It also holds the demo template org "Demo Savdo MChJ" with its latest ready
+  catalogue (186 items, 113 findings, its client and its `catalog.audited` event).
+
+### Tests (`npm test`, full parallelism, `mxik_int`)
+
+| Run | Tests | Pass | Fail | Skipped |
+|---|---:|---:|---:|---:|
+| First run after the four merges | 2,581 | 2,574 | 3 | 4 |
+| **Final (0dadcea)** | **2,581** | **2,577** | **0** | **4** |
+| `main` at 1afccd1, same DB, same day | 2,453 | 2,449 | 0 | 4 |
+
+The difference is exactly the 128 new tests. The first run's three failures:
+1. `migrations-doc.test.ts`: S4's migration had no rollback section. Fixed in 0dadcea (above).
+2. `products/real-data.test.ts`: the S3/S4 approval interaction above. Fixed in 0dadcea.
+3. `demo.test.ts` "gives each visitor a separate, undecided copy": got 1 catalogue row where it expects 2.
+   No branch touches `demo.ts` or the demo tests. `startDemoSession` takes the newest `demo_template`
+   org, and `demo-access.test.ts` creates its own one-row template concurrently, so under full load the
+   newer template is the other test's. The test passed alone on both trees, passed six times out of six
+   when paired with `demo-access.test.ts` on both trees, and passed in the final full run and on main.
+   It is a pre-existing race on main, not caused by the merge.
+
+The skips are identical on both trees: Redis is not on 127.0.0.1:6379 (RedisRateLimitStore, `/api/v1`
+with `REDIS_URL`, the worker suite, BullDispatcher), Didox live is opt-in (`DIDOX_LIVE=1`), the weighted
+full-text column is not built (2 tests) and the scratch DB has no vectors (2 tests).
+
+### Builds
+
+`npm run build:api` (dist/main.mjs 2.8 MB), `npm run build:worker` (dist/main.js 1.4 MB) and
+`npm run build` (Next.js, every route compiled) all succeed.
+
+### Benches (`mxik_int`, AI keys blanked and `RERANK_PROVIDER=off`)
+
+- `bench-bank.ts --fixtures 3` (ms, median): read / parse / process, from 0.9 / 0.1 / 19 (empty
+  duplicate interval) up to colvir .xls 72 lines 10.4 / 3.2 / 72 and odin-palace kl_to_1c 129 lines
+  9.7 / 2.6 / 103. In line with S1's numbers.
+- `bench-bank.ts 1000 3`: 1,000 lines end to end 451 ms median (read 54, parse 18, store 174, match 36,
+  write 76). S1 measured 1,211 ms on `mxik_s1` while siblings loaded the same Postgres.
+- `bench-onec-export.ts 1000 3`: 1,000 records prepare 67 ms + build 146 ms (213 ms), idempotent repeat
+  11 ms, file 623 KB.
+- `bench-products.ts --no-live`: `matchProducts` 1,000 rows 141 ms, precision 100% (841 right, 0 wrong,
+  93 ambiguous with the right candidate). `classifyProducts` took 115.8 ms/row because this DB has no
+  vectors and no weighted full-text column: full text and lexical take 75% of the stage time. That
+  number says nothing about production. The reranker gate would send 79% of rows (≈ $1.13 per 1,000 on
+  gemini-3.1-flash-lite, estimate).
+
+### What the owner still has to check (one step each, from the four results sections)
+
+1. **Bank statements from Uzbek banks** (S1): on `/bank/upload`, upload one statement per client bank
+   (Kapitalbank, Ipoteka/ASBT, Aloqabank/Colvir, Hamkor, NBU…). The layout must be recognised and the
+   reconcile page must show "balanced" with both totals matching. Send any file that is not as a fixture.
+2. **A bank's own kl_to_1c.txt** (S1): download "1C" / kl_to_1c.txt from any client's internet bank and
+   upload it. Every account section must reconcile and every line must have a direction.
+3. **One Tasnivo kl_to_1c.txt loaded into «1С:Бухгалтерия для Узбекистана»** (S1 + S4, one load settles
+   four questions). Use «Банк и касса → Банковские выписки → Загрузить» with a statement that has two own
+   accounts and a repeated number. Check: (a) the counterparties' banks are found, black rows not red;
+   if red, switch the connection's bank keys to `uz_mfo` and load again. (b) `Номер=1/2` and two
+   `СекцияРасчСчет` are accepted. (c) A payment to a person with a 14-digit ПИНФЛ in `…ИНН` loads.
+   (d) Once more with «Кодировка: DOS» in the exchange settings and the DOS variant of the file.
+4. **A legacy .xls written by Excel itself** (S1): save any small statement as "Excel 97-2003 (.xls)" and
+   upload it.
+5. **Didox live token** (S2): get a sandbox token from testapi3.didox.uz with the E-IMZO test key, start
+   the API with `DIDOX_SANDBOX=1`, paste the token in Didox → Ulanish and press "Ulanishni tekshirish".
+6. **A real incoming ЭСФ through the Didox API** (S2): with that token press "Yangi kiruvchi
+   hisob-fakturalarni olish". The first invoice must open with its lines, its print form and
+   `totalsFrom = list`.
+7. **Hybrid 023 statuses** (S2): import one hybrid invoice from a real cabinet to learn which 200-series
+   status means "signed".
+8. **The ЭСФ Excel template** (S2): fill the template from t.me/didox_instruction/202 with one line and
+   upload it. The sheet step must say "Didox ESF shabloni aniqlandi".
+9. **Didox partner mode** (S2): put the partner token from Didox's account manager in
+   `DIDOX_PARTNER_TOKEN` and press "Ulanishni tekshirish".
+10. **The products nomenclature file in a real 1C** (S3): in a test base, «Справочники → Номенклатура →
+    Загрузить» the file that *Mahsulotlar → Katalog yuklash → 1C uchun tayyorlash* makes for
+    `products/fixtures/onec-nomenclature.xlsx`. Expect goods on «Номенклатура», the transport service
+    on «Услуги», «Артикул» filled, and «Код из классификатора» with its leading zeros.
+11. **Product layouts with no public column list** (S3): one real export from Billz, Smartup, my.soliq
+    «Справочник товаров» or Didox «Мои товары» uploaded through the products import.
+12. **The 1C OData names in a real UZ base** (S4): publish OData on a test base («Администрирование →
+    Публикация на веб-сервере», tick «Публиковать стандартный интерфейс OData», set «Состав»). Enter it on
+    `/onec/settings` and press "Test"; the gaps and renamed sets are listed. Save
+    `<base>/odata/standard.odata/$metadata` into `packages/domain/src/onec/fixtures/odata/`.
+13. **Post() and 1C's business refusals** (S4): set `post: true` on one target of the object map, transfer
+    one payment, open it in 1C.
+14. **A corrected ЭСФ end to end** (S4 + S2): take one real corrected ЭСФ from Didox through upload and
+    transfer. The receipt for the old invoice must be PATCHed, not a second one created. S2 fills
+    `facturaType` and `oldFactura`; `riskLevel` stays empty because Didox's `scoring` scale is undocumented.
+15. **A real «Вывести список» counterparty file** (S4): upload one from a client's UZ 1C on
+    `/onec/settings`. Rejected rows are listed by number.
+
+Not settled by any one step: purpose codes against the CBU table (S1: the table is not public in a
+usable form) and live tasnif drift (S3: a third answer shape shows up as `mxik_unconfirmed`). None of
+the new UI states (S1–S4) has been opened in a browser; they were typechecked and built only.
+
+### Housekeeping after the fast-forward
+
+- Drop the scratch DBs: `mxik_int`, `mxik_s1`, `mxik_s2`, `mxik_s3`, `mxik_s4`.
+- Before removing this worktree, delete its links first. Its `node_modules` is a real folder of
+  junctions into the main checkout's `node_modules`, plus `node_modules/@tasnivo/*` and
+  `apps/api/node_modules`. Remove each link with `cmd /c rmdir <link>`, or the whole worktree folder
+  only after those links are gone. `git worktree remove --force` follows junctions and wipes the shared
+  `node_modules`.
