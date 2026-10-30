@@ -85,3 +85,21 @@ from the export (4 039 added, 4 507 renamed, 12 unit changes).
    stays at that ceiling.
 5. **Stability of the endpoints**: they are the portal's internal calls and can change without notice;
    every reader tolerates missing fields, and the kill switch turns live checks off.
+
+## 4. Re-probed 2026-10-30 (S3, tmp/real-docs/products/RESEARCH.md §1.2) and what the client does now
+
+Answers recorded in `packages/domain/src/products/fixtures/tasnif/` (SOURCES.md there); the tests serve
+them to the real HTTP client through a fake fetch (`tasnifFixtureFetch`).
+
+| Endpoint | 2026-10-30 answer | Client (`products/tasnif-client.ts`) |
+|---|---|---|
+| `GET /mxik/get/by-mxik?mxikCode=<unknown or deactivated>` | **403, empty body** (23 Oct: 200 + plain text) | both read as `not_found`, cached, never retried |
+| `GET /mxik/search/by-params?gtin=` | hit: `content[0].mxikCode`; miss: `success:false, code:-1, "not data found"`; `barcode=` / `internationalCode=` are ignored (default page) | `gtin()`: only `gtin=`; a hit only when `internationalCode` equals the barcode |
+| `GET /integration-mxik/references/get/units/all` | 10 of 90 rows by default, `recordTotal: 90` | `units()`: `pageSize=100&limit=100`; fewer rows than `recordTotal` = `incomplete` |
+| `GET /integration-nomenclature/get/by-mxik` | **401** (taxpayer cabinet token) | `needs_token`, not retried, not cached |
+
+The import (`classifyDetailed` with `fileChecks`) asks the card of a code our classifier copy lacks
+(`mxik_not_in_copy` when tasnif knows it, `mxik_not_found` on 403, `mxik_unconfirmed` when tasnif did
+not answer), and `gtin=` for barcodes the copy has no code for (at most 50 per chunk). A consumer pack
+`"шт. (упаковка) 200 грамм"` carries `unitId` 4 (gram, its contents): it is counted as one piece
+(`checks.ts packageCountingUnit`), so a row in "шт" is not a unit conflict.

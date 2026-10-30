@@ -1699,6 +1699,13 @@ model Product {
   packageName     String?
   unit            String?
   barcode         String?
+  /// 1C «Артикул» / the firm's internal code (SKU, Ichki kod), as the import file wrote it.
+  article         String?
+  /// The file's price rounded to tiyin; priceIncludesVat says whether it was "с НДС" (null = not said).
+  price           Decimal?  @db.Decimal(18, 2)
+  priceIncludesVat Boolean?
+  /// "12", "0", "15" or "without" (Без НДС); null = the file did not say.
+  vatRate         String?
   /// 'catalog_import' | 'audit' | 'didox' | 'manual'.
   source          String
   /// ProductRecord.mxikStatus: ok, missing, invalid, inactive, restricted, suspicious, unchecked.
@@ -1728,6 +1735,7 @@ model Product {
   @@index([orgId, mxik])
   @@index([orgId, barcode])
   @@index([orgId, onecRef])
+  @@index([orgId, article])
   @@index([orgId, mxikStatus])
   @@map("product")
 }

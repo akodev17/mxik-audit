@@ -117,6 +117,8 @@ export function BatchView({ batchId, stages }: { batchId: string; stages: readon
           {handover.text}
         </Alert>
       ) : null}
+      {/* Until the owner has loaded one file into a real 1C UZ base (DOCUMENTS_REAL_DATA_PLAN S3 results). */}
+      {onec && !checking ? <Alert tone="warn">{w.unverified}</Alert> : null}
 
       {/* While the check runs the records are not decided yet: only the progress is shown. */}
       {!checking && records.length > 0 ? (

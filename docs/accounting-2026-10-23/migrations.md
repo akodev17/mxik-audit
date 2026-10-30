@@ -409,3 +409,21 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000500_value_me
 What breaks: with the new code still running, the dashboard, Settings → Account and the checklist's
 hide button answer 500. Deploy the previous code first; it never reads the columns. The chosen
 minutes and every "hidden" choice are lost (the checklist shows again unless an old cookie hides it).
+
+### `20261109000300_product_article_price`
+
+Adds four nullable columns to `product` (S3, docs/DOCUMENTS_REAL_DATA_PLAN_2026-10-30.md): `article`
+(1C «Артикул» from the import file, B7), `price` (DECIMAL(18,2), the file's price rounded to tiyin),
+`priceIncludesVat` (the price column said "с НДС" / "без НДС" / nothing) and `vatRate` ("12", "0",
+"15" or "without"), plus the index `product_orgId_article_idx`. No backfill.
+
+```sql
+DROP INDEX IF EXISTS "product_orgId_article_idx";
+ALTER TABLE "product" DROP COLUMN IF EXISTS "article", DROP COLUMN IF EXISTS "price",
+  DROP COLUMN IF EXISTS "priceIncludesVat", DROP COLUMN IF EXISTS "vatRate";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261109000300_product_article_price';
+```
+
+What breaks: with the new code still running, the product list, import apply and the 1C export
+answer 500. Deploy the previous code first; it never reads the columns. Stored articles, prices and
+VAT rates are lost; the 1C nomenclature file goes back to an empty «Артикул», «Цена» and «Ставка НДС».

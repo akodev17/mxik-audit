@@ -227,6 +227,12 @@ export const ProductRecord = z.object({
   markingRequired: z.boolean().nullable(),
   /** 1C «Артикул», when the source has one (written to nomenclature_xlsx). */
   article: z.string().max(100).nullable().optional(),
+  /** The source's price rounded to tiyin (2 decimals), when it has one (1C «Цена»). */
+  price: DecimalString.nullable().optional(),
+  /** Whether that price includes VAT: the column said "с НДС" (true) / "без НДС" (false); null = not said. */
+  priceIncludesVat: z.boolean().nullable().optional(),
+  /** VAT rate as the source states it: "12", "0", "15", or "without" (Без НДС); null = not stated (1C «Ставка НДС»). */
+  vatRate: z.string().max(10).nullable().optional(),
   /** A catalogue import record's match against the org's existing products. */
   match: MatchResult.optional(),
   /** Runner-up MXIK codes the classifier considered. */

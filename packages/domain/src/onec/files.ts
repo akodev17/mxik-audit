@@ -67,7 +67,10 @@ function bankFile(batch: PlanBatch, rows: Included[], s: FileSettings): BuiltFil
 function productOf(r: Included): NomenclatureRow {
   if (r.kind === 'product_catalog') {
     const p = r.payload;
-    return { name: p.name, mxik: p.mxik, packageCode: p.packageCode, unit: p.unit, barcode: p.barcode, article: p.article ?? null };
+    return {
+      name: p.name, mxik: p.mxik, packageCode: p.packageCode, unit: p.unit, barcode: p.barcode, article: p.article ?? null,
+      price: p.price ?? null, priceIncludesVat: p.priceIncludesVat ?? null, vatRate: p.vatRate ?? null,
+    };
   }
   if (r.kind === 'didox_invoice') {
     const l = r.payload;

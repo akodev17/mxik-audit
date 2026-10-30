@@ -1,6 +1,8 @@
 // upsertProducts: writes reviewed product records into the org's catalogue. A record finds its
 // product by id, else by identity (client, normalised name, unit); a found product is merged, never
-// blanked: a field the record leaves empty keeps what the product had. Names a product is seen
+// blanked: a field the record leaves empty keeps what the product had, unless the importer opted in
+// to clearing (`clear`, products §7.30: magicstore clears on an empty cell and surprises its users,
+// so here it is a choice, per mapped column). Names a product is seen
 // under besides its own become aliases. A reviewer-confirmed MXIK is written to FirmMapping (the
 // one source of confirmed mappings the audit and the Didox matcher read), not to a second table.
 // Server-only.
@@ -21,7 +23,12 @@ export type UpsertOptions = {
    * codes are learned into FirmMapping as individual confirmations and stamped on the product.
    */
   confirmed?: ReadonlySet<number> | 'all';
+  /** Fields an empty record value clears on an existing product (default none: empty keeps the old value). */
+  clear?: ReadonlySet<ClearableField>;
 };
+
+/** The product fields an import may clear. */
+export type ClearableField = 'onecRef' | 'article' | 'mxik' | 'packageCode' | 'unit' | 'barcode' | 'price' | 'vatRate';
 
 /** `ids` is in record order; a record without a name (nothing to store) has '' there. */
 export type UpsertResult = { created: number; updated: number; ids: string[] };
@@ -33,12 +40,50 @@ const keep = (next: string | null | undefined, old: string | null): string | nul
 type Existing = {
   id: string; clientId: string | null; name: string; normalizedName: string; unitKey: string; onecRef: string | null; mxik: string | null; mxikName: string | null;
   packageCode: string | null; packageName: string | null; unit: string | null; barcode: string | null; mxikStatus: string; markingRequired: boolean | null;
+  article: string | null; price: Prisma.Decimal | null; priceIncludesVat: boolean | null; vatRate: string | null;
 };
 
 const SELECT = {
   id: true, clientId: true, name: true, normalizedName: true, unitKey: true, onecRef: true, mxik: true, mxikName: true,
   packageCode: true, packageName: true, unit: true, barcode: true, mxikStatus: true, markingRequired: true,
+  article: true, price: true, priceIncludesVat: true, vatRate: true,
 } as const;
+
+/** The stored fields a record sets on an existing product: the record's value, or what the product had. */
+export type MergedFields = {
+  onecRef: string | null; article: string | null; mxik: string | null; mxikName: string | null; packageCode: string | null; packageName: string | null;
+  unit: string | null; barcode: string | null; price: string | null; priceIncludesVat: boolean | null; vatRate: string | null;
+};
+
+/**
+ * What an update writes (pure): a value the record carries replaces the old one; an empty one keeps
+ * it, unless its field is in `clear` (the importer opted in), then it is emptied.
+ */
+export function mergedFields(
+  target: Pick<Existing, 'onecRef' | 'article' | 'mxik' | 'mxikName' | 'packageCode' | 'packageName' | 'unit' | 'barcode' | 'priceIncludesVat' | 'vatRate'> & { price: string | null },
+  r: Pick<ProductRecord, 'onecRef' | 'article' | 'mxikName' | 'packageCode' | 'packageName' | 'unit' | 'price' | 'priceIncludesVat' | 'vatRate'> & { mxik: string | null; barcode: string | null },
+  clear: ReadonlySet<ClearableField> = new Set(),
+): MergedFields {
+  const pick = (field: ClearableField, next: string | null | undefined, old: string | null): string | null => (blank(next) && clear.has(field) ? null : keep(next, old));
+  const mxik = pick('mxik', r.mxik, target.mxik?.trim() ?? null);
+  const packageCode = pick('packageCode', r.packageCode, target.packageCode);
+  const price = pick('price', r.price, target.price);
+  return {
+    onecRef: pick('onecRef', r.onecRef, target.onecRef),
+    article: pick('article', r.article, target.article),
+    mxik,
+    // Name and status of the code travel with it: a record without a code leaves both alone.
+    mxikName: !mxik ? null : !blank(r.mxik) ? keep(r.mxikName, r.mxik === target.mxik?.trim() ? target.mxikName : null) : target.mxikName,
+    packageCode,
+    packageName: !packageCode ? null : blank(r.packageCode) ? target.packageName : keep(r.packageName, r.packageCode === target.packageCode ? target.packageName : null),
+    unit: pick('unit', r.unit, target.unit),
+    barcode: pick('barcode', r.barcode, target.barcode),
+    price,
+    // The VAT flag belongs to the price it describes.
+    priceIncludesVat: !price ? null : blank(r.price) ? target.priceIncludesVat : r.priceIncludesVat ?? null,
+    vatRate: pick('vatRate', r.vatRate, target.vatRate),
+  };
+}
 
 const identity = (clientId: string | null, nameKey: string, unitKey: string): string => `${clientId ?? ''}|${nameKey}|${unitKey}`;
 
@@ -84,14 +129,7 @@ export async function upsertRecords(
       let id: string;
       if (target) {
         const data = {
-          onecRef: keep(r.onecRef, target.onecRef),
-          mxik: keep(mxik, target.mxik?.trim() ?? null),
-          // Name and status of the code travel with it: a record without a code leaves both alone.
-          mxikName: mxik ? keep(r.mxikName, mxik === target.mxik?.trim() ? target.mxikName : null) : target.mxikName,
-          packageCode: keep(r.packageCode, target.packageCode),
-          packageName: blank(r.packageCode) ? target.packageName : keep(r.packageName, r.packageCode === target.packageCode ? target.packageName : null),
-          unit: keep(r.unit, target.unit),
-          barcode: keep(barcode, target.barcode),
+          ...mergedFields({ ...target, price: target.price?.toFixed(2) ?? null }, { ...r, mxik, barcode }, options.clear),
           ...(r.mxikStatus !== 'unchecked' ? { mxikStatus: r.mxikStatus, mxikSuggestion: r.mxikSuggestion ?? Prisma.DbNull, mxikCheckedAt: now } : {}),
           markingRequired: r.markingRequired ?? target.markingRequired,
           ...(isConfirmed && mxik ? { mxikConfirmedAt: now, mxikConfirmedBy: actorId } : {}),
@@ -108,7 +146,8 @@ export async function upsertRecords(
             orgId, clientId, name: r.name.trim(), normalizedName: nameKey, unitKey, source, createdBy: actorId,
             onecRef: keep(r.onecRef, null), mxik, mxikName: mxik ? keep(r.mxikName, null) : null,
             packageCode: keep(r.packageCode, null), packageName: blank(r.packageCode) ? null : keep(r.packageName, null),
-            unit: keep(r.unit, null), barcode,
+            unit: keep(r.unit, null), barcode, article: keep(r.article, null),
+            price: keep(r.price, null), priceIncludesVat: blank(r.price) ? null : r.priceIncludesVat ?? null, vatRate: keep(r.vatRate, null),
             mxikStatus: r.mxikStatus, mxikSuggestion: r.mxikSuggestion ?? Prisma.DbNull,
             mxikCheckedAt: r.mxikStatus === 'unchecked' ? null : now, markingRequired: r.markingRequired,
             ...(isConfirmed && mxik ? { mxikConfirmedAt: now, mxikConfirmedBy: actorId } : {}),

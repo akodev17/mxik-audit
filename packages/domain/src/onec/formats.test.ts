@@ -170,7 +170,10 @@ describe('xlsx formats against golden cell grids', () => {
   it('nomenclature_xlsx from an invoice: its lines as products', async () => {
     const plan = planExport(invoiceBatch, records(INVOICE_LINES), 'nomenclature_xlsx', undefined, none);
     const grid = await cells((await buildFile(invoiceBatch, plan, 'nomenclature_xlsx', settings({ filename: 'esf.json' }))).bytes);
-    assert.equal(grid['Номенклатура']?.length, 5);
+    // Four lines: three goods, and «Доставка» (unit «услуга») on the services sheet, never among the goods (onec §8.10).
+    assert.equal(grid['Номенклатура']?.length, 4);
+    assert.deepEqual(grid['Услуги']?.map((r) => r[0]), ['Наименование', 'Доставка']);
+    assert.equal(grid['Услуги']?.[1]?.[9], 'Услуга');
   });
 
   it('receipt_xlsx: the header block, the lines and the totals', async () => {
