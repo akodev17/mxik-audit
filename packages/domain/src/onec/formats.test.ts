@@ -154,6 +154,14 @@ describe('bank_exchange_1_02 (1CClientBankExchange)', () => {
   // bank §7.44, onec §8.20 (review 30 Oct, R-B7): two payments numbered 1 on one day, exported one at a time. Numbered per
   // file, both files said Номер=1 and 1C answered «Документ уже загружен» for the second; numbered over the statement,
   // the second is 1/2 in whichever file it goes.
+  it('letters windows-1251 lacks lose their accent instead of becoming "?"', () => {
+    // bank §7.44, review 30 Oct (R-B12): a Turkish bank's name came out as "T?rkiye … Bankas? ?irket".
+    assert.equal(foldForCp1251('Türkiye Ziraat Bankası Şirket'), 'Turkiye Ziraat Bankasi Sirket');
+    assert.equal(foldForCp1251('Йод, ёлка, № 5, «Ғалла»'), 'Йод, ёлка, № 5, «Галла»', 'letters cp1251 has stay');
+    const bytes = iconv.encode(foldForCp1251('Société Générale Ўзбекистон'), 'win1251');
+    assert.ok(!bytes.includes(0x3f), iconv.decode(bytes, 'win1251'));
+  });
+
   it('a repeated number keeps its suffix across partial exports', async () => {
     const twin = { ...BANK_TRANSACTIONS[0]!, docNumber: '1' };
     const recs = records([twin, { ...twin, amount: '777000', purpose: 'Вторая оплата' }]);

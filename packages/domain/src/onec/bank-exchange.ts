@@ -214,8 +214,22 @@ const CP1251_FOLD: Record<string, string> = {
   'ʻ': "'", 'ʼ': "'", '‘': "'", '’': "'", '“': '"', '”': '"', '„': '"', '–': '-', '—': '-',
 };
 
+const inCp1251 = new Map<string, boolean>();
+/** The character has a byte of its own in windows-1251 (iconv writes '?' for one that has none). */
+const encodable = (c: string): boolean => {
+  let ok = inCp1251.get(c);
+  if (ok === undefined) {
+    ok = c === '?' || iconv.encode(c, 'win1251')[0] !== 0x3f;
+    inCp1251.set(c, ok);
+  }
+  return ok;
+};
+
 export function foldForCp1251(text: string): string {
-  return text.replace(/[ғҒқҚўЎҳҲʻʼ‘’“”„–—]/g, (c) => CP1251_FOLD[c] ?? c);
+  // Then any other letter windows-1251 lacks loses its accent ("Türkiye … Bankası Şirket" → "Turkiye … Bankasi Sirket"),
+  // rather than becoming '?'; letters it has (й, ё) are left alone (review 30 Oct, R-B12).
+  return text.replace(/[ғҒқҚўЎҳҲʻʼ‘’“”„–—]/g, (c) => CP1251_FOLD[c] ?? c)
+    .replace(/[\u0080-\uffff]/g, (c) => (encodable(c) ? c : c === 'ı' ? 'i' : c.normalize('NFD').replace(/\p{M}/gu, '') || c));
 }
 
 // ── Reading: round-trip tests, and a bank's own kl_to_1c.txt uploaded as a statement (bank/exchange-input.ts) ──
