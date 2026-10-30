@@ -422,6 +422,23 @@ export async function syncIncoming(user: CurrentUser | null, locale: Locale, bod
 
 const stalled = (state: SyncState | null): boolean => state?.status === 'running' && Date.now() - Date.parse(state.heartbeatAt) > SYNC_STALL_MS;
 
+/**
+ * Writes the run's first state only if no live run holds the connection: none running, or its heartbeat stale (a start),
+ * or still the stalled heartbeat this caller read (a resume). True when this caller won. The read-check-write before it
+ * let two clicks, two tabs or two processes start two runs (review 30 Oct, R-D7).
+ */
+async function claimSync(orgId: string, state: SyncState, resumeFrom: string | null): Promise<boolean> {
+  const value = JSON.stringify(state);
+  const staleBefore = new Date(Date.now() - SYNC_STALL_MS).toISOString();
+  const won = resumeFrom === null
+    ? await db.$executeRaw`UPDATE didox_connection SET "syncState" = ${value}::jsonb, "updatedAt" = now()
+        WHERE "orgId" = ${orgId} AND ("syncState" IS NULL OR "syncState"->>'status' IS DISTINCT FROM 'running'
+          OR ("syncState"->>'heartbeatAt')::timestamptz < ${staleBefore}::timestamptz)`
+    : await db.$executeRaw`UPDATE didox_connection SET "syncState" = ${value}::jsonb, "updatedAt" = now()
+        WHERE "orgId" = ${orgId} AND "syncState"->>'status' = 'running' AND "syncState"->>'heartbeatAt' = ${resumeFrom}`;
+  return won === 1;
+}
+
 /** "Fetch new incoming invoices": starts the run in the background and answers its first state. */
 export async function startSync(user: CurrentUser | null, locale: Locale, body: unknown, options: SyncOptions = {}): Promise<{ ok: true; state: SyncState } | Fail> {
   const gate = await syncGate(user, locale, body, options);
@@ -430,7 +447,7 @@ export async function startSync(user: CurrentUser | null, locale: Locale, body: 
   const current = readState((await db.didoxConnection.findUnique({ where: { orgId }, select: { syncState: true } }))?.syncState);
   if (current?.status === 'running' && (runningHere.has(orgId) || !stalled(current))) return { ok: false, error: i18nFor(locale).ta.didoxX.errors.sync_running };
   const state = freshState(gate.user, gate.clientId, gate.dateFromUpdated);
-  await saveState(orgId, state);
+  if (!(await claimSync(orgId, state, null))) return { ok: false, error: i18nFor(locale).ta.didoxX.errors.sync_running };
   void runSync(orgId, gate.user.userId, gate.client, gate.clientId, { ...state }, options).catch((error: unknown) => console.error('didox sync', error instanceof Error ? error.message : 'error'));
   return { ok: true, state };
 }
@@ -450,7 +467,8 @@ export async function syncStatus(user: CurrentUser, options: SyncOptions = {}): 
     return failed;
   }
   const resumed: SyncState = { ...state, page: 0, heartbeatAt: nowIso() };
-  await saveState(user.orgId, resumed);
+  // Two reads after a restart (the list and the poll, two tabs, two API processes): one takes the run over.
+  if (!(await claimSync(user.orgId, resumed, state.heartbeatAt))) return readState((await db.didoxConnection.findUnique({ where: { orgId: user.orgId }, select: { syncState: true } }))?.syncState);
   void runSync(user.orgId, state.startedBy, found.client, state.clientId, resumed, options).catch((error: unknown) => console.error('didox sync', error instanceof Error ? error.message : 'error'));
   return resumed;
 }

@@ -300,5 +300,34 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
       await dropOrgs([e.orgId]);
     }
   });
+
+  // Review 30 Oct (R-D7): start and resume read, checked and wrote the state apart, so two clicks (or two tabs after a
+  // restart) started two runs of the same connection. One wins; the other is told a sync is running.
+  it('sync: two starts at once run once', async () => {
+    const g = await makeOrg();
+    try {
+      await db.organization.update({ where: { id: g.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+      const owner = userOf(g);
+      const server = await startFakeDidox({ documents: fixtureDocuments().filter((d) => d.doctype === '002').slice(0, 1), auth: { kind: 'token', token: 'twice-token' } });
+      try {
+        process.env['DIDOX_API_URL'] = server.url;
+        assert.deepEqual(await saveConnection(owner, 'ru', { kind: 'token', companyTin: '305123456', token: 'twice-token' }), { ok: true });
+        const options = { client: { limiter: new RateLimiter(0), sleep: () => Promise.resolve(), log: () => undefined, retries: 0 }, deps: baseStubDeps };
+        const both = await Promise.all([startSync(owner, 'ru', {}, options), startSync(owner, 'ru', {}, options)]);
+        assert.deepEqual(both.map((r) => r.ok).sort(), [false, true], JSON.stringify(both));
+        let state = await syncStatus(owner, options);
+        for (let i = 0; i < 600 && state?.status === 'running'; i++) {
+          await new Promise((r) => setTimeout(r, 50));
+          state = await syncStatus(owner, options);
+        }
+        assert.deepEqual([state?.status, state?.imported], ['done', 1]);
+        assert.equal(server.requests.filter((r) => r.path === '/v2/documents').length, 1, 'the list was read by one run');
+      } finally {
+        await server.close();
+      }
+    } finally {
+      await dropOrgs([g.orgId]);
+    }
+  });
 });
 
