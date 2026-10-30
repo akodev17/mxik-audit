@@ -294,7 +294,10 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
   if (!read.ok) return read;
   const { headers, rows } = read.parsed;
   if (mappingProblem(mapping, headers.length)) return { ok: false as const, error: x.productsX.importWizard.errors.noName };
-  const fingerprint = createHash('sha256').update(read.bytes).digest('hex');
+  // The same file with the same choices is the same batch (a double click); with another client, mapping or "empty cells
+  // clear" it is another import, not the earlier batch with the earlier choices (review 30 Oct, R-P8).
+  const choices = JSON.stringify([client.id, PRODUCT_FIELDS.map((f) => mapping[f]), input.clearEmpty === true]);
+  const fingerprint = createHash('sha256').update(read.bytes).update(choices).digest('hex');
   const existing = await db.importBatch.findUnique({ where: { orgId_kind_fingerprint: { orgId: user.orgId, kind: 'product_catalog', fingerprint } }, select: { id: true } });
   if (existing) return { ok: true as const, batchId: existing.id, duplicate: true };
 

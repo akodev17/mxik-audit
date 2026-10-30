@@ -175,4 +175,19 @@ describe('catalogue import on documented layouts (database, recorded Tasnif answ
     assert.equal(decided.find((r) => r.id === unchecked!.id)?.decision, null, 'waits for a reviewer');
     assert.deepEqual(decided.find((r) => r.id === clean!.id)?.decision, { action: 'approve', note: 'applied' });
   });
+
+  it('the same file again with another "empty cells clear" choice is another import; with the same choices the same', async () => {
+    // Review 30 Oct (R-P8): the batch was found by the file's bytes alone, so the earlier batch came back with the earlier
+    // choice (and the earlier client) without a word.
+    const file = csv('choices.csv', [['Наименование', 'Ед. изм.'], ['Карандаш', 'шт']]);
+    const mapping = JSON.stringify({ name: 0, onecRef: -1, article: -1, mxik: -1, packageCode: -1, unit: 1, barcode: -1, price: -1, vat: -1 });
+    const keep = await commitProductImport(user, 'ru', { file, clientId: null, mapping, clearEmpty: false });
+    const again = await commitProductImport(user, 'ru', { file, clientId: null, mapping, clearEmpty: false });
+    const clear = await commitProductImport(user, 'ru', { file, clientId: null, mapping, clearEmpty: true });
+    assert.ok(keep.ok && again.ok && clear.ok);
+    assert.equal(again.batchId, keep.batchId, 'a double click is the same batch');
+    assert.notEqual(clear.batchId, keep.batchId);
+    const meta = (await db.importBatch.findUniqueOrThrow({ where: { id: clear.batchId }, select: { meta: true } })).meta as { clearEmpty?: boolean };
+    assert.equal(meta.clearEmpty, true);
+  });
 });
