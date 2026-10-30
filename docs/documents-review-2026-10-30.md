@@ -62,6 +62,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-P7 | minor | 76c7311 | A price with more than 16 whole digits is price_unreadable instead of overflowing Decimal(18,2). Test: products/real-data.test.ts. | (follow-up, 30 Oct evening) |
 | R-B12 | minor | 6cce08a | kl_to_1c folds letters windows-1251 lacks to their base letter (Türkiye → Turkiye) instead of '?'. Test: onec/formats.test.ts. | (follow-up, 30 Oct evening) |
 | R-B18 | minor | f82711c | readMfo/readInn read '444.0' / '302345678.0' as the whole number (was 04440). Test: bank/normalize.test.ts. | (follow-up, 30 Oct evening) |
+| R-B13 | minor | b327d6b | The .xls reader counts each row past the limit once (was once per cell). Test: bank/xls.test.ts 'counts each dropped row once'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
