@@ -83,4 +83,27 @@ describe('admin billing (database)', { skip }, () => {
     const again = fits(e.billing.response, (await asAdmin(() => http().get('/api/admin/billing').set('Cookie', cookie))).body);
     assert.equal(again.orgs.some((o) => o.id === demo.orgId), false);
   });
+
+  it('pages the orgs, 50 by default, while the 30-day figures cover every org', async () => {
+    const get = (query: string) => asAdmin(() => http().get(`/api/admin/billing${query}`).set('Cookie', cookie));
+    const first = fits(e.billing.response, (await get('')).body);
+    assert.equal(first.page, 1);
+    assert.equal(first.pageSize, 50);
+    assert.ok(first.orgs.length <= 50);
+    assert.equal(first.pageCount, Math.max(1, Math.ceil(first.total / 50)));
+    // A page of one past the end answers the last page: the oldest org, not this test's customer,
+    // and still the customer's payments in the platform-wide window.
+    const res = await get('?pageSize=1&page=10000');
+    assert.equal(res.status, 200);
+    const last = fits(e.billing.response, res.body);
+    assert.equal(last.pageSize, 1);
+    assert.equal(last.orgs.length, 1);
+    assert.equal(last.pageCount, last.total);
+    assert.equal(last.page, last.pageCount);
+    assert.notEqual(last.orgs[0]?.id, customer.orgId);
+    assert.ok(last.last30.count >= 1 && last.last30.sum >= 390_000 && last.last30.test >= 1);
+    for (const bad of ['?page=0', '?page=abc', '?pageSize=0', '?pageSize=201']) {
+      assert.equal((await get(bad)).status, 400, bad);
+    }
+  });
 });

@@ -96,9 +96,23 @@ export const admin = defineModule('admin', {
   }),
   billing: endpoint({
     method: 'GET', path: '/api/admin/billing', auth: 'session', role: 'platformAdmin',
-    summary: 'Customer orgs with plan, trial and subscription ends and last paid order; paid orders of the last 30 days (test mode apart)',
+    summary: 'One page of customer orgs (newest first) with plan, trial and subscription ends and last paid order; paid orders of the last 30 days across all orgs (test mode apart)',
+    // page is 1-based; one past the end answers the last page. pageSize defaults to 50.
+    query: z.object({
+      page: z.coerce.number().int().min(1).max(10_000).optional(),
+      pageSize: z.coerce.number().int().min(1).max(200).optional(),
+    }),
     responds: 'json',
-    response: z.object({ generatedAt: IsoDateTime, last30: Paid30, orgs: z.array(OrgBilling) }),
+    response: z.object({
+      generatedAt: IsoDateTime,
+      /** Platform-wide, not only the orgs of this page. */
+      last30: Paid30,
+      orgs: z.array(OrgBilling),
+      total: z.number().int(),
+      page: z.number().int(),
+      pageSize: z.number().int(),
+      pageCount: z.number().int(),
+    }),
     replaces: ['page:(app)/admin/billing'],
   }),
   pipeline: endpoint({

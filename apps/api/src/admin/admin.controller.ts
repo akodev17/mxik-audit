@@ -48,8 +48,8 @@ export class AdminController {
   }
 
   @AdminRoute(e.billing)
-  billing() {
-    return billingOverview();
+  billing(@Query(pipe(e.billing.query)) query: In<typeof e.billing.query>) {
+    return billingOverview(query);
   }
 
   @AdminRoute(e.pipeline)
