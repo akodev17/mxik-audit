@@ -103,6 +103,7 @@ export function ConnectionForm({ connection, clients, demo }: { connection: Conn
           <dl className="mt-4 grid gap-2 border-t border-line pt-3 text-small sm:grid-cols-2">
             <div><dt className="text-muted">{ta.didoxX.sync.lastSync}</dt><dd>{connection.lastSyncAt ? fmtDateTime(locale, connection.lastSyncAt) : ta.didoxX.sync.never}</dd></div>
             {connection.lastError ? <div><dt className="text-muted">{s.lastError}</dt><dd className="text-danger-ink">{ta.didoxX.errors.didox[connection.lastError] ?? connection.lastError}</dd></div> : null}
+            {connection.lastErrorDetail ? <div><dt className="text-muted">{s.lastErrorDetail}</dt><dd className="break-words font-mono text-small">{connection.lastErrorDetail}</dd></div> : null}
           </dl>
         ) : null}
         {message ? <Notice tone={message.tone} className="mt-4">{message.text}</Notice> : null}

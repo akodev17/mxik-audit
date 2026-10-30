@@ -92,3 +92,37 @@ export const absDiff = (a: Micros, b: Micros): Micros => (a > b ? a - b : b - a)
 
 /** Whole units → micros (tolerances: `units(1)` is one sum). */
 export const units = (n: number): Micros => BigInt(Math.round(n * 1_000_000));
+
+/** Micros → whole tiyin (1/100 sum), half away from zero: the unit the roaming arithmetic works in. */
+export function tiyin(micros: Micros): bigint {
+  const negative = micros < 0n;
+  const abs = negative ? -micros : micros;
+  const rounded = (abs + 5_000n) / 10_000n;
+  return negative ? -rounded : rounded;
+}
+
+/**
+ * How many fraction digits a value was written with, trailing zeros and float noise left out:
+ * `892.86`, `"892.8600000000000136"` and `892.8599999999999` are 2, `"10000000.00"` is 0,
+ * `"0.123456789"` is 9. Null for anything readDecimal would refuse. Didox's limits (count ≤ 6,
+ * money ≤ 2, research note §5 V5) are checked against this, not against the parsed micros.
+ */
+export function fractionDigits(value: unknown): number | null {
+  if (readDecimal(value) === null) return null;
+  let text = typeof value === 'number' ? String(value) : String(value).trim().replace(/[\s\u00a0\u202f]/g, '');
+  if (/e/i.test(text)) text = Number(text).toFixed(12);
+  if (text.includes(',') && !text.includes('.')) text = text.replace(',', '.');
+  const fraction = text.split('.')[1] ?? '';
+  // A run of six zeros or nines is the binary float's tail, not a written digit.
+  const noise = /0{6,}|9{6,}/.exec(fraction);
+  let digits = noise ? fraction.slice(0, noise.index) : fraction;
+  if (noise && noise[0].startsWith('9')) {
+    // 0.2999999 is 0.3: the digit before the nines rounds up and the zeros it leaves behind drop.
+    digits = digits.replace(/9+$/, '');
+    if (digits.length > 0) digits = digits.slice(0, -1) + String(Number(digits.slice(-1)) + 1);
+  }
+  return digits.replace(/0+$/, '').length;
+}
+
+/** A number written with a thousands separator or a decimal comma: Didox and the roaming centre send neither (§5 "dot separator"). */
+export const looseNumberFormat = (value: unknown): boolean => typeof value === 'string' && /[,\s\u00a0\u202f']/.test(value.trim());

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "facturatype": 0,
+  "singlesidedtype": 0,
+  "incometype": 0,
+  "facturaid": "68636ebd7dc738171cf68510",
+  "facturadoc": {
+    "facturano": "1428",
+    "facturadate": "2025-06-30"
+  },
+  "contractdoc": {
+    "contractno": "BC177966",
+    "contractdate": "2023-02-15"
+  },
+  "oldfacturadoc": null,
+  "facturaempowermentdoc": {
+    "agentfacturaid": "68636ebd7dc738171cf68511",
+    "empowermentno": "",
+    "empowermentdateofissue": null,
+    "agentfio": "",
+    "agenttin": null,
+    "agentpinfl": ""
+  },
+  "itemreleaseddoc": {
+    "itemreleasedtin": null,
+    "itemreleasedpinfl": "",
+    "itemreleasedfio": ""
+  },
+  "foreigncompany": null,
+  "facturarentdoc": null,
+  "productlist": {
+    "facturaproductid": "68636ebd7dc738171cf68512",
+    "tin": "200242936",
+    "hasvat": true,
+    "hasexcise": false,
+    "hascommittent": false,
+    "hasmedical": false,
+    "haslgota": false,
+    "hidereportcommittent": false,
+    "products": [
+      {
+        "summa": 892.86,
+        "totalsum": null,
+        "deliverysum": 892.86,
+        "vatrate": 12,
+        "vatsum": 107.14,
+        "deliverysumwithvat": 1000,
+        "withoutvat": false,
+        "committentname": "",
+        "committenttin": "",
+        "committentvatregcode": "",
+        "committentvatregstatus": null,
+        "serial": null,
+        "basesumma": 0,
+        "profitrate": 0,
+        "exciserate": 0,
+        "excisesum": 0,
+        "barcode": "",
+        "marks": null,
+        "warehouseid": null,
+        "lgotaid": "",
+        "lgotaname": null,
+        "lgotavatsum": 0,
+        "lgotatype": null,
+        "origin": 3,
+        "exchangeinfo": null,
+        "ordno": "1",
+        "name": "за услуги исходящие эл.платежи ( 2025 йил июн ой учун )",
+        "catalogcode": "10403003014000001",
+        "catalogname": "Беспроцентные доходы (Банковская услуга)(Счет-45200) кроме льготных доходов",
+        "measureid": null,
+        "packagecode": "1494642",
+        "packagename": "услуга (сум)",
+        "count": 1
+      }
+    ]
+  },
+  "expansion": {
+    "ordernumber": ""
+  },
+  "hasmarking": false,
+  "hasrent": false,
+  "contractid": null,
+  "waybillid": null,
+  "waybilllocalids": null,
+  "facturainvestmentobjectdoc": {
+    "objectid": null,
+    "objectname": null
+  },
+  "sellertin": "200242936",
+  "buyertin": "301467485",
+  "lotid": "",
+  "seller": {
+    "name": "\"CHET EL KAPITALI ISHTIROKIDAGI \"HAMKORBANK\" ATB",
+    "account": "22510000500000083006",
+    "bankid": "00083",
+    "address": "АНДИЖАНСКАЯ ОБЛАСТЬ, ГОРОД АНДИЖАН, BOBURSHOX KO’CHASI 85-UY, ",
+    "mobile": "",
+    "workphone": "",
+    "oked": "",
+    "districtid": "0301",
+    "director": "DIREKTOR F.I.O.",
+    "accountant": "BUXGALTER F.I.O.",
+    "vatregcode": "303010021688",
+    "branchcode": "",
+    "branchname": "",
+    "vatregstatus": "20"
+  },
+  "buyer": {
+    "name": "\"RUXSHANA TEKS\" XK",
+    "account": "20208000204826464001",
+    "bankid": "01095",
+    "address": "SANOATCHILAR KO`CHASI  ",
+    "mobile": "",
+    "workphone": "",
+    "oked": "13201",
+    "districtid": "0601",
+    "director": "DIREKTOR F.I.O.",
+    "accountant": "BUXGALTER F.I.O.",
+    "vatregcode": "306090005752",
+    "branchcode": "",
+    "branchname": "",
+    "vatregstatus": "20"
+  }
+}

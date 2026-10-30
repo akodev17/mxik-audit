@@ -1,0 +1,40 @@
+{
+  "pending_document": {
+    "document_json": {
+      "facturaid": "68c933ffc446a09bba747505",
+      "facturadoc": {
+        "facturano": "Тест",
+        "facturadate": "2025-09-08"
+      },
+      "contractdoc": {
+        "contractno": "Тест",
+        "contractdate": "2025-09-18"
+      },
+      "sellertin": "310529901",
+      "buyertin": "302936161",
+      "productlist": {
+        "facturaproductid": "68c9340a6a52131e969eb3c1",
+        "tin": "310529901",
+        "hasvat": true,
+        "products": [
+          {
+            "ordno": "1",
+            "catalogcode": "10713007001000000",
+            "catalogname": "Возмещение затрат (расходов) за услуги холодного водоснабжения",
+            "name": "тест",
+            "packagecode": 1505731,
+            "packagename": "кубический метр",
+            "count": "1",
+            "summa": "1",
+            "deliverysum": 1,
+            "vatrate": 12,
+            "vatsum": "0.12",
+            "deliverysumwithvat": "1.12"
+          }
+        ]
+      }
+    }
+  },
+  "_id": "11f092e3428d10c68f7b1e0008000075",
+  "created_date": "2025-09-16 14:55:22"
+}

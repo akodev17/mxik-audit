@@ -88,7 +88,8 @@ const FAQ = [
       <>
         Didox dan yuklab olingan arxiv (.zip), JSON yoki ESF Excel faylini yuklaysiz yoki Didox
         tokeningiz bilan yangi kiruvchi hisob-fakturalarni olasiz. Ikkala yoʻl ham sinov rejimida:
-        haqiqiy Didox bilan hali tekshirilmagan, shuning uchun har bir hisob-fakturani koʻrib
+        fayl tuzilishi Didox rasmiy hujjatlari va haqiqiy eksport arxivi boʻyicha tekshirilgan, lekin
+        Didox API orqali haqiqiy hujjat hali olinmagan, shuning uchun har bir hisob-fakturani koʻrib
         chiqasiz.
         <InApp href="/didox" label={NAV.didox} />
       </>

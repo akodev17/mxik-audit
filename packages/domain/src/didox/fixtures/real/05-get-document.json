@@ -1,0 +1,140 @@
+{
+  "data": {
+    "json": {
+      "version": 1,
+      "facturatype": "0",
+      "facturaid": "68c933ffc446a09bba747505",
+      "facturadoc": {
+        "facturano": "Тест",
+        "facturadate": "2025-09-08"
+      },
+      "contractdoc": {
+        "contractno": "Тест",
+        "contractdate": "2025-09-18"
+      },
+      "contractid": null,
+      "facturaempowermentdoc": {
+        "agentfacturaid": "68c9340a9523502f92de5a2d",
+        "empowermentno": "",
+        "empowermentdateofissue": "",
+        "agentfio": ""
+      },
+      "itemreleaseddoc": {
+        "itemreleasedfio": "",
+        "itemreleasedpinfl": ""
+      },
+      "sellertin": "310529901",
+      "buyertin": "302936161",
+      "seller": {
+        "name": "\"DIDOX TECH\" MCHJ",
+        "branchcode": "",
+        "branchname": "",
+        "account": "20208000905656222001",
+        "bankid": "00401",
+        "address": "ГОРОД ТАШКЕНТ ЯШНАБАДСКИЙ РАЙОН Фидойилар МФЙ, Махтумкули кучаси, 114а-уй  ",
+        "mobile": null,
+        "workphone": "",
+        "oked": "62090",
+        "districtid": "",
+        "director": "DIREKTOR F.I.O.",
+        "accountant": "BUXGALTER F.I.O.",
+        "vatregcode": "326080220838",
+        "vatregstatus": 20,
+        "taxgap": null
+      },
+      "buyer": {
+        "name": "\"VENKON GROUP\" MCHJ",
+        "branchcode": "",
+        "branchname": "",
+        "account": "20208000400308125001",
+        "bankid": "00974",
+        "address": "ГОРОД ТАШКЕНТ ЯШНАБАДСКИЙ РАЙОН Фидойилар МФЙ, Махтумкули кучаси,  ",
+        "mobile": "",
+        "workphone": "",
+        "oked": "62010",
+        "districtid": "",
+        "director": "DIREKTOR F.I.O.",
+        "accountant": "BUXGALTER F.I.O.",
+        "vatregcode": "326040002521",
+        "vatregstatus": 20,
+        "taxgap": null
+      },
+      "productlist": {
+        "facturaproductid": "68c9340a6a52131e969eb3c1",
+        "tin": "310529901",
+        "hasexcise": false,
+        "hasvat": true,
+        "hasmedical": false,
+        "hascommittent": false,
+        "haslgota": false,
+        "products": [
+          {
+            "packagecode": 1505731,
+            "packagename": "кубический метр",
+            "ordno": "1",
+            "committentname": "",
+            "committenttin": "",
+            "committentvatregcode": "",
+            "committentvatregstatus": null,
+            "name": "тест",
+            "barcode": "",
+            "lgotaid": null,
+            "catalogcode": "10713007001000000",
+            "catalogname": "Возмещение затрат (расходов) за услуги холодного водоснабжения",
+            "measureid": "",
+            "count": "1",
+            "summa": "1",
+            "deliverysum": 1,
+            "vatrate": 12,
+            "vatsum": "0.12",
+            "deliverysumwithvat": "1.12",
+            "withoutvat": false,
+            "exciserate": "0",
+            "excisesum": "0",
+            "serial": "",
+            "basesumma": 0,
+            "profitrate": 0,
+            "warehouseid": null,
+            "origin": 3,
+            "marks": null,
+            "lgotaname": null,
+            "lgotavatsum": 0,
+            "lgotatype": null
+          }
+        ]
+      },
+      "hasrent": false,
+      "facturarentdoc": null
+    },
+    "document": {
+      "doc_id": "11F092E3428D10C68F7B1E0008000075",
+      "_id": "11F092E3428D10C68F7B1E0008000075",
+      "id": "11F092E3428D10C68F7B1E0008000075",
+      "name": "Тест СФ",
+      "internal_status": null,
+      "updated": "2025-09-16 14:56:23",
+      "created": "2025-09-16 14:55:22",
+      "doctype": "002",
+      "factura_type": 0,
+      "reverse_calc": false,
+      "authorTaxId": null,
+      "signature": "[{\"taxId\":\"310529901\",\"firstName\":\"DIREKTOR F.I.O.\",\"lastName\":\"DIREKTOR F.I.O.\",\"fullName\":\"DIREKTOR F.I.O.\",\"company\":\"DIDOX TECH MCHJ\",\"email\":\"\",\"serial\":\"78d0f645\",\"serialDec\":2026960453,\"signingTime\":\"2025.09.16 14:55:23\",\"pinfl\":null,\"operator\":\"didox.uz\",\"ip\":\"0.0.0.0\"}]",
+      "sourceId": null,
+      "additional": [],
+      "extended_json": null,
+      "status_comment": "Документ отменен",
+      "status": 3,
+      "doc_status": 3,
+      "owner": 1,
+      "internal_comment": null,
+      "has_copy_restriction": false,
+      "has_cancel_restriction": null,
+      "factoringBlocks": [],
+      "scoring": 0
+    },
+    "toSign": null,
+    "isValid": true,
+    "relatedDocuments": [],
+    "requestToByResponse": null
+  }
+}

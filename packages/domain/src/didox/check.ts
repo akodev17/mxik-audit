@@ -7,19 +7,23 @@
 // Issue codes this module emits (labels in i18n-parts/didox.ts, didoxX.issues):
 //   mxik_missing, mxik_invalid, mxik_inactive, mxik_restricted, mxik_conflict, product_new,
 //   product_ambiguous, product_unchecked, package_mismatch, unit_mismatch, totals_mismatch,
-//   quantity_invalid, duplicate_line_name, seller_unknown, seller_tin_invalid.
+//   quantity_invalid, duplicate_line_name, seller_unknown, seller_tin_invalid, header_totals_mismatch;
+//   and, when `deps.rules` is set, the tax-side rules of rules.ts (contracts DIDOX_ISSUES lists them).
 // duplicate_invoice is a refusal of the whole document (service.ts), not a line issue.
 // Agent 4's classifier adds its own codes (mxik_malformed, mxik_not_found, mxik_inactive_api,
 // mxik_suspicious, unit_conflict, package_not_of_code, package_unit_conflict, package_unchecked,
 // package_missing, barcode_invalid, marking_required): labelled under
 // productsX.issues, the review grid falls back to those labels.
 import type { accounting } from '@tasnivo/contracts';
+import type { Prisma } from '@prisma/client';
 import { db } from '@tasnivo/db';
 import type { z } from 'zod';
 import { matchCounterparties as onecMatchCounterparties } from '../onec/index.js';
 import { classifyProducts as agent4Classify, matchProducts as agent4Match, type Classification, type ProductQuery } from '../products/index.js';
 import type { IncomingInvoiceMeta, InvoiceLine, ParsedInvoice, ParsedLine, ValidationIssue } from './document.js';
 import { foldName } from './fold.js';
+import { mirrorFacts, type MirrorFact } from './mirror.js';
+import { invoiceRules, leadingZeroCandidate, type RuleContext } from './rules.js';
 
 export type MatchResult = z.infer<typeof accounting.MatchResult>;
 export type ProductRecord = z.infer<typeof accounting.ProductRecord>;
@@ -33,7 +37,45 @@ export type CheckDeps = {
   matchCounterparties: (orgId: string, refs: CounterpartyRef[], scope?: { clientId?: string | null }) => Promise<CounterpartyRef[]>;
   /** The product records behind matched candidates, to compare MXIK, packaging and unit with the catalogue. */
   productRecords: (orgId: string, ids: string[]) => Promise<ProductRecord[]>;
+  /**
+   * The tax-side rules (rules.ts) and what they read. Absent = the parser's checks only (the unit
+   * tests of the matching flow leave it out so their fixtures need not be roaming-perfect).
+   */
+  rules?: RuleDeps;
 };
+
+export type RuleDeps = {
+  /** Facts of the local tasnif mirror per code (mirror.ts). */
+  mirror: (codes: string[]) => Promise<ReadonlyMap<string, MirrorFact>>;
+  /** Didox's restricted ИКПУ lists, when a connection can fetch them; null = not consulted. */
+  lists?: (orgId: string) => Promise<RuleContext['lists']>;
+  /** The original of a correction among the org's earlier imports (undefined = not looked up). */
+  original?: (orgId: string, invoice: ParsedInvoice) => Promise<RuleContext['original']>;
+  /** `YYYY-MM-DD` in Tashkent; injectable for tests. */
+  today?: () => string;
+};
+
+/** Today in Tashkent (UTC+5, no daylight saving). */
+export const tashkentToday = (): string => new Date(Date.now() + 5 * 3_600_000).toISOString().slice(0, 10);
+
+/**
+ * The earlier invoice a correction names: by its roaming id, else by seller + number + date of the
+ * old invoice (§7.29). Null when none was imported; undefined when the invoice is not a correction.
+ */
+export async function findOriginal(orgId: string, invoice: ParsedInvoice): Promise<RuleContext['original']> {
+  const old = invoice.oldFactura;
+  if (!old) return undefined;
+  const or: Prisma.ImportBatchWhereInput[] = [];
+  if (old.id) or.push({ meta: { path: ['didox', 'facturaId'], equals: old.id } }, { externalRef: old.id });
+  if (old.number && old.date && invoice.meta.seller.inn) {
+    or.push({ AND: [{ meta: { path: ['number'], equals: old.number } }, { meta: { path: ['date'], equals: old.date } }, { meta: { path: ['seller', 'inn'], equals: invoice.meta.seller.inn } }] });
+  }
+  if (or.length === 0) return null;
+  const found = await db.importBatch.findFirst({ where: { orgId, kind: 'didox_invoice', OR: or }, select: { meta: true }, orderBy: { createdAt: 'asc' } });
+  if (!found) return null;
+  const m = found.meta as Partial<IncomingInvoiceMeta> | null;
+  return { number: m?.number ?? '', date: m?.date ?? '', sellerInn: m?.seller?.inn ?? null };
+}
 
 /**
  * The org's products by id as ProductRecords. A direct read of Agent 4's `product` table until
@@ -63,6 +105,7 @@ export const defaultDeps: CheckDeps = {
   classifyProducts: agent4Classify,
   matchCounterparties: onecMatchCounterparties,
   productRecords: productsByIds,
+  rules: { mirror: mirrorFacts, original: findOriginal },
 };
 
 export type CheckedLine = {
@@ -90,13 +133,28 @@ function lineFields(line: ParsedLine): Omit<InvoiceLine, 'product' | 'resolved'>
   const fields: Partial<ParsedLine> = { ...line };
   delete fields.rawCatalogCode;
   delete fields.issues;
+  // `didox` (origin, privilege, pharm fields, raw numbers) stays in the stored payload; the contract parse drops it.
   return fields as Omit<InvoiceLine, 'product' | 'resolved'>;
 }
 
 // The raw code goes to the classifier even when it is not 17 digits, so it can say "malformed".
+// Tabs and newlines inside a Didox name (§7.8) are folded for the matcher only.
 const queryOf = (line: ParsedLine): ProductQuery => ({
-  name: line.name, mxik: line.mxik ?? line.rawCatalogCode, barcode: line.barcode, unit: line.unit ?? line.packageName, packageCode: line.packageCode,
+  name: line.name.replace(/\s+/g, ' ').trim(), mxik: line.mxik ?? line.rawCatalogCode, barcode: line.barcode, unit: line.unit ?? line.packageName, packageCode: line.packageCode,
 });
+
+/**
+ * The classifier judges a code by today's catalogue; the rules judge it by the invoice date. When
+ * the rules found the code still usable on that date (retired or restricted later), the classifier's
+ * "inactive" / "restricted" error on the same code is dropped.
+ */
+function byInvoiceDate(issues: ValidationIssue[]): ValidationIssue[] {
+  const has = (code: string): boolean => issues.some((i) => i.code === code);
+  return issues.filter((i) => !(
+    (i.code === 'mxik_inactive' && has('mxik_retired_later') && !i.params?.['retiredAt'])
+    || (i.code === 'mxik_restricted' && has('mxik_restricted_later'))
+  ));
+}
 
 /** Parser issues the classifier's own issue on the same field replaces (same meaning, theirs carries the suggestion). */
 const PARSER_DUPLICATES = new Set(['mxik_missing', 'mxik_invalid']);
@@ -147,6 +205,18 @@ function classifierIssues(line: ParsedLine, c: Classification | undefined, has: 
   return out;
 }
 
+/** The rules of rules.ts with their facts read once per document. */
+export async function applyRules(orgId: string, parsed: ParsedInvoice, deps: RuleDeps): Promise<ReturnType<typeof invoiceRules>> {
+  // A 16-digit code is looked up with its lost leading zero too (rules.ts mxik_leading_zero).
+  const codes = [...new Set(parsed.lines.flatMap((l) => (l.mxik ? [l.mxik] : leadingZeroCandidate(l.rawCatalogCode) ?? [])))];
+  const [facts, lists, original] = await Promise.all([
+    deps.mirror(codes),
+    deps.lists ? deps.lists(orgId).catch(() => null) : Promise.resolve(null),
+    deps.original ? deps.original(orgId, parsed) : Promise.resolve(undefined),
+  ]);
+  return invoiceRules(parsed, { today: deps.today?.() ?? tashkentToday(), facts, lists, original });
+}
+
 export async function checkInvoice(orgId: string, clientId: string | null, parsed: ParsedInvoice, deps: CheckDeps = defaultDeps): Promise<CheckedInvoice> {
   const { lines } = parsed;
   // Candidate groups: first line of each folded name represents the group.
@@ -167,6 +237,7 @@ export async function checkInvoice(orgId: string, clientId: string | null, parse
     deps.classifyProducts(orgId, classLines.map((i) => queryOf(lines[i] as ParsedLine))),
   ]);
   const classes = new Map(classLines.map((lineIndex, k) => [classKey(lineIndex), classList[k]]));
+  const ruled = deps.rules ? await applyRules(orgId, parsed, deps.rules) : null;
   const chosenIds = [...new Set(matches.flatMap((m) => (m?.status === 'matched' && m.chosen ? [m.chosen.id] : [])))];
   const records = new Map((chosenIds.length ? await deps.productRecords(orgId, chosenIds) : []).flatMap((r) => (r.productId ? [[r.productId, r]] : [])));
 
@@ -177,7 +248,8 @@ export async function checkInvoice(orgId: string, clientId: string | null, parse
     const members = groupOf.get(key) ?? [];
     const match: MatchResult = matches[gi] ?? { status: 'unknown', chosen: null, candidates: [] };
     const record = match.status === 'matched' && match.chosen ? records.get(match.chosen.id) ?? null : null;
-    const issues: ValidationIssue[] = mergeClassifier([...line.issues], line, classes.get(classKey(i)));
+    const own = [...line.issues, ...(ruled?.lines[i] ?? [])];
+    const issues: ValidationIssue[] = byInvoiceDate(mergeClassifier(own, line, classes.get(classKey(i))));
 
     if (members.length > 1) {
       issues.push({ code: 'duplicate_line_name', severity: 'info', field: 'name', params: { lines: members.map((m) => lines[m]?.lineNo ?? m + 1).join(', ') } });
@@ -213,7 +285,7 @@ export async function checkInvoice(orgId: string, clientId: string | null, parse
   });
 
   // The seller against the org's counterparties (Agent 1's matcher).
-  const batchIssues: ValidationIssue[] = [...parsed.documentIssues];
+  const batchIssues: ValidationIssue[] = [...parsed.documentIssues, ...(ruled?.document ?? [])];
   const [seller] = await deps.matchCounterparties(orgId, [parsed.meta.seller], { clientId });
   const meta: IncomingInvoiceMeta = { ...parsed.meta, seller: seller ?? parsed.meta.seller };
   if (seller?.match?.status === 'new' || (seller?.match?.status === 'ambiguous' && !seller.counterpartyId)) {

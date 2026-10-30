@@ -234,6 +234,7 @@ model Organization {
   bankRules BankRule[]
   didoxConnection DidoxConnection?
   didoxDocuments DidoxDocument[]
+  didoxSheetFormats DidoxSheetFormat[]
   /// Accept dictionary matches automatically when a catalogue is audited.
   dictAutoAccept Boolean @default(false)
   /// Free trial runs until this moment; null for demo and internal orgs.
@@ -1639,6 +1640,10 @@ model DidoxConnection {
   lastSyncAt      DateTime?
   /// The last sync or test failure as a machine code (unauthorized, timeout, ...); null after a success.
   lastError       String?
+  /// Didox's own words for that failure (error body, 300 chars at most, never a token); null after a success.
+  lastErrorDetail String?
+  /// The background sync (connection.ts SyncState): status, dateFromUpdated, page reached, counters, heartbeat.
+  syncState       Json?
   createdBy       String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @default(now()) @updatedAt
@@ -1646,6 +1651,26 @@ model DidoxConnection {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("didox_connection")
+}
+
+/// A column mapping of an ЭСФ spreadsheet the org confirmed, found again by the file's header
+/// signature (the bank module's BankFormat pattern): the next file with the same headers opens with it.
+model DidoxSheetFormat {
+  id              String   @id @default(cuid())
+  orgId           String
+  /// Normalised header names in column order joined with '|' (didox/sources.ts sheetSignature).
+  headerSignature String
+  /// Field → column index (didox/sources.ts SheetMap).
+  columnMap       Json
+  usedCount       Int      @default(0)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, headerSignature])
+  @@map("didox_sheet_format")
 }
 
 /// The raw Didox document as fetched (API) or uploaded (zip/JSON), keyed by its Didox id, with the

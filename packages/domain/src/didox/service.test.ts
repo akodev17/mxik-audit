@@ -321,7 +321,8 @@ describe('Didox connection and sync (database + fake Didox)', { skip }, () => {
     assert.equal((await getConnection(admin)).partnerTokenRef, 'DIDOX_PARTNER_TOKEN_ACME');
     const found = await clientForOrg(a.orgId, { DIDOX_PARTNER_TOKEN_ACME: 'partner-secret', SESSION_SECRET: 'platform-secret' });
     assert.ok(found.ok);
-    assert.deepEqual(found.client.authHeaders(), { Authorization: 'Bearer partner-secret', 'user-key': TOKEN });
+    // Partner-Authorization, not Bearer: the official partner API header (RESEARCH.md §1.2).
+    assert.deepEqual(found.client.authHeaders(), { 'Partner-Authorization': 'partner-secret', 'user-key': TOKEN });
     assert.deepEqual(await clientForOrg(a.orgId, { SESSION_SECRET: 'platform-secret' }), { ok: false, code: 'partner_missing' }, 'the named variable is absent');
     // A reference stored before the allow-list existed is refused when it is used, not only when it is saved.
     await db.didoxConnection.update({ where: { orgId: a.orgId }, data: { partnerTokenRef: 'SESSION_SECRET' } });

@@ -409,3 +409,22 @@ DELETE FROM "_prisma_migrations" WHERE migration_name = '20261108000500_value_me
 What breaks: with the new code still running, the dashboard, Settings → Account and the checklist's
 hide button answer 500. Deploy the previous code first; it never reads the columns. The chosen
 minutes and every "hidden" choice are lost (the checklist shows again unless an old cookie hides it).
+
+### `20261110000200_didox_sync_sheet_formats`
+
+Adds the nullable `didox_connection."lastErrorDetail"` (Didox's own error text, bounded, never a token) and
+`didox_connection."syncState"` (jsonb: the background sync's page, counters and heartbeat; documents S2, B8),
+and the table `didox_sheet_format` (an org's confirmed ЭСФ spreadsheet column mapping by header signature;
+cascades with the org). No backfill.
+
+```sql
+DROP TABLE IF EXISTS "didox_sheet_format";
+ALTER TABLE "didox_connection" DROP COLUMN IF EXISTS "syncState";
+ALTER TABLE "didox_connection" DROP COLUMN IF EXISTS "lastErrorDetail";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261110000200_didox_sync_sheet_formats';
+```
+
+What breaks: with the new code still running, the Didox pages, the sync and the connection settings answer
+500. Deploy the previous code first; it never reads them. A sync that was running stops (the previous code
+syncs inside the request again) and remembered sheet mappings are gone: the next ЭСФ spreadsheet is mapped
+by hand once more.

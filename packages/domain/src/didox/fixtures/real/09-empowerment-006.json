@@ -1,0 +1,58 @@
+{
+  "EmpowermentDoc": {
+    "EmpowermentNo": "текст",
+    "EmpowermentDateOfIssue": "2025-02-07",
+    "EmpowermentDateOfExpire": "2025-02-14"
+  },
+  "ContractDoc": {
+    "ContractNo": "текст",
+    "ContractDate": "2025-02-07"
+  },
+  "Agent": {
+    "JobTitle": null,
+    "Fio": "DIREKTOR F.I.O.",
+    "Passport": {
+      "Number": null,
+      "IssuedBy": null,
+      "DateOfIssue": null
+    },
+    "AgentTin": "30000000000003"
+  },
+  "SellerTin": "302936161",
+  "Seller": {
+    "Name": "\"VENKON GROUP\" MCHJ",
+    "BranchCode": "",
+    "BranchName": "",
+    "Account": "20208000400308125001",
+    "BankId": "00974",
+    "Address": "Фидойилар МФЙ, Махтумкули кучаси,  ",
+    "Director": "DIREKTOR F.I.O.",
+    "Accountant": "BUXGALTER F.I.O."
+  },
+  "BuyerTin": "310529901",
+  "ProductList": {
+    "Tin": "310529901",
+    "HasExcise": false,
+    "HasVat": true,
+    "Products": [
+      {
+        "OrdNo": 1,
+        "CatalogCode": "08471001001000000",
+        "CatalogName": "Ноутбук",
+        "Name": "тест",
+        "MeasureId": "1",
+        "Count": "10"
+      }
+    ]
+  },
+  "Buyer": {
+    "Name": "\"DIDOX TECH\" MCHJ",
+    "BranchCode": "",
+    "BranchName": "",
+    "Account": "20208000400308125001",
+    "BankId": "00974",
+    "Address": "Фидойилар МФЙ, Махтумкули кучаси,  ",
+    "Director": "DIREKTOR F.I.O.",
+    "Accountant": "BUXGALTER F.I.O."
+  }
+}

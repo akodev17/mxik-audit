@@ -292,6 +292,107 @@ the store step (≈ 0.2 s per 1 000 lines) now happens inside the upload request
 | Purpose codes validated against the CBU table by date | the table (new since 26.05.2026) is not public in a usable form | None until the table is obtained; the code is only read and passed on |
 | ПИНФЛ (14 digits) in a kl_to_1c `…ИНН` (12 by the spec) | written as is; no source shows what 1C UZ does with it | Part of the 1C load above, with a payment to a physical person |
 
+## S2 results — Didox invoices (branch `claude/docs-s2-didox-2ee41e`, 30 Oct 2026)
+
+Worktree `.claude/worktrees/docs-s2-didox-2ee41e`, on top of 1afccd1, not pushed. Scratch DB `mxik_s2`
+(all migrations + this branch's one; mxik_code without embeddings, packaging_code, mxik_code_state,
+restricted_code and tax_privilege copied in from `mxik` for the mirror checks; 2.4 GB, drop it after the merge).
+**The branch adds a migration** `20261110000200_didox_sync_sheet_formats` (`didox_connection.lastErrorDetail`,
+`didox_connection.syncState`, table `didox_sheet_format`; rollback in `docs/accounting-2026-10-23/migrations.md`):
+run `prisma migrate deploy` + `prisma generate` after merging. `packages/domain/src/onec/**` and
+`packages/contracts/src/accounting.ts` are not touched; S4's optional `IncomingInvoiceMeta.facturaType` /
+`oldFactura` are written into the stored batch meta (`service.ts` `storeInvoice`), `riskLevel` is not filled
+(Didox's `scoring` scale is not documented).
+
+### Bugs fixed
+
+| # | Where (before → now) | Fix |
+|---|---|---|
+| B6 | `didox/document.ts:276` (header totals = sum of the lines) | The header totals are the document's when it states them (hybrid 023 product groups) or the Didox list entry's (`total_delivery_sum`, `total_vat_sum`, `total_delivery_sum_with_vat`; never `total_sum`, which is not the total, research §1.3), `document.ts:511`; the lines are compared with them in tiyin (`header_totals_mismatch`), and `meta.didox.totalsFrom` says which (`document` / `list` / `lines`). A plain 002 JSON carries no header totals at all, so there the lines' sum stays, labelled `lines`. |
+| B8 | `didox/document.ts:293` currency `'UZS'` | `currencyOf()` (`document.ts:470`) reads `currency` / `currencycode` / `valyuta` (alphabetic or ISO numeric, 860 = UZS); UZS only when the document names none (no Didox ЭСФ seen carries one). |
+| B8 | `didox/connection.ts:195-251` sync inside the request, no `dateFrom`, `failed` never counted | `startSync` (`connection.ts:395`) answers at once and runs in the background; the state (page, counters, failures with Didox's words, heartbeat) is saved on the connection after every page; `syncStatus` (`connection.ts:411`, `GET /api/didox/sync`, also read by the list page) resumes a run whose heartbeat is older than 90 s (an API restart). The UI sends `dateFromUpdated`; a document whose fetch or import fails is counted in `failed` (`connection.ts:355`) and the run goes on; only auth / rate / network failures stop it. |
+| B8 | ЭСФ sheet columns guessed every time | The official template is a fixed preset (`sources.ts` `ESF_TEMPLATE_COLUMNS`, `templateToDocuments` at `sources.ts:283`: header fields per invoice in columns 1–40, lines in AO–BH, several invoices per file); any other sheet's confirmed mapping is remembered per org by its header signature (`DidoxSheetFormat`, `service.ts:235`, the bank module's BankFormat pattern). |
+| B8 | `DIDOX_*` not documented | `.env.example` and DEPLOY.md ("Didox", section 3): `DIDOX_API_URL`, `DIDOX_SANDBOX`, `DIDOX_PARTNER_TOKEN` (and the `DIDOX_*` allow-list), `DIDOX_PASSWORD_LOGIN`, `DIDOX_LIVE`; hosts, token TTL, background sync. |
+| API | `didox/client.ts:122` partner auth `Authorization: Bearer`; hosts `api.didox.uz` / `testapi2` | Per the official docs: `Partner-Authorization` + `user-key` on `api-partners.didox.uz` (`client.ts:189`), company mode `api-key` + `user-key` on `api.didox.uz`, sandbox `testapi3.didox.uz` (`DIDOX_SANDBOX=1`, user-key alone). `GET /v2/documents` with page/limit, owner always sent (Didox defaults to outgoing), doctypes `002,008,023`, `dateFromUpdated`, paging by `next_page_url`, v1 list as fallback on a host without v2 (`client.ts:281`); `GET /v1/documents/{id}?owner=0` envelope; `/archive` ZIP for the print form (`client.ts:349`), `/file/true` as fallback. Error bodies (401 text, 422 field maps, 423, 429, `{title,message,description}`) kept verbatim, bounded, tokens masked (`errorDetail`, `client.ts:63`), shown in the settings and the sync card. Tokens: 360 min (`TOKEN_TTL_MS`), checked before every call (`token_expired`). |
+| Dedup | `service.ts:85` refused a corrected ЭСФ as a duplicate (same seller + number + date) and ignored the roaming id | `findDuplicate` (`service.ts:102`) also matches the roaming `facturaid` (one invoice seen by the API under its `doc_id` and in a zip), and skips the seller + number + date rule for a correction (`facturatype` ≠ 0 with `oldfacturadoc`, `service.ts:107`), which keeps the original's number and date by law. |
+| Parser | `document.ts` (the P1–P16 gaps) | Four envelopes (bare, GET `data.json` + `data.document`, create `pending_document.document_json`, 2020 `{"Factura":…}`) and the GET metadata (status, `status_comment`, the signature string parsed twice into signers); hybrid 023 read through `hybridAsInvoice` (`document.ts:310`); acts 005 / ТТН 041 / доверенность 006 recognised and refused with their kind; 17-digit codes quoted before `JSON.parse` (`parseDidoxJson`, `document.ts:149`) so neither precision nor the leading zero is lost; per-line extras kept in the record payload as `didox` (origin, privilege, committent, marks, pharm fields only when `hasmedical`, the raw numbers); one-sided invoices; `facturatype` + `oldfacturadoc`; doctype-aware statuses (`statusInfo`, `document.ts:580`: 3 is signed for an ЭСФ, not for a letter; 5555 / 5 / 40 / 50 are void). Line arithmetic now in tiyin with the documented tolerances (`amountTolerance`, `document.ts:358`: half a tiyin per unit for a 2-decimal price, one tiyin for VAT and total) instead of "1 sum or 0.01 %". |
+
+The research's "VAT 15 % from 2026" (§7.22) is not what the real documents show: 15 % was the rate of
+01.10.2019–31.12.2022, and every 2025–2026 document (the real export, the docs' examples, the cabinet data of
+July 2026) is at 12 %. `rules.ts` `vatRatesOn()` uses 20 / 15 / 12 by date and accepts 6 % (Didox post 1456)
+from 01.06.2026; a 15 % line on a 2026 invoice is flagged `vat_rate_unexpected`.
+
+### Checks added (`packages/domain/src/didox/rules.ts`, facts from `mirror.ts`)
+
+Each rule cites the RESEARCH.md line of its evidence (`R:<line>`). `checkInvoice` runs them when its deps
+carry `rules` (the production deps do; the older matching-flow unit tests keep theirs without, so their
+synthetic fixtures need not be roaming-perfect). Severities are for booking a received document: a structural
+slip is `info`, a code refused on the invoice date or VAT that cannot be credited is a `warning` or `error`.
+
+- §7.17 code in the local mirror (`mxik_not_found`), active **on `facturadate`** with the 30-day grace
+  (`mxik_inactive` / `mxik_retired_later`; the classifier's today-based "inactive" is dropped when the code was
+  still valid on that date), restricted from its list date (`mxik_restricted` / `mxik_restricted_later`), a lost
+  leading zero proposed back when the padded code exists (`mxik_leading_zero`).
+- §7.18 package among the code's fetched packages (`package_not_of_code`); the unit the package or measure name
+  stands for bound to the code (`unit_not_of_code`; Russian unit words mapped onto the classifier's units).
+- §7.19 `measure_id_in_invoice`; §7.20 `decimals_exceeded` (count ≤ 6, money ≤ 2, float noise ignored),
+  `number_format`; §7.21 line arithmetic and header totals in tiyin; §7.22 `vat_rate_unexpected`,
+  `withoutvat_without_hasvat`; §7.23 `flag_mismatch` (hasvat / hascommittent / haslgota / hasmarking /
+  hasexcise); §7.24 `lgota_incomplete`, `lgota_sum_mismatch`, `lgota_not_of_code`, `vat_free_without_lgota`;
+  §7.25 `vat_not_creditable`, `compensation_code_expected` (the `/v1/utils` lists, fetched once per sync); §7.26
+  `buyer_missing`, `buyer_tin_invalid`, `vat_reg_code_invalid`, `vat_status_inactive`, `mfo_invalid` (with the
+  zero-padded proposal), `account_invalid`, `director_missing`, `one_sided`; §7.27 `origin_invalid`,
+  `origin_mismatch` (services = ИКПУ group ≥ 099); §7.28 `marks_missing`; §7.29 `correction_without_original`,
+  `correction_original_unknown`, `correction_number_changed`, `old_factura_on_standard`, `factura_type_unknown`;
+  §7.31 `date_in_future`, `date_before_contract`, `lot_id_format`; §7.32 / §7.13 `didox_status_void` (with
+  Didox's `status_comment`), `didox_not_signed`. Not implemented: §7.30 (the outgoing "нет в приходных
+  документах" gate; Tasnivo only reads incoming documents).
+- Labels for every new code in uz and ru (`i18n-parts/didox.ts`), listed in `DIDOX_ISSUES`.
+
+### Tests added: 40 (all pass on `mxik_s2`, none skipped)
+
+| File | Cases | Checklist items |
+|---|---|---|
+| `didox/real-docs.test.ts` (no DB) | 26: the real export ZIP read (layout, print form) and parsed with the rules; official examples 02, 03 on 02 (one-sided), 04 + 15 (create envelope), 05 (GET envelope, signers, status comment), 06 (pharm), 07 (hybrid, document totals), 08 / 09 / 10 refused with their kinds, 17 (2020 Factura), 11 + 12 (the v2 list through the client, `next_page_url`, list totals); the 1C_integration cases (float noise, mismatching lines, half a tiyin per unit, without VAT, 15 % by date, type 8 + old invoice, ПИНФЛ seller); tolerances and header totals; decimals; numeric and leading-zero codes; mirror facts (30-day grace, restriction dates, package/unit binding, flags, origin, marking); parties; document level and void statuses; the official ЭСФ template as a preset (two invoices, "Без НДС") | §7.1–7.29, §7.31, §7.32 |
+| `didox/client-docs.test.ts` (fake server, no DB) | 9, one per client behaviour: hosts; v2 paging with page / limit / owner / doctypes / dateFromUpdated; the v1 fallback; GET envelope; archive ZIP; error bodies verbatim (401 text, 423, 429, field map, token masked); token expiry; sandbox user-key and Partner-Authorization; restricted lists | §1.1–1.3, §1.6, §7.12, §7.14 |
+| `didox/real-docs-db.test.ts` (DB) | 5: the didox-auditor cabinet data in bulk (353 documents → 167 invoices, 1 213 real lines, 70 real codes, all found in the mirror; 19 `unit_not_of_code`, 12 `marks_missing`, the one scraped line whose total is not qty × price; 145 empty and 41 undated scrapes refused with the reason); the real export ZIP end to end (upload → batch → line → checks → print form → duplicate on re-upload); roaming-id dedup; template → one batch per invoice, and a remembered mapping; the background sync (`dateFromUpdated`, `failed` counted, list totals, archive fallback, resume after a stale heartbeat) | §7.11, §7.14, §7.17, §7.18, §7.21, §7.28, B6, B8 |
+
+Fixtures: `didox/fixtures/real/` (17 files, 536 KB) and `fixtures/SOURCES.md` with each origin URL and every change;
+private persons' names, ПИНФЛ and signer IPs replaced, company data kept. Three assertions of existing tests
+were corrected to the official docs (not weakened): the partner header is `Partner-Authorization`, not
+`Bearer` (`client.test.ts`, `service.test.ts`), and a wrong password is Didox's 422 "Incorrect login", not 401.
+The didox e2e test's `connection` summary is unchanged for an org without a connection (the new fields appear
+only once connected). All Didox tests pass (domain 100, API e2e 7, web-parity and model; 169 with contracts
+and i18n). Full `npm test` on `mxik_s2`: 2 466 tests; the failures it showed under full parallel load pass when
+run alone, except `apps/api/test/e2e/demo.test.ts` "POST /api/demo/open", which needs the demo template seeded
+in the dev DB (absent from a scratch DB). `npm run typecheck`: clean except 4 `cookie` typing errors in
+apps/api that come from this machine's empty `apps/api/node_modules` (main's junction target), not from code.
+ESLint clean on the touched files. The README endpoint checklist was regenerated (new `didox.syncStatus`).
+
+UI: the sync card has a date field, background progress and Didox's words on failure; the sheet step shows the
+template preset and the remembered-mapping note; the settings show Didox's error text. Typechecked and linted,
+not looked at in a browser. The "sinov rejimida" notes stay and now say what is still unverified, a real
+incoming document through the API and a sandbox token (`didoxX.unverified`: every Didox page and the landing;
+the FAQ answer reworded).
+
+### Still unverified, and the one check the owner does for each
+
+1. **A live token.** Take the E-IMZO test key from my3.soliq.uz, get a sandbox token from testapi3.didox.uz
+   (web cabinet, or `POST https://testapi3.didox.uz/v1/auth/{tin}/password/ru`), start the API with
+   `DIDOX_SANDBOX=1`, paste the token in Didox → Ulanish and press "Ulanishni tekshirish". Expected: "Didox javob
+   berdi va token qabul qilindi"; on failure the settings show Didox's own words.
+2. **A real incoming ЭСФ through the API.** With that token press "Yangi kiruvchi hisob-fakturalarni olish": the
+   first invoice must open with its lines, the print form and `totalsFrom = list` in its meta. (The opt-in live
+   test covers only the public endpoint: `DIDOX_LIVE=1 npx tsx --test packages/domain/src/didox/client.test.ts`.)
+3. **Hybrid 023 statuses.** Which 200-series status means "signed" is not documented; hybrids import with
+   `signed = null`. One hybrid invoice from a real cabinet settles it.
+4. **The ЭСФ Excel template.** Built from the filling instruction; no filled template xlsx was at hand. Fill the
+   template from t.me/didox_instruction/202 with one line and upload it: the sheet step must say "Didox ESF
+   shabloni aniqlandi". If the seller and buyer name columns are not where the header words say, only the names
+   come out empty (the ИНН columns 14 and 28 are the instruction's own).
+5. **Partner mode in production.** Needs the partner token from Didox's account manager (t.me/Didox_account)
+   in `DIDOX_PARTNER_TOKEN`, then the same "Ulanishni tekshirish".
+
 ## S4 results — 1C import, history and OData (branch `claude/docs-s4-onec-605e8f`, 30 Oct 2026)
 
 Worktree `.claude/worktrees/docs-s4-onec-605e8f`, 9 commits on top of 1afccd1, not pushed. Scratch DB

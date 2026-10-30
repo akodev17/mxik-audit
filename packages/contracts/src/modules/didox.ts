@@ -1,7 +1,8 @@
 // Didox incoming invoices: fetch or upload, match products, review and prepare for 1C (Agent 3,
 // docs/TASNIVO_AI_PLAN_2026-10-23.md). One import_batch (kind didox_invoice) per invoice, one
-// import_record per line with the accounting.InvoiceLine payload. The Didox document shape and API
-// are third-party-documented, not verified against Didox (research note §1).
+// import_record per line with the accounting.InvoiceLine payload. The document shape and the API
+// follow Didox's official integrator docs (tmp/real-docs/didox/RESEARCH.md §1–2); still unverified
+// against a live Didox account (no sandbox token yet).
 import { z } from 'zod';
 import { IncomingInvoiceMeta, InvoiceLine, MatchCandidate, ValidationIssue } from '../accounting';
 import { Fail, Id, IsoDateTime, OkFlag } from '../common';
@@ -21,6 +22,14 @@ export const DIDOX_ISSUES = [
   'mxik_missing', 'mxik_invalid', 'mxik_inactive', 'mxik_restricted', 'mxik_conflict', 'product_new', 'product_ambiguous',
   'product_unchecked', 'package_mismatch', 'unit_mismatch', 'totals_mismatch', 'quantity_invalid', 'duplicate_line_name',
   'seller_unknown', 'seller_tin_invalid', 'duplicate_invoice',
+  // The tax-side rules (packages/domain/src/didox/rules.ts, RESEARCH.md §5 / §7.17–32).
+  'mxik_not_found', 'mxik_leading_zero', 'mxik_retired_later', 'mxik_restricted_later', 'package_not_of_code', 'unit_not_of_code',
+  'measure_id_in_invoice', 'decimals_exceeded', 'number_format', 'vat_rate_unexpected', 'withoutvat_without_hasvat',
+  'lgota_incomplete', 'lgota_sum_mismatch', 'lgota_not_of_code', 'vat_free_without_lgota', 'vat_not_creditable', 'compensation_code_expected',
+  'origin_invalid', 'origin_mismatch', 'marks_missing', 'flag_mismatch', 'buyer_missing', 'buyer_tin_invalid', 'vat_reg_code_invalid',
+  'vat_status_inactive', 'mfo_invalid', 'account_invalid', 'director_missing', 'one_sided', 'factura_type_unknown',
+  'correction_without_original', 'correction_original_unknown', 'correction_number_changed', 'old_factura_on_standard',
+  'date_in_future', 'date_before_contract', 'lot_id_format', 'didox_status_void', 'didox_not_signed', 'header_totals_mismatch',
 ] as const;
 /** The ЭСФ spreadsheet's mappable columns (packages/domain/src/didox/sources.ts SHEET_FIELDS). */
 export const SHEET_FIELDS = ['lineNo', 'name', 'mxik', 'barcode', 'packageName', 'quantity', 'price', 'amount', 'vatRate', 'vatAmount', 'total'] as const;
@@ -51,7 +60,24 @@ export const InvoiceRow = z.object({
   hasPdf: z.boolean(),
 });
 
-const ConnectionSummary = z.object({ connected: z.boolean(), lastSyncAt: IsoDateTime.nullable(), lastError: z.string().nullable() });
+/** The background sync as saved on the connection (packages/domain/src/didox/connection.ts SyncState). */
+export const SyncState = z.object({
+  status: z.enum(['running', 'done', 'failed']),
+  dateFromUpdated: Ymd.nullable(),
+  page: z.number().int(),
+  listed: z.number().int(), imported: z.number().int(), skipped: z.number().int(), refused: z.number().int(), failed: z.number().int(),
+  batchIds: z.array(z.string()),
+  failures: z.array(z.object({ id: z.string(), error: z.string() })),
+  startedAt: IsoDateTime, heartbeatAt: IsoDateTime, finishedAt: IsoDateTime.nullable(),
+  /** The machine code that stopped the run, and Didox's own words for it. */
+  error: z.string().nullable(), detail: z.string().nullable(),
+  startedBy: z.string(), clientId: z.string().nullable(),
+});
+
+const ConnectionSummary = z.object({
+  connected: z.boolean(), lastSyncAt: IsoDateTime.nullable(), lastError: z.string().nullable(),
+  lastErrorDetail: z.string().nullable().optional(), sync: SyncState.nullable().optional(),
+});
 
 export const DidoxRecord = z.object({
   id: z.string(),
@@ -87,6 +113,12 @@ export const SheetPreview = z.object({
   totalRows: z.number().int(),
   map: z.record(z.number().int()),
   fields: z.array(z.string()),
+  /** 'didox_esf_template': the official ЭСФ template, read as a fixed preset; null = a sheet to map. */
+  preset: z.enum(['didox_esf_template']).nullable(),
+  /** Invoices the template holds (1 for a mapped sheet). */
+  invoices: z.number().int(),
+  /** The map is the one this org confirmed before for the same headers. */
+  remembered: z.boolean(),
 });
 
 export const SheetHeader = z.object({
@@ -129,8 +161,11 @@ export const ConnectionView = z.object({
   partnerTokenRef: z.string().nullable(),
   lastSyncAt: IsoDateTime.nullable(),
   lastError: z.string().nullable(),
+  /** Didox's own words for the last failure (bounded, never a token). */
+  lastErrorDetail: z.string().nullable(),
   baseUrl: z.string(),
   passwordLogin: z.boolean(),
+  sync: SyncState.nullable(),
 });
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -158,11 +193,15 @@ export const didox = defineModule('didox', {
   }),
   commitSheet: endpoint({
     method: 'POST', path: '/api/didox/upload/sheet', auth: 'session', role: 'writer', noDemo: true,
-    summary: 'Create an invoice from an ЭСФ spreadsheet with the confirmed columns and the typed header',
-    multipart: { fields: z.object({ clientId: z.string().max(64).optional(), map: z.string().max(2000), header: z.string().max(2000) }), files: { file: DidoxFile } },
-    responds: 'json', response: z.union([z.object({ ok: z.literal(true), batchId: z.string() }), Fail.extend({ duplicateOf: DuplicateOf.optional() })]),
+    summary: 'Create invoices from an ЭСФ spreadsheet: the official template as it is, any other sheet with the confirmed columns and the typed header',
+    multipart: { fields: z.object({ clientId: z.string().max(64).optional(), map: z.string().max(2000).optional(), header: z.string().max(2000).optional() }), files: { file: DidoxFile } },
+    responds: 'json',
+    response: z.union([
+      z.object({ ok: z.literal(true), batchId: z.string(), batchIds: z.array(z.string()).optional(), items: z.array(UploadItem).optional() }),
+      Fail.extend({ duplicateOf: DuplicateOf.optional() }),
+    ]),
     replaces: ['page:(app)/didox'],
-    notes: '`map` and `header` are JSON strings (the column index per field, -1 = none; the invoice header). The template layout is unverified.',
+    notes: '`map` and `header` are JSON strings (the column index per field, -1 = none; the invoice header), ignored for the official template, whose header fields are read from its cells (layout from the filling instruction; no real filled template seen yet). A confirmed map is remembered per org by the header signature.',
   }),
   get: endpoint({
     method: 'GET', path: '/api/didox/invoices/{batchId}', auth: 'session', role: 'any',
@@ -234,12 +273,18 @@ export const didox = defineModule('didox', {
   }),
   sync: endpoint({
     method: 'POST', path: '/api/didox/sync', auth: 'session', role: 'writer', noDemo: true,
-    summary: '"Fetch new incoming invoices": page the Didox list, skip ids already imported, create a batch per new invoice',
-    body: z.object({ dateFrom: Ymd.optional() }),
+    summary: '"Fetch new incoming invoices": start the background sync (GET /v2/documents owner=0, doctypes 002,008,023, updated since the date), one batch per new invoice',
+    body: z.object({ dateFromUpdated: Ymd.optional().or(z.literal('')), dateFrom: Ymd.optional().or(z.literal('')) }),
     responds: 'json',
-    response: z.union([z.object({ ok: z.literal(true), listed: z.number().int(), imported: z.number().int(), skipped: z.number().int(), refused: z.number().int(), failed: z.number().int(), batchIds: z.array(z.string()) }), Fail]),
+    response: z.union([z.object({ ok: z.literal(true), state: SyncState }), Fail]),
     replaces: ['page:(app)/didox'],
-    notes: 'Implemented against the research note\'s endpoints; verified only against the local fake server.',
+    notes: 'Answers at once; the run saves its state after every page and GET /api/didox/sync resumes it after an API restart. Built on the official integrator docs; verified only against the local fake server.',
+  }),
+  syncStatus: endpoint({
+    method: 'GET', path: '/api/didox/sync', auth: 'session', role: 'any',
+    summary: 'The background sync\'s state (counters, Didox\'s words on failure); resumes a run whose heartbeat stopped',
+    responds: 'json', response: z.object({ state: SyncState.nullable() }),
+    replaces: ['page:(app)/didox'],
   }),
   connection: endpoint({
     method: 'GET', path: '/api/didox/connection', auth: 'session', role: 'admin',

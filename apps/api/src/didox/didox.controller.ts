@@ -7,7 +7,7 @@ import type { Response } from 'express';
 import type { z } from 'zod';
 import { endpoints } from '@tasnivo/contracts';
 import type { UploadedFile } from '@tasnivo/domain/catalog-upload';
-import { getConnection, passwordLogin, removeConnection, saveConnection, syncIncoming, testConnection } from '@tasnivo/domain/didox/connection';
+import { getConnection, passwordLogin, removeConnection, saveConnection, startSync, syncStatus, testConnection } from '@tasnivo/domain/didox/connection';
 import {
   approveMany, commitDidoxSheet, decideLine, exportInvoice, invoiceDetail, invoicePdf, listInvoices, prepareInvoice, removeInvoice, suggestMxik, uploadDidoxFile,
 } from '@tasnivo/domain/didox/service';
@@ -30,8 +30,10 @@ type RecordPath = z.output<typeof e.decide.params>;
 export class DidoxController {
   @Route(e.list)
   async list(@CurrentUser() user: User, @Query(new ZodValidationPipe(e.list.query)) query: z.output<typeof e.list.query>) {
-    const [page, connection] = await Promise.all([listInvoices(user, query), getConnection(user)]);
-    return { ...page, connection: { connected: connection.connected, lastSyncAt: connection.lastSyncAt, lastError: connection.lastError } };
+    const [page, connection, sync] = await Promise.all([listInvoices(user, query), getConnection(user), syncStatus(user)]);
+    // Didox's words and the background sync only when there is a connection to have them.
+    const extra = connection.connected ? { lastErrorDetail: connection.lastErrorDetail, sync } : {};
+    return { ...page, connection: { connected: connection.connected, lastSyncAt: connection.lastSyncAt, lastError: connection.lastError, ...extra } };
   }
 
   @Route(e.upload)
@@ -101,7 +103,12 @@ export class DidoxController {
 
   @Route(e.sync)
   sync(@CurrentUser() user: User, @Locale() locale: LocaleCode, @Body() body: unknown) {
-    return syncIncoming(user, locale, body);
+    return startSync(user, locale, body);
+  }
+
+  @Route(e.syncStatus)
+  async syncStatus(@CurrentUser() user: User) {
+    return { state: await syncStatus(user) };
   }
 
   @Route(e.connection)

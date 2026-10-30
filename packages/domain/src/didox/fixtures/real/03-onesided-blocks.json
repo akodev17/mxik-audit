@@ -1,0 +1,36 @@
+{
+  "SingleSidedType": 1,
+  "BuyerTin": "",
+  "Buyer": null,
+  "OldFacturaDoc": {
+    "OldFacturaId": "",
+    "OldFacturaNo": "",
+    "OldFacturaDate": ""
+  },
+  "FacturaRentDoc": {
+    "RentId": "",
+    "RentFrom": "",
+    "RentTo": ""
+  },
+  "FacturaEmpowermentDoc": {
+    "EmpowermentNo": "",
+    "EmpowermentDateOfIssue": "",
+    "AgentFio": "",
+    "AgentPinfl": ""
+  },
+  "ItemReleasedDoc": {
+    "ItemReleasedPinfl": "",
+    "ItemReleasedFio": ""
+  },
+  "FacturaInvestmentObjectDoc": {
+    "ObjectId": "",
+    "ObjectName": ""
+  },
+  "ForeignCompany": {
+    "CountryId": "",
+    "Name": "",
+    "Address": "",
+    "Bank": "",
+    "Account": ""
+  }
+}

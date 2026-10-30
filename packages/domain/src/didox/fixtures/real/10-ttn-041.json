@@ -1,0 +1,197 @@
+{
+  "WaybillLocalType": 0,
+  "DeliveryType": 2,
+  "WaybillDoc": {
+    "WaybillNo": "ТестТТН",
+    "WaybillDate": "2025-01-24"
+  },
+  "ContractDoc": {
+    "ContractNo": "ТестТТН",
+    "ContractDate": "2025-01-24"
+  },
+  "OldWaybillDoc": null,
+  "HasCommittent": false,
+  "SingleSidedType": 0,
+  "Consignor": {
+    "TinOrPinfl": "310529901",
+    "Name": "\"DIDOX TECH\" MCHJ",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "Consignee": {
+    "TinOrPinfl": "309376127",
+    "Name": "\"UZUM MARKET\" MCHJ XK",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "FreightForwarder": {
+    "TinOrPinfl": "302936161",
+    "Name": "\"VENKON GROUP\" MCHJ",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "Carrier": {
+    "TinOrPinfl": "302936161",
+    "Name": "\"VENKON GROUP\" MCHJ",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "Client": {
+    "TinOrPinfl": "310529901",
+    "Name": "\"DIDOX TECH\" MCHJ",
+    "ContractNo": "45",
+    "ContractDate": "2024-04-01",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "Payer": {
+    "TinOrPinfl": "310529901",
+    "Name": "\"DIDOX TECH\" MCHJ",
+    "ContractNo": "45",
+    "ContractDate": "2024-04-01",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "TransportType": 1,
+  "Roadway": {
+    "OtherCarOwners": null,
+    "Truck": {
+      "RegNo": "01 386 EJA",
+      "Model": "NEXIA 3"
+    },
+    "Trailer": {
+      "RegNo": "string",
+      "Model": "string"
+    },
+    "Carriages": [],
+    "Driver": {
+      "pinfl": "30000000000004",
+      "FullName": "DIREKTOR F.I.O."
+    },
+    "ProductGroups": [
+      {
+        "LoadingPoint": {
+          "regionId": 26,
+          "regionName": "город Ташкент",
+          "districtCode": 3,
+          "districtName": "Юнусабадский район",
+          "mahallaId": null,
+          "mahallaName": null,
+          "address": "123, 123",
+          "longitude": null,
+          "latitude": null
+        },
+        "LoadingTrustee": {
+          "pinfl": "30000000000005",
+          "fullName": "FIO"
+        },
+        "UnloadingPoint": {
+          "regionId": 26,
+          "regionName": "город Ташкент",
+          "districtCode": 3,
+          "districtName": "Юнусабадский район",
+          "mahallaId": null,
+          "mahallaName": null,
+          "address": "321, 321",
+          "longitude": null,
+          "latitude": null
+        },
+        "UnloadingTrustee": {
+          "Pinfl": "30000000000006",
+          "FullName": "FIO"
+        },
+        "UnloadingEmpowerment": {
+          "EmpowermentId": "ID",
+          "EmpowermentNo": "12",
+          "EmpowermentDateOfIssue": "2024-04-16",
+          "EmpowermentDateOfExpire": "2024-04-17"
+        },
+        "ProductInfo": {
+          "TotalDeliverySum": 100,
+          "TotalWeightBrutto": 10,
+          "products": [
+            {
+              "ordNo": 1,
+              "CommittentTinOrPinfl": "",
+              "CommittentName": "",
+              "CatalogCode": "00102001001000000",
+              "CatalogName": "Живые быки",
+              "ProductName": "test",
+              "PackageCode": "1378367",
+              "PackageName": "шт.",
+              "Amount": "4",
+              "Price": "5",
+              "DeliverySum": "20.00",
+              "WeightBrutto": "500",
+              "WeightNetto": "499"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "Railway": {
+    "traindirection": "направление",
+    "railwaydocid": null,
+    "hasrailwayline": true,
+    "productgroups": [
+      {
+        "loadingpoint": {
+          "stationid": "742003",
+          "stationname": "Андижан II",
+          "railwayline": {
+            "id": "22",
+            "name": "СП АО Бухарагипс",
+            "address": "г.Каган ул.Кончилар 1"
+          }
+        },
+        "loadingtrustee": null,
+        "unloadingpoint": {
+          "stationid": "743801",
+          "stationname": "Жалакудук",
+          "railwayline": null
+        },
+        "unloadingtrustee": null,
+        "unloadingempowerment": null,
+        "productinfo": {
+          "products": [
+            {
+              "ordno": 1,
+              "committenttinorpinfl": "",
+              "committentname": "",
+              "catalogcode": "08471001001000000",
+              "catalogname": "Ноутбук",
+              "productname": "тест",
+              "packagecode": "1501886",
+              "packagename": "шт.",
+              "amount": "11",
+              "price": "11",
+              "deliverysum": "121.00",
+              "weightbrutto": 0,
+              "weightnetto": 0
+            }
+          ],
+          "totaldeliverysum": 121,
+          "totalweightbrutto": 0
+        },
+        "wagondoc": {
+          "number": "тест",
+          "type": "тест"
+        }
+      }
+    ]
+  },
+  "ResponsiblePerson": {
+    "Pinfl": "string",
+    "FullName": "string"
+  },
+  "ResponsibleCompany": {
+    "Tin": "string",
+    "Name": "string",
+    "BranchCode": "",
+    "BranchName": ""
+  },
+  "TotalDistance": "10.00",
+  "DeliveryCost": "10",
+  "TotalDeliveryCost": "100.00"
+}
