@@ -255,6 +255,19 @@ describe('Didox numbers, codes and tolerances (documented rules)', () => {
     assert.deepEqual(inv.documentIssues.map((i) => [i.code, i.field, i.params?.['lines']]), [['header_totals_mismatch', 'totalWithVat', '336.04']]);
   });
 
+  // didox §7.21 (review 30 Oct, R-D8): |count × summa − deliverysum| ≤ 0.5 tiyin × count, VAT and total ≤ 1 tiyin; the
+  // check had a one-tiyin floor plus half a tiyin, so count 1 × 100.00 = 100.01 passed.
+  it('tiyin tolerances at count 1 and below: the research formula', () => {
+    const line = (count: string, summa: string, deliverysum: string, vatsum: string, total: string) =>
+      ({ ordno: 1, name: 'a', catalogcode: '02523001001000000', count, summa, deliverysum, vatrate: 12, vatsum, deliverysumwithvat: total });
+    const issues = (l: Record<string, unknown>) => ok(base([l])).lines[0]?.issues.map((i) => `${i.code}:${i.field}`) ?? [];
+    assert.deepEqual(issues(line('1', '100.00', '100.01', '12.00', '112.01')), ['totals_mismatch:amount']);
+    assert.deepEqual(issues(line('1', '100.00', '100.00', '12.00', '112.00')), []);
+    assert.deepEqual(issues(line('0.001', '1000.55', '1.00', '0.12', '1.12')), [], 'a sub-tiyin product rounds to the tiyin');
+    assert.deepEqual(issues(line('1', '100.00', '100.00', '12.01', '112.01')), [], 'VAT one tiyin off is allowed');
+    assert.deepEqual(issues(line('1', '100.00', '100.00', '12.02', '112.02')), ['totals_mismatch:vatAmount']);
+  });
+
   // didox §7.20, V5: count ≤ 6 decimals, money ≤ 2; dot separator only.
   it('decimal places and number format', () => {
     assert.deepEqual([fractionDigits(892.8600000000000136), fractionDigits('892.8600000000000136'), fractionDigits('892.8599999999999'), fractionDigits('10000000.00'), fractionDigits('0.1234567')], [2, 2, 2, 0, 7]);

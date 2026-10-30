@@ -352,18 +352,22 @@ function hybridAsInvoice(doc: Obj): { doc: Obj; totals: StatedTotals | null } {
 }
 
 /**
- * Tolerances of the line arithmetic in tiyin (§5 V6, §7.21): a price is written to two decimals,
- * so count × price may be off by half a tiyin per unit; VAT and amount + VAT by one tiyin.
+ * Tolerances of the line arithmetic in micros (§5 V6, §7.21 `|count×summa − deliverysum| ≤ 0.5 tiyin × count`): a price
+ * written to two decimals may be off by half a tiyin per unit; a price with more decimals is checked to one tiyin.
+ * Review 30 Oct (R-D8): this was rounded up to whole tiyin with a one-tiyin floor and another half tiyin on top, so
+ * count 1 × 100.00 = 100.01 passed.
  */
 export function amountTolerance(count: Micros, priceDecimals: number | null): bigint {
-  if (priceDecimals !== null && priceDecimals > 2) return 1n;
-  const halfPerUnit = (count < 0n ? -count : count) / 2n; // micros of tiyin
-  const ceil = (halfPerUnit + 999_999n) / 1_000_000n;
-  return ceil > 1n ? ceil : 1n;
+  if (priceDecimals !== null && priceDecimals > 2) return 10_000n;
+  return (count < 0n ? -count : count) / 200n; // 5 000 micros (half a tiyin) per unit
 }
 
-/** The rounding the line arithmetic is allowed: `stated` vs `expected` within `allowed` tiyin. */
-const withinTiyin = (stated: Micros, expected: Micros, allowed: bigint): boolean => absDiff(tiyin(stated), tiyin(expected)) <= allowed && absDiff(stated, expected) <= allowed * 10_000n + 5_000n;
+/** VAT and amount + VAT: one tiyin (§7.21). */
+const ONE_TIYIN = 10_000n;
+
+/** `stated` (in tiyin) vs `expected` within `allowed` micros; an `expected` with sub-tiyin digits may round half a tiyin more. */
+const withinTiyin = (stated: Micros, expected: Micros, allowed: bigint): boolean =>
+  absDiff(stated, expected) <= allowed + (expected % 10_000n === 0n ? 0n : 5_000n);
 
 function parseLine(raw: unknown, index: number, measures: ReadonlyMap<string, string> | undefined, medical: boolean): ParsedLine {
   const p = isObj(raw) ? raw : {};
@@ -400,8 +404,8 @@ function parseLine(raw: unknown, index: number, measures: ReadonlyMap<string, st
   const checks: Array<[string, Micros, Micros, bigint]> = [];
   const priceDecimals = priceRaw === undefined ? null : fractionDigits(priceRaw);
   if (amountRead !== null && quantity !== 0n && price !== 0n) checks.push(['amount', amountRead, multiply(quantity, price), amountTolerance(quantity, priceDecimals)]);
-  if (vatRead !== null && vatRate !== null) checks.push(['vatAmount', vatRead, percentOf(amount, vatRate), 1n]);
-  if (totalRead !== null) checks.push(['total', totalRead, amount + (vat ?? 0n), 1n]);
+  if (vatRead !== null && vatRate !== null) checks.push(['vatAmount', vatRead, percentOf(amount, vatRate), ONE_TIYIN]);
+  if (totalRead !== null) checks.push(['total', totalRead, amount + (vat ?? 0n), ONE_TIYIN]);
   for (const [field, stated, expected, allowed] of checks) {
     if (!withinTiyin(stated, expected, allowed)) {
       issues.push({ code: 'totals_mismatch', severity: 'warning', field, params: { stated: toDecimalString(stated), expected: toDecimalString(expected) } });
