@@ -50,6 +50,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-O7 | major | 57c59ef | OData product: the default map sends name, full name and article; a product's ИКПУ, package code and barcode were dropped without a word. Each one present but unmapped now adds `<field>_not_sent` to the record's outcome notes. | `onec/connection.test.ts` "a code the object map sends nowhere is noted" |
 | R-B7 | major | 0433c00 | kl_to_1c numbers made unique over the whole statement (all batch records), so a payment keeps its 1/2 in every partial export. Test: onec/formats.test.ts 'a repeated number keeps its suffix across partial exports'. | (follow-up, 30 Oct evening) |
 | R-P11 | major | 3cbac45 | An EAN-8 stored as GTIN-14 is shown and exported as its 8 digits (was 0000047801271). Test: products/tasnif-client.test.ts 'shows a stored barcode as written'. | (follow-up, 30 Oct evening) |
+| R-O4b | major | 84dd30d | A product whose OData POST timed out is looked up by name before being created again. Test: onec/odata.test.ts 'a product whose POST timed out is found by its name on retry'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
