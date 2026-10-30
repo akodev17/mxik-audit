@@ -302,7 +302,7 @@ describe('1C\'s own responses and error envelopes, as saved', () => {
     };
     const asked: string[] = [];
     const stub = ((input: string | URL | Request) => {
-      const url = decodeURIComponent(String(input));
+      const url = decodeURIComponent(input instanceof Request ? input.url : input.toString());
       asked.push(url);
       const set = /standard\.odata\/([^?]+)/.exec(url)?.[1] ?? '';
       return Promise.resolve(new Response(answers[set] ?? '{}', { status: 200, headers: { 'content-type': 'application/json' } }));

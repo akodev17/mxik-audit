@@ -70,6 +70,23 @@ Cyrillic names lose their special letters in this file (the 1C client-bank forma
 КонецФайла
 ```
 
+**Encoding and identity (S4, 30 Oct 2026).** `ExchangeFile.encoding` writes `Кодировка=Windows`
+(cp1251, the default) or `Кодировка=DOS` (cp866) and the bytes follow it, never with a BOM; our
+reader picks the code page by that key, and `kl-to-1c-conformance.test.ts` builds and re-reads both.
+1C knows a document by (РасчСчет, вид, Дата, Номер) and takes a repeat for the same one («Документ
+уже загружен»), so a number the bank used twice on one day gets a suffix (`58`, `58-2`): no payment
+is lost.
+
+**Operation, ДДС item and contract (B4).** The 1CClientBankExchange standard has **no field** for
+the operation (ВидОперации), the cash-flow item or the contract: the 1C loader decides the operation
+itself from its exchange settings («Настроить обмен с банком»: the ДДС item and the group for new
+counterparties; the «По ключевым словам» rules, 3.0.57), an incoming payment from a counterparty
+typically becoming «Оплата от покупателя». So what the reviewer chose in Tasnivo does not travel in
+`kl_to_1c.txt`; the contract number stays inside `НазначениеПлатежа` as the bank printed it. It
+reaches 1C through the OData transfer (§5: `ВидОперации`, `СтатьяДвиженияДенежныхСредств_Key`,
+`ДоговорКонтрагента_Key`), or the accountant sets it in 1C after the load. No non-standard key is
+invented for it.
+
 The statement owner's side of each payment comes from `BankStatementMeta.ownerName / ownerInn /
 mfo / bankName` (added to the contract by Agent 1; the bank workstream fills them when the bank
 file prints them), else the client's name (or the org's). A payment without a counterparty (a
@@ -122,9 +139,18 @@ loader for «Поступление» from a file is unknown (research note §2 
 
 Sheet «Контрагенты»: `Наименование | ИНН | Расчетный счет | МФО | Банк`. The import
 (`POST /api/onec/counterparties/import`, `/onec/settings`) reads a 1C «Контрагенты» list saved
-to Excel by its header words (ru, uz and en variants: Наименование / Полное наименование /
-Контрагент / Nomi; ИНН / ПИНФЛ / STIR; Расчетный счет / Р/с / Hisob raqami; МФО / Код банка / БИК;
-Банк). ИНН must be 9 or 14 digits (else the row is listed as `inn_invalid`), accounts 20, МФО 5.
+to Excel with «Ещё → Вывести список» (any subset of the list's columns, the header on any of the
+top 30 rows under a title or filter line) or this file. Captions, ru / uz / en: Наименование /
+Полное наименование / Nomi; Код; ИНН / ИНН/ПИНФЛ / STIR; ПИНФЛ / JShShIR; Регистрационный код
+плательщика НДС; Код филиала; Вид контрагента; Расчетный счет / Hisob raqami; МФО / Код банка / БИК;
+Банк. Requisites (`onec/requisites.ts`, S4): ИНН 9 digits, ПИНФЛ 14 (an individual, stored in the
+same column), VAT code 12, account 20 (27 for a budget «Бюджетный ЛС»), МФО 5 — an МФО Excel stored
+as a number (`444`) gets its zeros back (`00444`, B8). A bad ИНН / ПИНФЛ, or a legal entity or an
+individual without one, keeps the row out (`inn_invalid`, `pinfl_invalid`, `inn_required`); only a
+non-resident may have none. A bad account, МФО or VAT code drops that field and is listed. Two rows
+with one ИНН and different «Код филиала» are two counterparties (1C UZ 3.0.62); the 1C «Код» is kept
+as `onecRef`. Columns `kind`, `branchCode`, `vatCode` on `counterparty`: migration
+`20261109000400_counterparty_requisites`.
 
 ## 5. Direct connection (`odata`)
 
@@ -135,24 +161,62 @@ is refused unless `ONEC_ALLOW_PRIVATE_HOSTS=1` (a self-hosted install next to th
 
 - **Test** (`POST /api/onec/connection/test`): `GET <base>/odata/standard.odata/$metadata`
   (1C:Fresh documents this path, research note §2), Basic auth, 10 s timeout, no redirects. Answers
-  `ok`, `auth_failed`, `not_found`, `http_<status>`, `timeout`, `unreachable[:code]`, `not_odata`,
-  the number of entity sets, and which configured entity sets the base lacks.
-- **Transfer** (`POST /api/onec/batches/{id}/transfer`): one `POST <base>/odata/standard.odata/
-  <EntitySet>?$format=json` per payment or product (an invoice is one document with its lines in
-  the `linesPart` table), 4 at a time, 10 s each. 2xx → `imported` with `Ref_Key` as `onecRef`;
-  otherwise `rejected` with `onec_refused` / `auth_failed` / `timeout` and 1C's
-  `odata.error.message.value`. A refused record keeps its status, so the next transfer sends it
-  again ("retry"); the batch becomes `exported` when nothing was refused.
-- **Default object map** (editable per org; typical names of БП для Узбекистана 3.0, third-party
-  source, unverified): bank credit → `Document_ПоступлениеНаРасчетныйСчет`, bank debit →
-  `Document_СписаниеСРасчетногоСчета` (fields `Date`, `НомерВходящегоДокумента`,
-  `ДатаВходящегоДокумента`, `СуммаДокумента`, `НазначениеПлатежа`), invoice →
-  `Document_ПоступлениеТоваровУслуг` (+ table `Товары`: `Количество`, `Цена`, `Сумма`, `СуммаНДС`),
-  product → `Catalog_Номенклатура` (`Description`, `НаименованиеПолное`). References
-  (`Контрагент_Key`, `Номенклатура_Key`, `БанковскийСчет_Key`, `ВидОперации`) are **not** filled:
-  resolving them needs reads against the client's base that no real 1C has been available for.
-  Expect 1C to refuse such documents until the map and the reference lookups are completed against
-  a real base. That is why the UI says "not verified against a real 1C".
+  `ok`, `auth_failed`, `not_found`, `redirected`, `http_<status>`, `timeout`, `unreachable[:code]`,
+  `not_odata`, the number of entity sets, the configured entity sets the base lacks, and (S4) every
+  gap of the composition for the object map (`problems`: `set_missing`, `attribute_missing`,
+  `part_missing`, `ref_missing`, each `required` or not), the names this base uses where an
+  alternative was found (`resolved`), and `insecure` for a plain-http base. The settings page lists
+  them with the 1C path to fix them («Настройки стандартного интерфейса OData → Состав»,
+  «Загрузить метаданные» after a 1C update).
+- **Client** (`onec/odata.ts`, S4, research note onec §5 and checklist §8.25–34):
+  - names are read from `$metadata` (kept 10 minutes per base and user, parsed once per SHA-256 of
+    the document), never assumed: `Catalog_КлассификаторЕдиницИзмерения` or `Catalog_ЕдиницыИзмерения`;
+  - a required set, attribute or tabular part the composition lacks refuses the transfer before
+    anything is written (`composition_incomplete` with the list): 1C ignores unknown properties, so
+    writing anyway would lose data silently; a 403 is reported as "object or new attribute not
+    published, or no rights", not as a wrong password;
+  - nothing is followed on a redirect (an http→https hop turns a POST into a GET); http works, with
+    the warning;
+  - a document is created with its tabular part in ONE POST, `Ref_Key` stripped from the document
+    and every row (a row's own key leaves the table empty, mista 828664), the answer's rows are
+    counted, and a tabular part's own set (`Document_X_Товары`, error 13) is never written;
+  - documents are created unposted; `Post()` is a separate call when the target's `post` is on,
+    and its 500 is kept as 1C's own refusal on the record (the document stays, unposted);
+  - an update re-reads `DataVersion`, PATCHes with `If-Match` and the whole tabular part; a 412
+    reads again and retries (3 times);
+  - "delete" is `DeletionMark: true` by PATCH; the client has no DELETE;
+  - lists page with `$top/$skip/$inlinecount=allpages` ordered by `Ref_Key`, folders and deleted
+    items out, and ask again with `allowedOnly=true` after a 401;
+  - references are looked up (`<key> eq '…'`, contracts under their counterparty's `Owner_Key`) and
+    written as `X_Key` or, for a composite attribute, `X` + `X_Type`; a composite one is filtered
+    with `cast(guid'…', 'Catalog_X')`; dates are `datetime'YYYY-MM-DDTHH:MM:SS'` without a zone,
+    `LineNumber` a string, numbers numbers.
+- **Transfer** (`POST /api/onec/batches/{id}/transfer`): only records a reviewer approved (B5). One
+  document per payment or product (an invoice is one receipt with its lines), 4 at a time. 2xx →
+  `imported` with `Ref_Key` as `onecRef` and, in `message`, what was left out (a reference not
+  found, a refused posting); otherwise `rejected` with the reason (`onec_refused`, `onec_<code>` for
+  1C's internal codes 0–20, `forbidden_or_not_published`, `redirected`, `rows_lost`,
+  `nomenclature_missing` with the line numbers, `timeout`, …) and 1C's message. A refused record
+  keeps its status and goes again on retry; one that timed out is first looked up in the base
+  (number, date, counterparty) so it is not written twice. A corrected or additional ЭСФ
+  (`facturaType` ≠ 0 with `oldFactura`) PATCHes the receipt made for the one it corrects (found in
+  Tasnivo's own transfers, else in the base) instead of creating a second; a high-risk one
+  (`riskLevel: 'high'`) gets the VAT account 4410.11 on every line and says so in `Комментарий`;
+  quantities keep 6 decimals, money 2, the header total is the ЭСФ's own; marking codes go one row
+  per code with the goods line's number.
+- **Default object map** (`DEFAULT_OBJECT_MAP`, editable per org; typical BP 3.0 names, unverified
+  against a UZ base): bank credit → `Document_ПоступлениеНаРасчетныйСчет`, bank debit →
+  `Document_СписаниеСРасчетногоСчета` (`Date`, `НомерВходящегоДокумента`, `ДатаВходящегоДокумента`,
+  `СуммаДокумента`, `НазначениеПлатежа`, `ВидОперации` by value name from the reviewed operation —
+  `payment_in` → `ОплатаПокупателя`, `tax` → `ПеречислениеНалога`, … —, `Комментарий`; references
+  `Контрагент` by ИНН, `ДоговорКонтрагента` by number under that counterparty,
+  `СтатьяДвиженияДенежныхСредств` by name, `СчетОрганизации` by account number); invoice →
+  `Document_ПоступлениеТоваровУслуг` (+ `Товары`: `Количество`, `Цена`, `Сумма`, `СтавкаНДС`
+  (`НДС12`/`НДС15`/`НДС0`/`БезНДС`), `СуммаНДС`, `Номенклатура` by name, `СчетУчетаНДС` for a
+  high-risk ЭСФ; `КодыМаркировки` when published); product → `Catalog_Номенклатура` (`Description`,
+  `НаименованиеПолное`, `Артикул`, `ЕдиницаИзмерения` by name). Tested against a fake server built
+  from real saved responses (`onec/fixtures/odata/SOURCES.md`); the `$metadata` there is constructed.
+  That is why the UI still says "not verified against a real 1C".
 
 ## 6. What the owner must provide to verify
 
@@ -162,4 +226,7 @@ is refused unless `ONEC_ALLOW_PRIVATE_HOSTS=1` (a self-hosted install next to th
    `kl_to_1c.txt`, `nomenclature_xlsx` and `receipt_xlsx` can be loaded once, with a screenshot of
    the result.
 3. For the direct route: an OData-published base (URL), a user with «УдаленныйДоступOData» or full
-   rights, and permission to create test documents.
+   rights, and permission to create test documents. First step: run the connection test on
+   /onec/settings and save the base's `$metadata` (`<base>/odata/standard.odata/$metadata`) into
+   `packages/domain/src/onec/fixtures/odata/` in place of the constructed one; the listed gaps and
+   renamed sets show at once which names of the default map are wrong for that base.

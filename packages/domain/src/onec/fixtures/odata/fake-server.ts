@@ -98,7 +98,8 @@ function matches(obj: Obj, filter: string): boolean {
     if (!m) throw new Error(`unsupported filter ${c}`);
     const [, attr = '', raw = ''] = m;
     const cast = /^cast\(guid'([^']+)',\s*'([^']+)'\)$/.exec(raw);
-    if (cast) return obj[attr] === cast[1] && String(obj[`${attr}_Type`] ?? '').endsWith(cast[2] ?? '');
+    const type = obj[`${attr}_Type`];
+    if (cast) return obj[attr] === cast[1] && typeof type === 'string' && type.endsWith(cast[2] ?? '');
     const lit = /^(?:guid|datetime)?'((?:[^']|'')*)'$/.exec(raw);
     const value: unknown = lit ? (lit[1] ?? '').replace(/''/g, "'") : raw === 'true' ? true : raw === 'false' ? false : Number(raw);
     const have = obj[attr] ?? (attr === 'IsFolder' || attr === 'DeletionMark' ? false : undefined);
@@ -246,7 +247,7 @@ export class FakeOData {
         if (Array.isArray(v)) {
           // mista 828664: rows sent with their own Ref_Key leave the document with an empty table.
           const keyed = v.some((r) => r && typeof r === 'object' && 'Ref_Key' in (r as Obj));
-          created[k] = keyed || this.loseRows ? [] : v.map((r, i) => ({ ...(r as Obj), LineNumber: String((r as Obj)['LineNumber'] ?? i + 1) }));
+          created[k] = keyed || this.loseRows ? [] : v.map((r, i) => ({ ...(r as Obj), LineNumber: typeof (r as Obj)['LineNumber'] === 'string' ? (r as Obj)['LineNumber'] : String(i + 1) }));
         } else created[k] = v;
       }
       list.push(created);

@@ -72,7 +72,7 @@ export function parseMetadata(xml: string): Metadata {
     const parts = new Map<string, Set<string>>();
     for (const [prop, t] of type ?? []) {
       if (!t.startsWith('Collection(')) continue;
-      parts.set(prop, new Set((types.get(localName(t)) ?? new Map()).keys()));
+      parts.set(prop, new Set<string>(types.get(localName(t))?.keys() ?? []));
     }
     sets.set(name, { properties: new Set(type?.keys() ?? []), parts, typed: Boolean(type) });
   }
@@ -143,7 +143,7 @@ export function withoutKeys(body: Record<string, unknown>): Record<string, unkno
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
     if (k === 'Ref_Key' || k === 'odata.metadata' || k === 'DataVersion') continue;
-    out[k] = Array.isArray(v) ? v.map((row) => (row && typeof row === 'object' ? Object.fromEntries(Object.entries(row as Record<string, unknown>).filter(([rk]) => rk !== 'Ref_Key')) : row)) : v;
+    out[k] = Array.isArray(v) ? (v as unknown[]).map((row): unknown => (row && typeof row === 'object' ? Object.fromEntries(Object.entries(row as Record<string, unknown>).filter(([rk]) => rk !== 'Ref_Key')) : row)) : v;
   }
   return out;
 }
