@@ -77,6 +77,25 @@ describe('bank statements from real material (database)', { skip }, () => {
     assert.deepEqual(matched, [false, false, true, true], 'the run resumed after the two lines already done, it did not start over');
   });
 
+  it('B3: a statement whose upload stopped while its lines were stored fails, saying so, instead of passing as complete', async () => {
+    // Review 30 Oct: the batch is created "uploaded" (0 of n) before its lines are written; a crash in between left
+    // part of the lines, and the resume processed them as the whole statement.
+    const file = await readStatementFile(bankFixture('asbt-documents-fixed.txt'));
+    assert.ok(file.builtIn);
+    const parsed = readLines(file, file.builtIn.layout);
+    const batch = await db.importBatch.create({ data: { orgId: admin.orgId, kind: 'bank_statement', source: 'upload', filename: 'cut.txt', fingerprint: `cut-${Date.now()}`, status: 'uploaded', createdBy: admin.userId }, select: { id: true } });
+    await storeLines(batch.id, parsed);
+    // The crash: two of the four stored lines never reached the database.
+    const [, , ...lost] = await db.importRecord.findMany({ where: { batchId: batch.id }, orderBy: { rowIndex: 'asc' }, select: { id: true } });
+    await db.importRecord.deleteMany({ where: { id: { in: lost.map((r) => r.id) } } });
+    await db.$executeRaw`UPDATE import_batch SET "updatedAt" = now() - (${STALL_MS + 5_000} * interval '1 millisecond') WHERE id = ${batch.id}`;
+    await statementDetail(admin, batch.id);
+    await processing(batch.id);
+    const after = await db.importBatch.findUniqueOrThrow({ where: { id: batch.id }, select: { status: true, error: true } });
+    assert.equal(after.status, 'failed');
+    assert.match(after.error ?? '', /stored 2 of 4 lines/);
+  });
+
   it('a re-import of an overlapping period adds no new payment: only the one outside the first file is new', async () => {
     // bank §7.42 §7.24 (Fintablo «Хранилище дублей»); the second file is the same ASBT export one day longer.
     const first = await read(upload('asbt-documents-pipe.zip', bankFixture('asbt-documents-pipe.zip')));

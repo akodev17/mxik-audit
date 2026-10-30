@@ -280,6 +280,13 @@ export async function runStatement(input: RunInput): Promise<void> {
     const { orgId, clientId } = batch;
     const all = await db.importRecord.findMany({ where: { batchId }, orderBy: { rowIndex: 'asc' }, select: { rowIndex: true, fingerprint: true, payload: true } });
     const total = all.length;
+    // The upload stopped while its lines were being stored: a part would pass for the whole statement (and the same
+    // file is refused as read before), so the statement fails, saying so, until it is removed and uploaded again.
+    const expected = meta.bank.progress?.total;
+    if (expected !== undefined && expected !== total) {
+      await db.importBatch.update({ where: { id: batchId }, data: { status: 'failed', error: `stored ${total} of ${expected} lines: the upload stopped; delete this statement and upload the file again` } });
+      return;
+    }
     let done = Math.min(meta.bank.progress?.done ?? 0, total);
     const owner: Owner = { inn: meta.ownerInn ?? meta.bank.ownInn, account: meta.account, name: meta.bank.ownName };
     const suggester = input.suggester === undefined ? operationSuggester() : input.suggester;
