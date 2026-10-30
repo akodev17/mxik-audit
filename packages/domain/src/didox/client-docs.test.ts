@@ -130,6 +130,14 @@ describe('Didox client per the official docs (fake server)', () => {
     assert.deepEqual(f.requests.map((r) => r.path).sort(), ['/v1/utils/compensation-works/ru', '/v1/utils/not-included-products/ru']);
   });
 
+  // Review 30 Oct (R-D14): Didox's 422 field map is shown as sent; one that echoed the password would show it.
+  it('a login error that echoes the password shows it masked', async () => {
+    const f = await fake({ loginError: { status: 422, body: { password: ['Пароль s3cr3t-Pa55 неверный'] } } });
+    const anon = new DidoxClient({ baseUrl: f.url, auth: { kind: 'none' }, ...fast });
+    await assert.rejects(anon.loginWithPassword('302345678', 's3cr3t-Pa55'),
+      (e: unknown) => e instanceof DidoxApiError && !(e.detail ?? '').includes('s3cr3t-Pa55') && (e.detail ?? '').includes('***'));
+  });
+
   // didox §7.5 (review 30 Oct): the API path reads JSON like an upload. Didox mixes numbers and strings per field; a
   // numeric 17-digit ИКПУ above 2^53 or a 20-digit account must reach the parser as the digits written, not a rounded float.
   it('a GET document with numeric long codes keeps every digit', async () => {

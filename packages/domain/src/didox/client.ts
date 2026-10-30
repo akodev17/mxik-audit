@@ -194,12 +194,15 @@ export class DidoxClient {
     }
   }
 
+  /** A password in flight (loginWithPassword): masked in an error body like a token. */
+  private inFlight: string[] = [];
+
   private secrets(): string[] {
     switch (this.auth.kind) {
-      case 'token': return [this.auth.token];
-      case 'partner': return [this.auth.partnerToken, this.auth.userToken];
-      case 'user': return [this.auth.userToken];
-      default: return [];
+      case 'token': return [this.auth.token, ...this.inFlight];
+      case 'partner': return [this.auth.partnerToken, this.auth.userToken, ...this.inFlight];
+      case 'user': return [this.auth.userToken, ...this.inFlight];
+      default: return [...this.inFlight];
     }
   }
 
@@ -387,7 +390,14 @@ export class DidoxClient {
    * TOKEN_TTL_MS. The service calls it only when DIDOX_PASSWORD_LOGIN=1.
    */
   async loginWithPassword(taxId: string, password: string, locale: 'ru' | 'uz' = 'ru'): Promise<{ token: string }> {
-    const raw = await this.request('POST', `/v1/auth/${encodeURIComponent(taxId)}/password/${locale}`, undefined, { password });
+    // A 422 field map that echoed the password would otherwise reach the admin's screen as Didox's words (R-D14).
+    this.inFlight = [password];
+    let raw: unknown;
+    try {
+      raw = await this.request('POST', `/v1/auth/${encodeURIComponent(taxId)}/password/${locale}`, undefined, { password });
+    } finally {
+      this.inFlight = [];
+    }
     const token = isObj(raw) ? str(raw['token']) : null;
     if (!token) throw new DidoxApiError('bad_response', 200, '/v1/auth/{taxId}/password');
     return { token };
