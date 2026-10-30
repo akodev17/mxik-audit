@@ -149,4 +149,18 @@ describe('catalogue import on documented layouts (database, recorded Tasnif answ
     const kept = await product();
     assert.deepEqual([kept.mxik?.trim(), kept.mxikStatus, kept.mxikIssues, kept.article], ['00405001001106002', before.mxikStatus, before.mxikIssues, 'SYR-2']);
   });
+
+  it('a remembered mapping takes the guess for a column the earlier file did not have, and only for that', async () => {
+    // Review 30 Oct (R-P12): the earlier file's mapping won and a new «Цена» column stayed unmapped without a word; a
+    // column the earlier file had and the importer left unmapped («Артикул» here) stays unmapped.
+    const before = csv('remember-1.csv', [['Наименование товара', 'Артикул', 'Ед. изм.'], ['Ручка синяя', 'R-1', 'шт']]);
+    const commit = await commitProductImport(user, 'ru', { file: before, clientId: null, mapping: JSON.stringify({ name: 0, onecRef: -1, article: -1, mxik: -1, packageCode: -1, unit: 2, barcode: -1, price: -1, vat: -1 }), clearEmpty: false });
+    assert.ok(commit.ok, JSON.stringify(commit));
+    await settleBatch(commit.batchId);
+    const next = csv('remember-2.csv', [['Наименование товара', 'Артикул', 'Ед. изм.', 'Цена'], ['Ручка красная', 'R-2', 'шт', '1500']]);
+    const preview = await previewProductImport(user, 'ru', { file: next, clientId: null });
+    assert.ok(preview.ok, JSON.stringify(preview));
+    assert.equal(preview.mappingSource, 'remembered');
+    assert.deepEqual([preview.mapping.name, preview.mapping.unit, preview.mapping.article, preview.mapping.price], [0, 2, -1, 3]);
+  });
 });

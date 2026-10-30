@@ -226,8 +226,12 @@ async function readFile(file: UploadedFile | null, locale: Locale) {
   }
 }
 
-/** The org's (preferably the client's) latest import mapping, resolved on these headers. */
-async function rememberedMapping(orgId: string, clientId: string | null, headers: readonly string[]): Promise<ProductColumnMap | null> {
+/**
+ * The org's (preferably the client's) latest import mapping, resolved on these headers. A column that file did not
+ * have (a price or VAT column added since) takes the guess; a column it had and left unmapped stays unmapped (review
+ * 30 Oct, R-P12: the remembered mapping left a new «Цена» column out without a word).
+ */
+async function rememberedMapping(orgId: string, clientId: string | null, headers: readonly string[], guess: ProductColumnMap): Promise<ProductColumnMap | null> {
   const recent = await db.importBatch.findMany({
     where: { orgId, kind: 'product_catalog', source: { in: ['upload'] } }, orderBy: { createdAt: 'desc' }, take: 10, select: { clientId: true, meta: true },
   });
@@ -235,7 +239,10 @@ async function rememberedMapping(orgId: string, clientId: string | null, headers
   for (const b of ordered) {
     const meta = readMeta(b.meta);
     const resolved = resolveNamed(namedMapping(meta.headers, meta.columnMap), headers);
-    if (resolved) return resolved;
+    if (!resolved) continue;
+    const known = new Set(meta.headers.map(headerKey));
+    const fresh = Object.fromEntries(PRODUCT_FIELDS.map((f) => [f, guess[f] >= 0 && !known.has(headerKey(headers[guess[f]] ?? '')) ? guess[f] : -1])) as ProductColumnMap;
+    return mergeMappings(resolved, fresh);
   }
   return null;
 }
@@ -252,8 +259,8 @@ export async function previewProductImport(user: CurrentUser | null, locale: Loc
   if (!read.ok) return read;
   const { headers, rows } = read.parsed;
   if (rows.length === 0) return { ok: false as const, error: i18nFor(locale).ta.productsX.importWizard.errors.empty };
-  const remembered = await rememberedMapping(user.orgId, client.id, headers);
   const suggested = suggestMapping(headers);
+  const remembered = await rememberedMapping(user.orgId, client.id, headers, suggested.mapping);
   const { presets, preset } = suggested;
   const mapping = remembered ?? suggested.mapping;
   return {
