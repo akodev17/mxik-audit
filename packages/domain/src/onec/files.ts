@@ -3,11 +3,11 @@
 import { accounting } from '@tasnivo/contracts';
 import { baseName } from '../export-filename.js';
 import {
-  buildBankExchange, EXCHANGE_CONTENT_TYPE, EXCHANGE_FILENAME, type BankKeys, type ExchangeDocument, type ExchangeParty,
+  buildBankExchange, EXCHANGE_CONTENT_TYPE, EXCHANGE_FILENAME, uniqueNumbers, type BankKeys, type ExchangeDocument, type ExchangeParty,
 } from './bank-exchange.js';
 import { fromMicros, sum, toMicros } from './decimal.js';
 import { normalizeName } from './normalize.js';
-import type { Included, OneCFormat, Plan, PlanBatch } from './plan.js';
+import type { Included, OneCFormat, Plan, PlanBatch, PlanRecord } from './plan.js';
 import {
   buildCounterpartiesXlsx, buildNomenclatureXlsx, buildReceiptXlsx, XLSX_CONTENT_TYPE, type CounterpartyRow, type NomenclatureRow, type ReceiptLine,
 } from './sheets.js';
@@ -21,6 +21,11 @@ export type FileSettings = {
   /** Whether every record of the statement is in the file (only then are the balances written). */
   wholeStatement: boolean;
   now: Date;
+  /**
+   * Every record of the batch, exported or not: kl_to_1c numbers are made unique over the whole statement, so a
+   * payment keeps its "1/2" in every partial export (without it, the second export's "1" was «уже загружен» in 1C).
+   */
+  batchRecords?: readonly PlanRecord[];
 };
 
 export type BuiltFile = { bytes: Buffer; filename: string; contentType: string };
@@ -39,18 +44,35 @@ function printedAccounts(meta: unknown): { account: string; opening: string | nu
   });
 }
 
+/** Each bank record's document number made unique over the statement: (own account, date, number) in date and row order. */
+function statementNumbers(records: readonly PlanRecord[], fallbackAccount: string): Map<string, string> {
+  type Line = { id: string; rowIndex: number; date: string; number: string; account: string | null };
+  const lines: Line[] = records.flatMap((r) => {
+    const p = (r.payload ?? {}) as { date?: unknown; docNumber?: unknown; reference?: unknown; ourAccount?: unknown };
+    if (typeof p.date !== 'string') return [];
+    const number = typeof p.docNumber === 'string' && p.docNumber ? p.docNumber : typeof p.reference === 'string' && p.reference ? p.reference : String(r.rowIndex + 1);
+    return [{ id: r.id, rowIndex: r.rowIndex, date: p.date, number, account: typeof p.ourAccount === 'string' ? p.ourAccount : null }];
+  }).sort((a, b) => a.date.localeCompare(b.date) || a.rowIndex - b.rowIndex);
+  const party: ExchangeParty = { name: '', inn: null, account: null, bankName: null, mfo: null };
+  const numbers = uniqueNumbers(lines.map((l) => ({
+    number: l.number, date: l.date, amount: '0', direction: 'debit', owner: { ...party, account: l.account }, counterparty: party, purpose: '', valueDate: null,
+  })), fallbackAccount);
+  return new Map(lines.map((l, i) => [l.id, numbers[i] ?? l.number]));
+}
+
 function bankFile(batch: PlanBatch, rows: Included[], s: FileSettings): BuiltFile {
   const meta = accounting.BankStatementMeta.partial().safeParse(batch.meta);
   const m = meta.success ? meta.data : {};
-  const txs = rows.flatMap((r) => (r.kind === 'bank_statement' ? [{ t: r.payload, rowIndex: r.record.rowIndex }] : []))
+  const txs = rows.flatMap((r) => (r.kind === 'bank_statement' ? [{ t: r.payload, rowIndex: r.record.rowIndex, id: r.record.id }] : []))
     .sort((a, b) => a.t.date.localeCompare(b.t.date) || a.rowIndex - b.rowIndex);
   const account = m.account ?? txs.find((x) => x.t.ourAccount)?.t.ourAccount ?? '';
   const dates = txs.map((x) => x.t.date).sort();
   const owner = (ownAccount: string | null): ExchangeParty => ({
     name: m.ownerName ?? s.ownerName, inn: m.ownerInn ?? null, account: ownAccount ?? account, bankName: m.bankName ?? null, mfo: m.mfo ?? null,
   });
-  const documents: ExchangeDocument[] = txs.map(({ t, rowIndex }) => ({
-    number: t.docNumber ?? t.reference ?? String(rowIndex + 1),
+  const numbered = s.batchRecords ? statementNumbers(s.batchRecords, account) : null;
+  const documents: ExchangeDocument[] = txs.map(({ t, rowIndex, id }) => ({
+    number: numbered?.get(id) ?? t.docNumber ?? t.reference ?? String(rowIndex + 1),
     date: t.date,
     amount: t.amount,
     direction: t.direction,

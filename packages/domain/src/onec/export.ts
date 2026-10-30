@@ -177,6 +177,7 @@ export async function buildExport(input: PrepareInput & { actorId: string }): Pr
     filename: batch.filename,
     wholeStatement: statementLines.every((r) => included.has(r.id)),
     now: new Date(),
+    batchRecords: records.filter((r) => r.status !== 'skipped'),
   });
 
   const outcome = outcomeOf(input.format, plan, plan.included.length);

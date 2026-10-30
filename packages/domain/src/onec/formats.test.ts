@@ -150,6 +150,22 @@ describe('bank_exchange_1_02 (1CClientBankExchange)', () => {
     assert.ok(!/НачальныйОстаток|КонечныйОстаток/.test(text));
     assert.match(text, /ВсегоПоступило=15000000\.00\r\nВсегоСписано=3200000\.00/);
   });
+
+  // bank §7.44, onec §8.20 (review 30 Oct, R-B7): two payments numbered 1 on one day, exported one at a time. Numbered per
+  // file, both files said Номер=1 and 1C answered «Документ уже загружен» for the second; numbered over the statement,
+  // the second is 1/2 in whichever file it goes.
+  it('a repeated number keeps its suffix across partial exports', async () => {
+    const twin = { ...BANK_TRANSACTIONS[0]!, docNumber: '1' };
+    const recs = records([twin, { ...twin, amount: '777000', purpose: 'Вторая оплата' }]);
+    const numberOf = async (ids: string[]): Promise<string[]> => {
+      const plan = planExport(bankBatch, recs, 'bank_exchange_1_02', ids, none);
+      const text = decodeBankExchange((await buildFile(bankBatch, plan, 'bank_exchange_1_02', settings({ wholeStatement: false, batchRecords: recs }))).bytes);
+      return parseBankExchange(text).documents.map((d) => d['Номер'] ?? '');
+    };
+    assert.deepEqual(await numberOf(['r0']), ['1']);
+    assert.deepEqual(await numberOf(['r1']), ['1/2'], 'the second payment alone is still 1/2');
+    assert.deepEqual(await numberOf(['r0', 'r1']), ['1', '1/2']);
+  });
 });
 
 describe('xlsx formats against golden cell grids', () => {
