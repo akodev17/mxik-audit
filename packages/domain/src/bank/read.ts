@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
 import type { BankColumnMap, BankConventions } from '@tasnivo/contracts/modules/bank';
 import { isBankExchange, parseBankExchange, type ExchangeWarning } from '../onec/bank-exchange.js';
-import { looksLikeZip, zipWithinLimits } from '../security/zip-guard.js';
+import { looksLikeZip, ZIP_LIMITS, zipWithinLimits } from '../security/zip-guard.js';
 import { parseErrorCode, readGrid, sniffKind, type ParseErrorCode } from '../spreadsheet.js';
 import { decodeCyrillic, looksBinary } from '../spreadsheet-text.js';
 import { exchangeStatement, payerPayeeColumns, payerPayeeStatement, type SectionWarning } from './documents.js';
@@ -76,10 +76,16 @@ type Raw =
 const PDF = [0x25, 0x50, 0x44, 0x46];
 /** Entries of an archive that are not the statement: folders, macOS resource forks, hidden files. */
 const NOISE_ENTRY = /(^|\/)(__MACOSX|\.)[^/]*/;
+/** What an archived statement may inflate to: the upload limit (catalog-import.ts MAX_UPLOAD_BYTES). */
+const ARCHIVED_BYTES = 20 * 1024 * 1024;
 
-/** The single file inside a zip that is not an .xlsx (an .xlsx is a zip itself). */
+/**
+ * The single file inside a zip that is not an .xlsx (an .xlsx is a zip itself). It is inflated whole
+ * and read like an upload, so it may be no larger than one: the 100 MB of ZIP_LIMITS is the budget of a
+ * streamed .xlsx, and 95 MB of text inflated from a 97 KB zip ran the reader out of memory.
+ */
 async function unzip(bytes: Buffer): Promise<{ name: string; bytes: Buffer }> {
-  if (!(await zipWithinLimits(bytes))) throw new StatementReadError('zip_limits');
+  if (!(await zipWithinLimits(bytes, { ...ZIP_LIMITS, maxTotalBytes: ARCHIVED_BYTES }))) throw new StatementReadError('zip_limits');
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(bytes);

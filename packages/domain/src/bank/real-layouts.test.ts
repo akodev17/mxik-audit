@@ -172,6 +172,15 @@ describe('file shapes around the statement', () => {
     assert.equal(await refusal(await none.generateAsync({ type: 'nodebuffer' })), 'archive_empty');
   });
 
+  it('a zip whose one file inflates past the upload limit is refused before it is inflated', async () => {
+    // Review 30 Oct: 21 MB of "1;2" lines compress to a few KB; read whole, 95 MB of them ran the API out of memory.
+    const bomb = new JSZip();
+    bomb.file('vypiska.txt', Buffer.alloc(21 * 1024 * 1024, '1;2\n'));
+    const bytes = await bomb.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+    assert.ok(bytes.length < 200_000, String(bytes.length));
+    assert.equal(await refusal(bytes), 'zip_limits');
+  });
+
   it('encodings by content: DOS cp866, UTF-8 with BOM; "~" as the delimiter', async () => {
     // bank §7.2 §7.39 §7.40
     const text = iconv.decode(fixture('ibank2-all-accounts.csv'), 'win1251');
