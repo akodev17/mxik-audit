@@ -2,22 +2,29 @@
 // it is missing or doubtful. Runs the audit's own cascade (checkItem: firm dictionary, barcode,
 // exact name, lexical + vector, the LLM reranker only for rows its gate calls uncertain) and its
 // checks (NOT_FOUND, MISMATCH, UNIT_CONFLICT, RESTRICTED), then adds what an accounting import needs
-// on top: activity per the Tasnif API, packaging-code consistency, marking. Server-only.
+// on top: activity per the Tasnif API, packaging-code and unit consistency with the code's card, the
+// barcode's own code, a code our classifier copy does not know yet, the 30-day grace of a code the
+// operator changed, marking (rules: products/checks.ts, research checklist §7). Server-only.
 import { sharesMeaning } from '@tasnivo/core/match/relevance';
 import { hierarchyPath } from '@tasnivo/core/match/rules';
 import { MISMATCH_THRESHOLD, restrictionDate } from '@tasnivo/core/audit/checks';
 import { markingRequired as markingOf } from '@tasnivo/core/audit/marking';
-import { barcodeIdentity, resolveUnit } from '@tasnivo/core/normalize/index';
+import { barcodeIdentity, identifyingBarcode } from '@tasnivo/core/normalize/index';
 import type { ScoredCandidate } from '@tasnivo/core/match/types';
 import type { accounting } from '@tasnivo/contracts';
+import { db } from '@tasnivo/db';
 import type { Locale } from '@tasnivo/i18n/i18n';
 import { i18nFor } from '@tasnivo/i18n/locale';
 import type { z } from 'zod';
 import { auditContext, checkItem, type AuditContext } from '../audit-runner.js';
 import { runPool } from '../work-pool.js';
+import {
+  allowedUnits, gtinCodeIssues, packageCountingUnit, packagesForUnit, readBarcodes, retiredGrace, serviceIssues, unitAllowedIssue,
+} from './checks.js';
 import { mxikOf } from './keys.js';
 import { activityFor, packagesFor, type PackagesState } from './packaging.js';
-import { tasnifClient, type TasnifClient } from './tasnif-client.js';
+import { tasnifClient, type TasnifAnswer, type TasnifCard, type TasnifClient } from './tasnif-client.js';
+import { normalizeUnit } from './units.js';
 
 type ValidationIssue = z.infer<typeof accounting.ValidationIssue>;
 type MatchCandidate = z.infer<typeof accounting.MatchCandidate>;
@@ -46,12 +53,22 @@ export type ClassifyOptions = {
   packaging?: 'given' | 'all' | 'off';
   /** Ask the history endpoint for codes whose activity is not cached (default: cache only). */
   liveActivity?: boolean;
+  /**
+   * Catalogue import: check each row's barcode against the code the classifier copy (then, for at most
+   * GTIN_LIVE_CAP barcodes per call, tasnif's gtin search) holds for it, and ask tasnif about codes the
+   * copy does not have (products §7.2, §7.4, §7.5). Off by default (invoices, the product list).
+   */
+  fileChecks?: boolean;
   /** Rows matched at once; each costs a handful of queries. */
   concurrency?: number;
   today?: Date;
 };
 
 const ALTERNATIVES = 5;
+/** Barcodes per call asked live when the classifier copy has none (each is one request). */
+export const GTIN_LIVE_CAP = 50;
+/** Codes per call the copy lacks that are asked live (each is one request). */
+export const UNKNOWN_LIVE_CAP = 50;
 const fill = (template: string, params: Record<string, string | number>): string =>
   template.replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? ''));
 
@@ -80,7 +97,12 @@ export function toCandidate(s: ScoredCandidate, locale: Locale): MatchCandidate 
 const SEVERITY_RANK: Record<MxikStatus, number> = { invalid: 6, inactive: 5, restricted: 4, missing: 3, suspicious: 2, ok: 1, unchecked: 0 };
 const worse = (a: MxikStatus, b: MxikStatus): MxikStatus => (SEVERITY_RANK[b] > SEVERITY_RANK[a] ? b : a);
 
-/** Packaging checks for a line whose code is known; pure over the fetched package list. */
+/**
+ * Packaging checks for a line whose code is known; pure over the fetched package list (products §7.7,
+ * §7.8, §7.10, §7.12): the package must be one of the code's own (an error when the list was just
+ * fetched; a warning from the cache, which may predate a package the taxpayer created since); an
+ * empty package is derived from the row's unit; the row's unit must be one the code allows.
+ */
 export function packagingIssues(
   line: Pick<ClassifyLine, 'packageCode' | 'unit'>, code: string, state: PackagesState | undefined,
 ): { issues: ValidationIssue[]; packageName: string | null } {
@@ -91,25 +113,52 @@ export function packagingIssues(
       ? { issues: [{ code: 'package_unchecked', severity: 'info', field: 'packageCode', params: { reason: state.reason ?? 'unavailable' } }], packageName: null }
       : { issues: [], packageName: null };
   }
+  const issues: ValidationIssue[] = [];
+  const rowUnit = normalizeUnit(line.unit ?? null);
+  // A unit's name as the card writes it ("килограмм", "шт."), for the messages.
+  const names = new Map<number, string>();
+  for (const p of state.packages) {
+    const id = packageCountingUnit(p);
+    if (!names.has(id)) names.set(id, id === p.unitId && p.unitName ? p.unitName : id === 1 ? 'шт.' : p.name);
+  }
+  const unitCheck = (): void => {
+    const u = unitAllowedIssue(line.unit ?? null, allowedUnits(state.packages), names);
+    if (u) issues.push(u);
+  };
   if (!given) {
     if (state.packages.length === 0) return { issues: [], packageName: null };
-    const only = state.packages.length === 1 ? state.packages[0] : undefined;
-    return {
-      issues: [{ code: 'package_missing', severity: 'info', field: 'packageCode', params: { count: state.packages.length }, ...(only ? { suggestion: only.code } : {}) }],
-      packageName: null,
-    };
+    // §7.8: the row's unit picks the package (the plain "килограмм" package for kg); without a unit, the only package.
+    const fits = rowUnit ? packagesForUnit(state.packages, rowUnit.id) : state.packages;
+    const only = fits.length === 1 ? fits[0] : state.packages.length === 1 ? state.packages[0] : undefined;
+    issues.push({ code: 'package_missing', severity: 'info', field: 'packageCode', params: { count: fits.length }, ...(only ? { suggestion: only.code } : {}) });
+    unitCheck();
+    return { issues, packageName: null };
   }
   const pkg = state.packages.find((p) => p.code === given);
   if (!pkg) {
-    return { issues: [{ code: 'package_not_of_code', severity: 'warning', field: 'packageCode', params: { packageCode: given, code } }], packageName: null };
+    const severity = state.source === 'live' ? 'error' : 'warning';
+    return { issues: [{ code: 'package_not_of_code', severity, field: 'packageCode', params: { packageCode: given, code } }], packageName: null };
   }
-  const issues: ValidationIssue[] = [];
-  // The package counts pieces of its unit (unitId); a line priced per kilogram cannot carry a "piece" package.
-  const rowUnit = resolveUnit(line.unit ?? null);
-  if (rowUnit && pkg.unitId !== null && rowUnit.id !== pkg.unitId) {
-    issues.push({ code: 'package_unit_conflict', severity: 'warning', field: 'unit', params: { unit: line.unit ?? '', packageUnit: pkg.unitName ?? String(pkg.unitId) } });
+  // A plain-unit package counts in its unit; a consumer pack or a container is one piece (checks.ts).
+  const counted = packageCountingUnit(pkg);
+  if (rowUnit && rowUnit.id !== counted) {
+    issues.push({ code: 'package_unit_conflict', severity: 'warning', field: 'unit', params: { unit: line.unit ?? '', packageUnit: names.get(counted) ?? String(counted) } });
   }
+  unitCheck();
   return { issues, packageName: pkg.nameRu ?? pkg.name };
+}
+
+/**
+ * A code the classifier copy does not list, by what tasnif answered for its card (products §7.2): it
+ * exists (the copy is older: a warning), it does not (403, error), or tasnif could not be asked (an
+ * error that says so, never "unknown code").
+ */
+export function unknownCodeVerdict(answer: TasnifAnswer<TasnifCard> | undefined): { code: 'mxik_not_in_copy' | 'mxik_not_found' | 'mxik_unconfirmed'; severity: 'warning' | 'error'; api: string } {
+  if (!answer || (!answer.ok && answer.reason === 'disabled')) return { code: 'mxik_not_found', severity: 'error', api: 'unknown' };
+  if (answer.ok) return { code: 'mxik_not_in_copy', severity: 'warning', api: 'active' };
+  if (answer.reason === 'not_found') return { code: 'mxik_not_found', severity: 'error', api: 'not_found' };
+  // A dead network, a timeout, a 5xx: the code is neither known nor unknown yet.
+  return { code: 'mxik_unconfirmed', severity: 'error', api: answer.reason };
 }
 
 /**
@@ -139,6 +188,38 @@ export async function classifyDetailed(orgId: string, lines: readonly ClassifyLi
     .filter((x) => x.code && x.check?.existing.found && (packagingMode === 'all' || Boolean(x.line.packageCode?.trim())))
     .map((x) => x.code as string);
   const packaging = await packagesFor(packagingCodes, client, today);
+  const fileChecks = options.fileChecks ?? false;
+
+  // §7.2: what tasnif says about a code the copy lacks (never retired, so never seen by an import).
+  const unknownCodes = fileChecks && client.live
+    ? [...new Set(interim.filter((x) => x.code && x.check?.findings.some((f) => f.type === 'NOT_FOUND' && !f.wasRetired)).map((x) => x.code as string))].slice(0, UNKNOWN_LIVE_CAP)
+    : [];
+  const unknownAnswers = new Map<string, TasnifAnswer<TasnifCard>>();
+  await runPool(unknownCodes, 4, async (code) => { unknownAnswers.set(code, await client.card(code)); });
+
+  // §7.31: when the copy stopped listing a retired code (its 30-day grace).
+  const retiredCodes = [...new Set(interim.filter((x) => x.code && x.check?.existing.retired).map((x) => x.code as string))];
+  const retiredAt = new Map(retiredCodes.length === 0 ? [] : (await db.mxikCode.findMany({ where: { code: { in: retiredCodes } }, select: { code: true, retiredAt: true } }))
+    .flatMap((r) => (r.retiredAt ? [[r.code.trim(), r.retiredAt] as const] : [])));
+
+  // §7.4/§7.5: the code each row's first valid barcode stands for, from the copy, then live for the rest.
+  const gtinOf = (line: ClassifyLine): string | null => (fileChecks ? readBarcodes(line.barcode).lookup[0] ?? null : null);
+  const gtins = [...new Set(interim.map((x) => gtinOf(x.line)).filter((g): g is string => g !== null))];
+  const gtinCode = new Map<string, string | null>();
+  if (gtins.length > 0) {
+    const byGtin14 = new Map(gtins.map((g) => [identifyingBarcode(g) ?? '', g]));
+    const rows = await db.mxikCode.findMany({ where: { barcode: { in: [...byGtin14.keys()] }, retiredAt: null }, select: { code: true, barcode: true } });
+    for (const r of rows) {
+      const g = byGtin14.get(r.barcode ?? '');
+      // A barcode on two codes in the copy says nothing about which one is right.
+      if (g) gtinCode.set(g, gtinCode.has(g) ? null : r.code.trim());
+    }
+    const ask = client.live ? gtins.filter((g) => !gtinCode.has(g)).slice(0, GTIN_LIVE_CAP) : [];
+    await runPool(ask, 4, async (g) => {
+      const answer = await client.gtin(g);
+      if (answer.ok) gtinCode.set(g, answer.value.mxikCode);
+    });
+  }
 
   for (const [i, { line, code, check, malformed }] of interim.entries()) {
     if (!check) continue;
@@ -166,11 +247,24 @@ export async function classifyDetailed(orgId: string, lines: readonly ClassifyLi
         // says what the API answered, if anything.
         const retired = f.wasRetired;
         const said = code ? activity.get(code) : undefined;
-        const issueCode = !retired ? 'mxik_not_found' : said?.isActive === false ? 'mxik_inactive_api' : 'mxik_inactive';
-        const api = said?.notFound ? 'not_found' : said?.isActive === true ? 'active' : said?.isActive === false ? 'inactive' : 'unknown';
-        status = worse(status, retired ? 'inactive' : 'invalid');
         suggestion = alternatives[0] ?? null;
-        issues.push({ code: issueCode, severity: 'error', field: 'mxik', params: { code: code ?? '', ...(retired ? { api } : {}) }, ...(suggestion ? { suggestion: suggestion.id } : {}) });
+        const offer = suggestion ? { suggestion: suggestion.id } : {};
+        const since = code ? retiredAt.get(code) : undefined;
+        const grace = retired && since && said?.isActive !== false ? retiredGrace(since, today) : null;
+        if (grace?.inGrace) {
+          // §7.31: a change takes effect 30 days after publication; until then the code is a warning.
+          status = worse(status, 'suspicious');
+          issues.push({ code: 'mxik_retired_grace', severity: 'warning', field: 'mxik', params: { code: code ?? '', until: grace.until }, ...offer });
+        } else if (!retired && fileChecks && code && client.live) {
+          const verdict = unknownCodeVerdict(unknownAnswers.get(code));
+          status = worse(status, verdict.severity === 'error' ? 'invalid' : 'suspicious');
+          issues.push({ code: verdict.code, severity: verdict.severity, field: 'mxik', params: { code, api: verdict.api }, ...offer });
+        } else {
+          const issueCode = !retired ? 'mxik_not_found' : said?.isActive === false ? 'mxik_inactive_api' : 'mxik_inactive';
+          const api = said?.notFound ? 'not_found' : said?.isActive === true ? 'active' : said?.isActive === false ? 'inactive' : 'unknown';
+          status = worse(status, retired ? 'inactive' : 'invalid');
+          issues.push({ code: issueCode, severity: 'error', field: 'mxik', params: { code: code ?? '', ...(retired ? { api } : {}) }, ...offer });
+        }
       } else if (f.type === 'MISMATCH') {
         status = worse(status, 'suspicious');
         suggestion = alternatives[0] ?? null;
@@ -227,8 +321,19 @@ export async function classifyDetailed(orgId: string, lines: readonly ClassifyLi
       packageName = pk.packageName;
     }
 
-    const bc = line.barcode?.trim() ? barcodeIdentity(line.barcode) : null;
-    if (bc && bc.status === 'bad_check_digit') issues.push({ code: 'barcode_invalid', severity: 'info', field: 'barcode', params: { barcode: line.barcode ?? '' } });
+    if (fileChecks) {
+      // The import checked the barcode cell itself (checks.ts readBarcodes); here: the barcode's own code.
+      const g = gtinOf(line);
+      const found = g ? gtinCodeIssues(code, g, gtinCode.get(g) ?? null) : [];
+      if (found.some((x) => x.severity !== 'info')) {
+        status = worse(status, 'suspicious');
+        suggestion ??= found[0]?.suggestion ? { id: found[0].suggestion, label: found[0].suggestion, confidence: 1, basis: 'barcode', reason: i18nFor(locale).ta.productsX.reasons.barcode } : null;
+      }
+      issues.push(...found, ...serviceIssues(code, line.unit ?? null));
+    } else {
+      const bc = line.barcode?.trim() ? barcodeIdentity(line.barcode) : null;
+      if (bc && bc.status === 'bad_check_digit') issues.push({ code: 'barcode_invalid', severity: 'info', field: 'barcode', params: { barcode: line.barcode ?? '' } });
+    }
 
     const marking = markingOf(existing.candidate?.isMarked === true, findings, suggestions);
     if (marking) issues.push({ code: 'marking_required', severity: 'info', field: 'mxik' });

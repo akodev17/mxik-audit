@@ -393,6 +393,131 @@ the FAQ answer reworded).
 5. **Partner mode in production.** Needs the partner token from Didox's account manager (t.me/Didox_account)
    in `DIDOX_PARTNER_TOKEN`, then the same "Ulanishni tekshirish".
 
+## S3 results
+
+Branch `claude/docs-s3-products-9e2eb6` (worktree `docs-s3-products-9e2eb6`), not pushed. Scratch DB
+`mxik_s3` built from migrations, plus a classifier subset copied read-only from `mxik` (80,829 codes:
+groups 001–024, classes 03004 and 03304, all service codes, every restricted code; the snapshot,
+restricted-code and tax-privilege tables) so the DB suites run instead of skipping.
+
+### Bugs fixed
+
+| Bug | Where | Fix |
+|---|---|---|
+| B7 Артикул mapped then dropped | `packages/domain/src/products/import.ts:137` (`readRow`), `upsert.ts:73,149`, `catalog.ts:322` | the import keeps `article`; `Product.article` stores it; the catalogue export and the batch export both write it to «Артикул» |
+| B8 ASCII file name on hand-over | `packages/domain/src/products/catalog.ts:277-281` | the old pattern `filename*?=` matched the ASCII fallback `filename="…"` first (Cyrillic became `_`); now `filenameFromDisposition`, where the UTF-8 form wins |
+| Found on the way: a consumer pack counted in its contents' unit | `products/checks.ts` `packageCountingUnit`, `classify.ts:106` | live card 00405001001106002: «шт. (упаковка) 200 грамм» has `unitId` 4 (gram); a row in «шт» was reported as a unit conflict. A consumer pack or a container now counts as one piece; only a plain-unit package («килограмм») counts in its unit |
+| Found on the way: the fake Tasnif client said "not found" for codes it had no answer for | `products/test-fixtures.ts` | it now says `unavailable` (no recorded answer); its "not found" was cached in the shared `mxik_code_state` and raced `products.test.ts` once the import checked every code's card |
+
+Migration: **`20261109000300_product_article_price`** (`product.article`, `price DECIMAL(18,2)`,
+`priceIncludesVat`, `vatRate`, index `(orgId, article)`), applied to `mxik_s3` only; rollback in
+`docs/accounting-2026-10-23/migrations.md`.
+
+### What changed, by task
+
+1. **Header vocabulary** (`products/import-map.ts`): exact names per field from products §4 (RU, UZ
+   Latin, UZ Cyrillic, 1C captions, MoySklad UZ `ИКПУ (MXIK)` / `Код упаковки ТАСНИФ`, magicstore,
+   Megagroup, CSI `uz-ffd-spic` / `uzFfdPackageCode`, Uzum `SKU товара`, Yandex `SKU`, buline `Ichki kod` /
+   `GTIN, dona`, the Didox ЭСФ names `CatalogCode` / `PackageCode` / `Summa` / `VatRate`, Click `SPIC` /
+   `GoodPrice` in tiyin / `VATPercent`), then word hints. New mapped columns `price` and `vat`. The 1C
+   preset is completed by the guess for what it leaves out. `locateHeader` finds the header by its words
+   when a title or hint row is as wide as the table. Extra columns stay unmapped. Billz, Smartup, my.soliq
+   and Didox «Мои товары» publish no column list: they are covered by the common words only.
+2. **Checks** (`products/checks.ts`, applied per row in `import.ts` and in `classify.ts` with
+   `fileChecks`): §7.1 `mxik_leading_zero` (the restored code is shown, never applied), `mxik_scientific`,
+   `mxik_number_cell` (a 17-digit .xlsx number cell; Excel keeps 15 digits); §7.2 unknown vs transport
+   (`mxik_not_found` on 403, `mxik_unconfirmed` when tasnif did not answer, `mxik_not_in_copy` when tasnif
+   knows a code our copy lacks); §7.3/7.4/7.5 `mxik_base_mismatch` (error), `gtin_brand_code_exists`,
+   `gtin_code_conflict`, `gtin_has_code` (barcode → code from the classifier copy first, then `gtin=` live,
+   at most 50 per chunk); §7.13/7.14/7.16 several barcodes per cell, GTIN check digit for EAN-8/12/13/14,
+   `barcode_internal` for 02x/04x/2x (never sent to tasnif); §7.7/7.8/7.10/7.12 the package must be the
+   code's own (`package_not_of_code` is now an **error** from a freshly fetched list, a warning from the
+   cache), the package is derived from the unit when empty, `unit_fixed` (error) / `unit_not_allowed`
+   (warning), the package name is the card's text; §7.9 the unit table on the §1.4 ids
+   (`products/units.ts`); §7.17 `duplicate_row`, `duplicate_name`, `duplicate_barcode`; §7.19/7.20 price
+   to tiyin, more than 2 decimals flagged and rounded, `GoodPrice` read as tiyin, with/without VAT from
+   the header, VAT cells `12`, `12%`, `QQS 12%`, `0`, `0%`, `без НДС`, `Без налога`, `QQSsiz`, `0.12`
+   (an Excel percent cell), 15 % flagged; §7.23 `service_unit`, `service_unit_on_goods`; §7.31
+   `mxik_retired_grace` (a warning for 30 days after the copy stopped listing a code, then the old
+   error); §7.30 empty cells keep saved values unless the importer ticks «Пустые ячейки стирают значение
+   в каталоге» (then only mapped columns clear). The import now fetches every code's package list
+   (`packaging: 'all'`, cached 30 days) so an empty package can be derived.
+3. **1C `nomenclature_xlsx`** (`onec/sheets.ts`, nomenclature part only): Наименование, Код из
+   классификатора, Код упаковки, Единица измерения, Штрихкод, Артикул (columns A–F as before), then
+   Полное наименование, Ставка НДС («12%», «0%», «Без НДС»), Цена (a number, VAT-inclusive: a net price
+   gets its rate added), Вид номенклатуры (Товар / Услуга). Codes, packages, barcodes and articles are
+   text cells. Services (a code starting with 1, or no code and a service unit) go to the sheet
+   «Услуги», never among the goods (onec §8.10).
+4. **Tasnif client** (`products/tasnif-client.ts`): `gtin()` (only `gtin=`; `success:false` and a page of
+   other items are both "not found"), `units()` with `pageSize=100&limit=100` and the `recordTotal` check
+   (`incomplete` otherwise), `nomenclature()` where 401 is `needs_token`, not retried and not cached; 403
+   on `by-mxik` is `not_found`, cached, not retried. Documented in
+   `docs/accounting-2026-10-23/tasnif-catalog.md` §4.
+5. **UI**: the wizard's «Цена» / «Ставка НДС» columns and the clear-empty checkbox; every new issue text
+   in uz and ru (`packages/i18n/src/i18n-parts/products.ts`); the batch view and the landing products
+   card carry the sharpened note (uz: «…nomenklatura faylini haqiqiy 1C (Oʻzbekiston uchun) bazasiga
+   yuklash hali sinab koʻrilmagan»).
+
+### Golden diff (`onec/fixtures/nomenclature_xlsx.golden.json`, regenerated with `UPDATE_GOLDEN=1`)
+
+Four columns appended to the header (Полное наименование, Ставка НДС, Цена, Вид номенклатуры) and four
+cells per row: the full name equals the name (the demo products have none of their own), VAT and price
+are empty (the demo products carry neither), and all three demo products are «Товар». Columns A–F and
+every existing cell are unchanged. The invoice-based nomenclature test now finds «Доставка» (unit
+«услуга», no code) on «Услуги» instead of among the goods: the same four lines, split 3 + 1.
+
+### Tests added
+
+| File | Tests | Checklist items |
+|---|---|---|
+| `packages/domain/src/products/real-data.test.ts` (no DB) | 20 | products §7.1, 7.2, 7.3, 7.4, 7.5, 7.7, 7.8, 7.9, 7.10, 7.12, 7.13, 7.14, 7.15, 7.16, 7.17, 7.18, 7.19, 7.20, 7.23, 7.29, 7.30, 7.31, 7.33, 7.34; onec §8.1, 8.6, 8.7, 8.10, 8.12, 8.17; B7, B8 |
+| `packages/domain/src/products/import-real.test.ts` (DB) | 3 | §7.3, 7.4, 7.5, 7.7, 7.12, 7.17, 7.19, 7.30; onec §8.10; B7, B8 end to end |
+
+**23 new tests.** Material: 7 product files with documented header rows (6 .xlsx built with exceljs by
+`fixtures/make-fixtures.ts`, 1 CSV) and 14 real tasnif responses served by a fake server
+(`tasnifFixtureFetch`); `products/fixtures/SOURCES.md` names each file's URL and what was changed.
+Existing tests touched, none weakened: `import.test.ts` (the mapping objects gained `price: -1, vat: -1`;
+the expected 1C header list is the new one, plus a new assertion that `ART-1` reaches «Артикул») and
+`formats.test.ts` (the 3 + 1 split above, asserted). Not covered: §7.6 marking beyond the existing
+`marking_required`; §7.11, 7.21, 7.22, 7.24, 7.25 (ЭСФ lines, S2); §7.26, 7.27, 7.32 (no list or data
+source); §7.28 name hygiene.
+
+### Suite on `mxik_s3`
+
+- `npm run typecheck`: clean (all workspaces). `eslint` on every touched folder: clean.
+- New and products tests: `real-data.test.ts` 20/20, `import-real.test.ts` 3/3, `import.test.ts`,
+  `catalog.test.ts`, `products.test.ts`, `tasnif-client.test.ts`, `onec/formats.test.ts`,
+  `onec/export.test.ts`, `xlsx-stream.test.ts`: all pass, 0 skipped (the classifier subset makes the DB
+  suites run).
+- Full `npm test` (306 files, run while three sibling sessions ran theirs on the same Postgres):
+  2,430 tests, 2,410 pass, 18 fail, 2 skipped. The 18 failures sit in 12 suites; most say `sorry, too
+  many clients already`. Re-run with `--test-concurrency=2`, the 11 domain/web files among them pass
+  (117 tests, 115 pass, 0 fail, 2 skipped). Two API e2e cases still fail on the scratch DB and do not
+  touch products: `public-api.test.ts` "check: an optional tnved…" needs code `07306001002000000`
+  (group 073 is outside the 80,829-code subset) and `demo.test.ts` "POST /api/demo/open" needs a seeded
+  demo organisation. The coordinator's run on the full `mxik` copy should show neither.
+- Environment note for the coordinator: the main checkout's `apps/api/node_modules/cookie` is gone
+  (only npm's staging folder `.cookie-zEGtZxXR` is left, modified 30 Oct 14:04, not by S3), which makes
+  the API typecheck fail in every worktree linked to it. S3 used a local copy in its own worktree and
+  did not touch main. Repair: `npm install` in the main checkout.
+
+### Still unverified, and the owner's one-step check
+
+- **Loading the file into a real 1C.** Nothing yet proves that «1С:Бухгалтерия для Узбекистана» maps the
+  ten captions without asking, reads «Цена» as VAT-inclusive, or takes «Вид номенклатуры» from a column.
+  Check, one screen: in a test base, *Справочники → Номенклатура → Загрузить* (or the ITS processing
+  «Загрузка данных из табличного документа») with the file that *Mahsulotlar → Katalog yuklash →
+  1C uchun tayyorlash* produces for `packages/domain/src/products/fixtures/onec-nomenclature.xlsx`;
+  expect the goods on «Номенклатура», the transport service on «Услуги», «Артикул» LAC-200 / LAC-400 /
+  BUT-KG and «Код из классификатора» with its leading zeros.
+- **Live tasnif drift.** The recorded answers are from 30 Oct; `by-mxik` changed from "200 + text"
+  (23 Oct) to 403 (30 Oct). Both are handled; a third shape would show as `mxik_unconfirmed`, not as a
+  wrong verdict.
+- **Layouts with no public column list:** Billz, Smartup, my.soliq «Справочник товаров», Didox «Мои
+  товары»; Yandex's template starts with the sheet «Инструкция» and the reader takes the first sheet.
+  One real export from a client using any of them settles it.
+- The web wizard changes were typechecked, not opened in a browser.
+
 ## S4 results — 1C import, history and OData (branch `claude/docs-s4-onec-605e8f`, 30 Oct 2026)
 
 Worktree `.claude/worktrees/docs-s4-onec-605e8f`, 9 commits on top of 1afccd1, not pushed. Scratch DB

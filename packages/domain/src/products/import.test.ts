@@ -18,7 +18,7 @@ const ONEC_HEADERS = ['Код', 'Наименование', 'Артикул', '�
 
 describe('product import mapping', () => {
   it('guesses the 1C «Номенклатура» columns, "Код" as the 1C code and never as the name', () => {
-    assert.deepEqual(guessProductMapping(ONEC_HEADERS), { onecRef: 0, name: 1, article: 2, unit: 3, mxik: 4, packageCode: 5, barcode: 6 });
+    assert.deepEqual(guessProductMapping(ONEC_HEADERS), { onecRef: 0, name: 1, article: 2, unit: 3, mxik: 4, packageCode: 5, barcode: 6, price: -1, vat: -1 });
   });
 
   it('guesses an Uzbek price list', () => {
@@ -30,18 +30,18 @@ describe('product import mapping', () => {
     const preset = PRODUCT_PRESETS[0];
     assert.ok(preset);
     assert.equal(preset.verified, false);
-    assert.deepEqual(applyProductPreset(preset, ONEC_HEADERS), { onecRef: 0, name: 1, article: 2, unit: 3, mxik: 4, packageCode: 5, barcode: 6 });
+    assert.deepEqual(applyProductPreset(preset, ONEC_HEADERS), { onecRef: 0, name: 1, article: 2, unit: 3, mxik: 4, packageCode: 5, barcode: 6, price: -1, vat: -1 });
     assert.equal(applyProductPreset(preset, ['Nomi', 'MXIK']), null);
   });
 
   it('remembers a mapping by header name, in any column order', () => {
     const named = namedMapping(ONEC_HEADERS, { name: 1, mxik: 4, unit: 3, onecRef: -1 });
-    assert.deepEqual(resolveNamed(named, ['Единица измерения', 'Код из классификатора', 'Наименование']), { name: 2, onecRef: -1, article: -1, mxik: 1, packageCode: -1, unit: 0, barcode: -1 });
+    assert.deepEqual(resolveNamed(named, ['Единица измерения', 'Код из классификатора', 'Наименование']), { name: 2, onecRef: -1, article: -1, mxik: 1, packageCode: -1, unit: 0, barcode: -1, price: -1, vat: -1 });
     assert.equal(resolveNamed(named, ['Nomi']), null);
   });
 
   it('refuses a mapping without a name or with a column twice', () => {
-    const ok = { name: 0, onecRef: -1, article: -1, mxik: 1, packageCode: -1, unit: -1, barcode: -1 };
+    const ok = { name: 0, onecRef: -1, article: -1, mxik: 1, packageCode: -1, unit: -1, barcode: -1, price: -1, vat: -1 };
     assert.equal(mappingProblem(ok, 2), null);
     assert.equal(mappingProblem({ ...ok, mxik: 0 }, 2), 'duplicate');
     assert.equal(mappingProblem({ ...ok, mxik: 5 }, 2), 'range');
@@ -176,13 +176,18 @@ describe('product import flow (database, fake Tasnif)', { skip }, () => {
     const sheet = workbook.worksheets[0];
     assert.ok(sheet);
     const header = (sheet.getRow(1).values as unknown[]).slice(1);
-    assert.deepEqual(header, ['Наименование', 'Код из классификатора', 'Код упаковки', 'Единица измерения', 'Штрихкод', 'Артикул']);
+    assert.deepEqual(header, [
+      'Наименование', 'Код из классификатора', 'Код упаковки', 'Единица измерения', 'Штрихкод', 'Артикул',
+      'Полное наименование', 'Ставка НДС', 'Цена', 'Вид номенклатуры',
+    ]);
     const rows: unknown[][] = [];
     sheet.eachRow((r, n) => { if (n > 1) rows.push((r.values as unknown[]).slice(1)); });
     const etor = rows.find((r) => String(r[0]).startsWith('Эторелекс'));
     assert.ok(etor, 'the imported product is in the file');
     assert.equal(etor[1], RECORDED_CODE, 'the code is the 17-digit text, leading zero kept');
     assert.equal(typeof etor[1], 'string');
+    // B7: the import's «Артикул» column reaches the product and the 1C file.
+    assert.equal(etor[5], 'ART-1');
     assert.equal(etor[2], '1074787');
   });
 

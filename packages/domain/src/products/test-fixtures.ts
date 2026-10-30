@@ -6,7 +6,9 @@ import { db } from '@tasnivo/db';
 import { learn } from '../dictionary.js';
 import { liveCodes, makeOrg, type TestActor } from '../test-fixtures.js';
 import { barcodeKey, productNameKey, unitKeyOf } from './keys.js';
-import { readCard, readHistory, type TasnifAnswer, type TasnifCard, type TasnifClient, type TasnifHistory } from './tasnif-client.js';
+import {
+  readCard, readHistory, type TasnifAnswer, type TasnifCard, type TasnifClient, type TasnifGtinHit, type TasnifHistory, type TasnifUnits,
+} from './tasnif-client.js';
 
 /** The live answers recorded on 2026-10-23 for 03004413004009066 (three packages: 1062101 шт, 1070335 флакон=14, 1074787 упаковка). */
 export const RECORDED_CODE = '03004413004009066';
@@ -17,10 +19,11 @@ export function recordedBody(kind: 'card' | 'history'): unknown {
 /** Answers from maps; counts calls; `down` makes every call unavailable. */
 export class FakeTasnifClient implements TasnifClient {
   readonly live = true;
-  calls = { card: 0, history: 0 };
+  calls = { card: 0, history: 0, gtin: 0 };
   down = false;
   cards = new Map<string, TasnifCard>();
   histories = new Map<string, TasnifHistory>();
+  gtins = new Map<string, TasnifGtinHit>();
 
   constructor() {
     const card = readCard(recordedBody('card'), RECORDED_CODE);
@@ -29,19 +32,79 @@ export class FakeTasnifClient implements TasnifClient {
     if (history) this.histories.set(RECORDED_CODE, history);
   }
 
+  // A code without a recorded answer is "unavailable", not "not found": the fake does not know what
+  // tasnif would say, and a not-found answer is cached in mxik_code_state, which parallel test files
+  // share (the import checks every code's card since 2026-10-30).
   card(code: string): Promise<TasnifAnswer<TasnifCard>> {
     this.calls.card++;
     if (this.down) return Promise.resolve({ ok: false, reason: 'unavailable' });
     const card = this.cards.get(code);
-    return Promise.resolve(card ? { ok: true, value: card } : { ok: false, reason: 'not_found' });
+    return Promise.resolve(card ? { ok: true, value: card } : { ok: false, reason: 'unavailable', detail: 'no recorded answer' });
   }
 
   history(code: string): Promise<TasnifAnswer<TasnifHistory>> {
     this.calls.history++;
     if (this.down) return Promise.resolve({ ok: false, reason: 'unavailable' });
     const h = this.histories.get(code);
-    return Promise.resolve(h ? { ok: true, value: h } : { ok: false, reason: 'not_found' });
+    return Promise.resolve(h ? { ok: true, value: h } : { ok: false, reason: 'unavailable', detail: 'no recorded answer' });
   }
+
+  gtin(barcode: string): Promise<TasnifAnswer<TasnifGtinHit>> {
+    this.calls.gtin++;
+    if (this.down) return Promise.resolve({ ok: false, reason: 'unavailable' });
+    const hit = this.gtins.get(barcode);
+    return Promise.resolve(hit ? { ok: true, value: hit } : { ok: false, reason: 'not_found' });
+  }
+
+  units(): Promise<TasnifAnswer<TasnifUnits>> {
+    return Promise.resolve({ ok: false, reason: 'unavailable' });
+  }
+}
+
+// ── tasnif.soliq.uz answers recorded 2026-10-30 (fixtures/tasnif/, see fixtures/SOURCES.md) ────
+
+/** A recorded answer by its file name (without .json). */
+export function tasnifSample(name: string): unknown {
+  return JSON.parse(readFileSync(new URL(`./fixtures/tasnif/${name}.json`, import.meta.url), 'utf8')) as unknown;
+}
+
+/** Codes whose card is recorded; any other 17-digit code answers 403 with an empty body, as the live API did. */
+export const RECORDED_CARDS = ['00405001001106002', '00405001001000000', '02309001001000000'] as const;
+/** Barcodes whose gtin search is recorded as a hit; any other answers the recorded "not data found". */
+export const RECORDED_GTINS = ['4780042470127', '4780083550024'] as const;
+
+/**
+ * A fetch that answers like tasnif.soliq.uz did on 2026-10-30, from the recorded files: the card
+ * (by-mxik), the gtin search, the unit dictionary (10 rows of 90 without `pageSize`, all 90 with it),
+ * 401 for the cabinet-only nomenclature; `down` makes it fail like a dead network. Counts requests.
+ */
+export function tasnifFixtureFetch(options: { down?: boolean } = {}) {
+  const seen: string[] = [];
+  const reply = (status: number, body: unknown): Response => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
+  const fetchFn = ((input: string | URL | Request) => {
+    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+    seen.push(`${url.pathname}${url.search}`);
+    if (options.down) return Promise.reject(new TypeError('fetch failed'));
+    const q = url.searchParams;
+    if (url.pathname.endsWith('/mxik/get/by-mxik')) {
+      const code = q.get('mxikCode') ?? '';
+      return Promise.resolve((RECORDED_CARDS as readonly string[]).includes(code) ? reply(200, tasnifSample(`by_mxik_${code}`)) : reply(403, ''));
+    }
+    if (url.pathname.endsWith('/mxik/search/by-params')) {
+      const gtin = q.get('gtin');
+      if (gtin) return Promise.resolve(reply(200, tasnifSample((RECORDED_GTINS as readonly string[]).includes(gtin) ? `by_params_gtin_${gtin}` : 'by_params_gtin_unknown')));
+      // barcode= and internationalCode= are ignored by the API: the unfiltered default page.
+      return Promise.resolve(reply(200, tasnifSample('by_params_barcode_4780042470127')));
+    }
+    if (url.pathname.endsWith('/integration-mxik/references/get/units/all')) {
+      const all = Number(q.get('pageSize') ?? 0) >= 90;
+      return Promise.resolve(reply(200, tasnifSample(all ? 'units_all_pageSize' : q.get('lang') === 'ru' ? 'units_all_lang_ru' : 'units_all')));
+    }
+    if (url.pathname.includes('/integration-nomenclature/')) return Promise.resolve(reply(401, ''));
+    if (url.pathname.includes('/integration-mxik/get/history/')) return Promise.resolve(reply(200, { success: false, code: 0, reason: 'Mxik code not found!', data: null }));
+    return Promise.resolve(reply(404, ''));
+  }) as typeof fetch;
+  return { fetchFn, seen };
 }
 
 /** A GTIN-13 with a correct check digit, from 12 digits. */

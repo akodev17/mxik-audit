@@ -6,7 +6,10 @@
 //
 // Two optional keys ride on a record's payload next to the ProductRecord fields: `match` (the
 // MatchResult against existing products) and `alternatives` (runner-up codes). Proposed for the
-// shared contract in docs/accounting-2026-10-23/handoff-agent4.md.
+// shared contract in docs/accounting-2026-10-23/handoff-agent4.md. Two more are the import's own:
+// `rawMxik` (a damaged code cell as written) and `rowIssues` (what the cells themselves showed:
+// Excel-damaged ИКПУ, barcodes, price, VAT, duplicates within the file; products/checks.ts), merged
+// with the classification's issues on every check.
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { accounting } from '@tasnivo/contracts';
@@ -20,18 +23,25 @@ import type { UploadedFile } from '../catalog-upload.js';
 import { MAX_UPLOAD_BYTES } from '../catalog-import.js';
 import { isDemoOrg } from '../demo.js';
 import { uploadsOpen } from '../plan.js';
+import { XLSX_HELD_BYTES } from '../security/zip-guard.js';
 import type { CurrentUser } from '../session.js';
-import { parseErrorCode, parseUpload } from '../spreadsheet.js';
+import { MAX_COLUMNS } from '../sheet-shape.js';
+import { numberText, parseErrorCode, parseUpload, sniffKind } from '../spreadsheet.js';
 import { hasUploadExtension } from '../upload-file-types.js';
+import { eachSheetRow } from '../xlsx-stream.js';
 import { classifyDetailed, type DetailedClassification } from './classify.js';
 import { prepareExport, productFingerprint, refreshCounts } from '../onec/index.js';
 import { handOverBatch, type Handover } from './catalog.js';
 import {
-  applyProductPreset, EMPTY_MAP, guessProductMapping, mappingProblem, namedMapping, PRODUCT_FIELDS, PRODUCT_PRESETS, resolveNamed, type ProductColumnMap,
+  fileDuplicates, fromTiyin, ikpuIssue, numericCellIssue, priceIncludesVat, readBarcodes, readIkpu, readPrice, readVat, toTiyin,
+} from './checks.js';
+import {
+  applyProductPreset, EMPTY_MAP, guessProductMapping, headerKey, locateHeader, mappingProblem, mergeMappings, namedMapping, PRODUCT_FIELDS, PRODUCT_PRESETS,
+  resolveNamed, TIYIN_PRICE_HEADERS, type ProductColumnMap, type ProductField,
 } from './import-map.js';
 import { mxikOf } from './keys.js';
 import { matchLines } from './match.js';
-import { upsertRecords } from './upsert.js';
+import { upsertRecords, type ClearableField } from './upsert.js';
 
 type ProductRecord = z.infer<typeof accounting.ProductRecord>;
 type ValidationIssue = z.infer<typeof accounting.ValidationIssue>;
@@ -50,14 +60,25 @@ const STALL_MS = 90_000;
 export const StoredPayload = accounting.ProductRecord.extend({
   match: accounting.MatchResult.nullable().optional(),
   alternatives: z.array(accounting.MatchCandidate).optional(),
+  rawMxik: z.string().nullable().optional(),
+  rowIssues: z.array(accounting.ValidationIssue).optional(),
 });
 export type StoredPayload = z.infer<typeof StoredPayload>;
 
-type Meta = z.infer<typeof accounting.ProductCatalogMeta> & { progress?: { done: number; total: number }; locale?: Locale; dropped?: number };
+type Meta = z.infer<typeof accounting.ProductCatalogMeta> & {
+  progress?: { done: number; total: number }; locale?: Locale; dropped?: number;
+  /** The importer chose "empty cells clear saved values" (products §7.30); default false. */
+  clearEmpty?: boolean;
+  /** Rows above the header the vocabulary found (title or hint rows), besides those the reader skipped. */
+  headerSkipped?: number;
+};
 
 const readMeta = (v: Prisma.JsonValue | null): Meta => {
   const m = (v && typeof v === 'object' && !Array.isArray(v) ? v : {}) as Partial<Meta>;
-  return { source: m.source ?? 'xlsx', headers: m.headers ?? [], columnMap: m.columnMap ?? {}, catalogId: m.catalogId ?? null, progress: m.progress, locale: m.locale, dropped: m.dropped };
+  return {
+    source: m.source ?? 'xlsx', headers: m.headers ?? [], columnMap: m.columnMap ?? {}, catalogId: m.catalogId ?? null, progress: m.progress, locale: m.locale, dropped: m.dropped,
+    clearEmpty: m.clearEmpty === true, headerSkipped: m.headerSkipped,
+  };
 };
 
 const cell = (row: readonly string[], i: number): string | null => {
@@ -73,19 +94,110 @@ export function statusOfIssues(issues: readonly ValidationIssue[]): RecordStatus
   return 'valid';
 }
 
-/** A file row as an unchecked ProductRecord; null for a row without a name. */
-export function recordOfRow(row: readonly string[], map: ProductColumnMap): ProductRecord | null {
+/** What the reader learned about the file besides its cells. */
+export type TableContext = {
+  headers: readonly string[];
+  /** Texts of .xlsx number cells of 12+ digits: a code stored as a number lost digits or zeros (§7.1). */
+  numberCells?: ReadonlySet<string>;
+};
+
+/** A file row as an unchecked ProductRecord and what its cells showed; null for a row without a name. */
+export function readRow(row: readonly string[], map: ProductColumnMap, ctx: TableContext): { record: ProductRecord; issues: ValidationIssue[]; rawMxik: string | null } | null {
   const name = cell(row, map.name);
   if (!name) return null;
+  const issues: ValidationIssue[] = [];
   const raw = cell(row, map.mxik);
-  const { code } = mxikOf(raw);
-  return {
+  // products §7.1: an Excel-damaged code is reported by its damage and never padded or guessed.
+  const ikpu = readIkpu(raw);
+  const damage = ikpuIssue(ikpu);
+  if (damage) issues.push(damage);
+  if (ikpu.kind === 'ok' && raw && ctx.numberCells?.has(raw)) issues.push(numericCellIssue(ikpu.code));
+  // products §7.13, §7.14, §7.16: several barcodes in one cell, each checked; the first valid one is kept.
+  const barcodes = readBarcodes(cell(row, map.barcode));
+  issues.push(...barcodes.issues);
+  // products §7.19, §7.20: price to tiyin (GoodPrice is already tiyin), the VAT cell to a rate.
+  const priceHeader = map.price >= 0 ? ctx.headers[map.price] ?? '' : '';
+  const inTiyin = TIYIN_PRICE_HEADERS.has(headerKey(priceHeader));
+  const priceCell = cell(row, map.price);
+  const price = readPrice(priceCell);
+  let priceValue = price.price;
+  if (inTiyin && priceValue !== null) {
+    const tiyin = toTiyin(priceValue);
+    priceValue = tiyin === null ? null : fromTiyin(tiyin / 100n);
+  }
+  issues.push(...price.issues);
+  const vat = readVat(cell(row, map.vat));
+  issues.push(...vat.issues);
+  const record: ProductRecord = {
     productId: null, name: name.slice(0, 500), onecRef: cell(row, map.onecRef)?.slice(0, 80) ?? null,
-    // A malformed code is kept as written only in the issue; the record's mxik is a 17-digit code or null.
-    mxik: code, mxikName: null, packageCode: cell(row, map.packageCode)?.slice(0, 40) ?? null, packageName: null,
-    unit: cell(row, map.unit)?.slice(0, 60) ?? null, barcode: cell(row, map.barcode)?.replace(/\s/g, '').slice(0, 40) ?? null,
+    // A damaged code is kept as written only in rawMxik and the issue; the record's mxik is a 17-digit code or null.
+    mxik: ikpu.kind === 'ok' ? ikpu.code : null, mxikName: null, packageCode: cell(row, map.packageCode)?.replace(/\s/g, '').slice(0, 40) ?? null, packageName: null,
+    unit: cell(row, map.unit)?.slice(0, 60) ?? null, barcode: barcodes.primary?.slice(0, 40) ?? null,
     aliases: [], mxikStatus: 'unchecked', mxikSuggestion: null, markingRequired: null,
+    // B7: the Артикул column was mapped and then dropped; it is the 1C file's «Артикул».
+    article: cell(row, map.article)?.slice(0, 100) ?? null,
+    price: priceValue,
+    // Click's GoodPrice is VAT-inclusive (pay-uz); otherwise the header says, or nothing is assumed.
+    priceIncludesVat: priceValue === null ? null : inTiyin ? true : priceIncludesVat(priceHeader),
+    vatRate: vat.vatRate,
   };
+  return { record, issues, rawMxik: ikpu.kind === 'ok' || ikpu.kind === 'empty' ? null : raw };
+}
+
+/** A file row as an unchecked ProductRecord; null for a row without a name. */
+export function recordOfRow(row: readonly string[], map: ProductColumnMap, headers: readonly string[] = []): ProductRecord | null {
+  return readRow(row, map, { headers })?.record ?? null;
+}
+
+/** The rows of a file as records with their own and their duplicate issues (products §7.17). */
+export function readRows(rows: readonly (readonly string[])[], map: ProductColumnMap, ctx: TableContext) {
+  const read = rows.map((r) => readRow(r, map, ctx));
+  const kept = read.flatMap((r, i) => (r ? [{ ...r, row: rows[i] ?? [] }] : []));
+  const dups = fileDuplicates(kept.map(({ record }) => ({ name: record.name, barcode: record.barcode, mxik: record.mxik, packageCode: record.packageCode })));
+  return { kept: kept.map((k, i) => ({ ...k, issues: [...k.issues, ...(dups.get(i) ?? [])] })), dropped: rows.length - kept.length };
+}
+
+/** Texts of the .xlsx number cells long enough to be a code (a second, streaming pass; text files have none). */
+async function numberCells(bytes: Buffer): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (sniffKind(bytes) !== 'xlsx') return out;
+  try {
+    await eachSheetRow(bytes, (_row, values) => {
+      for (const v of values) if (typeof v === 'number' && Math.abs(v) >= 1e11) out.add(numberText(v));
+    }, { maxColumns: MAX_COLUMNS, maxHeldBytes: XLSX_HELD_BYTES });
+  } catch {
+    // The reader already read the file; only the hint is lost.
+  }
+  return out;
+}
+
+/**
+ * A product file as the import reads it: the reader's table, the header found by its words when a
+ * title or hint row was as wide as the table (products §7.29), and the .xlsx number cells. Throws
+ * the reader's ParseError.
+ */
+export async function readProductTable(bytes: Buffer, filename: string) {
+  const upload = await parseUpload(bytes, filename);
+  const located = locateHeader(upload.headers, upload.rows);
+  return { headers: located.headers, rows: located.rows, headerSkipped: located.skipped, numberCells: await numberCells(bytes) };
+}
+
+/** The 1C preset when its name column is there (completed by the guess), else the guess. */
+export function suggestMapping(headers: readonly string[]) {
+  const presets = PRODUCT_PRESETS.map((p) => ({ id: p.id, verified: p.verified, mapping: applyProductPreset(p, headers) }));
+  const preset = presets.find((p) => p.mapping)?.mapping ?? null;
+  // A file with the 1C name column but other vocabulary too (MoySklad's «ИКПУ (MXIK)») keeps the guess for what the preset leaves out.
+  const guess = guessProductMapping(headers);
+  return { presets, preset, mapping: preset ? mergeMappings(preset, guess) : guess };
+}
+
+/** Codes a classification issue reports as damaged in the cell; the cell's own issue says it better. */
+const CELL_DAMAGE = new Set(['mxik_scientific', 'mxik_leading_zero', 'mxik_malformed']);
+
+/** The row's own issues, then the classification's, without saying "malformed" twice. */
+export function mergeIssues(rowIssues: readonly ValidationIssue[], classified: readonly ValidationIssue[]): ValidationIssue[] {
+  const damaged = rowIssues.some((i) => CELL_DAMAGE.has(i.code));
+  return [...rowIssues, ...classified.filter((i) => !(damaged && i.code === 'mxik_malformed'))];
 }
 
 const wrote = (user: CurrentUser | null): user is CurrentUser => user !== null && canWrite(user);
@@ -106,7 +218,8 @@ async function readFile(file: UploadedFile | null, locale: Locale) {
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false as const, error: e.tooBig };
   const bytes = await file.read();
   try {
-    return { ok: true as const, bytes, parsed: await parseUpload(bytes, file.name) };
+    const table = await readProductTable(bytes, file.name);
+    return { ok: true as const, bytes, parsed: table, numberCells: table.numberCells };
   } catch (error) {
     // The catalogue upload's own wording per reason (legacy .xls, zip limits, binary, …).
     return { ok: false as const, error: e[parseErrorCode(error)] ?? ta.productsX.importWizard.errors.file };
@@ -140,19 +253,24 @@ export async function previewProductImport(user: CurrentUser | null, locale: Loc
   const { headers, rows } = read.parsed;
   if (rows.length === 0) return { ok: false as const, error: i18nFor(locale).ta.productsX.importWizard.errors.empty };
   const remembered = await rememberedMapping(user.orgId, client.id, headers);
-  const presets = PRODUCT_PRESETS.map((p) => ({ id: p.id, verified: p.verified, mapping: applyProductPreset(p, headers) }));
-  const preset = presets.find((p) => p.mapping)?.mapping ?? null;
-  const mapping = remembered ?? preset ?? guessProductMapping(headers);
+  const suggested = suggestMapping(headers);
+  const { presets, preset } = suggested;
+  const mapping = remembered ?? suggested.mapping;
   return {
     ok: true as const, filename: input.file?.name ?? '', headers, sample: rows.slice(0, SAMPLE_ROWS).map((r) => headers.map((_, i) => r[i] ?? '')),
     rowCount: rows.length, mapping, mappingSource: remembered ? 'remembered' as const : preset ? 'preset' as const : 'guess' as const, presets,
   };
 }
 
-const MappingInput = z.object(Object.fromEntries(PRODUCT_FIELDS.map((f) => [f, z.number().int().min(f === 'name' ? 0 : -1)])) as Record<(typeof PRODUCT_FIELDS)[number], z.ZodNumber>);
+/** Fields added after the first release: a client that does not send them maps neither. */
+const LATER_FIELDS: ReadonlySet<ProductField> = new Set(['price', 'vat']);
+const MappingInput = z.object(Object.fromEntries(PRODUCT_FIELDS.map((f) => {
+  const n = z.number().int().min(f === 'name' ? 0 : -1);
+  return [f, LATER_FIELDS.has(f) ? n.default(-1) : n];
+})) as Record<ProductField, z.ZodNumber>);
 
 /** Stores the file as a batch (or finds the same file's earlier batch) and starts checking it. */
-export async function commitProductImport(user: CurrentUser | null, locale: Locale, input: { file: UploadedFile | null; clientId: string | null; mapping: string }) {
+export async function commitProductImport(user: CurrentUser | null, locale: Locale, input: { file: UploadedFile | null; clientId: string | null; mapping: string; clearEmpty?: boolean }) {
   const x = i18nFor(locale).ta;
   if (!wrote(user)) return { ok: false as const, error: x.importX.errors.client };
   if (await isDemoOrg(user.orgId)) return { ok: false as const, error: i18nFor(locale).t.demoUploadDisabled };
@@ -173,12 +291,11 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
   const existing = await db.importBatch.findUnique({ where: { orgId_kind_fingerprint: { orgId: user.orgId, kind: 'product_catalog', fingerprint } }, select: { id: true } });
   if (existing) return { ok: true as const, batchId: existing.id, duplicate: true };
 
-  const records = rows.map((r) => recordOfRow(r, mapping));
-  const kept = records.flatMap((r, i) => (r ? [{ r, row: rows[i] ?? [] }] : []));
+  const { kept, dropped } = readRows(rows, mapping, { headers, numberCells: read.numberCells });
   if (kept.length === 0) return { ok: false as const, error: x.productsX.importWizard.errors.empty };
   const meta: Meta = {
     source: /\.csv$/i.test(input.file?.name ?? '') ? 'csv' : 'xlsx', headers, columnMap: mapping, catalogId: null,
-    progress: { done: 0, total: kept.length }, locale, dropped: rows.length - kept.length,
+    progress: { done: 0, total: kept.length }, locale, dropped, clearEmpty: input.clearEmpty === true, headerSkipped: read.parsed.headerSkipped,
   };
   const batch = await db.importBatch.create({
     data: {
@@ -190,15 +307,12 @@ export async function commitProductImport(user: CurrentUser | null, locale: Loca
   });
   for (let i = 0; i < kept.length; i += 1_000) {
     await db.importRecord.createMany({
-      data: kept.slice(i, i + 1_000).map(({ r, row }, j) => {
-        const malformed = mxikOf(cell(row, mapping.mxik)).malformed;
-        return {
-          batchId: batch.id, rowIndex: i + j, status: 'valid' as const, fingerprint: productFingerprint(r),
-          // A malformed code is remembered as written so classification can say so.
-          payload: { ...r, ...(malformed ? { rawMxik: cell(row, mapping.mxik) } : {}) },
-          issues: [],
-        };
-      }),
+      data: kept.slice(i, i + 1_000).map(({ record, issues, rawMxik }, j) => ({
+        batchId: batch.id, rowIndex: i + j, status: 'valid' as const, fingerprint: productFingerprint(record),
+        // A damaged code is remembered as written so classification can say so; the cells' own issues ride along.
+        payload: { ...record, ...(rawMxik ? { rawMxik } : {}), ...(issues.length > 0 ? { rowIssues: issues } : {}) },
+        issues,
+      })),
     });
   }
   void runProductBatch(batch.id);
@@ -241,15 +355,17 @@ export async function runProductBatch(batchId: string): Promise<void> {
       const payloads = records.map((r) => r.payload as unknown as StoredPayload & { rawMxik?: string | null });
       const lines = payloads.map(lineOf);
       const [classified, matches] = await Promise.all([
-        classifyDetailed(batch.orgId, lines, { ctx, locale }),
+        // Every code's packages (an empty package is derived from the unit, §7.8) and the file checks (§7.2, §7.4, §7.5).
+        classifyDetailed(batch.orgId, lines, { ctx, locale, packaging: 'all', fileChecks: true }),
         matchLines(batch.orgId, batch.clientId, lines, locale),
       ]);
       await db.$transaction(records.map((r, i) => {
         const c = classified[i] as DetailedClassification;
         const payload = classifiedPayload(payloads[i] as StoredPayload, c, matches[i] ?? null);
+        const issues = mergeIssues(payloads[i]?.rowIssues ?? [], c.issues);
         return db.importRecord.update({
           where: { id: r.id },
-          data: { payload: payload, issues: c.issues, status: statusOfIssues(c.issues) },
+          data: { payload: payload, issues: issues, status: statusOfIssues(issues) },
         });
       }));
       done = (records.at(-1)?.rowIndex ?? done) + 1;
@@ -348,9 +464,10 @@ export async function decideProductRecord(
   } else {
     const code = input.action === 'accept_suggestion' ? p.mxikSuggestion?.id ?? null : mxikOf(input.code ?? '').code;
     if (!code) return { ok: false as const, error: i18nFor(locale).ta.productsX.confirmErrors.format };
-    const [c] = await classifyDetailed(b.orgId, [{ ...lineOf(p), mxik: code }], { locale });
+    const [c] = await classifyDetailed(b.orgId, [{ ...lineOf(p), mxik: code }], { locale, packaging: 'all', fileChecks: true });
     if (!c) return { ok: false as const, error: generic };
-    const issues = c.issues;
+    // The cell's code issues no longer apply to the code a person chose; the other cells' still do.
+    const issues = [...(p.rowIssues ?? []).filter((i) => i.field !== 'mxik'), ...c.issues];
     // A person chose the code: it is corrected unless the chosen code itself has an error.
     const status: RecordStatus = issues.some((i) => i.severity === 'error') ? 'unresolved' : 'corrected';
     await db.importRecord.update({
@@ -366,6 +483,12 @@ export async function decideProductRecord(
   return { ok: true as const, record: recordOut(after) };
 }
 
+/** The product fields an update file may clear, and the column each comes from. */
+const CLEARABLE: readonly ClearableField[] = ['onecRef', 'article', 'mxik', 'packageCode', 'unit', 'barcode', 'price', 'vatRate'];
+const COLUMN_OF: Record<ClearableField, ProductField> = {
+  onecRef: 'onecRef', article: 'article', mxik: 'mxik', packageCode: 'packageCode', unit: 'unit', barcode: 'barcode', price: 'price', vatRate: 'vat',
+};
+
 /** Saves every record but the skipped ones into the catalogue; codes a person chose count as confirmed. */
 export async function applyProductBatch(user: CurrentUser, batchId: string, locale: Locale) {
   const generic = i18nFor(locale).t.errorGeneric;
@@ -376,7 +499,10 @@ export async function applyProductBatch(user: CurrentUser, batchId: string, loca
   const payloads = rows.map((r) => r.payload as unknown as StoredPayload);
   const records: ProductRecord[] = payloads.map(({ match: _m, alternatives: _a, ...rest }) => accounting.ProductRecord.parse(rest));
   const confirmed = new Set(rows.flatMap((r, i) => ((r.decision as { action?: string } | null)?.action === 'correct' ? [i] : [])));
-  const result = await upsertRecords(b.orgId, b.clientId, records, user.userId, { source: 'catalog_import', confirmed });
+  // products §7.30: an empty cell keeps the saved value unless the importer opted in; then only mapped columns clear.
+  const meta = readMeta(b.meta);
+  const clear = new Set<ClearableField>(meta.clearEmpty ? CLEARABLE.filter((f) => (meta.columnMap[COLUMN_OF[f]] ?? -1) >= 0) : []);
+  const result = await upsertRecords(b.orgId, b.clientId, records, user.userId, { source: 'catalog_import', confirmed, clear });
   // What the check found travels to the product: its issues and runner-up codes, for the drawer.
   await db.$transaction(rows.flatMap((r, i) => {
     const id = result.ids[i];

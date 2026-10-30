@@ -322,7 +322,11 @@ export const ACCOUNTING_CARDS: readonly AccountingCard[] = [
     lines: [
       { label: 'Nima uchun', text: 'Firmangiz va mijozlaringiz mahsulotlari bitta roʻyxatda: MXIK, qadoq kodi, oʻlchov birligi va shtrix kod bir joyda tekshiriladi.' },
       { label: 'Muammo', text: 'Bitta mahsulot har hujjatda boshqacha yoziladi, qadoq kodi yoki oʻlchov birligi MXIK kodiga mos kelmaydi.' },
-      { label: 'Qanday ulanadi', text: `Excel fayldan yuklaysiz yoki tugagan auditdan «${productsUz.productsX.actions.fromAudit}» bilan oʻtkazasiz; tasdiqlangan roʻyxat 1C nomenklatura fayli sifatida yuklab olinadi.` },
+      {
+        label: 'Qanday ulanadi',
+        text: `Excel fayldan yuklaysiz yoki tugagan auditdan «${productsUz.productsX.actions.fromAudit}» bilan oʻtkazasiz; tasdiqlangan roʻyxat 1C nomenklatura fayli sifatida yuklab olinadi.`,
+        beta: productsUz.productsX.importWizard.unverified,
+      },
     ],
   },
   {

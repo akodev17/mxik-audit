@@ -9,8 +9,8 @@ import { defineModule, endpoint } from '../endpoint';
 
 export const PRODUCT_STATUSES = ['ok', 'missing', 'invalid', 'inactive', 'restricted', 'suspicious', 'unchecked'] as const;
 export const PRODUCT_FILTERS = ['all', ...PRODUCT_STATUSES] as const;
-/** Columns of a product catalogue import; `article` is recognised so it is never taken for the name, and not stored yet. */
-export const PRODUCT_FIELDS = ['name', 'onecRef', 'article', 'mxik', 'packageCode', 'unit', 'barcode'] as const;
+/** Columns of a product catalogue import (`article` is stored and goes to the 1C file as «Артикул»; `price` and `vat` as «Цена», «Ставка НДС»). */
+export const PRODUCT_FIELDS = ['name', 'onecRef', 'article', 'mxik', 'packageCode', 'unit', 'barcode', 'price', 'vat'] as const;
 
 /** Which uploaded column feeds which field; -1 = not in the file. */
 export const ProductColumnMap = z.object({
@@ -21,6 +21,9 @@ export const ProductColumnMap = z.object({
   packageCode: z.number().int().min(-1),
   unit: z.number().int().min(-1),
   barcode: z.number().int().min(-1),
+  /** Added 30 Oct 2026: a client that does not send them maps neither. */
+  price: z.number().int().min(-1).default(-1),
+  vat: z.number().int().min(-1).default(-1),
 });
 
 export const ProductRow = z.object({
@@ -29,6 +32,8 @@ export const ProductRow = z.object({
   clientId: z.string().nullable(),
   clientName: z.string().nullable(),
   onecRef: z.string().nullable(),
+  /** 1C «Артикул» / internal code. */
+  article: z.string().nullable(),
   mxik: z.string().nullable(),
   mxikName: z.string().nullable(),
   packageCode: z.string().nullable(),
@@ -167,7 +172,11 @@ export const products = defineModule('products', {
     method: 'POST', path: '/api/products/import', auth: 'session', role: 'writer', noDemo: true,
     summary: 'Import a catalogue file as a product_catalog batch and start checking it in chunks',
     multipart: {
-      fields: z.object({ clientId: z.string().optional(), mapping: z.string().max(2000) }),
+      fields: z.object({
+        clientId: z.string().optional(), mapping: z.string().max(2000),
+        /** "1": an empty mapped cell clears the saved value of an existing product (default: it keeps it; products §7.30). */
+        clearEmpty: z.string().max(5).optional(),
+      }),
       files: { file: { required: true, maxBytes: LIMITS.uploadBytes, extensions: LIMITS.uploadExtensions } },
     },
     responds: 'json',

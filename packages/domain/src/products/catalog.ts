@@ -13,6 +13,7 @@ import type { z } from 'zod';
 import { canSeeClient, canWrite } from '../access.js';
 import { visibleClients } from '../active-client.js';
 import { learn } from '../dictionary.js';
+import { filenameFromDisposition } from '../export-filename.js';
 import { codeUnits, exportItems, exportUnit } from '../export-rows.js';
 import { buildExport, prepareExport, refreshCounts } from '../onec/index.js';
 import type { CurrentUser } from '../session.js';
@@ -32,7 +33,7 @@ export const CHECK_CHUNK = 100;
 const STATUSES: readonly Status[] = ['ok', 'missing', 'invalid', 'inactive', 'restricted', 'suspicious', 'unchecked'];
 
 export type ProductRowOut = {
-  id: string; name: string; clientId: string | null; clientName: string | null; onecRef: string | null; mxik: string | null; mxikName: string | null;
+  id: string; name: string; clientId: string | null; clientName: string | null; onecRef: string | null; article: string | null; mxik: string | null; mxikName: string | null;
   packageCode: string | null; packageName: string | null; unit: string | null; barcode: string | null; source: string; mxikStatus: Status;
   issues: ValidationIssue[]; suggestion: MatchCandidate | null; markingRequired: boolean | null; checkedAt: string | null; confirmedAt: string | null; updatedAt: string;
 };
@@ -49,7 +50,7 @@ const asCandidate = (v: Prisma.JsonValue | null): MatchCandidate | null => (v &&
 const asStatus = (v: string): Status => (STATUSES.includes(v as Status) ? v as Status : 'unchecked');
 
 const ROW_SELECT = {
-  id: true, name: true, clientId: true, onecRef: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true,
+  id: true, name: true, clientId: true, onecRef: true, article: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true,
   source: true, mxikStatus: true, mxikIssues: true, mxikSuggestion: true, markingRequired: true, mxikCheckedAt: true, mxikConfirmedAt: true, updatedAt: true,
   client: { select: { name: true } },
 } as const;
@@ -58,7 +59,7 @@ type RowIn = Prisma.ProductGetPayload<{ select: typeof ROW_SELECT }>;
 
 function rowOut(p: RowIn): ProductRowOut {
   return {
-    id: p.id, name: p.name, clientId: p.clientId, clientName: p.client?.name ?? null, onecRef: p.onecRef, mxik: p.mxik?.trim() ?? null, mxikName: p.mxikName,
+    id: p.id, name: p.name, clientId: p.clientId, clientName: p.client?.name ?? null, onecRef: p.onecRef, article: p.article, mxik: p.mxik?.trim() ?? null, mxikName: p.mxikName,
     packageCode: p.packageCode, packageName: p.packageName, unit: p.unit, barcode: displayBarcode(p.barcode), source: p.source, mxikStatus: asStatus(p.mxikStatus),
     issues: asIssues(p.mxikIssues), suggestion: asCandidate(p.mxikSuggestion), markingRequired: p.markingRequired,
     checkedAt: p.mxikCheckedAt?.toISOString() ?? null, confirmedAt: p.mxikConfirmedAt?.toISOString() ?? null, updatedAt: p.updatedAt.toISOString(),
@@ -273,12 +274,14 @@ export async function handOverBatch(user: CurrentUser, batchId: string, locale: 
   if (!prepared.ok) return { ok: false, unavailable: prepared.error === 'not_implemented', error: prepared.error === 'not_implemented' ? unavailable : prepared.error };
   const built = await buildExport({ orgId: user.orgId, batchId, format: 'nomenclature_xlsx', actorId: user.userId });
   if (!built.ok) return { ok: false, unavailable: built.error === 'not_implemented', error: built.error === 'not_implemented' ? unavailable : built.error };
-  // The file name travels in Content-Disposition, as for every other download.
+  // The file name travels in Content-Disposition, as for every other download. B8: the old pattern
+  // (`filename*?=`) matched the ASCII fallback `filename="…"` first, so a Cyrillic name came back as
+  // underscores; the UTF-8 form (RFC 5987) wins now.
   const disposition = built.file.headers['Content-Disposition'] ?? built.file.headers['content-disposition'] ?? '';
-  const filename = /filename*?=(?:UTF-8'')?"?([^";]+)/i.exec(disposition)?.[1] ?? null;
+  const filename = filenameFromDisposition(disposition);
   // After the export its own records are `exported`; everything else of the batch stayed out.
   const left = await db.importRecord.count({ where: { batchId, status: { not: 'exported' } } });
-  return { ok: true, exportId: built.exportId, filename: filename ? decodeURIComponent(filename) : null, records: built.records, leftOut: left };
+  return { ok: true, exportId: built.exportId, filename, records: built.records, leftOut: left };
 }
 
 /**
@@ -295,7 +298,10 @@ export async function exportProducts(user: CurrentUser, input: { clientId?: stri
   const status = input.status && STATUSES.includes(input.status as Status) ? { mxikStatus: input.status } : {};
   const rows = await db.product.findMany({
     where: { AND: [productScope(user), clientId ? { clientId } : {}, status] }, orderBy: { name: 'asc' },
-    select: { id: true, name: true, onecRef: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true, mxikStatus: true, mxikIssues: true, markingRequired: true, updatedAt: true },
+    select: {
+      id: true, name: true, onecRef: true, mxik: true, mxikName: true, packageCode: true, packageName: true, unit: true, barcode: true, mxikStatus: true, mxikIssues: true,
+      markingRequired: true, updatedAt: true, article: true, price: true, priceIncludesVat: true, vatRate: true,
+    },
   });
   if (rows.length === 0) return { ok: false, unavailable: false, error: i18nFor(locale).ta.productsX.empty.filtered };
   const fingerprint = createHash('sha256').update(rows.map((r) => `${r.id}@${r.updatedAt.toISOString()}`).join('\n')).digest('hex');
@@ -312,6 +318,8 @@ export async function exportProducts(user: CurrentUser, input: { clientId?: stri
           payload: {
             productId: r.id, name: r.name, onecRef: r.onecRef, mxik: r.mxik?.trim() ?? null, mxikName: r.mxikName, packageCode: r.packageCode, packageName: r.packageName,
             unit: r.unit, barcode: displayBarcode(r.barcode), aliases: [], mxikStatus: asStatus(r.mxikStatus), mxikSuggestion: null, markingRequired: r.markingRequired,
+            // B7: the 1C file's «Артикул», «Цена», «Ставка НДС».
+            article: r.article, price: r.price?.toFixed(2) ?? null, priceIncludesVat: r.priceIncludesVat, vatRate: r.vatRate,
           } satisfies ProductRecord,
         })),
       },

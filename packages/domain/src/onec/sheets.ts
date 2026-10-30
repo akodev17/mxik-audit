@@ -2,9 +2,10 @@
 // no second 1C file builder elsewhere):
 // - the catalogue audit's "1C file" (CSV and .xlsx for 1C's generic «Загрузка из табличного
 //   документа»; export-1c.ts re-exports these two so the catalogue download is unchanged);
-// - `nomenclature_xlsx`: products for «Номенклатура → Загрузить из файла», with the attributes the
-//   Uzbek edition verifiably names (1c.uz letter №32589: «Код из классификатора» from the
-//   «Классификатор ИКПУ», «Код упаковки»);
+// - `nomenclature_xlsx`: products for «Номенклатура → Загрузить из файла», headed with 1C captions
+//   (the Uzbek edition's «Код из классификатора», «Код упаковки» per 1c.uz letter №32589, and the
+//   BP 3.0 captions Полное наименование, Артикул, Штрихкод, Единица измерения, Ставка НДС, Цена,
+//   Вид номенклатуры); services on their own sheet «Услуги»;
 // - `receipt_xlsx`: one sheet per incoming invoice (header block, then the lines) for
 //   «Поступление товаров и услуг»;
 // - `counterparties_xlsx`: the columns a 1C «Контрагенты» list exports (and import reads back).
@@ -124,10 +125,63 @@ export type NomenclatureRow = {
   unit: string | null;
   barcode: string | null;
   article: string | null;
+  /** «Полное наименование»; the name when the source has none (1C fills it the same way). */
+  fullName?: string | null;
+  /** Decimal text, 2 places. */
+  price?: string | null;
+  /** Whether `price` includes VAT; null = the source did not say. */
+  priceIncludesVat?: boolean | null;
+  /** "12", "0", "15", "without" or null. */
+  vatRate?: string | null;
 };
 
-/** The products sheet's titles: the Uzbek edition's attribute names (Russian interface). */
-export const NOMENCLATURE_HEADERS = ['Наименование', 'Код из классификатора', 'Код упаковки', 'Единица измерения', 'Штрихкод', 'Артикул'] as const;
+/**
+ * The products sheet's titles, each a 1C caption so «Загрузка из табличного документа» maps it
+ * without a question (onec §2.2, §8.7: Наименование, Полное наименование, Артикул, Штрихкод, Единица
+ * измерения, Ставка НДС, Цена; the Uzbek edition's «Код из классификатора» and «Код упаковки»;
+ * «Вид номенклатуры» Товар / Услуга). The first six keep their 2026-10-23 columns.
+ */
+export const NOMENCLATURE_HEADERS = [
+  'Наименование', 'Код из классификатора', 'Код упаковки', 'Единица измерения', 'Штрихкод', 'Артикул',
+  'Полное наименование', 'Ставка НДС', 'Цена', 'Вид номенклатуры',
+] as const;
+
+/** Sheet of the goods and sheet of the services: a service never goes to «Товары» (onec §8.10). */
+export const NOMENCLATURE_SHEETS = { goods: 'Номенклатура', services: 'Услуги' } as const;
+
+/**
+ * Service or goods, as BP UZ 3.0.63 decides it from the ИКПУ (onec §8.10): the classifier's service
+ * codes start with 1 (goods follow TN VED, groups 001–099); without a code, a service unit
+ * («услуга», «хизмат (сўм)») says so.
+ */
+export function nomenclatureKind(mxik: string | null | undefined, unit: string | null | undefined): 'goods' | 'service' {
+  if (mxik && /^\d{17}$/.test(mxik)) return mxik.startsWith('1') ? 'service' : 'goods';
+  // `\b` is ASCII-only in JavaScript: the word end is spelled out for Cyrillic.
+  return /^(услуга|услуги|хизмат|xizmat)(?:$|[^\p{L}])/iu.test((unit ?? '').trim()) ? 'service' : 'goods';
+}
+
+/** «Ставка НДС» as 1C names its rates. */
+export function vatCaption(rate: string | null | undefined): string {
+  if (!rate) return '';
+  if (rate === 'without') return 'Без НДС';
+  return /^\d+(\.\d+)?$/.test(rate) ? `${rate}%` : '';
+}
+
+/**
+ * «Цена» including VAT (the sale price): a price the source gave without VAT gets its rate added
+ * (12/112 rule backwards: net × (100 + rate) / 100, rounded to tiyin); otherwise as given.
+ */
+export function grossPrice(row: Pick<NomenclatureRow, 'price' | 'priceIncludesVat' | 'vatRate'>): string {
+  const price = row.price;
+  if (!price || !/^-?\d+(\.\d+)?$/.test(price)) return '';
+  const rate = row.vatRate && /^\d+(\.\d+)?$/.test(row.vatRate) ? Number(row.vatRate) : null;
+  if (row.priceIncludesVat !== false || rate === null || rate === 0) return Number(price).toFixed(2);
+  const [whole = '0', frac = ''] = price.replace('-', '').split('.');
+  const tiyin = BigInt(whole) * 100n + BigInt((frac + '00').slice(0, 2));
+  const r = BigInt(Math.round(rate * 100));
+  const gross = (tiyin * (10_000n + r) * 2n + 10_000n) / 20_000n;
+  return `${price.startsWith('-') ? '-' : ''}${gross / 100n}.${(gross % 100n).toString().padStart(2, '0')}`;
+}
 
 /** One row per distinct product (same name, code and package once). */
 export function distinctProducts(rows: readonly NomenclatureRow[]): NomenclatureRow[] {
@@ -144,13 +198,29 @@ export function distinctProducts(rows: readonly NomenclatureRow[]): Nomenclature
 
 export async function buildNomenclatureXlsx(rows: readonly NomenclatureRow[], created?: Date): Promise<Buffer> {
   const workbook = newWorkbook(created);
-  const sheet = workbook.addWorksheet('Номенклатура');
-  const [name, code, pack, unit, barcode, article] = NOMENCLATURE_HEADERS;
-  table(sheet, [
+  const [name, code, pack, unit, barcode, article, fullName, vat, price, kind] = NOMENCLATURE_HEADERS;
+  const columns: Column[] = [
     { header: name, width: 50, kind: 'text' }, { header: code, width: 22, kind: 'code' }, { header: pack, width: 16, kind: 'code' },
     { header: unit, width: 18, kind: 'text' }, { header: barcode, width: 18, kind: 'code' }, { header: article, width: 16, kind: 'code' },
-  ], distinctProducts(rows).map((r) => [text(r.name), r.mxik ?? '', r.packageCode ?? '', text(r.unit), r.barcode ?? '', text(r.article)]));
+    { header: fullName, width: 50, kind: 'text' }, { header: vat, width: 12, kind: 'text' }, { header: price, width: 16, kind: 'number' },
+    { header: kind, width: 16, kind: 'text' },
+  ];
+  const distinct = distinctProducts(rows);
+  const cellsOf = (r: NomenclatureRow, k: 'goods' | 'service'): (string | number)[] => [
+    text(r.name), r.mxik ?? '', r.packageCode ?? '', text(r.unit), r.barcode ?? '', text(r.article),
+    text(r.fullName?.trim() || r.name), vatCaption(r.vatRate), num(grossPrice(r)), k === 'service' ? 'Услуга' : 'Товар',
+  ];
+  const goods = distinct.filter((r) => nomenclatureKind(r.mxik, r.unit) === 'goods');
+  const services = distinct.filter((r) => nomenclatureKind(r.mxik, r.unit) === 'service');
+  // The goods sheet always exists (an empty file still opens on it); the services sheet only when there are services.
+  const sheet = workbook.addWorksheet(NOMENCLATURE_SHEETS.goods);
+  table(sheet, columns, goods.map((r) => cellsOf(r, 'goods')));
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  if (services.length > 0) {
+    const serviceSheet = workbook.addWorksheet(NOMENCLATURE_SHEETS.services);
+    table(serviceSheet, columns, services.map((r) => cellsOf(r, 'service')));
+    serviceSheet.views = [{ state: 'frozen', ySplit: 1 }];
+  }
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 

@@ -10,6 +10,7 @@ import { hasUploadExtension } from '@/lib/catalogs/upload';
 import { useI18n } from '@/lib/locale-client';
 import { Alert } from '@/ui/alert';
 import { Button } from '@/ui/button';
+import { Checkbox } from '@/ui/checkbox';
 import { ColumnSelect } from '@/ui/column-select';
 import { PreviewTable } from '@/ui/preview-table';
 import { Select } from '@/ui/select';
@@ -20,7 +21,7 @@ import { BatchView } from './batch-view';
 
 type Preview = Extract<ResponseOf<typeof endpoints.products.importPreview>, { ok: true }>;
 type Mapping = Preview['mapping'];
-const FIELDS = ['name', 'onecRef', 'article', 'mxik', 'packageCode', 'unit', 'barcode'] as const;
+const FIELDS = ['name', 'onecRef', 'article', 'mxik', 'packageCode', 'unit', 'barcode', 'price', 'vat'] as const;
 
 type Props = { clients: { id: string; name: string }[]; ownCatalogue: boolean; batchId: string | null };
 
@@ -33,6 +34,7 @@ export function ImportWizard({ clients, ownCatalogue, batchId }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [mapping, setMapping] = useState<Mapping | null>(null);
+  const [clearEmpty, setClearEmpty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reader = useMutation({ mutationFn: (form: FormData) => api.products.importPreview(form) });
   const committer = useMutation({ mutationFn: (form: FormData) => api.products.importCommit(form) });
@@ -62,6 +64,7 @@ export function ImportWizard({ clients, ownCatalogue, batchId }: Props) {
     const form = new FormData();
     form.set('file', file);
     form.set('mapping', JSON.stringify(mapping));
+    if (clearEmpty) form.set('clearEmpty', '1');
     if (clientId) form.set('clientId', clientId);
     setError(null);
     void (async () => {
@@ -104,6 +107,7 @@ export function ImportWizard({ clients, ownCatalogue, batchId }: Props) {
               headers={preview.headers} rows={preview.sample} limit={8} label={preview.filename}
               roles={mapping ? FIELDS.map((f) => [mapping[f], x.fields[f]] as [number, string]) : []}
             />
+            <Checkbox label={x.clearEmpty} description={x.clearEmptyHint} checked={clearEmpty} onChange={(e) => setClearEmpty(e.target.checked)} />
             <div className="flex flex-wrap gap-2">
               <Button variant="primary" loading={committer.isPending} onClick={commit}>{x.start}</Button>
               <Button variant="ghost" onClick={() => { setPreview(null); setFile(null); setMapping(null); }}>{ta.productsX.actions.retry}</Button>

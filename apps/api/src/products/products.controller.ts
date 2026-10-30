@@ -48,7 +48,7 @@ export class ProductsController {
     @CurrentUser() user: User, @Locale() locale: LocaleCode, @FilePart('file') file: UploadedFile | null,
     @Body(pipe(e.importCommit.multipart.fields)) fields: In<typeof e.importCommit.multipart.fields>,
   ) {
-    return commitProductImport(user, locale, { file, clientId: fields.clientId || null, mapping: fields.mapping });
+    return commitProductImport(user, locale, { file, clientId: fields.clientId || null, mapping: fields.mapping, clearEmpty: fields.clearEmpty === '1' });
   }
 
   @Route(e.check)

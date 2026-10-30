@@ -1,6 +1,9 @@
-// Runtime client of the national classifier's public API (tasnif.soliq.uz/api/cls-api), for the
-// two things the Excel export does not carry: a code's packaging list and its activity status.
-// Endpoints and shapes: docs/accounting-2026-10-23/tasnif-catalog.md (probed 2026-10-23). No
+// Runtime client of the national classifier's public API (tasnif.soliq.uz/api/cls-api), for what
+// the Excel export does not carry: a code's packaging list and activity status, the code behind a
+// barcode, and the unit dictionary. Endpoints and shapes: docs/accounting-2026-10-23/tasnif-catalog.md
+// (probed 2026-10-23) and tmp/real-docs/products/RESEARCH.md §1.2 (re-probed 2026-10-30; the recorded
+// answers are in products/fixtures/tasnif/). An unknown code is "not found" whether the card answers
+// 403 (2026-10-30), 200 with plain text (2026-10-23) or the gtin search answers success:false. No
 // official documentation exists; these are the portal's own XHR calls, so every call has a
 // timeout, retries with backoff, a process-wide rate limit and an in-memory cache, and the whole
 // client can be switched off with TASNIF_LIVE=false (tests use a fake, never the network).
@@ -40,8 +43,18 @@ export type TasnifHistory = {
   packageNames: { code: string; nameUz: string | null; nameRu: string | null; nameLat: string | null; packageType: string | null }[];
 };
 
-/** not_found: the API says the code does not exist. unavailable: network, timeout or a 5xx after retries. disabled: TASNIF_LIVE=false. */
-export type TasnifFailure = 'not_found' | 'unavailable' | 'disabled';
+/** /mxik/search/by-params?gtin=: the code tasnif holds for a barcode. */
+export type TasnifGtinHit = { gtin: string; mxikCode: string; mxikName: string | null; label: number | null };
+
+/** /integration-mxik/references/get/units/all: the unit dictionary (ids as in packages[].unitId). */
+export type TasnifUnits = { units: { id: number; name: string }[]; recordTotal: number };
+
+/**
+ * not_found: the API says the code (or barcode) does not exist. unavailable: network, timeout or a
+ * 5xx after retries. disabled: TASNIF_LIVE=false. needs_token: 401, the endpoint wants a taxpayer
+ * cabinet token (never retried). incomplete: a list answered fewer rows than its recordTotal.
+ */
+export type TasnifFailure = 'not_found' | 'unavailable' | 'disabled' | 'needs_token' | 'incomplete';
 export type TasnifAnswer<T> = { ok: true; value: T } | { ok: false; reason: TasnifFailure; detail?: string };
 
 export type TasnifClient = {
@@ -49,6 +62,10 @@ export type TasnifClient = {
   readonly live: boolean;
   card(code: string, lang?: 'uz' | 'ru'): Promise<TasnifAnswer<TasnifCard>>;
   history(code: string): Promise<TasnifAnswer<TasnifHistory>>;
+  /** The code behind a GTIN (`gtin=`; `barcode=` and `internationalCode=` are ignored by the API). */
+  gtin(barcode: string): Promise<TasnifAnswer<TasnifGtinHit>>;
+  /** The whole unit dictionary: `pageSize=100` (the default page is 10 of 90), checked against `recordTotal`. */
+  units(lang?: 'uz' | 'ru'): Promise<TasnifAnswer<TasnifUnits>>;
 };
 
 export type TasnifOptions = {
@@ -119,6 +136,39 @@ export function readHistory(body: unknown, code: string): TasnifHistory | null {
   };
 }
 
+/**
+ * The gtin search's page `{ success, data: { content[] } }`: the item whose `internationalCode` is
+ * this barcode. `success:false` ("not data found") and a page of other items (a filter the API
+ * ignored) are both no hit.
+ */
+export function readGtin(body: unknown, gtin: string): TasnifGtinHit | null {
+  const env = record(body);
+  if (env['success'] !== true) return null;
+  const content = record(env['data'])['content'];
+  const digits = gtin.replace(/^0+/, '');
+  for (const raw of Array.isArray(content) ? content : []) {
+    const item = record(raw);
+    const code = str(item['mxikCode']);
+    if (code && /^\d{17}$/.test(code) && (str(item['internationalCode']) ?? '').replace(/^0+/, '') === digits) {
+      return { gtin, mxikCode: code, mxikName: str(item['mxikName']), label: num(item['label']) };
+    }
+  }
+  return null;
+}
+
+/** The units envelope `{ success, data: [{id, name}], recordTotal }`. */
+export function readUnits(body: unknown): TasnifUnits | null {
+  const env = record(body);
+  if (env['success'] !== true || !Array.isArray(env['data'])) return null;
+  const units = env['data'].flatMap((raw) => {
+    const u = record(raw);
+    const id = num(u['id']);
+    const name = str(u['name']);
+    return id !== null && name ? [{ id, name }] : [];
+  });
+  return { units, recordTotal: num(env['recordTotal']) ?? units.length };
+}
+
 /** Process-wide limiter: at most `concurrency` requests in flight, starts at least `minGapMs` apart. */
 class Limiter {
   private active = 0;
@@ -179,13 +229,36 @@ export class HttpTasnifClient implements TasnifClient {
     return this.cached(`history:${code}`, `/integration-mxik/get/history/${encodeURIComponent(code)}`, (body) => readHistory(body, code));
   }
 
+  gtin(barcode: string): Promise<TasnifAnswer<TasnifGtinHit>> {
+    return this.cached(`gtin:${barcode}`, `/mxik/search/by-params?gtin=${encodeURIComponent(barcode)}&lang=ru&page=0&size=5`, (body) => readGtin(body, barcode));
+  }
+
+  async units(lang: 'uz' | 'ru' = 'uz'): Promise<TasnifAnswer<TasnifUnits>> {
+    const answer = await this.cached(`units:${lang}`, `/integration-mxik/references/get/units/all?pageSize=100&limit=100&lang=${lang}`, readUnits);
+    if (answer.ok && answer.value.units.length < answer.value.recordTotal) {
+      return { ok: false, reason: 'incomplete', detail: `${answer.value.units.length} of ${answer.value.recordTotal}` };
+    }
+    return answer;
+  }
+
+  /**
+   * The taxpayer's own nomenclature for a code. Public callers have no cabinet token: the API answers
+   * 401, which is `needs_token` at once (no retry, not cached as "not found").
+   */
+  nomenclature(code: string): Promise<TasnifAnswer<unknown>> {
+    return this.cached(`nomenclature:${code}`, `/integration-nomenclature/get/by-mxik?mxikCode=${encodeURIComponent(code)}`, (body) => (body === '' ? null : body));
+  }
+
   private async cached<T>(key: string, path: string, read: (body: unknown) => T | null): Promise<TasnifAnswer<T>> {
     const hit = this.cache.get(key);
     if (hit && Date.now() - hit.at < this.opts.cacheTtlMs) return hit.answer as TasnifAnswer<T>;
     const fetched = await this.get(path);
     let answer: TasnifAnswer<T>;
     if (!fetched.ok) answer = { ok: false, reason: 'unavailable', detail: fetched.detail };
+    else if (fetched.value.status === 401) answer = { ok: false, reason: 'needs_token', detail: 'HTTP 401' };
     else {
+      // 403 (an unknown or deactivated code on by-mxik, live 2026-10-30), 404 and a body the reader
+      // refuses all mean the API does not know it.
       const value = fetched.value.status === 200 ? read(fetched.value.body) : null;
       answer = value === null ? { ok: false, reason: 'not_found' } : { ok: true, value };
     }
@@ -231,6 +304,8 @@ export class DisabledTasnifClient implements TasnifClient {
   readonly live = false;
   card(): Promise<TasnifAnswer<TasnifCard>> { return Promise.resolve({ ok: false, reason: 'disabled' }); }
   history(): Promise<TasnifAnswer<TasnifHistory>> { return Promise.resolve({ ok: false, reason: 'disabled' }); }
+  gtin(): Promise<TasnifAnswer<TasnifGtinHit>> { return Promise.resolve({ ok: false, reason: 'disabled' }); }
+  units(): Promise<TasnifAnswer<TasnifUnits>> { return Promise.resolve({ ok: false, reason: 'disabled' }); }
 }
 
 /** Live unless TASNIF_LIVE is "false" / "0" / "off". */
