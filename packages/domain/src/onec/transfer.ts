@@ -130,16 +130,27 @@ async function existing(client: ODataClient, md: Metadata, target: ObjectTarget,
   return keys.length === 1 ? { key: keys[0] ?? null, ambiguous: false } : { key: null, ambiguous: keys.length > 1 };
 }
 
-/** The 1C reference of the receipt Tasnivo itself wrote for the invoice a corrected one replaces. */
-async function originalReceipt(orgId: string, batchId: string, old: NonNullable<IncomingInvoiceMeta['oldFactura']>): Promise<string | null> {
+/**
+ * FacturaType values that correct the invoice they name (4, 5, 8): the receipt is replaced. The additional
+ * types (1, 6, 9) add to the original and the others name none, so each of those is a receipt of its own
+ * (didox research §2.1 "SubTypes").
+ */
+const CORRECTING_TYPES: ReadonlySet<number> = new Set([4, 5, 8]);
+
+/**
+ * The 1C reference of the receipt Tasnivo itself wrote for the invoice a corrected one replaces: the same
+ * client's invoice of the same seller, by its roaming id or by number and date (numbers repeat across sellers).
+ */
+async function originalReceipt(
+  orgId: string, batch: { id: string; clientId: string | null }, sellerInn: string | null, old: NonNullable<IncomingInvoiceMeta['oldFactura']>,
+): Promise<string | null> {
+  const byNumber = sellerInn
+    ? [{ AND: [{ meta: { path: ['number'], equals: old.number } }, { meta: { path: ['date'], equals: old.date } }, { meta: { path: ['seller', 'inn'], equals: sellerInn } }] }]
+    : [];
+  const byId = old.id ? [{ externalRef: old.id }, { meta: { path: ['didox', 'facturaId'], equals: old.id } }] : [];
+  if (byNumber.length + byId.length === 0) return null;
   const batches = await db.importBatch.findMany({
-    where: {
-      orgId, kind: 'didox_invoice', id: { not: batchId },
-      OR: [
-        ...(old.id ? [{ externalRef: old.id }] : []),
-        { AND: [{ meta: { path: ['number'], equals: old.number } }, { meta: { path: ['date'], equals: old.date } }] },
-      ],
-    },
+    where: { orgId, clientId: batch.clientId, kind: 'didox_invoice', id: { not: batch.id }, OR: [...byId, ...byNumber] },
     orderBy: { createdAt: 'desc' }, take: 5, select: { id: true },
   });
   for (const b of batches) {
@@ -181,26 +192,30 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
   });
 
   // One document per record; an invoice is one document for all its lines.
-  type Job = DocumentJob & { ids: string[]; target: ObjectTarget; retry: boolean; correction: IncomingInvoiceMeta['oldFactura'] | null; date: string; number: string | null };
+  type Job = DocumentJob & {
+    ids: string[]; target: ObjectTarget; retry: boolean; correction: IncomingInvoiceMeta['oldFactura'] | null; date: string; number: string | null;
+    /** Every line of the document goes (a correction replaces the receipt's whole tabular part, so it must). */
+    whole: boolean; sellerInn: string | null;
+  };
   let jobs: Job[];
   if (batch.kind === 'didox_invoice') {
     const meta = accounting.IncomingInvoiceMeta.safeParse(batch.meta);
     if (!meta.success) return { ok: false, error: 'meta_invalid' };
     const lines = plan.included.flatMap((i) => (i.kind === 'didox_invoice' ? [i.payload] : []));
     const whole = plan.included.length === records.length;
-    const correction = meta.data.facturaType && meta.data.oldFactura ? meta.data.oldFactura : null;
+    const correction = meta.data.facturaType && CORRECTING_TYPES.has(meta.data.facturaType) && meta.data.oldFactura ? meta.data.oldFactura : null;
     jobs = [{
       ids: plan.included.map((i) => i.record.id), ...invoiceDocument(map, meta.data, lines, whole), target: map.invoice, retry: false, correction,
-      date: meta.data.date, number: meta.data.number,
+      date: meta.data.date, number: meta.data.number, whole, sellerInn: meta.data.seller.inn,
     }];
   } else {
     jobs = plan.included.map((i) => {
       const retry = i.record.outcome?.result === 'rejected' && /^(timeout|unreachable)/.test(i.record.outcome.reason ?? '');
       if (i.kind === 'bank_statement') {
-        return { ids: [i.record.id], ...bankDocument(map, i.payload), target: i.payload.direction === 'credit' ? map.bankCredit : map.bankDebit, retry, correction: null, date: i.payload.date, number: i.payload.docNumber };
+        return { ids: [i.record.id], ...bankDocument(map, i.payload), target: i.payload.direction === 'credit' ? map.bankCredit : map.bankDebit, retry, correction: null, date: i.payload.date, number: i.payload.docNumber, whole: true, sellerInn: null };
       }
       const p = i.kind === 'product_catalog' ? productDocument(map, i.payload) : { entitySet: '', body: {}, needs: [] as RefNeed[], notes: [] };
-      return { ids: [i.record.id], ...p, target: map.product, retry: false, correction: null, date: '', number: null };
+      return { ids: [i.record.id], ...p, target: map.product, retry: false, correction: null, date: '', number: null, whole: true, sellerInn: null };
     });
   }
 
@@ -211,10 +226,13 @@ export async function transferExport(input: PrepareInput & { actorId: string }, 
     const notes = [...job.notes, ...refs.notes];
     const counterparty = refs.found.get('counterparty|') ?? null;
     let ref: string | null = null;
-    // A corrected or additional ЭСФ replaces the receipt of the one it corrects (onec §8.35).
+    // A corrected ЭСФ replaces the receipt of the one it corrects (onec §8.35). The PATCH resends the whole
+    // tabular part, so a correction goes with all its lines or not at all (a part would drop the others).
+    if (job.correction && !job.whole) return { ok: false, reason: 'correction_partial', message: `${job.correction.number} ${job.correction.date}` };
     if (job.correction) {
-      ref = await originalReceipt(input.orgId, batch.id, job.correction);
-      if (!ref) {
+      ref = await originalReceipt(input.orgId, batch, job.sellerInn, job.correction);
+      // In the base, only a receipt of this seller: a counterparty 1C does not know has no receipt there to replace.
+      if (!ref && counterparty) {
         const there = await existing(client, md, job.target, job.correction.number, job.correction.date, counterparty);
         if (there.ambiguous) return { ok: false, reason: 'correction_ambiguous', message: `${job.correction.number} ${job.correction.date}` };
         ref = there.key;

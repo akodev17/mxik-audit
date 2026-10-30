@@ -474,6 +474,64 @@ describe('OData transfer against the fake 1C (database)', { skip }, () => {
     assert.match(lookup?.query.get('$filter') ?? '', new RegExp(`Контрагент_Key eq guid'${String(cp!['Ref_Key'])}'`));
   });
 
+  // Review 30 Oct: invoice numbers repeat across sellers (both №15 of the same day); the additional types 1/6/9 add to
+  // the original rather than replace it (didox research §2.1 "SubTypes"); and a PATCH replaces the whole tabular part.
+  it('a correction replaces only its own seller\'s receipt, an additional ЭСФ is a receipt of its own, a correction in parts is refused', async () => {
+    await fake?.close();
+    const f = await startFakeOData();
+    fake = f;
+    const org = await makeOrg();
+    orgs.push(org.orgId);
+    const [romashka] = f.seed('Catalog_Контрагенты', [{ Description: 'ООО "Ромашка Савдо"', ИНН: '301234567', IsFolder: false }]);
+    f.seed('Catalog_Контрагенты', [{ Description: 'ООО "Другой Поставщик"', ИНН: '309999999', IsFolder: false }]);
+    products(f);
+    await connect(org, f.base);
+    const receipts = () => f.store.get('Document_ПоступлениеТоваровУслуг') ?? [];
+    const firstBatch = await seedInvoiceBatch({ orgId: org.orgId }, { ...INVOICE_META, externalId: 'r-a-15', number: '15' });
+    assert.ok((await transferExport({ orgId: org.orgId, batchId: firstBatch, format: 'odata', actorId: org.userId })).ok);
+    const original = receipts().find((o) => o['НомерВходящегоДокумента'] === '15')!;
+    const linesOf = (o: Record<string, unknown>) => (o['Товары'] as { Количество: number }[]).map((r) => r.Количество);
+    const kept = linesOf(original);
+
+    // Another seller's corrected №15 of the same day, its original never sent to 1C: a receipt of its own, A's untouched.
+    const other = { ...INVOICE_META.seller, name: 'ООО "Другой Поставщик"', inn: '309999999' };
+    const b = await seedInvoiceBatch({ orgId: org.orgId }, {
+      ...INVOICE_META, externalId: 'r-b-15', number: '15', seller: other, facturaType: 4, oldFactura: { id: 'roaming-of-b', number: '15', date: INVOICE_META.date },
+    });
+    await db.importRecord.updateMany({ where: { batchId: b, rowIndex: 0 }, data: { payload: { ...INVOICE_LINES[0]!, quantity: '99' } } });
+    let n = receipts().length;
+    assert.ok((await transferExport({ orgId: org.orgId, batchId: b, format: 'odata', actorId: org.userId })).ok);
+    assert.equal(receipts().length, n + 1, 'B\'s correction is a receipt of its own');
+    assert.equal(original['Контрагент_Key'] ?? original['Контрагент'], romashka!['Ref_Key'], 'A\'s receipt keeps its supplier');
+    assert.deepEqual(linesOf(original), kept, 'and its lines');
+
+    // A's additional ЭСФ (type 1) to №15: its own receipt; the original keeps its four lines.
+    const extra = await seedInvoiceBatch({ orgId: org.orgId }, {
+      ...INVOICE_META, externalId: 'r-a-15-extra', number: '15-D', facturaType: 1, oldFactura: { id: 'r-a-15', number: '15', date: INVOICE_META.date },
+    });
+    n = receipts().length;
+    assert.ok((await transferExport({ orgId: org.orgId, batchId: extra, format: 'odata', actorId: org.userId })).ok);
+    assert.equal(receipts().length, n + 1);
+    assert.deepEqual(linesOf(original), kept);
+
+    // A's correction (type 4) with three of its four lines: refused, nothing written; the whole of it replaces the receipt.
+    const fix = await seedInvoiceBatch({ orgId: org.orgId }, {
+      ...INVOICE_META, externalId: 'r-a-15-fix', number: '15/1', facturaType: 4, oldFactura: { id: 'r-a-15', number: '15', date: INVOICE_META.date },
+    });
+    const ids = (await db.importRecord.findMany({ where: { batchId: fix }, orderBy: { rowIndex: 'asc' }, select: { id: true } })).map((r) => r.id);
+    const writes = f.writes().length;
+    const part = await transferExport({ orgId: org.orgId, batchId: fix, format: 'odata', actorId: org.userId, recordIds: ids.slice(0, 3) });
+    assert.ok(part.ok, JSON.stringify(part));
+    assert.equal(part.outcome.reasons['correction_partial'], 3);
+    assert.equal(f.writes().length, writes, 'nothing written');
+    assert.deepEqual(linesOf(original), kept);
+    n = receipts().length;
+    const whole = await transferExport({ orgId: org.orgId, batchId: fix, format: 'odata', actorId: org.userId });
+    assert.ok(whole.ok && whole.outcome.imported === 4, JSON.stringify(whole));
+    assert.equal(receipts().length, n, 'the whole correction updates the receipt');
+    assert.equal((original['Товары'] as unknown[]).length, 4);
+  });
+
   it('a goods line whose product the base lacks refuses the receipt and names the line (onec §8.11)', async () => {
     // onec §8.11: with «Не создавать номенклатуру» 1C would not invent the item; the tool reports the unmatched lines.
     const lonely = await startFakeOData();
