@@ -195,10 +195,10 @@ describe('parseUpload: spreadsheets', () => {
 
   it('a 20-digit account in a number cell reads as invalid, not as a valid-looking wrong account', () => {
     // Review 30 Oct (R-O6): Excel keeps 15 digits; 20208000900123456001 came back as "20208000900123455488" and passed.
-    const cell = numberText(20208000900123456001);
+    const cell = numberText(Number('20208000900123456001'));
     assert.match(cell, /^2\.0208\d+E\+19$/);
     assert.equal(readAccount(cell).invalid, true);
     assert.equal(validAccount(cell), false);
-    assert.equal(numberText(10403003014000001), '10403003014000000', 'a 17-digit code keeps the old form (products flag it as mxik_number_cell)');
+    assert.equal(numberText(Number('10403003014000001')), '10403003014000000', 'a 17-digit code keeps the old form (products flag it as mxik_number_cell)');
   });
 });
