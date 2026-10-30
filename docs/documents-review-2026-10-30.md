@@ -71,6 +71,7 @@ ways a record nobody should book still left Tasnivo were in the Didox *document*
 | R-O8 | minor | 5acbd0c | A cached side file is reused only for the same record set, so a reopened record never rides along. Test: onec/export.test.ts 'a side file asked again after a record was reopened'. | (follow-up, 30 Oct evening) |
 | R-P10 | minor | 9146e27 | Saving a product batch no longer auto-approves rows with package_unchecked. Test: products/import-real.test.ts. | (follow-up, 30 Oct evening) |
 | R-D8 | minor | d51c5ae | Didox §7.21 tolerance follows the research formula (count 1 × 100.00 = 100.01 is now a mismatch). Test: didox/real-docs.test.ts 'tiyin tolerances at count 1 and below'. | (follow-up, 30 Oct evening) |
+| R-D12 | minor | 980940b | ЭСФ template: a new invoice only where column A or the number changes. Test: didox/real-docs.test.ts 'column A repeated'. | (follow-up, 30 Oct evening) |
 
 36c5072 is a lint fix in one of the new tests. Every test above was run against the code before its fix and failed
 there (R-B1's without-fix run aborts the test process exactly as the API would).
