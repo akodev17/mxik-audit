@@ -20,9 +20,9 @@ import { buildExport, invoiceLineFingerprint, prepareExport, refreshCounts } fro
 import { classifyProducts, upsertProducts } from '../products/index.js';
 import type { CurrentUser } from '../session.js';
 import { checkInvoice, defaultDeps, statusFor, type CheckDeps, type CheckedInvoice, type ProductRecord, type RecordStatus } from './check.js';
-import { parseDidoxDocument, SHAPE_NOTE, type DidoxKind, type IncomingInvoiceMeta, type InvoiceLine, type ParsedInvoice, type ParseError, type ValidationIssue } from './document.js';
+import { parseDidoxDocument, SHAPE_NOTE, type DidoxKind, type IncomingInvoiceMeta, type InvoiceLine, type ParsedInvoice, type ParseError, type StatedTotals, type ValidationIssue } from './document.js';
 import { foldName } from './fold.js';
-import { readDidoxUpload, guessSheetMap, sheetToDocument, SheetHeaderSchema, SheetMapSchema, SHEET_FIELDS, type SheetMap } from './sources.js';
+import { readDidoxUpload, guessSheetMap, sheetSignature, sheetToDocument, SheetHeaderSchema, SheetMapSchema, SHEET_FIELDS, templateToDocuments, type SheetMap } from './sources.js';
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const KIND = 'didox_invoice' as const;
@@ -41,6 +41,12 @@ export function batchScope(user: Pick<CurrentUser, 'orgId' | 'clientIds'>): Pris
 
 /** What the batch keeps in meta besides the contract's IncomingInvoiceMeta (extra keys; the contract parse drops them). */
 export type DidoxMetaExtra = {
+  /**
+   * The optional IncomingInvoiceMeta fields the 1C session (S4) adds to the shared contract for the
+   * OData receipt of a corrected invoice; written here so the stored meta carries them once both land.
+   */
+  facturaType?: number | null;
+  oldFactura?: { id: string | null; number: string; date: string } | null;
   didox: {
     issues: ValidationIssue[];
     facturaId: string | null;
@@ -49,6 +55,16 @@ export type DidoxMetaExtra = {
     note: string;
     /** Entry name inside an uploaded archive. */
     entry?: string;
+    /** 002 / 008 / 023 and where the document sat (§7.2). */
+    docType?: ParsedInvoice['docType'];
+    envelope?: ParsedInvoice['envelope'];
+    singleSidedType?: number | null;
+    oldFactura?: ParsedInvoice['oldFactura'];
+    /** Where the header totals came from (B6): the document, the Didox list entry, or the lines. */
+    totalsFrom?: ParsedInvoice['totalsFrom'];
+    statedTotals?: StatedTotals | null;
+    signers?: ParsedInvoice['signers'];
+    statusComment?: string | null;
   };
 };
 export type StoredMeta = IncomingInvoiceMeta & DidoxMetaExtra;
@@ -66,6 +82,8 @@ export type ImportInput = {
   docType?: string | null;
   pdf?: Buffer | null;
   measures?: ReadonlyMap<string, string>;
+  /** The Didox list entry's totals (sync), the document's own header totals for B6. */
+  listTotals?: StatedTotals | null;
 };
 
 export type DuplicateOf = { batchId: string; number: string; date: string };
@@ -81,11 +99,19 @@ export function countStatuses(statuses: readonly RecordStatus[]): RecordCounts {
   return c;
 }
 
-/** An earlier batch of the same invoice: same Didox id, same normalised document, or same seller + number + date. */
-async function findDuplicate(orgId: string, meta: IncomingInvoiceMeta, fingerprint: string): Promise<DuplicateOf | null> {
+/**
+ * An earlier batch of the same invoice: same Didox id, same roaming id (`facturaid`, the list's
+ * `roaming_id`: one invoice seen once by the API and once in a zip has both, §7.11), same normalised
+ * document, or same seller + number + date. The last rule is skipped for a correction (`facturatype`
+ * ≠ 0 with an old invoice): a corrected ЭСФ keeps the original's number and date (§5 V13).
+ */
+async function findDuplicate(orgId: string, invoice: Pick<ParsedInvoice, 'meta' | 'fingerprint' | 'facturaId' | 'facturaType' | 'oldFactura'>): Promise<DuplicateOf | null> {
+  const { meta, fingerprint } = invoice;
   const or: Prisma.ImportBatchWhereInput[] = [{ fingerprint }];
   if (meta.externalId) or.push({ externalRef: meta.externalId });
-  if (meta.seller.inn) {
+  if (invoice.facturaId) or.push({ externalRef: invoice.facturaId }, { meta: { path: ['didox', 'facturaId'], equals: invoice.facturaId } });
+  const correction = Boolean(invoice.oldFactura) && (invoice.facturaType ?? '0') !== '0';
+  if (meta.seller.inn && !correction) {
     or.push({ AND: [
       { meta: { path: ['number'], equals: meta.number } },
       { meta: { path: ['date'], equals: meta.date } },
@@ -103,11 +129,13 @@ async function findDuplicate(orgId: string, meta: IncomingInvoiceMeta, fingerpri
  * before (by Didox id, content, or seller + number + date) is refused with the earlier batch.
  */
 export async function importDocument(orgId: string, actorId: string | null, input: ImportInput, deps: CheckDeps = defaultDeps): Promise<ImportResult> {
-  const parsed = parseDidoxDocument(input.json, { source: input.source, didoxId: input.didoxId, didoxStatus: input.didoxStatus, measures: input.measures });
+  const parsed = parseDidoxDocument(input.json, {
+    source: input.source, didoxId: input.didoxId, didoxStatus: input.didoxStatus, docType: input.docType, measures: input.measures, listTotals: input.listTotals,
+  });
   if (!parsed.ok) return { ok: false, code: parsed.error, kind: parsed.kind, detail: parsed.detail };
   const { invoice } = parsed;
 
-  const earlier = await findDuplicate(orgId, invoice.meta, invoice.fingerprint);
+  const earlier = await findDuplicate(orgId, invoice);
   if (earlier) return { ok: false, code: 'duplicate_invoice', duplicateOf: earlier };
 
   const checked = await checkInvoice(orgId, input.clientId, invoice, deps);
@@ -116,11 +144,17 @@ export async function importDocument(orgId: string, actorId: string | null, inpu
 
 /** The write stage of importDocument (exported for the benchmark): the batch, its records and the document cache. */
 export async function storeInvoice(orgId: string, actorId: string | null, input: ImportInput, invoice: ParsedInvoice, checked: CheckedInvoice): Promise<ImportResult> {
+  const type = invoice.facturaType !== null && /^\d{1,2}$/.test(invoice.facturaType) ? Number(invoice.facturaType) : null;
+  const old = invoice.oldFactura;
   const meta: StoredMeta = {
     ...checked.meta,
+    facturaType: type,
+    oldFactura: old?.number && old.date ? { id: old.id, number: old.number.slice(0, 60), date: old.date } : null,
     didox: {
       issues: checked.batchIssues, facturaId: invoice.facturaId, facturaType: invoice.facturaType, verified: false, note: SHAPE_NOTE,
       ...(input.entry ? { entry: input.entry } : {}),
+      docType: invoice.docType, envelope: invoice.envelope, singleSidedType: invoice.singleSidedType, oldFactura: invoice.oldFactura,
+      totalsFrom: invoice.totalsFrom, statedTotals: invoice.statedTotals, signers: invoice.signers, statusComment: invoice.statusComment,
     },
   };
   const counts = countStatuses(checked.lines.map((l) => l.status));
@@ -146,7 +180,7 @@ export async function storeInvoice(orgId: string, actorId: string | null, input:
   } catch (error) {
     // Two imports of the same document at once: the unique (org, kind, fingerprint) decides.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const dup = await findDuplicate(orgId, invoice.meta, invoice.fingerprint);
+      const dup = await findDuplicate(orgId, invoice);
       return { ok: false, code: 'duplicate_invoice', ...(dup ? { duplicateOf: dup } : {}) };
     }
     throw error;
@@ -197,7 +231,33 @@ async function clientTarget(user: CurrentUser, clientId: unknown): Promise<{ ok:
 }
 
 export type UploadItem = { entry: string; ok: true; batchId: string; lines: number } | { entry: string; ok: false; error: string; code: string; duplicateOf?: DuplicateOf };
-export type SheetPreview = { headers: string[]; rows: string[][]; totalRows: number; map: SheetMap; fields: readonly string[] };
+export type SheetPreview = {
+  headers: string[]; rows: string[][]; totalRows: number; map: SheetMap; fields: readonly string[];
+  /** 'didox_esf_template': the official template, read as a fixed preset (header fields from the file); null = a mapped sheet. */
+  preset: 'didox_esf_template' | null;
+  /** Invoices the template holds (1 for a mapped sheet). */
+  invoices: number;
+  /** The map is the one this org confirmed before for the same headers. */
+  remembered: boolean;
+};
+
+/** The column mapping the org confirmed before for these headers (DidoxSheetFormat), when it still fits the sheet. */
+async function rememberedMap(orgId: string, headers: readonly string[]): Promise<SheetMap | null> {
+  const row = await db.didoxSheetFormat.findUnique({ where: { orgId_headerSignature: { orgId, headerSignature: sheetSignature(headers) } }, select: { columnMap: true } });
+  const map = SheetMapSchema.safeParse(row?.columnMap);
+  return map.success && Object.values(map.data).every((i) => i < headers.length) ? map.data : null;
+}
+
+/** Remembers a confirmed mapping by the header signature (the bank module's saveFormat). */
+async function rememberMap(orgId: string, actorId: string, headers: readonly string[], map: SheetMap): Promise<void> {
+  const headerSignature = sheetSignature(headers);
+  if (!headerSignature.replace(/\|/g, '')) return;
+  await db.didoxSheetFormat.upsert({
+    where: { orgId_headerSignature: { orgId, headerSignature } },
+    create: { orgId, headerSignature, columnMap: json(map), usedCount: 1, createdBy: actorId },
+    update: { columnMap: json(map), usedCount: { increment: 1 } },
+  });
+}
 export type UploadResult =
   | { ok: true; kind: 'documents'; items: UploadItem[]; skipped: Array<{ entry: string; reason: string }> }
   | { ok: true; kind: 'sheet'; filename: string; preview: SheetPreview }
@@ -212,7 +272,15 @@ export async function uploadDidoxFile(user: Writer, locale: Locale, input: { fil
   if (read.kind === 'error') return { ok: false, error: e[read.error] };
   if (read.kind === 'xlsx') {
     const { headers, rows } = read.sheet;
-    return { ok: true, kind: 'sheet', filename: gate.name, preview: { headers, rows: rows.slice(0, 10), totalRows: rows.length, map: guessSheetMap(headers), fields: SHEET_FIELDS } };
+    const templates = templateToDocuments(read.sheet);
+    const remembered = templates.length > 0 ? null : await rememberedMap(gate.user.orgId, headers);
+    return {
+      ok: true, kind: 'sheet', filename: gate.name,
+      preview: {
+        headers, rows: rows.slice(0, 10), totalRows: rows.length, map: remembered ?? guessSheetMap(headers), fields: SHEET_FIELDS,
+        preset: templates.length > 0 ? 'didox_esf_template' : null, invoices: Math.max(1, templates.length), remembered: remembered !== null,
+      },
+    };
   }
   const source = looksLikeZip(gate.buffer) ? 'didox_zip' : 'didox_json';
   const items: UploadItem[] = [];
@@ -231,19 +299,45 @@ export async function uploadDidoxFile(user: Writer, locale: Locale, input: { fil
   return { ok: true, kind: 'documents', items, skipped: read.skipped };
 }
 
-/** The ЭСФ spreadsheet with the confirmed columns and the typed header → one invoice batch. */
-export async function commitDidoxSheet(user: Writer, locale: Locale, input: { file: UploadedFile | null; clientId: unknown; map: unknown; header: unknown }, deps: CheckDeps = defaultDeps): Promise<{ ok: true; batchId: string } | (Fail & { duplicateOf?: DuplicateOf })> {
+/**
+ * The ЭСФ spreadsheet → invoice batches. The official template needs nothing more: every invoice in
+ * it becomes a batch, header fields read from its cells. Any other sheet takes the confirmed columns
+ * and the typed header, makes one batch, and its mapping is remembered for the org.
+ */
+export async function commitDidoxSheet(user: Writer, locale: Locale, input: { file: UploadedFile | null; clientId: unknown; map: unknown; header: unknown }, deps: CheckDeps = defaultDeps): Promise<{ ok: true; batchId: string; batchIds?: string[]; items?: UploadItem[] } | (Fail & { duplicateOf?: DuplicateOf })> {
   const e = i18nFor(locale).ta.didoxX.errors;
   const gate = await uploadGate(user, locale, input.file, input.clientId);
   if (!gate.ok) return gate;
+  const sheetRead = await readDidoxUpload(gate.buffer, gate.name);
+  const templates = sheetRead.kind === 'xlsx' ? templateToDocuments(sheetRead.sheet) : [];
+  if (templates.length > 0) {
+    const items: UploadItem[] = [];
+    for (const [i, t] of templates.entries()) {
+      const entry = `${gate.name}#${i + 1}`;
+      const result = await importDocument(gate.user.orgId, gate.user.userId, { json: t.document, source: 'xlsx', clientId: gate.clientId, filename: gate.name, entry }, deps);
+      items.push(result.ok
+        ? { entry, ok: true, batchId: result.batchId, lines: result.lines }
+        : { entry, ok: false, code: result.code, error: importMessage(locale, result), ...(await shownDuplicate(gate.user, result.duplicateOf)) });
+    }
+    const batchIds = items.flatMap((x) => (x.ok ? [x.batchId] : []));
+    const first = batchIds[0];
+    if (!first) {
+      const refused = items[0];
+      return { ok: false, error: refused && !refused.ok ? refused.error : e.bad_mapping, ...(refused && !refused.ok && refused.duplicateOf ? { duplicateOf: refused.duplicateOf } : {}) };
+    }
+    return { ok: true, batchId: first, batchIds, items };
+  }
   const map = SheetMapSchema.safeParse(typeof input.map === 'string' ? safeJson(input.map) : input.map);
   const header = SheetHeaderSchema.safeParse(typeof input.header === 'string' ? safeJson(input.header) : input.header);
   if (!map.success || !header.success || map.data.name < 0 || (map.data.quantity < 0 && map.data.amount < 0)) return { ok: false, error: e.bad_mapping };
-  const read = await readDidoxUpload(gate.buffer, gate.name);
+  const read = sheetRead;
   if (read.kind !== 'xlsx') return { ok: false, error: read.kind === 'error' ? e[read.error] : e.unsupported };
   const doc = sheetToDocument(read.sheet, map.data, header.data);
   const result = await importDocument(gate.user.orgId, gate.user.userId, { json: doc, source: 'xlsx', clientId: gate.clientId, filename: gate.name }, deps);
-  if (result.ok) return { ok: true, batchId: result.batchId };
+  if (result.ok) {
+    await rememberMap(gate.user.orgId, gate.user.userId, read.sheet.headers, map.data);
+    return { ok: true, batchId: result.batchId };
+  }
   return { ok: false, error: importMessage(locale, result), ...(await shownDuplicate(gate.user, result.duplicateOf)) };
 }
 
@@ -389,7 +483,11 @@ export async function removeInvoice(user: Writer, batchId: string): Promise<bool
 export type Decision = { action: 'approve' | 'correct' | 'skip' | 'reopen'; corrections?: { product?: string; mxik?: string }; note?: string };
 
 const PRODUCT_ISSUES = new Set(['product_new', 'product_ambiguous', 'product_unchecked']);
-const MXIK_ISSUES = new Set(['mxik_missing', 'mxik_invalid', 'mxik_inactive', 'mxik_restricted', 'mxik_conflict']);
+const MXIK_ISSUES = new Set([
+  'mxik_missing', 'mxik_invalid', 'mxik_inactive', 'mxik_restricted', 'mxik_conflict',
+  // The rules' findings about the code the reviewer replaces (rules.ts).
+  'mxik_not_found', 'mxik_retired_later', 'mxik_restricted_later', 'package_not_of_code', 'unit_not_of_code',
+]);
 
 /** The product record a line would create (never applied to an existing product). */
 export function recordFromLine(line: InvoiceLine): ProductRecord {

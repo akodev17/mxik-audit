@@ -52,7 +52,7 @@ export default async function DidoxPage({ searchParams }: { searchParams: Promis
         <Alert tone="info">{d.unverified}</Alert>
         <DidoxIntake
           clients={options.clients} clientId={clientId ?? null} connected={list.connection.connected}
-          lastSync={list.connection.lastSyncAt} writable={writable} admin={admin}
+          lastSync={list.connection.lastSyncAt} writable={writable} admin={admin} sync={list.connection.sync ?? null}
         />
         <Card title={d.nav.invoices} flush={list.rows.length > 0}>
           {list.rows.length === 0 ? (

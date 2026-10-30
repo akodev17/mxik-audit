@@ -122,6 +122,24 @@ and `ONEC_ALLOW_PRIVATE_HOSTS=1` lets a 1C base URL resolve to a private or loop
 self-hosted install on the same network as the client's 1C); without it only public addresses are
 accepted, so the server cannot be used as a proxy into its own network.
 
+**Didox** (optional; the Didox module reads incoming invoices with each org's own token, entered by
+the org's admin in Didox → Ulanish and stored sealed with `SESSION_SECRET`). The hosts and headers
+follow Didox's official integrator docs (api-docs.didox.uz); the module is still in trial mode until
+a real document has been read through the API.
+
+| Variable | What it does |
+|---|---|
+| `DIDOX_API_URL` | Overrides the host for every org (a proxy, the local fake server `npx tsx packages/domain/src/didox/fake-server.ts`). Unset: company mode uses `https://api.didox.uz` (`api-key` + `user-key`), partner mode `https://api-partners.didox.uz` (`Partner-Authorization` + `user-key`) |
+| `DIDOX_SANDBOX` | `1` = Didox's test server `https://testapi3.didox.uz` (accepts the user token without a partner token; get one with the E-IMZO test key from my3.soliq.uz). Never on production |
+| `DIDOX_PARTNER_TOKEN` | The partner token Didox's account manager issues (t.me/Didox_account), for orgs in partner mode. An org may name another variable, but only one called `DIDOX_*` (the server refuses any other name, so no other secret can be sent to Didox) |
+| `DIDOX_PASSWORD_LOGIN` | `1` shows "ИНН + parol" login in the connection settings (`POST /v1/auth/{tin}/password/{locale}`); the password is never stored, only the 360-minute token |
+| `DIDOX_LIVE` | Tests only: `1` runs the opt-in live test against the public `GET /v1/measures/all` |
+
+Tokens live 360 minutes; a sync with an expired token stops with "token expired" and the admin pastes a
+new one. The sync runs in the background: it saves its progress on the connection after every page,
+and the next page view resumes a run an API restart interrupted. Didox's own error text (401/422/423/429
+bodies) is kept on the connection and shown in the settings, never with a token in it.
+
 `DATABASE_URL`, `REDIS_URL`, `JOBS_MODE` and `DATA_DIR` in `.env` are ignored inside Docker:
 compose points the services at the `db` and `redis` containers and at `/app/data`. The
 `NEXT_PUBLIC_*` values are compiled into the web image: rebuild it after changing them. The web
