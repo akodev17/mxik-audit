@@ -99,6 +99,22 @@ describe('1C exports (database)', { skip }, () => {
     assert.deepEqual(await buildExport({ orgId: a.orgId, batchId: twin, format: 'bank_exchange_1_02', actorId: a.userId }), { ok: false, error: 'nothing_to_export' });
   });
 
+  it('a side file asked again after a record was reopened is built anew, without that record', async () => {
+    // Review 30 Oct (R-O8): reopen clears decidedAt, so the 10-minute reuse check missed it and served the cached
+    // counterparties file that still held the reopened record.
+    const batchId = await seedBankBatch({ orgId: a.orgId }, { transactions: BANK_TRANSACTIONS.map((t) => ({ ...t, docNumber: `o8${t.docNumber ?? ''}` })) });
+    const first = await buildExport({ orgId: a.orgId, batchId, format: 'counterparties_xlsx', actorId: a.userId });
+    assert.ok(first.ok);
+    const recs = await recordsOf(batchId);
+    await decideMany({ orgId: a.orgId, clientIds: null, userId: a.userId }, batchId, { recordIds: [recs[0]!.id], decision: { action: 'reopen' } });
+    const second = await buildExport({ orgId: a.orgId, batchId, format: 'counterparties_xlsx', actorId: a.userId });
+    assert.ok(second.ok);
+    assert.equal(second.reused, undefined, 'built anew');
+    assert.notEqual(second.exportId, first.exportId);
+    const third = await buildExport({ orgId: a.orgId, batchId, format: 'counterparties_xlsx', actorId: a.userId });
+    assert.ok(third.ok && third.reused === true && third.exportId === second.exportId, 'nothing changed since: the same file');
+  });
+
   it('refreshCounts recounts by status, computes approved and keeps a workstream\'s progress', async () => {
     // Undecided, as a workstream writes them: only the two approved below count as approved.
     const batchId = await seedBankBatch({ orgId: a.orgId, approved: false }, { transactions: BANK_TRANSACTIONS.map((t) => ({ ...t, docNumber: `c${t.docNumber ?? ''}` })) });

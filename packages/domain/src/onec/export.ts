@@ -158,16 +158,19 @@ export async function buildExport(input: PrepareInput & { actorId: string }): Pr
   const recent = await db.oneCExport.findFirst({
     where: { batchId: input.batchId, format: input.format, requestKey: key, createdAt: { gte: new Date(Date.now() - IDEMPOTENCY_MS) }, batch: { orgId: input.orgId } },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, createdAt: true, file: true, filename: true, contentType: true, recordCount: true },
+    select: { id: true, createdAt: true, file: true, filename: true, contentType: true, recordCount: true, recordSetHash: true },
   });
-  if (recent?.file) {
-    const changed = await db.importRecord.count({ where: { batchId: input.batchId, decidedAt: { gt: recent.createdAt } } });
-    if (changed === 0) return { ok: true, exportId: recent.id, file: fileOut(recent.file, recent.filename ?? 'export', recent.contentType ?? 'application/octet-stream'), records: recent.recordCount, reused: true };
-  }
 
   const planned = await planFor(input);
   if (!planned.ok) return planned;
   const { loaded: { batch, records }, plan } = planned;
+  // A side file (its records stay as they were) again only for the same records: a record reopened since (decision
+  // cleared, no decidedAt) left the plan and changed its hash, and must not ride along in the cached file (review 30
+  // Oct, R-O8). A primary export marked its records exported, so its plan is empty now: the cached file stands.
+  if (recent?.file && (plan.primary || recent.recordSetHash === plan.recordSetHash)) {
+    const changed = await db.importRecord.count({ where: { batchId: input.batchId, decidedAt: { gt: recent.createdAt } } });
+    if (changed === 0) return { ok: true, exportId: recent.id, file: fileOut(recent.file, recent.filename ?? 'export', recent.contentType ?? 'application/octet-stream'), records: recent.recordCount, reused: true };
+  }
   if (plan.included.length === 0) return { ok: false, error: 'nothing_to_export' };
   const included = new Set(plan.included.map((i) => i.record.id));
   const statementLines = records.filter((r) => r.status !== 'skipped');
