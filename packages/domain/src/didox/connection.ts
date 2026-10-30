@@ -258,6 +258,9 @@ export function listTotalsOf(entry: DocumentEntry): StatedTotals | null {
   return totals.amount || totals.withVat ? totals : null;
 }
 
+/** Pages of 100 one sync reads at most: a bound on a run, not on an org (100 000 documents). */
+const SYNC_MAX_PAGES = 1_000;
+
 type SyncOptions = { client?: ClientOptions; deps?: CheckDeps; maxPages?: number; env?: Record<string, string | undefined> };
 
 const SyncBody = z.object({
@@ -334,7 +337,12 @@ async function runSync(orgId: string, actorId: string, client: DidoxClient, clie
     // Didox's restricted ИКПУ lists feed the rules once per run (V9), when the deps run rules at all.
     const lists = deps.rules ? await client.restrictedLists().catch(() => null) : null;
     const runDeps: CheckDeps = deps.rules && lists ? { ...deps, rules: { ...deps.rules, lists: () => Promise.resolve(lists) } } : deps;
-    for await (const page of client.listAll({ owner: 0, doctype: SYNC_DOCTYPES, dateFromUpdated: state.dateFromUpdated ?? undefined, limit: 100 }, options.maxPages ?? 50)) {
+    const maxPages = options.maxPages ?? SYNC_MAX_PAGES;
+    let pages = 0;
+    let lastFull = false;
+    for await (const page of client.listAll({ owner: 0, doctype: SYNC_DOCTYPES, dateFromUpdated: state.dateFromUpdated ?? undefined, limit: 100 }, maxPages)) {
+      pages++;
+      lastFull = page.length >= 100;
       state.listed += page.length;
       state.page = page.page ?? state.page + 1;
       const ids = page.map((p) => p.id);
@@ -378,6 +386,8 @@ async function runSync(orgId: string, actorId: string, client: DidoxClient, clie
       }
       await saveState(orgId, state);
     }
+    // The page limit ended the run with documents left: said on the run, never a quiet "done" (review 30 Oct, R-D6).
+    if (pages >= maxPages && lastFull) state.failures.push({ id: '(list)', error: `list_truncated: stopped after ${pages} pages of 100 (one run's limit); older documents were not read, sync a shorter date range` });
     const done: SyncState = { ...state, status: 'done', finishedAt: nowIso(), error: null, detail: null };
     await saveState(orgId, done, { lastError: null, lastErrorDetail: null, lastSyncAt: new Date() });
     return done;

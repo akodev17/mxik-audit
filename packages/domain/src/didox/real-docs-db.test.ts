@@ -222,5 +222,30 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
       await dropOrgs([b.orgId]);
     }
   });
+
+  // didox §1.3 (review 30 Oct, R-D6): the sync read 50 pages at most and ended "done" with documents left unread.
+  it('sync: a run that stops at its page limit with pages left says so', async () => {
+    const c = await makeOrg();
+    try {
+      await db.organization.update({ where: { id: c.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+      const owner = userOf(c);
+      const base = fixtureDocuments().find((d) => d.doctype === '002')!;
+      const many: FakeDocument[] = Array.from({ length: 101 }, (_, i) => ({ ...base, id: `limit-${String(i).padStart(3, '0')}` }));
+      const server = await startFakeDidox({ documents: many, auth: { kind: 'token', token: 'limit-token' } });
+      try {
+        process.env['DIDOX_API_URL'] = server.url;
+        assert.deepEqual(await saveConnection(owner, 'ru', { kind: 'token', companyTin: '305123456', token: 'limit-token' }), { ok: true });
+        const options = { client: { limiter: new RateLimiter(0), sleep: () => Promise.resolve(), log: () => undefined, retries: 0 }, deps: baseStubDeps, maxPages: 1 };
+        const run = await syncIncoming(owner, 'ru', {}, options);
+        assert.ok(run.ok && run.listed === 100, JSON.stringify(run));
+        const state = (await db.didoxConnection.findUniqueOrThrow({ where: { orgId: c.orgId }, select: { syncState: true } })).syncState as SyncState;
+        assert.match(state.failures.find((f) => f.id === '(list)')?.error ?? '', /^list_truncated: stopped after 1 pages/);
+      } finally {
+        await server.close();
+      }
+    } finally {
+      await dropOrgs([c.orgId]);
+    }
+  });
 });
 
