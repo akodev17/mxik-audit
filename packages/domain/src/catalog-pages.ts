@@ -12,7 +12,6 @@ import { catalogPaid } from './billing/orders.js';
 import { CATALOG_PAGE, catalogList, type CatalogListItem } from './catalogs.js';
 import { resolveClient } from './clients.js';
 import { isDemoOrg } from './demo.js';
-import { readImportMeta } from './import-diagnostics.js';
 import { jobsMode, type JobsMode } from './jobs/dispatcher.js';
 import { reportPdfData, type ReportPdfData } from './pdf/report-data.js';
 import { uploadsOpen } from './plan.js';
@@ -109,7 +108,11 @@ export type CatalogHeader = {
   pipeline: PipelineMeta | null;
   snapshot: { usedTakenAt: Date | null; newerTakenAt: Date | null };
   exportLocked: boolean;
-  /** File rows without a name under the committed mapping: not audited, marked in the corrected export. */
+  /**
+   * File rows without a name the commit kept (catalog_skipped_row): not audited, marked in the corrected
+   * export. 0, so nothing is shown, for a catalogue committed before S8: its nameless rows were not kept,
+   * its export lacks them, and its diagnostics' count would claim otherwise.
+   */
   skippedRows: number;
 };
 
@@ -118,12 +121,13 @@ export async function catalogHeader(user: Viewer, catalogId: string): Promise<Ca
   const catalog = await visibleCatalog(user, catalogId);
   if (!catalog) return null;
   if (catalog.status === 'analyzing' && resumesOnRead(user)) await resumeStaleAudits(STALE_MS, catalog.id);
-  const [client, demo, used, latest, locked] = await Promise.all([
+  const [client, demo, used, latest, locked, skippedRows] = await Promise.all([
     resolveClient(user.orgId, catalog.clientId),
     isDemoOrg(user.orgId),
     catalog.snapshotId ? db.catalogSnapshot.findUnique({ where: { id: catalog.snapshotId }, select: { id: true, takenAt: true } }) : null,
     db.catalogSnapshot.findFirst({ orderBy: { id: 'desc' }, select: { id: true, takenAt: true } }),
     exportLocked(user.orgId, catalog.id),
+    catalog.status === 'uploaded' ? 0 : db.catalogSkippedRow.count({ where: { catalogId: catalog.id } }),
   ]);
   const newer = used && latest && latest.id > used.id ? latest : null;
   return {
@@ -132,7 +136,7 @@ export async function catalogHeader(user: Viewer, catalogId: string): Promise<Ca
     pipeline: readPipelineMeta(catalog.pipelineMeta),
     snapshot: { usedTakenAt: used?.takenAt ?? null, newerTakenAt: newer?.takenAt ?? null },
     exportLocked: locked,
-    skippedRows: catalog.status === 'uploaded' ? 0 : readImportMeta(catalog.importMeta)?.diagnostics.noName.count ?? 0,
+    skippedRows,
   };
 }
 
