@@ -327,6 +327,13 @@ describe('row rules (products §7.17, §7.19, §7.20, §7.23, §7.30, §7.31)', 
     assert.deepEqual([readVat('12.000000000000014'), readVat('0.12000000000000001')].map((r) => [r.vatRate, r.issues.length]), [['12', 0], ['12', 0]]);
   });
 
+  it('a formula price\'s float noise is not "more than 2 decimals"', () => {
+    // Review 30 Oct (R-P6): 10000 × 1.12 = 11200.000000000002 made the row suspicious and lost its auto-approval.
+    assert.deepEqual(readPrice('11200.000000000002'), { price: '11200.00', issues: [] });
+    assert.deepEqual(readPrice('12499.999999999998'), { price: '12500.00', issues: [] });
+    assert.deepEqual(readPrice('15000,555').issues.map((i) => i.code), ['price_precision'], 'a real third decimal still is');
+  });
+
   it('flags service rows counted in goods units and goods counted as a service', async () => {
     // §7.23, onec §8.10: service codes start with 1; a service is counted in «хизмат (сўм)».
     assert.equal(isServiceCode('10112008001000001'), true);

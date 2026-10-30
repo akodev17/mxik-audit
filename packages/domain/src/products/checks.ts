@@ -179,7 +179,8 @@ export function readPrice(raw: string | null | undefined): PriceRead {
   const tiyin = plain === null ? null : toTiyin(plain);
   if (plain === null || tiyin === null) return { price: null, issues: [{ code: 'price_unreadable', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40) } }] };
   const issues: ValidationIssue[] = [];
-  const decimals = plain.split('.')[1]?.length ?? 0;
+  // A formula cell's float noise (11200.000000000002 = 10000 × 1.12) is not "more than 2 decimals" (review 30 Oct, R-P6).
+  const decimals = Number(plain).toFixed(10).replace(/\.?0+$/, '').split('.')[1]?.length ?? 0;
   if (decimals > 2) issues.push({ code: 'price_precision', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40), rounded: fromTiyin(tiyin) } });
   if (tiyin < 0n) issues.push({ code: 'price_negative', severity: 'warning', field: 'price', params: { value: cell.slice(0, 40) } });
   // Read as thousands, but it may have meant a fraction: the reviewer confirms (review 30 Oct).
