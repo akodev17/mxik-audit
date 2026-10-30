@@ -67,6 +67,20 @@ describe('Didox upload sources', () => {
     if (read.kind === 'documents') assert.deepEqual(read.documents.map((d) => d.entry), ['a.zip/doc.json', 'b.zip/doc.json', 'c.zip/doc.json']);
   });
 
+  it('past 500 documents the rest are listed as skipped, never cut silently', async () => {
+    // Review 30 Oct: a zip of 600 JSONs and a 600-item array both gave 500 documents and "0 skipped".
+    const doc = raw('invoice-standard-3.json');
+    const files: Record<string, Buffer> = {};
+    for (let i = 0; i < 503; i++) files[`d${String(i).padStart(3, '0')}.json`] = doc;
+    const zipped = await readDidoxUpload(await zipOf(files), 'many.zip');
+    assert.ok(zipped.kind === 'documents');
+    assert.deepEqual([zipped.documents.length, zipped.skipped.map((s) => s.reason)], [500, ['too_many_documents', 'too_many_documents', 'too_many_documents']]);
+    const one = JSON.parse(doc.toString('utf8')) as unknown;
+    const array = await readDidoxUpload(Buffer.from(JSON.stringify(Array.from({ length: 502 }, () => one))), 'many.json');
+    assert.ok(array.kind === 'documents');
+    assert.deepEqual([array.documents.length, array.skipped.map((s) => [s.entry, s.reason])], [500, [['many.json[500]', 'too_many_documents'], ['many.json[501]', 'too_many_documents']]]);
+  });
+
   it('a single JSON (with BOM), a JSON array, and junk', async () => {
     const one = await readDidoxUpload(Buffer.concat([Buffer.from('\uFEFF'), raw('invoice-standard-3.json')]), 'doc.json');
     assert.ok(one.kind === 'documents' && one.documents.length === 1);

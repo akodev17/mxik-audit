@@ -20,7 +20,7 @@ import { parseDidoxJson, unwrap, type DidoxKind } from './document.js';
 
 /** One document JSON found in an upload, with the print form when the archive carried one beside it. */
 export type FoundDocument = { entry: string; json: unknown; kind: DidoxKind; pdf: Buffer | null };
-export type SkippedEntry = { entry: string; reason: 'not_json' | 'unreadable_json' | 'not_document' | 'nested_too_deep' | 'zip_limits' };
+export type SkippedEntry = { entry: string; reason: 'not_json' | 'unreadable_json' | 'not_document' | 'nested_too_deep' | 'zip_limits' | 'too_many_documents' };
 
 export type UploadRead =
   | { kind: 'documents'; documents: FoundDocument[]; skipped: SkippedEntry[] }
@@ -70,7 +70,8 @@ async function walk(buffer: Buffer, prefix: string, depth: number, out: { docume
       if (!/\.(pdf|p7s|txt|md|sig)$/i.test(e.name)) out.skipped.push({ entry: name, reason: 'not_json' });
       continue;
     }
-    if (out.documents.length >= MAX_DOCUMENTS) break;
+    // Past the cap a document is listed as skipped, never cut silently (review 30 Oct: 600 gave 500 and "0 skipped").
+    if (out.documents.length >= MAX_DOCUMENTS) { out.skipped.push({ entry: name, reason: 'too_many_documents' }); continue; }
     let json: unknown;
     try {
       json = parseJson(await e.async('nodebuffer'));
@@ -112,9 +113,10 @@ export async function readDidoxUpload(buffer: Buffer, filename: string, limits: 
     const items = Array.isArray(json) ? json : [json];
     const documents: FoundDocument[] = [];
     const skipped: SkippedEntry[] = [];
-    items.slice(0, MAX_DOCUMENTS).forEach((item, i) => {
-      const { kind } = unwrap(item);
+    items.forEach((item, i) => {
       const entry = items.length > 1 ? `${filename}[${i}]` : filename;
+      if (i >= MAX_DOCUMENTS) { skipped.push({ entry, reason: 'too_many_documents' }); return; }
+      const { kind } = unwrap(item);
       if (kind === 'unknown') skipped.push({ entry, reason: 'not_document' });
       else documents.push({ entry, json: item, kind, pdf: null });
     });
