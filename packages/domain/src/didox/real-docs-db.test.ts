@@ -18,7 +18,7 @@ import { saveConnection, startSync, syncIncoming, syncStatus, SYNC_STALL_MS, typ
 import { parseDidoxDocument } from './document.js';
 import { FIXTURE_DIR, fixtureDocuments, startFakeDidox, type FakeDidox, type FakeDocument } from './fake-server.js';
 import { mirrorFacts } from './mirror.js';
-import { commitDidoxSheet, invoiceDetail, uploadDidoxFile } from './service.js';
+import { commitDidoxSheet, invoiceDetail, removeInvoice, uploadDidoxFile } from './service.js';
 import { baseStubDeps } from './test-deps.js';
 
 process.env['TASNIF_LIVE'] = 'false';
@@ -271,6 +271,32 @@ describe('Didox real data against the tasnif mirror (database)', { skip }, () =>
       assert.ok(after.ok && after.kind === 'documents' && after.items[0]?.ok, JSON.stringify(after));
     } finally {
       await dropOrgs([d.orgId]);
+    }
+  });
+
+  // Review 30 Oct (R-D13): removing an invoice kept its cached Didox document, and the sync skips cached ids, so the
+  // removed invoice never came back.
+  it('sync: a removed invoice is fetched again by the next sync', async () => {
+    const e = await makeOrg();
+    try {
+      await db.organization.update({ where: { id: e.orgId }, data: { subscriptionUntil: new Date(Date.now() + 30 * 86_400_000) } });
+      const owner = userOf(e);
+      const docs: FakeDocument[] = fixtureDocuments().filter((d) => d.doctype === '002').slice(0, 1);
+      const server = await startFakeDidox({ documents: docs, auth: { kind: 'token', token: 'again-token' } });
+      try {
+        process.env['DIDOX_API_URL'] = server.url;
+        assert.deepEqual(await saveConnection(owner, 'ru', { kind: 'token', companyTin: '305123456', token: 'again-token' }), { ok: true });
+        const options = { client: { limiter: new RateLimiter(0), sleep: () => Promise.resolve(), log: () => undefined, retries: 0 }, deps: baseStubDeps };
+        const first = await syncIncoming(owner, 'ru', {}, options);
+        assert.ok(first.ok && first.imported === 1, JSON.stringify(first));
+        assert.ok(await removeInvoice(owner, first.batchIds[0]!));
+        const again = await syncIncoming(owner, 'ru', {}, options);
+        assert.ok(again.ok && again.imported === 1, JSON.stringify(again));
+      } finally {
+        await server.close();
+      }
+    } finally {
+      await dropOrgs([e.orgId]);
     }
   });
 });

@@ -479,8 +479,10 @@ export async function removeInvoice(user: Writer, batchId: string): Promise<bool
   if (!allowed(user)) return false;
   const batch = await db.importBatch.findFirst({ where: { ...batchScope(user), id: batchId }, select: { id: true } });
   if (!batch) return false;
+  // The cached Didox document goes with it: the sync skips cached ids, so a kept row meant a removed invoice could
+  // never be fetched again (review 30 Oct, R-D13).
   await db.$transaction([
-    db.didoxDocument.updateMany({ where: { orgId: user.orgId, batchId }, data: { batchId: null } }),
+    db.didoxDocument.deleteMany({ where: { orgId: user.orgId, batchId } }),
     db.importBatch.delete({ where: { id: batchId } }),
   ]);
   return true;
